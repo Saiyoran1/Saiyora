@@ -6,14 +6,19 @@
 #include "GameplayTagContainer.h"
 #include "UObject/NoExportTypes.h"
 #include "AbilityStructs.h"
+#include "SaiyoraStructs.h"
 #include "CombatAbility.generated.h"
 
+struct FCombatModifier;
 UCLASS(Abstract, Blueprintable)
 class SAIYORAV4_API UCombatAbility : public UObject
 {
 	GENERATED_BODY()
 
 public:
+
+    static const FGameplayTag CooldownLengthStatTag;
+    static const float MinimumCooldownLength;
 
     virtual bool IsSupportedForNetworking() const override { return true; }
     virtual void GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const override;
@@ -80,17 +85,18 @@ private:
     int32 ChargesPerCast = 1;
     //This delegate exists mainly for UI display but could be used for some gameplay on the server. Never fires on simulated proxies, since cooldown information is only rep'd to owning client.
     FAbilityChargeNotification OnChargesChanged;
+    void StartCooldown();
+    void CompleteCooldown();
+    TArray<FCombatModifier> CooldownModifiers;
     
     //Variable representing the bound custom cast conditions, evaluated on server and replicated.
     UPROPERTY(ReplicatedUsing = OnRep_CustomCastConditionsMet)
     bool bCustomCastConditionsMet;   
 
     //References
-    
     UPROPERTY(ReplicatedUsing = OnRep_OwningComponent)
     class UAbilityComponent* OwningComponent;
     bool bInitialized = false;
-    
     
     //OnReps
     UFUNCTION()
@@ -146,7 +152,7 @@ public:
     int32 GetChargeCost() const { return ChargesPerCast; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
     bool CheckChargesMet() const { return AbilityCooldown.CurrentCharges >= ChargesPerCast; }
-    void CommitCharges();
+    void CommitCharges(int32 const CastID);
     
     UFUNCTION(BlueprintCallable, BlueprintPure)
     float GetAbilityCost(FGameplayTag const& ResourceTag) const { return 0.0f; } //TODO: Implement Resource cost finding.

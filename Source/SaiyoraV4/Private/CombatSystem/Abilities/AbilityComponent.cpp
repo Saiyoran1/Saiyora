@@ -6,6 +6,7 @@
 #include "Engine/ActorChannel.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "ResourceHandler.h"
+#include "StatHandler.h"
 
 const float UAbilityComponent::MinimumGlobalCooldownLength = 0.5f;
 const float UAbilityComponent::MinimumCastLength = 0.5f;
@@ -24,6 +25,7 @@ void UAbilityComponent::BeginPlay()
 		UE_LOG(LogTemp, Warning, TEXT("Invalid Game State Ref in Ability Component."));
 	}
 	ResourceHandler = GetOwner()->FindComponentByClass<UResourceHandler>();
+	StatHandler = GetOwner()->FindComponentByClass<UStatHandler>();
 	if (GetOwnerRole() == ROLE_Authority)
 	{
 		for (TSubclassOf<UCombatAbility> const AbilityClass : DefaultAbilities)
@@ -261,7 +263,7 @@ FCastEvent UAbilityComponent::UseAbility(TSubclassOf<UCombatAbility> const Abili
 		StartGlobalCooldown(Result.Ability);
 	}
 	
-	Result.Ability->CommitCharges();
+	Result.Ability->CommitCharges(0);
 	
 	if (Costs.Num() > 0 && IsValid(ResourceHandler))
 	{

@@ -8,6 +8,7 @@
 #include "SaiyoraGameState.h"
 #include "AbilityComponent.generated.h"
 
+class UStatHandler;
 class UResourceHandler;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
@@ -40,6 +41,10 @@ public:
 	virtual FCastingState GetCastingState() const { return CastingState; }
 	UFUNCTION(BlueprintCallable, BlueprintPure)
 	virtual FGlobalCooldown GetGlobalCooldownState() const { return GlobalCooldownState; }
+
+	UResourceHandler* GetResourceHandlerRef() const { return ResourceHandler; }
+	UStatHandler* GetStatHandlerRef() const { return StatHandler; }
+	ASaiyoraGameState* GetGameStateRef() const { return GameStateRef; }
 
 private:
 
@@ -81,4 +86,6 @@ private:
 	ASaiyoraGameState* GameStateRef;
 	UPROPERTY()
 	UResourceHandler* ResourceHandler;
+	UPROPERTY()
+	UStatHandler* StatHandler;
 };
