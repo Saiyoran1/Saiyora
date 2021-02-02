@@ -1,0 +1,28 @@
+{
+	"FileVersion": 3,
+	"EngineAssociation": "{8585576F-4D30-408F-90EA-CF9922DBD933}",
+	"Category": "",
+	"Description": "",
+	"Modules": [
+		{
+			"Name": "SaiyoraV4",
+			"Type": "Runtime",
+			"LoadingPhase": "Default",
+			"AdditionalDependencies": [
+				"Engine",
+				"CoreUObject"
+			]
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "CognitoDynamoDBGameLiftLambdaSDK",
+			"Enabled": false,
+			"MarketplaceURL": "com.epicgames.launcher://ue/marketplace/content/eee4bef24c9d429887ddcc107a5a9b4d"
+		},
+		{
+			"Name": "RiderLink",
+			"Enabled": true
+		}
+	]
+}
