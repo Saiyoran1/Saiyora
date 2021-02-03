@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
 #include "AbilityEnums.h"
+#include "SaiyoraStructs.h"
 #include "AbilityStructs.generated.h"
 
 USTRUCT()
@@ -222,6 +223,8 @@ struct FTickRequest
     UPROPERTY()
     TArray<FAbilityTagParam> AbilityTagParams;
 };
+
+DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FAbilityModCondition, UCombatAbility*, Ability);
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityNotification, FCastEvent const&, Event);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityCancelNotification, FCancelEvent const&, Event);

@@ -10,13 +10,14 @@
 
 const FGameplayTag UCombatAbility::CooldownLengthStatTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.CooldownLength")), false);
 const float UCombatAbility::MinimumCooldownLength = 0.5f;
+const FGameplayTag UCombatAbility::CastLengthStatTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.CastLength")), false);
 
 void UCombatAbility::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 }
 
-float UCombatAbility::GetCooldown() const
+float UCombatAbility::GetRemainingCooldown() const
 {
     return CooldownHandle.IsValid() ? GetWorld()->GetTimerManager().GetTimerRemaining(CooldownHandle) : 0.0f;
 }
@@ -48,17 +49,19 @@ void UCombatAbility::StartCooldown()
     {
         float AddMod = 0.0f;
         float MultMod = 1.0f;
-        for (FCombatModifier const& Mod : CooldownModifiers)
+        FCombatModifier TempMod;
+        for (FAbilityModCondition const& Condition : CooldownMods)
         {
-            switch (Mod.ModifierType)
+            TempMod = Condition.Execute(this);
+            switch (TempMod.ModifierType)
             {
                 case EModifierType::Invalid :
                     break;
                 case EModifierType::Additive :
-                    AddMod += Mod.ModifierValue;
+                    AddMod += TempMod.ModifierValue;
                     break;
                 case EModifierType::Multiplicative :
-                    MultMod *= FMath::Max(0.0f, Mod.ModifierValue);
+                    MultMod *= FMath::Max(0.0f, TempMod.ModifierValue);
                     break;
                 default :
                     break;
@@ -134,6 +137,34 @@ void UCombatAbility::CancelCast()
     OnCastCancelled();
 }
 
+void UCombatAbility::AddCooldownModifier(FAbilityModCondition const& Mod)
+{
+    if (!Mod.IsBound() || bStaticCooldown)
+    {
+        return;
+    }
+    CooldownMods.AddUnique(Mod);
+}
+
+void UCombatAbility::RemoveCooldownModifier(FAbilityModCondition const& Mod)
+{
+    CooldownMods.RemoveSingleSwap(Mod);
+}
+
+void UCombatAbility::AddCastTimeModifier(FAbilityModCondition const& Mod)
+{
+    if (!Mod.IsBound() || bStaticCastTime)
+    {
+        return;
+    }
+    CastTimeMods.AddUnique(Mod);
+}
+
+void UCombatAbility::RemoveCastTimeModifier(FAbilityModCondition const& Mod)
+{
+    CastTimeMods.RemoveSingleSwap(Mod);
+}
+
 void UCombatAbility::OnRep_OwningComponent()
 {
     if (!IsValid(OwningComponent))
@@ -161,4 +192,46 @@ void UCombatAbility::OnRep_ChargesPerCast()
 void UCombatAbility::OnRep_CustomCastConditionsMet()
 {
     return;
+}
+
+float UCombatAbility::GetCastTime()
+{
+    if (GetCastType() != EAbilityCastType::Channel)
+    {
+        return 0.0f;
+    }
+    float CastLength = DefaultCastTime;
+    if (!bStaticCastTime)
+    {
+        float AddMod = 0.0f;
+        float MultMod = 1.0f;
+        FCombatModifier TempMod;
+        for (FAbilityModCondition const& Condition : CastTimeMods)
+        {
+            TempMod = Condition.Execute(this);
+            switch (TempMod.ModifierType)
+            {
+            case EModifierType::Invalid :
+                break;
+            case EModifierType::Additive :
+                AddMod += TempMod.ModifierValue;
+                break;
+            case EModifierType::Multiplicative :
+                MultMod *= FMath::Max(0.0f, TempMod.ModifierValue);
+                break;
+            default :
+                break;
+            }
+        }
+        if (IsValid(OwningComponent->GetStatHandlerRef()))
+        {
+            float const ModFromStat = OwningComponent->GetStatHandlerRef()->GetStatValue(CastLengthStatTag);
+            if (ModFromStat > 0.0f)
+            {
+                MultMod *= ModFromStat;
+            }
+        }
+        CastLength = FMath::Max(0.0f, DefaultCastTime + AddMod) * MultMod;
+    }
+    return CastLength;
 }

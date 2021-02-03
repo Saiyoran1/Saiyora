@@ -6,7 +6,6 @@
 #include "GameplayTagContainer.h"
 #include "UObject/NoExportTypes.h"
 #include "AbilityStructs.h"
-#include "SaiyoraStructs.h"
 #include "CombatAbility.generated.h"
 
 struct FCombatModifier;
@@ -19,6 +18,8 @@ public:
 
     static const FGameplayTag CooldownLengthStatTag;
     static const float MinimumCooldownLength;
+    static const FGameplayTag CastLengthStatTag;
+    static const float MinimumCastLength;
 
     virtual bool IsSupportedForNetworking() const override { return true; }
     virtual void GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const override;
@@ -83,11 +84,11 @@ private:
     FTimerHandle CooldownHandle;
     UPROPERTY(ReplicatedUsing = OnRep_ChargesPerCast)
     int32 ChargesPerCast = 1;
-    //This delegate exists mainly for UI display but could be used for some gameplay on the server. Never fires on simulated proxies, since cooldown information is only rep'd to owning client.
     FAbilityChargeNotification OnChargesChanged;
     void StartCooldown();
     void CompleteCooldown();
-    TArray<FCombatModifier> CooldownModifiers;
+    TArray<FAbilityModCondition> CooldownMods;
+    TArray<FAbilityModCondition> CastTimeMods;
     
     //Variable representing the bound custom cast conditions, evaluated on server and replicated.
     UPROPERTY(ReplicatedUsing = OnRep_CustomCastConditionsMet)
@@ -123,7 +124,7 @@ public:
     UFUNCTION(BlueprintCallable, BlueprintPure)
     EAbilityCastType GetCastType() const { return CastType; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
-    float GetCastTime() const { return DefaultCastTime; } //TODO: Implement cast time calculation.
+    float GetCastTime();
     UFUNCTION(BlueprintCallable, BlueprintPure)
     bool GetHasInitialTick() const { return bInitialTick; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
@@ -147,7 +148,7 @@ public:
     UFUNCTION(BlueprintCallable, BlueprintPure)
     int32 GetCurrentCharges() const { return AbilityCooldown.CurrentCharges; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
-    float GetCooldown() const; //TODO: Cooldown calculation.
+    float GetRemainingCooldown() const; //TODO: Cooldown calculation.
     UFUNCTION(BlueprintCallable, BlueprintPure)
     int32 GetChargeCost() const { return ChargesPerCast; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
@@ -169,6 +170,12 @@ public:
     void CompleteCast();
     void InterruptCast();
     void CancelCast();
+
+    void AddCooldownModifier(FAbilityModCondition const& Mod);
+    void RemoveCooldownModifier(FAbilityModCondition const& Mod);
+
+    void AddCastTimeModifier(FAbilityModCondition const& Mod);
+    void RemoveCastTimeModifier(FAbilityModCondition const& Mod);
 
 protected:
     
