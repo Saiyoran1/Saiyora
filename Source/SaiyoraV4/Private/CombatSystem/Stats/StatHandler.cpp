@@ -13,6 +13,8 @@ const FGameplayTag UStatHandler::GenericStatModTag = FGameplayTag::RequestGamepl
 
 void UStatHandler::BeginPlay()
 {
+	Super::BeginPlay();
+	
 	if (GetOwnerRole() == ROLE_Authority)
 	{
 		UBuffHandler* BuffHandler = USaiyoraBuffLibrary::GetBuffHandler(GetOwner());

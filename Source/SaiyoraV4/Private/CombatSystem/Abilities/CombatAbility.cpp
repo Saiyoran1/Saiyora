@@ -10,11 +10,16 @@
 
 const FGameplayTag UCombatAbility::CooldownLengthStatTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.CooldownLength")), false);
 const float UCombatAbility::MinimumCooldownLength = 0.5f;
-const FGameplayTag UCombatAbility::CastLengthStatTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.CastLength")), false);
 
 void UCombatAbility::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+    DOREPLIFETIME(UCombatAbility, OwningComponent);
+    DOREPLIFETIME(UCombatAbility, bDeactivated);
+    DOREPLIFETIME_CONDITION(UCombatAbility, AbilityCooldown, COND_OwnerOnly);
+    DOREPLIFETIME_CONDITION(UCombatAbility, MaxCharges, COND_OwnerOnly);
+    DOREPLIFETIME_CONDITION(UCombatAbility, ChargesPerCast, COND_OwnerOnly);
+    DOREPLIFETIME_CONDITION(UCombatAbility, bCustomCastConditionsMet, COND_OwnerOnly);
 }
 
 float UCombatAbility::GetRemainingCooldown() const
@@ -38,6 +43,20 @@ void UCombatAbility::CommitCharges(int32 const CastID)
     {
         StartCooldown();
     }
+}
+
+float UCombatAbility::GetAbilityCost(FGameplayTag const& ResourceTag) const
+{
+    if (!ResourceTag.IsValid() || !ResourceTag.MatchesTag(UResourceHandler::GenericResourceTag))
+    {
+        return -1.0f;
+    }
+    FAbilityCost const* Cost = AbilityCosts.Find(ResourceTag);
+    if (Cost)
+    {
+        return Cost->Cost;
+    }
+    return -1.0f;
 }
 
 void UCombatAbility::StartCooldown()
@@ -105,11 +124,30 @@ void UCombatAbility::GetAbilityCosts(TArray<FAbilityCost>& OutCosts) const
 
 void UCombatAbility::InitializeAbility(UAbilityComponent* AbilityComponent)
 {
+    if (bInitialized)
+    {
+        return;
+    }
     if (IsValid(AbilityComponent))
     {
         OwningComponent = AbilityComponent;
     }
+
+    MaxCharges = DefaultMaxCharges;
+    AbilityCooldown.CurrentCharges = GetMaxCharges();
+    
     OnInitialize();
+    bInitialized = true;
+}
+
+void UCombatAbility::DeactivateAbility()
+{
+    if (GetWorld()->GetTimerManager().IsTimerActive(CooldownHandle))
+    {
+        GetWorld()->GetTimerManager().ClearTimer(CooldownHandle);
+    }
+    OnDeactivate();
+    bDeactivated = true;
 }
 
 void UCombatAbility::InitialTick()
@@ -167,7 +205,7 @@ void UCombatAbility::RemoveCastTimeModifier(FAbilityModCondition const& Mod)
 
 void UCombatAbility::OnRep_OwningComponent()
 {
-    if (!IsValid(OwningComponent))
+    if (!IsValid(OwningComponent) || bInitialized)
     {
         return;
     }
@@ -194,44 +232,11 @@ void UCombatAbility::OnRep_CustomCastConditionsMet()
     return;
 }
 
-float UCombatAbility::GetCastTime()
+void UCombatAbility::OnRep_Deactivated(bool const Previous)
 {
-    if (GetCastType() != EAbilityCastType::Channel)
+    if (bDeactivated && !Previous)
     {
-        return 0.0f;
+        OnDeactivate();
+        OwningComponent->NotifyOfReplicatedRemovedAbility(this);
     }
-    float CastLength = DefaultCastTime;
-    if (!bStaticCastTime)
-    {
-        float AddMod = 0.0f;
-        float MultMod = 1.0f;
-        FCombatModifier TempMod;
-        for (FAbilityModCondition const& Condition : CastTimeMods)
-        {
-            TempMod = Condition.Execute(this);
-            switch (TempMod.ModifierType)
-            {
-            case EModifierType::Invalid :
-                break;
-            case EModifierType::Additive :
-                AddMod += TempMod.ModifierValue;
-                break;
-            case EModifierType::Multiplicative :
-                MultMod *= FMath::Max(0.0f, TempMod.ModifierValue);
-                break;
-            default :
-                break;
-            }
-        }
-        if (IsValid(OwningComponent->GetStatHandlerRef()))
-        {
-            float const ModFromStat = OwningComponent->GetStatHandlerRef()->GetStatValue(CastLengthStatTag);
-            if (ModFromStat > 0.0f)
-            {
-                MultMod *= ModFromStat;
-            }
-        }
-        CastLength = FMath::Max(0.0f, DefaultCastTime + AddMod) * MultMod;
-    }
-    return CastLength;
 }

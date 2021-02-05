@@ -33,6 +33,8 @@ void UDamageHandler::InitializeComponent()
 
 void UDamageHandler::BeginPlay()
 {
+	Super::BeginPlay();
+	
 	if (GetOwnerRole() == ROLE_Authority)
 	{
 		//Bind Max Health stat, create damage and healing modifiers from stats.

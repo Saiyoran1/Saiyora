@@ -19,6 +19,8 @@ UResourceHandler::UResourceHandler()
 
 void UResourceHandler::BeginPlay()
 {
+	Super::BeginPlay();
+	
 	if (GetOwnerRole() == ROLE_Authority)
 	{
 		for (FResourceInitInfo const& InitInfo : DefaultResources)

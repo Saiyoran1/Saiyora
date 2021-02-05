@@ -18,8 +18,6 @@ public:
 
     static const FGameplayTag CooldownLengthStatTag;
     static const float MinimumCooldownLength;
-    static const FGameplayTag CastLengthStatTag;
-    static const float MinimumCastLength;
 
     virtual bool IsSupportedForNetworking() const override { return true; }
     virtual void GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const override;
@@ -47,12 +45,14 @@ private:
     UPROPERTY(EditDefaultsOnly, Category = "Crowd Control Info")
     bool bInterruptible = true;
     UPROPERTY(EditDefaultsOnly, Category = "Crowd Control Info")
-    FGameplayTagContainer NonRestrictedCrowdControls;  //Crowd Controls that do not stop or prevent casting this ability.
+    FGameplayTagContainer NonRestrictedCrowdControls;  //TODO: Filter by CC gameplay tag.
     
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown Info")
     bool bOnGlobalCooldown = true;
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown Info")
-    float GlobalCooldownLength = 1.0f;
+    float DefaultGlobalCooldownLength = 1.0f;
+    UPROPERTY(EditDefaultsOnly, Category = "Cooldown Info")
+    bool bStaticGlobalCooldown = true;
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown Info")
     int32 DefaultMaxCharges = 1;
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown Info")
@@ -86,18 +86,21 @@ private:
     int32 ChargesPerCast = 1;
     FAbilityChargeNotification OnChargesChanged;
     void StartCooldown();
+    UFUNCTION()
     void CompleteCooldown();
     TArray<FAbilityModCondition> CooldownMods;
     TArray<FAbilityModCondition> CastTimeMods;
     
     //Variable representing the bound custom cast conditions, evaluated on server and replicated.
     UPROPERTY(ReplicatedUsing = OnRep_CustomCastConditionsMet)
-    bool bCustomCastConditionsMet;   
+    bool bCustomCastConditionsMet = true;   
 
     //References
     UPROPERTY(ReplicatedUsing = OnRep_OwningComponent)
     class UAbilityComponent* OwningComponent;
     bool bInitialized = false;
+    UPROPERTY(ReplicatedUsing = OnRep_Deactivated)
+    bool bDeactivated = false;
     
     //OnReps
     UFUNCTION()
@@ -110,6 +113,8 @@ private:
     void OnRep_ChargesPerCast();
     UFUNCTION()
     void OnRep_CustomCastConditionsMet();
+    UFUNCTION()
+    void OnRep_Deactivated(bool const Previous);
 
 public:
 
@@ -124,7 +129,9 @@ public:
     UFUNCTION(BlueprintCallable, BlueprintPure)
     EAbilityCastType GetCastType() const { return CastType; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
-    float GetCastTime();
+    float GetDefaultCastLength() const { return DefaultCastTime; }
+    UFUNCTION(BlueprintCallable, BlueprintPure)
+    bool HasStaticCastLength() const { return bStaticCastTime; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
     bool GetHasInitialTick() const { return bInitialTick; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
@@ -141,14 +148,16 @@ public:
     UFUNCTION(BlueprintCallable, BlueprintPure)
     bool GetHasGlobalCooldown() const { return bOnGlobalCooldown; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
-    float GetGlobalCooldownLength() const { return GlobalCooldownLength; }
+    float GetDefaultGlobalCooldownLength() const { return DefaultGlobalCooldownLength; }
+    UFUNCTION(BlueprintCallable, BlueprintPure)
+    bool HasStaticGlobalCooldown() const { return bStaticGlobalCooldown; }
     
     UFUNCTION(BlueprintCallable, BlueprintPure)
     int32 GetMaxCharges() const { return MaxCharges; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
     int32 GetCurrentCharges() const { return AbilityCooldown.CurrentCharges; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
-    float GetRemainingCooldown() const; //TODO: Cooldown calculation.
+    float GetRemainingCooldown() const;
     UFUNCTION(BlueprintCallable, BlueprintPure)
     int32 GetChargeCost() const { return ChargesPerCast; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
@@ -156,15 +165,20 @@ public:
     void CommitCharges(int32 const CastID);
     
     UFUNCTION(BlueprintCallable, BlueprintPure)
-    float GetAbilityCost(FGameplayTag const& ResourceTag) const { return 0.0f; } //TODO: Implement Resource cost finding.
+    float GetAbilityCost(FGameplayTag const& ResourceTag) const;
     UFUNCTION(BlueprintCallable, BlueprintPure)
     void GetAbilityCosts(TArray<FAbilityCost>& OutCosts) const;
+
+    UFUNCTION(BlueprintCallable, BlueprintPure)
+    UAbilityComponent* GetHandler() const { return OwningComponent; }
     
     bool GetInitialized() const { return bInitialized; }
+    bool GetDeactivated() const { return bDeactivated; }
 
     //Internal ability functions, these adjust necessary properties then call the Blueprint implementations.
     
     void InitializeAbility(UAbilityComponent* AbilityComponent);
+    void DeactivateAbility();
     void InitialTick();
     void NonInitialTick(int32 const TickNumber);
     void CompleteCast();
@@ -183,6 +197,8 @@ protected:
 
     UFUNCTION(BlueprintImplementableEvent)
     void OnInitialize();
+    UFUNCTION(BlueprintImplementableEvent)
+    void OnDeactivate();
     UFUNCTION(BlueprintImplementableEvent)
     void OnInitialTick();
     UFUNCTION(BlueprintImplementableEvent)

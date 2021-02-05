@@ -14,6 +14,7 @@ void UResource::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetim
 
     DOREPLIFETIME(UResource, Handler);
     DOREPLIFETIME(UResource, ResourceState);
+    DOREPLIFETIME(UResource, bDeactivated);
 }
 
 void UResource::AuthInitializeResource(UResourceHandler* NewHandler, FResourceInitInfo const& InitInfo)

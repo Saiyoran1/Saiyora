@@ -111,12 +111,14 @@ struct FCastEvent
 {
     GENERATED_BODY()
 
-    UPROPERTY()
+    UPROPERTY(BlueprintReadOnly)
     ECastAction ActionTaken = ECastAction::Fail;
-    UPROPERTY()
+    UPROPERTY(BlueprintReadOnly)
     class UCombatAbility* Ability = nullptr;
-    UPROPERTY()
+    UPROPERTY(BlueprintReadOnly)
     int32 Tick = 0;
+    UPROPERTY(BlueprintReadOnly)
+    FString FailReason;
     UPROPERTY()
     int32 CastID = 0;
 };
@@ -225,10 +227,17 @@ struct FTickRequest
 };
 
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FAbilityModCondition, UCombatAbility*, Ability);
+DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityInstanceCallback, UCombatAbility*, NewAbility);
+DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityCallback, FCastEvent const&, Event);
+DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityCancelCallback, FCancelEvent const&, Event);
+DECLARE_DYNAMIC_DELEGATE_OneParam(FInterruptCallback, int32 const, InterruptEvent); //TODO: Interrupt event.
+DECLARE_DYNAMIC_DELEGATE_ThreeParams(FAbilityChargeCallback, UCombatAbility*, Ability, int32 const, OldCharges, int32 const, NewCharges);
+DECLARE_DYNAMIC_DELEGATE_TwoParams(FGlobalCooldownCallback, FGlobalCooldown const&, OldGlobalCooldown, FGlobalCooldown const&, NewGlobalCooldown);
+DECLARE_DYNAMIC_DELEGATE_TwoParams(FCastingStateCallback, FCastingState const&, OldState, FCastingState const&, NewState);
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityNotification, FCastEvent const&, Event);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityCancelNotification, FCancelEvent const&, Event);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FInterruptNotification, UCombatAbility*, Ability, int32 const, InterruptEvent); //TODO: Interrupt event.
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FInterruptNotification, int32 const, InterruptEvent); //TODO: Interrupt event.
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FAbilityChargeNotification, UCombatAbility*, Ability, int32 const, OldCharges, int32 const, NewCharges);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityInstanceNotification, UCombatAbility*, NewAbility);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FGlobalCooldownNotification, FGlobalCooldown const&, OldGlobalCooldown, FGlobalCooldown const&, NewGlobalCooldown);
