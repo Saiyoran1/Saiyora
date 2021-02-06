@@ -19,7 +19,6 @@ void UCombatAbility::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& Out
     DOREPLIFETIME_CONDITION(UCombatAbility, AbilityCooldown, COND_OwnerOnly);
     DOREPLIFETIME_CONDITION(UCombatAbility, MaxCharges, COND_OwnerOnly);
     DOREPLIFETIME_CONDITION(UCombatAbility, ChargesPerCast, COND_OwnerOnly);
-    DOREPLIFETIME_CONDITION(UCombatAbility, bCustomCastConditionsMet, COND_OwnerOnly);
 }
 
 float UCombatAbility::GetRemainingCooldown() const
@@ -135,7 +134,7 @@ void UCombatAbility::InitializeAbility(UAbilityComponent* AbilityComponent)
 
     MaxCharges = DefaultMaxCharges;
     AbilityCooldown.CurrentCharges = GetMaxCharges();
-    
+    SetupCustomCastRestrictions();
     OnInitialize();
     bInitialized = true;
 }
@@ -203,6 +202,25 @@ void UCombatAbility::RemoveCastTimeModifier(FAbilityModCondition const& Mod)
     CastTimeMods.RemoveSingleSwap(Mod);
 }
 
+void UCombatAbility::ActivateCastRestriction(FName const& RestrictionName)
+{
+    if (RestrictionName.IsValid())
+    {
+        CustomCastRestrictions.AddUnique(RestrictionName);
+        
+    }
+    bCustomCastConditionsMet = (CustomCastRestrictions.Num() == 0);
+}
+
+void UCombatAbility::DeactivateCastRestriction(FName const& RestrictionName)
+{
+    if (RestrictionName.IsValid())
+    {
+        CustomCastRestrictions.RemoveSingleSwap(RestrictionName);
+    }
+    bCustomCastConditionsMet = (CustomCastRestrictions.Num() == 0);
+}
+
 void UCombatAbility::OnRep_OwningComponent()
 {
     if (!IsValid(OwningComponent) || bInitialized)
@@ -223,11 +241,6 @@ void UCombatAbility::OnRep_MaxCharges()
 }
 
 void UCombatAbility::OnRep_ChargesPerCast()
-{
-    return;
-}
-
-void UCombatAbility::OnRep_CustomCastConditionsMet()
 {
     return;
 }

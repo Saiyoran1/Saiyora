@@ -91,9 +91,8 @@ private:
     TArray<FAbilityModCondition> CooldownMods;
     TArray<FAbilityModCondition> CastTimeMods;
     
-    //Variable representing the bound custom cast conditions, evaluated on server and replicated.
-    UPROPERTY(ReplicatedUsing = OnRep_CustomCastConditionsMet)
-    bool bCustomCastConditionsMet = true;   
+    bool bCustomCastConditionsMet = true;
+    TArray<FName> CustomCastRestrictions;
 
     //References
     UPROPERTY(ReplicatedUsing = OnRep_OwningComponent)
@@ -111,8 +110,6 @@ private:
     void OnRep_MaxCharges();
     UFUNCTION()
     void OnRep_ChargesPerCast();
-    UFUNCTION()
-    void OnRep_CustomCastConditionsMet();
     UFUNCTION()
     void OnRep_Deactivated(bool const Previous);
 
@@ -198,6 +195,8 @@ protected:
     UFUNCTION(BlueprintImplementableEvent)
     void OnInitialize();
     UFUNCTION(BlueprintImplementableEvent)
+    void SetupCustomCastRestrictions();
+    UFUNCTION(BlueprintImplementableEvent)
     void OnDeactivate();
     UFUNCTION(BlueprintImplementableEvent)
     void OnInitialTick();
@@ -209,4 +208,9 @@ protected:
     void OnCastInterrupted(); //TODO: Interrupt Event.
     UFUNCTION(BlueprintImplementableEvent)
     void OnCastCancelled();
+
+    UFUNCTION(BlueprintCallable, Category = "Abilities")
+    void ActivateCastRestriction(FName const& RestrictionName);
+    UFUNCTION(BlueprintCallable, Category = "Abilities")
+    void DeactivateCastRestriction(FName const& RestrictionName);
 };

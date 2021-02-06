@@ -15,8 +15,8 @@ struct FCombatModifier
 {
   GENERATED_BODY()
 
-  UPROPERTY()
+  UPROPERTY(BlueprintReadWrite)
   EModifierType ModifierType = EModifierType::Invalid;
-  UPROPERTY()
+  UPROPERTY(BlueprintReadWrite)
   float ModifierValue = 0.0f;
 };
