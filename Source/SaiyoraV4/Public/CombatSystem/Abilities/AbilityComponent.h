@@ -41,6 +41,8 @@ public:
 	FCastEvent UseAbility(TSubclassOf<UCombatAbility> const AbilityClass);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	FCancelEvent CancelCurrentCast();
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+	FInterruptEvent InterruptCurrentCast(AActor* AppliedBy, UObject* InterruptSource);
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
     UCombatAbility* FindActiveAbility(TSubclassOf<UCombatAbility> const AbilityClass);

@@ -447,6 +447,8 @@ void UAbilityComponent::EndCast()
 	CastingState.ElapsedTicks = 0;
 	CastingState.CastStartTime = 0.0f;
 	CastingState.CastEndTime = 0.0f;
+	GetWorld()->GetTimerManager().ClearTimer(CastHandle);
+	GetWorld()->GetTimerManager().ClearTimer(TickHandle);
 	OnCastStateChanged.Broadcast(PreviousState, GetCastingState());
 }
 
@@ -602,21 +604,52 @@ FCastEvent UAbilityComponent::UseAbility(TSubclassOf<UCombatAbility> const Abili
 FCancelEvent UAbilityComponent::CancelCurrentCast()
 {
 	FCancelEvent Result;
-	UCombatAbility* Ability = GetCastingState().CurrentCast;
-	if (GetCastingState().bIsCasting && IsValid(Ability))
+	Result.CancelledAbility = GetCastingState().CurrentCast;
+	if (GetCastingState().bIsCasting && IsValid(Result.CancelledAbility))
 	{
-		Result.CancelledAbility = Ability;
 		Result.CancelTime = GameStateRef->GetWorldTime();
 		Result.CancelID = 0;
 		Result.CancelledCastStart = GetCastingState().CastStartTime;
 		Result.CancelledCastEnd = GetCastingState().CastEndTime;
 		Result.CancelledCastID = GetCastingState().CurrentCastID;
 		Result.ElapsedTicks = GetCastingState().ElapsedTicks;
-		GetWorld()->GetTimerManager().ClearTimer(CastHandle);
-		GetWorld()->GetTimerManager().ClearTimer(TickHandle);
 		EndCast();
-		Ability->CancelCast();
+		Result.CancelledAbility->CancelCast();
 		OnAbilityCancelled.Broadcast(Result);
 	}
+	return Result;
+}
+
+FInterruptEvent UAbilityComponent::InterruptCurrentCast(AActor* AppliedBy, UObject* InterruptSource)
+{
+	FInterruptEvent Result;
+	Result.InterruptAppliedBy = AppliedBy;
+	Result.InterruptSource = InterruptSource;
+	Result.InterruptAppliedTo = GetOwner();
+	Result.InterruptedAbility = GetCastingState().CurrentCast;
+	
+	if (!GetCastingState().bIsCasting || !IsValid(Result.InterruptedAbility))
+	{
+		Result.FailReason = FString(TEXT("Not currently casting."));
+		return Result;
+	}
+	if (!GetCastingState().bInterruptible)
+	{
+		Result.FailReason = FString(TEXT("Cast was not interruptible."));
+		return Result;
+	}
+
+	Result.InterruptedCastStart = GetCastingState().CastStartTime;
+	Result.InterruptedCastEnd = GetCastingState().CastEndTime;
+	Result.InterruptedAbility = GetCastingState().CurrentCast;
+	Result.ElapsedTicks = GetCastingState().ElapsedTicks;
+	Result.CancelledCastID = GetCastingState().CurrentCastID;
+	Result.InterruptTime = GetGameStateRef()->GetWorldTime();
+	Result.bSuccess = true;
+	
+	Result.InterruptedAbility->InterruptCast();
+	OnAbilityInterrupted.Broadcast(Result);
+	EndCast();
+	
 	return Result;
 }

@@ -147,6 +147,35 @@ struct FCancelEvent
 };
 
 USTRUCT(BlueprintType)
+struct FInterruptEvent
+{
+    GENERATED_BODY()
+
+    UPROPERTY()
+    bool bSuccess = false;
+    UPROPERTY()
+    FString FailReason;
+    UPROPERTY()
+    AActor* InterruptAppliedTo = nullptr;
+    UPROPERTY()
+    AActor* InterruptAppliedBy = nullptr;
+    UPROPERTY()
+    UCombatAbility* InterruptedAbility = nullptr;
+    UPROPERTY()
+    int32 CancelledCastID = 0;
+    UPROPERTY()
+    UObject* InterruptSource = nullptr;
+    UPROPERTY()
+    float InterruptedCastStart = 0.0f;
+    UPROPERTY()
+    float InterruptedCastEnd = 0.0f;
+    UPROPERTY()
+    float InterruptTime = 0.0f;
+    UPROPERTY()
+    int32 ElapsedTicks = 0;
+};
+
+USTRUCT(BlueprintType)
 struct FGlobalCooldown
 {
     GENERATED_BODY()
@@ -230,14 +259,14 @@ DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FAbilityModCondition, 
 DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityInstanceCallback, UCombatAbility*, NewAbility);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityCallback, FCastEvent const&, Event);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityCancelCallback, FCancelEvent const&, Event);
-DECLARE_DYNAMIC_DELEGATE_OneParam(FInterruptCallback, int32 const, InterruptEvent); //TODO: Interrupt event.
+DECLARE_DYNAMIC_DELEGATE_OneParam(FInterruptCallback, FInterruptEvent, InterruptEvent);
 DECLARE_DYNAMIC_DELEGATE_ThreeParams(FAbilityChargeCallback, UCombatAbility*, Ability, int32 const, OldCharges, int32 const, NewCharges);
 DECLARE_DYNAMIC_DELEGATE_TwoParams(FGlobalCooldownCallback, FGlobalCooldown const&, OldGlobalCooldown, FGlobalCooldown const&, NewGlobalCooldown);
 DECLARE_DYNAMIC_DELEGATE_TwoParams(FCastingStateCallback, FCastingState const&, OldState, FCastingState const&, NewState);
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityNotification, FCastEvent const&, Event);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityCancelNotification, FCancelEvent const&, Event);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FInterruptNotification, int32 const, InterruptEvent); //TODO: Interrupt event.
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FInterruptNotification, FInterruptEvent, InterruptEvent);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FAbilityChargeNotification, UCombatAbility*, Ability, int32 const, OldCharges, int32 const, NewCharges);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityInstanceNotification, UCombatAbility*, NewAbility);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FGlobalCooldownNotification, FGlobalCooldown const&, OldGlobalCooldown, FGlobalCooldown const&, NewGlobalCooldown);
