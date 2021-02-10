@@ -406,7 +406,7 @@ void UAbilityComponent::CompleteCast()
 	{
 		GetCastingState().CurrentCast->CompleteCast();
 	}
-	OnAbilityComplete.Broadcast(CompletionEvent);
+	BroadcastAbilityComplete(CompletionEvent);
 	GetWorld()->GetTimerManager().ClearTimer(CastHandle);
 	if (!GetWorld()->GetTimerManager().IsTimerActive(TickHandle))
 	{
@@ -427,7 +427,7 @@ void UAbilityComponent::TickCurrentCast()
 	TickEvent.Tick = GetCastingState().ElapsedTicks;
 	TickEvent.ActionTaken = ECastAction::Tick;
 	TickEvent.CastID = GetCastingState().CurrentCastID;
-	OnAbilityTick.Broadcast(TickEvent);
+	BroadcastAbilityTick(TickEvent);
 	if (GetCastingState().ElapsedTicks >= GetCastingState().CurrentCast->GetNumberOfTicks())
 	{
 		GetWorld()->GetTimerManager().ClearTimer(TickHandle);
@@ -498,6 +498,73 @@ float UAbilityComponent::CalculateCastLength(UCombatAbility* Ability)
 void UAbilityComponent::GenerateNewCastID(FCastEvent& CastEvent)
 {
 	CastEvent.CastID = 0;
+}
+
+void UAbilityComponent::BroadcastAbilityInterrupt_Implementation(FInterruptEvent const& InterruptEvent)
+{
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		if (IsValid(InterruptEvent.InterruptedAbility))
+		{
+			InterruptEvent.InterruptedAbility->InterruptCast();
+		}
+	}
+	OnAbilityInterrupted.Broadcast(InterruptEvent);
+}
+
+void UAbilityComponent::BroadcastAbilityCancel_Implementation(FCancelEvent const& CancelEvent)
+{
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		if (IsValid(CancelEvent.CancelledAbility))
+		{
+			CancelEvent.CancelledAbility->CancelCast();
+		}
+	}
+	OnAbilityCancelled.Broadcast(CancelEvent);
+}
+
+void UAbilityComponent::BroadcastAbilityComplete_Implementation(FCastEvent const& CastEvent)
+{
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		if (IsValid(CastEvent.Ability))
+		{
+			CastEvent.Ability->CompleteCast();
+		}
+	}
+	OnAbilityComplete.Broadcast(CastEvent);
+}
+
+void UAbilityComponent::BroadcastAbilityTick_Implementation(FCastEvent const& CastEvent)
+{
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		if (IsValid(CastEvent.Ability))
+		{
+			CastEvent.Ability->NonInitialTick(CastEvent.Tick);
+		}
+	}
+	OnAbilityTick.Broadcast(CastEvent);
+}
+
+void UAbilityComponent::BroadcastAbilityStart_Implementation(FCastEvent const& CastEvent)
+{
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		if (IsValid(CastEvent.Ability))
+		{
+			if (CastEvent.Ability->GetCastType() == EAbilityCastType::Instant)
+			{
+				CastEvent.Ability->InitialTick();
+			}
+			else if (CastEvent.Ability->GetCastType() == EAbilityCastType::Channel && CastEvent.Ability->GetHasInitialTick())
+			{
+				CastEvent.Ability->InitialTick();
+			}
+		}
+	}
+	OnAbilityStart.Broadcast(CastEvent);
 }
 
 FCastEvent UAbilityComponent::UseAbility(TSubclassOf<UCombatAbility> const AbilityClass)
@@ -581,8 +648,8 @@ FCastEvent UAbilityComponent::UseAbility(TSubclassOf<UCombatAbility> const Abili
 	case EAbilityCastType::Instant :
 		Result.ActionTaken = ECastAction::Success;
 		Result.Ability->InitialTick();
-		OnAbilityStart.Broadcast(Result);
-		OnAbilityComplete.Broadcast(Result);
+		BroadcastAbilityStart(Result);
+		BroadcastAbilityComplete(Result);
 		break;
 	case EAbilityCastType::Channel :
 		Result.ActionTaken = ECastAction::Success;
@@ -591,7 +658,7 @@ FCastEvent UAbilityComponent::UseAbility(TSubclassOf<UCombatAbility> const Abili
 			Result.Ability->InitialTick();
 		}
 		StartCast(Result.Ability, Result.CastID);
-		OnAbilityStart.Broadcast(Result);
+		BroadcastAbilityStart(Result);
 		break;
 	default :
 		Result.FailReason = FString(TEXT("Defaulted on cast type."));
@@ -615,7 +682,7 @@ FCancelEvent UAbilityComponent::CancelCurrentCast()
 		Result.ElapsedTicks = GetCastingState().ElapsedTicks;
 		EndCast();
 		Result.CancelledAbility->CancelCast();
-		OnAbilityCancelled.Broadcast(Result);
+		BroadcastAbilityCancel(Result);
 	}
 	return Result;
 }
@@ -648,7 +715,7 @@ FInterruptEvent UAbilityComponent::InterruptCurrentCast(AActor* AppliedBy, UObje
 	Result.bSuccess = true;
 	
 	Result.InterruptedAbility->InterruptCast();
-	OnAbilityInterrupted.Broadcast(Result);
+	BroadcastAbilityInterrupt(Result);
 	EndCast();
 	
 	return Result;

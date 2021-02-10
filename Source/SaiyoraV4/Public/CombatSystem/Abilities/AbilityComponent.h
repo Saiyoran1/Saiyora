@@ -142,6 +142,17 @@ private:
 	FCastingStateNotification OnCastStateChanged;
 	FGlobalCooldownNotification OnGlobalCooldownChanged;
 
+	UFUNCTION(NetMulticast, Unreliable)
+	void BroadcastAbilityStart(FCastEvent const& CastEvent);
+	UFUNCTION(NetMulticast, Unreliable)
+	void BroadcastAbilityTick(FCastEvent const& CastEvent);
+	UFUNCTION(NetMulticast, Unreliable)
+	void BroadcastAbilityComplete(FCastEvent const& CastEvent);
+	UFUNCTION(NetMulticast, Unreliable)
+	void BroadcastAbilityCancel(FCancelEvent const& CancelEvent);
+	UFUNCTION(NetMulticast, Unreliable)
+	void BroadcastAbilityInterrupt(FInterruptEvent const& InterruptEvent);
+
 	UPROPERTY()
 	ASaiyoraGameState* GameStateRef;
 	UPROPERTY()
