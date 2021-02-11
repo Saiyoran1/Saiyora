@@ -2,14 +2,11 @@
 
 
 #include "CombatAbility.h"
-#include "AbilityComponent.h"
+#include "AbilityHandler.h"
 #include "ResourceHandler.h"
 #include "UnrealNetwork.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "StatHandler.h"
-
-const FGameplayTag UCombatAbility::CooldownLengthStatTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.CooldownLength")), false);
-const float UCombatAbility::MinimumCooldownLength = 0.5f;
 
 void UCombatAbility::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
@@ -62,40 +59,7 @@ void UCombatAbility::StartCooldown()
 {
     FTimerDelegate CooldownDelegate;
     CooldownDelegate.BindUFunction(this, FName(TEXT("CompleteCooldown")));
-    float CooldownLength = DefaultCooldown;
-    if (!bStaticCooldown)
-    {
-        float AddMod = 0.0f;
-        float MultMod = 1.0f;
-        FCombatModifier TempMod;
-        for (FAbilityModCondition const& Condition : CooldownMods)
-        {
-            TempMod = Condition.Execute(this);
-            switch (TempMod.ModifierType)
-            {
-                case EModifierType::Invalid :
-                    break;
-                case EModifierType::Additive :
-                    AddMod += TempMod.ModifierValue;
-                    break;
-                case EModifierType::Multiplicative :
-                    MultMod *= FMath::Max(0.0f, TempMod.ModifierValue);
-                    break;
-                default :
-                    break;
-            }
-        }
-        if (IsValid(OwningComponent->GetStatHandlerRef()))
-        {
-            float const ModFromStat = OwningComponent->GetStatHandlerRef()->GetStatValue(CooldownLengthStatTag);
-            if (ModFromStat > 0.0f)
-            {
-                MultMod *= ModFromStat;
-            }
-        }
-        CooldownLength = FMath::Max(0.0f, DefaultCooldown + AddMod) * MultMod;
-    }
-    CooldownLength = FMath::Max(CooldownLength, MinimumCooldownLength);
+    float const CooldownLength = GetHandler()->CalculateAbilityCooldown(this);
     GetWorld()->GetTimerManager().SetTimer(CooldownHandle, CooldownDelegate, CooldownLength, false);
     AbilityCooldown.OnCooldown = true;
     AbilityCooldown.CooldownStartTime = OwningComponent->GetGameStateRef()->GetWorldTime();
@@ -121,7 +85,7 @@ void UCombatAbility::GetAbilityCosts(TArray<FAbilityCost>& OutCosts) const
     AbilityCosts.GenerateValueArray(OutCosts);
 }
 
-void UCombatAbility::InitializeAbility(UAbilityComponent* AbilityComponent)
+void UCombatAbility::InitializeAbility(UAbilityHandler* AbilityComponent)
 {
     if (bInitialized)
     {
@@ -174,40 +138,11 @@ void UCombatAbility::CancelCast()
     OnCastCancelled();
 }
 
-void UCombatAbility::AddCooldownModifier(FAbilityModCondition const& Mod)
-{
-    if (!Mod.IsBound() || bStaticCooldown)
-    {
-        return;
-    }
-    CooldownMods.AddUnique(Mod);
-}
-
-void UCombatAbility::RemoveCooldownModifier(FAbilityModCondition const& Mod)
-{
-    CooldownMods.RemoveSingleSwap(Mod);
-}
-
-void UCombatAbility::AddCastTimeModifier(FAbilityModCondition const& Mod)
-{
-    if (!Mod.IsBound() || bStaticCastTime)
-    {
-        return;
-    }
-    CastTimeMods.AddUnique(Mod);
-}
-
-void UCombatAbility::RemoveCastTimeModifier(FAbilityModCondition const& Mod)
-{
-    CastTimeMods.RemoveSingleSwap(Mod);
-}
-
 void UCombatAbility::ActivateCastRestriction(FName const& RestrictionName)
 {
     if (RestrictionName.IsValid())
     {
         CustomCastRestrictions.AddUnique(RestrictionName);
-        
     }
     bCustomCastConditionsMet = (CustomCastRestrictions.Num() == 0);
 }

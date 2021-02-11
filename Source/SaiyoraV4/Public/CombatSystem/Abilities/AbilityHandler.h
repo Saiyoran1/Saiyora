@@ -6,13 +6,13 @@
 #include "CombatAbility.h"
 #include "Components/ActorComponent.h"
 #include "SaiyoraGameState.h"
-#include "AbilityComponent.generated.h"
+#include "AbilityHandler.generated.h"
 
 class UStatHandler;
 class UResourceHandler;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
-class SAIYORAV4_API UAbilityComponent : public UActorComponent
+class SAIYORAV4_API UAbilityHandler : public UActorComponent
 {
 	GENERATED_BODY()
 
@@ -22,8 +22,10 @@ public:
 	static const float MinimumCastLength;
 	static const FGameplayTag CastLengthStatTag;
 	static const FGameplayTag GlobalCooldownLengthStatTag;
+	static const FGameplayTag CooldownLengthStatTag;
+	static const float MinimumCooldownLength;
 	
-	UAbilityComponent();
+	UAbilityHandler();
 	virtual void BeginPlay() override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual bool ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags) override;
@@ -94,6 +96,23 @@ public:
     void SubscribeToGlobalCooldownChanged(FGlobalCooldownCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
     void UnsubscribeFromGlobalCooldownChanged(FGlobalCooldownCallback const& Callback);
+
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	void AddCastLengthModifier(FAbilityModCondition const& Modifier);
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	void RemoveCastLengthModifier(FAbilityModCondition const& Modifier);
+
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+	void AddCooldownModifier(FAbilityModCondition const& Modifier);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+	void RemoveCooldownModifier(FAbilityModCondition const& Modifier);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, BlueprintPure, Category = "Abilities")
+	float CalculateAbilityCooldown(UCombatAbility* Ability);
+
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+	void AddGlobalCooldownModifier(FAbilityModCondition const& Modifier);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+	void RemoveGlobalCooldownModifier(FAbilityModCondition const& Modifier);
 	
 private:
 
@@ -129,6 +148,8 @@ private:
 	void EndCast();
 	float CalculateCastLength(UCombatAbility* Ability);
 	TArray<FAbilityModCondition> CastLengthMods;
+
+	TArray<FAbilityModCondition> CooldownLengthMods;
 
 	virtual void GenerateNewCastID(FCastEvent& CastEvent);
 	

@@ -16,8 +16,7 @@ class SAIYORAV4_API UCombatAbility : public UObject
 
 public:
 
-    static const FGameplayTag CooldownLengthStatTag;
-    static const float MinimumCooldownLength;
+    
 
     virtual bool IsSupportedForNetworking() const override { return true; }
     virtual void GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const override;
@@ -89,14 +88,13 @@ private:
     UFUNCTION()
     void CompleteCooldown();
     TArray<FAbilityModCondition> CooldownMods;
-    TArray<FAbilityModCondition> CastTimeMods;
     
     bool bCustomCastConditionsMet = true;
     TArray<FName> CustomCastRestrictions;
 
     //References
     UPROPERTY(ReplicatedUsing = OnRep_OwningComponent)
-    class UAbilityComponent* OwningComponent;
+    class UAbilityHandler* OwningComponent;
     bool bInitialized = false;
     UPROPERTY(ReplicatedUsing = OnRep_Deactivated)
     bool bDeactivated = false;
@@ -148,7 +146,11 @@ public:
     float GetDefaultGlobalCooldownLength() const { return DefaultGlobalCooldownLength; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
     bool HasStaticGlobalCooldown() const { return bStaticGlobalCooldown; }
-    
+
+    UFUNCTION(BlueprintCallable, BlueprintPure)
+    float GetDefaultCooldown() const { return DefaultCooldown; }
+    UFUNCTION(BlueprintCallable, BlueprintPure)
+    bool GetHasStaticCooldown() const { return bStaticCooldown; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
     int32 GetMaxCharges() const { return MaxCharges; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
@@ -167,26 +169,20 @@ public:
     void GetAbilityCosts(TArray<FAbilityCost>& OutCosts) const;
 
     UFUNCTION(BlueprintCallable, BlueprintPure)
-    UAbilityComponent* GetHandler() const { return OwningComponent; }
+    UAbilityHandler* GetHandler() const { return OwningComponent; }
     
     bool GetInitialized() const { return bInitialized; }
     bool GetDeactivated() const { return bDeactivated; }
 
     //Internal ability functions, these adjust necessary properties then call the Blueprint implementations.
     
-    void InitializeAbility(UAbilityComponent* AbilityComponent);
+    void InitializeAbility(UAbilityHandler* AbilityComponent);
     void DeactivateAbility();
     void InitialTick();
     void NonInitialTick(int32 const TickNumber);
     void CompleteCast();
     void InterruptCast();
     void CancelCast();
-
-    void AddCooldownModifier(FAbilityModCondition const& Mod);
-    void RemoveCooldownModifier(FAbilityModCondition const& Mod);
-
-    void AddCastTimeModifier(FAbilityModCondition const& Mod);
-    void RemoveCastTimeModifier(FAbilityModCondition const& Mod);
 
 protected:
     

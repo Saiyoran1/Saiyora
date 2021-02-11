@@ -1,25 +1,27 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 
-#include "AbilityComponent.h"
+#include "AbilityHandler.h"
 #include "UnrealNetwork.h"
 #include "Engine/ActorChannel.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "ResourceHandler.h"
 #include "StatHandler.h"
 
-const float UAbilityComponent::MinimumGlobalCooldownLength = 0.5f;
-const float UAbilityComponent::MinimumCastLength = 0.5f;
-const FGameplayTag UAbilityComponent::CastLengthStatTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.CastLength")), false);
-const FGameplayTag UAbilityComponent::GlobalCooldownLengthStatTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.GlobalCooldownLength")), false);
+const float UAbilityHandler::MinimumGlobalCooldownLength = 0.5f;
+const float UAbilityHandler::MinimumCastLength = 0.5f;
+const float UAbilityHandler::MinimumCooldownLength = 0.5f;
+const FGameplayTag UAbilityHandler::CastLengthStatTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.CastLength")), false);
+const FGameplayTag UAbilityHandler::GlobalCooldownLengthStatTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.GlobalCooldownLength")), false);
+const FGameplayTag UAbilityHandler::CooldownLengthStatTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.CooldownLength")), false);
 
-UAbilityComponent::UAbilityComponent()
+UAbilityHandler::UAbilityHandler()
 {
 	PrimaryComponentTick.bCanEverTick = false;
 	SetIsReplicatedByDefault(true);
 }
 
-void UAbilityComponent::BeginPlay()
+void UAbilityHandler::BeginPlay()
 {
 	Super::BeginPlay();
 	
@@ -39,15 +41,15 @@ void UAbilityComponent::BeginPlay()
 	}
 }
 
-void UAbilityComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+void UAbilityHandler::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME(UAbilityComponent, CastingState);
-	DOREPLIFETIME_CONDITION(UAbilityComponent, GlobalCooldownState, COND_OwnerOnly);
+	DOREPLIFETIME(UAbilityHandler, CastingState);
+	DOREPLIFETIME_CONDITION(UAbilityHandler, GlobalCooldownState, COND_OwnerOnly);
 }
 
-bool UAbilityComponent::ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags)
+bool UAbilityHandler::ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags)
 {
 	bool bWroteSomething = Super::ReplicateSubobjects(Channel, Bunch, RepFlags);
 	
@@ -56,7 +58,7 @@ bool UAbilityComponent::ReplicateSubobjects(UActorChannel* Channel, FOutBunch* B
 	return bWroteSomething;
 }
 
-UCombatAbility* UAbilityComponent::AddNewAbility(TSubclassOf<UCombatAbility> const AbilityClass)
+UCombatAbility* UAbilityHandler::AddNewAbility(TSubclassOf<UCombatAbility> const AbilityClass)
 {
 	if (GetOwnerRole() != ROLE_Authority)
 	{
@@ -76,7 +78,7 @@ UCombatAbility* UAbilityComponent::AddNewAbility(TSubclassOf<UCombatAbility> con
 	return NewAbility;
 }
 
-void UAbilityComponent::NotifyOfReplicatedAddedAbility(UCombatAbility* NewAbility)
+void UAbilityHandler::NotifyOfReplicatedAddedAbility(UCombatAbility* NewAbility)
 {
 	if (IsValid(NewAbility))
 	{
@@ -90,7 +92,7 @@ void UAbilityComponent::NotifyOfReplicatedAddedAbility(UCombatAbility* NewAbilit
 	}
 }
 
-void UAbilityComponent::RemoveAbility(TSubclassOf<UCombatAbility> const AbilityClass)
+void UAbilityHandler::RemoveAbility(TSubclassOf<UCombatAbility> const AbilityClass)
 {
 	if (GetOwnerRole() != ROLE_Authority)
 	{
@@ -111,7 +113,7 @@ void UAbilityComponent::RemoveAbility(TSubclassOf<UCombatAbility> const AbilityC
 	GetWorld()->GetTimerManager().SetTimer(RemovalHandle, RemovalDelegate, 1.0f, false);
 }
 
-void UAbilityComponent::NotifyOfReplicatedRemovedAbility(UCombatAbility* RemovedAbility)
+void UAbilityHandler::NotifyOfReplicatedRemovedAbility(UCombatAbility* RemovedAbility)
 {
 	if (ActiveAbilities.RemoveSingleSwap(RemovedAbility) > 0)
 	{
@@ -119,12 +121,12 @@ void UAbilityComponent::NotifyOfReplicatedRemovedAbility(UCombatAbility* Removed
 	}
 }
 
-void UAbilityComponent::CleanupRemovedAbility(UCombatAbility* Ability)
+void UAbilityHandler::CleanupRemovedAbility(UCombatAbility* Ability)
 {
 	RecentlyRemovedAbilities.RemoveSingleSwap(Ability);
 }
 
-UCombatAbility* UAbilityComponent::FindActiveAbility(TSubclassOf<UCombatAbility> const AbilityClass)
+UCombatAbility* UAbilityHandler::FindActiveAbility(TSubclassOf<UCombatAbility> const AbilityClass)
 {
 	if (!IsValid(AbilityClass))
 	{
@@ -140,7 +142,7 @@ UCombatAbility* UAbilityComponent::FindActiveAbility(TSubclassOf<UCombatAbility>
 	return nullptr;
 }
 
-void UAbilityComponent::SubscribeToAbilityAdded(FAbilityInstanceCallback const& Callback)
+void UAbilityHandler::SubscribeToAbilityAdded(FAbilityInstanceCallback const& Callback)
 {
 	if (!Callback.IsBound())
 	{
@@ -149,7 +151,7 @@ void UAbilityComponent::SubscribeToAbilityAdded(FAbilityInstanceCallback const& 
 	OnAbilityAdded.AddUnique(Callback);
 }
 
-void UAbilityComponent::UnsubscribeFromAbilityAdded(FAbilityInstanceCallback const& Callback)
+void UAbilityHandler::UnsubscribeFromAbilityAdded(FAbilityInstanceCallback const& Callback)
 {
 	if (!Callback.IsBound())
 	{
@@ -158,7 +160,7 @@ void UAbilityComponent::UnsubscribeFromAbilityAdded(FAbilityInstanceCallback con
 	OnAbilityAdded.Remove(Callback);
 }
 
-void UAbilityComponent::SubscribeToAbilityRemoved(FAbilityInstanceCallback const& Callback)
+void UAbilityHandler::SubscribeToAbilityRemoved(FAbilityInstanceCallback const& Callback)
 {
 	if (!Callback.IsBound())
 	{
@@ -167,7 +169,7 @@ void UAbilityComponent::SubscribeToAbilityRemoved(FAbilityInstanceCallback const
 	OnAbilityRemoved.AddUnique(Callback);
 }
 
-void UAbilityComponent::UnsubscribeFromAbilityRemoved(FAbilityInstanceCallback const& Callback)
+void UAbilityHandler::UnsubscribeFromAbilityRemoved(FAbilityInstanceCallback const& Callback)
 {
 	if (!Callback.IsBound())
 	{
@@ -176,7 +178,7 @@ void UAbilityComponent::UnsubscribeFromAbilityRemoved(FAbilityInstanceCallback c
 	OnAbilityRemoved.Remove(Callback);
 }
 
-void UAbilityComponent::SubscribeToAbilityStarted(FAbilityCallback const& Callback)
+void UAbilityHandler::SubscribeToAbilityStarted(FAbilityCallback const& Callback)
 {
 	if (!Callback.IsBound())
 	{
@@ -185,7 +187,7 @@ void UAbilityComponent::SubscribeToAbilityStarted(FAbilityCallback const& Callba
 	OnAbilityStart.AddUnique(Callback);
 }
 
-void UAbilityComponent::UnsubscribeFromAbilityStarted(FAbilityCallback const& Callback)
+void UAbilityHandler::UnsubscribeFromAbilityStarted(FAbilityCallback const& Callback)
 {
 	if (!Callback.IsBound())
 	{
@@ -194,7 +196,7 @@ void UAbilityComponent::UnsubscribeFromAbilityStarted(FAbilityCallback const& Ca
 	OnAbilityStart.Remove(Callback);
 }
 
-void UAbilityComponent::SubscribeToAbilityTicked(FAbilityCallback const& Callback)
+void UAbilityHandler::SubscribeToAbilityTicked(FAbilityCallback const& Callback)
 {
 	if (!Callback.IsBound())
 	{
@@ -203,7 +205,7 @@ void UAbilityComponent::SubscribeToAbilityTicked(FAbilityCallback const& Callbac
 	OnAbilityTick.AddUnique(Callback);
 }
 
-void UAbilityComponent::UnsubscribeFromAbilityTicked(FAbilityCallback const& Callback)
+void UAbilityHandler::UnsubscribeFromAbilityTicked(FAbilityCallback const& Callback)
 {
 	if (!Callback.IsBound())
 	{
@@ -212,7 +214,7 @@ void UAbilityComponent::UnsubscribeFromAbilityTicked(FAbilityCallback const& Cal
 	OnAbilityTick.Remove(Callback);
 }
 
-void UAbilityComponent::SubscribeToAbilityCompleted(FAbilityCallback const& Callback)
+void UAbilityHandler::SubscribeToAbilityCompleted(FAbilityCallback const& Callback)
 {
 	if (!Callback.IsBound())
 	{
@@ -221,7 +223,7 @@ void UAbilityComponent::SubscribeToAbilityCompleted(FAbilityCallback const& Call
 	OnAbilityComplete.AddUnique(Callback);
 }
 
-void UAbilityComponent::UnsubscribeFromAbilityCompleted(FAbilityCallback const& Callback)
+void UAbilityHandler::UnsubscribeFromAbilityCompleted(FAbilityCallback const& Callback)
 {
 	if (!Callback.IsBound())
 	{
@@ -230,7 +232,7 @@ void UAbilityComponent::UnsubscribeFromAbilityCompleted(FAbilityCallback const& 
 	OnAbilityComplete.Remove(Callback);
 }
 
-void UAbilityComponent::SubscribeToAbilityCancelled(FAbilityCallback const& Callback)
+void UAbilityHandler::SubscribeToAbilityCancelled(FAbilityCallback const& Callback)
 {
 	if (!Callback.IsBound())
 	{
@@ -239,7 +241,7 @@ void UAbilityComponent::SubscribeToAbilityCancelled(FAbilityCallback const& Call
 	OnAbilityCancelled.AddUnique(Callback);
 }
 
-void UAbilityComponent::UnsubscribeFromAbilityCancelled(FAbilityCallback const& Callback)
+void UAbilityHandler::UnsubscribeFromAbilityCancelled(FAbilityCallback const& Callback)
 {
 	if (!Callback.IsBound())
 	{
@@ -248,7 +250,7 @@ void UAbilityComponent::UnsubscribeFromAbilityCancelled(FAbilityCallback const& 
 	OnAbilityCancelled.Remove(Callback);
 }
 
-void UAbilityComponent::SubscribeToAbilityInterrupted(FInterruptCallback const& Callback)
+void UAbilityHandler::SubscribeToAbilityInterrupted(FInterruptCallback const& Callback)
 {
 	if (!Callback.IsBound())
 	{
@@ -257,7 +259,7 @@ void UAbilityComponent::SubscribeToAbilityInterrupted(FInterruptCallback const& 
 	OnAbilityInterrupted.AddUnique(Callback);
 }
 
-void UAbilityComponent::UnsubscribeFromAbilityInterrupted(FInterruptCallback const& Callback)
+void UAbilityHandler::UnsubscribeFromAbilityInterrupted(FInterruptCallback const& Callback)
 {
 	if (!Callback.IsBound())
 	{
@@ -266,7 +268,7 @@ void UAbilityComponent::UnsubscribeFromAbilityInterrupted(FInterruptCallback con
 	OnAbilityInterrupted.Remove(Callback);
 }
 
-void UAbilityComponent::SubscribeToCastStateChanged(FCastingStateCallback const& Callback)
+void UAbilityHandler::SubscribeToCastStateChanged(FCastingStateCallback const& Callback)
 {
 	if (!Callback.IsBound())
 	{
@@ -275,7 +277,7 @@ void UAbilityComponent::SubscribeToCastStateChanged(FCastingStateCallback const&
 	OnCastStateChanged.AddUnique(Callback);
 }
 
-void UAbilityComponent::UnsubscribeFromCastStateChanged(FCastingStateCallback const& Callback)
+void UAbilityHandler::UnsubscribeFromCastStateChanged(FCastingStateCallback const& Callback)
 {
 	if (!Callback.IsBound())
 	{
@@ -284,7 +286,7 @@ void UAbilityComponent::UnsubscribeFromCastStateChanged(FCastingStateCallback co
 	OnCastStateChanged.Remove(Callback);
 }
 
-void UAbilityComponent::SubscribeToGlobalCooldownChanged(FGlobalCooldownCallback const& Callback)
+void UAbilityHandler::SubscribeToGlobalCooldownChanged(FGlobalCooldownCallback const& Callback)
 {
 	if (!Callback.IsBound())
 	{
@@ -293,7 +295,7 @@ void UAbilityComponent::SubscribeToGlobalCooldownChanged(FGlobalCooldownCallback
 	OnGlobalCooldownChanged.AddUnique(Callback);
 }
 
-void UAbilityComponent::UnsubscribeFromGlobalCooldownChanged(FGlobalCooldownCallback const& Callback)
+void UAbilityHandler::UnsubscribeFromGlobalCooldownChanged(FGlobalCooldownCallback const& Callback)
 {
 	if (!Callback.IsBound())
 	{
@@ -302,12 +304,105 @@ void UAbilityComponent::UnsubscribeFromGlobalCooldownChanged(FGlobalCooldownCall
 	OnGlobalCooldownChanged.Remove(Callback);
 }
 
-void UAbilityComponent::OnRep_GlobalCooldownState(FGlobalCooldown const& PreviousGlobal)
+void UAbilityHandler::AddCastLengthModifier(FAbilityModCondition const& Modifier)
+{
+	if (!Modifier.IsBound())
+	{
+		return;
+	}
+	CastLengthMods.AddUnique(Modifier);
+}
+
+void UAbilityHandler::RemoveCastLengthModifier(FAbilityModCondition const& Modifier)
+{
+	if (!Modifier.IsBound())
+	{
+		return;
+	}
+	CastLengthMods.RemoveSingleSwap(Modifier);
+}
+
+void UAbilityHandler::AddCooldownModifier(FAbilityModCondition const& Modifier)
+{
+	if (!Modifier.IsBound())
+	{
+		return;
+	}
+	CooldownLengthMods.AddUnique(Modifier);
+}
+
+void UAbilityHandler::RemoveCooldownModifier(FAbilityModCondition const& Modifier)
+{
+	if (!Modifier.IsBound())
+	{
+		return;
+	}
+	CooldownLengthMods.RemoveSingleSwap(Modifier);
+}
+
+float UAbilityHandler::CalculateAbilityCooldown(UCombatAbility* Ability)
+{
+	float CooldownLength = Ability->GetDefaultCooldown();
+	if (!Ability->GetHasStaticCooldown())
+	{
+		float AddMod = 0.0f;
+		float MultMod = 1.0f;
+		FCombatModifier TempMod;
+		for (FAbilityModCondition const& Condition : CooldownLengthMods)
+		{
+			TempMod = Condition.Execute(Ability);
+			switch (TempMod.ModifierType)
+			{
+			case EModifierType::Invalid :
+				break;
+			case EModifierType::Additive :
+				AddMod += TempMod.ModifierValue;
+				break;
+			case EModifierType::Multiplicative :
+				MultMod *= FMath::Max(0.0f, TempMod.ModifierValue);
+				break;
+			default :
+				break;
+			}
+		}
+		if (IsValid(GetStatHandlerRef()))
+		{
+			float const ModFromStat = GetStatHandlerRef()->GetStatValue(CooldownLengthStatTag);
+			if (ModFromStat > 0.0f)
+			{
+				MultMod *= ModFromStat;
+			}
+		}
+		CooldownLength = FMath::Max(0.0f, CooldownLength + AddMod) * MultMod;
+	}
+	CooldownLength = FMath::Max(CooldownLength, MinimumCooldownLength);
+	return CooldownLength;
+}
+
+void UAbilityHandler::AddGlobalCooldownModifier(FAbilityModCondition const& Modifier)
+{
+	if (!Modifier.IsBound())
+	{
+		return;
+	}
+	GlobalCooldownMods.AddUnique(Modifier);
+}
+
+void UAbilityHandler::RemoveGlobalCooldownModifier(FAbilityModCondition const& Modifier)
+{
+	if (!Modifier.IsBound())
+	{
+		return;
+	}
+	GlobalCooldownMods.RemoveSingleSwap(Modifier);
+}
+
+void UAbilityHandler::OnRep_GlobalCooldownState(FGlobalCooldown const& PreviousGlobal)
 {
 	OnGlobalCooldownChanged.Broadcast(PreviousGlobal, GlobalCooldownState);
 }
 
-void UAbilityComponent::StartGlobalCooldown(UCombatAbility* Ability, int32 const CastID)
+void UAbilityHandler::StartGlobalCooldown(UCombatAbility* Ability, int32 const CastID)
 {
 	FGlobalCooldown const PreviousGlobal = GetGlobalCooldownState();
 	GlobalCooldownState.bGlobalCooldownActive = true;
@@ -320,7 +415,7 @@ void UAbilityComponent::StartGlobalCooldown(UCombatAbility* Ability, int32 const
 	OnGlobalCooldownChanged.Broadcast(PreviousGlobal, GetGlobalCooldownState());
 }
 
-void UAbilityComponent::EndGlobalCooldown()
+void UAbilityHandler::EndGlobalCooldown()
 {
 	FGlobalCooldown const PreviousGlobal;
 	GlobalCooldownState.bGlobalCooldownActive = false;
@@ -333,7 +428,7 @@ void UAbilityComponent::EndGlobalCooldown()
 	OnGlobalCooldownChanged.Broadcast(PreviousGlobal, GlobalCooldownState);
 }
 
-float UAbilityComponent::CalculateGlobalCooldownLength(UCombatAbility* Ability)
+float UAbilityHandler::CalculateGlobalCooldownLength(UCombatAbility* Ability)
 {
 	float GlobalLength = Ability->GetDefaultGlobalCooldownLength();
 	if (!Ability->HasStaticGlobalCooldown())
@@ -372,12 +467,12 @@ float UAbilityComponent::CalculateGlobalCooldownLength(UCombatAbility* Ability)
 	return GlobalLength;
 }
 
-void UAbilityComponent::OnRep_CastingState(FCastingState const& PreviousState)
+void UAbilityHandler::OnRep_CastingState(FCastingState const& PreviousState)
 {
 	OnCastStateChanged.Broadcast(PreviousState, CastingState);
 }
 
-void UAbilityComponent::StartCast(UCombatAbility* Ability, int32 const CastID)
+void UAbilityHandler::StartCast(UCombatAbility* Ability, int32 const CastID)
 {
 	FCastingState const PreviousState;
 	CastingState.bIsCasting = true;
@@ -395,7 +490,7 @@ void UAbilityComponent::StartCast(UCombatAbility* Ability, int32 const CastID)
 	OnCastStateChanged.Broadcast(PreviousState, GetCastingState());
 }
 
-void UAbilityComponent::CompleteCast()
+void UAbilityHandler::CompleteCast()
 {
 	FCastEvent CompletionEvent;
 	CompletionEvent.Ability = GetCastingState().CurrentCast;
@@ -414,7 +509,7 @@ void UAbilityComponent::CompleteCast()
 	}
 }
 
-void UAbilityComponent::TickCurrentCast()
+void UAbilityHandler::TickCurrentCast()
 {
 	if (!GetCastingState().bIsCasting || !IsValid(GetCastingState().CurrentCast))
 	{
@@ -438,7 +533,7 @@ void UAbilityComponent::TickCurrentCast()
 	}
 }
 
-void UAbilityComponent::EndCast()
+void UAbilityHandler::EndCast()
 {
 	FCastingState const PreviousState = GetCastingState();
 	CastingState.bIsCasting = false;
@@ -452,7 +547,7 @@ void UAbilityComponent::EndCast()
 	OnCastStateChanged.Broadcast(PreviousState, GetCastingState());
 }
 
-float UAbilityComponent::CalculateCastLength(UCombatAbility* Ability)
+float UAbilityHandler::CalculateCastLength(UCombatAbility* Ability)
 {
 	if (Ability->GetCastType() != EAbilityCastType::Channel)
 	{
@@ -495,12 +590,12 @@ float UAbilityComponent::CalculateCastLength(UCombatAbility* Ability)
 	return CastLength;
 }
 
-void UAbilityComponent::GenerateNewCastID(FCastEvent& CastEvent)
+void UAbilityHandler::GenerateNewCastID(FCastEvent& CastEvent)
 {
 	CastEvent.CastID = 0;
 }
 
-void UAbilityComponent::BroadcastAbilityInterrupt_Implementation(FInterruptEvent const& InterruptEvent)
+void UAbilityHandler::BroadcastAbilityInterrupt_Implementation(FInterruptEvent const& InterruptEvent)
 {
 	if (GetOwnerRole() != ROLE_Authority)
 	{
@@ -512,7 +607,7 @@ void UAbilityComponent::BroadcastAbilityInterrupt_Implementation(FInterruptEvent
 	OnAbilityInterrupted.Broadcast(InterruptEvent);
 }
 
-void UAbilityComponent::BroadcastAbilityCancel_Implementation(FCancelEvent const& CancelEvent)
+void UAbilityHandler::BroadcastAbilityCancel_Implementation(FCancelEvent const& CancelEvent)
 {
 	if (GetOwnerRole() != ROLE_Authority)
 	{
@@ -524,7 +619,7 @@ void UAbilityComponent::BroadcastAbilityCancel_Implementation(FCancelEvent const
 	OnAbilityCancelled.Broadcast(CancelEvent);
 }
 
-void UAbilityComponent::BroadcastAbilityComplete_Implementation(FCastEvent const& CastEvent)
+void UAbilityHandler::BroadcastAbilityComplete_Implementation(FCastEvent const& CastEvent)
 {
 	if (GetOwnerRole() != ROLE_Authority)
 	{
@@ -536,7 +631,7 @@ void UAbilityComponent::BroadcastAbilityComplete_Implementation(FCastEvent const
 	OnAbilityComplete.Broadcast(CastEvent);
 }
 
-void UAbilityComponent::BroadcastAbilityTick_Implementation(FCastEvent const& CastEvent)
+void UAbilityHandler::BroadcastAbilityTick_Implementation(FCastEvent const& CastEvent)
 {
 	if (GetOwnerRole() != ROLE_Authority)
 	{
@@ -548,7 +643,7 @@ void UAbilityComponent::BroadcastAbilityTick_Implementation(FCastEvent const& Ca
 	OnAbilityTick.Broadcast(CastEvent);
 }
 
-void UAbilityComponent::BroadcastAbilityStart_Implementation(FCastEvent const& CastEvent)
+void UAbilityHandler::BroadcastAbilityStart_Implementation(FCastEvent const& CastEvent)
 {
 	if (GetOwnerRole() != ROLE_Authority)
 	{
@@ -567,7 +662,7 @@ void UAbilityComponent::BroadcastAbilityStart_Implementation(FCastEvent const& C
 	OnAbilityStart.Broadcast(CastEvent);
 }
 
-FCastEvent UAbilityComponent::UseAbility(TSubclassOf<UCombatAbility> const AbilityClass)
+FCastEvent UAbilityHandler::UseAbility(TSubclassOf<UCombatAbility> const AbilityClass)
 {
 	FCastEvent Result;
 	if (GetOwnerRole() != ROLE_Authority)
@@ -668,7 +763,7 @@ FCastEvent UAbilityComponent::UseAbility(TSubclassOf<UCombatAbility> const Abili
 	return Result;
 }
 
-FCancelEvent UAbilityComponent::CancelCurrentCast()
+FCancelEvent UAbilityHandler::CancelCurrentCast()
 {
 	FCancelEvent Result;
 	Result.CancelledAbility = GetCastingState().CurrentCast;
@@ -687,7 +782,7 @@ FCancelEvent UAbilityComponent::CancelCurrentCast()
 	return Result;
 }
 
-FInterruptEvent UAbilityComponent::InterruptCurrentCast(AActor* AppliedBy, UObject* InterruptSource)
+FInterruptEvent UAbilityHandler::InterruptCurrentCast(AActor* AppliedBy, UObject* InterruptSource)
 {
 	FInterruptEvent Result;
 	Result.InterruptAppliedBy = AppliedBy;
