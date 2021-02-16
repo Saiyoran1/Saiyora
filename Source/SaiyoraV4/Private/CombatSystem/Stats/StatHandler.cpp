@@ -22,7 +22,7 @@ void UStatHandler::BeginPlay()
 		{
 			//Setup a restriction on buffs that modify stats that this component has determined can not be modified.
 			FBuffEventCondition BuffStatModCondition;
-			BuffStatModCondition.BindUFunction(this, FName("CheckBuffStatMods"));
+			BuffStatModCondition.BindUFunction(this, FName(TEXT("CheckBuffStatMods")));
 			BuffHandler->AddIncomingBuffRestriction(BuffStatModCondition);
 		}
 	}
@@ -37,6 +37,8 @@ UStatHandler::UStatHandler()
 
 void UStatHandler::InitializeComponent()
 {
+	ReplicatedStats.StatHandler = this;
+	OwnerOnlyStats.StatHandler = this;
 	//Only initialize stats on the server. Replication callbacks will initialize on the clients.
 	if (GetOwnerRole() == ROLE_Authority)
 	{
@@ -307,8 +309,8 @@ bool UStatHandler::CheckBuffStatMods(FBuffApplyEvent const& BuffEvent)
 	{
 		return false;
 	}
-	FGameplayTagContainer* StatModTags = Default->GetServerFunctionTags().Find(GenericStatModTag);
-	if (StatModTags && StatModTags->HasAny(UnmodifiableStats))
+	FGameplayTagContainer const StatModTags = Default->GetServerFunctionTags().FindRef(GenericStatModTag);
+	if (StatModTags.HasAny(UnmodifiableStats))
 	{
 		return true;
 	}

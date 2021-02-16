@@ -6,7 +6,6 @@
 #include "ResourceHandler.h"
 #include "UnrealNetwork.h"
 #include "Kismet/KismetSystemLibrary.h"
-#include "StatHandler.h"
 
 void UCombatAbility::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const
 {

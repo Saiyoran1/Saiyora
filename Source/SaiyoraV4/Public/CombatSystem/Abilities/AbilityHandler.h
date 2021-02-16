@@ -10,6 +10,7 @@
 
 class UStatHandler;
 class UResourceHandler;
+class UCrowdControlHandler;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class SAIYORAV4_API UAbilityHandler : public UActorComponent
@@ -113,6 +114,11 @@ public:
 	void AddGlobalCooldownModifier(FAbilityModCondition const& Modifier);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
 	void RemoveGlobalCooldownModifier(FAbilityModCondition const& Modifier);
+
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	void AddAbilityRestriction(FAbilityRestriction const& Restriction);
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	void RemoveAbilityRestriction(FAbilityRestriction const& Restriction);
 	
 private:
 
@@ -151,6 +157,9 @@ private:
 
 	TArray<FAbilityModCondition> CooldownLengthMods;
 
+	bool CheckAbilityRestricted(UCombatAbility* Ability);
+	TArray<FAbilityRestriction> AbilityRestrictions;
+
 	virtual void GenerateNewCastID(FCastEvent& CastEvent);
 	
 	FAbilityInstanceNotification OnAbilityAdded;
@@ -180,4 +189,6 @@ private:
 	UResourceHandler* ResourceHandler;
 	UPROPERTY()
 	UStatHandler* StatHandler;
+	UPROPERTY()
+	UCrowdControlHandler* CrowdControlHandler;
 };

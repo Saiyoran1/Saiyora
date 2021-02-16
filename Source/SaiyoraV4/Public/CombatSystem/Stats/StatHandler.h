@@ -48,7 +48,6 @@ public:
 
 private:
 
-	UFUNCTION(meta = (GameplayTagFilter = "Stat"))
 	void RecalculateStat(FGameplayTag const& StatTag);
 
 	//Can't be UFUNCTION because struct pointer returns aren't allowed by reflection.

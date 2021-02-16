@@ -7,6 +7,7 @@
 #include "Kismet/KismetSystemLibrary.h"
 #include "ResourceHandler.h"
 #include "StatHandler.h"
+#include "CrowdControlHandler.h"
 
 const float UAbilityHandler::MinimumGlobalCooldownLength = 0.5f;
 const float UAbilityHandler::MinimumCastLength = 0.5f;
@@ -32,6 +33,7 @@ void UAbilityHandler::BeginPlay()
 	}
 	ResourceHandler = GetOwner()->FindComponentByClass<UResourceHandler>();
 	StatHandler = GetOwner()->FindComponentByClass<UStatHandler>();
+	CrowdControlHandler = GetOwner()->FindComponentByClass<UCrowdControlHandler>();
 	if (GetOwnerRole() == ROLE_Authority)
 	{
 		for (TSubclassOf<UCombatAbility> const AbilityClass : DefaultAbilities)
@@ -379,6 +381,19 @@ float UAbilityHandler::CalculateAbilityCooldown(UCombatAbility* Ability)
 	return CooldownLength;
 }
 
+bool UAbilityHandler::CheckAbilityRestricted(UCombatAbility* Ability)
+{
+	for (FAbilityRestriction const& Restriction : AbilityRestrictions)
+	{
+		if (Restriction.Execute(Ability))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+
 void UAbilityHandler::AddGlobalCooldownModifier(FAbilityModCondition const& Modifier)
 {
 	if (!Modifier.IsBound())
@@ -395,6 +410,24 @@ void UAbilityHandler::RemoveGlobalCooldownModifier(FAbilityModCondition const& M
 		return;
 	}
 	GlobalCooldownMods.RemoveSingleSwap(Modifier);
+}
+
+void UAbilityHandler::AddAbilityRestriction(FAbilityRestriction const& Restriction)
+{
+	if (!Restriction.IsBound())
+	{
+		return;
+	}
+	AbilityRestrictions.AddUnique(Restriction);
+}
+
+void UAbilityHandler::RemoveAbilityRestriction(FAbilityRestriction const& Restriction)
+{
+	if (!Restriction.IsBound())
+	{
+		return;
+	}
+	AbilityRestrictions.RemoveSingleSwap(Restriction);
 }
 
 void UAbilityHandler::OnRep_GlobalCooldownState(FGlobalCooldown const& PreviousGlobal)
@@ -717,8 +750,21 @@ FCastEvent UAbilityHandler::UseAbility(TSubclassOf<UCombatAbility> const Ability
 		Result.FailReason = FString(TEXT("Custom cast conditions not met."));
 		return Result;
 	}
-	
-	//TODO: CC and Lockout Checks.
+
+	if (CheckAbilityRestricted(Result.Ability))
+	{
+		Result.FailReason = FString(TEXT("Cast restriction returned true."));
+		return Result;
+	}
+
+	if (IsValid(CrowdControlHandler))
+	{
+		if (CrowdControlHandler->GetActiveCcTypes().HasAny(Result.Ability->GetRestrictedCrowdControls()))
+		{
+			Result.FailReason = FString(TEXT("Cast restricted by crowd control."));
+			return Result;
+		}
+	}
 
 	//This just sets the Cast ID to 0. Overriding later will generate an actual new cast ID for clients.
 	GenerateNewCastID(Result);

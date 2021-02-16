@@ -16,8 +16,6 @@ class SAIYORAV4_API UCombatAbility : public UObject
 
 public:
 
-    
-
     virtual bool IsSupportedForNetworking() const override { return true; }
     virtual void GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
@@ -29,6 +27,8 @@ private:
     FText Description;
     UPROPERTY(EditDefaultsOnly, Category = "Display Info")
     UTexture2D* Icon;
+    UPROPERTY(EditDefaultsOnly, Category = "Display Info", meta = (Categories = "Ability"))
+    FGameplayTag AbilityClass;
 
     UPROPERTY(EditDefaultsOnly, Category = "Cast Info")
     EAbilityCastType CastType = EAbilityCastType::None;
@@ -43,8 +43,8 @@ private:
     
     UPROPERTY(EditDefaultsOnly, Category = "Crowd Control Info")
     bool bInterruptible = true;
-    UPROPERTY(EditDefaultsOnly, Category = "Crowd Control Info")
-    FGameplayTagContainer NonRestrictedCrowdControls;  //TODO: Filter by CC gameplay tag.
+    UPROPERTY(EditDefaultsOnly, Category = "Crowd Control Info", meta = (Categories = "CrowdControl"))
+    FGameplayTagContainer RestrictedCrowdControls;
     
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown Info")
     bool bOnGlobalCooldown = true;
@@ -120,6 +120,8 @@ public:
     FText GetAbilityDescription() const { return Description; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
     UTexture2D* GetAbilityIcon() const { return Icon; }
+    UFUNCTION(BlueprintCallable, BlueprintPure)
+    FGameplayTag GetAbilityClass() const { return AbilityClass; }
     
     UFUNCTION(BlueprintCallable, BlueprintPure)
     EAbilityCastType GetCastType() const { return CastType; }
@@ -135,7 +137,7 @@ public:
     bool GetInterruptible() const { return bInterruptible; }
     
     UFUNCTION(BlueprintCallable, BlueprintPure)
-    FGameplayTagContainer GetNonRestrictedCrowdControls() const { return NonRestrictedCrowdControls; }
+    FGameplayTagContainer GetRestrictedCrowdControls() const { return RestrictedCrowdControls; }
 
     UFUNCTION(BlueprintCallable, BlueprintPure)
     bool CheckCustomCastConditionsMet() const { return bCustomCastConditionsMet; }

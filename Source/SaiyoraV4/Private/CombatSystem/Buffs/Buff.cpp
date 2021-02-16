@@ -75,9 +75,9 @@ void UBuff::InitializeBuff(FBuffApplyEvent& ApplicationEvent)
 
     for (TSubclassOf<UBuffFunction> const& FunctionClass : ServerFunctionClasses)
     {
-        if (FunctionClass)
+        if (IsValid(FunctionClass))
         {
-            UBuffFunction* NewFunction = Functions.Add_GetRef(NewObject<UBuffFunction>(this, FunctionClass));
+            UBuffFunction* NewFunction = Functions.Add_GetRef(NewObject<UBuffFunction>(ApplicationEvent.AppliedTo, FunctionClass));
             for (TTuple<FGameplayTag, FGameplayTagContainer> const& FunctionPair : NewFunction->GetBuffFunctionTags())
             {
                 if (FunctionPair.Key.MatchesTag(GenericBuffFunctionTag))
