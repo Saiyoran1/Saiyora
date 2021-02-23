@@ -12,6 +12,7 @@
 struct FFinalAbilityCost;
 class UResource;
 class UCombatAbility;
+class UStatHandler;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class SAIYORAV4_API UResourceHandler : public UActorComponent
@@ -79,4 +80,7 @@ private:
 	UFUNCTION()
     void FinishRemoveResource(UResource* Resource);
 	bool CheckResourceAlreadyExists(FGameplayTag const& ResourceTag) const;
+
+	UPROPERTY()
+	UStatHandler* StatHandler;
 };

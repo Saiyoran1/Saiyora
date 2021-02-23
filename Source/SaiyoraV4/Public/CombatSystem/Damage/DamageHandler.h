@@ -6,8 +6,11 @@
 #include "DamageStructs.h"
 #include "Components/ActorComponent.h"
 #include "GameplayTagContainer.h"
+#include "BuffStructs.h"
 #include "DamageHandler.generated.h"
 
+class UStatHandler;
+class UBuffHandler;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class SAIYORAV4_API UDamageHandler : public UActorComponent
@@ -25,8 +28,13 @@ public:
 	static const FGameplayTag HealingDoneTag;
 	static const FGameplayTag HealingTakenTag;
 	static const FGameplayTag MaxHealthTag;
-	static const FGameplayTag DamageBuffTag;
-	static const FGameplayTag HealingBuffTag;
+	static const FGameplayTag GenericDamageTag;
+	static const FGameplayTag GenericHealingTag;
+
+private:
+
+	UStatHandler* StatHandler;
+	UBuffHandler* BuffHandler;
 
 	//Health
 
@@ -128,6 +136,9 @@ private:
 
 	UFUNCTION(NetMulticast, Unreliable)
     void MulticastNotifyOfOutgoingDamageSuccess(FDamagingEvent DamageEvent);
+
+	UFUNCTION()
+	bool RestrictDamageBuffs(FBuffApplyEvent const& BuffEvent);
     
     //Outgoing Healing
 
@@ -168,6 +179,9 @@ private:
     
     UFUNCTION(NetMulticast, Unreliable)
     void MulticastNotifyOfOutgoingHealingSuccess(FHealingEvent HealingEvent);
+
+	UFUNCTION()
+	bool RestrictHealingBuffs(FBuffApplyEvent const& BuffEvent);
 
 	//Incoming Damage
 

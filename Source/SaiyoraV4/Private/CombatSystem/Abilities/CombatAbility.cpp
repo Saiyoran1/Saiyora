@@ -97,6 +97,10 @@ void UCombatAbility::InitializeAbility(UAbilityHandler* AbilityComponent)
 
     MaxCharges = DefaultMaxCharges;
     AbilityCooldown.CurrentCharges = GetMaxCharges();
+    for (FAbilityCost const& Cost : DefaultAbilityCosts)
+    {
+        AbilityCosts.Add(Cost.ResourceTag, Cost);
+    }
     SetupCustomCastRestrictions();
     OnInitialize();
     bInitialized = true;

@@ -16,7 +16,7 @@ private:
 	UBuff* OwningBuff = nullptr;
 	bool bBuffFunctionInitialized = false;
 	UPROPERTY(EditDefaultsOnly, Category = "Buff")
-	TMap<FGameplayTag, FGameplayTagContainer> FunctionTags;
+	FGameplayTagContainer FunctionTags;
 
 public:
 
@@ -24,7 +24,7 @@ public:
 	
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
 	UBuff* GetOwningBuff() const { return OwningBuff; }
-	TMap<FGameplayTag, FGameplayTagContainer> const& GetBuffFunctionTags() const { return FunctionTags; }
+	FGameplayTagContainer const& GetBuffFunctionTags() const { return FunctionTags; }
 
 	UFUNCTION(BlueprintImplementableEvent, Category = "Buff")
 	void OnApply(FBuffApplyEvent const& ApplyEvent);

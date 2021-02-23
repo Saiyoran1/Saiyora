@@ -7,9 +7,9 @@
 #include "Engine/ActorChannel.h"
 #include "Buff.h"
 #include "BuffHandler.h"
+#include "SaiyoraCombatInterface.h"
 
 const FGameplayTag UStatHandler::GenericStatTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat")), false);
-const FGameplayTag UStatHandler::GenericStatModTag = FGameplayTag::RequestGameplayTag(FName(TEXT("BuffFunction.StatMod")), false);
 
 void UStatHandler::BeginPlay()
 {
@@ -17,8 +17,11 @@ void UStatHandler::BeginPlay()
 	
 	if (GetOwnerRole() == ROLE_Authority)
 	{
-		UBuffHandler* BuffHandler = USaiyoraBuffLibrary::GetBuffHandler(GetOwner());
-		if (BuffHandler)
+		if (GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+		{
+			BuffHandler = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwner());
+		}
+		if (IsValid(BuffHandler))
 		{
 			//Setup a restriction on buffs that modify stats that this component has determined can not be modified.
 			FBuffEventCondition BuffStatModCondition;
@@ -231,29 +234,13 @@ void UStatHandler::RecalculateStat(FGameplayTag const& StatTag)
 	//Modify based on current modifiers, if applicable.
 	if (Info->bModifiable)
 	{
-		float AddMod = 0.0f;
-		float MultMod = 1.0f;
-		for (FStatModCondition const& Modifier : Info->StatModifiers)
+		TArray<FCombatModifier> Mods;
+		for (FStatModCondition const& Mod : Info->StatModifiers)
 		{
-			FCombatModifier const Mod = Modifier.Execute(StatTag);
-			switch (Mod.ModifierType)
-			{
-			case EModifierType::Invalid :
-				break;
-			case EModifierType::Additive :
-				AddMod += Mod.ModifierValue;
-				break;
-			case EModifierType::Multiplicative :
-				MultMod *= FMath::Max(0.0f, Mod.ModifierValue);
-				break;
-			default :
-				break;
-			}
+			Mods.Add(Mod.Execute(StatTag));
 		}
-		NewValue = FMath::Max(0.0f, NewValue + AddMod);
-		NewValue *= MultMod;
+		NewValue = FCombatModifier::CombineModifiers(Mods, NewValue);
 	}
-
 	//Check to see if the stat value actually changed.
 	if (NewValue != OldValue)
 	{
@@ -274,7 +261,6 @@ void UStatHandler::RecalculateStat(FGameplayTag const& StatTag)
 			default :
 				break;
 		}
-		
 		//Broadcast the change.
 		Info->OnStatChanged.Broadcast(StatTag, NewValue);
 	}
@@ -298,7 +284,7 @@ FStatInfo const* UStatHandler::GetStatInfoConstPtr(FGameplayTag const& StatTag) 
 	return StatInfo.Find(StatTag);
 }
 
-bool UStatHandler::CheckBuffStatMods(FBuffApplyEvent const& BuffEvent)
+bool UStatHandler::CheckBuffStatMods(FBuffApplyEvent const& BuffEvent) const
 {
 	if (!BuffEvent.BuffClass)
 	{
@@ -309,8 +295,9 @@ bool UStatHandler::CheckBuffStatMods(FBuffApplyEvent const& BuffEvent)
 	{
 		return false;
 	}
-	FGameplayTagContainer const StatModTags = Default->GetServerFunctionTags().FindRef(GenericStatModTag);
-	if (StatModTags.HasAny(UnmodifiableStats))
+	FGameplayTagContainer BuffFunctionTags;
+	Default->GetServerFunctionTags(BuffFunctionTags);
+	if (BuffFunctionTags.HasAny(UnmodifiableStats))
 	{
 		return true;
 	}

@@ -3,7 +3,6 @@
 
 #include "Resource.h"
 #include "ResourceHandler.h"
-#include "SaiyoraStatLibrary.h"
 #include "StatHandler.h"
 #include "UnrealNetwork.h"
 #include "CombatAbility.h"
@@ -17,7 +16,7 @@ void UResource::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetim
     DOREPLIFETIME(UResource, bDeactivated);
 }
 
-void UResource::AuthInitializeResource(UResourceHandler* NewHandler, FResourceInitInfo const& InitInfo)
+void UResource::AuthInitializeResource(UResourceHandler* NewHandler, UStatHandler* StatHandler, FResourceInitInfo const& InitInfo)
 {
     if (bInitialized || !IsValid(NewHandler) || NewHandler->GetOwnerRole() != ROLE_Authority)
     {
@@ -35,11 +34,10 @@ void UResource::AuthInitializeResource(UResourceHandler* NewHandler, FResourceIn
     //Bind the resource minimum to a stat if needed.
     if (MinimumBindStat.IsValid() && MinimumBindStat.MatchesTag(UStatHandler::GenericStatTag))
     {
-        FStatCallback MinStatBind;
-        MinStatBind.BindUFunction(this, FName(TEXT("UpdateMinimumFromStatBind")));
-        UStatHandler* StatHandler = USaiyoraStatLibrary::GetStatHandler(Handler->GetOwner());
-        if (StatHandler)
+        if (IsValid(StatHandler))
         {
+            FStatCallback MinStatBind;
+            MinStatBind.BindUFunction(this, FName(TEXT("UpdateMinimumFromStatBind")));
             StatHandler->SubscribeToStatChanged(MinimumBindStat, MinStatBind);
             //Manually set the minimum with the initial stat value.
             float const StatValue = StatHandler->GetStatValue(MinimumBindStat);
@@ -59,11 +57,10 @@ void UResource::AuthInitializeResource(UResourceHandler* NewHandler, FResourceIn
     //Bind the resource maximum to a stat if needed.
     if (MaximumBindStat.IsValid() && MaximumBindStat.MatchesTag(UStatHandler::GenericStatTag))
     {
-        FStatCallback MaxStatBind;
-        MaxStatBind.BindUFunction(this, FName(TEXT("UpdateMaximumFromStatBind")));
-        UStatHandler* StatHandler = USaiyoraStatLibrary::GetStatHandler(Handler->GetOwner());
-        if (StatHandler)
+        if (IsValid(StatHandler))
         {
+            FStatCallback MaxStatBind;
+            MaxStatBind.BindUFunction(this, FName(TEXT("UpdateMaximumFromStatBind")));
             StatHandler->SubscribeToStatChanged(MaximumBindStat, MaxStatBind);
             //Manually set the maximum with the initial stat value.
             float const StatValue = StatHandler->GetStatValue(MaximumBindStat);
@@ -94,35 +91,12 @@ bool UResource::CalculateAndCheckAbilityCost(UCombatAbility* Ability, FAbilityCo
 {
     if (!Cost.bStaticCost)
     {
-        FCombatModifier TempMod;
-        TArray<FCombatModifier> ValidMods;
+        TArray<FCombatModifier> Mods;
         for (FResourceDeltaModifier const& Condition : ResourceDeltaMods)
         {
-            TempMod = Condition.Execute(GetResourceTag(), Ability, Cost);
-            if (TempMod.ModifierType != EModifierType::Invalid)
-            {
-                ValidMods.Add(TempMod);
-            }
+            Mods.Add(Condition.Execute(GetResourceTag(), Ability, Cost));
         }
-        float AddMod = 0.0f;
-        float MultMod = 1.0f;
-        for (FCombatModifier const& Mod : ValidMods)
-        {
-            switch (Mod.ModifierType)
-            {
-            case EModifierType::Invalid :
-                break;
-            case EModifierType::Additive :
-                AddMod += Mod.ModifierValue;
-                break;
-            case EModifierType::Multiplicative :
-                MultMod *= Mod.ModifierValue;
-                break;
-            default :
-                break;
-            }
-        }
-        Cost.Cost = (Cost.Cost + AddMod) * MultMod;
+        Cost.Cost = FCombatModifier::CombineModifiers(Mods, Cost.Cost);
     }
     if (Cost.Cost <= GetCurrentValue())
     {

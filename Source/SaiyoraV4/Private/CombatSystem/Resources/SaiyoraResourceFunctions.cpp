@@ -2,16 +2,6 @@
 
 
 #include "SaiyoraResourceFunctions.h"
-#include "ResourceHandler.h"
-
-UResourceHandler* USaiyoraResourceFunctions::GetResourceHandler(AActor* Target)
-{
-    if (!IsValid(Target))
-    {
-        return nullptr;
-    }
-    return Target->FindComponentByClass<UResourceHandler>();
-}
 
 //TODO: Non-ability resource usage.
 /*FResourceEvent USaiyoraResourceFunctions::ModifyResource(FGameplayTag const& ResourceTag, AActor* AppliedBy,

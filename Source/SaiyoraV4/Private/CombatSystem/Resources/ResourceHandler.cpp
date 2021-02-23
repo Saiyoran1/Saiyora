@@ -8,6 +8,7 @@
 #include "UnrealNetwork.h"
 #include "Engine/ActorChannel.h"
 #include "CombatAbility.h"
+#include "SaiyoraCombatInterface.h"
 
 const FGameplayTag UResourceHandler::GenericResourceTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Resource")), false);
 
@@ -20,6 +21,11 @@ UResourceHandler::UResourceHandler()
 void UResourceHandler::BeginPlay()
 {
 	Super::BeginPlay();
+
+	if (IsValid(GetOwner()) && GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	{
+		StatHandler = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
+	}
 	
 	if (GetOwnerRole() == ROLE_Authority)
 	{
@@ -253,7 +259,7 @@ void UResourceHandler::AddNewResource(FResourceInitInfo const& InitInfo)
 		return;
 	}
 	UResource* NewResource = NewObject<UResource>(GetOwner(), InitInfo.ResourceClass);
-	NewResource->AuthInitializeResource(this, InitInfo);
+	NewResource->AuthInitializeResource(this, StatHandler, InitInfo);
 	if (NewResource->GetInitialized())
 	{
 		ActiveResources.Add(NewResource->GetResourceTag(), NewResource);

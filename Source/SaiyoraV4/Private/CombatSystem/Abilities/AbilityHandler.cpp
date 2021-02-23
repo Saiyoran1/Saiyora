@@ -8,6 +8,8 @@
 #include "ResourceHandler.h"
 #include "StatHandler.h"
 #include "CrowdControlHandler.h"
+#include "SaiyoraCombatInterface.h"
+#include "DamageHandler.h"
 
 const float UAbilityHandler::MinimumGlobalCooldownLength = 0.5f;
 const float UAbilityHandler::MinimumCastLength = 0.5f;
@@ -31,17 +33,123 @@ void UAbilityHandler::BeginPlay()
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Invalid Game State Ref in Ability Component."));
 	}
-	ResourceHandler = GetOwner()->FindComponentByClass<UResourceHandler>();
-	StatHandler = GetOwner()->FindComponentByClass<UStatHandler>();
-	CrowdControlHandler = GetOwner()->FindComponentByClass<UCrowdControlHandler>();
+	if (GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	{
+		ResourceHandler = ISaiyoraCombatInterface::Execute_GetResourceHandler(GetOwner());
+		StatHandler = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
+		CrowdControlHandler = ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(GetOwner());
+		DamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
+	}
 	if (GetOwnerRole() == ROLE_Authority)
 	{
+		if (IsValid(StatHandler))
+		{
+			FAbilityModCondition StatCooldownMod;
+			StatCooldownMod.BindUFunction(this, FName(TEXT("ModifyCooldownFromStat")));
+			AddCooldownModifier(StatCooldownMod);
+			FAbilityModCondition StatGlobalCooldownMod;
+			StatGlobalCooldownMod.BindUFunction(this, FName(TEXT("ModifyGlobalCooldownFromStat")));
+			AddGlobalCooldownModifier(StatGlobalCooldownMod);
+			FAbilityModCondition StatCastLengthMod;
+			StatCastLengthMod.BindUFunction(this, FName(TEXT("ModifyCastLengthFromStat")));
+			AddCastLengthModifier(StatCastLengthMod);
+		}
+		if (IsValid(DamageHandler))
+		{
+			FLifeStatusCallback DeathCallback;
+			DeathCallback.BindUFunction(this, FName(TEXT("CancelCastOnDeath")));
+			DamageHandler->SubscribeToLifeStatusChanged(DeathCallback);
+		}
+		if (IsValid(CrowdControlHandler))
+		{
+			FCrowdControlCallback CcCallback;
+			CcCallback.BindUFunction(this, FName(TEXT("CancelCastOnCrowdControl")));
+			CrowdControlHandler->SubscribeToCrowdControlChanged(CcCallback);
+		}
 		for (TSubclassOf<UCombatAbility> const AbilityClass : DefaultAbilities)
 		{
 			AddNewAbility(AbilityClass);
 		}
 	}
 }
+
+FCombatModifier UAbilityHandler::ModifyCooldownFromStat(UCombatAbility* Ability)
+{
+	FCombatModifier Mod;
+	if (IsValid(StatHandler))
+	{
+		if (StatHandler->GetStatValid(CooldownLengthStatTag))
+		{
+			Mod.ModifierType = EModifierType::Multiplicative;
+			Mod.ModifierValue = StatHandler->GetStatValue(CooldownLengthStatTag);
+		}
+	}
+	return Mod;
+}
+
+FCombatModifier UAbilityHandler::ModifyGlobalCooldownFromStat(UCombatAbility* Ability)
+{
+	FCombatModifier Mod;
+	if (IsValid(StatHandler))
+	{
+		if (StatHandler->GetStatValid(GlobalCooldownLengthStatTag))
+		{
+			Mod.ModifierType = EModifierType::Multiplicative;
+			Mod.ModifierValue = StatHandler->GetStatValue(GlobalCooldownLengthStatTag);
+		}
+	}
+	return Mod;
+}
+
+FCombatModifier UAbilityHandler::ModifyCastLengthFromStat(UCombatAbility* Ability)
+{
+	FCombatModifier Mod;
+	if (IsValid(StatHandler))
+	{
+		if (StatHandler->GetStatValid(CastLengthStatTag))
+		{
+			Mod.ModifierType = EModifierType::Multiplicative;
+			Mod.ModifierValue = StatHandler->GetStatValue(CastLengthStatTag);
+		}
+	}
+	return Mod;
+}
+
+void UAbilityHandler::CancelCastOnDeath(ELifeStatus PreviousStatus, ELifeStatus NewStatus)
+{
+	if (GetCastingState().bIsCasting)
+	{
+		switch (NewStatus)
+		{
+			case ELifeStatus::Invalid :
+				CancelCurrentCast();
+				break;
+			case ELifeStatus::Alive :
+				break;
+			case ELifeStatus::Dead :
+				if (!GetCastingState().CurrentCast->GetCastableWhileDead())
+				{
+					CancelCurrentCast();
+					return;
+				}
+				break;
+			default :
+				break;
+		}
+	}
+}
+
+void UAbilityHandler::CancelCastOnCrowdControl(FCrowdControlStatus const& PreviousStatus, FCrowdControlStatus const& NewStatus)
+{
+	if (GetCastingState().bIsCasting && NewStatus.bActive == true)
+	{
+		if (GetCastingState().CurrentCast->GetRestrictedCrowdControls().HasTag(NewStatus.CrowdControlClass->GetDefaultObject<UCrowdControl>()->GetCrowdControlTag()))
+		{
+			CancelCurrentCast();
+		}
+	}
+}
+
 
 void UAbilityHandler::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
@@ -347,35 +455,12 @@ float UAbilityHandler::CalculateAbilityCooldown(UCombatAbility* Ability)
 	float CooldownLength = Ability->GetDefaultCooldown();
 	if (!Ability->GetHasStaticCooldown())
 	{
-		float AddMod = 0.0f;
-		float MultMod = 1.0f;
-		FCombatModifier TempMod;
+		TArray<FCombatModifier> ModArray;
 		for (FAbilityModCondition const& Condition : CooldownLengthMods)
 		{
-			TempMod = Condition.Execute(Ability);
-			switch (TempMod.ModifierType)
-			{
-			case EModifierType::Invalid :
-				break;
-			case EModifierType::Additive :
-				AddMod += TempMod.ModifierValue;
-				break;
-			case EModifierType::Multiplicative :
-				MultMod *= FMath::Max(0.0f, TempMod.ModifierValue);
-				break;
-			default :
-				break;
-			}
+			ModArray.Add(Condition.Execute(Ability));
 		}
-		if (IsValid(GetStatHandlerRef()))
-		{
-			float const ModFromStat = GetStatHandlerRef()->GetStatValue(CooldownLengthStatTag);
-			if (ModFromStat > 0.0f)
-			{
-				MultMod *= ModFromStat;
-			}
-		}
-		CooldownLength = FMath::Max(0.0f, CooldownLength + AddMod) * MultMod;
+		CooldownLength = FCombatModifier::CombineModifiers(ModArray, CooldownLength);
 	}
 	CooldownLength = FMath::Max(CooldownLength, MinimumCooldownLength);
 	return CooldownLength;
@@ -466,35 +551,12 @@ float UAbilityHandler::CalculateGlobalCooldownLength(UCombatAbility* Ability)
 	float GlobalLength = Ability->GetDefaultGlobalCooldownLength();
 	if (!Ability->HasStaticGlobalCooldown())
 	{
-		float AddMod = 0.0f;
-		float MultMod = 1.0f;
-		FCombatModifier TempMod;
-		for (FAbilityModCondition const& Condition : GlobalCooldownMods)
+		TArray<FCombatModifier> Mods;
+		for (FAbilityModCondition const& Mod : GlobalCooldownMods)
 		{
-			TempMod = Condition.Execute(Ability);
-			switch (TempMod.ModifierType)
-			{
-			case EModifierType::Invalid :
-				break;
-			case EModifierType::Additive :
-				AddMod += TempMod.ModifierValue;
-				break;
-			case EModifierType::Multiplicative :
-				MultMod *= FMath::Max(0.0f, TempMod.ModifierValue);
-				break;
-			default :
-				break;
-			}
+			Mods.Add(Mod.Execute(Ability));
 		}
-		if (IsValid(GetStatHandlerRef()))
-		{
-			float const ModFromStat = GetStatHandlerRef()->GetStatValue(GlobalCooldownLengthStatTag);
-			if (ModFromStat > 0.0f)
-			{
-				MultMod *= ModFromStat;
-			}
-		}
-		GlobalLength = FMath::Max(0.0f, GlobalLength + AddMod) * MultMod;
+		GlobalLength = FCombatModifier::CombineModifiers(Mods, GlobalLength);
 	}
 	GlobalLength = FMath::Max(MinimumGlobalCooldownLength, GlobalLength);
 	return GlobalLength;
@@ -589,35 +651,12 @@ float UAbilityHandler::CalculateCastLength(UCombatAbility* Ability)
 	float CastLength = Ability->GetDefaultCastLength();
 	if (!Ability->HasStaticCastLength())
 	{
-		float AddMod = 0.0f;
-		float MultMod = 1.0f;
-		FCombatModifier TempMod;
-		for (FAbilityModCondition const& Condition : CastLengthMods)
+		TArray<FCombatModifier> Mods;
+		for (FAbilityModCondition const& Mod : CastLengthMods)
 		{
-			TempMod = Condition.Execute(Ability);
-			switch (TempMod.ModifierType)
-			{
-			case EModifierType::Invalid :
-				break;
-			case EModifierType::Additive :
-				AddMod += TempMod.ModifierValue;
-				break;
-			case EModifierType::Multiplicative :
-				MultMod *= FMath::Max(0.0f, TempMod.ModifierValue);
-				break;
-			default :
-				break;
-			}
+			Mods.Add(Mod.Execute(Ability));
 		}
-		if (IsValid(GetStatHandlerRef()))
-		{
-			float const ModFromStat = GetStatHandlerRef()->GetStatValue(CastLengthStatTag);
-			if (ModFromStat > 0.0f)
-			{
-				MultMod *= ModFromStat;
-			}
-		}
-		CastLength = FMath::Max(0.0f, CastLength + AddMod) * MultMod;
+		CastLength = FCombatModifier::CombineModifiers(Mods, CastLength);
 	}
 	CastLength = FMath::Max(MinimumCastLength, CastLength);
 	return CastLength;
@@ -708,6 +747,12 @@ FCastEvent UAbilityHandler::UseAbility(TSubclassOf<UCombatAbility> const Ability
 	if (!IsValid(Result.Ability))
 	{
 		Result.FailReason = FString(TEXT("Did not find valid active ability."));
+		return Result;
+	}
+
+	if (!Result.Ability->GetCastableWhileDead() && IsValid(DamageHandler) && DamageHandler->GetLifeStatus() != ELifeStatus::Alive)
+	{
+		Result.FailReason = FString(TEXT("Cannot activate while dead."));
 		return Result;
 	}
 	

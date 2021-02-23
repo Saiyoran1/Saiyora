@@ -10,6 +10,7 @@
 
 class UCombatAbility;
 class UResourceHandler;
+class UStatHandler;
 
 UCLASS(Blueprintable, Abstract)
 class SAIYORAV4_API UResource : public UObject
@@ -75,7 +76,7 @@ public:
 	virtual bool IsSupportedForNetworking() const override { return true; }
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	
-	void AuthInitializeResource(UResourceHandler* NewHandler, FResourceInitInfo const& InitInfo);
+	void AuthInitializeResource(UResourceHandler* NewHandler, UStatHandler* StatHandler, FResourceInitInfo const& InitInfo);
 	void AuthDeactivateResource();
 
 	bool CalculateAndCheckAbilityCost(UCombatAbility* Ability, FAbilityCost& Cost);

@@ -25,11 +25,11 @@ struct FResourceState
 {
 	GENERATED_BODY()
 
-	UPROPERTY()
+	UPROPERTY(BlueprintReadOnly, Category = "Resource")
 	float Minimum = 0.0f;
-	UPROPERTY()
+	UPROPERTY(BlueprintReadOnly, Category = "Resource")
 	float Maximum = 0.0f;
-	UPROPERTY()
+	UPROPERTY(BlueprintReadOnly, Category = "Resource")
 	float CurrentValue = 0.0f;
 	UPROPERTY()
 	int32 LastCastID = 0;

@@ -180,13 +180,13 @@ struct FGlobalCooldown
 {
     GENERATED_BODY()
 
-    UPROPERTY()
+    UPROPERTY(BlueprintReadOnly)
     bool bGlobalCooldownActive = false;
     UPROPERTY()
     int32 CastID = 0;
-    UPROPERTY()
+    UPROPERTY(BlueprintReadOnly)
     float StartTime = 0.0f;
-    UPROPERTY()
+    UPROPERTY(BlueprintReadOnly)
     float EndTime = 0.0f;
 };
 

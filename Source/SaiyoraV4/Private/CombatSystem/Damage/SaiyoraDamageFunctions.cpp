@@ -3,16 +3,8 @@
 
 #include "SaiyoraDamageFunctions.h"
 #include "DamageHandler.h"
+#include "SaiyoraCombatInterface.h"
 #include "SaiyoraCombatLibrary.h"
-
-UDamageHandler* USaiyoraDamageFunctions::GetDamageHandler(AActor* Target)
-{
-    if (!Target)
-    {
-        return nullptr;
-    }
-    return Target->FindComponentByClass<UDamageHandler>();
-}
 
 FDamagingEvent USaiyoraDamageFunctions::ApplyDamage(float Amount, AActor* AppliedBy, AActor* AppliedTo, UObject* Source,
     EDamageHitStyle HitStyle, EDamageSchool School, bool IgnoreRestrictions, bool IgnoreModifiers)
@@ -21,14 +13,18 @@ FDamagingEvent USaiyoraDamageFunctions::ApplyDamage(float Amount, AActor* Applie
     FDamagingEvent DamageEvent;
 
     //Null checks.
-    if (!AppliedBy || !AppliedTo || !Source)
+    if (!IsValid(AppliedBy) || !IsValid(AppliedTo) || !IsValid(Source))
     {
         return DamageEvent;
     }
 
     //Check for valid target component.
-    UDamageHandler* TargetComponent = GetDamageHandler(AppliedTo);
-    if (!TargetComponent || !TargetComponent->CanEverReceiveDamage() || TargetComponent->GetLifeStatus() != ELifeStatus::Alive)
+     if (!AppliedTo->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+     {
+         return DamageEvent;
+     }
+    UDamageHandler* TargetComponent = ISaiyoraCombatInterface::Execute_GetDamageHandler(AppliedTo);
+    if (!IsValid(TargetComponent) || !TargetComponent->CanEverReceiveDamage() || TargetComponent->GetLifeStatus() != ELifeStatus::Alive)
     {
         return DamageEvent;
     }
@@ -46,41 +42,27 @@ FDamagingEvent USaiyoraDamageFunctions::ApplyDamage(float Amount, AActor* Applie
         DamageEvent.DamageInfo.AppliedByPlane, DamageEvent.DamageInfo.AppliedToPlane);
     
     //Check for generator. Not required.
-    UDamageHandler* GeneratorComponent = GetDamageHandler(AppliedBy);
+    UDamageHandler* GeneratorComponent = nullptr;
+    if (AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+    {
+        GeneratorComponent = ISaiyoraCombatInterface::Execute_GetDamageHandler(AppliedBy);
+    }
+     if (IsValid(GeneratorComponent) && !GeneratorComponent->CanEverDealDamage())
+     {
+         return DamageEvent;
+     }
 
     //Modify the damage, if ignore modifiers is false.
     if (!IgnoreModifiers)
     {
         //Add relevant incoming mods.
         TArray<FCombatModifier> Mods = TargetComponent->GetRelevantIncomingDamageMods(DamageEvent.DamageInfo);
-        if (GeneratorComponent && GeneratorComponent->CanEverDealDamage())
+        if (IsValid(GeneratorComponent))
         {
             //Add relevant outgoing mods.
             Mods.Append(GeneratorComponent->GetRelevantOutgoingDamageMods(DamageEvent.DamageInfo));
         }
-
-        float AdditiveMod = 0.0f;
-        float MultMod = 1.0f;
-        //Combine mods into additive and multiplicative values.
-        for (FCombatModifier const& Mod : Mods)
-        {
-            switch (Mod.ModifierType)
-            {
-                case EModifierType::Invalid :
-                    break;
-                case EModifierType::Additive :
-                    AdditiveMod += Mod.ModifierValue;
-                    break;
-                case EModifierType::Multiplicative :
-                    //Negative multiplicative modifiers are not allowed.
-                    MultMod *= FMath::Max(0.0f, Mod.ModifierValue);
-                    break;
-            }
-        }
-        //Apply additive mod first. Clamp at 0.
-        DamageEvent.DamageInfo.Damage = FMath::Max(0.0f, DamageEvent.DamageInfo.Damage + AdditiveMod);
-        //Apply multiplicative mod. No need to clamp as we already clamped each mod individually.
-        DamageEvent.DamageInfo.Damage *= MultMod;
+        DamageEvent.DamageInfo.Damage = FCombatModifier::CombineModifiers(Mods, DamageEvent.DamageInfo.Damage);
     }
 
     //Check for restrictions, if ignore restrictions is false.
@@ -92,7 +74,7 @@ FDamagingEvent USaiyoraDamageFunctions::ApplyDamage(float Amount, AActor* Applie
             return DamageEvent;
         }
         //Check outgoing restrictions.
-        if (GeneratorComponent && GeneratorComponent->CanEverDealDamage() && GeneratorComponent->CheckOutgoingDamageRestricted(DamageEvent.DamageInfo))
+        if (IsValid(GeneratorComponent) && GeneratorComponent->CheckOutgoingDamageRestricted(DamageEvent.DamageInfo))
         {
             return DamageEvent;
         }
@@ -102,7 +84,7 @@ FDamagingEvent USaiyoraDamageFunctions::ApplyDamage(float Amount, AActor* Applie
     TargetComponent->ApplyDamage(DamageEvent);
 
     //Notify the generator if one exists and the event was a success.
-    if (DamageEvent.Result.Success && GeneratorComponent && GeneratorComponent->CanEverDealDamage())
+    if (DamageEvent.Result.Success && IsValid(GeneratorComponent))
     {
        GeneratorComponent->NotifyOfOutgoingDamageSuccess(DamageEvent);
     }
@@ -117,14 +99,18 @@ FHealingEvent USaiyoraDamageFunctions::ApplyHealing(float Amount, AActor* Applie
     FHealingEvent HealingEvent;
 
     //Null checks.
-    if (!AppliedBy || !AppliedTo || !Source)
+    if (!IsValid(AppliedBy) || !IsValid(AppliedTo) || !IsValid(Source))
     {
         return HealingEvent;
     }
 
     //Check for valid target component.
-    UDamageHandler* TargetComponent = AppliedTo->FindComponentByClass<UDamageHandler>();
-    if (!TargetComponent || !TargetComponent->CanEverReceiveHealing())
+    if (!AppliedTo->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+    {
+        return HealingEvent;
+    }
+    UDamageHandler* TargetComponent = ISaiyoraCombatInterface::Execute_GetDamageHandler(AppliedTo);
+    if (!IsValid(TargetComponent) || !TargetComponent->CanEverReceiveHealing())
     {
         return HealingEvent;
     }
@@ -142,42 +128,27 @@ FHealingEvent USaiyoraDamageFunctions::ApplyHealing(float Amount, AActor* Applie
         HealingEvent.HealingInfo.AppliedByPlane, HealingEvent.HealingInfo.AppliedToPlane);
     
     //Check for generator. Not required.
-    UDamageHandler* GeneratorComponent = AppliedBy->FindComponentByClass<UDamageHandler>();
+    UDamageHandler* GeneratorComponent = nullptr;
+    if (AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+    {
+        GeneratorComponent = ISaiyoraCombatInterface::Execute_GetDamageHandler(AppliedBy);
+    }
+    if (IsValid(GeneratorComponent) && !GeneratorComponent->CanEverDealHealing())
+    {
+        return HealingEvent;
+    }
 
     //Modify the healing, if ignore modifiers is false.
     if (!IgnoreModifiers)
     {
-        TArray<FCombatModifier> Mods;
         //Add relevant incoming mods.
-        Mods.Append(TargetComponent->GetRelevantIncomingHealingMods(HealingEvent.HealingInfo));
-        if (GeneratorComponent && GeneratorComponent->CanEverDealHealing())
+        TArray<FCombatModifier> Mods = TargetComponent->GetRelevantIncomingHealingMods(HealingEvent.HealingInfo);
+        if (IsValid(GeneratorComponent))
         {
             //Add relevant outgoing mods.
             Mods.Append(GeneratorComponent->GetRelevantOutgoingHealingMods(HealingEvent.HealingInfo));
         }
-
-        float AdditiveMod = 0.0f;
-        float MultMod = 1.0f;
-        //Combine mods into additive and multiplicative values.
-        for (FCombatModifier const& Mod : Mods)
-        {
-            switch (Mod.ModifierType)
-            {
-                case EModifierType::Invalid :
-                    break;
-                case EModifierType::Additive :
-                    AdditiveMod += Mod.ModifierValue;
-                    break;
-                case EModifierType::Multiplicative :
-                    //Negative multiplicative modifiers are not allowed.
-                    MultMod *= FMath::Max(0.0f, Mod.ModifierValue);
-                    break;
-            }
-        }
-        //Apply additive mod first. Clamp at 0.
-        HealingEvent.HealingInfo.Healing = FMath::Max(0.0f, HealingEvent.HealingInfo.Healing + AdditiveMod);
-        //Apply multiplicative mod. No need to clamp as we already clamped each mod individually.
-        HealingEvent.HealingInfo.Healing *= MultMod;
+        HealingEvent.HealingInfo.Healing = FCombatModifier::CombineModifiers(Mods, HealingEvent.HealingInfo.Healing);
     }
 
     //Check for restrictions, if ignore restrictions is false.
@@ -189,7 +160,7 @@ FHealingEvent USaiyoraDamageFunctions::ApplyHealing(float Amount, AActor* Applie
             return HealingEvent;
         }
         //Check outgoing restrictions.
-        if (GeneratorComponent && GeneratorComponent->CanEverDealHealing() && GeneratorComponent->CheckOutgoingHealingRestricted(HealingEvent.HealingInfo))
+        if (IsValid(GeneratorComponent) && GeneratorComponent->CheckOutgoingHealingRestricted(HealingEvent.HealingInfo))
         {
             return HealingEvent;
         }
@@ -199,7 +170,7 @@ FHealingEvent USaiyoraDamageFunctions::ApplyHealing(float Amount, AActor* Applie
     TargetComponent->ApplyHealing(HealingEvent);
 
     //Notify the generator if one exists and the event was a success.
-    if (HealingEvent.Result.Success && GeneratorComponent && GeneratorComponent->CanEverDealHealing())
+    if (HealingEvent.Result.Success && IsValid(GeneratorComponent))
     {
        GeneratorComponent->NotifyOfOutgoingHealingSuccess(HealingEvent);
     }

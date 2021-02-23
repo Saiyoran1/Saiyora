@@ -17,8 +17,6 @@ class SAIYORAV4_API UBuff : public UObject
 	
 private:
 
-	static const FGameplayTag GenericBuffFunctionTag; 
-
 	//Display Info
 	//Basic information needed for UI display.
 	
@@ -91,7 +89,6 @@ private:
 	TArray<TSubclassOf<UBuffFunction>> ClientFunctionClasses;
 	UPROPERTY()
 	TArray<UBuffFunction*> Functions;
-	TMap<FGameplayTag, FGameplayTagContainer> FunctionTags;
 
 #pragma endregion
 	
@@ -110,9 +107,9 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Getter")
 	bool GetRefreshable() const { return bRefreshable; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Getter")
-	TMap<FGameplayTag, FGameplayTagContainer> GetServerFunctionTags() const;
+	void GetServerFunctionTags(FGameplayTagContainer& OutContainer) const;
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Getter")
-    TMap<FGameplayTag, FGameplayTagContainer> GetClientFunctionTags() const;
+    void GetClientFunctionTags(FGameplayTagContainer& OutContainer) const;
 
 	//Getters for basic information.
 	

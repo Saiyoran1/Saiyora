@@ -2,11 +2,10 @@
 
 
 #include "DamageHandler.h"
-
-#include "SaiyoraStatLibrary.h"
 #include "StatHandler.h"
 #include "BuffHandler.h"
-#include "SaiyoraBuffLibrary.h"
+#include "Buff.h"
+#include "SaiyoraCombatInterface.h"
 #include "UnrealNetwork.h"
 
 FGameplayTag const UDamageHandler::MaxHealthTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.MaxHealth")), false);
@@ -14,8 +13,8 @@ FGameplayTag const UDamageHandler::DamageDoneTag = FGameplayTag::RequestGameplay
 FGameplayTag const UDamageHandler::HealingDoneTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.HealingDone")), false);
 FGameplayTag const UDamageHandler::DamageTakenTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.DamageTaken")), false);
 FGameplayTag const UDamageHandler::HealingTakenTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.HealingTaken")), false);
-FGameplayTag const UDamageHandler::DamageBuffTag = FGameplayTag::RequestGameplayTag(FName(TEXT("BuffFunction.Damage")), false);
-FGameplayTag const UDamageHandler::HealingBuffTag = FGameplayTag::RequestGameplayTag(FName(TEXT("BuffFunction.Healing")), false);
+FGameplayTag const UDamageHandler::GenericDamageTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Damage")), false);
+FGameplayTag const UDamageHandler::GenericHealingTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Healing")), false);
 
 UDamageHandler::UDamageHandler()
 {
@@ -35,11 +34,16 @@ void UDamageHandler::BeginPlay()
 {
 	Super::BeginPlay();
 	
+	if (IsValid(GetOwner()) && GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	{
+		StatHandler = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
+		BuffHandler = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwner());
+	}
+	
 	if (GetOwnerRole() == ROLE_Authority)
 	{
 		//Bind Max Health stat, create damage and healing modifiers from stats.
-		UStatHandler* StatHandler = GetOwner()->FindComponentByClass<UStatHandler>();
-		if (StatHandler)
+		if (IsValid(StatHandler))
 		{
 			if (!StaticMaxHealth && StatHandler->GetStatValid(MaxHealthTag))
 			{
@@ -76,34 +80,33 @@ void UDamageHandler::BeginPlay()
 		}
 
 		//Add buff restrictions for damage and healing interactions that are not enabled.
-		UBuffHandler* BuffHandler = USaiyoraBuffLibrary::GetBuffHandler(GetOwner());
-		if (BuffHandler)
+		if (IsValid(BuffHandler))
 		{
 			if (!CanEverDealDamage())
 			{
 				FBuffEventCondition DamageBuffRestriction;
-				DamageBuffRestriction.BindUFunction(this, FName("RestrictOutgoingDamageBuffs"));
+				DamageBuffRestriction.BindUFunction(this, FName(TEXT("RestrictDamageBuffs")));
 				BuffHandler->AddOutgoingBuffRestriction(DamageBuffRestriction);
 			}
 
 			if (!CanEverReceiveDamage())
 			{
 				FBuffEventCondition DamageBuffRestriction;
-				DamageBuffRestriction.BindUFunction(this, FName("RestrictIncomingDamageBuffs"));
+				DamageBuffRestriction.BindUFunction(this, FName(TEXT("RestrictDamageBuffs")));
 				BuffHandler->AddIncomingBuffRestriction(DamageBuffRestriction);
 			}
 
 			if (!CanEverDealHealing())
 			{
 				FBuffEventCondition HealingBuffRestriction;
-				HealingBuffRestriction.BindUFunction(this, FName("RestrictOutgoingHealingBuffs"));
+				HealingBuffRestriction.BindUFunction(this, FName(TEXT("RestrictHealingBuffs")));
 				BuffHandler->AddOutgoingBuffRestriction(HealingBuffRestriction);
 			}
 
 			if (!CanEverReceiveHealing())
 			{
 				FBuffEventCondition HealingBuffRestriction;
-				HealingBuffRestriction.BindUFunction(this, FName("RestrictIncomingHealingBuffs"));
+				HealingBuffRestriction.BindUFunction(this, FName(TEXT("RestrictHealingBuffs")));
 				BuffHandler->AddIncomingBuffRestriction(HealingBuffRestriction);
 			}
 		}
@@ -274,17 +277,13 @@ bool UDamageHandler::CheckOutgoingDamageRestricted(FDamageInfo const& DamageInfo
 FCombatModifier UDamageHandler::ModifyDamageDoneFromStat(FDamageInfo const& DamageInfo)
 {
 	FCombatModifier Mod;
-	Mod.ModifierType = EModifierType::Multiplicative;
-	UStatHandler* StatHandler = USaiyoraStatLibrary::GetStatHandler(GetOwner());
-	if (!StatHandler)
+	if (IsValid(StatHandler))
 	{
-		Mod.ModifierType = EModifierType::Invalid;
-		return Mod;
-	}
-	Mod.ModifierValue = StatHandler->GetStatValue(DamageDoneTag);
-	if (Mod.ModifierValue < 0.0f)
-	{
-		Mod.ModifierType = EModifierType::Invalid;
+		if (StatHandler->GetStatValid(DamageDoneTag))
+		{
+			Mod.ModifierType = EModifierType::Multiplicative;
+			Mod.ModifierValue = StatHandler->GetStatValue(DamageDoneTag);
+		}
 	}
 	return Mod;
 }
@@ -356,6 +355,21 @@ void UDamageHandler::MulticastNotifyOfOutgoingDamageSuccess_Implementation(FDama
 	OnOutgoingDamage.Broadcast(DamageEvent);
 }
 
+bool UDamageHandler::RestrictDamageBuffs(FBuffApplyEvent const& BuffEvent)
+{
+	UBuff const* Buff = BuffEvent.BuffClass.GetDefaultObject();
+	if (IsValid(Buff))
+	{
+		FGameplayTagContainer BuffFunctionTags;
+		Buff->GetServerFunctionTags(BuffFunctionTags);
+		if (BuffFunctionTags.HasTag(GenericDamageTag))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 //Outgoing Healing
 
 void UDamageHandler::NotifyOfOutgoingHealingSuccess(FHealingEvent const& HealingEvent)
@@ -381,17 +395,13 @@ bool UDamageHandler::CheckOutgoingHealingRestricted(FHealingInfo const& HealingI
 FCombatModifier UDamageHandler::ModifyHealingDoneFromStat(FHealingInfo const& HealingInfo)
 {
 	FCombatModifier Mod;
-	Mod.ModifierType = EModifierType::Multiplicative;
-	UStatHandler* StatHandler = USaiyoraStatLibrary::GetStatHandler(GetOwner());
-	if (!StatHandler)
+	if (IsValid(StatHandler))
 	{
-		Mod.ModifierType = EModifierType::Invalid;
-		return Mod;
-	}
-	Mod.ModifierValue = StatHandler->GetStatValue(HealingDoneTag);
-	if (Mod.ModifierValue < 0.0f)
-	{
-		Mod.ModifierType = EModifierType::Invalid;
+		if (StatHandler->GetStatValid(HealingDoneTag))
+		{
+			Mod.ModifierType = EModifierType::Multiplicative;
+			Mod.ModifierValue = StatHandler->GetStatValue(HealingDoneTag);
+		}
 	}
 	return Mod;
 }
@@ -463,6 +473,21 @@ void UDamageHandler::MulticastNotifyOfOutgoingHealingSuccess_Implementation(FHea
 	OnOutgoingHealing.Broadcast(HealingEvent);
 }
 
+bool UDamageHandler::RestrictHealingBuffs(FBuffApplyEvent const& BuffEvent)
+{
+	UBuff const* Buff = BuffEvent.BuffClass.GetDefaultObject();
+	if (IsValid(Buff))
+	{
+		FGameplayTagContainer BuffFunctionTags;
+		Buff->GetServerFunctionTags(BuffFunctionTags);
+		if (BuffFunctionTags.HasTag(GenericHealingTag))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 //Incoming Damage
 
 void UDamageHandler::ApplyDamage(FDamagingEvent& DamageEvent)
@@ -503,17 +528,13 @@ bool UDamageHandler::CheckIncomingDamageRestricted(FDamageInfo const& DamageInfo
 FCombatModifier UDamageHandler::ModifyDamageTakenFromStat(FDamageInfo const& DamageInfo)
 {
 	FCombatModifier Mod;
-	Mod.ModifierType = EModifierType::Multiplicative;
-	UStatHandler* StatHandler = USaiyoraStatLibrary::GetStatHandler(GetOwner());
-	if (!StatHandler)
+	if (IsValid(StatHandler))
 	{
-		Mod.ModifierType = EModifierType::Invalid;
-		return Mod;
-	}
-	Mod.ModifierValue = StatHandler->GetStatValue(DamageTakenTag);
-	if (Mod.ModifierValue < 0.0f)
-	{
-		Mod.ModifierType = EModifierType::Invalid;
+		if (StatHandler->GetStatValid(DamageTakenTag))
+		{
+			Mod.ModifierType = EModifierType::Multiplicative;
+			Mod.ModifierValue = StatHandler->GetStatValue(DamageTakenTag);
+		}
 	}
 	return Mod;
 }
@@ -619,17 +640,13 @@ bool UDamageHandler::CheckIncomingHealingRestricted(FHealingInfo const& HealingI
 FCombatModifier UDamageHandler::ModifyHealingTakenFromStat(FHealingInfo const& HealingInfo)
 {
 	FCombatModifier Mod;
-	Mod.ModifierType = EModifierType::Multiplicative;
-	UStatHandler* StatHandler = USaiyoraStatLibrary::GetStatHandler(GetOwner());
-	if (!StatHandler)
+	if (IsValid(StatHandler))
 	{
-		Mod.ModifierType = EModifierType::Invalid;
-		return Mod;
-	}
-	Mod.ModifierValue = StatHandler->GetStatValue(HealingTakenTag);
-	if (Mod.ModifierValue < 0.0f)
-	{
-		Mod.ModifierType = EModifierType::Invalid;
+		if (StatHandler->GetStatValid(HealingTakenTag))
+		{
+			Mod.ModifierType = EModifierType::Multiplicative;
+			Mod.ModifierValue = StatHandler->GetStatValue(HealingTakenTag);
+		}
 	}
 	return Mod;
 }

@@ -13,9 +13,6 @@ class SAIYORAV4_API USaiyoraResourceFunctions : public UBlueprintFunctionLibrary
 {
 	GENERATED_BODY()
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resources")
-	static UResourceHandler* GetResourceHandler(AActor* Target);
-
 	/*UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Resources", meta = (GameplayTagFilter = "Resource"))
 	static FResourceEvent ModifyResource(FGameplayTag const& ResourceTag, AActor* AppliedBy, AActor* AppliedTo, float const Value, UObject* Source, bool const bIgnoreModifiers);*/
 };

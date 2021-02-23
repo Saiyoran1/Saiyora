@@ -16,10 +16,6 @@ class SAIYORAV4_API USaiyoraDamageFunctions : public UBlueprintFunctionLibrary
 
 public:
 
-	//Get an actor's DamageHandler component, if one exists.
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Damage")
-	static UDamageHandler* GetDamageHandler(AActor* Target);
-
 	//Apply damage to an actor.
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Damage")
 	static FDamagingEvent ApplyDamage(

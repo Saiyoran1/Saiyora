@@ -45,6 +45,8 @@ private:
     bool bInterruptible = true;
     UPROPERTY(EditDefaultsOnly, Category = "Crowd Control Info", meta = (Categories = "CrowdControl"))
     FGameplayTagContainer RestrictedCrowdControls;
+    UPROPERTY(EditDefaultsOnly, Category = "Crowd Control Info")
+    bool bCastableWhileDead = false;
     
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown Info")
     bool bOnGlobalCooldown = true;
@@ -135,6 +137,8 @@ public:
     int32 GetNumberOfTicks() const { return NonInitialTicks; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
     bool GetInterruptible() const { return bInterruptible; }
+    UFUNCTION(BlueprintCallable, BlueprintPure)
+    bool GetCastableWhileDead() const { return bCastableWhileDead; }
     
     UFUNCTION(BlueprintCallable, BlueprintPure)
     FGameplayTagContainer GetRestrictedCrowdControls() const { return RestrictedCrowdControls; }

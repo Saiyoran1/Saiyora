@@ -7,55 +7,39 @@
 #include "Kismet/KismetSystemLibrary.h"
 #include "BuffHandler.h"
 #include "SaiyoraBuffLibrary.h"
+#include "SaiyoraCombatInterface.h"
 #include "SaiyoraCombatLibrary.h"
 
 const float UBuff::MinimumBuffDuration = 0.1f;
-const FGameplayTag UBuff::GenericBuffFunctionTag = FGameplayTag::RequestGameplayTag(FName(TEXT("BuffFunction")));
 
-TMap<FGameplayTag, FGameplayTagContainer> UBuff::GetServerFunctionTags() const
+void UBuff::GetServerFunctionTags(FGameplayTagContainer& OutContainer) const
 {
-    if (HasAnyFlags(RF_ClassDefaultObject) || !GetAppliedTo()->HasAuthority())
+    for (TSubclassOf<UBuffFunction> const FunctionClass : ServerFunctionClasses)
     {
-        TMap<FGameplayTag, FGameplayTagContainer> DefaultTags;
-        for (TSubclassOf<UBuffFunction> const& FunctionClass : ServerFunctionClasses)
+        if (IsValid(FunctionClass))
         {
-            if (FunctionClass)
+            UBuffFunction const* FunctionDefault = FunctionClass->GetDefaultObject<UBuffFunction>();
+            if (IsValid(FunctionDefault))
             {
-                for (TTuple<FGameplayTag, FGameplayTagContainer> const& FunctionPair : FunctionClass.GetDefaultObject()->GetBuffFunctionTags())
-                {
-                    if (FunctionPair.Key.MatchesTag(GenericBuffFunctionTag))
-                    {
-                        DefaultTags.FindOrAdd(FunctionPair.Key).AppendTags(FunctionPair.Value);
-                    }       
-                }
+                OutContainer.AppendTags(FunctionDefault->GetBuffFunctionTags());
             }
         }
-        return DefaultTags;
     }
-    return FunctionTags;
 }
 
-TMap<FGameplayTag, FGameplayTagContainer> UBuff::GetClientFunctionTags() const
+void UBuff::GetClientFunctionTags(FGameplayTagContainer& OutContainer) const
 {
-    if (HasAnyFlags(RF_ClassDefaultObject) || GetAppliedTo()->HasAuthority())
+    for (TSubclassOf<UBuffFunction> const FunctionClass : ClientFunctionClasses)
     {
-        TMap<FGameplayTag, FGameplayTagContainer> DefaultTags;
-        for (TSubclassOf<UBuffFunction> const& FunctionClass : ClientFunctionClasses)
+        if (IsValid(FunctionClass))
         {
-            if (FunctionClass)
+            UBuffFunction const* FunctionDefault = FunctionClass->GetDefaultObject<UBuffFunction>();
+            if (IsValid(FunctionDefault))
             {
-                for (TTuple<FGameplayTag, FGameplayTagContainer> const& FunctionPair : FunctionClass.GetDefaultObject()->GetBuffFunctionTags())
-                {
-                    if (FunctionPair.Key.MatchesTag(GenericBuffFunctionTag))
-                    {
-                        DefaultTags.FindOrAdd(FunctionPair.Key).AppendTags(FunctionPair.Value);
-                    }       
-                }
+                OutContainer.AppendTags(FunctionDefault->GetBuffFunctionTags());
             }
         }
-        return DefaultTags;
     }
-    return FunctionTags;
 }
 
 void UBuff::InitializeBuff(FBuffApplyEvent& ApplicationEvent)
@@ -78,13 +62,6 @@ void UBuff::InitializeBuff(FBuffApplyEvent& ApplicationEvent)
         if (IsValid(FunctionClass))
         {
             UBuffFunction* NewFunction = Functions.Add_GetRef(NewObject<UBuffFunction>(ApplicationEvent.AppliedTo, FunctionClass));
-            for (TTuple<FGameplayTag, FGameplayTagContainer> const& FunctionPair : NewFunction->GetBuffFunctionTags())
-            {
-                if (FunctionPair.Key.MatchesTag(GenericBuffFunctionTag))
-                {
-                    FunctionTags.FindOrAdd(FunctionPair.Key).AppendTags(FunctionPair.Value);
-                }
-            }
             NewFunction->SetupBuffFunction(this);
         }   
     }
@@ -365,13 +342,6 @@ void UBuff::OnRep_CreationEvent()
         if (FunctionClass)
         {
             UBuffFunction* NewFunction = Functions.Add_GetRef(NewObject<UBuffFunction>(this, FunctionClass));
-            for (TTuple<FGameplayTag, FGameplayTagContainer> const& FunctionPair : NewFunction->GetBuffFunctionTags())
-            {
-                if (FunctionPair.Key.MatchesTag(GenericBuffFunctionTag))
-                {
-                    FunctionTags.FindOrAdd(FunctionPair.Key).AppendTags(FunctionPair.Value);
-                }
-            }
             NewFunction->SetupBuffFunction(this);
         }   
     }
@@ -451,15 +421,23 @@ void UBuff::UpdateClientStateOnApply(FBuffApplyEvent const& ReplicatedEvent)
 
 void UBuff::HandleBuffApplyEventReplication(FBuffApplyEvent const& ReplicatedEvent)
 {
-    UBuffHandler* BuffContainer = ReplicatedEvent.AppliedTo->FindComponentByClass<UBuffHandler>();
-    if (!BuffContainer)
+    if (!IsValid(ReplicatedEvent.AppliedTo) || !ReplicatedEvent.AppliedTo->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+    {
+        return;
+    }
+    UBuffHandler* BuffContainer = ISaiyoraCombatInterface::Execute_GetBuffHandler(ReplicatedEvent.AppliedTo);
+    if (!IsValid(BuffContainer))
     {
         return;
     }
     BuffContainer->NotifyOfReplicatedIncomingBuffApply(ReplicatedEvent);
 
-    UBuffHandler* BuffGenerator = ReplicatedEvent.AppliedBy->FindComponentByClass<UBuffHandler>();
-    if (BuffGenerator)
+    if (!IsValid(ReplicatedEvent.AppliedBy) || !ReplicatedEvent.AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+    {
+        return;
+    }
+    UBuffHandler* BuffGenerator = ISaiyoraCombatInterface::Execute_GetBuffHandler(ReplicatedEvent.AppliedBy);
+    if (IsValid(BuffGenerator))
     {
         BuffGenerator->NotifyOfReplicatedOutgoingBuffApply(ReplicatedEvent);
     }
@@ -467,15 +445,23 @@ void UBuff::HandleBuffApplyEventReplication(FBuffApplyEvent const& ReplicatedEve
 
 void UBuff::HandleBuffRemoveEventReplication(FBuffRemoveEvent const& ReplicatedEvent)
 {
-    UBuffHandler* BuffContainer = ReplicatedEvent.RemovedFrom->FindComponentByClass<UBuffHandler>();
-    if (!BuffContainer)
+    if (!IsValid(ReplicatedEvent.RemovedFrom) || !ReplicatedEvent.RemovedFrom->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+    {
+        return;
+    }
+    UBuffHandler* BuffContainer = ISaiyoraCombatInterface::Execute_GetBuffHandler(ReplicatedEvent.RemovedFrom);
+    if (!IsValid(BuffContainer))
     {
         return;
     }
     BuffContainer->NotifyOfReplicatedIncomingBuffRemove(ReplicatedEvent);
 
-    UBuffHandler* BuffGenerator = ReplicatedEvent.AppliedBy->FindComponentByClass<UBuffHandler>();
-    if (BuffGenerator)
+    if (!IsValid(ReplicatedEvent.AppliedBy) || !ReplicatedEvent.AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+    {
+        return;
+    }
+    UBuffHandler* BuffGenerator = ISaiyoraCombatInterface::Execute_GetBuffHandler(ReplicatedEvent.AppliedBy);
+    if (IsValid(BuffGenerator))
     {
         BuffGenerator->NotifyOfReplicatedOutgoingBuffRemove(ReplicatedEvent);
     }

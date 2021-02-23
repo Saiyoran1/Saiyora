@@ -16,10 +16,6 @@ class SAIYORAV4_API USaiyoraBuffLibrary : public UBlueprintFunctionLibrary
 
 public:
 
-	//Get an actor's BuffHandler component, if one exists.
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buffs")
-    static UBuffHandler* GetBuffHandler(AActor* Target);
-
 	//Attempt to apply a buff to an actor.
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Buffs", meta = (AutoCreateRefTerm = "EventParams"))
 	static FBuffApplyEvent ApplyBuff(

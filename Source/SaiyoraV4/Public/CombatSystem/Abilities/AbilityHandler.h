@@ -6,11 +6,14 @@
 #include "CombatAbility.h"
 #include "Components/ActorComponent.h"
 #include "SaiyoraGameState.h"
+#include "DamageEnums.h"
+#include "CrowdControlStructs.h"
 #include "AbilityHandler.generated.h"
 
 class UStatHandler;
 class UResourceHandler;
 class UCrowdControlHandler;
+class UDamageHandler;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class SAIYORAV4_API UAbilityHandler : public UActorComponent
@@ -41,9 +44,9 @@ public:
 	void CleanupRemovedAbility(UCombatAbility* Ability);
 
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
-	FCastEvent UseAbility(TSubclassOf<UCombatAbility> const AbilityClass);
+	virtual FCastEvent UseAbility(TSubclassOf<UCombatAbility> const AbilityClass);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
-	FCancelEvent CancelCurrentCast();
+	virtual FCancelEvent CancelCurrentCast();
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
 	FInterruptEvent InterruptCurrentCast(AActor* AppliedBy, UObject* InterruptSource);
 
@@ -139,6 +142,8 @@ private:
 	void EndGlobalCooldown();
 	float CalculateGlobalCooldownLength(UCombatAbility* Ability);
 	TArray<FAbilityModCondition> GlobalCooldownMods;
+	UFUNCTION()
+	FCombatModifier ModifyGlobalCooldownFromStat(UCombatAbility* Ability);
 
 	UPROPERTY(ReplicatedUsing = OnRep_CastingState)
 	FCastingState CastingState;
@@ -154,14 +159,25 @@ private:
 	void EndCast();
 	float CalculateCastLength(UCombatAbility* Ability);
 	TArray<FAbilityModCondition> CastLengthMods;
+	UFUNCTION()
+	FCombatModifier ModifyCastLengthFromStat(UCombatAbility* Ability);
 
 	TArray<FAbilityModCondition> CooldownLengthMods;
+	UFUNCTION()
+	FCombatModifier ModifyCooldownFromStat(UCombatAbility* Ability);
 
+	UFUNCTION()
+	void CancelCastOnDeath(ELifeStatus PreviousStatus, ELifeStatus NewStatus);
+	UFUNCTION()
+	void CancelCastOnCrowdControl(FCrowdControlStatus const& PreviousStatus, FCrowdControlStatus const& NewStatus);
+
+protected:
 	bool CheckAbilityRestricted(UCombatAbility* Ability);
+private:	
 	TArray<FAbilityRestriction> AbilityRestrictions;
-
+protected:
 	virtual void GenerateNewCastID(FCastEvent& CastEvent);
-	
+private:
 	FAbilityInstanceNotification OnAbilityAdded;
 	FAbilityInstanceNotification OnAbilityRemoved;
 	FAbilityNotification OnAbilityStart;
@@ -183,6 +199,8 @@ private:
 	UFUNCTION(NetMulticast, Unreliable)
 	void BroadcastAbilityInterrupt(FInterruptEvent const& InterruptEvent);
 
+protected:
+	
 	UPROPERTY()
 	ASaiyoraGameState* GameStateRef;
 	UPROPERTY()
@@ -191,4 +209,6 @@ private:
 	UStatHandler* StatHandler;
 	UPROPERTY()
 	UCrowdControlHandler* CrowdControlHandler;
+	UPROPERTY()
+	UDamageHandler* DamageHandler;
 };

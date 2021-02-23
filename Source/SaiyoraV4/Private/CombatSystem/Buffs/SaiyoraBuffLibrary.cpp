@@ -5,15 +5,7 @@
 #include "BuffHandler.h"
 #include "SaiyoraCombatLibrary.h"
 #include "Buff.h"
-
-UBuffHandler* USaiyoraBuffLibrary::GetBuffHandler(AActor* Target)
-{
-    if (!Target)
-    {
-        return nullptr;
-    }
-    return Target->FindComponentByClass<UBuffHandler>();
-}
+#include "SaiyoraCombatInterface.h"
 
 FBuffApplyEvent USaiyoraBuffLibrary::ApplyBuff(
     TSubclassOf<UBuff> const BuffClass,
@@ -32,15 +24,22 @@ FBuffApplyEvent USaiyoraBuffLibrary::ApplyBuff(
     FBuffApplyEvent Event;
 
     //Check required parameters (from, to, source, buff class) for null.
-    if (!AppliedBy || !AppliedTo || !Source || !BuffClass)
+    if (!IsValid(AppliedBy) || !IsValid(AppliedTo) || !IsValid(Source) || !IsValid(BuffClass))
     {
         Event.Result.ActionTaken = EBuffApplyAction::Failed;
         return Event;
     }
 
+    //Check that the target implements the combat interface.
+    if (!AppliedTo->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+    {
+        Event.Result.ActionTaken = EBuffApplyAction::Failed;
+        return Event;
+    }
+    
     //Find a buff container component on the target.
-    UBuffHandler* BuffTarget = GetBuffHandler(AppliedTo);
-    if (!BuffTarget)
+    UBuffHandler* BuffTarget = ISaiyoraCombatInterface::Execute_GetBuffHandler(AppliedTo);
+    if (!IsValid(BuffTarget))
     {
        Event.Result.ActionTaken = EBuffApplyAction::Failed;
        return Event;
@@ -67,12 +66,16 @@ FBuffApplyEvent USaiyoraBuffLibrary::ApplyBuff(
         Event.Result.ActionTaken = EBuffApplyAction::Failed;
         return Event;
     }
-    
+
+    UBuffHandler* BuffGenerator = nullptr;
     //Find a buff generator component on the actor applying the buff. Generator is not required.
-    UBuffHandler* BuffGenerator = GetBuffHandler(AppliedBy);
+    if (AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+    {
+        BuffGenerator = ISaiyoraCombatInterface::Execute_GetBuffHandler(AppliedBy);
+    }
 
     //Outgoing restriction checks. Ignore restrictions being true or no valid buff generator being found will bypass these checks.
-    if (!IgnoreRestrictions && BuffGenerator && BuffGenerator->CheckOutgoingBuffRestricted(Event))
+    if (!IgnoreRestrictions && IsValid(BuffGenerator) && BuffGenerator->CheckOutgoingBuffRestricted(Event))
     {
         Event.Result.ActionTaken = EBuffApplyAction::Failed;
         return Event;
@@ -95,15 +98,20 @@ FBuffRemoveEvent USaiyoraBuffLibrary::RemoveBuff(UBuff* Buff, EBuffExpireReason 
     FBuffRemoveEvent Event;
 
     //Null buff will result in a failed removal.
-    if (!Buff)
+    if (!IsValid(Buff) || !IsValid(Buff->GetAppliedTo()))
     {
         Event.Result = false;
         return Event;
     }
 
     //Check to make sure there is a valid buff container to remove the buff from.
-    UBuffHandler* RemoveFrom = Buff->GetAppliedTo()->FindComponentByClass<UBuffHandler>();
-    if (!RemoveFrom)
+    if (!Buff->GetAppliedTo()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+    {
+        Event.Result = false;
+        return Event;
+    }
+    UBuffHandler* RemoveFrom = ISaiyoraCombatInterface::Execute_GetBuffHandler(Buff->GetAppliedTo());
+    if (!IsValid(RemoveFrom))
     {
         Event.Result = false;
         return Event;
@@ -121,10 +129,13 @@ FBuffRemoveEvent USaiyoraBuffLibrary::RemoveBuff(UBuff* Buff, EBuffExpireReason 
     //On a successful removal, find the buff generator (if one exists) of the actor who applied the buff and notify it.
     if (Event.Result)
     {
-        UBuffHandler* BuffGenerator = Event.AppliedBy->FindComponentByClass<UBuffHandler>();
-        if (BuffGenerator)
+        if (IsValid(Event.AppliedBy) && Buff->GetAppliedTo()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
         {
-            BuffGenerator->SuccessfulOutgoingBuffRemoval(Event);
+            UBuffHandler* BuffGenerator = ISaiyoraCombatInterface::Execute_GetBuffHandler(Event.AppliedBy);
+            if (IsValid(BuffGenerator))
+            {
+                BuffGenerator->SuccessfulOutgoingBuffRemoval(Event);
+            }
         }
     }
 
