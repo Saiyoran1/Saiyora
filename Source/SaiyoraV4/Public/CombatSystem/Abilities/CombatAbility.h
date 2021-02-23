@@ -77,15 +77,19 @@ private:
         //***Ability Cooldown***
 
     //Server authoritative cooldown progress and charge status that the client can extrapolate from.
+protected:
     UPROPERTY(ReplicatedUsing = OnRep_AbilityCooldown)
     FAbilityCooldown AbilityCooldown;
-    UPROPERTY(ReplicatedUsing = OnRep_MaxCharges)
+private:
+    UPROPERTY(Replicated)
     int32 MaxCharges = 1;
     int32 ChargesPerCooldown = 1;
     FTimerHandle CooldownHandle;
-    UPROPERTY(ReplicatedUsing = OnRep_ChargesPerCast)
+    UPROPERTY(Replicated)
     int32 ChargesPerCast = 1;
+protected:
     FAbilityChargeNotification OnChargesChanged;
+private:
     void StartCooldown();
     UFUNCTION()
     void CompleteCooldown();
@@ -105,11 +109,7 @@ private:
     UFUNCTION()
     void OnRep_OwningComponent();
     UFUNCTION()
-    void OnRep_AbilityCooldown();
-    UFUNCTION()
-    void OnRep_MaxCharges();
-    UFUNCTION()
-    void OnRep_ChargesPerCast();
+    virtual void OnRep_AbilityCooldown();
     UFUNCTION()
     void OnRep_Deactivated(bool const Previous);
 
@@ -160,14 +160,14 @@ public:
     UFUNCTION(BlueprintCallable, BlueprintPure)
     int32 GetMaxCharges() const { return MaxCharges; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
-    int32 GetCurrentCharges() const { return AbilityCooldown.CurrentCharges; }
+    virtual int32 GetCurrentCharges() const { return AbilityCooldown.CurrentCharges; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
     float GetRemainingCooldown() const;
     UFUNCTION(BlueprintCallable, BlueprintPure)
     int32 GetChargeCost() const { return ChargesPerCast; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
-    bool CheckChargesMet() const { return AbilityCooldown.CurrentCharges >= ChargesPerCast; }
-    void CommitCharges(int32 const CastID);
+    virtual bool CheckChargesMet() const { return AbilityCooldown.CurrentCharges >= ChargesPerCast; }
+    virtual void CommitCharges(int32 const CastID);
     
     UFUNCTION(BlueprintCallable, BlueprintPure)
     float GetAbilityCost(FGameplayTag const& ResourceTag) const;

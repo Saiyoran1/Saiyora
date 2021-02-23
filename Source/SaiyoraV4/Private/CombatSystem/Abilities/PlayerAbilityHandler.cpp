@@ -67,8 +67,6 @@ FCastEvent UPlayerAbilityHandler::UseAbility(::TSubclassOf<UCombatAbility> const
         }
     }
 
-    //TODO: Do I need PlayerAbility class for this to work? Predicted Charges? Or can I calculate this within the component?
-    //Could store all charge predictions in the component, but I'd need to update them whenever abilities replicate their charges.
     if (!Event.Ability->CheckChargesMet())
     {
         Event.FailReason = FString(TEXT("Charges not met."));
@@ -100,11 +98,10 @@ FCastEvent UPlayerAbilityHandler::UseAbility(::TSubclassOf<UCombatAbility> const
 
     if (Event.Ability->GetHasGlobalCooldown())
     {
-        PredictGlobalCooldown(Event.Ability, Event.CastID);
+        StartGlobalCooldown(Event.Ability, Event.CastID);
     }
 
-    //TODO: Predict Charge Expenditure
-    //Event.Ability->CommitCharges(Result.CastID);
+    Event.Ability->CommitCharges(Event.CastID);
 	
     if (Costs.Num() > 0 && IsValid(PlayerResourceHandler))
     {
@@ -158,9 +155,49 @@ void UPlayerAbilityHandler::GenerateNewCastID(FCastEvent& CastEvent)
     PredictionCastID = 0;
 }
 
-void UPlayerAbilityHandler::PredictGlobalCooldown(UCombatAbility* Ability, int32 const CastID)
+void UPlayerAbilityHandler::StartGlobalCooldown(UCombatAbility* Ability, int32 const CastID)
 {
-    //TODO: GCD Prediction.
-    return;
+    if (GetOwnerRole() != ROLE_AutonomousProxy)
+    {
+        Super::StartGlobalCooldown(Ability, CastID);
+        return;
+    }
+    FGlobalCooldown const PreviousGlobal = PredictedGlobal;
+    PredictedGlobal.bGlobalCooldownActive = true;
+    PredictedGlobal.CastID = CastID;
+    if (PreviousGlobal.bGlobalCooldownActive != PredictedGlobal.bGlobalCooldownActive)
+    {
+        OnGlobalCooldownChanged.Broadcast(PreviousGlobal, PredictedGlobal);
+    }
 }
 
+void UPlayerAbilityHandler::RollBackFailedGlobal(int32 const FailID)
+{
+    if (PredictedGlobal.bGlobalCooldownActive && PredictedGlobal.CastID == FailID)
+    {
+        FGlobalCooldown const PreviousGlobal = PredictedGlobal;
+        PredictedGlobal.bGlobalCooldownActive = false;
+        if (PreviousGlobal.bGlobalCooldownActive != PredictedGlobal.bGlobalCooldownActive)
+        {
+            OnGlobalCooldownChanged.Broadcast(PreviousGlobal, PredictedGlobal);
+        }
+    }
+}
+
+void UPlayerAbilityHandler::OnRep_GlobalCooldownState(FGlobalCooldown const& PreviousGlobal)
+{
+    if (GetOwnerRole() != ROLE_AutonomousProxy)
+    {
+        Super::OnRep_GlobalCooldownState(PreviousGlobal);
+        return;
+    }
+    if (GlobalCooldownState.CastID >= PredictedGlobal.CastID)
+    {
+        FGlobalCooldown const PreviousState = PredictedGlobal;
+        PredictedGlobal = GlobalCooldownState;
+        if (PreviousState.bGlobalCooldownActive != PredictedGlobal.bGlobalCooldownActive || PreviousState.StartTime != PredictedGlobal.StartTime || PreviousState.EndTime != PredictedGlobal.EndTime)
+        {
+            OnGlobalCooldownChanged.Broadcast(PreviousState, PredictedGlobal);
+        }
+    }
+}

@@ -29,7 +29,10 @@ private:
 	//When the server generates a new CastID, it will get this set value from the client instead of a new generated value.
 	void SetPredictedCastID(int32 const PredictionID) { PredictionCastID = PredictionID; }
 
-	void PredictGlobalCooldown(UCombatAbility* Ability, int32 const CastID);
+	FGlobalCooldown PredictedGlobal;
+	virtual void StartGlobalCooldown(UCombatAbility* Ability, int32 const CastID) override;
+	void RollBackFailedGlobal(int32 const FailID);
+	virtual void OnRep_GlobalCooldownState(FGlobalCooldown const& PreviousGlobal) override;
 
 	//TODO: Child class of UResourceHandler, for prediction.
 	UPROPERTY()

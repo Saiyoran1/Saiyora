@@ -173,16 +173,6 @@ void UCombatAbility::OnRep_AbilityCooldown()
     return;
 }
 
-void UCombatAbility::OnRep_MaxCharges()
-{
-    return;
-}
-
-void UCombatAbility::OnRep_ChargesPerCast()
-{
-    return;
-}
-
 void UCombatAbility::OnRep_Deactivated(bool const Previous)
 {
     if (bDeactivated && !Previous)

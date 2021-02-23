@@ -132,12 +132,16 @@ private:
 	UPROPERTY()
 	TArray<UCombatAbility*> RecentlyRemovedAbilities;
 
+protected:
 	UPROPERTY(ReplicatedUsing = OnRep_GlobalCooldownState)
 	FGlobalCooldown GlobalCooldownState;
+private:
 	FTimerHandle GlobalCooldownHandle;
+protected:
 	UFUNCTION()
-	void OnRep_GlobalCooldownState(FGlobalCooldown const& PreviousGlobal);
-	void StartGlobalCooldown(UCombatAbility* Ability, int32 const CastID);
+	virtual void OnRep_GlobalCooldownState(FGlobalCooldown const& PreviousGlobal);
+	virtual void StartGlobalCooldown(UCombatAbility* Ability, int32 const CastID);
+private:
 	UFUNCTION()
 	void EndGlobalCooldown();
 	float CalculateGlobalCooldownLength(UCombatAbility* Ability);
@@ -186,8 +190,9 @@ private:
 	FAbilityCancelNotification OnAbilityCancelled;
 	FInterruptNotification OnAbilityInterrupted;
 	FCastingStateNotification OnCastStateChanged;
+protected:
 	FGlobalCooldownNotification OnGlobalCooldownChanged;
-
+private:
 	UFUNCTION(NetMulticast, Unreliable)
 	void BroadcastAbilityStart(FCastEvent const& CastEvent);
 	UFUNCTION(NetMulticast, Unreliable)
