@@ -17,8 +17,6 @@ class SAIYORAV4_API UCrowdControl : public UObject
 
 private:
 
-    UPROPERTY(EditDefaultsOnly, Category = "Crowd Control", meta = (Categories = "CrowdControl"))
-    FGameplayTag CrowdControlTag;
     UPROPERTY()
     TArray<UBuff*> CrowdControls;
     bool bActive;
@@ -41,7 +39,6 @@ public:
 
     void InitializeCrowdControl(UCrowdControlHandler* OwningComponent);
 
-    FGameplayTag GetCrowdControlTag() const { return CrowdControlTag; }
     FCrowdControlStatus GetCurrentStatus() const;
     bool GetInitialized() const { return bInitialized; }
 

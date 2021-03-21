@@ -21,7 +21,7 @@ public:
 	virtual void InitializeComponent() override;
 	virtual void GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
-	FGameplayTagContainer GetActiveCcTypes() const;
+	TArray<TSubclassOf<UCrowdControl>> GetActiveCcTypes() const;
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Crowd Control")
 	void ApplyCrowdControl(UBuff* Source, TSubclassOf<UCrowdControl> const CrowdControlType);
@@ -55,8 +55,8 @@ private:
 	bool RestrictImmunedCrowdControls(UBuff* Source, TSubclassOf<UCrowdControl> CrowdControlType);
 	void RemoveNewlyRestrictedCrowdControls(FCrowdControlRestriction const& NewRestriction);
 	
-	UPROPERTY(EditAnywhere, Category = "Crowd Control", meta = (AllowPrivateAccess = true, Categories = "CrowdControl"))
-	FGameplayTagContainer CrowdControlImmunities;
+	UPROPERTY(EditAnywhere, Category = "Crowd Control", meta = (AllowPrivateAccess = true))
+	TArray<TSubclassOf<UCrowdControl>> CrowdControlImmunities;
 
 	FCrowdControlNotification OnCrowdControlChanged;
 

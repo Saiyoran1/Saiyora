@@ -33,17 +33,17 @@ void UCrowdControlHandler::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty
 	DOREPLIFETIME(UCrowdControlHandler, ReplicatedCrowdControls);
 }
 
-FGameplayTagContainer UCrowdControlHandler::GetActiveCcTypes() const
+TArray<TSubclassOf<UCrowdControl>> UCrowdControlHandler::GetActiveCcTypes() const
 {
-	FGameplayTagContainer CCTags;
+	TArray<TSubclassOf<UCrowdControl>> ActiveCCs;
 	for (TTuple<TSubclassOf<UCrowdControl>, UCrowdControl*> const CrowdControl : CrowdControls)
 	{
 		if (CrowdControl.Value->GetCurrentStatus().bActive)
 		{
-			CCTags.AddTag(CrowdControl.Value->GetCrowdControlTag());
+			ActiveCCs.AddUnique(CrowdControl.Key);
 		}
 	}
-	return CCTags;
+	return ActiveCCs;
 }
 
 UCrowdControl* UCrowdControlHandler::GetCrowdControlObject(TSubclassOf<UCrowdControl> const CrowdControlType)
@@ -108,12 +108,7 @@ bool UCrowdControlHandler::RestrictImmunedCrowdControls(UBuff* Source,
 	{
 		return false;
 	}
-	UCrowdControl* DefaultObject = CrowdControlType->GetDefaultObject<UCrowdControl>();
-	if (!IsValid(DefaultObject))
-	{
-		return false;
-	}
-	return CrowdControlImmunities.HasTag(DefaultObject->GetCrowdControlTag());
+	return CrowdControlImmunities.Contains(CrowdControlType);
 }
 
 void UCrowdControlHandler::RemoveNewlyRestrictedCrowdControls(FCrowdControlRestriction const& NewRestriction)

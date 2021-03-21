@@ -38,7 +38,7 @@ class SAIYORAV4_API UResource : public UObject
 	UResourceHandler* Handler = nullptr;
 	UFUNCTION()
 	void OnRep_Handler();
-	virtual void InitializeReplicatedResource();
+	void InitializeReplicatedResource();
 	bool bInitialized = false;
 	UPROPERTY(ReplicatedUsing = OnRep_Deactivated)
 	bool bDeactivated = false;
@@ -47,8 +47,12 @@ class SAIYORAV4_API UResource : public UObject
 
 	UPROPERTY(ReplicatedUsing = OnRep_ResourceState)
 	FResourceState ResourceState;
+	FResourceState PredictedResourceState;
+	TMap<int32, float> ResourcePredictions;
+	void RecalculatePredictedResource(UObject* ChangeSource);
+	void PurgeOldPredictions();
 	UFUNCTION()
-	virtual void OnRep_ResourceState(FResourceState const& PreviousState);
+	void OnRep_ResourceState(FResourceState const& PreviousState);
 	bool bReceivedInitialState = false;
 
 	void SetNewMinimum(float const NewValue);
@@ -80,7 +84,10 @@ public:
 	void AuthDeactivateResource();
 
 	bool CalculateAndCheckAbilityCost(UCombatAbility* Ability, FAbilityCost& Cost);
-	void CommitAbilityCost(UCombatAbility* Ability, int32 const CastID, FAbilityCost const& Cost);
+	void CommitAbilityCost(UCombatAbility* Ability, int32 const PredictionID, FAbilityCost const& Cost);
+	void PredictAbilityCost(UCombatAbility* Ability, int32 const PredictionID, FAbilityCost const& Cost);
+	void RollbackFailedCost(int32 const PredictionID);
+	void UpdateCostPredictionFromServer(int32 const PredictionID, FAbilityCost const& ServerCost);
 
 	void AddResourceDeltaModifier(FResourceDeltaModifier const& Modifier);
 	void RemoveResourceDeltaModifier(FResourceDeltaModifier const& Modifier);
@@ -91,7 +98,7 @@ public:
 	void UnsubscribeFromResourceModsChanged(FResourceTagCallback const& Callback);
 
 	FGameplayTag GetResourceTag() const { return ResourceTag; }
-	virtual float GetCurrentValue() const { return ResourceState.CurrentValue; }
+	float GetCurrentValue() const;
 	float GetMinimum() const { return ResourceState.Minimum; }
 	float GetMaximum() const { return ResourceState.Maximum; }
 	bool GetInitialized() const { return bInitialized; }

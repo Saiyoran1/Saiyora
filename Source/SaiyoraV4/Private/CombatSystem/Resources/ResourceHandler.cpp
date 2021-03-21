@@ -150,7 +150,7 @@ bool UResourceHandler::CheckAbilityCostsMet(UCombatAbility* Ability, TArray<FAbi
 	return true;
 }
 
-void UResourceHandler::CommitAbilityCosts(UCombatAbility* Ability, int32 const CastID,
+void UResourceHandler::AuthCommitAbilityCosts(UCombatAbility* Ability, int32 const PredictionID,
 	TArray<FAbilityCost> const& Costs)
 {
 	for (FAbilityCost const& Cost : Costs)
@@ -160,7 +160,54 @@ void UResourceHandler::CommitAbilityCosts(UCombatAbility* Ability, int32 const C
 		{
 			continue;
 		}
-		Resource->CommitAbilityCost(Ability, CastID, Cost);
+		Resource->CommitAbilityCost(Ability, PredictionID, Cost);
+	}
+}
+
+void UResourceHandler::PredictCommitAbilityCosts(UCombatAbility* Ability, int32 const PredictionID,
+	TArray<FAbilityCost> const& Costs)
+{
+	for (FAbilityCost const& Cost : Costs)
+	{
+		UResource* Resource = FindActiveResource(Cost.ResourceTag);
+		if (IsValid(Resource))
+		{
+			Resource->PredictAbilityCost(Ability, PredictionID, Cost);
+		}
+	}
+}
+
+void UResourceHandler::RollbackFailedCosts(FGameplayTagContainer const& CostTags, int32 const PredictionID)
+{
+	TArray<FGameplayTag> RollbackTags;
+	CostTags.GetGameplayTagArray(RollbackTags);
+	for (FGameplayTag const ResourceTag : RollbackTags)
+	{
+		UResource* Resource = FindActiveResource(ResourceTag);
+		if (IsValid(Resource))
+		{
+			Resource->RollbackFailedCost(PredictionID);
+		}
+	}
+}
+
+void UResourceHandler::UpdatePredictedCostsFromServer(FServerAbilityResult const& ServerResult, TArray<FGameplayTag> const& MispredictedCosts)
+{
+	for (FAbilityCost const& Cost : ServerResult.AbilityCosts)
+	{
+		UResource* Resource = FindActiveResource(Cost.ResourceTag);
+		if (IsValid(Resource))
+		{
+			Resource->UpdateCostPredictionFromServer(ServerResult.PredictionID, Cost);
+		}
+	}
+	for (FGameplayTag const& MispredictionTag : MispredictedCosts)
+	{
+		UResource* Resource = FindActiveResource(MispredictionTag);
+		if (IsValid(Resource))
+		{
+			Resource->RollbackFailedCost(ServerResult.PredictionID);
+		}
 	}
 }
 
@@ -297,40 +344,3 @@ bool UResourceHandler::CheckResourceAlreadyExists(FGameplayTag const& ResourceTa
 {
 	return ActiveResources.Contains(ResourceTag);
 }
-
-//TODO: PlayerResourceHandler for prediction.
-/*void UPlayerResourceHandler::PredictResourceDelta(FGameplayTag const& ResourceTag, int32 const CastID,
-	float const ResourceDelta)
-{
-	FPredictedResource* PredictedResource = Cast<FPredictedResource>(ClientResources.Find(ResourceTag));
-	if (PredictedResource)
-	{
-		PredictedResource->PredictedResourceDeltas.Add(CastID, ResourceDelta);
-		float const PreviousValue = ClientResource->DisplayValue;
-		float const NewValue = ClientResource->UpdatePredictedValue();
-		if (NewValue != PreviousValue)
-		{
-			ClientResource->OnResourceChanged.Broadcast(ResourceTag, PreviousValue, NewValue);
-		}
-	}
-}
-
-void UPlayerResourceHandler::RollbackPredictedDeltas(int32 const CastID, FGameplayTagContainer const& PredictedResources)
-{
-	TArray<FGameplayTag> TagArray;
-	PredictedResources.GetGameplayTagArray(TagArray);
-	for (FGameplayTag Tag : TagArray)
-	{
-		FClientResource* ClientResource = ClientResources.Find(Tag);
-		if (ClientResource)
-		{
-			float const PreviousValue = ClientResource->DisplayValue;
-			float const NewValue = ClientResource->RollbackPredictedDelta(CastID);
-			if (PreviousValue != NewValue)
-			{
-				ClientResource->OnResourceChanged.Broadcast(Tag, PreviousValue, NewValue);
-			}
-		}
-	}
-}
-*/

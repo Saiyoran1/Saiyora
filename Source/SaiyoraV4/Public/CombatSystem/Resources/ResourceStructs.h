@@ -10,16 +10,6 @@
 
 class UResource;
 
-UENUM(BlueprintType)
-enum class EResourceValueType : uint8
-{
-	None = 0,
-	Current = 1,
-	Minimum = 2,
-	Maximum = 3,
-	CastID = 4,
-};
-
 USTRUCT(BlueprintType)
 struct FResourceState
 {
@@ -32,7 +22,7 @@ struct FResourceState
 	UPROPERTY(BlueprintReadOnly, Category = "Resource")
 	float CurrentValue = 0.0f;
 	UPROPERTY()
-	int32 LastCastID = 0;
+	int32 PredictionID = 0;
 };
 
 USTRUCT(BlueprintType)

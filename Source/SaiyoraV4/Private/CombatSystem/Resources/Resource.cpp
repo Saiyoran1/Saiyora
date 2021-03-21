@@ -29,7 +29,7 @@ void UResource::AuthInitializeResource(UResourceHandler* NewHandler, UStatHandle
     ResourceState.Minimum = FMath::Max(0.0f, InitInfo.bHasCustomMinimum ? InitInfo.CustomMinValue : DefaultMinimum);
     ResourceState.Maximum = FMath::Max(GetMinimum(), InitInfo.bHasCustomMaximum ? InitInfo.CustomMaxValue : DefaultMaximum);
     ResourceState.CurrentValue = FMath::Clamp(InitInfo.bHasCustomInitial ? InitInfo.CustomInitialValue : DefaultValue, GetMinimum(), GetMaximum());
-    ResourceState.LastCastID = 0;
+    ResourceState.PredictionID = 0;
     
     //Bind the resource minimum to a stat if needed.
     if (MinimumBindStat.IsValid() && MinimumBindStat.MatchesTag(UStatHandler::GenericStatTag))
@@ -105,23 +105,85 @@ bool UResource::CalculateAndCheckAbilityCost(UCombatAbility* Ability, FAbilityCo
     return false;
 }
 
-void UResource::CommitAbilityCost(UCombatAbility* Ability, int32 const CastID, FAbilityCost const& Cost)
+void UResource::CommitAbilityCost(UCombatAbility* Ability, int32 const PredictionID, FAbilityCost const& Cost)
 {
     if (Handler->GetOwnerRole() != ROLE_Authority)
     {
         return;
     }
     FResourceState const PreviousState = ResourceState;
-    ResourceState.CurrentValue = FMath::Clamp(GetCurrentValue() - Cost.Cost, ResourceState.Minimum, ResourceState.Maximum);
-    ResourceState.LastCastID = CastID;
-    if (PreviousState.CurrentValue != GetCurrentValue() || PreviousState.LastCastID != ResourceState.LastCastID)
+    ResourceState.CurrentValue = FMath::Clamp(ResourceState.CurrentValue - Cost.Cost, ResourceState.Minimum, ResourceState.Maximum);
+    if (PredictionID != 0)
     {
-        OnResourceChanged.Broadcast(GetResourceTag(), Ability, PreviousState, ResourceState);
+        ResourceState.PredictionID = PredictionID;
+    }
+    if (PreviousState.CurrentValue != ResourceState.CurrentValue || PreviousState.PredictionID != ResourceState.PredictionID)
+    {
+        OnResourceChanged.Broadcast(ResourceTag, Ability, PreviousState, ResourceState);
+    }
+}
+
+void UResource::PredictAbilityCost(UCombatAbility* Ability, int32 const PredictionID, FAbilityCost const& Cost)
+{
+    ResourcePredictions.Add(PredictionID, Cost.Cost);
+    RecalculatePredictedResource(Ability);
+}
+
+void UResource::RollbackFailedCost(int32 const PredictionID)
+{
+    if (ResourcePredictions.Remove(PredictionID) > 0)
+    {
+        RecalculatePredictedResource(nullptr);
+    }
+}
+
+void UResource::UpdateCostPredictionFromServer(int32 const PredictionID, FAbilityCost const& ServerCost)
+{
+    if (ResourceState.PredictionID >= PredictionID)
+    {
+        return;
+    }
+    float const OldPrediction = ResourcePredictions.FindRef(PredictionID);
+    if (OldPrediction != ServerCost.Cost)
+    {
+        ResourcePredictions.Add(PredictionID, ServerCost.Cost);
+        RecalculatePredictedResource(nullptr);
+    }
+}
+
+void UResource::RecalculatePredictedResource(UObject* ChangeSource)
+{
+    FResourceState const PreviousState = PredictedResourceState;
+    PredictedResourceState = ResourceState;
+    for (TTuple<int32, float> const& Prediction : ResourcePredictions)
+    {
+        PredictedResourceState.CurrentValue = FMath::Clamp(PredictedResourceState.CurrentValue - Prediction.Value, ResourceState.Minimum, ResourceState.Maximum);
+    }
+    if (PreviousState.CurrentValue != PredictedResourceState.CurrentValue)
+    {
+        OnResourceChanged.Broadcast(ResourceTag, ChangeSource, PreviousState, PredictedResourceState);
+    }
+}
+
+void UResource::PurgeOldPredictions()
+{
+    TArray<int32> OldPredictionIDs;
+    for (TTuple<int32, float> const& Prediction : ResourcePredictions)
+    {
+        if (Prediction.Key <= ResourceState.PredictionID)
+        {
+            OldPredictionIDs.Add(Prediction.Key);
+        }
+    }
+    for (int32 const ID : OldPredictionIDs)
+    {
+        ResourcePredictions.Remove(ID);
     }
 }
 
 void UResource::InitializeReplicatedResource()
 {
+    PredictedResourceState = ResourceState;
     InitializeResource();
     bInitialized = true;
 }
@@ -172,10 +234,16 @@ void UResource::OnRep_ResourceState(FResourceState const& PreviousState)
         Handler->NotifyOfReplicatedResource(this);
         return;
     }
-    if (PreviousState.Maximum != ResourceState.Maximum || PreviousState.Minimum != ResourceState.Minimum || PreviousState.CurrentValue != ResourceState.CurrentValue)
+    if (Handler->GetOwnerRole() != ROLE_AutonomousProxy)
     {
-        OnResourceChanged.Broadcast(GetResourceTag(), nullptr, PreviousState, ResourceState);
+        if (PreviousState.Maximum != ResourceState.Maximum || PreviousState.Minimum != ResourceState.Minimum || PreviousState.CurrentValue != ResourceState.CurrentValue)
+        {
+            OnResourceChanged.Broadcast(GetResourceTag(), nullptr, PreviousState, ResourceState);
+        }
+        return;
     }
+    PurgeOldPredictions();
+    RecalculatePredictedResource(nullptr);
 }
 
 void UResource::SetNewMinimum(float const NewValue)
@@ -300,4 +368,13 @@ void UResource::UnsubscribeFromResourceModsChanged(FResourceTagCallback const& C
         return;
     }
     OnResourceDeltaModsChanged.Remove(Callback);
+}
+
+float UResource::GetCurrentValue() const
+{
+    if (Handler->GetOwnerRole() != ROLE_AutonomousProxy)
+    {
+        return ResourceState.CurrentValue;
+    }
+    return PredictedResourceState.CurrentValue;
 }

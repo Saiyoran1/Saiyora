@@ -70,7 +70,7 @@ struct FAbilityCooldown
     UPROPERTY()
     float CooldownEndTime = 0.0f;
     UPROPERTY()
-    int32 LastAckedID = 0;
+    int32 PredictionID = 0;
 };
 
 USTRUCT(BlueprintType)
@@ -78,9 +78,9 @@ struct FAbilityFloatParam
 {
     GENERATED_BODY()
 
-    UPROPERTY()
+    UPROPERTY(BlueprintReadWrite)
     EFloatParamType ParamType = EFloatParamType::None;
-    UPROPERTY()
+    UPROPERTY(BlueprintReadWrite)
     float ParamValue = 0.0f;
 };
 
@@ -89,9 +89,9 @@ struct FAbilityPointerParam
 {
     GENERATED_BODY()
 
-    UPROPERTY()
+    UPROPERTY(BlueprintReadWrite)
     EPointerParamType ParamType = EPointerParamType::None;
-    UPROPERTY()
+    UPROPERTY(BlueprintReadWrite)
     AActor* ParamPointer = nullptr;
 };
 
@@ -100,9 +100,9 @@ struct FAbilityTagParam
 {
     GENERATED_BODY()
 
-    UPROPERTY()
+    UPROPERTY(BlueprintReadWrite)
     ETagParamType ParamType = ETagParamType::None;
-    UPROPERTY(meta = (Categories = "Param"))
+    UPROPERTY(BlueprintReadWrite, meta = (Categories = "Param"))
     FGameplayTag ParamTag;
 };
 
@@ -120,7 +120,7 @@ struct FCastEvent
     UPROPERTY(BlueprintReadOnly)
     FString FailReason;
     UPROPERTY()
-    int32 CastID = 0;
+    int32 PredictionID = 0;
 };
 
 USTRUCT(BlueprintType)
@@ -128,21 +128,21 @@ struct FCancelEvent
 {
     GENERATED_BODY()
 
-    UPROPERTY()
+    UPROPERTY(BlueprintReadOnly)
     bool bSuccess = false;
-    UPROPERTY()
+    UPROPERTY(BlueprintReadOnly)
     UCombatAbility* CancelledAbility = nullptr;
     UPROPERTY()
     int32 CancelID = 0;
     UPROPERTY()
     int32 CancelledCastID = 0;
-    UPROPERTY()
+    UPROPERTY(BlueprintReadOnly)
     float CancelledCastStart = 0.0f;
-    UPROPERTY()
+    UPROPERTY(BlueprintReadOnly)
     float CancelledCastEnd = 0.0f;
-    UPROPERTY()
+    UPROPERTY(BlueprintReadOnly)
     float CancelTime = 0.0f;
-    UPROPERTY()
+    UPROPERTY(BlueprintReadOnly)
     int32 ElapsedTicks = 0;
 };
 
@@ -151,27 +151,27 @@ struct FInterruptEvent
 {
     GENERATED_BODY()
 
-    UPROPERTY()
+    UPROPERTY(BlueprintReadOnly)
     bool bSuccess = false;
-    UPROPERTY()
+    UPROPERTY(BlueprintReadOnly)
     FString FailReason;
-    UPROPERTY()
+    UPROPERTY(BlueprintReadOnly)
     AActor* InterruptAppliedTo = nullptr;
-    UPROPERTY()
+    UPROPERTY(BlueprintReadOnly)
     AActor* InterruptAppliedBy = nullptr;
-    UPROPERTY()
+    UPROPERTY(BlueprintReadOnly)
     UCombatAbility* InterruptedAbility = nullptr;
     UPROPERTY()
     int32 CancelledCastID = 0;
-    UPROPERTY()
+    UPROPERTY(BlueprintReadOnly)
     UObject* InterruptSource = nullptr;
-    UPROPERTY()
+    UPROPERTY(BlueprintReadOnly)
     float InterruptedCastStart = 0.0f;
-    UPROPERTY()
+    UPROPERTY(BlueprintReadOnly)
     float InterruptedCastEnd = 0.0f;
-    UPROPERTY()
+    UPROPERTY(BlueprintReadOnly)
     float InterruptTime = 0.0f;
-    UPROPERTY()
+    UPROPERTY(BlueprintReadOnly)
     int32 ElapsedTicks = 0;
 };
 
@@ -183,7 +183,7 @@ struct FGlobalCooldown
     UPROPERTY(BlueprintReadOnly)
     bool bGlobalCooldownActive = false;
     UPROPERTY()
-    int32 CastID = 0;
+    int32 PredictionID = 0;
     UPROPERTY(BlueprintReadOnly)
     float StartTime = 0.0f;
     UPROPERTY(BlueprintReadOnly)
@@ -195,45 +195,83 @@ struct FCastingState
 {
     GENERATED_BODY()
 
-    UPROPERTY()
+    UPROPERTY(BlueprintReadOnly)
     bool bIsCasting = false;
-    UPROPERTY()
+    UPROPERTY(BlueprintReadOnly)
     UCombatAbility* CurrentCast = nullptr;
-    UPROPERTY()
-    int32 CurrentCastID = 0;
-    UPROPERTY()
+    UPROPERTY(NotReplicated)
+    int32 PredictionID = 0;
+    UPROPERTY(BlueprintReadOnly)
     float CastStartTime = 0.0f;
-    UPROPERTY()
+    UPROPERTY(BlueprintReadOnly)
     float CastEndTime = 0.0f;
-    UPROPERTY()
+    UPROPERTY(BlueprintReadOnly)
     bool bInterruptible = true;
-    UPROPERTY()
+    UPROPERTY(BlueprintReadOnly, NotReplicated)
     int32 ElapsedTicks = 0;
 };
 
 USTRUCT()
-struct FCastRequest
+struct FAbilityRequest
 {
     GENERATED_BODY()
 
     UPROPERTY()
     TSubclassOf<UCombatAbility> AbilityClass;
     UPROPERTY()
-    int32 CastID = 0;
+    int32 PredictionID = 0;
     UPROPERTY()
-    FGameplayTagContainer PredictedCostTags;
+    float ClientStartTime = 0.0f;
     UPROPERTY()
+    TArray<FAbilityFloatParam> PredictedFloatParams;
+    UPROPERTY()
+    TArray<FAbilityPointerParam> PredictedPointerParams;
+    UPROPERTY()
+    TArray<FAbilityTagParam> PredictedTagParams;
+};
+
+USTRUCT()
+struct FClientAbilityPrediction
+{
+    GENERATED_BODY()
+    
+    UPROPERTY()
+    UCombatAbility* Ability = nullptr;
+    int32 PredictionID = 0;
+    float ClientTime = 0.0f;
     bool bPredictedGCD = false;
-    UPROPERTY()
     bool bPredictedCharges = false;
-    UPROPERTY()
     bool bPredictedCastBar = false;
+    FGameplayTagContainer PredictedCostTags;
+};
+
+USTRUCT()
+struct FServerAbilityResult
+{
+    GENERATED_BODY()
+
     UPROPERTY()
-    TArray<FAbilityFloatParam> AbilityFloatParams;
+    int32 PredictionID = 0;
     UPROPERTY()
-    TArray<FAbilityPointerParam> AbilityPointerParams;
+    TSubclassOf<UCombatAbility> AbilityClass;
     UPROPERTY()
-    TArray<FAbilityTagParam> AbilityTagParams;
+    float ClientStartTime = 0.0f;
+    UPROPERTY()
+    bool bActivatedGlobal = false;
+    UPROPERTY()
+    float GlobalLength = 0.0f;
+    UPROPERTY()
+    bool bSpentCharges = false;
+    UPROPERTY()
+    int32 ChargesSpent = 0;
+    UPROPERTY()
+    bool bActivatedCastBar = false;
+    UPROPERTY()
+    float CastLength = 0.0f;
+    UPROPERTY()
+    bool bInterruptible = false;
+    UPROPERTY()
+    TArray<FAbilityCost> AbilityCosts;
 };
 
 USTRUCT()
@@ -244,15 +282,26 @@ struct FTickRequest
     UPROPERTY()
     TSubclassOf<UCombatAbility> AbilityClass;
     UPROPERTY()
-    int32 CastID = 0;
+    int32 PredictionID = 0;
     UPROPERTY()
     int32 Tick = 0;
     UPROPERTY()
-    TArray<FAbilityFloatParam> AbilityFloatParams;
+    TArray<FAbilityFloatParam> PredictedFloatParams;
     UPROPERTY()
-    TArray<FAbilityPointerParam> AbilityPointerParams;
+    TArray<FAbilityPointerParam> PredictedPointerParams;
     UPROPERTY()
-    TArray<FAbilityTagParam> AbilityTagParams;
+    TArray<FAbilityTagParam> PredictedTagParams;
+};
+
+USTRUCT()
+struct FPredictedTick
+{
+    GENERATED_BODY()
+
+    int32 PredictionID;
+    int32 TickNumber;
+
+    FORCEINLINE bool operator==(const FPredictedTick& Other) const { return Other.PredictionID == PredictionID && Other.TickNumber == TickNumber; }
 };
 
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FAbilityModCondition, UCombatAbility*, Ability);
@@ -260,14 +309,14 @@ DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FAbilityRestriction, UCombatAbili
 DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityInstanceCallback, UCombatAbility*, NewAbility);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityCallback, FCastEvent const&, Event);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityCancelCallback, FCancelEvent const&, Event);
-DECLARE_DYNAMIC_DELEGATE_OneParam(FInterruptCallback, FInterruptEvent, InterruptEvent);
+DECLARE_DYNAMIC_DELEGATE_OneParam(FInterruptCallback, FInterruptEvent const&, InterruptEvent);
 DECLARE_DYNAMIC_DELEGATE_ThreeParams(FAbilityChargeCallback, UCombatAbility*, Ability, int32 const, OldCharges, int32 const, NewCharges);
 DECLARE_DYNAMIC_DELEGATE_TwoParams(FGlobalCooldownCallback, FGlobalCooldown const&, OldGlobalCooldown, FGlobalCooldown const&, NewGlobalCooldown);
 DECLARE_DYNAMIC_DELEGATE_TwoParams(FCastingStateCallback, FCastingState const&, OldState, FCastingState const&, NewState);
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityNotification, FCastEvent const&, Event);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityCancelNotification, FCancelEvent const&, Event);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FInterruptNotification, FInterruptEvent, InterruptEvent);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FInterruptNotification, FInterruptEvent const&, InterruptEvent);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FAbilityChargeNotification, UCombatAbility*, Ability, int32 const, OldCharges, int32 const, NewCharges);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityInstanceNotification, UCombatAbility*, NewAbility);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FGlobalCooldownNotification, FGlobalCooldown const&, OldGlobalCooldown, FGlobalCooldown const&, NewGlobalCooldown);

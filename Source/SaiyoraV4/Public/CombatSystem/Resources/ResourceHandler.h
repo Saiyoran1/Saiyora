@@ -40,7 +40,10 @@ public:
 	float GetResourceMaximum(FGameplayTag const& ResourceTag) const;
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resource", meta = (GameplayTagFilter = "Resource"))
 	bool CheckAbilityCostsMet(UCombatAbility* Ability, TArray<FAbilityCost>& OutCosts) const;
-	void CommitAbilityCosts(UCombatAbility* Ability, int32 const CastID, TArray<FAbilityCost> const& Costs);
+	void AuthCommitAbilityCosts(UCombatAbility* Ability, int32 const PredictionID, TArray<FAbilityCost> const& Costs);
+	void PredictCommitAbilityCosts(UCombatAbility* Ability, int32 const PredictionID, TArray<FAbilityCost> const& Costs);
+	void UpdatePredictedCostsFromServer(FServerAbilityResult const& ServerResult, TArray<FGameplayTag> const& MispredictedCosts);
+	void RollbackFailedCosts(FGameplayTagContainer const& CostTags, int32 const PredictionID);
 
 	UFUNCTION(BlueprintCallable, Category = "Resource")
 	void SubscribeToResourceAdded(FResourceInstanceCallback const& Callback);

@@ -9,6 +9,8 @@
 #include "CombatAbility.generated.h"
 
 struct FCombatModifier;
+class UCrowdControl;
+
 UCLASS(Abstract, Blueprintable)
 class SAIYORAV4_API UCombatAbility : public UObject
 {
@@ -40,11 +42,15 @@ private:
     bool bInitialTick = true;
     UPROPERTY(EditDefaultsOnly, Category = "Cast Info")
     int32 NonInitialTicks = 0;
+    UPROPERTY(EditDefaultsOnly, Category = "Cast Info")
+    TMap<int32, bool> TicksWithPredictionParams;
+    UPROPERTY(EditDefaultsOnly, Category = "Cast Info")
+    TMap<int32, bool> TicksWithBroadcastParams;
     
     UPROPERTY(EditDefaultsOnly, Category = "Crowd Control Info")
     bool bInterruptible = true;
-    UPROPERTY(EditDefaultsOnly, Category = "Crowd Control Info", meta = (Categories = "CrowdControl"))
-    FGameplayTagContainer RestrictedCrowdControls;
+    UPROPERTY(EditDefaultsOnly, Category = "Crowd Control Info")
+    TArray<TSubclassOf<UCrowdControl>> RestrictedCrowdControls;
     UPROPERTY(EditDefaultsOnly, Category = "Crowd Control Info")
     bool bCastableWhileDead = false;
     
@@ -77,19 +83,19 @@ private:
         //***Ability Cooldown***
 
     //Server authoritative cooldown progress and charge status that the client can extrapolate from.
-protected:
     UPROPERTY(ReplicatedUsing = OnRep_AbilityCooldown)
     FAbilityCooldown AbilityCooldown;
-private:
+    FAbilityCooldown PredictedCooldown;
+    TMap<int32, int32> ChargePredictions;
+    void PurgeOldPredictions();
+    void RecalculatePredictedCooldown();
     UPROPERTY(Replicated)
     int32 MaxCharges = 1;
     int32 ChargesPerCooldown = 1;
     FTimerHandle CooldownHandle;
     UPROPERTY(Replicated)
     int32 ChargesPerCast = 1;
-protected:
     FAbilityChargeNotification OnChargesChanged;
-private:
     void StartCooldown();
     UFUNCTION()
     void CompleteCooldown();
@@ -109,9 +115,11 @@ private:
     UFUNCTION()
     void OnRep_OwningComponent();
     UFUNCTION()
-    virtual void OnRep_AbilityCooldown();
+    void OnRep_AbilityCooldown();
     UFUNCTION()
     void OnRep_Deactivated(bool const Previous);
+
+    TMap<int32, bool> StoredTickPredictionParameters;
 
 public:
 
@@ -141,7 +149,7 @@ public:
     bool GetCastableWhileDead() const { return bCastableWhileDead; }
     
     UFUNCTION(BlueprintCallable, BlueprintPure)
-    FGameplayTagContainer GetRestrictedCrowdControls() const { return RestrictedCrowdControls; }
+    TArray<TSubclassOf<UCrowdControl>> GetRestrictedCrowdControls() const { return RestrictedCrowdControls; }
 
     UFUNCTION(BlueprintCallable, BlueprintPure)
     bool CheckCustomCastConditionsMet() const { return bCustomCastConditionsMet; }
@@ -160,14 +168,25 @@ public:
     UFUNCTION(BlueprintCallable, BlueprintPure)
     int32 GetMaxCharges() const { return MaxCharges; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
-    virtual int32 GetCurrentCharges() const { return AbilityCooldown.CurrentCharges; }
+    int32 GetCurrentCharges() const;
     UFUNCTION(BlueprintCallable, BlueprintPure)
     float GetRemainingCooldown() const;
     UFUNCTION(BlueprintCallable, BlueprintPure)
     int32 GetChargeCost() const { return ChargesPerCast; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
-    virtual bool CheckChargesMet() const { return AbilityCooldown.CurrentCharges >= ChargesPerCast; }
-    virtual void CommitCharges(int32 const CastID);
+    bool CheckChargesMet() const;
+    void CommitCharges(int32 const PredictionID);
+    void PredictCommitCharges(int32 const PredictionID);
+    void RollbackFailedCharges(int32 const PredictionID);
+    void UpdatePredictedChargesFromServer(FServerAbilityResult const& ServerResult);
+
+    bool GetTickNeedsPredictionParams(int32 const TickNumber) const;
+    void PassPredictedParameters(int32 const TickNumber, TArray<FAbilityFloatParam> const& FloatParams, TArray<FAbilityPointerParam> const& PointerParams, TArray<FAbilityTagParam> const& TagParams);
+    bool GetTickHasParameters(int32 const TickNumber) const;
+
+    bool GetTickNeedsBroadcastParams(int32 const TickNumber) const;
+    void PassBroadcastParams(int32 const TickNumber, TArray<FAbilityFloatParam> const& FloatParams, TArray<FAbilityPointerParam> const& PointerParams, TArray<FAbilityTagParam> const& TagParams);
+    
     
     UFUNCTION(BlueprintCallable, BlueprintPure)
     float GetAbilityCost(FGameplayTag const& ResourceTag) const;
@@ -187,7 +206,7 @@ public:
     void InitialTick();
     void NonInitialTick(int32 const TickNumber);
     void CompleteCast();
-    void InterruptCast();
+    void InterruptCast(FInterruptEvent const& InterruptEvent);
     void CancelCast();
 
 protected:
@@ -207,7 +226,7 @@ protected:
     UFUNCTION(BlueprintImplementableEvent)
     void OnCastComplete();
     UFUNCTION(BlueprintImplementableEvent)
-    void OnCastInterrupted(); //TODO: Interrupt Event.
+    void OnCastInterrupted(FInterruptEvent const& InterruptEvent);
     UFUNCTION(BlueprintImplementableEvent)
     void OnCastCancelled();
 
@@ -215,4 +234,16 @@ protected:
     void ActivateCastRestriction(FName const& RestrictionName);
     UFUNCTION(BlueprintCallable, Category = "Abilities")
     void DeactivateCastRestriction(FName const& RestrictionName);
+
+    UFUNCTION(BlueprintImplementableEvent)
+    void StorePredictedParameters(int32 const TickNumber, TArray<FAbilityFloatParam> const& FloatParams, TArray<FAbilityPointerParam> const& PointerParams, TArray<FAbilityTagParam> const& TagParams);
+    UFUNCTION(BlueprintImplementableEvent)
+    void StoreBroadcastParameters(int32 const TickNumber, TArray<FAbilityFloatParam> const& FloatParams, TArray<FAbilityPointerParam> const& PointerParams, TArray<FAbilityTagParam> const& TagParams);
+
+public:
+    
+    UFUNCTION(BlueprintImplementableEvent)
+    void GetPredictionParameters(int32 const TickNumber, TArray<FAbilityFloatParam>& FloatParams, TArray<FAbilityPointerParam>& PointerParams, TArray<FAbilityTagParam>& TagParams);
+    UFUNCTION(BlueprintImplementableEvent)
+    void GetBroadcastParameters(int32 const TickNumber, TArray<FAbilityFloatParam>& FloatParams, TArray<FAbilityPointerParam>& PointerParams, TArray<FAbilityTagParam>& TagParams);
 };
