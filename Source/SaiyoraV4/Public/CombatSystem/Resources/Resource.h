@@ -74,6 +74,8 @@ protected:
 	void InitializeResource();
 	UFUNCTION(BlueprintImplementableEvent)
 	void DeactivateResource();
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resource")
+	UResourceHandler* GetHandler() const { return Handler; }
 	
 public:
 
