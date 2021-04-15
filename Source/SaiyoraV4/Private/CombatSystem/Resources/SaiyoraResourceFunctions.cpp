@@ -2,33 +2,29 @@
 
 
 #include "SaiyoraResourceFunctions.h"
+#include "SaiyoraCombatInterface.h"
 
 //TODO: Non-ability resource usage.
-/*FResourceEvent USaiyoraResourceFunctions::ModifyResource(FGameplayTag const& ResourceTag, AActor* AppliedBy,
-    AActor* AppliedTo, float const Value, UObject* Source, bool const bIgnoreModifiers)
+
+void USaiyoraResourceFunctions::ModifyResource(AActor* AppliedTo, FGameplayTag const& ResourceTag, 
+    float const Amount, UObject* Source, bool const bIgnoreModifiers)
 {
-    FResourceEvent Result;
-    Result.Info.Amount = Value;
-    Result.Info.ResourceTag = ResourceTag;
-    Result.Info.SpendingSource = Source;
-    Result.Info.CastID = 0;
-    Result.Result.Success = false;
-    Result.Result.NewValue = 0.0f;
-    Result.Result.PreviousValue = 0.0f;
-    
+    if (!IsValid(AppliedTo) || AppliedTo->GetLocalRole() != ROLE_Authority)
+    {
+        return;
+    }
     if (!ResourceTag.IsValid() || !ResourceTag.MatchesTag(UResourceHandler::GenericResourceTag))
     {
-        return Result;
+        return;
     }
-    if (!IsValid(AppliedBy) || !IsValid(AppliedTo) || !IsValid(Source))
+    if (!AppliedTo->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
     {
-        return Result;
+        return;
     }
-    UResourceHandler* Handler = GetResourceHandler(AppliedTo);
-    if (!IsValid(Handler))
+    UResourceHandler* TargetComponent = ISaiyoraCombatInterface::Execute_GetResourceHandler(AppliedTo);
+    if (!IsValid(TargetComponent))
     {
-        return Result;
+        return;
     }
-    Handler->SpendResource(Result, bIgnoreModifiers);
-    return Result;
-}*/
+    TargetComponent->ModifyResource(ResourceTag, Amount, Source, bIgnoreModifiers);
+}

@@ -221,5 +221,6 @@ private:
 	void HandleBuffRemoveEventReplication(FBuffRemoveEvent const& ReplicatedEvent);
 
 #pragma endregion 
-	
+
+	virtual UWorld* GetWorld() const override;
 };

@@ -16,6 +16,11 @@ void UResource::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetim
     DOREPLIFETIME(UResource, bDeactivated);
 }
 
+UWorld* UResource::GetWorld() const
+{
+    return IsValid(Handler) ? Handler->GetWorld() : nullptr;
+}
+
 void UResource::AuthInitializeResource(UResourceHandler* NewHandler, UStatHandler* StatHandler, FResourceInitInfo const& InitInfo)
 {
     if (bInitialized || !IsValid(NewHandler) || NewHandler->GetOwnerRole() != ROLE_Authority)
@@ -77,8 +82,8 @@ void UResource::AuthInitializeResource(UResourceHandler* NewHandler, UStatHandle
         }
     }
     
-    InitializeResource();
     bInitialized = true;
+    InitializeResource();
 }
 
 void UResource::AuthDeactivateResource()
@@ -94,7 +99,7 @@ bool UResource::CalculateAndCheckAbilityCost(UCombatAbility* Ability, FAbilityCo
         TArray<FCombatModifier> Mods;
         for (FResourceDeltaModifier const& Condition : ResourceDeltaMods)
         {
-            Mods.Add(Condition.Execute(GetResourceTag(), Ability, Cost));
+            Mods.Add(Condition.Execute(ResourceTag, Ability, Cost));
         }
         Cost.Cost = FCombatModifier::CombineModifiers(Mods, Cost.Cost);
     }
@@ -111,16 +116,7 @@ void UResource::CommitAbilityCost(UCombatAbility* Ability, int32 const Predictio
     {
         return;
     }
-    FResourceState const PreviousState = ResourceState;
-    ResourceState.CurrentValue = FMath::Clamp(ResourceState.CurrentValue - Cost.Cost, ResourceState.Minimum, ResourceState.Maximum);
-    if (PredictionID != 0)
-    {
-        ResourceState.PredictionID = PredictionID;
-    }
-    if (PreviousState.CurrentValue != ResourceState.CurrentValue || PreviousState.PredictionID != ResourceState.PredictionID)
-    {
-        OnResourceChanged.Broadcast(ResourceTag, Ability, PreviousState, ResourceState);
-    }
+    SetResourceValue(ResourceState.CurrentValue - Cost.Cost, Ability, PredictionID);
 }
 
 void UResource::PredictAbilityCost(UCombatAbility* Ability, int32 const PredictionID, FAbilityCost const& Cost)
@@ -149,6 +145,31 @@ void UResource::UpdateCostPredictionFromServer(int32 const PredictionID, FAbilit
         ResourcePredictions.Add(PredictionID, ServerCost.Cost);
         RecalculatePredictedResource(nullptr);
     }
+}
+
+void UResource::ModifyResource(UObject* Source, float const Amount, bool const bIgnoreModifiers)
+{
+    if (GetHandler()->GetOwnerRole() != ROLE_Authority)
+    {
+        return;
+    }
+    
+    FAbilityCost DummyCost;
+    DummyCost.Cost = Amount;
+    DummyCost.bStaticCost = bIgnoreModifiers;
+    DummyCost.ResourceTag = ResourceTag;
+    
+    if (!bIgnoreModifiers)
+    {
+        TArray<FCombatModifier> Mods;
+        for (FResourceDeltaModifier const& Condition : ResourceDeltaMods)
+        {
+            Mods.Add(Condition.Execute(ResourceTag, Source, DummyCost));
+        }
+        DummyCost.Cost = FCombatModifier::CombineModifiers(Mods, DummyCost.Cost);
+    }
+    
+    SetResourceValue(ResourceState.CurrentValue + DummyCost.Cost, Source);
 }
 
 void UResource::RecalculatePredictedResource(UObject* ChangeSource)
@@ -238,7 +259,7 @@ void UResource::OnRep_ResourceState(FResourceState const& PreviousState)
     {
         if (PreviousState.Maximum != ResourceState.Maximum || PreviousState.Minimum != ResourceState.Minimum || PreviousState.CurrentValue != ResourceState.CurrentValue)
         {
-            OnResourceChanged.Broadcast(GetResourceTag(), nullptr, PreviousState, ResourceState);
+            OnResourceChanged.Broadcast(ResourceTag, nullptr, PreviousState, ResourceState);
         }
         return;
     }
@@ -258,7 +279,7 @@ void UResource::SetNewMinimum(float const NewValue)
     {
         ResourceState.CurrentValue = FMath::GetMappedRangeValueClamped(FVector2D(PreviousState.Minimum, GetMaximum()), FVector2D(GetMinimum(), GetMaximum()), GetCurrentValue());
     }
-    if (PreviousState.Minimum != GetMinimum() || PreviousState.CurrentValue != GetCurrentValue())
+    if (PreviousState.Minimum != ResourceState.Minimum || PreviousState.CurrentValue != ResourceState.CurrentValue)
     {
         OnResourceChanged.Broadcast(ResourceTag, nullptr, PreviousState, ResourceState);
     }
@@ -276,9 +297,23 @@ void UResource::SetNewMaximum(float const NewValue)
     {
         ResourceState.CurrentValue = FMath::GetMappedRangeValueClamped(FVector2D(GetMinimum(), PreviousState.Maximum), FVector2D(GetMinimum(), GetMaximum()), GetCurrentValue());
     }
-    if (PreviousState.Maximum != GetMaximum() || PreviousState.CurrentValue != GetCurrentValue())
+    if (PreviousState.Maximum != ResourceState.Maximum || PreviousState.CurrentValue != ResourceState.CurrentValue)
     {
         OnResourceChanged.Broadcast(ResourceTag, nullptr, PreviousState, ResourceState);
+    }
+}
+
+void UResource::SetResourceValue(float const NewValue, UObject* Source, int32 const PredictionID)
+{
+    FResourceState const PreviousState = ResourceState;
+    ResourceState.CurrentValue = FMath::Clamp(NewValue, ResourceState.Minimum, ResourceState.Maximum);
+    if (PredictionID != 0)
+    {
+        ResourceState.PredictionID = PredictionID;
+    }
+    if (PreviousState.CurrentValue != ResourceState.CurrentValue)
+    {
+        OnResourceChanged.Broadcast(ResourceTag, Source, PreviousState, ResourceState);
     }
 }
 

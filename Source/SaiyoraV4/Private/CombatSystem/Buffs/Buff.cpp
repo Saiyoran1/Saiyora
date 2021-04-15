@@ -467,5 +467,10 @@ void UBuff::HandleBuffRemoveEventReplication(FBuffRemoveEvent const& ReplicatedE
     }
 }
 
+UWorld* UBuff::GetWorld() const
+{
+    return IsValid(CreationEvent.AppliedTo) ? CreationEvent.AppliedTo->GetWorld() : nullptr;
+}
+
 #pragma endregion 
 

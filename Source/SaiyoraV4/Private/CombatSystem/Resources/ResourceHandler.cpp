@@ -133,6 +133,16 @@ float UResourceHandler::GetResourceMaximum(FGameplayTag const& ResourceTag) cons
 	return Resource->GetMaximum();
 }
 
+void UResourceHandler::ModifyResource(FGameplayTag const& ResourceTag, float const Amount, UObject* Source, bool const bIgnoreModifiers)
+{
+	UResource* Resource = FindActiveResource(ResourceTag);
+	if (!IsValid(Resource))
+	{
+		return;
+	}
+	Resource->ModifyResource(Source, Amount, bIgnoreModifiers);
+}
+
 bool UResourceHandler::CheckAbilityCostsMet(UCombatAbility* Ability, TArray<FAbilityCost>& OutCosts) const
 {
 	for (FAbilityCost& Cost : OutCosts)
@@ -306,11 +316,15 @@ void UResourceHandler::AddNewResource(FResourceInitInfo const& InitInfo)
 		return;
 	}
 	UResource* NewResource = NewObject<UResource>(GetOwner(), InitInfo.ResourceClass);
+	ActiveResources.Add(NewResource->GetResourceTag(), NewResource);
 	NewResource->AuthInitializeResource(this, StatHandler, InitInfo);
 	if (NewResource->GetInitialized())
 	{
-		ActiveResources.Add(NewResource->GetResourceTag(), NewResource);
 		OnResourceAdded.Broadcast(NewResource->GetResourceTag());
+	}
+	else
+	{
+		ActiveResources.Remove(NewResource->GetResourceTag());
 	}
 }
 

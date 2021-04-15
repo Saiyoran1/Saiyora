@@ -38,6 +38,9 @@ public:
 	float GetResourceMinimum(FGameplayTag const& ResourceTag) const;
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resource", meta = (GameplayTagFilter = "Resource"))
 	float GetResourceMaximum(FGameplayTag const& ResourceTag) const;
+
+	void ModifyResource(FGameplayTag const& ResourceTag, float const Amount, UObject* Source, bool const bIgnoreModifiers);
+	
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resource", meta = (GameplayTagFilter = "Resource"))
 	bool CheckAbilityCostsMet(UCombatAbility* Ability, TArray<FAbilityCost>& OutCosts) const;
 	void AuthCommitAbilityCosts(UCombatAbility* Ability, int32 const PredictionID, TArray<FAbilityCost> const& Costs);

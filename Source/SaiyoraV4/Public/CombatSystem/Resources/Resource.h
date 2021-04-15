@@ -57,6 +57,7 @@ class SAIYORAV4_API UResource : public UObject
 
 	void SetNewMinimum(float const NewValue);
 	void SetNewMaximum(float const NewValue);
+	void SetResourceValue(float const NewValue, UObject* Source, int32 const PredictionID = 0);
 
 	UFUNCTION()
 	void UpdateMinimumFromStatBind(FGameplayTag const& StatTag, float const NewValue);
@@ -81,6 +82,7 @@ public:
 
 	virtual bool IsSupportedForNetworking() const override { return true; }
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual UWorld* GetWorld() const override;
 	
 	void AuthInitializeResource(UResourceHandler* NewHandler, UStatHandler* StatHandler, FResourceInitInfo const& InitInfo);
 	void AuthDeactivateResource();
@@ -91,6 +93,8 @@ public:
 	void RollbackFailedCost(int32 const PredictionID);
 	void UpdateCostPredictionFromServer(int32 const PredictionID, FAbilityCost const& ServerCost);
 
+	void ModifyResource(UObject* Source, float const Amount, bool const bIgnoreModifiers);
+
 	void AddResourceDeltaModifier(FResourceDeltaModifier const& Modifier);
 	void RemoveResourceDeltaModifier(FResourceDeltaModifier const& Modifier);
 	
@@ -99,10 +103,15 @@ public:
 	void SubscribeToResourceModsChanged(FResourceTagCallback const& Callback);
 	void UnsubscribeFromResourceModsChanged(FResourceTagCallback const& Callback);
 
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resource")
 	FGameplayTag GetResourceTag() const { return ResourceTag; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resource")
 	float GetCurrentValue() const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resource")
 	float GetMinimum() const { return ResourceState.Minimum; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resource")
 	float GetMaximum() const { return ResourceState.Maximum; }
+	
 	bool GetInitialized() const { return bInitialized; }
 	bool GetDeactivated() const { return bDeactivated; }
 };
