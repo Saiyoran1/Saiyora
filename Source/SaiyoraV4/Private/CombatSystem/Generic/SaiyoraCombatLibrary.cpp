@@ -2,9 +2,10 @@
 
 
 #include "SaiyoraCombatLibrary.h"
+#include "SaiyoraCombatInterface.h"
+#include "SaiyoraPlayerController.h"
 #include "GameFramework/GameState.h"
-
-//Plane
+#include "SaiyoraPlaneComponent.h"
 
 float USaiyoraCombatLibrary::GetWorldTime(UObject const* Context)
 {
@@ -23,14 +24,37 @@ float USaiyoraCombatLibrary::GetWorldTime(UObject const* Context)
     return 0.0f;
 }
 
+float USaiyoraCombatLibrary::GetActorPing(AActor const* Actor)
+{
+    APawn const* ActorAsPawn = Cast<APawn>(Actor);
+    if (!IsValid(ActorAsPawn))
+    {
+        return 0.0f;
+    }
+    ASaiyoraPlayerController const* Controller = Cast<ASaiyoraPlayerController>(ActorAsPawn->GetController());
+    if (!IsValid(Controller))
+    {
+        return 0.0f;
+    }
+    return Controller->GetPlayerPing();
+}
+
 ESaiyoraPlane USaiyoraCombatLibrary::GetActorPlane(AActor* Actor)
 {
-    //TODO Plane Component
-    if (!Actor)
+    if (!IsValid(Actor))
     {
         return ESaiyoraPlane::None;
     }
-    return ESaiyoraPlane::None;
+    if (!Actor->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+    {
+        return ESaiyoraPlane::None;
+    }
+    USaiyoraPlaneComponent* PlaneComponent = ISaiyoraCombatInterface::Execute_GetPlaneComponent(Actor);
+    if (!IsValid(PlaneComponent))
+    {
+        return ESaiyoraPlane::None;
+    }
+    return PlaneComponent->GetCurrentPlane();
 }
 
 bool USaiyoraCombatLibrary::CheckForXPlane(ESaiyoraPlane const FromPlane, ESaiyoraPlane const ToPlane)

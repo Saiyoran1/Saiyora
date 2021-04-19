@@ -107,6 +107,19 @@ struct FAbilityTagParam
 };
 
 USTRUCT(BlueprintType)
+struct FAbilityRepParams
+{
+    GENERATED_BODY()
+
+    UPROPERTY(BlueprintReadWrite)
+    TArray<FAbilityFloatParam> FloatParams;
+    UPROPERTY(BlueprintReadWrite)
+    TArray<FAbilityPointerParam> PointerParams;
+    UPROPERTY(BlueprintReadWrite)
+    TArray<FAbilityTagParam> TagParams;
+};
+
+USTRUCT(BlueprintType)
 struct FCastEvent
 {
     GENERATED_BODY()
@@ -223,11 +236,7 @@ struct FAbilityRequest
     UPROPERTY()
     float ClientStartTime = 0.0f;
     UPROPERTY()
-    TArray<FAbilityFloatParam> PredictedFloatParams;
-    UPROPERTY()
-    TArray<FAbilityPointerParam> PredictedPointerParams;
-    UPROPERTY()
-    TArray<FAbilityTagParam> PredictedTagParams;
+    FAbilityRepParams PredictionParams;
 };
 
 USTRUCT()
@@ -286,11 +295,7 @@ struct FTickRequest
     UPROPERTY()
     int32 Tick = 0;
     UPROPERTY()
-    TArray<FAbilityFloatParam> PredictedFloatParams;
-    UPROPERTY()
-    TArray<FAbilityPointerParam> PredictedPointerParams;
-    UPROPERTY()
-    TArray<FAbilityTagParam> PredictedTagParams;
+    FAbilityRepParams PredictionParams;
 };
 
 USTRUCT()
@@ -303,6 +308,11 @@ struct FPredictedTick
 
     FORCEINLINE bool operator==(const FPredictedTick& Other) const { return Other.PredictionID == PredictionID && Other.TickNumber == TickNumber; }
 };
+
+FORCEINLINE uint32 GetTypeHash(const FPredictedTick& Tick)
+{
+    return FCrc::MemCrc32(&Tick, sizeof(FPredictedTick));
+}
 
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FAbilityModCondition, UCombatAbility*, Ability);
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FAbilityRestriction, UCombatAbility*, Ability);

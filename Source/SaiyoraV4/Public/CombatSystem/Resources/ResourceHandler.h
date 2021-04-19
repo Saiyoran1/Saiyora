@@ -65,6 +65,11 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Resource", meta = (GameplayTagFilter = "Resource"))
     void UnsubscribeFromResourceModsChanged(FGameplayTag const& ResourceTag, FResourceTagCallback const& Callback);
 
+	UFUNCTION(BlueprintCallable, Category = "Resource", meta = (GameplayTagFilter = "Resource"))
+	void AddResourceDeltaModifier(FResourceDeltaModifier const& Modifier, FGameplayTag const& ResourceTag);
+	UFUNCTION(BlueprintCallable, Category = "Resource", meta = (GameplayTagFilter = "Resource"))
+	void RemoveResourceDeltaModifier(FResourceDeltaModifier const& Modifier, FGameplayTag const& ResourceTag);
+
 	//Client-side updating, creation, and removal of resource objects.
 	void NotifyOfReplicatedResource(UResource* Resource);
 	void NotifyOfRemovedReplicatedResource(FGameplayTag const& ResourceTag);

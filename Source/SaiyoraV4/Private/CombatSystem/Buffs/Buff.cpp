@@ -43,7 +43,7 @@ void UBuff::GetClientFunctionTags(FGameplayTagContainer& OutContainer) const
 }
 
 void UBuff::InitializeBuff(FBuffApplyEvent& ApplicationEvent)
-{  
+{
     SetInitialStacks(ApplicationEvent.StackOverrideType, ApplicationEvent.OverrideStacks);
     SetInitialDuration(ApplicationEvent.RefreshOverrideType, ApplicationEvent.OverrideDuration);
     
@@ -469,7 +469,11 @@ void UBuff::HandleBuffRemoveEventReplication(FBuffRemoveEvent const& ReplicatedE
 
 UWorld* UBuff::GetWorld() const
 {
-    return IsValid(CreationEvent.AppliedTo) ? CreationEvent.AppliedTo->GetWorld() : nullptr;
+    if (!HasAnyFlags(RF_ClassDefaultObject))
+    {
+        return GetOuter()->GetWorld();
+    }
+    return nullptr;
 }
 
 #pragma endregion 

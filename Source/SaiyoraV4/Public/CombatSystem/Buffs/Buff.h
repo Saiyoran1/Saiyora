@@ -206,9 +206,14 @@ private:
 
 #pragma region Replication
 
+public:
+	
 	virtual bool IsSupportedForNetworking() const override { return true; }
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual UWorld* GetWorld() const override;
 
+private:
+	
 	UFUNCTION()
 	void OnRep_CreationEvent();
 	UFUNCTION()
@@ -221,6 +226,4 @@ private:
 	void HandleBuffRemoveEventReplication(FBuffRemoveEvent const& ReplicatedEvent);
 
 #pragma endregion 
-
-	virtual UWorld* GetWorld() const override;
 };

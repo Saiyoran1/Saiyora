@@ -20,6 +20,7 @@ public:
 
     virtual bool IsSupportedForNetworking() const override { return true; }
     virtual void GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+    virtual UWorld* GetWorld() const override;
 
 private:
 
@@ -43,9 +44,7 @@ private:
     UPROPERTY(EditDefaultsOnly, Category = "Cast Info")
     int32 NonInitialTicks = 0;
     UPROPERTY(EditDefaultsOnly, Category = "Cast Info")
-    TMap<int32, bool> TicksWithPredictionParams;
-    UPROPERTY(EditDefaultsOnly, Category = "Cast Info")
-    TMap<int32, bool> TicksWithBroadcastParams;
+    TSet<int32> TicksWithPredictionParams;
     
     UPROPERTY(EditDefaultsOnly, Category = "Crowd Control Info")
     bool bInterruptible = true;
@@ -119,7 +118,7 @@ private:
     UFUNCTION()
     void OnRep_Deactivated(bool const Previous);
 
-    TMap<int32, bool> StoredTickPredictionParameters;
+    TSet<int32> StoredTickPredictionParameters;
 
 public:
 
@@ -179,14 +178,6 @@ public:
     void PredictCommitCharges(int32 const PredictionID);
     void RollbackFailedCharges(int32 const PredictionID);
     void UpdatePredictedChargesFromServer(FServerAbilityResult const& ServerResult);
-
-    bool GetTickNeedsPredictionParams(int32 const TickNumber) const;
-    void PassPredictedParameters(int32 const TickNumber, TArray<FAbilityFloatParam> const& FloatParams, TArray<FAbilityPointerParam> const& PointerParams, TArray<FAbilityTagParam> const& TagParams);
-    bool GetTickHasParameters(int32 const TickNumber) const;
-
-    bool GetTickNeedsBroadcastParams(int32 const TickNumber) const;
-    void PassBroadcastParams(int32 const TickNumber, TArray<FAbilityFloatParam> const& FloatParams, TArray<FAbilityPointerParam> const& PointerParams, TArray<FAbilityTagParam> const& TagParams);
-    
     
     UFUNCTION(BlueprintCallable, BlueprintPure)
     float GetAbilityCost(FGameplayTag const& ResourceTag) const;
@@ -199,12 +190,14 @@ public:
     bool GetInitialized() const { return bInitialized; }
     bool GetDeactivated() const { return bDeactivated; }
 
+    bool GetTickNeedsPredictionParams(int32 const TickNumber) const;
+    
     //Internal ability functions, these adjust necessary properties then call the Blueprint implementations.
     
     void InitializeAbility(UAbilityHandler* AbilityComponent);
     void DeactivateAbility();
-    void InitialTick();
-    void NonInitialTick(int32 const TickNumber);
+    void InitialTick(FAbilityRepParams const& InRepParams, FAbilityRepParams& OutRepParams);
+    void NonInitialTick(int32 const TickNumber, FAbilityRepParams const& InRepParams, FAbilityRepParams& OutRepParams);
     void CompleteCast();
     void InterruptCast(FInterruptEvent const& InterruptEvent);
     void CancelCast();
@@ -220,9 +213,9 @@ protected:
     UFUNCTION(BlueprintImplementableEvent)
     void OnDeactivate();
     UFUNCTION(BlueprintImplementableEvent)
-    void OnInitialTick();
+    void OnInitialTick(FAbilityRepParams const& InRepParams, FAbilityRepParams& OutRepParams);
     UFUNCTION(BlueprintImplementableEvent)
-    void OnNonInitialTick(int32 const TickNumber);
+    void OnNonInitialTick(int32 const TickNumber, FAbilityRepParams const& InRepParams, FAbilityRepParams& OutRepParams);
     UFUNCTION(BlueprintImplementableEvent)
     void OnCastComplete();
     UFUNCTION(BlueprintImplementableEvent)
@@ -234,16 +227,4 @@ protected:
     void ActivateCastRestriction(FName const& RestrictionName);
     UFUNCTION(BlueprintCallable, Category = "Abilities")
     void DeactivateCastRestriction(FName const& RestrictionName);
-
-    UFUNCTION(BlueprintImplementableEvent)
-    void StorePredictedParameters(int32 const TickNumber, TArray<FAbilityFloatParam> const& FloatParams, TArray<FAbilityPointerParam> const& PointerParams, TArray<FAbilityTagParam> const& TagParams);
-    UFUNCTION(BlueprintImplementableEvent)
-    void StoreBroadcastParameters(int32 const TickNumber, TArray<FAbilityFloatParam> const& FloatParams, TArray<FAbilityPointerParam> const& PointerParams, TArray<FAbilityTagParam> const& TagParams);
-
-public:
-    
-    UFUNCTION(BlueprintImplementableEvent)
-    void GetPredictionParameters(int32 const TickNumber, TArray<FAbilityFloatParam>& FloatParams, TArray<FAbilityPointerParam>& PointerParams, TArray<FAbilityTagParam>& TagParams);
-    UFUNCTION(BlueprintImplementableEvent)
-    void GetBroadcastParameters(int32 const TickNumber, TArray<FAbilityFloatParam>& FloatParams, TArray<FAbilityPointerParam>& PointerParams, TArray<FAbilityTagParam>& TagParams);
 };

@@ -18,7 +18,11 @@ void UResource::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetim
 
 UWorld* UResource::GetWorld() const
 {
-    return IsValid(Handler) ? Handler->GetWorld() : nullptr;
+    if (!HasAnyFlags(RF_ClassDefaultObject))
+    {
+        return GetOuter()->GetWorld();
+    }
+    return nullptr;
 }
 
 void UResource::AuthInitializeResource(UResourceHandler* NewHandler, UStatHandler* StatHandler, FResourceInitInfo const& InitInfo)

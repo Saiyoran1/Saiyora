@@ -300,6 +300,35 @@ void UResourceHandler::UnsubscribeFromResourceModsChanged(FGameplayTag const& Re
 	Resource->UnsubscribeFromResourceModsChanged(Callback);
 }
 
+void UResourceHandler::AddResourceDeltaModifier(FResourceDeltaModifier const& Modifier, FGameplayTag const& ResourceTag)
+{
+	if (!Modifier.IsBound())
+	{
+		return;
+	}
+	UResource* Resource = FindActiveResource(ResourceTag);
+	if (!IsValid(Resource))
+	{
+		return;
+	}
+	Resource->AddResourceDeltaModifier(Modifier);
+}
+
+void UResourceHandler::RemoveResourceDeltaModifier(FResourceDeltaModifier const& Modifier,
+	FGameplayTag const& ResourceTag)
+{
+	if (!Modifier.IsBound())
+	{
+		return;
+	}
+	UResource* Resource = FindActiveResource(ResourceTag);
+	if (!IsValid(Resource))
+	{
+		return;
+	}
+	Resource->RemoveResourceDeltaModifier(Modifier);
+}
+
 void UResourceHandler::FinishRemoveResource(UResource* Resource)
 {
 	RecentlyRemovedResources.RemoveSingleSwap(Resource);

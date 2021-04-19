@@ -5,10 +5,6 @@
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "SaiyoraCombatLibrary.generated.h"
 
-/**
- * 
- */
-
 UCLASS()
 class SAIYORAV4_API USaiyoraCombatLibrary : public UBlueprintFunctionLibrary
 {
@@ -20,6 +16,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Time")
 	static float GetWorldTime(UObject const* Context);
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Time")
+	static float GetActorPing(AActor const* Actor);
 	
 	//Plane
 	

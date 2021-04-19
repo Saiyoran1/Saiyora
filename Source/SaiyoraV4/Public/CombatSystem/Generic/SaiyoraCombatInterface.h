@@ -12,6 +12,7 @@ class UAbilityHandler;
 class UCrowdControlHandler;
 class UResourceHandler;
 class UStatHandler;
+class USaiyoraPlaneComponent;
 
 UINTERFACE(Blueprintable)
 class USaiyoraCombatInterface : public UInterface
@@ -44,4 +45,7 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Stats")
 	UStatHandler* GetStatHandler() const;
 	virtual UStatHandler* GetStatHandler_Implementation() const { return nullptr; }
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Plane")
+	USaiyoraPlaneComponent* GetPlaneComponent() const;
+	virtual USaiyoraPlaneComponent* GetPlaneComponent_Implementation() const { return nullptr; }
 };

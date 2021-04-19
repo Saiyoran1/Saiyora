@@ -17,6 +17,15 @@ void UCombatAbility::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& Out
     DOREPLIFETIME_CONDITION(UCombatAbility, ChargesPerCast, COND_OwnerOnly);
 }
 
+UWorld* UCombatAbility::GetWorld() const
+{
+    if (!HasAnyFlags(RF_ClassDefaultObject))
+    {
+        return GetOuter()->GetWorld();
+    }
+    return nullptr;
+}
+
 int32 UCombatAbility::GetCurrentCharges() const
 {
     if (OwningComponent->GetOwnerRole() == ROLE_AutonomousProxy)
@@ -99,30 +108,7 @@ void UCombatAbility::UpdatePredictedChargesFromServer(FServerAbilityResult const
 
 bool UCombatAbility::GetTickNeedsPredictionParams(int32 const TickNumber) const
 {
-    return TicksWithPredictionParams.FindRef(TickNumber);
-}
-
-void UCombatAbility::PassPredictedParameters(int32 const TickNumber, TArray<FAbilityFloatParam> const& FloatParams,
-    TArray<FAbilityPointerParam> const& PointerParams, TArray<FAbilityTagParam> const& TagParams)
-{
-    StorePredictedParameters(TickNumber, FloatParams, PointerParams, TagParams);
-    StoredTickPredictionParameters.Add(TickNumber, true);
-}
-
-bool UCombatAbility::GetTickHasParameters(int32 const TickNumber) const
-{
-    return StoredTickPredictionParameters.FindRef(TickNumber);
-}
-
-bool UCombatAbility::GetTickNeedsBroadcastParams(int32 const TickNumber) const
-{
-    return TicksWithBroadcastParams.FindRef(TickNumber);
-}
-
-void UCombatAbility::PassBroadcastParams(int32 const TickNumber, TArray<FAbilityFloatParam> const& FloatParams,
-    TArray<FAbilityPointerParam> const& PointerParams, TArray<FAbilityTagParam> const& TagParams)
-{
-    StoreBroadcastParameters(TickNumber, FloatParams, PointerParams, TagParams);
+    return TicksWithPredictionParams.Contains(TickNumber);
 }
 
 float UCombatAbility::GetAbilityCost(FGameplayTag const& ResourceTag) const
@@ -217,7 +203,6 @@ void UCombatAbility::InitializeAbility(UAbilityHandler* AbilityComponent)
     {
         OwningComponent = AbilityComponent;
     }
-
     MaxCharges = DefaultMaxCharges;
     AbilityCooldown.CurrentCharges = GetMaxCharges();
     for (FAbilityCost const& Cost : DefaultAbilityCosts)
@@ -239,14 +224,14 @@ void UCombatAbility::DeactivateAbility()
     bDeactivated = true;
 }
 
-void UCombatAbility::InitialTick()
+void UCombatAbility::InitialTick(FAbilityRepParams const& InRepParams, FAbilityRepParams& OutRepParams)
 {
-    OnInitialTick();
+    OnInitialTick(InRepParams, OutRepParams);
 }
 
-void UCombatAbility::NonInitialTick(int32 const TickNumber)
+void UCombatAbility::NonInitialTick(int32 const TickNumber, FAbilityRepParams const& InRepParams, FAbilityRepParams& OutRepParams)
 {
-    OnNonInitialTick(TickNumber);
+    OnNonInitialTick(TickNumber, InRepParams, OutRepParams);
 }
 
 void UCombatAbility::CompleteCast()
