@@ -46,7 +46,7 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	FCastEvent UseAbility(TSubclassOf<UCombatAbility> const AbilityClass);
-	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
 	FCancelEvent CancelCurrentCast();
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
 	FInterruptEvent InterruptCurrentCast(AActor* AppliedBy, UObject* InterruptSource);
@@ -72,17 +72,13 @@ public:
 	void UnsubscribeFromAbilityRemoved(FAbilityInstanceCallback const& Callback);
 
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
-	void SubscribeToAbilityStarted(FAbilityCallback const& Callback);
-	UFUNCTION(BlueprintCallable, Category = "Abilities")
-	void UnsubscribeFromAbilityStarted(FAbilityCallback const& Callback);
-	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void SubscribeToAbilityTicked(FAbilityCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void UnsubscribeFromAbilityTicked(FAbilityCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
-    void SubscribeToAbilityCompleted(FAbilityCallback const& Callback);
+    void SubscribeToAbilityCompleted(FAbilityInstanceCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
-    void UnsubscribeFromAbilityCompleted(FAbilityCallback const& Callback);
+    void UnsubscribeFromAbilityCompleted(FAbilityInstanceCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
     void SubscribeToAbilityCancelled(FAbilityCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
@@ -138,6 +134,10 @@ private:
 	UFUNCTION(Server, Reliable, WithValidation)
 	void ServerHandlePredictedTick(FTickRequest const& TickRequest);
 	bool ServerHandlePredictedTick_Validate(FTickRequest const& TickRequest) { return true; }
+	UFUNCTION(Client, Reliable)
+	void ClientInterruptCast(FInterruptEvent const& InterruptEvent);
+	UFUNCTION(Client, Reliable)
+	void ClientCancelCast(FCancelEvent const& CancelEvent);
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Abilities", meta = (AllowPrivateAccess = "true"))
 	TArray<TSubclassOf<UCombatAbility>> DefaultAbilities;
@@ -164,7 +164,7 @@ private:
 	FTimerHandle TickHandle;
 	UFUNCTION()
 	void OnRep_CastingState(FCastingState const& PreviousState);
-	void AuthStartCast(UCombatAbility* Ability);
+	void AuthStartCast(UCombatAbility* Ability, bool const bPredicted, int32 const PredictionID);
 	void PredictStartCast(UCombatAbility* Ability, int32 const PredictionID);
 	void UpdatePredictedCastFromServer(FServerAbilityResult const& ServerResult);
 	UFUNCTION()
@@ -203,16 +203,13 @@ private:
 
 	FAbilityInstanceNotification OnAbilityAdded;
 	FAbilityInstanceNotification OnAbilityRemoved;
-	FAbilityNotification OnAbilityStart;
 	FAbilityNotification OnAbilityTick;
-	FAbilityNotification OnAbilityComplete;
+	FAbilityInstanceNotification OnAbilityComplete;
 	FAbilityCancelNotification OnAbilityCancelled;
 	FInterruptNotification OnAbilityInterrupted;
 	FCastingStateNotification OnCastStateChanged;
 	FGlobalCooldownNotification OnGlobalCooldownChanged;
 
-	UFUNCTION(NetMulticast, Unreliable)
-	void BroadcastAbilityStart(FCastEvent const& CastEvent, FAbilityRepParams const& BroadcastParams);
 	UFUNCTION(NetMulticast, Unreliable)
 	void BroadcastAbilityTick(FCastEvent const& CastEvent, FAbilityRepParams const& BroadcastParams);
 	UFUNCTION(NetMulticast, Unreliable)
