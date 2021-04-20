@@ -479,14 +479,7 @@ void UAbilityHandler::BroadcastAbilityTick_Implementation(FCastEvent const& Cast
 		if (IsValid(CastEvent.Ability))
 		{
 			FAbilityRepParams ChannelDummyParams;
-			if (CastEvent.Tick == 0)
-			{
-				CastEvent.Ability->InitialTick(BroadcastParams, ChannelDummyParams);
-			}
-			else
-			{
-				CastEvent.Ability->NonInitialTick(CastEvent.Tick, BroadcastParams, ChannelDummyParams);
-			}
+			CastEvent.Ability->AbilityTick(CastEvent.Tick, BroadcastParams, ChannelDummyParams);
 			OnAbilityTick.Broadcast(CastEvent);
 		}
 	}
@@ -574,7 +567,7 @@ void UAbilityHandler::TickCurrentAbility()
 	TickEvent.Ability = CastingState.CurrentCast;
 	TickEvent.Tick = CastingState.ElapsedTicks;
 	TickEvent.ActionTaken = ECastAction::Tick;
-	CastingState.CurrentCast->NonInitialTick(CastingState.ElapsedTicks, ChannelDummyParams, BroadcastParams);
+	CastingState.CurrentCast->AbilityTick(CastingState.ElapsedTicks, ChannelDummyParams, BroadcastParams);
 	OnAbilityTick.Broadcast(TickEvent);
 	BroadcastAbilityTick(TickEvent, BroadcastParams);
 	if (CastingState.ElapsedTicks >= CastingState.CurrentCast->GetNumberOfTicks())
@@ -939,7 +932,7 @@ FCastEvent UAbilityHandler::AuthUseAbility(TSubclassOf<UCombatAbility> const Abi
 		return Result;
 	case EAbilityCastType::Instant :
 		Result.ActionTaken = ECastAction::Success;
-		Result.Ability->InitialTick(DummyParams, BroadcastParams);
+		Result.Ability->AbilityTick(0, DummyParams, BroadcastParams);
 		OnAbilityTick.Broadcast(Result);
 		BroadcastAbilityTick(Result, BroadcastParams);
 		break;
@@ -948,7 +941,7 @@ FCastEvent UAbilityHandler::AuthUseAbility(TSubclassOf<UCombatAbility> const Abi
 		AuthStartCast(Result.Ability, false, 0);
 		if (Result.Ability->GetHasInitialTick())
 		{
-			Result.Ability->InitialTick(DummyParams, BroadcastParams);
+			Result.Ability->AbilityTick(0, DummyParams, BroadcastParams);
 			OnAbilityTick.Broadcast(Result);
 			BroadcastAbilityTick(Result, BroadcastParams);
 		}
@@ -1084,7 +1077,7 @@ FCastEvent UAbilityHandler::PredictUseAbility(TSubclassOf<UCombatAbility> const 
 		return Result;
 	case EAbilityCastType::Instant :
 		Result.ActionTaken = ECastAction::Success;
-		Result.Ability->InitialTick(DummyParams, AbilityRequest.PredictionParams);
+		Result.Ability->AbilityTick(0, DummyParams, AbilityRequest.PredictionParams);
 		OnAbilityTick.Broadcast(Result);
 		break;
 	case EAbilityCastType::Channel :
@@ -1093,7 +1086,7 @@ FCastEvent UAbilityHandler::PredictUseAbility(TSubclassOf<UCombatAbility> const 
 		AbilityPrediction.bPredictedCastBar = true;
 		if (Result.Ability->GetHasInitialTick())
 		{
-			Result.Ability->InitialTick(DummyParams, AbilityRequest.PredictionParams);
+			Result.Ability->AbilityTick(0, DummyParams, AbilityRequest.PredictionParams);
 		}
 		OnAbilityTick.Broadcast(Result);
 		break;
@@ -1229,7 +1222,7 @@ void UAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest const&
 		return;
 	case EAbilityCastType::Instant :
 		Result.ActionTaken = ECastAction::Success;
-		Result.Ability->InitialTick(AbilityRequest.PredictionParams, BroadcastParams);
+		Result.Ability->AbilityTick(0, AbilityRequest.PredictionParams, BroadcastParams);
 		OnAbilityTick.Broadcast(Result);
 		BroadcastAbilityTick(Result, BroadcastParams);
 		break;
@@ -1241,7 +1234,7 @@ void UAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest const&
 		ServerResult.bInterruptible = CastingState.bInterruptible;
 		if (Result.Ability->GetHasInitialTick())
 		{
-			Result.Ability->InitialTick(AbilityRequest.PredictionParams, BroadcastParams);
+			Result.Ability->AbilityTick(0, AbilityRequest.PredictionParams, BroadcastParams);
 			OnAbilityTick.Broadcast(Result);
 			BroadcastAbilityTick(Result, BroadcastParams);
 		}
@@ -1430,9 +1423,9 @@ void UAbilityHandler::PredictAbilityTick()
 		return;
 	}
 	CastingState.ElapsedTicks++;
-	FTickRequest TickRequest;
+	FAbilityRequest TickRequest;
 	FAbilityRepParams const ChannelDummyParams;
-	CastingState.CurrentCast->NonInitialTick(CastingState.ElapsedTicks, ChannelDummyParams, TickRequest.PredictionParams);
+	CastingState.CurrentCast->AbilityTick(CastingState.ElapsedTicks, ChannelDummyParams, TickRequest.PredictionParams);
 	if (CastingState.CurrentCast->GetTickNeedsPredictionParams(CastingState.ElapsedTicks))
 	{
 		TickRequest.Tick = CastingState.ElapsedTicks;
@@ -1457,9 +1450,9 @@ void UAbilityHandler::HandleMissedPredictedTick(int32 const TickNumber)
 	{
 		return;
 	}
-	FTickRequest TickRequest;
+	FAbilityRequest TickRequest;
 	FAbilityRepParams const ChannelDummyParams;
-	CastingState.CurrentCast->NonInitialTick(TickNumber, ChannelDummyParams, TickRequest.PredictionParams);
+	CastingState.CurrentCast->AbilityTick(TickNumber, ChannelDummyParams, TickRequest.PredictionParams);
 	if (CastingState.CurrentCast->GetTickNeedsPredictionParams(TickNumber))
 	{
 		TickRequest.Tick = TickNumber;
@@ -1470,7 +1463,7 @@ void UAbilityHandler::HandleMissedPredictedTick(int32 const TickNumber)
 }
 
 //Receive parameters from the client and either store the parameters (if the tick has yet to happen) or check if the tick has already happened, pass the parameters, and execute the tick.
-void UAbilityHandler::ServerHandlePredictedTick_Implementation(FTickRequest const& TickRequest)
+void UAbilityHandler::ServerHandlePredictedTick_Implementation(FAbilityRequest const& TickRequest)
 {
 	if (CastingState.bIsCasting && IsValid(CastingState.CurrentCast) && CastingState.PredictionID == TickRequest.PredictionID && CastingState.CurrentCast->GetClass() == TickRequest.AbilityClass && CastingState.ElapsedTicks < TickRequest.Tick)
 	{
@@ -1493,7 +1486,7 @@ void UAbilityHandler::ServerHandlePredictedTick_Implementation(FTickRequest cons
 				TickEvent.Tick = TickRequest.Tick;
 				TickEvent.ActionTaken = ECastAction::Tick;
 				TickEvent.PredictionID = TickRequest.PredictionID;
-				Ability->NonInitialTick(TickRequest.Tick, TickRequest.PredictionParams, BroadcastParams);
+				Ability->AbilityTick(TickRequest.Tick, TickRequest.PredictionParams, BroadcastParams);
 				OnAbilityTick.Broadcast(TickEvent);
 				BroadcastAbilityTick(TickEvent, BroadcastParams);
 			}
@@ -1555,7 +1548,7 @@ void UAbilityHandler::AuthTickPredictedCast()
 	{
 		FAbilityRepParams const ChannelDummyParams;
 		FAbilityRepParams BroadcastParams;
-		CastingState.CurrentCast->NonInitialTick(CastingState.ElapsedTicks, ChannelDummyParams, BroadcastParams);
+		CastingState.CurrentCast->AbilityTick(CastingState.ElapsedTicks, ChannelDummyParams, BroadcastParams);
 		FCastEvent TickEvent;
 		TickEvent.Ability = CastingState.CurrentCast;
 		TickEvent.Tick = CastingState.ElapsedTicks;
@@ -1569,7 +1562,7 @@ void UAbilityHandler::AuthTickPredictedCast()
 		TickEvent.Ability = CastingState.CurrentCast;
 		TickEvent.Tick = CastingState.ElapsedTicks;
 		TickEvent.ActionTaken = ECastAction::Tick;
-		CastingState.CurrentCast->NonInitialTick(CastingState.ElapsedTicks, ParamsAwaitingTicks.FindRef(Tick), LatentBroadcastParams);
+		CastingState.CurrentCast->AbilityTick(CastingState.ElapsedTicks, ParamsAwaitingTicks.FindRef(Tick), LatentBroadcastParams);
 		OnAbilityTick.Broadcast(TickEvent);
 		BroadcastAbilityTick(TickEvent, LatentBroadcastParams);
 		ParamsAwaitingTicks.Remove(Tick);

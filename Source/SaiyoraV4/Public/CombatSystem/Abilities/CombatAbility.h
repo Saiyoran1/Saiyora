@@ -196,8 +196,7 @@ public:
     
     void InitializeAbility(UAbilityHandler* AbilityComponent);
     void DeactivateAbility();
-    void InitialTick(FAbilityRepParams const& InRepParams, FAbilityRepParams& OutRepParams);
-    void NonInitialTick(int32 const TickNumber, FAbilityRepParams const& InRepParams, FAbilityRepParams& OutRepParams);
+    void AbilityTick(int32 const TickNumber, FAbilityRepParams const& InRepParams, FAbilityRepParams& OutRepParams);
     void CompleteCast();
     void InterruptCast(FInterruptEvent const& InterruptEvent);
     void CancelCast();
@@ -213,9 +212,11 @@ protected:
     UFUNCTION(BlueprintImplementableEvent)
     void OnDeactivate();
     UFUNCTION(BlueprintImplementableEvent)
-    void OnInitialTick(FAbilityRepParams const& InRepParams, FAbilityRepParams& OutRepParams);
+    void OnPredictedTick(int32 const TickNumber, FAbilityRepParams& PredictionParams);
     UFUNCTION(BlueprintImplementableEvent)
-    void OnNonInitialTick(int32 const TickNumber, FAbilityRepParams const& InRepParams, FAbilityRepParams& OutRepParams);
+    void OnServerTick(int32 const TickNumber, FAbilityRepParams const& PredictionParams, FAbilityRepParams& BroadcastParams);
+    UFUNCTION(BlueprintImplementableEvent)
+    void OnSimulatedTick(int32 const TickNumber, FAbilityRepParams const& BroadcastParams);
     UFUNCTION(BlueprintImplementableEvent)
     void OnCastComplete();
     UFUNCTION(BlueprintImplementableEvent)

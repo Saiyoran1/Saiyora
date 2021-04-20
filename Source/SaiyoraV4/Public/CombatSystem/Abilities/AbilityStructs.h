@@ -234,6 +234,8 @@ struct FAbilityRequest
     UPROPERTY()
     int32 PredictionID = 0;
     UPROPERTY()
+    int32 Tick = 0;
+    UPROPERTY()
     float ClientStartTime = 0.0f;
     UPROPERTY()
     FAbilityRepParams PredictionParams;
@@ -281,21 +283,6 @@ struct FServerAbilityResult
     bool bInterruptible = false;
     UPROPERTY()
     TArray<FAbilityCost> AbilityCosts;
-};
-
-USTRUCT()
-struct FTickRequest
-{
-    GENERATED_BODY()
-
-    UPROPERTY()
-    TSubclassOf<UCombatAbility> AbilityClass;
-    UPROPERTY()
-    int32 PredictionID = 0;
-    UPROPERTY()
-    int32 Tick = 0;
-    UPROPERTY()
-    FAbilityRepParams PredictionParams;
 };
 
 USTRUCT()

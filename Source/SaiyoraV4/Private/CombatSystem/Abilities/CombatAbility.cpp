@@ -224,14 +224,22 @@ void UCombatAbility::DeactivateAbility()
     bDeactivated = true;
 }
 
-void UCombatAbility::InitialTick(FAbilityRepParams const& InRepParams, FAbilityRepParams& OutRepParams)
+void UCombatAbility::AbilityTick(int32 const TickNumber, FAbilityRepParams const& InRepParams, FAbilityRepParams& OutRepParams)
 {
-    OnInitialTick(InRepParams, OutRepParams);
-}
-
-void UCombatAbility::NonInitialTick(int32 const TickNumber, FAbilityRepParams const& InRepParams, FAbilityRepParams& OutRepParams)
-{
-    OnNonInitialTick(TickNumber, InRepParams, OutRepParams);
+    switch (GetHandler()->GetOwnerRole())
+    {
+        case ROLE_AutonomousProxy :
+            OnPredictedTick(TickNumber, OutRepParams);
+            return;
+        case ROLE_Authority :
+            OnServerTick(TickNumber, InRepParams, OutRepParams);
+            return;
+        case ROLE_SimulatedProxy :
+            OnSimulatedTick(TickNumber, InRepParams);
+            return;
+        default :
+            return;
+    }
 }
 
 void UCombatAbility::CompleteCast()

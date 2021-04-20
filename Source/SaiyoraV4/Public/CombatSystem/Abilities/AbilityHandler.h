@@ -132,8 +132,8 @@ private:
 	UFUNCTION(Client, Reliable)
 	void ClientFailPredictedAbility(int32 const PredictionID);
 	UFUNCTION(Server, Reliable, WithValidation)
-	void ServerHandlePredictedTick(FTickRequest const& TickRequest);
-	bool ServerHandlePredictedTick_Validate(FTickRequest const& TickRequest) { return true; }
+	void ServerHandlePredictedTick(FAbilityRequest const& TickRequest);
+	bool ServerHandlePredictedTick_Validate(FAbilityRequest const& TickRequest) { return true; }
 	UFUNCTION(Client, Reliable)
 	void ClientInterruptCast(FInterruptEvent const& InterruptEvent);
 	UFUNCTION(Client, Reliable)
