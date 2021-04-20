@@ -77,5 +77,3 @@ bool USaiyoraCombatLibrary::CheckForXPlane(ESaiyoraPlane const FromPlane, ESaiyo
     //Actors in a normal plane will only see actors in the same plane or both planes as the same plane.
     return FromPlane != ToPlane;
 }
-
-

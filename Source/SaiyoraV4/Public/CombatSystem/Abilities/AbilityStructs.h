@@ -102,7 +102,7 @@ struct FAbilityTagParam
 
     UPROPERTY(BlueprintReadWrite)
     ETagParamType ParamType = ETagParamType::None;
-    UPROPERTY(BlueprintReadWrite, meta = (Categories = "Param"))
+    UPROPERTY(BlueprintReadWrite)
     FGameplayTag ParamTag;
 };
 
