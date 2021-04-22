@@ -90,6 +90,15 @@ void UAbilityHandler::BeginPlay()
 			AddNewAbility(AbilityClass);
 		}
 	}
+	if (GetOwnerRole() == ROLE_AutonomousProxy)
+	{
+		FGlobalCooldownCallback GcdQueueCallback;
+		GcdQueueCallback.BindUFunction(this, FName(TEXT("CheckForQueuedAbilityOnGlobalEnd")));
+		SubscribeToGlobalCooldownChanged(GcdQueueCallback);
+		FCastingStateCallback CastQueueCallback;
+		CastQueueCallback.BindUFunction(this, FName(TEXT("CheckForQueuedAbilityOnCastEnd")));
+		SubscribeToCastStateChanged(CastQueueCallback);
+	}
 }
 #pragma endregion
 #pragma region IntercomponentDelegates
@@ -824,7 +833,7 @@ FCastEvent UAbilityHandler::UseAbility(TSubclassOf<UCombatAbility> const Ability
 	case ROLE_Authority :
 		return AuthUseAbility(AbilityClass);
 	case ROLE_AutonomousProxy :
-		return PredictUseAbility(AbilityClass);
+		return PredictUseAbility(AbilityClass, false);
 	case ROLE_SimulatedProxy :
 		Result.FailReason = FString(TEXT("Tried to use ability from simulated proxy."));
 		return Result;
@@ -968,7 +977,7 @@ void UAbilityHandler::GenerateNewPredictionID(FCastEvent& CastEvent)
 	CastEvent.PredictionID = ClientPredictionID;
 }
 
-FCastEvent UAbilityHandler::PredictUseAbility(TSubclassOf<UCombatAbility> const AbilityClass)
+FCastEvent UAbilityHandler::PredictUseAbility(TSubclassOf<UCombatAbility> const AbilityClass, bool const bFromQueue)
 {
 	FCastEvent Result;
 	
@@ -988,12 +997,20 @@ FCastEvent UAbilityHandler::PredictUseAbility(TSubclassOf<UCombatAbility> const 
 	if (Result.Ability->GetHasGlobalCooldown() && GlobalCooldownState.bGlobalCooldownActive)
 	{
 		Result.FailReason = FString(TEXT("Already on global cooldown."));
+		if (!bFromQueue)
+		{
+			TryQueueAbility(AbilityClass);
+		}
 		return Result;
 	}
 	
 	if (GetCastingState().bIsCasting)
 	{
 		Result.FailReason = FString(TEXT("Already casting."));
+		if (!bFromQueue)
+		{
+			TryQueueAbility(AbilityClass);
+		}
 		return Result;
 	}
 	
@@ -1593,6 +1610,117 @@ void UAbilityHandler::AuthTickPredictedCast()
 		{
 			EndCast();
 		}
+	}
+}
+#pragma endregion
+#pragma region AbilityQueueing
+void UAbilityHandler::TryQueueAbility(TSubclassOf<UCombatAbility> const AbilityClass)
+{
+	ClearQueue();
+	if (!GlobalCooldownState.bGlobalCooldownActive && !CastingState.bIsCasting)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Tried to queue an ability when not casting or on global cooldown."));
+		return;
+	}
+	if (!IsValid(AbilityClass))
+	{
+		return;
+	}
+	if (CastingState.bIsCasting && CastingState.CastEndTime == 0.0f)
+	{
+		//Don't queue an ability if the cast time hasn't been acked yet.
+		return;
+	}
+	if (AbilityClass->GetDefaultObject<UCombatAbility>()->GetHasGlobalCooldown() && GlobalCooldownState.bGlobalCooldownActive && GlobalCooldownState.EndTime == 0.0f)
+	{
+		//Don't queue an ability if the gcd time hasn't been acked yet.
+		return;
+	}
+	float const GlobalTimeRemaining = AbilityClass->GetDefaultObject<UCombatAbility>()->GetHasGlobalCooldown() && GlobalCooldownState.bGlobalCooldownActive ? GlobalCooldownState.EndTime - GameStateRef->GetWorldTime() : 0.0f;
+	float const CastTimeRemaining = CastingState.bIsCasting ? CastingState.CastEndTime - GameStateRef->GetWorldTime() : 0.0f;
+	if (GlobalTimeRemaining > AbilityQueWindowSec || CastTimeRemaining > AbilityQueWindowSec)
+	{
+		//Don't queue if either the gcd or cast time will last longer than the queue window.
+		return;
+	}
+	if (GlobalTimeRemaining == CastTimeRemaining)
+	{
+		QueueStatus = EQueueStatus::WaitForBoth;
+		QueuedAbility = AbilityClass;
+		SetQueueExpirationTimer();
+	}
+	else if (GlobalTimeRemaining > CastTimeRemaining)
+	{
+		QueueStatus = EQueueStatus::WaitForGlobal;
+		QueuedAbility = AbilityClass;
+		SetQueueExpirationTimer();
+	}
+	else
+	{
+		QueueStatus = EQueueStatus::WaitForCast;
+		QueuedAbility = AbilityClass;
+		SetQueueExpirationTimer();
+	}
+}
+
+void UAbilityHandler::ClearQueue()
+{
+	QueueStatus = EQueueStatus::Empty;
+	QueuedAbility = nullptr;
+	GetWorld()->GetTimerManager().ClearTimer(QueueClearHandle);
+}
+
+void UAbilityHandler::SetQueueExpirationTimer()
+{
+	FTimerDelegate QueueExpirationDelegate;
+	QueueExpirationDelegate.BindUFunction(this, FName(TEXT("ClearQueue")));
+	GetWorld()->GetTimerManager().SetTimer(QueueClearHandle, QueueExpirationDelegate, AbilityQueWindowSec, false);
+}
+
+void UAbilityHandler::CheckForQueuedAbilityOnGlobalEnd(FGlobalCooldown const& OldGlobalCooldown,
+	FGlobalCooldown const& NewGlobalCooldown)
+{
+	switch (QueueStatus)
+	{
+		case EQueueStatus::Empty :
+			return;
+		case EQueueStatus::WaitForBoth :
+			QueueStatus = EQueueStatus::WaitForCast;
+			return;
+		case EQueueStatus::WaitForCast :
+			return;
+		case EQueueStatus::WaitForGlobal :
+			ClearQueue();
+			if (IsValid(QueuedAbility))
+			{
+				PredictUseAbility(QueuedAbility, true);
+			}
+			return;
+		default :
+			return;
+	}
+}
+
+void UAbilityHandler::CheckForQueuedAbilityOnCastEnd(FCastingState const& OldState, FCastingState const& NewState)
+{
+	switch (QueueStatus)
+	{
+	case EQueueStatus::Empty :
+		return;
+	case EQueueStatus::WaitForBoth :
+		QueueStatus = EQueueStatus::WaitForGlobal;
+		return;
+	case EQueueStatus::WaitForCast :
+		ClearQueue();
+		if (IsValid(QueuedAbility))
+		{
+			PredictUseAbility(QueuedAbility, true);
+		}
+		return;
+	case EQueueStatus::WaitForGlobal :
+		return;
+	default :
+		return;
 	}
 }
 #pragma endregion

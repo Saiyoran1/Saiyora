@@ -123,7 +123,7 @@ public:
 private:
 
 	FCastEvent AuthUseAbility(TSubclassOf<UCombatAbility> const AbilityClass);
-	FCastEvent PredictUseAbility(TSubclassOf<UCombatAbility> const AbilityClass);
+	FCastEvent PredictUseAbility(TSubclassOf<UCombatAbility> const AbilityClass, bool const bFromQueue);
 	UFUNCTION(Server, Reliable, WithValidation)
 	void ServerPredictAbility(FAbilityRequest const& AbilityRequest);
 	bool ServerPredictAbility_Validate(FAbilityRequest const& AbilityRequest) { return true; }
@@ -218,6 +218,18 @@ private:
 	void BroadcastAbilityCancel(FCancelEvent const& CancelEvent);
 	UFUNCTION(NetMulticast, Unreliable)
 	void BroadcastAbilityInterrupt(FInterruptEvent const& InterruptEvent);
+
+	void TryQueueAbility(TSubclassOf<UCombatAbility> const Ability);
+	void ClearQueue();
+	void SetQueueExpirationTimer();
+	UPROPERTY()
+	TSubclassOf<UCombatAbility> QueuedAbility;
+	EQueueStatus QueueStatus = EQueueStatus::Empty;
+	FTimerHandle QueueClearHandle;
+	UFUNCTION()
+	void CheckForQueuedAbilityOnGlobalEnd(FGlobalCooldown const& OldGlobalCooldown, FGlobalCooldown const& NewGlobalCooldown);
+	UFUNCTION()
+	void CheckForQueuedAbilityOnCastEnd(FCastingState const& OldState, FCastingState const& NewState);
 
 protected:
 	

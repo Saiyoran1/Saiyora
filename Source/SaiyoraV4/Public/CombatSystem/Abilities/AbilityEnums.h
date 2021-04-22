@@ -45,3 +45,12 @@ enum class ECastAction : uint8
     Tick,
     Complete,
 };
+
+UENUM()
+enum class EQueueStatus : uint8
+{
+    Empty,
+    WaitForGlobal,
+    WaitForCast,
+    WaitForBoth,
+};
