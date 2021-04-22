@@ -74,52 +74,6 @@ struct FAbilityCooldown
 };
 
 USTRUCT(BlueprintType)
-struct FAbilityFloatParam
-{
-    GENERATED_BODY()
-
-    UPROPERTY(BlueprintReadWrite)
-    EFloatParamType ParamType = EFloatParamType::None;
-    UPROPERTY(BlueprintReadWrite)
-    float ParamValue = 0.0f;
-};
-
-USTRUCT(BlueprintType)
-struct FAbilityPointerParam
-{
-    GENERATED_BODY()
-
-    UPROPERTY(BlueprintReadWrite)
-    EPointerParamType ParamType = EPointerParamType::None;
-    UPROPERTY(BlueprintReadWrite)
-    AActor* ParamPointer = nullptr;
-};
-
-USTRUCT(BlueprintType)
-struct FAbilityTagParam
-{
-    GENERATED_BODY()
-
-    UPROPERTY(BlueprintReadWrite)
-    ETagParamType ParamType = ETagParamType::None;
-    UPROPERTY(BlueprintReadWrite)
-    FGameplayTag ParamTag;
-};
-
-USTRUCT(BlueprintType)
-struct FAbilityRepParams
-{
-    GENERATED_BODY()
-
-    UPROPERTY(BlueprintReadWrite)
-    TArray<FAbilityFloatParam> FloatParams;
-    UPROPERTY(BlueprintReadWrite)
-    TArray<FAbilityPointerParam> PointerParams;
-    UPROPERTY(BlueprintReadWrite)
-    TArray<FAbilityTagParam> TagParams;
-};
-
-USTRUCT(BlueprintType)
 struct FCastEvent
 {
     GENERATED_BODY()
@@ -238,7 +192,7 @@ struct FAbilityRequest
     UPROPERTY()
     float ClientStartTime = 0.0f;
     UPROPERTY()
-    FAbilityRepParams PredictionParams;
+    FCombatParameters PredictionParams;
 };
 
 USTRUCT()

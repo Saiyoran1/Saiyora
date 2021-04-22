@@ -224,22 +224,41 @@ void UCombatAbility::DeactivateAbility()
     bDeactivated = true;
 }
 
-void UCombatAbility::AbilityTick(int32 const TickNumber, FAbilityRepParams const& InRepParams, FAbilityRepParams& OutRepParams)
+void UCombatAbility::PredictedTick(int32 const TickNumber, FCombatParameters& PredictionParams)
 {
-    switch (GetHandler()->GetOwnerRole())
+    if (GetHandler()->GetOwnerRole() != ROLE_AutonomousProxy)
     {
-        case ROLE_AutonomousProxy :
-            OnPredictedTick(TickNumber, OutRepParams);
-            return;
-        case ROLE_Authority :
-            OnServerTick(TickNumber, InRepParams, OutRepParams);
-            return;
-        case ROLE_SimulatedProxy :
-            OnSimulatedTick(TickNumber, InRepParams);
-            return;
-        default :
-            return;
+        return;
     }
+    OnPredictedTick(TickNumber, PredictionParams);
+}
+
+void UCombatAbility::ServerPredictedTick(int32 const TickNumber, FCombatParameters const& PredictionParams,
+    FCombatParameters& BroadcastParams)
+{
+    if (GetHandler()->GetOwnerRole() != ROLE_Authority)
+    {
+        return;
+    }
+    OnServerPredictedTick(TickNumber, PredictionParams, BroadcastParams);
+}
+
+void UCombatAbility::ServerNonPredictedTick(int32 const TickNumber, FCombatParameters& BroadcastParams)
+{
+    if (GetHandler()->GetOwnerRole() != ROLE_Authority)
+    {
+        return;
+    }
+    OnServerNonPredictedTick(TickNumber, BroadcastParams);
+}
+
+void UCombatAbility::SimulatedTick(int32 const TickNumber, FCombatParameters const& BroadcastParams)
+{
+    if (GetHandler()->GetOwnerRole() != ROLE_SimulatedProxy)
+    {
+        return;
+    }
+    OnSimulatedTick(TickNumber, BroadcastParams);
 }
 
 void UCombatAbility::CompleteCast()

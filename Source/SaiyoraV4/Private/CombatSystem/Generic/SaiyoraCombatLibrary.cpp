@@ -77,3 +77,10 @@ bool USaiyoraCombatLibrary::CheckForXPlane(ESaiyoraPlane const FromPlane, ESaiyo
     //Actors in a normal plane will only see actors in the same plane or both planes as the same plane.
     return FromPlane != ToPlane;
 }
+
+void USaiyoraCombatLibrary::ExtractCombatParameters(FCombatParameters const& Parameters, FVector& OriginLocation,
+    FVector& OriginRotation, FVector& OriginScale, FVector& TargetLocation, FVector& TargetRotation,
+    FVector& TargetScale, UObject*& Object)
+{
+    //TODO: Sort Parameters and assign them to the references passed in.
+}

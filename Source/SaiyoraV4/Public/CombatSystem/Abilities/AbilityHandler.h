@@ -178,7 +178,7 @@ private:
 	void AuthTickPredictedCast();
 	void HandleMissedPredictedTick(int32 const TickNumber);
 	TArray<FPredictedTick> TicksAwaitingParams;
-	TMap<FPredictedTick, FAbilityRepParams> ParamsAwaitingTicks;
+	TMap<FPredictedTick, FCombatParameters> ParamsAwaitingTicks;
 	void EndCast();
 	float CalculateCastLength(UCombatAbility* Ability);
 	TArray<FAbilityModCondition> CastLengthMods;
@@ -211,7 +211,7 @@ private:
 	FGlobalCooldownNotification OnGlobalCooldownChanged;
 
 	UFUNCTION(NetMulticast, Unreliable)
-	void BroadcastAbilityTick(FCastEvent const& CastEvent, FAbilityRepParams const& BroadcastParams);
+	void BroadcastAbilityTick(FCastEvent const& CastEvent, bool const OwnerNeeds, FCombatParameters const& BroadcastParams);
 	UFUNCTION(NetMulticast, Unreliable)
 	void BroadcastAbilityComplete(FCastEvent const& CastEvent);
 	UFUNCTION(NetMulticast, Unreliable)

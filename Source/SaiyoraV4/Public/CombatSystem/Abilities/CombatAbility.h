@@ -196,7 +196,10 @@ public:
     
     void InitializeAbility(UAbilityHandler* AbilityComponent);
     void DeactivateAbility();
-    void AbilityTick(int32 const TickNumber, FAbilityRepParams const& InRepParams, FAbilityRepParams& OutRepParams);
+    void PredictedTick(int32 const TickNumber, FCombatParameters& PredictionParams);
+    void ServerPredictedTick(int32 const TickNumber, FCombatParameters const& PredictionParams, FCombatParameters& BroadcastParams);
+    void ServerNonPredictedTick(int32 const TickNumber, FCombatParameters& BroadcastParams);
+    void SimulatedTick(int32 const TickNumber, FCombatParameters const& BroadcastParams);
     void CompleteCast();
     void InterruptCast(FInterruptEvent const& InterruptEvent);
     void CancelCast();
@@ -212,11 +215,13 @@ protected:
     UFUNCTION(BlueprintImplementableEvent)
     void OnDeactivate();
     UFUNCTION(BlueprintImplementableEvent)
-    void OnPredictedTick(int32 const TickNumber, FAbilityRepParams& PredictionParams);
+    void OnPredictedTick(int32 const TickNumber, FCombatParameters& PredictionParams);
     UFUNCTION(BlueprintImplementableEvent)
-    void OnServerTick(int32 const TickNumber, FAbilityRepParams const& PredictionParams, FAbilityRepParams& BroadcastParams);
+    void OnServerPredictedTick(int32 const TickNumber, FCombatParameters const& PredictionParams, FCombatParameters& BroadcastParams);
     UFUNCTION(BlueprintImplementableEvent)
-    void OnSimulatedTick(int32 const TickNumber, FAbilityRepParams const& BroadcastParams);
+    void OnServerNonPredictedTick(int32 const TickNumber, FCombatParameters& BroadcastParams);
+    UFUNCTION(BlueprintImplementableEvent)
+    void OnSimulatedTick(int32 const TickNumber, FCombatParameters const& BroadcastParams);
     UFUNCTION(BlueprintImplementableEvent)
     void OnCastComplete();
     UFUNCTION(BlueprintImplementableEvent)

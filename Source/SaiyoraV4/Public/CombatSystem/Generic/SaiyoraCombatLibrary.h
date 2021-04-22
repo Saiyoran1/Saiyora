@@ -2,6 +2,7 @@
 
 #pragma once
 #include "SaiyoraEnums.h"
+#include "SaiyoraStructs.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "SaiyoraCombatLibrary.generated.h"
 
@@ -27,6 +28,17 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Plane")
 	static bool CheckForXPlane(ESaiyoraPlane const FromPlane, ESaiyoraPlane const ToPlane);
+
+	//Params
+	UFUNCTION(BlueprintCallable, Category = "Params", meta = (AutoCreateRefTerm = "OriginLocation, OriginRotation, OriginScale, TargetLocation, TargetRotation, TargetScale, Object", AdvancedDisplay = 1))
+	static void ExtractCombatParameters(UPARAM(ref) FCombatParameters const& Parameters,
+		UPARAM(ref) FVector& OriginLocation,
+		UPARAM(ref) FVector& OriginRotation,
+		UPARAM(ref) FVector& OriginScale,
+		UPARAM(ref) FVector& TargetLocation,
+		UPARAM(ref) FVector& TargetRotation,
+		UPARAM(ref) FVector& TargetScale,
+		UPARAM(ref) UObject*& Object);
 };
 
 
