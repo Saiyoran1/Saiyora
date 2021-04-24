@@ -220,6 +220,7 @@ private:
 	void BroadcastAbilityInterrupt(FInterruptEvent const& InterruptEvent);
 
 	void TryQueueAbility(TSubclassOf<UCombatAbility> const Ability);
+	UFUNCTION()
 	void ClearQueue();
 	void SetQueueExpirationTimer();
 	UPROPERTY()
