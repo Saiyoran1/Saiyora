@@ -215,13 +215,13 @@ protected:
     UFUNCTION(BlueprintImplementableEvent)
     void OnDeactivate();
     UFUNCTION(BlueprintImplementableEvent)
-    void OnPredictedTick(int32 const TickNumber, FCombatParameters& PredictionParams);
+    void OnPredictedTick(int32 const TickNumber, TArray<FCombatParameter>& PredictionParams);
     UFUNCTION(BlueprintImplementableEvent)
-    void OnServerPredictedTick(int32 const TickNumber, FCombatParameters const& PredictionParams, FCombatParameters& BroadcastParams);
+    void OnServerPredictedTick(int32 const TickNumber, TArray<FCombatParameter> const& PredictionParams, TArray<FCombatParameter>& BroadcastParams);
     UFUNCTION(BlueprintImplementableEvent)
-    void OnServerNonPredictedTick(int32 const TickNumber, FCombatParameters& BroadcastParams);
+    void OnServerNonPredictedTick(int32 const TickNumber, TArray<FCombatParameter>& BroadcastParams);
     UFUNCTION(BlueprintImplementableEvent)
-    void OnSimulatedTick(int32 const TickNumber, FCombatParameters const& BroadcastParams);
+    bool OnSimulatedTick(int32 const TickNumber, TArray<FCombatParameter> const& BroadcastParams);
     UFUNCTION(BlueprintImplementableEvent)
     void OnCastComplete();
     UFUNCTION(BlueprintImplementableEvent)

@@ -30,3 +30,13 @@ enum class EReplicationNeeds : uint8
  OwnerOnly = 1,
  AllClients = 2,
 };
+
+UENUM(BlueprintType)
+enum class ECombatParamType : uint8
+{
+ None,
+ Custom,
+ Origin,
+ Target,
+ ClassDefault,
+};

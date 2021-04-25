@@ -230,7 +230,7 @@ void UCombatAbility::PredictedTick(int32 const TickNumber, FCombatParameters& Pr
     {
         return;
     }
-    OnPredictedTick(TickNumber, PredictionParams);
+    OnPredictedTick(TickNumber, PredictionParams.Parameters);
 }
 
 void UCombatAbility::ServerPredictedTick(int32 const TickNumber, FCombatParameters const& PredictionParams,
@@ -240,7 +240,7 @@ void UCombatAbility::ServerPredictedTick(int32 const TickNumber, FCombatParamete
     {
         return;
     }
-    OnServerPredictedTick(TickNumber, PredictionParams, BroadcastParams);
+    OnServerPredictedTick(TickNumber, PredictionParams.Parameters, BroadcastParams.Parameters);
 }
 
 void UCombatAbility::ServerNonPredictedTick(int32 const TickNumber, FCombatParameters& BroadcastParams)
@@ -249,7 +249,7 @@ void UCombatAbility::ServerNonPredictedTick(int32 const TickNumber, FCombatParam
     {
         return;
     }
-    OnServerNonPredictedTick(TickNumber, BroadcastParams);
+    OnServerNonPredictedTick(TickNumber, BroadcastParams.Parameters);
 }
 
 void UCombatAbility::SimulatedTick(int32 const TickNumber, FCombatParameters const& BroadcastParams)
@@ -258,7 +258,7 @@ void UCombatAbility::SimulatedTick(int32 const TickNumber, FCombatParameters con
     {
         return;
     }
-    OnSimulatedTick(TickNumber, BroadcastParams);
+    OnSimulatedTick(TickNumber, BroadcastParams.Parameters);
 }
 
 void UCombatAbility::CompleteCast()

@@ -481,9 +481,9 @@ void UAbilityHandler::BroadcastAbilityInterrupt_Implementation(FInterruptEvent c
 	}
 }
 
-void UAbilityHandler::BroadcastAbilityTick_Implementation(FCastEvent const& CastEvent, bool const OwnerNeeds, FCombatParameters const& BroadcastParams)
+void UAbilityHandler::BroadcastAbilityTick_Implementation(FCastEvent const& CastEvent, FCombatParameters const& BroadcastParams)
 {
-	if (GetOwnerRole() == ROLE_SimulatedProxy || (OwnerNeeds && GetOwnerRole() == ROLE_AutonomousProxy))
+	if (GetOwnerRole() == ROLE_SimulatedProxy)
 	{
 		if (IsValid(CastEvent.Ability))
 		{
@@ -578,7 +578,7 @@ void UAbilityHandler::TickCurrentAbility()
 	TickEvent.ActionTaken = ECastAction::Tick;
 	TickEvent.PredictionID = CastingState.PredictionID;
 	OnAbilityTick.Broadcast(TickEvent);
-	BroadcastAbilityTick(TickEvent, true, BroadcastParams);
+	BroadcastAbilityTick(TickEvent, BroadcastParams);
 	if (CastingState.ElapsedTicks >= CastingState.CurrentCast->GetNumberOfTicks())
 	{
 		GetWorld()->GetTimerManager().ClearTimer(TickHandle);
@@ -948,7 +948,7 @@ FCastEvent UAbilityHandler::AuthUseAbility(TSubclassOf<UCombatAbility> const Abi
 		Result.ActionTaken = ECastAction::Success;
 		Result.Ability->ServerNonPredictedTick(0, BroadcastParams);
 		OnAbilityTick.Broadcast(Result);
-		BroadcastAbilityTick(Result, true, BroadcastParams);
+		BroadcastAbilityTick(Result, BroadcastParams);
 		break;
 	case EAbilityCastType::Channel :
 		Result.ActionTaken = ECastAction::Success;
@@ -957,7 +957,7 @@ FCastEvent UAbilityHandler::AuthUseAbility(TSubclassOf<UCombatAbility> const Abi
 		{
 			Result.Ability->ServerNonPredictedTick(0, BroadcastParams);
 			OnAbilityTick.Broadcast(Result);
-			BroadcastAbilityTick(Result, true, BroadcastParams);
+			BroadcastAbilityTick(Result, BroadcastParams);
 		}
 		break;
 	default :
@@ -1244,7 +1244,7 @@ void UAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest const&
 		Result.ActionTaken = ECastAction::Success;
 		Result.Ability->ServerPredictedTick(0, AbilityRequest.PredictionParams, BroadcastParams);
 		OnAbilityTick.Broadcast(Result);
-		BroadcastAbilityTick(Result, false, BroadcastParams);
+		BroadcastAbilityTick(Result, BroadcastParams);
 		break;
 	case EAbilityCastType::Channel :
 		Result.ActionTaken = ECastAction::Success;
@@ -1256,7 +1256,7 @@ void UAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest const&
 		{
 			Result.Ability->ServerPredictedTick(0, AbilityRequest.PredictionParams, BroadcastParams);
 			OnAbilityTick.Broadcast(Result);
-			BroadcastAbilityTick(Result, false, BroadcastParams);
+			BroadcastAbilityTick(Result, BroadcastParams);
 		}
 		break;
 	default :
@@ -1518,7 +1518,7 @@ void UAbilityHandler::ServerHandlePredictedTick_Implementation(FAbilityRequest c
 				TickEvent.PredictionID = TickRequest.PredictionID;
 				Ability->ServerPredictedTick(TickRequest.Tick, TickRequest.PredictionParams, BroadcastParams);
 				OnAbilityTick.Broadcast(TickEvent);
-				BroadcastAbilityTick(TickEvent, false, BroadcastParams);
+				BroadcastAbilityTick(TickEvent, BroadcastParams);
 			}
 			TicksAwaitingParams.RemoveSingleSwap(Tick);
 			return;
@@ -1584,7 +1584,7 @@ void UAbilityHandler::AuthTickPredictedCast()
 		TickEvent.ActionTaken = ECastAction::Tick;
 		TickEvent.PredictionID = CastingState.PredictionID;
 		OnAbilityTick.Broadcast(TickEvent);
-		BroadcastAbilityTick(TickEvent, false, BroadcastParams);
+		BroadcastAbilityTick(TickEvent, BroadcastParams);
 	}
 	else if (ParamsAwaitingTicks.Contains(Tick))
 	{
@@ -1595,7 +1595,7 @@ void UAbilityHandler::AuthTickPredictedCast()
 		TickEvent.ActionTaken = ECastAction::Tick;
 		TickEvent.PredictionID = CastingState.PredictionID;
 		OnAbilityTick.Broadcast(TickEvent);
-		BroadcastAbilityTick(TickEvent, false, BroadcastParams);
+		BroadcastAbilityTick(TickEvent, BroadcastParams);
 		ParamsAwaitingTicks.Remove(Tick);
 	}
 	else

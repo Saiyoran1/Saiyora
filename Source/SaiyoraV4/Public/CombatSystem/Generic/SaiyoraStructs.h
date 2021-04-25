@@ -28,42 +28,42 @@ struct FCombatModifier
 };
 
 USTRUCT(BlueprintType)
-struct FCombatFloatParam
+struct FCombatParameter
 {
     GENERATED_BODY()
 
-    UPROPERTY(BlueprintReadWrite, meta = (Categories = "Param"))
-    FGameplayTag ParamType;
     UPROPERTY(BlueprintReadWrite)
-    float Value;
+    ECombatParamType ParamType = ECombatParamType::None;
+    UPROPERTY(BlueprintReadWrite)
+    int32 ID = 0;
+    UPROPERTY(BlueprintReadWrite)
+    UObject* Object = nullptr;
+    UPROPERTY(BlueprintReadWrite)
+    FVector Location = FVector::ZeroVector;
+    UPROPERTY(BlueprintReadWrite)
+    FRotator Rotation = FRotator::ZeroRotator;
+    UPROPERTY(BlueprintReadWrite)
+    FVector Scale = FVector::ZeroVector;
 
-    bool IsValidParam() const { return ParamType.IsValid(); }
+    bool NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess)
+    {
+        Ar << ParamType;
+        Ar << ID;
+        Ar << Object;
+        NetSerializeOptionalValue(Ar.IsSaving(), Ar, Location, FVector::ZeroVector, Map);
+        NetSerializeOptionalValue(Ar.IsSaving(), Ar, Rotation, FRotator::ZeroRotator, Map);
+        NetSerializeOptionalValue(Ar.IsSaving(), Ar, Scale, FVector::ZeroVector, Map);
+        return true;
+    }
 };
 
-USTRUCT(BlueprintType)
-struct FCombatPointerParam
+template<>
+struct TStructOpsTypeTraits<FCombatParameter> : public TStructOpsTypeTraitsBase2<FCombatParameter>
 {
-    GENERATED_BODY()
-
-    UPROPERTY(BlueprintReadWrite, meta = (Categories = "Param"))
-    FGameplayTag ParamType;
-    UPROPERTY(BlueprintReadWrite)
-    UObject* Value;
-
-    bool IsValidParam() const { return ParamType.IsValid() && IsValid(Value); }
-};
-
-USTRUCT(BlueprintType)
-struct FCombatTagParam
-{
-    GENERATED_BODY()
-
-    UPROPERTY(BlueprintReadWrite, meta = (Categories = "Param"))
-    FGameplayTag ParamType;
-    UPROPERTY(BlueprintReadWrite)
-    FGameplayTag Value;
-
-    bool IsValidParam() const { return ParamType.IsValid() && Value.IsValid(); }
+    enum
+    {
+        WithNetSerializer = true
+    };
 };
 
 USTRUCT(BlueprintType)
@@ -71,12 +71,8 @@ struct FCombatParameters
 {
     GENERATED_BODY()
 
-    UPROPERTY(BlueprintReadWrite)
-    TArray<FCombatFloatParam> FloatParams;
-    UPROPERTY(BlueprintReadWrite)
-    TArray<FCombatPointerParam> PointerParams;
-    UPROPERTY(BlueprintReadWrite)
-    TArray<FCombatTagParam> TagParams;
+    UPROPERTY()
+    TArray<FCombatParameter> Parameters;
 
-    bool HasParams() const { return FloatParams.Num() != 0 || PointerParams.Num() != 0 || TagParams.Num() != 0; }
+    bool HasParams() const { return Parameters.Num() > 0; }
 };

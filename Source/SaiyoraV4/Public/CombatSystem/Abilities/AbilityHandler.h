@@ -211,7 +211,7 @@ private:
 	FGlobalCooldownNotification OnGlobalCooldownChanged;
 
 	UFUNCTION(NetMulticast, Unreliable)
-	void BroadcastAbilityTick(FCastEvent const& CastEvent, bool const OwnerNeeds, FCombatParameters const& BroadcastParams);
+	void BroadcastAbilityTick(FCastEvent const& CastEvent, FCombatParameters const& BroadcastParams);
 	UFUNCTION(NetMulticast, Unreliable)
 	void BroadcastAbilityComplete(FCastEvent const& CastEvent);
 	UFUNCTION(NetMulticast, Unreliable)
