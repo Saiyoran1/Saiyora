@@ -39,6 +39,8 @@ struct FCombatParameter
     UPROPERTY(BlueprintReadWrite)
     UObject* Object = nullptr;
     UPROPERTY(BlueprintReadWrite)
+    TSubclassOf<UObject> Class;
+    UPROPERTY(BlueprintReadWrite)
     FVector Location = FVector::ZeroVector;
     UPROPERTY(BlueprintReadWrite)
     FRotator Rotation = FRotator::ZeroRotator;
@@ -47,9 +49,10 @@ struct FCombatParameter
 
     bool NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess)
     {
-        Ar << ParamType;
-        Ar << ID;
-        Ar << Object;
+        SerializeOptionalValue(Ar.IsSaving(), Ar, ParamType, ECombatParamType::None);
+        SerializeOptionalValue(Ar.IsSaving(), Ar, ID, 0);
+        SerializeOptionalValue(Ar.IsSaving(), Ar, Object, static_cast<UObject*>(nullptr));
+        SerializeOptionalValue(Ar.IsSaving(), Ar, Class, static_cast<TSubclassOf<UObject>>(nullptr));
         NetSerializeOptionalValue(Ar.IsSaving(), Ar, Location, FVector::ZeroVector, Map);
         NetSerializeOptionalValue(Ar.IsSaving(), Ar, Rotation, FRotator::ZeroRotator, Map);
         NetSerializeOptionalValue(Ar.IsSaving(), Ar, Scale, FVector::ZeroVector, Map);

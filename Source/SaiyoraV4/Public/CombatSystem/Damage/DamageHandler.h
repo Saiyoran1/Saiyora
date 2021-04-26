@@ -32,8 +32,10 @@ public:
 	static const FGameplayTag GenericHealingTag;
 
 private:
-
+	
+	UPROPERTY()
 	UStatHandler* StatHandler;
+	UPROPERTY()
 	UBuffHandler* BuffHandler;
 
 	//Health

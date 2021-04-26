@@ -19,24 +19,26 @@ public:
 	//Apply damage to an actor.
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Damage")
 	static FDamagingEvent ApplyDamage(
-		float Amount,
+		float const Amount,
 		AActor* AppliedBy,
 		AActor* AppliedTo,
 		UObject* Source,
-		EDamageHitStyle HitStyle,
-		EDamageSchool School,
-		bool IgnoreRestriction,
-		bool IgnoreModifiers);
+		EDamageHitStyle const HitStyle,
+		EDamageSchool const School,
+		bool const bIgnoreRestrictions,
+		bool const bIgnoreModifiers,
+		bool const bFromSnapshot);
 
 	//Apply healing to an actor.
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Healing")
 	static FHealingEvent ApplyHealing(
-		float Amount,
+		float const Amount,
 		AActor* AppliedBy,
 		AActor* AppliedTo,
 		UObject* Source,
-		EDamageHitStyle HitStyle,
-		EDamageSchool School,
-		bool IgnoreRestrictions,
-		bool IgnoreModifiers);
+		EDamageHitStyle const HitStyle,
+		EDamageSchool const School,
+		bool const bIgnoreRestrictions,
+		bool const bIgnoreModifiers,
+		bool const bFromSnapshot);
 };

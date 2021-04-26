@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "BuffStructs.h"
+#include "SaiyoraStructs.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "SaiyoraBuffLibrary.generated.h"
 
@@ -23,13 +24,13 @@ public:
 		AActor* const AppliedBy,
 		AActor* const AppliedTo,
 		UObject* const Source,
-		TArray<FBuffParameter> const EventParams,
 		bool const DuplicateOverride,
 		EBuffApplicationOverrideType const StackOverrideType,
 		int32 const OverrideStacks,
 		EBuffApplicationOverrideType const RefreshOverrideType,
 		float const OverrideDuration,
-		bool const IgnoreRestrictions);
+		bool const IgnoreRestrictions,
+		TArray<FCombatParameter> const& BuffParams);
 
 	//Attempt to remove a buff from an actor.
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Buffs")

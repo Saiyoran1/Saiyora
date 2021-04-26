@@ -3,10 +3,10 @@
 #pragma once
 #include "BuffEnums.h"
 #include "SaiyoraEnums.h"
+#include "SaiyoraStructs.h"
 #include "BuffStructs.generated.h"
 
 class UBuff;
-class UBuffParameter;
 
 USTRUCT(BlueprintType)
 struct FBuffApplyResult
@@ -30,23 +30,6 @@ struct FBuffApplyResult
 };
 
 USTRUCT(BlueprintType)
-struct FBuffParameter
-{
-    GENERATED_BODY()
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Buff")
-    EBuffParamType ParameterType = EBuffParamType::Invalid;
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Buff")
-    int32 IntParam = 0;
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Buff")
-    float FloatParam = 0.0f;
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Buff")
-    UObject* ObjectParam = nullptr;
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Buff")
-    TSubclassOf<UObject> ClassParam;
-};
-
-USTRUCT(BlueprintType)
 struct FBuffApplyEvent
 {
     GENERATED_BODY()
@@ -66,8 +49,6 @@ struct FBuffApplyEvent
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Buff")
     TSubclassOf<class UBuff> BuffClass;
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Buff")
-    TArray<FBuffParameter> EventParams;
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Buff")
     bool DuplicateOverride = false;
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Buff")
     EBuffApplicationOverrideType StackOverrideType = EBuffApplicationOverrideType::None;
@@ -77,6 +58,8 @@ struct FBuffApplyEvent
     EBuffApplicationOverrideType RefreshOverrideType = EBuffApplicationOverrideType::None;
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Buff")
     float OverrideDuration = 0.0f;
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Buff")
+    TArray<FCombatParameter> CombatParams;
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Buff")
     FBuffApplyResult Result;
 };

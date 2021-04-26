@@ -51,6 +51,8 @@ struct FDamageInfo
  EDamageSchool School = EDamageSchool::None;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Damage")
  float Damage = 0.0f;
+ UPROPERTY(BlueprintReadOnly, Category = "Damage")
+ float SnapshotDamage = 0.0f;
 };
 
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FDamageCondition, FDamageInfo const&, DamageInfo);
@@ -111,6 +113,8 @@ struct FHealingInfo
  EDamageSchool School = EDamageSchool::None;
  UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Healing")
  float Healing = 0.0f;
+ UPROPERTY(BlueprintReadOnly, Category = "Healing")
+ float SnapshotHealing = 0.0f;
 };
 
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FHealingCondition, FHealingInfo const&, HealingInfo);

@@ -6,8 +6,9 @@
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraCombatLibrary.h"
 
-FDamagingEvent USaiyoraDamageFunctions::ApplyDamage(float Amount, AActor* AppliedBy, AActor* AppliedTo, UObject* Source,
-    EDamageHitStyle HitStyle, EDamageSchool School, bool IgnoreRestrictions, bool IgnoreModifiers)
+FDamagingEvent USaiyoraDamageFunctions::ApplyDamage(float const Amount, AActor* AppliedBy, AActor* AppliedTo, UObject* Source,
+    EDamageHitStyle const HitStyle, EDamageSchool const School, bool const bIgnoreRestrictions, bool const bIgnoreModifiers,
+    bool const bFromSnapshot)
 {
      //Initialize the event.
     FDamagingEvent DamageEvent;
@@ -31,6 +32,7 @@ FDamagingEvent USaiyoraDamageFunctions::ApplyDamage(float Amount, AActor* Applie
 
     //Fill the struct.
     DamageEvent.DamageInfo.Damage = Amount;
+    DamageEvent.DamageInfo.SnapshotDamage = Amount;
     DamageEvent.DamageInfo.AppliedBy = AppliedBy;
     DamageEvent.DamageInfo.AppliedTo = AppliedTo;
     DamageEvent.DamageInfo.Source = Source;
@@ -53,20 +55,22 @@ FDamagingEvent USaiyoraDamageFunctions::ApplyDamage(float Amount, AActor* Applie
      }
 
     //Modify the damage, if ignore modifiers is false.
-    if (!IgnoreModifiers)
+    if (!bIgnoreModifiers)
     {
-        //Add relevant incoming mods.
-        TArray<FCombatModifier> Mods = TargetComponent->GetRelevantIncomingDamageMods(DamageEvent.DamageInfo);
-        if (IsValid(GeneratorComponent))
+        if (!bFromSnapshot && IsValid(GeneratorComponent))
         {
-            //Add relevant outgoing mods.
-            Mods.Append(GeneratorComponent->GetRelevantOutgoingDamageMods(DamageEvent.DamageInfo));
+            //Apply relevant outgoing mods, save off snapshot damage for use in DoTs.
+            DamageEvent.DamageInfo.Damage = FCombatModifier::CombineModifiers(
+                GeneratorComponent->GetRelevantOutgoingDamageMods(DamageEvent.DamageInfo), DamageEvent.DamageInfo.Damage);
+            DamageEvent.DamageInfo.SnapshotDamage = DamageEvent.DamageInfo.Damage;
         }
-        DamageEvent.DamageInfo.Damage = FCombatModifier::CombineModifiers(Mods, DamageEvent.DamageInfo.Damage);
+        //Apply relevant incoming mods.
+        DamageEvent.DamageInfo.Damage = FCombatModifier::CombineModifiers(
+            TargetComponent->GetRelevantIncomingDamageMods(DamageEvent.DamageInfo), DamageEvent.DamageInfo.Damage);
     }
 
     //Check for restrictions, if ignore restrictions is false.
-    if (!IgnoreRestrictions)
+    if (!bIgnoreRestrictions)
     {
         //Check incoming restrictions.
         if (TargetComponent->CheckIncomingDamageRestricted(DamageEvent.DamageInfo))
@@ -92,8 +96,9 @@ FDamagingEvent USaiyoraDamageFunctions::ApplyDamage(float Amount, AActor* Applie
     return DamageEvent;
 }
 
-FHealingEvent USaiyoraDamageFunctions::ApplyHealing(float Amount, AActor* AppliedBy, AActor* AppliedTo, UObject* Source,
-    EDamageHitStyle HitStyle, EDamageSchool School, bool IgnoreRestrictions, bool IgnoreModifiers)
+FHealingEvent USaiyoraDamageFunctions::ApplyHealing(float const Amount, AActor* AppliedBy, AActor* AppliedTo, UObject* Source,
+    EDamageHitStyle const HitStyle, EDamageSchool const School, bool const bIgnoreRestrictions, bool const bIgnoreModifiers,
+    bool const bFromSnapshot)
 {
     //Initialize the event.
     FHealingEvent HealingEvent;
@@ -117,6 +122,7 @@ FHealingEvent USaiyoraDamageFunctions::ApplyHealing(float Amount, AActor* Applie
 
     //Fill the struct.
     HealingEvent.HealingInfo.Healing = Amount;
+    HealingEvent.HealingInfo.SnapshotHealing = Amount;
     HealingEvent.HealingInfo.AppliedBy = AppliedBy;
     HealingEvent.HealingInfo.AppliedTo = AppliedTo;
     HealingEvent.HealingInfo.Source = Source;
@@ -139,20 +145,22 @@ FHealingEvent USaiyoraDamageFunctions::ApplyHealing(float Amount, AActor* Applie
     }
 
     //Modify the healing, if ignore modifiers is false.
-    if (!IgnoreModifiers)
+    if (!bIgnoreModifiers)
     {
-        //Add relevant incoming mods.
-        TArray<FCombatModifier> Mods = TargetComponent->GetRelevantIncomingHealingMods(HealingEvent.HealingInfo);
-        if (IsValid(GeneratorComponent))
+        //Apply relevant outgoing modifiers, save off snapshot healing for use in HoTs.
+        if (!bFromSnapshot && IsValid(GeneratorComponent))
         {
-            //Add relevant outgoing mods.
-            Mods.Append(GeneratorComponent->GetRelevantOutgoingHealingMods(HealingEvent.HealingInfo));
+            HealingEvent.HealingInfo.Healing = FCombatModifier::CombineModifiers(
+                GeneratorComponent->GetRelevantOutgoingHealingMods(HealingEvent.HealingInfo), HealingEvent.HealingInfo.Healing);
+            HealingEvent.HealingInfo.SnapshotHealing = HealingEvent.HealingInfo.Healing;
         }
-        HealingEvent.HealingInfo.Healing = FCombatModifier::CombineModifiers(Mods, HealingEvent.HealingInfo.Healing);
+        //Apply relevant incoming mods.
+        HealingEvent.HealingInfo.Healing = FCombatModifier::CombineModifiers(
+            TargetComponent->GetRelevantIncomingHealingMods(HealingEvent.HealingInfo), HealingEvent.HealingInfo.Healing);
     }
 
     //Check for restrictions, if ignore restrictions is false.
-    if (!IgnoreRestrictions)
+    if (!bIgnoreRestrictions)
     {
         //Check incoming restrictions.
         if (TargetComponent->CheckIncomingHealingRestricted(HealingEvent.HealingInfo))

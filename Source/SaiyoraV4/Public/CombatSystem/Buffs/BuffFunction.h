@@ -20,6 +20,8 @@ private:
 
 public:
 
+	virtual UWorld* GetWorld() const override;
+
 	virtual void SetupBuffFunction(UBuff* BuffRef);
 	
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")

@@ -12,13 +12,13 @@ FBuffApplyEvent USaiyoraBuffLibrary::ApplyBuff(
     AActor* const AppliedBy,
     AActor* const AppliedTo,
     UObject* const Source,
-    TArray<FBuffParameter> const EventParams,
     bool const DuplicateOverride,
     EBuffApplicationOverrideType const StackOverrideType,
     int32 const OverrideStacks,
     EBuffApplicationOverrideType const RefreshOverrideType,
     float const OverrideDuration,
-    bool const IgnoreRestrictions)
+    bool const IgnoreRestrictions,
+    TArray<FCombatParameter> const& BuffParams)
 {
     //Create the event struct.
     FBuffApplyEvent Event;
@@ -50,7 +50,6 @@ FBuffApplyEvent USaiyoraBuffLibrary::ApplyBuff(
     Event.AppliedTo = AppliedTo;
     Event.Source = Source;
     Event.BuffClass = BuffClass;
-    Event.EventParams = EventParams;
     Event.DuplicateOverride = DuplicateOverride;
     Event.StackOverrideType = StackOverrideType;
     Event.OverrideStacks = OverrideStacks;
@@ -59,6 +58,7 @@ FBuffApplyEvent USaiyoraBuffLibrary::ApplyBuff(
     Event.AppliedByPlane = USaiyoraCombatLibrary::GetActorPlane(AppliedBy);
     Event.AppliedToPlane = USaiyoraCombatLibrary::GetActorPlane(AppliedTo);
     Event.AppliedXPlane = USaiyoraCombatLibrary::CheckForXPlane(Event.AppliedByPlane, Event.AppliedToPlane);
+    Event.CombatParams = BuffParams;
 
     //Incoming condition checks. Ignore restrictions will bypass these checks.
     if (!IgnoreRestrictions && BuffTarget->CheckIncomingBuffRestricted(Event))
