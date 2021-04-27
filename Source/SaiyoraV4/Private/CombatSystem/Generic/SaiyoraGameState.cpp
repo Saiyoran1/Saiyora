@@ -5,10 +5,7 @@
 
 void ASaiyoraGameState::UpdateClientWorldTime(float const ServerTime)
 {
-    if (GetLocalRole() == ROLE_AutonomousProxy)
-    {
-        WorldTime = ServerTime;
-    }
+    WorldTime = ServerTime;
 }
 
 ASaiyoraGameState::ASaiyoraGameState()

@@ -4,6 +4,7 @@
 #include "CombatAbility.h"
 #include "AbilityHandler.h"
 #include "ResourceHandler.h"
+#include "SaiyoraCombatLibrary.h"
 #include "UnrealNetwork.h"
 #include "Kismet/KismetSystemLibrary.h"
 
@@ -46,20 +47,34 @@ bool UCombatAbility::CheckChargesMet() const
 
 float UCombatAbility::GetRemainingCooldown() const
 {
-    if (OwningComponent->GetOwnerRole() == ROLE_AutonomousProxy)
+    switch (OwningComponent->GetOwnerRole())
     {
-        return (PredictedCooldown.OnCooldown && PredictedCooldown.CooldownEndTime != 0.0f) ? PredictedCooldown.CooldownEndTime - OwningComponent->GetGameStateRef()->GetServerWorldTimeSeconds() : 0.0f;
+        case ROLE_Authority :
+            return AbilityCooldown.OnCooldown ? GetWorld()->GetTimerManager().GetTimerRemaining(CooldownHandle) : 0.0f;
+        case ROLE_AutonomousProxy :
+            return (PredictedCooldown.OnCooldown && PredictedCooldown.CooldownEndTime != 0.0f) ?
+                PredictedCooldown.CooldownEndTime - OwningComponent->GetGameStateRef()->GetServerWorldTimeSeconds() : 0.0f;
+        case ROLE_SimulatedProxy :
+            return AbilityCooldown.OnCooldown ? AbilityCooldown.CooldownEndTime - OwningComponent->GetGameStateRef()->GetServerWorldTimeSeconds() : 0.0f;
+        default :
+            return 0.0f;
     }
-    return AbilityCooldown.OnCooldown ? AbilityCooldown.CooldownEndTime - OwningComponent->GetGameStateRef()->GetServerWorldTimeSeconds() : 0.0f;
+}
+
+bool UCombatAbility::GetCooldownActive() const
+{
+    return OwningComponent->GetOwnerRole() == ROLE_AutonomousProxy ? PredictedCooldown.OnCooldown : AbilityCooldown.OnCooldown;
 }
 
 void UCombatAbility::CommitCharges(int32 const PredictionID)
 {
     int32 const PreviousCharges = AbilityCooldown.CurrentCharges;
     AbilityCooldown.CurrentCharges = FMath::Clamp((PreviousCharges - ChargesPerCast), 0, MaxCharges);
+    bool bFromPrediction = false;
     if (PredictionID != 0)
     {
         AbilityCooldown.PredictionID = PredictionID;
+        bFromPrediction = true;
     }
     if (PreviousCharges != AbilityCooldown.CurrentCharges)
     {
@@ -67,7 +82,7 @@ void UCombatAbility::CommitCharges(int32 const PredictionID)
     }
     if (!GetWorld()->GetTimerManager().IsTimerActive(CooldownHandle) && GetCurrentCharges() < MaxCharges)
     {
-        StartCooldown();
+        StartCooldown(bFromPrediction);
     }
 }
 
@@ -163,11 +178,16 @@ void UCombatAbility::RecalculatePredictedCooldown()
     }
 }
 
-void UCombatAbility::StartCooldown()
+void UCombatAbility::StartCooldown(bool const bFromPrediction)
 {
     FTimerDelegate CooldownDelegate;
     CooldownDelegate.BindUFunction(this, FName(TEXT("CompleteCooldown")));
-    float const CooldownLength = GetHandler()->CalculateAbilityCooldown(this);
+    float CooldownLength = GetHandler()->CalculateAbilityCooldown(this);
+    if (bFromPrediction)
+    {
+        float const PingCompensation = bFromPrediction ? FMath::Clamp(USaiyoraCombatLibrary::GetActorPing(GetHandler()->GetOwner()), 0.0f, UAbilityHandler::MaxPingCompensation) : 0.0f;
+        CooldownLength = FMath::Max(UAbilityHandler::MinimumCooldownLength, CooldownLength - PingCompensation);
+    }
     GetWorld()->GetTimerManager().SetTimer(CooldownHandle, CooldownDelegate, CooldownLength, false);
     AbilityCooldown.OnCooldown = true;
     AbilityCooldown.CooldownStartTime = OwningComponent->GetGameStateRef()->GetServerWorldTimeSeconds();
@@ -184,7 +204,11 @@ void UCombatAbility::CompleteCooldown()
     }
     if (AbilityCooldown.CurrentCharges < GetMaxCharges())
     {
-        StartCooldown();
+        StartCooldown(false);
+    }
+    else
+    {
+        AbilityCooldown.OnCooldown = false;
     }
 }
 

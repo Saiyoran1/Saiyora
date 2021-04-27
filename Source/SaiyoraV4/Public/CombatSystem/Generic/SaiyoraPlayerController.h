@@ -10,6 +10,9 @@
  */
 class ASaiyoraGameState;
 
+DECLARE_DYNAMIC_DELEGATE_OneParam(FPingCallback, float, NewPing);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPingNotification, float, NewPing);
+
 UCLASS()
 class SAIYORAV4_API ASaiyoraPlayerController : public APlayerController
 {
@@ -32,6 +35,8 @@ class SAIYORAV4_API ASaiyoraPlayerController : public APlayerController
 	void ServerFinalPingBounce(float const ServerTime);
 
 	virtual void AcknowledgePossession(APawn* P) override;
+
+	FPingNotification OnPingChanged;
 	
 protected:
 	
@@ -44,4 +49,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Getter")
 	float GetPlayerPing() const { return Ping; }
+
+	UFUNCTION(BlueprintCallable, Category = "Ping")
+	void SubscribeToPingChanged(FPingCallback const& Callback);
+	UFUNCTION(BlueprintCallable, Category = "Ping")
+	void UnsubscribeFromPingChanged(FPingCallback const& Callback);
 };

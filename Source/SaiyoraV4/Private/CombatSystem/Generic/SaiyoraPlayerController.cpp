@@ -26,6 +26,22 @@ void ASaiyoraPlayerController::BeginPlay()
     }
 }
 
+void ASaiyoraPlayerController::SubscribeToPingChanged(FPingCallback const& Callback)
+{
+    if (Callback.IsBound())
+    {
+        OnPingChanged.AddUnique(Callback);
+    }
+}
+
+void ASaiyoraPlayerController::UnsubscribeFromPingChanged(FPingCallback const& Callback)
+{
+    if (Callback.IsBound())
+    {
+        OnPingChanged.Remove(Callback);
+    }
+}
+
 void ASaiyoraPlayerController::RequestWorldTime()
 {
     ServerHandleWorldTimeRequest(GameStateRef->GetServerWorldTimeSeconds(), Ping);
@@ -33,7 +49,7 @@ void ASaiyoraPlayerController::RequestWorldTime()
 
 void ASaiyoraPlayerController::ServerHandleWorldTimeRequest_Implementation(float const ClientTime, float const LastPing)
 {
-    ClientHandleWorldTimeReturn(ClientTime, GetWorld()->GetTimeSeconds());
+    ClientHandleWorldTimeReturn(ClientTime, GameStateRef->GetServerWorldTimeSeconds());
 }
 
 bool ASaiyoraPlayerController::ServerHandleWorldTimeRequest_Validate(float const ClientTime, float const LastPing)
@@ -44,13 +60,15 @@ bool ASaiyoraPlayerController::ServerHandleWorldTimeRequest_Validate(float const
 void ASaiyoraPlayerController::ClientHandleWorldTimeReturn_Implementation(float const ClientTime, float const ServerTime)
 {
     Ping = FMath::Max(0.0f, (GameStateRef->GetServerWorldTimeSeconds() - ClientTime));
-    GameStateRef->UpdateClientWorldTime(ServerTime + (Ping / 2));
+    OnPingChanged.Broadcast(Ping);
+    GameStateRef->UpdateClientWorldTime(ServerTime + (Ping / 2.0f));
     ServerFinalPingBounce(ServerTime);
 }
 
 void ASaiyoraPlayerController::ServerFinalPingBounce_Implementation(float const ServerTime)
 {
     Ping = FMath::Max(0.0f, GameStateRef->GetServerWorldTimeSeconds() - ServerTime);
+    OnPingChanged.Broadcast(Ping);
 }
 
 bool ASaiyoraPlayerController::ServerFinalPingBounce_Validate(float const ServerTime)

@@ -95,7 +95,7 @@ private:
     UPROPERTY(Replicated)
     int32 ChargesPerCast = 1;
     FAbilityChargeNotification OnChargesChanged;
-    void StartCooldown();
+    void StartCooldown(bool const bFromPrediction);
     UFUNCTION()
     void CompleteCooldown();
     TArray<FAbilityModCondition> CooldownMods;
@@ -170,6 +170,8 @@ public:
     int32 GetCurrentCharges() const;
     UFUNCTION(BlueprintCallable, BlueprintPure)
     float GetRemainingCooldown() const;
+    UFUNCTION(BlueprintCallable, BlueprintPure)
+    bool GetCooldownActive() const;
     UFUNCTION(BlueprintCallable, BlueprintPure)
     int32 GetChargeCost() const { return ChargesPerCast; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
