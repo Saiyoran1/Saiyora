@@ -28,6 +28,9 @@ class SAIYORAV4_API ASaiyoraPlayerController : public APlayerController
 	UFUNCTION(Client, Unreliable)
 	void ClientHandleWorldTimeReturn(float const ClientTime, float const ServerTime);
 
+	UFUNCTION(Server, WithValidation, Unreliable)
+	void ServerFinalPingBounce(float const ServerTime);
+
 	virtual void AcknowledgePossession(APawn* P) override;
 	
 protected:

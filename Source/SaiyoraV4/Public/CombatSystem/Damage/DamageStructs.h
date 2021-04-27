@@ -3,7 +3,6 @@
 #pragma once
 
 #include "CoreMinimal.h"
-
 #include "DamageEnums.h"
 #include "SaiyoraEnums.h"
 #include "SaiyoraStructs.h"

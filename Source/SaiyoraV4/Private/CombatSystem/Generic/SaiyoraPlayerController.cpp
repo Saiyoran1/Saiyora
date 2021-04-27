@@ -2,7 +2,6 @@
 
 
 #include "SaiyoraPlayerController.h"
-
 #include "SaiyoraGameState.h"
 
 void ASaiyoraPlayerController::AcknowledgePossession(APawn* P)
@@ -29,12 +28,12 @@ void ASaiyoraPlayerController::BeginPlay()
 
 void ASaiyoraPlayerController::RequestWorldTime()
 {
-    ServerHandleWorldTimeRequest(GameStateRef->GetWorldTime(), Ping);
+    ServerHandleWorldTimeRequest(GameStateRef->GetServerWorldTimeSeconds(), Ping);
 }
 
 void ASaiyoraPlayerController::ServerHandleWorldTimeRequest_Implementation(float const ClientTime, float const LastPing)
 {
-    ClientHandleWorldTimeReturn(ClientTime, GameStateRef->GetWorldTime());
+    ClientHandleWorldTimeReturn(ClientTime, GetWorld()->GetTimeSeconds());
 }
 
 bool ASaiyoraPlayerController::ServerHandleWorldTimeRequest_Validate(float const ClientTime, float const LastPing)
@@ -44,6 +43,17 @@ bool ASaiyoraPlayerController::ServerHandleWorldTimeRequest_Validate(float const
 
 void ASaiyoraPlayerController::ClientHandleWorldTimeReturn_Implementation(float const ClientTime, float const ServerTime)
 {
-    Ping = FMath::Max(0.0f, (GameStateRef->GetWorldTime() - ClientTime));
-    GameStateRef->UpdateClientWorldTime(ServerTime);
+    Ping = FMath::Max(0.0f, (GameStateRef->GetServerWorldTimeSeconds() - ClientTime));
+    GameStateRef->UpdateClientWorldTime(ServerTime + (Ping / 2));
+    ServerFinalPingBounce(ServerTime);
+}
+
+void ASaiyoraPlayerController::ServerFinalPingBounce_Implementation(float const ServerTime)
+{
+    Ping = FMath::Max(0.0f, GameStateRef->GetServerWorldTimeSeconds() - ServerTime);
+}
+
+bool ASaiyoraPlayerController::ServerFinalPingBounce_Validate(float const ServerTime)
+{
+    return true;
 }

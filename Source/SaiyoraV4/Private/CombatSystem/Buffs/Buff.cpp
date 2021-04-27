@@ -8,7 +8,7 @@
 #include "BuffHandler.h"
 #include "SaiyoraBuffLibrary.h"
 #include "SaiyoraCombatInterface.h"
-#include "SaiyoraCombatLibrary.h"
+#include "GameFramework/GameStateBase.h"
 
 const float UBuff::MinimumBuffDuration = 0.1f;
 
@@ -44,6 +44,12 @@ void UBuff::GetClientFunctionTags(FGameplayTagContainer& OutContainer) const
 
 void UBuff::InitializeBuff(FBuffApplyEvent& ApplicationEvent)
 {
+    GameStateRef = GetWorld()->GetGameState();
+    if (!IsValid(GameStateRef))
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Invalid Game State Ref in New Buff!"));
+    }
+    
     SetInitialStacks(ApplicationEvent.StackOverrideType, ApplicationEvent.OverrideStacks);
     SetInitialDuration(ApplicationEvent.RefreshOverrideType, ApplicationEvent.OverrideDuration);
     
@@ -53,7 +59,7 @@ void UBuff::InitializeBuff(FBuffApplyEvent& ApplicationEvent)
     ApplicationEvent.Result.PreviousDuration = 0.0f;
     ApplicationEvent.Result.NewStacks = CurrentStacks;
     ApplicationEvent.Result.NewDuration = GetRemainingTime();
-    ApplicationEvent.Result.NewApplyTime = USaiyoraCombatLibrary::GetWorldTime(this);
+    ApplicationEvent.Result.NewApplyTime = GameStateRef->GetServerWorldTimeSeconds();
 
     CreationEvent = ApplicationEvent;
 
@@ -87,7 +93,7 @@ void UBuff::ApplyEvent(FBuffApplyEvent& ApplicationEvent)
     
     ApplicationEvent.Result.NewDuration = GetRemainingTime();
     ApplicationEvent.Result.NewStacks = GetCurrentStacks();
-    ApplicationEvent.Result.NewApplyTime = USaiyoraCombatLibrary::GetWorldTime(this);
+    ApplicationEvent.Result.NewApplyTime = GameStateRef->GetServerWorldTimeSeconds();
 
     switch (ApplicationEvent.Result.ActionTaken)
     {
@@ -208,7 +214,7 @@ void UBuff::CompleteExpireTimer()
 
 void UBuff::SetInitialDuration(EBuffApplicationOverrideType const OverrideType, float const OverrideDuration)
 {
-    LastApplyTime = USaiyoraCombatLibrary::GetWorldTime(this);
+    LastApplyTime = GameStateRef->GetServerWorldTimeSeconds();
     
     if (!bFiniteDuration)
     {
@@ -281,7 +287,7 @@ void UBuff::UpdateDurationNoOverride()
 {
     float const TimeRemaining = GetWorld()->GetTimerManager().GetTimerRemaining(ExpireHandle);
     float const NewDuration = FMath::Clamp((TimeRemaining + DefaultDurationPerApply), MinimumBuffDuration, MaximumDuration);
-    LastApplyTime = USaiyoraCombatLibrary::GetWorldTime(this);
+    LastApplyTime = GameStateRef->GetServerWorldTimeSeconds();
     ExpireTime = LastApplyTime + NewDuration;
     ResetExpireTimer(NewDuration);
 }
@@ -289,7 +295,7 @@ void UBuff::UpdateDurationNoOverride()
 void UBuff::UpdateDurationWithOverride(float const OverrideDuration)
 {
     float const NewDuration = FMath::Clamp(OverrideDuration, MinimumBuffDuration, MaximumDuration);
-    LastApplyTime = USaiyoraCombatLibrary::GetWorldTime(this);
+    LastApplyTime = GameStateRef->GetServerWorldTimeSeconds();
     ExpireTime = LastApplyTime + NewDuration;
     ResetExpireTimer(NewDuration);
 }
@@ -298,7 +304,7 @@ void UBuff::UpdateDurationWithAdditiveOverride(float const OverrideDuration)
 {
     float const TimeRemaining = GetWorld()->GetTimerManager().GetTimerRemaining(ExpireHandle);
     float const NewDuration = FMath::Clamp((TimeRemaining + OverrideDuration), MinimumBuffDuration, MaximumDuration);
-    LastApplyTime = USaiyoraCombatLibrary::GetWorldTime(this);
+    LastApplyTime = GameStateRef->GetServerWorldTimeSeconds();
     ExpireTime = LastApplyTime + NewDuration;
     ResetExpireTimer(NewDuration);
 }

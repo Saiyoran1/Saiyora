@@ -7,23 +7,6 @@
 #include "GameFramework/GameState.h"
 #include "SaiyoraPlaneComponent.h"
 
-float USaiyoraCombatLibrary::GetWorldTime(UObject const* Context)
-{
-    if (Context)
-    {
-        UWorld* World = Context->GetWorld();
-        if (World)
-        {
-            AGameStateBase* GameState = World->GetGameState();
-            if (GameState)
-            {
-                return GameState->GetServerWorldTimeSeconds();
-            }
-        }
-    }
-    return 0.0f;
-}
-
 float USaiyoraCombatLibrary::GetActorPing(AActor const* Actor)
 {
     APawn const* ActorAsPawn = Cast<APawn>(Actor);
@@ -76,11 +59,4 @@ bool USaiyoraCombatLibrary::CheckForXPlane(ESaiyoraPlane const FromPlane, ESaiyo
     }
     //Actors in a normal plane will only see actors in the same plane or both planes as the same plane.
     return FromPlane != ToPlane;
-}
-
-void USaiyoraCombatLibrary::ExtractCombatParameters(FCombatParameters const& Parameters, FVector& OriginLocation,
-    FVector& OriginRotation, FVector& OriginScale, FVector& TargetLocation, FVector& TargetRotation,
-    FVector& TargetScale, UObject*& Object)
-{
-    //TODO: Sort Parameters and assign them to the references passed in.
 }

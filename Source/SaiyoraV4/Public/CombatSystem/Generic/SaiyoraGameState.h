@@ -22,9 +22,6 @@ private:
 public:
 
 	ASaiyoraGameState();
-	
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "World Status")
-	float GetWorldTime() const { return WorldTime; }
 
 	virtual float GetServerWorldTimeSeconds() const override;
 

@@ -48,9 +48,9 @@ float UCombatAbility::GetRemainingCooldown() const
 {
     if (OwningComponent->GetOwnerRole() == ROLE_AutonomousProxy)
     {
-        return (PredictedCooldown.OnCooldown && PredictedCooldown.CooldownEndTime != 0.0f) ? PredictedCooldown.CooldownEndTime - OwningComponent->GetGameStateRef()->GetWorldTime() : 0.0f;
+        return (PredictedCooldown.OnCooldown && PredictedCooldown.CooldownEndTime != 0.0f) ? PredictedCooldown.CooldownEndTime - OwningComponent->GetGameStateRef()->GetServerWorldTimeSeconds() : 0.0f;
     }
-    return AbilityCooldown.OnCooldown ? AbilityCooldown.CooldownEndTime - OwningComponent->GetGameStateRef()->GetWorldTime() : 0.0f;
+    return AbilityCooldown.OnCooldown ? AbilityCooldown.CooldownEndTime - OwningComponent->GetGameStateRef()->GetServerWorldTimeSeconds() : 0.0f;
 }
 
 void UCombatAbility::CommitCharges(int32 const PredictionID)
@@ -170,7 +170,7 @@ void UCombatAbility::StartCooldown()
     float const CooldownLength = GetHandler()->CalculateAbilityCooldown(this);
     GetWorld()->GetTimerManager().SetTimer(CooldownHandle, CooldownDelegate, CooldownLength, false);
     AbilityCooldown.OnCooldown = true;
-    AbilityCooldown.CooldownStartTime = OwningComponent->GetGameStateRef()->GetWorldTime();
+    AbilityCooldown.CooldownStartTime = OwningComponent->GetGameStateRef()->GetServerWorldTimeSeconds();
     AbilityCooldown.CooldownEndTime = AbilityCooldown.CooldownStartTime + CooldownLength;
 }
 

@@ -29,6 +29,7 @@ public:
 	static const FGameplayTag CooldownLengthStatTag;
 	static const float MinimumCooldownLength;
 	static const float AbilityQueWindowSec;
+	static const float MaxPingCompensation;
 	
 	UAbilityHandler();
 	virtual void BeginPlay() override;
@@ -46,7 +47,7 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	FCastEvent UseAbility(TSubclassOf<UCombatAbility> const AbilityClass);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	FCancelEvent CancelCurrentCast();
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
 	FInterruptEvent InterruptCurrentCast(AActor* AppliedBy, UObject* InterruptSource);
@@ -57,6 +58,10 @@ public:
 	FCastingState GetCastingState() const { return CastingState; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
 	FGlobalCooldown GetGlobalCooldownState() const { return GlobalCooldownState; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+	float GetCastTimeRemaining() const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+	float GetGlobalCooldownTimeRemaining() const;
 
 	UResourceHandler* GetResourceHandlerRef() const { return ResourceHandler; }
 	UStatHandler* GetStatHandlerRef() const { return StatHandler; }
@@ -130,15 +135,20 @@ private:
 	UFUNCTION(Client, Reliable)
     void ClientSucceedPredictedAbility(FServerAbilityResult const& ServerResult);
 	UFUNCTION(Client, Reliable)
-	void ClientFailPredictedAbility(int32 const PredictionID);
+	void ClientFailPredictedAbility(int32 const PredictionID, FString const& FailReason);
 	UFUNCTION(Server, Reliable, WithValidation)
 	void ServerHandlePredictedTick(FAbilityRequest const& TickRequest);
 	bool ServerHandlePredictedTick_Validate(FAbilityRequest const& TickRequest) { return true; }
-	UFUNCTION(Client, Reliable)
-	void ClientInterruptCast(FInterruptEvent const& InterruptEvent);
+	FCancelEvent AuthCancelAbility();
 	UFUNCTION(Client, Reliable)
 	void ClientCancelCast(FCancelEvent const& CancelEvent);
-
+	UFUNCTION(Client, Reliable)
+	void ClientInterruptCast(FInterruptEvent const& InterruptEvent);
+	FCancelEvent PredictCancelAbility();
+	UFUNCTION(Server, WithValidation, Reliable)
+	void ServerPredictCancelAbility(FCancelRequest const& CancelRequest);
+	bool ServerPredictCancelAbility_Validate(FCancelRequest const& CancelRequest) { return true; }
+	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Abilities", meta = (AllowPrivateAccess = "true"))
 	TArray<TSubclassOf<UCombatAbility>> DefaultAbilities;
 	UPROPERTY()
@@ -198,6 +208,7 @@ private:
 	TArray<FAbilityRestriction> AbilityRestrictions;
 
 	void GenerateNewPredictionID(FCastEvent& CastEvent);
+	void GenerateNewPredictionID(FCancelEvent& CancelEvent);
 	int32 ClientPredictionID = 0;
 	TMap<int32, FClientAbilityPrediction> UnackedAbilityPredictions;
 
@@ -219,7 +230,7 @@ private:
 	UFUNCTION(NetMulticast, Unreliable)
 	void BroadcastAbilityInterrupt(FInterruptEvent const& InterruptEvent);
 
-	void TryQueueAbility(TSubclassOf<UCombatAbility> const Ability);
+	bool TryQueueAbility(TSubclassOf<UCombatAbility> const Ability);
 	UFUNCTION()
 	void ClearQueue();
 	void SetQueueExpirationTimer();
@@ -227,10 +238,8 @@ private:
 	TSubclassOf<UCombatAbility> QueuedAbility;
 	EQueueStatus QueueStatus = EQueueStatus::Empty;
 	FTimerHandle QueueClearHandle;
-	UFUNCTION()
-	void CheckForQueuedAbilityOnGlobalEnd(FGlobalCooldown const& OldGlobalCooldown, FGlobalCooldown const& NewGlobalCooldown);
-	UFUNCTION()
-	void CheckForQueuedAbilityOnCastEnd(FCastingState const& OldState, FCastingState const& NewState);
+	void CheckForQueuedAbilityOnGlobalEnd();
+	void CheckForQueuedAbilityOnCastEnd();
 
 protected:
 	

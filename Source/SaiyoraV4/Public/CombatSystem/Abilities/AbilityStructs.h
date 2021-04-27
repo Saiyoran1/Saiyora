@@ -113,6 +113,19 @@ struct FCancelEvent
     int32 ElapsedTicks = 0;
 };
 
+USTRUCT()
+struct FCancelRequest
+{
+    GENERATED_BODY()
+
+    UPROPERTY()
+    int32 CancelID = 0;
+    UPROPERTY()
+    int32 CancelledCastID = 0;
+    UPROPERTY()
+    float CancelTime = 0.0f;
+};
+
 USTRUCT(BlueprintType)
 struct FInterruptEvent
 {

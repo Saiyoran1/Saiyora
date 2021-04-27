@@ -4,6 +4,8 @@
 #include "BuffStructs.h"
 #include "GameplayTagContainer.h"
 #include "SaiyoraCombatLibrary.h"
+#include "GameFramework/GameStateBase.h"
+
 #include "Buff.generated.h"
 
 class UBuffFunction;
@@ -17,6 +19,9 @@ class SAIYORAV4_API UBuff : public UObject
 	
 private:
 
+	UPROPERTY()
+	AGameStateBase* GameStateRef;
+	
 	//Display Info
 	//Basic information needed for UI display.
 	
@@ -129,7 +134,7 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Getter")
 	bool GetFiniteDuration() const { return bFiniteDuration; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Getter")
-	float GetRemainingTime() const { return bFiniteDuration ? FMath::Max(0.0f, ExpireTime - USaiyoraCombatLibrary::GetWorldTime(this)) : 0.0f; }
+	float GetRemainingTime() const { return bFiniteDuration ? FMath::Max(0.0f, ExpireTime - GameStateRef->GetServerWorldTimeSeconds()) : 0.0f; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Getter")
 	float GetApplicationTime() const { return LastApplyTime; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Getter")

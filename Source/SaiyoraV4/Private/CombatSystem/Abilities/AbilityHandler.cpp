@@ -10,12 +10,14 @@
 #include "CrowdControlHandler.h"
 #include "SaiyoraCombatInterface.h"
 #include "DamageHandler.h"
+#include "SaiyoraCombatLibrary.h"
 #include "UObjectGlobals.h"
 
 const float UAbilityHandler::MinimumGlobalCooldownLength = 0.5f;
 const float UAbilityHandler::MinimumCastLength = 0.5f;
 const float UAbilityHandler::MinimumCooldownLength = 0.5f;
 const float UAbilityHandler::AbilityQueWindowSec = 0.2f;
+const float UAbilityHandler::MaxPingCompensation = 0.2f;
 const FGameplayTag UAbilityHandler::CastLengthStatTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.CastLength")), false);
 const FGameplayTag UAbilityHandler::GlobalCooldownLengthStatTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.GlobalCooldownLength")), false);
 const FGameplayTag UAbilityHandler::CooldownLengthStatTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.CooldownLength")), false);
@@ -89,15 +91,6 @@ void UAbilityHandler::BeginPlay()
 		{
 			AddNewAbility(AbilityClass);
 		}
-	}
-	if (GetOwnerRole() == ROLE_AutonomousProxy)
-	{
-		FGlobalCooldownCallback GcdQueueCallback;
-		GcdQueueCallback.BindUFunction(this, FName(TEXT("CheckForQueuedAbilityOnGlobalEnd")));
-		SubscribeToGlobalCooldownChanged(GcdQueueCallback);
-		FCastingStateCallback CastQueueCallback;
-		CastQueueCallback.BindUFunction(this, FName(TEXT("CheckForQueuedAbilityOnCastEnd")));
-		SubscribeToCastStateChanged(CastQueueCallback);
 	}
 }
 #pragma endregion
@@ -266,6 +259,16 @@ UCombatAbility* UAbilityHandler::FindActiveAbility(TSubclassOf<UCombatAbility> c
 		}
 	}
 	return nullptr;
+}
+
+float UAbilityHandler::GetCastTimeRemaining() const
+{
+	return FMath::Max(GetWorld()->GetTimerManager().GetTimerRemaining(CastHandle), 0.0f);
+}
+
+float UAbilityHandler::GetGlobalCooldownTimeRemaining() const
+{
+	return FMath::Max(GetWorld()->GetTimerManager().GetTimerRemaining(GlobalCooldownHandle), 0.0f);
 }
 
 void UAbilityHandler::AddAbilityRestriction(FAbilityRestriction const& Restriction)
@@ -539,8 +542,10 @@ void UAbilityHandler::AuthStartCast(UCombatAbility* Ability, bool const bPredict
 	FCastingState const PreviousState = CastingState;
 	CastingState.bIsCasting = true;
 	CastingState.CurrentCast = Ability;
-	CastingState.CastStartTime = GameStateRef->GetWorldTime();
-	CastingState.CastEndTime = CastingState.CastStartTime + CalculateCastLength(Ability);
+	CastingState.CastStartTime = GameStateRef->GetServerWorldTimeSeconds();
+	float const PingCompensation = bPredicted ? FMath::Clamp(USaiyoraCombatLibrary::GetActorPing(GetOwner()), 0.0f, MaxPingCompensation) : 0.0f;
+	float const CastLength = FMath::Max(MinimumCastLength, CalculateCastLength(Ability) - PingCompensation);
+	CastingState.CastEndTime = CastingState.CastStartTime + CastLength;
 	CastingState.bInterruptible = Ability->GetInterruptible();
 	if (bPredicted && PredictionID != 0)
 	{
@@ -548,7 +553,7 @@ void UAbilityHandler::AuthStartCast(UCombatAbility* Ability, bool const bPredict
 	}
 	FTimerDelegate CastDelegate;
 	CastDelegate.BindUFunction(this, FName(TEXT("CompleteCast")));
-	GetWorld()->GetTimerManager().SetTimer(CastHandle, CastDelegate, CastingState.CastEndTime - GameStateRef->GetWorldTime(), false);
+	GetWorld()->GetTimerManager().SetTimer(CastHandle, CastDelegate, CastingState.CastEndTime - GameStateRef->GetServerWorldTimeSeconds(), false);
 	FTimerDelegate TickDelegate;
 	if (bPredicted)
 	{
@@ -614,25 +619,44 @@ void UAbilityHandler::CompleteCast()
 
 FCancelEvent UAbilityHandler::CancelCurrentCast()
 {
-	FCancelEvent Result;
-	Result.CancelledAbility = GetCastingState().CurrentCast;
-	if (GetCastingState().bIsCasting && IsValid(Result.CancelledAbility))
+	FCancelEvent const Fail;
+	switch (GetOwnerRole())
 	{
-		Result.CancelTime = GameStateRef->GetWorldTime();
-		Result.CancelID = 0;
-		Result.CancelledCastStart = GetCastingState().CastStartTime;
-		Result.CancelledCastEnd = GetCastingState().CastEndTime;
-		Result.CancelledCastID = GetCastingState().PredictionID;
-		Result.ElapsedTicks = GetCastingState().ElapsedTicks;
-		Result.CancelledAbility->CancelCast();
-		OnAbilityCancelled.Broadcast(Result);
-		if (GetOwner()->GetRemoteRole() == ROLE_AutonomousProxy)
-		{
-			ClientCancelCast(Result);
-		}
-		BroadcastAbilityCancel(Result);
-		EndCast();
+		case ROLE_Authority :
+			return AuthCancelAbility();
+		case ROLE_AutonomousProxy :
+			return PredictCancelAbility();
+		case ROLE_SimulatedProxy :
+			return Fail;
+		case ROLE_None :
+			return Fail;
+		default :
+			return Fail;
 	}
+}
+
+FCancelEvent UAbilityHandler::AuthCancelAbility()
+{
+	FCancelEvent Result;
+	if (!CastingState.bIsCasting || !IsValid(CastingState.CurrentCast))
+	{
+		return Result;
+	}
+	Result.CancelledAbility = CastingState.CurrentCast;
+	Result.CancelTime = GameStateRef->GetServerWorldTimeSeconds();
+	Result.CancelID = 0;
+	Result.CancelledCastStart = CastingState.CastStartTime;
+	Result.CancelledCastEnd = CastingState.CastEndTime;
+	Result.CancelledCastID = CastingState.PredictionID;
+	Result.ElapsedTicks = CastingState.ElapsedTicks;
+	Result.CancelledAbility->CancelCast();
+	OnAbilityCancelled.Broadcast(Result);
+	if (GetOwner()->GetRemoteRole() == ROLE_AutonomousProxy)
+	{
+		ClientCancelCast(Result);
+	}
+	BroadcastAbilityCancel(Result);
+	EndCast();
 	return Result;
 }
 
@@ -645,6 +669,59 @@ void UAbilityHandler::ClientCancelCast_Implementation(FCancelEvent const& Cancel
 	}
 	CastingState.CurrentCast->CancelCast();
 	OnAbilityCancelled.Broadcast(CancelEvent);
+	EndCast();
+}
+
+FCancelEvent UAbilityHandler::PredictCancelAbility()
+{
+	FCancelEvent Result;
+	if (GetOwnerRole() != ROLE_AutonomousProxy)
+	{
+		return Result;
+	}
+	if (!CastingState.bIsCasting || !IsValid(CastingState.CurrentCast))
+	{
+		return Result;
+	}
+	Result.CancelledAbility = CastingState.CurrentCast;
+	Result.CancelTime = GameStateRef->GetServerWorldTimeSeconds();
+	GenerateNewPredictionID(Result);
+	Result.CancelledCastStart = CastingState.CastStartTime;
+	Result.CancelledCastEnd = CastingState.CastEndTime;
+	Result.CancelledCastID = CastingState.PredictionID;
+	Result.ElapsedTicks = CastingState.ElapsedTicks;
+	FCancelRequest CancelRequest;
+	CancelRequest.CancelTime = Result.CancelTime;
+	CancelRequest.CancelID = Result.CancelID;
+	CancelRequest.CancelledCastID = Result.CancelledCastID;
+	ServerPredictCancelAbility(CancelRequest);
+	Result.CancelledAbility->CancelCast();
+	OnAbilityCancelled.Broadcast(Result);
+	EndCast();
+	return Result;
+}
+
+void UAbilityHandler::ServerPredictCancelAbility_Implementation(FCancelRequest const& CancelRequest)
+{
+	if (!CastingState.bIsCasting || !IsValid(CastingState.CurrentCast) || CastingState.PredictionID != CancelRequest.CancelledCastID)
+	{
+		if (CancelRequest.CancelID > CastingState.PredictionID)
+		{
+			CastingState.PredictionID = CancelRequest.CancelID;
+		}
+		return;
+	}
+	FCancelEvent Result;
+	Result.CancelledAbility = CastingState.CurrentCast;
+	Result.CancelTime = GameStateRef->GetServerWorldTimeSeconds();
+	Result.CancelID = CancelRequest.CancelID;
+	Result.CancelledCastStart = CastingState.CastStartTime;
+	Result.CancelledCastEnd = CastingState.CastEndTime;
+	Result.CancelledCastID = CastingState.PredictionID;
+	Result.ElapsedTicks = CastingState.ElapsedTicks;
+	Result.CancelledAbility->CancelCast();
+	OnAbilityCancelled.Broadcast(Result);
+	BroadcastAbilityCancel(Result);
 	EndCast();
 }
 
@@ -672,7 +749,7 @@ FInterruptEvent UAbilityHandler::InterruptCurrentCast(AActor* AppliedBy, UObject
 	Result.InterruptedAbility = GetCastingState().CurrentCast;
 	Result.ElapsedTicks = GetCastingState().ElapsedTicks;
 	Result.CancelledCastID = GetCastingState().PredictionID;
-	Result.InterruptTime = GetGameStateRef()->GetWorldTime();
+	Result.InterruptTime = GetGameStateRef()->GetServerWorldTimeSeconds();
 	Result.bSuccess = true;
 	Result.InterruptedAbility->InterruptCast(Result);
 	OnAbilityInterrupted.Broadcast(Result);
@@ -710,6 +787,10 @@ void UAbilityHandler::EndCast()
 	GetWorld()->GetTimerManager().ClearTimer(CastHandle);
 	GetWorld()->GetTimerManager().ClearTimer(TickHandle);
 	OnCastStateChanged.Broadcast(PreviousState, GetCastingState());
+	if (GetOwnerRole() == ROLE_AutonomousProxy)
+	{
+		CheckForQueuedAbilityOnCastEnd();
+	}
 }
 
 void UAbilityHandler::OnRep_CastingState(FCastingState const& PreviousState)
@@ -801,11 +882,11 @@ void UAbilityHandler::AuthStartGlobal(UCombatAbility* Ability)
 {
 	FGlobalCooldown const PreviousGlobal = GlobalCooldownState;
 	GlobalCooldownState.bGlobalCooldownActive = true;
-	GlobalCooldownState.StartTime = GameStateRef->GetWorldTime();
+	GlobalCooldownState.StartTime = GameStateRef->GetServerWorldTimeSeconds();
 	GlobalCooldownState.EndTime = GlobalCooldownState.StartTime + CalculateGlobalCooldownLength(Ability);
 	FTimerDelegate GCDDelegate;
 	GCDDelegate.BindUFunction(this, FName(TEXT("EndGlobalCooldown")));
-	GetWorld()->GetTimerManager().SetTimer(GlobalCooldownHandle, GCDDelegate, GlobalCooldownState.EndTime - GameStateRef->GetWorldTime(), false);
+	GetWorld()->GetTimerManager().SetTimer(GlobalCooldownHandle, GCDDelegate, GlobalCooldownState.EndTime - GameStateRef->GetServerWorldTimeSeconds(), false);
 	OnGlobalCooldownChanged.Broadcast(PreviousGlobal, GlobalCooldownState);
 }
 
@@ -819,6 +900,10 @@ void UAbilityHandler::EndGlobalCooldown()
 		GlobalCooldownState.EndTime = 0.0f;
 		GetWorld()->GetTimerManager().ClearTimer(GlobalCooldownHandle);
 		OnGlobalCooldownChanged.Broadcast(PreviousGlobal, GlobalCooldownState);
+		if (GetOwnerRole() == ROLE_AutonomousProxy)
+		{
+			CheckForQueuedAbilityOnGlobalEnd();
+		}
 	}
 }
 #pragma endregion
@@ -977,8 +1062,15 @@ void UAbilityHandler::GenerateNewPredictionID(FCastEvent& CastEvent)
 	CastEvent.PredictionID = ClientPredictionID;
 }
 
+void UAbilityHandler::GenerateNewPredictionID(FCancelEvent& CancelEvent)
+{
+	ClientPredictionID++;
+	CancelEvent.CancelID = ClientPredictionID;
+}
+
 FCastEvent UAbilityHandler::PredictUseAbility(TSubclassOf<UCombatAbility> const AbilityClass, bool const bFromQueue)
 {
+	ClearQueue();
 	FCastEvent Result;
 	
 	Result.Ability = FindActiveAbility(AbilityClass);
@@ -999,7 +1091,10 @@ FCastEvent UAbilityHandler::PredictUseAbility(TSubclassOf<UCombatAbility> const 
 		Result.FailReason = FString(TEXT("Already on global cooldown."));
 		if (!bFromQueue)
 		{
-			TryQueueAbility(AbilityClass);
+			if (TryQueueAbility(AbilityClass))
+			{
+				Result.FailReason = FString(TEXT("Queued ability because of Global Cooldown."));
+			}
 		}
 		return Result;
 	}
@@ -1009,7 +1104,10 @@ FCastEvent UAbilityHandler::PredictUseAbility(TSubclassOf<UCombatAbility> const 
 		Result.FailReason = FString(TEXT("Already casting."));
 		if (!bFromQueue)
 		{
-			TryQueueAbility(AbilityClass);
+			if (TryQueueAbility(AbilityClass))
+			{
+				Result.FailReason = FString(TEXT("Queued ability because of Cast Time."));
+			}
 		}
 		return Result;
 	}
@@ -1065,12 +1163,12 @@ FCastEvent UAbilityHandler::PredictUseAbility(TSubclassOf<UCombatAbility> const 
 	FAbilityRequest AbilityRequest;
 	AbilityRequest.AbilityClass = AbilityClass;
 	AbilityRequest.PredictionID = Result.PredictionID;
-	AbilityRequest.ClientStartTime = GameStateRef->GetWorldTime();
+	AbilityRequest.ClientStartTime = GameStateRef->GetServerWorldTimeSeconds();
 
 	FClientAbilityPrediction AbilityPrediction;
 	AbilityPrediction.Ability = Result.Ability;
 	AbilityPrediction.PredictionID = Result.PredictionID;
-	AbilityPrediction.ClientTime = GameStateRef->GetWorldTime();
+	AbilityPrediction.ClientTime = GameStateRef->GetServerWorldTimeSeconds();
 	
 	if (Result.Ability->GetHasGlobalCooldown())
 	{
@@ -1130,28 +1228,28 @@ void UAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest const&
 	if (!IsValid(Result.Ability))
 	{
 		Result.FailReason = FString(TEXT("Did not find valid active ability."));
-		ClientFailPredictedAbility(AbilityRequest.PredictionID);
+		ClientFailPredictedAbility(AbilityRequest.PredictionID, Result.FailReason);
 		return;
 	}
 
 	if (!Result.Ability->GetCastableWhileDead() && IsValid(DamageHandler) && DamageHandler->GetLifeStatus() != ELifeStatus::Alive)
 	{
 		Result.FailReason = FString(TEXT("Cannot activate while dead."));
-		ClientFailPredictedAbility(AbilityRequest.PredictionID);
+		ClientFailPredictedAbility(AbilityRequest.PredictionID, Result.FailReason);
 		return;
 	}
 	
 	if (Result.Ability->GetHasGlobalCooldown() && GlobalCooldownState.bGlobalCooldownActive)
 	{
 		Result.FailReason = FString(TEXT("Already on global cooldown."));
-		ClientFailPredictedAbility(AbilityRequest.PredictionID);
+		ClientFailPredictedAbility(AbilityRequest.PredictionID, Result.FailReason);
 		return;
 	}
-	
+
 	if (GetCastingState().bIsCasting)
 	{
 		Result.FailReason = FString(TEXT("Already casting."));
-		ClientFailPredictedAbility(AbilityRequest.PredictionID);
+		ClientFailPredictedAbility(AbilityRequest.PredictionID, Result.FailReason);
 		return;
 	}
 
@@ -1162,13 +1260,13 @@ void UAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest const&
 		if (!IsValid(ResourceHandler))
 		{
 			Result.FailReason = FString(TEXT("No valid resource handler found."));
-			ClientFailPredictedAbility(AbilityRequest.PredictionID);
+			ClientFailPredictedAbility(AbilityRequest.PredictionID, Result.FailReason);
 			return;
 		}
 		if (!ResourceHandler->CheckAbilityCostsMet(Result.Ability, Costs))
 		{
 			Result.FailReason = FString(TEXT("Ability costs not met."));
-			ClientFailPredictedAbility(AbilityRequest.PredictionID);
+			ClientFailPredictedAbility(AbilityRequest.PredictionID, Result.FailReason);
 			return;
 		}
 	}
@@ -1176,21 +1274,21 @@ void UAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest const&
 	if (!Result.Ability->CheckChargesMet())
 	{
 		Result.FailReason = FString(TEXT("Charges not met."));
-		ClientFailPredictedAbility(AbilityRequest.PredictionID);
+		ClientFailPredictedAbility(AbilityRequest.PredictionID, Result.FailReason);
 		return;
 	}
 
 	if (!Result.Ability->CheckCustomCastConditionsMet())
 	{
 		Result.FailReason = FString(TEXT("Custom cast conditions not met."));
-		ClientFailPredictedAbility(AbilityRequest.PredictionID);
+		ClientFailPredictedAbility(AbilityRequest.PredictionID, Result.FailReason);
 		return;
 	}
 
 	if (CheckAbilityRestricted(Result.Ability))
 	{
 		Result.FailReason = FString(TEXT("Cast restriction returned true."));
-		ClientFailPredictedAbility(AbilityRequest.PredictionID);
+		ClientFailPredictedAbility(AbilityRequest.PredictionID, Result.FailReason);
 		return;
 	}
 
@@ -1201,7 +1299,7 @@ void UAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest const&
 			if (CrowdControlHandler->GetActiveCcTypes().Contains(CcClass))
 			{
 				Result.FailReason = FString(TEXT("Cast restricted by crowd control."));
-				ClientFailPredictedAbility(AbilityRequest.PredictionID);
+				ClientFailPredictedAbility(AbilityRequest.PredictionID, Result.FailReason);
 				return;
 			}
 		}
@@ -1238,7 +1336,7 @@ void UAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest const&
 	{
 	case EAbilityCastType::None :
 		Result.FailReason = FString(TEXT("No cast type was set."));
-		ClientFailPredictedAbility(AbilityRequest.PredictionID);
+		ClientFailPredictedAbility(AbilityRequest.PredictionID, Result.FailReason);
 		return;
 	case EAbilityCastType::Instant :
 		Result.ActionTaken = ECastAction::Success;
@@ -1248,9 +1346,9 @@ void UAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest const&
 		break;
 	case EAbilityCastType::Channel :
 		Result.ActionTaken = ECastAction::Success;
+		ServerResult.CastLength = CalculateCastLength(Result.Ability);
 		AuthStartCast(Result.Ability, true, Result.PredictionID);
 		ServerResult.bActivatedCastBar = true;
-		ServerResult.CastLength = CastingState.CastEndTime - CastingState.CastStartTime;
 		ServerResult.bInterruptible = CastingState.bInterruptible;
 		if (Result.Ability->GetHasInitialTick())
 		{
@@ -1261,7 +1359,7 @@ void UAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest const&
 		break;
 	default :
 		Result.FailReason = FString(TEXT("Defaulted on cast type."));
-		ClientFailPredictedAbility(AbilityRequest.PredictionID);
+		ClientFailPredictedAbility(AbilityRequest.PredictionID, Result.FailReason);
 		return;
 	}
 
@@ -1306,7 +1404,7 @@ void UAbilityHandler::ClientSucceedPredictedAbility_Implementation(FServerAbilit
 	}
 }
 
-void UAbilityHandler::ClientFailPredictedAbility_Implementation(int32 const PredictionID)
+void UAbilityHandler::ClientFailPredictedAbility_Implementation(int32 const PredictionID, FString const& FailReason)
 {
 	if (GlobalCooldownState.bGlobalCooldownActive && GlobalCooldownState.PredictionID <= PredictionID)
 	{
@@ -1344,7 +1442,7 @@ void UAbilityHandler::PredictStartGlobal(int32 const PredictionID)
 	FGlobalCooldown const PreviousState = GlobalCooldownState;
 	GlobalCooldownState.bGlobalCooldownActive = true;
 	GlobalCooldownState.PredictionID = PredictionID;
-	GlobalCooldownState.StartTime = GameStateRef->GetWorldTime();
+	GlobalCooldownState.StartTime = GameStateRef->GetServerWorldTimeSeconds();
 	GlobalCooldownState.EndTime = 0.0f;
 	OnGlobalCooldownChanged.Broadcast(PreviousState, GlobalCooldownState);
 }
@@ -1358,7 +1456,7 @@ void UAbilityHandler::UpdatePredictedGlobalFromServer(FServerAbilityResult const
 		return;
 	}
 	GlobalCooldownState.PredictionID = ServerResult.PredictionID;
-	if (!ServerResult.bActivatedGlobal || ServerResult.ClientStartTime + ServerResult.GlobalLength < GameStateRef->GetWorldTime())
+	if (!ServerResult.bActivatedGlobal || ServerResult.ClientStartTime + ServerResult.GlobalLength < GameStateRef->GetServerWorldTimeSeconds())
 	{
 		EndGlobalCooldown();
 		return;
@@ -1369,7 +1467,7 @@ void UAbilityHandler::UpdatePredictedGlobalFromServer(FServerAbilityResult const
 	GetWorld()->GetTimerManager().ClearTimer(GlobalCooldownHandle);
 	FTimerDelegate GlobalDelegate;
 	GlobalDelegate.BindUFunction(this, FName(TEXT("EndGlobalCooldown")));
-	GetWorld()->GetTimerManager().SetTimer(GlobalCooldownHandle, GlobalDelegate, GlobalCooldownState.EndTime - GameStateRef->GetWorldTime(), false);
+	GetWorld()->GetTimerManager().SetTimer(GlobalCooldownHandle, GlobalDelegate, GlobalCooldownState.EndTime - GameStateRef->GetServerWorldTimeSeconds(), false);
 	OnGlobalCooldownChanged.Broadcast(PreviousState, GlobalCooldownState);
 }
 #pragma endregion
@@ -1380,7 +1478,7 @@ void UAbilityHandler::PredictStartCast(UCombatAbility* Ability, int32 const Pred
 	CastingState.bIsCasting = true;
 	CastingState.CurrentCast = Ability;
 	CastingState.PredictionID = PredictionID;
-	CastingState.CastStartTime = GameStateRef->GetWorldTime();
+	CastingState.CastStartTime = GameStateRef->GetServerWorldTimeSeconds();
 	CastingState.CastEndTime = 0.0f;
 	CastingState.bInterruptible = Ability->GetInterruptible();
 	CastingState.ElapsedTicks = 0;
@@ -1396,7 +1494,7 @@ void UAbilityHandler::UpdatePredictedCastFromServer(FServerAbilityResult const& 
 		return;
 	}
 	CastingState.PredictionID = ServerResult.PredictionID;
-	if (!ServerResult.bActivatedCastBar || ServerResult.ClientStartTime + ServerResult.CastLength < GameStateRef->GetWorldTime())
+	if (!ServerResult.bActivatedCastBar || ServerResult.ClientStartTime + ServerResult.CastLength < GameStateRef->GetServerWorldTimeSeconds())
 	{
 		EndCast();
 		return;
@@ -1409,7 +1507,7 @@ void UAbilityHandler::UpdatePredictedCastFromServer(FServerAbilityResult const& 
 
 	//Check for any missed ticks. We will update the last missed tick (if any, this should be rare) after setting everything else.
 	float const TickInterval = ServerResult.CastLength / CastingState.CurrentCast->GetNumberOfTicks();
-	CastingState.ElapsedTicks = FMath::FloorToInt((GameStateRef->GetWorldTime() - CastingState.CastStartTime) / TickInterval);
+	CastingState.ElapsedTicks = FMath::FloorToInt((GameStateRef->GetServerWorldTimeSeconds() - CastingState.CastStartTime) / TickInterval);
 
 	//Clear any cast or tick handles that existed, this shouldn't happen.
 	GetWorld()->GetTimerManager().ClearTimer(CastHandle);
@@ -1418,12 +1516,12 @@ void UAbilityHandler::UpdatePredictedCastFromServer(FServerAbilityResult const& 
 	//Set new handles for predicting the cast end and predicting the next tick.
 	FTimerDelegate CastDelegate;
 	CastDelegate.BindUFunction(this, FName(TEXT("CompleteCast")));
-	GetWorld()->GetTimerManager().SetTimer(CastHandle, CastDelegate, CastingState.CastEndTime - GameStateRef->GetWorldTime(), false);
+	GetWorld()->GetTimerManager().SetTimer(CastHandle, CastDelegate, CastingState.CastEndTime - GameStateRef->GetServerWorldTimeSeconds(), false);
 	FTimerDelegate TickDelegate;
 	TickDelegate.BindUFunction(this, FName(TEXT("PredictAbilityTick")));
 	//First iteration of the tick timer will get time remaining until the next tick (to account for travel time). Subsequent ticks use regular interval.
 	GetWorld()->GetTimerManager().SetTimer(TickHandle, TickDelegate, TickInterval, true,
-		(CastingState.CastStartTime + (TickInterval * (CastingState.ElapsedTicks + 1))) - GameStateRef->GetWorldTime());
+		(CastingState.CastStartTime + (TickInterval * (CastingState.ElapsedTicks + 1))) - GameStateRef->GetServerWorldTimeSeconds());
 
 	//Immediately perform the last missed tick if one happened during the wait time between ability prediction and confirmation.
 	if (CastingState.ElapsedTicks > 0)
@@ -1614,34 +1712,34 @@ void UAbilityHandler::AuthTickPredictedCast()
 }
 #pragma endregion
 #pragma region AbilityQueueing
-void UAbilityHandler::TryQueueAbility(TSubclassOf<UCombatAbility> const AbilityClass)
+bool UAbilityHandler::TryQueueAbility(TSubclassOf<UCombatAbility> const AbilityClass)
 {
 	ClearQueue();
 	if (!GlobalCooldownState.bGlobalCooldownActive && !CastingState.bIsCasting)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Tried to queue an ability when not casting or on global cooldown."));
-		return;
+		return false;
 	}
 	if (!IsValid(AbilityClass))
 	{
-		return;
+		return false;
 	}
 	if (CastingState.bIsCasting && CastingState.CastEndTime == 0.0f)
 	{
 		//Don't queue an ability if the cast time hasn't been acked yet.
-		return;
+		return false;
 	}
 	if (AbilityClass->GetDefaultObject<UCombatAbility>()->GetHasGlobalCooldown() && GlobalCooldownState.bGlobalCooldownActive && GlobalCooldownState.EndTime == 0.0f)
 	{
 		//Don't queue an ability if the gcd time hasn't been acked yet.
-		return;
+		return false;
 	}
-	float const GlobalTimeRemaining = AbilityClass->GetDefaultObject<UCombatAbility>()->GetHasGlobalCooldown() && GlobalCooldownState.bGlobalCooldownActive ? GlobalCooldownState.EndTime - GameStateRef->GetWorldTime() : 0.0f;
-	float const CastTimeRemaining = CastingState.bIsCasting ? CastingState.CastEndTime - GameStateRef->GetWorldTime() : 0.0f;
+	float const GlobalTimeRemaining = AbilityClass->GetDefaultObject<UCombatAbility>()->GetHasGlobalCooldown() && GlobalCooldownState.bGlobalCooldownActive ? GetGlobalCooldownTimeRemaining() : 0.0f;
+	float const CastTimeRemaining = CastingState.bIsCasting ? GetCastTimeRemaining() : 0.0f;
 	if (GlobalTimeRemaining > AbilityQueWindowSec || CastTimeRemaining > AbilityQueWindowSec)
 	{
 		//Don't queue if either the gcd or cast time will last longer than the queue window.
-		return;
+		return false;
 	}
 	if (GlobalTimeRemaining == CastTimeRemaining)
 	{
@@ -1661,6 +1759,7 @@ void UAbilityHandler::TryQueueAbility(TSubclassOf<UCombatAbility> const AbilityC
 		QueuedAbility = AbilityClass;
 		SetQueueExpirationTimer();
 	}
+	return true;
 }
 
 void UAbilityHandler::ClearQueue()
@@ -1677,9 +1776,13 @@ void UAbilityHandler::SetQueueExpirationTimer()
 	GetWorld()->GetTimerManager().SetTimer(QueueClearHandle, QueueExpirationDelegate, AbilityQueWindowSec, false);
 }
 
-void UAbilityHandler::CheckForQueuedAbilityOnGlobalEnd(FGlobalCooldown const& OldGlobalCooldown,
-	FGlobalCooldown const& NewGlobalCooldown)
+void UAbilityHandler::CheckForQueuedAbilityOnGlobalEnd()
 {
+	if (GlobalCooldownState.bGlobalCooldownActive)
+	{
+		return;
+	}
+	TSubclassOf<UCombatAbility> AbilityClass;
 	switch (QueueStatus)
 	{
 		case EQueueStatus::Empty :
@@ -1690,10 +1793,11 @@ void UAbilityHandler::CheckForQueuedAbilityOnGlobalEnd(FGlobalCooldown const& Ol
 		case EQueueStatus::WaitForCast :
 			return;
 		case EQueueStatus::WaitForGlobal :
+			AbilityClass = QueuedAbility;
 			ClearQueue();
-			if (IsValid(QueuedAbility))
+			if (IsValid(AbilityClass))
 			{
-				PredictUseAbility(QueuedAbility, true);
+				PredictUseAbility(AbilityClass, true);
 			}
 			return;
 		default :
@@ -1701,8 +1805,13 @@ void UAbilityHandler::CheckForQueuedAbilityOnGlobalEnd(FGlobalCooldown const& Ol
 	}
 }
 
-void UAbilityHandler::CheckForQueuedAbilityOnCastEnd(FCastingState const& OldState, FCastingState const& NewState)
+void UAbilityHandler::CheckForQueuedAbilityOnCastEnd()
 {
+	if (CastingState.bIsCasting)
+	{
+		return;
+	}
+	TSubclassOf<UCombatAbility> AbilityClass;
 	switch (QueueStatus)
 	{
 	case EQueueStatus::Empty :
@@ -1711,10 +1820,11 @@ void UAbilityHandler::CheckForQueuedAbilityOnCastEnd(FCastingState const& OldSta
 		QueueStatus = EQueueStatus::WaitForGlobal;
 		return;
 	case EQueueStatus::WaitForCast :
+		AbilityClass = QueuedAbility;
 		ClearQueue();
-		if (IsValid(QueuedAbility))
+		if (IsValid(AbilityClass))
 		{
-			PredictUseAbility(QueuedAbility, true);
+			PredictUseAbility(AbilityClass, true);
 		}
 		return;
 	case EQueueStatus::WaitForGlobal :
