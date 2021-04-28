@@ -158,7 +158,7 @@ private:
 
 	FGlobalCooldown GlobalCooldownState;
 	FTimerHandle GlobalCooldownHandle;
-	void AuthStartGlobal(UCombatAbility* Ability);
+	void AuthStartGlobal(UCombatAbility* Ability, bool const bPredicted);
 	void PredictStartGlobal(int32 const PredictionID);
 	void UpdatePredictedGlobalFromServer(FServerAbilityResult const& ServerResult);
 	UFUNCTION()

@@ -543,14 +543,15 @@ void UAbilityHandler::AuthStartCast(UCombatAbility* Ability, bool const bPredict
 	CastingState.bIsCasting = true;
 	CastingState.CurrentCast = Ability;
 	CastingState.CastStartTime = GameStateRef->GetServerWorldTimeSeconds();
-	float const PingCompensation = bPredicted ? FMath::Clamp(USaiyoraCombatLibrary::GetActorPing(GetOwner()), 0.0f, MaxPingCompensation) : 0.0f;
-	float const CastLength = FMath::Max(MinimumCastLength, CalculateCastLength(Ability) - PingCompensation);
-	CastingState.CastEndTime = CastingState.CastStartTime + CastLength;
-	CastingState.bInterruptible = Ability->GetInterruptible();
+	float CastLength = CalculateCastLength(Ability);
 	if (bPredicted && PredictionID != 0)
 	{
 		CastingState.PredictionID = PredictionID;
+		float const PingCompensation = FMath::Clamp(USaiyoraCombatLibrary::GetActorPing(GetOwner()), 0.0f, MaxPingCompensation);
+		CastLength = FMath::Max(MinimumCastLength, CastLength - PingCompensation);
 	}
+	CastingState.CastEndTime = CastingState.CastStartTime + CastLength;
+	CastingState.bInterruptible = Ability->GetInterruptible();
 	FTimerDelegate CastDelegate;
 	CastDelegate.BindUFunction(this, FName(TEXT("CompleteCast")));
 	GetWorld()->GetTimerManager().SetTimer(CastHandle, CastDelegate, CastingState.CastEndTime - GameStateRef->GetServerWorldTimeSeconds(), false);
@@ -878,12 +879,18 @@ float UAbilityHandler::CalculateGlobalCooldownLength(UCombatAbility* Ability)
 	return GlobalLength;
 }
 
-void UAbilityHandler::AuthStartGlobal(UCombatAbility* Ability)
+void UAbilityHandler::AuthStartGlobal(UCombatAbility* Ability, bool const bPredicted)
 {
 	FGlobalCooldown const PreviousGlobal = GlobalCooldownState;
 	GlobalCooldownState.bGlobalCooldownActive = true;
 	GlobalCooldownState.StartTime = GameStateRef->GetServerWorldTimeSeconds();
-	GlobalCooldownState.EndTime = GlobalCooldownState.StartTime + CalculateGlobalCooldownLength(Ability);
+	float GlobalLength = CalculateGlobalCooldownLength(Ability);
+	if (bPredicted)
+	{
+		float const PingCompensation = FMath::Clamp(USaiyoraCombatLibrary::GetActorPing(GetOwner()), 0.0f, MaxPingCompensation);
+		GlobalLength = FMath::Max(MinimumGlobalCooldownLength, GlobalLength - PingCompensation);
+	}
+	GlobalCooldownState.EndTime = GlobalCooldownState.StartTime + GlobalLength;
 	FTimerDelegate GCDDelegate;
 	GCDDelegate.BindUFunction(this, FName(TEXT("EndGlobalCooldown")));
 	GetWorld()->GetTimerManager().SetTimer(GlobalCooldownHandle, GCDDelegate, GlobalCooldownState.EndTime - GameStateRef->GetServerWorldTimeSeconds(), false);
@@ -1012,7 +1019,7 @@ FCastEvent UAbilityHandler::AuthUseAbility(TSubclassOf<UCombatAbility> const Abi
 	
 	if (Result.Ability->GetHasGlobalCooldown())
 	{
-		AuthStartGlobal(Result.Ability);
+		AuthStartGlobal(Result.Ability, false);
 	}
 	
 	Result.Ability->CommitCharges(Result.PredictionID);
@@ -1313,9 +1320,9 @@ void UAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest const&
 
 	if (Result.Ability->GetHasGlobalCooldown())
 	{
-		AuthStartGlobal(Result.Ability);
+		AuthStartGlobal(Result.Ability, true);
 		ServerResult.bActivatedGlobal = true;
-		ServerResult.GlobalLength = GlobalCooldownState.EndTime - GlobalCooldownState.StartTime;
+		ServerResult.GlobalLength = CalculateGlobalCooldownLength(Result.Ability);
 	}
 
 	int32 const PreviousCharges = Result.Ability->GetCurrentCharges();
