@@ -6,6 +6,7 @@
 #include "AbilityStructs.h"
 #include "GameplayTagContainer.h"
 #include "ResourceStructs.h"
+#include "Styling/SlateBrush.h"
 #include "Resource.generated.h"
 
 class UCombatAbility;
@@ -33,6 +34,10 @@ class SAIYORAV4_API UResource : public UObject
 	bool bValueFollowsMaximum = false;
 	UPROPERTY(EditDefaultsOnly, Category = "Resource", meta = (ClampMin = "0"))
 	float DefaultValue = 0.0f;
+	UPROPERTY(EditDefaultsOnly, Category = "Resource")
+	FSlateBrush BarFillBrush;
+	UPROPERTY(EditDefaultsOnly, Category = "Resource")
+	FSlateBrush BarBackgroundBrush;
 
 	UPROPERTY(ReplicatedUsing = OnRep_Handler)
 	UResourceHandler* Handler = nullptr;
@@ -111,6 +116,10 @@ public:
 	float GetMinimum() const { return ResourceState.Minimum; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resource")
 	float GetMaximum() const { return ResourceState.Maximum; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resource")
+	FSlateBrush GetDisplayFillBrush() const { return BarFillBrush; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resource")
+	FSlateBrush GetDisplayBackgroundBrush() const { return BarBackgroundBrush; }
 	
 	bool GetInitialized() const { return bInitialized; }
 	bool GetDeactivated() const { return bDeactivated; }

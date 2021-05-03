@@ -38,6 +38,10 @@ public:
 	float GetResourceMinimum(FGameplayTag const& ResourceTag) const;
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resource", meta = (GameplayTagFilter = "Resource"))
 	float GetResourceMaximum(FGameplayTag const& ResourceTag) const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resource", meta = (GameplayTagFilter = "Resource"))
+	FSlateBrush GetResourceFillBrush(FGameplayTag const& ResourceTag) const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resource", meta = (GameplayTagFilter = "Resource"))
+	FSlateBrush GetResourceBackgroundBrush(FGameplayTag const& ResourceTag) const;
 
 	void ModifyResource(FGameplayTag const& ResourceTag, float const Amount, UObject* Source, bool const bIgnoreModifiers);
 	

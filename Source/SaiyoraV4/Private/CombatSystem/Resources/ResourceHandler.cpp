@@ -133,6 +133,28 @@ float UResourceHandler::GetResourceMaximum(FGameplayTag const& ResourceTag) cons
 	return Resource->GetMaximum();
 }
 
+FSlateBrush UResourceHandler::GetResourceFillBrush(FGameplayTag const& ResourceTag) const
+{
+	UResource* Resource = FindActiveResource(ResourceTag);
+	if (!IsValid(Resource))
+	{
+		FSlateBrush const DefaultBrush;
+		return DefaultBrush;	
+	}
+	return Resource->GetDisplayFillBrush();
+}
+
+FSlateBrush UResourceHandler::GetResourceBackgroundBrush(FGameplayTag const& ResourceTag) const
+{
+	UResource* Resource = FindActiveResource(ResourceTag);
+	if (!IsValid(Resource))
+	{
+		FSlateBrush const DefaultBrush;
+		return DefaultBrush;	
+	}
+	return Resource->GetDisplayBackgroundBrush();
+}
+
 void UResourceHandler::ModifyResource(FGameplayTag const& ResourceTag, float const Amount, UObject* Source, bool const bIgnoreModifiers)
 {
 	UResource* Resource = FindActiveResource(ResourceTag);
