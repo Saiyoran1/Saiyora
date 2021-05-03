@@ -171,6 +171,8 @@ public:
     UFUNCTION(BlueprintCallable, BlueprintPure)
     float GetRemainingCooldown() const;
     UFUNCTION(BlueprintCallable, BlueprintPure)
+    float GetCurrentCooldownLength() const;
+    UFUNCTION(BlueprintCallable, BlueprintPure)
     bool GetCooldownActive() const;
     UFUNCTION(BlueprintCallable, BlueprintPure)
     int32 GetChargeCost() const { return ChargesPerCast; }

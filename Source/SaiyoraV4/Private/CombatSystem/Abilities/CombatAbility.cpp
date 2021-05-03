@@ -61,6 +61,22 @@ float UCombatAbility::GetRemainingCooldown() const
     }
 }
 
+float UCombatAbility::GetCurrentCooldownLength() const
+{
+    switch (OwningComponent->GetOwnerRole())
+    {
+    case ROLE_Authority :
+        return AbilityCooldown.OnCooldown ? AbilityCooldown.CooldownEndTime - AbilityCooldown.CooldownStartTime : 0.0f;
+    case ROLE_AutonomousProxy :
+        return (PredictedCooldown.OnCooldown && PredictedCooldown.CooldownEndTime != 0.0f) ?
+            PredictedCooldown.CooldownEndTime - PredictedCooldown.CooldownStartTime : 0.0f;
+    case ROLE_SimulatedProxy :
+        return AbilityCooldown.OnCooldown ? AbilityCooldown.CooldownEndTime - AbilityCooldown.CooldownStartTime : 0.0f;
+    default :
+        return 0.0f;
+    }
+}
+
 bool UCombatAbility::GetCooldownActive() const
 {
     return OwningComponent->GetOwnerRole() == ROLE_AutonomousProxy ? PredictedCooldown.OnCooldown : AbilityCooldown.OnCooldown;
