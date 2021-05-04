@@ -55,6 +55,8 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
     UCombatAbility* FindActiveAbility(TSubclassOf<UCombatAbility> const AbilityClass);
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+	TArray<UCombatAbility*> GetActiveAbilities() const { return ActiveAbilities; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
 	FCastingState GetCastingState() const { return CastingState; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
 	FGlobalCooldown GetGlobalCooldownState() const { return GlobalCooldownState; }

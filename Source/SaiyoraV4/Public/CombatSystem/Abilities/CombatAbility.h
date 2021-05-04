@@ -208,6 +208,11 @@ public:
     void InterruptCast(FInterruptEvent const& InterruptEvent);
     void CancelCast();
 
+    UFUNCTION(BlueprintCallable, Category = "Abilities")
+    void SubscribeToChargesChanged(FAbilityChargeCallback const& Callback);
+    UFUNCTION(BlueprintCallable, Category = "Abilities")
+    void UnsubscribeFromChargesChanged(FAbilityChargeCallback const& Callback);
+
 protected:
     
     //Blueprint functions for defining the ability behavior.

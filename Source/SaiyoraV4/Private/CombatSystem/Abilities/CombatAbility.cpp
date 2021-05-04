@@ -316,6 +316,22 @@ void UCombatAbility::CancelCast()
     OnCastCancelled();
 }
 
+void UCombatAbility::SubscribeToChargesChanged(FAbilityChargeCallback const& Callback)
+{
+    if (Callback.IsBound())
+    {
+        OnChargesChanged.AddUnique(Callback);
+    }
+}
+
+void UCombatAbility::UnsubscribeFromChargesChanged(FAbilityChargeCallback const& Callback)
+{
+    if (Callback.IsBound())
+    {
+        OnChargesChanged.Remove(Callback);
+    }
+}
+
 void UCombatAbility::ActivateCastRestriction(FName const& RestrictionName)
 {
     if (RestrictionName.IsValid())
