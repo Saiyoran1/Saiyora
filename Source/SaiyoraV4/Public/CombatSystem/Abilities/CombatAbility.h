@@ -6,6 +6,8 @@
 #include "GameplayTagContainer.h"
 #include "UObject/NoExportTypes.h"
 #include "AbilityStructs.h"
+#include "DamageEnums.h"
+
 #include "CombatAbility.generated.h"
 
 struct FCombatModifier;
@@ -30,8 +32,8 @@ private:
     FText Description;
     UPROPERTY(EditDefaultsOnly, Category = "Display Info")
     UTexture2D* Icon;
-    UPROPERTY(EditDefaultsOnly, Category = "Display Info", meta = (Categories = "Ability"))
-    FGameplayTag AbilityClass;
+    UPROPERTY(EditDefaultsOnly, Category = "Display Info")
+    EDamageSchool AbilitySchool;
 
     UPROPERTY(EditDefaultsOnly, Category = "Cast Info")
     EAbilityCastType CastType = EAbilityCastType::None;
@@ -130,7 +132,7 @@ public:
     UFUNCTION(BlueprintCallable, BlueprintPure)
     UTexture2D* GetAbilityIcon() const { return Icon; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
-    FGameplayTag GetAbilityClass() const { return AbilityClass; }
+    EDamageSchool GetAbilitySchool() const { return AbilitySchool; }
     
     UFUNCTION(BlueprintCallable, BlueprintPure)
     EAbilityCastType GetCastType() const { return CastType; }

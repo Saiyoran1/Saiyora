@@ -261,6 +261,12 @@ UCombatAbility* UAbilityHandler::FindActiveAbility(TSubclassOf<UCombatAbility> c
 	return nullptr;
 }
 
+float UAbilityHandler::GetCurrentCastLength() const
+{
+	return CastingState.bIsCasting && CastingState.CastEndTime != 0.0 ?
+		FMath::Max(0.0f, CastingState.CastEndTime - CastingState.CastStartTime) : 0.0f;
+}
+
 float UAbilityHandler::GetCastTimeRemaining() const
 {
 	return FMath::Max(GetWorld()->GetTimerManager().GetTimerRemaining(CastHandle), 0.0f);
@@ -269,6 +275,12 @@ float UAbilityHandler::GetCastTimeRemaining() const
 float UAbilityHandler::GetGlobalCooldownTimeRemaining() const
 {
 	return FMath::Max(GetWorld()->GetTimerManager().GetTimerRemaining(GlobalCooldownHandle), 0.0f);
+}
+
+float UAbilityHandler::GetCurrentGlobalCooldownLength() const
+{
+	return GlobalCooldownState.bGlobalCooldownActive && GlobalCooldownState.EndTime != 0.0f ?
+		FMath::Max(0.0f, GlobalCooldownState.EndTime - GlobalCooldownState.StartTime) : 0.0f;
 }
 
 void UAbilityHandler::AddAbilityRestriction(FAbilityRestriction const& Restriction)

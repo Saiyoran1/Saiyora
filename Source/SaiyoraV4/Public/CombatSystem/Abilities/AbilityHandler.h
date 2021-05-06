@@ -59,11 +59,15 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
 	FCastingState GetCastingState() const { return CastingState; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+	float GetCurrentCastLength() const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
 	FGlobalCooldown GetGlobalCooldownState() const { return GlobalCooldownState; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
 	float GetCastTimeRemaining() const;
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
 	float GetGlobalCooldownTimeRemaining() const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+	float GetCurrentGlobalCooldownLength() const;
 
 	UResourceHandler* GetResourceHandlerRef() const { return ResourceHandler; }
 	UStatHandler* GetStatHandlerRef() const { return StatHandler; }
