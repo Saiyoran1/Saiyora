@@ -156,6 +156,44 @@ float UCombatAbility::GetAbilityCost(FGameplayTag const& ResourceTag) const
     return -1.0f;
 }
 
+void UCombatAbility::RecalculateAbilityCost(FGameplayTag const& ResourceTag)
+{
+    if (!ResourceTag.IsValid() || !ResourceTag.MatchesTag(UResourceHandler::GenericResourceTag))
+    {
+        return;
+    }
+    FAbilityCost MutableCost;
+    bool bFoundCost = false;
+    for (FAbilityCost const& Cost : DefaultAbilityCosts)
+    {
+        if (Cost.ResourceTag.MatchesTagExact(ResourceTag))
+        {
+            MutableCost = Cost;
+            bFoundCost = true;
+            break;
+        }
+    }
+    if (!bFoundCost)
+    {
+        return;
+    }
+    if (MutableCost.bStaticCost)
+    {
+        AbilityCosts.Add(ResourceTag, MutableCost);
+        return;
+    }
+    TArray<FCombatModifier> RelevantMods;
+    for (FAbilityCostModifier const& Modifier : CostModifiers)
+    {
+        if (Modifier.ResourceTag.MatchesTagExact(ResourceTag))
+        {
+            RelevantMods.Add(Modifier.CostModifier);
+        }
+    }
+    MutableCost.Cost = FMath::Max(0.0f, FCombatModifier::CombineModifiers(RelevantMods, MutableCost.Cost));
+    AbilityCosts.Add(ResourceTag, MutableCost);
+}
+
 void UCombatAbility::PurgeOldPredictions()
 {
     TArray<int32> OldPredictionIDs;
@@ -245,12 +283,14 @@ void UCombatAbility::InitializeAbility(UAbilityHandler* AbilityComponent)
     }
     MaxCharges = DefaultMaxCharges;
     AbilityCooldown.CurrentCharges = GetMaxCharges();
+    ChargesPerCast = DefaultChargesPerCast;
+    ChargesPerCooldown = DefaultChargesPerCooldown;
     for (FAbilityCost const& Cost : DefaultAbilityCosts)
     {
         AbilityCosts.Add(Cost.ResourceTag, Cost);
     }
-    SetupCustomCastRestrictions();
     OnInitialize();
+    SetupCustomCastRestrictions();
     bInitialized = true;
 }
 
@@ -329,6 +369,44 @@ void UCombatAbility::UnsubscribeFromChargesChanged(FAbilityChargeCallback const&
     if (Callback.IsBound())
     {
         OnChargesChanged.Remove(Callback);
+    }
+}
+
+void UCombatAbility::AddAbilityCostModifier(FAbilityCostModifier const& Modifier)
+{
+    if (GetHandler()->GetOwnerRole() != ROLE_Authority)
+    {
+        return;
+    }
+    if (Modifier.CostModifier.ModifierType == EModifierType::Invalid)
+    {
+        return;
+    }
+    if (!Modifier.ResourceTag.IsValid() || !Modifier.ResourceTag.MatchesTag(UResourceHandler::GenericResourceTag))
+    {
+        return;   
+    }
+    CostModifiers.Add(Modifier);
+    RecalculateAbilityCost(Modifier.ResourceTag);
+}
+
+void UCombatAbility::RemoveAbilityCostModifier(FAbilityCostModifier const& Modifier)
+{
+    if (GetHandler()->GetOwnerRole() != ROLE_Authority)
+    {
+        return;
+    }
+    if (Modifier.CostModifier.ModifierType == EModifierType::Invalid)
+    {
+        return;
+    }
+    if (!Modifier.ResourceTag.IsValid() || !Modifier.ResourceTag.MatchesTag(UResourceHandler::GenericResourceTag))
+    {
+        return;   
+    }
+    if (CostModifiers.Remove(Modifier) > 0)
+    {
+        RecalculateAbilityCost(Modifier.ResourceTag);
     }
 }
 

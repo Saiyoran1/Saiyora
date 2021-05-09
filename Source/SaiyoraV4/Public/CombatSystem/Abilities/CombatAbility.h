@@ -80,6 +80,8 @@ private:
     //Mutable cost values, these are what are actually checked at runtime and modified.
     UPROPERTY()
     TMap<FGameplayTag, FAbilityCost> AbilityCosts;
+    TArray<FAbilityCostModifier> CostModifiers;
+    void RecalculateAbilityCost(FGameplayTag const& ResourceTag);
     
         //***Ability Cooldown***
 
@@ -214,6 +216,11 @@ public:
     void SubscribeToChargesChanged(FAbilityChargeCallback const& Callback);
     UFUNCTION(BlueprintCallable, Category = "Abilities")
     void UnsubscribeFromChargesChanged(FAbilityChargeCallback const& Callback);
+
+    UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+    void AddAbilityCostModifier(FAbilityCostModifier const& Modifier);
+    UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+    void RemoveAbilityCostModifier(FAbilityCostModifier const& Modifier);
 
 protected:
     

@@ -25,6 +25,8 @@ struct FCombatModifier
   int32 Stacks = 1;
 
   static float CombineModifiers(TArray<FCombatModifier> const& ModArray, float const BaseValue);
+
+  FORCEINLINE bool operator==(const FCombatModifier& Other) const { return Other.ModifierType == ModifierType && Other.ModifierValue == ModifierValue && Other.Stacks == Stacks; }
 };
 
 USTRUCT(BlueprintType)

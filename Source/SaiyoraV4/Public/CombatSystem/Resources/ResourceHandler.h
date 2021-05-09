@@ -28,6 +28,11 @@ public:
 	virtual void GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual bool ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags) override;
 
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Resources")
+	void AddNewResource(FResourceInitInfo const& InitInfo);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Resources")
+	void RemoveResource(FGameplayTag const& ResourceTag);
+
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resource", meta = (GameplayTagFilter = "Resource"))
 	UResource* FindActiveResource(FGameplayTag const& ResourceTag) const;
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resource")
@@ -90,8 +95,6 @@ private:
 	FResourceInstanceNotification OnResourceAdded;
 	FResourceTagNotification OnResourceRemoved;
 
-	void AddNewResource(FResourceInitInfo const& InitInfo);
-	void RemoveResource(FGameplayTag const& ResourceTag);
 	UFUNCTION()
     void FinishRemoveResource(UResource* Resource);
 	bool CheckResourceAlreadyExists(FGameplayTag const& ResourceTag) const;
