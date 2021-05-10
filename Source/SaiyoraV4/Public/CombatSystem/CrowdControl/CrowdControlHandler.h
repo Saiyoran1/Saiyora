@@ -4,7 +4,6 @@
 
 #include "CoreMinimal.h"
 #include "CrowdControl.h"
-#include "GameplayTagContainer.h"
 #include "Components/ActorComponent.h"
 #include "CrowdControlHandler.generated.h"
 
@@ -14,8 +13,6 @@ class SAIYORAV4_API UCrowdControlHandler : public UActorComponent
 	GENERATED_BODY()
 
 public:
-
-	static const FGameplayTag GenericCrowdControlTag;
 	
 	UCrowdControlHandler();
 	virtual void InitializeComponent() override;

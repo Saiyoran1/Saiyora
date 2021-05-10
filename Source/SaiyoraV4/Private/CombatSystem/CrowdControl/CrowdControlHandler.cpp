@@ -6,8 +6,6 @@
 #include "CrowdControl.h"
 #include "UnrealNetwork.h"
 
-const FGameplayTag UCrowdControlHandler::GenericCrowdControlTag = FGameplayTag::RequestGameplayTag(FName(TEXT("CrowdControl")), false);
-
 UCrowdControlHandler::UCrowdControlHandler()
 {
 	PrimaryComponentTick.bCanEverTick = false;
