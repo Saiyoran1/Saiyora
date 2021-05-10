@@ -183,6 +183,7 @@ void UResource::RecalculatePredictedResource(UObject* ChangeSource)
     if (PreviousState.CurrentValue != PredictedResourceState.CurrentValue)
     {
         OnResourceChanged.Broadcast(this, ChangeSource, PreviousState, PredictedResourceState);
+        OnResourceUpdated(ChangeSource, PreviousState, PredictedResourceState);
     }
 }
 
@@ -260,6 +261,7 @@ void UResource::OnRep_ResourceState(FResourceState const& PreviousState)
         if (PreviousState.Maximum != ResourceState.Maximum || PreviousState.Minimum != ResourceState.Minimum || PreviousState.CurrentValue != ResourceState.CurrentValue)
         {
             OnResourceChanged.Broadcast(this, nullptr, PreviousState, ResourceState);
+            OnResourceUpdated(nullptr, PreviousState, ResourceState);
         }
         return;
     }
@@ -282,6 +284,7 @@ void UResource::SetNewMinimum(float const NewValue)
     if (PreviousState.Minimum != ResourceState.Minimum || PreviousState.CurrentValue != ResourceState.CurrentValue)
     {
         OnResourceChanged.Broadcast(this, nullptr, PreviousState, ResourceState);
+        OnResourceUpdated(nullptr, PreviousState, ResourceState);
     }
 }
 
@@ -300,6 +303,7 @@ void UResource::SetNewMaximum(float const NewValue)
     if (PreviousState.Maximum != ResourceState.Maximum || PreviousState.CurrentValue != ResourceState.CurrentValue)
     {
         OnResourceChanged.Broadcast(this, nullptr, PreviousState, ResourceState);
+        OnResourceUpdated(nullptr, PreviousState, ResourceState);
     }
 }
 
@@ -314,6 +318,7 @@ void UResource::SetResourceValue(float const NewValue, UObject* Source, int32 co
     if (PreviousState.CurrentValue != ResourceState.CurrentValue)
     {
         OnResourceChanged.Broadcast(this, Source, PreviousState, ResourceState);
+        OnResourceUpdated(Source, PreviousState, ResourceState);
     }
 }
 

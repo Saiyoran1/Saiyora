@@ -3,8 +3,6 @@
 #pragma once
 
 #include "CoreMinimal.h"
-
-#include "GameplayTagContainer.h"
 #include "GameFramework/GameModeBase.h"
 #include "SaiyoraV4GameModeBase.generated.h"
 

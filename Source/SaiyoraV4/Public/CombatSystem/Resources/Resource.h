@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "ResourceStructs.h"
+#include "GameplayTagContainer.h"
 #include "Styling/SlateBrush.h"
 #include "Resource.generated.h"
 
@@ -76,6 +77,8 @@ protected:
 	void InitializeResource();
 	UFUNCTION(BlueprintImplementableEvent)
 	void DeactivateResource();
+	UFUNCTION(BlueprintImplementableEvent)
+	void OnResourceUpdated(UObject* Source, FResourceState const& PreviousState, FResourceState const& NewState);
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resource")
 	UResourceHandler* GetHandler() const { return Handler; }
 	

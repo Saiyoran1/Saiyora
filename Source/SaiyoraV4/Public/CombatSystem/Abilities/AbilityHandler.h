@@ -110,6 +110,11 @@ public:
     void UnsubscribeFromGlobalCooldownChanged(FGlobalCooldownCallback const& Callback);
 
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	void SubscribeToAbilityMispredicted(FAbilityMispredictionCallback const& Callback);
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	void UnsubscribeFromAbilityMispredicted(FAbilityMispredictionCallback const& Callback);
+
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void AddCastLengthModifier(FAbilityModCondition const& Modifier);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void RemoveCastLengthModifier(FAbilityModCondition const& Modifier);
@@ -226,6 +231,7 @@ private:
 	FInterruptNotification OnAbilityInterrupted;
 	FCastingStateNotification OnCastStateChanged;
 	FGlobalCooldownNotification OnGlobalCooldownChanged;
+	FAbilityMispredictionNotification OnAbilityMispredicted;
 
 	UFUNCTION(NetMulticast, Unreliable)
 	void BroadcastAbilityTick(FCastEvent const& CastEvent, FCombatParameters const& BroadcastParams);

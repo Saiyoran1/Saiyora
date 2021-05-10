@@ -3,11 +3,9 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameplayTagContainer.h"
 #include "UObject/NoExportTypes.h"
 #include "AbilityStructs.h"
 #include "DamageEnums.h"
-
 #include "CombatAbility.generated.h"
 
 struct FCombatModifier;
@@ -211,6 +209,7 @@ public:
     void CompleteCast();
     void InterruptCast(FInterruptEvent const& InterruptEvent);
     void CancelCast();
+    void AbilityMisprediction(int32 const PredictionID, FString const& FailReason);
 
     UFUNCTION(BlueprintCallable, Category = "Abilities")
     void SubscribeToChargesChanged(FAbilityChargeCallback const& Callback);
@@ -226,26 +225,28 @@ protected:
     
     //Blueprint functions for defining the ability behavior.
 
-    UFUNCTION(BlueprintImplementableEvent)
+    UFUNCTION(BlueprintNativeEvent)
     void OnInitialize();
-    UFUNCTION(BlueprintImplementableEvent)
+    UFUNCTION(BlueprintNativeEvent)
     void SetupCustomCastRestrictions();
-    UFUNCTION(BlueprintImplementableEvent)
+    UFUNCTION(BlueprintNativeEvent)
     void OnDeactivate();
-    UFUNCTION(BlueprintImplementableEvent)
+    UFUNCTION(BlueprintNativeEvent)
     void OnPredictedTick(int32 const TickNumber, TArray<FCombatParameter>& PredictionParams);
-    UFUNCTION(BlueprintImplementableEvent)
+    UFUNCTION(BlueprintNativeEvent)
     void OnServerPredictedTick(int32 const TickNumber, TArray<FCombatParameter> const& PredictionParams, TArray<FCombatParameter>& BroadcastParams);
-    UFUNCTION(BlueprintImplementableEvent)
+    UFUNCTION(BlueprintNativeEvent)
     void OnServerNonPredictedTick(int32 const TickNumber, TArray<FCombatParameter>& BroadcastParams);
-    UFUNCTION(BlueprintImplementableEvent)
+    UFUNCTION(BlueprintNativeEvent)
     bool OnSimulatedTick(int32 const TickNumber, TArray<FCombatParameter> const& BroadcastParams);
-    UFUNCTION(BlueprintImplementableEvent)
+    UFUNCTION(BlueprintNativeEvent)
     void OnCastComplete();
-    UFUNCTION(BlueprintImplementableEvent)
+    UFUNCTION(BlueprintNativeEvent)
     void OnCastInterrupted(FInterruptEvent const& InterruptEvent);
-    UFUNCTION(BlueprintImplementableEvent)
+    UFUNCTION(BlueprintNativeEvent)
     void OnCastCancelled();
+    UFUNCTION(BlueprintNativeEvent)
+    void OnAbilityMispredicted(int32 const PredictionID, FString const& FailReason);
 
     UFUNCTION(BlueprintCallable, Category = "Abilities")
     void ActivateCastRestriction(FName const& RestrictionName);

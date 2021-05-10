@@ -2,8 +2,6 @@
 
 
 #include "ResourceHandler.h"
-
-#include "GameplayTasksComponent.h"
 #include "Resource.h"
 #include "UnrealNetwork.h"
 #include "Engine/ActorChannel.h"

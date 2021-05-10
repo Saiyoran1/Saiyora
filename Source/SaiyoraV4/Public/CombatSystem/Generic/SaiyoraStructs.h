@@ -3,14 +3,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
-
-#include "GameplayTagContainer.h"
 #include "SaiyoraEnums.h"
 #include "SaiyoraStructs.generated.h"
-
-/**
- * 
- */
 
 USTRUCT(BlueprintType)
 struct FCombatModifier

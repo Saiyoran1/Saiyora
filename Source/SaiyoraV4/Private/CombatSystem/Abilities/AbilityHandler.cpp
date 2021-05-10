@@ -460,6 +460,24 @@ void UAbilityHandler::UnsubscribeFromGlobalCooldownChanged(FGlobalCooldownCallba
 	OnGlobalCooldownChanged.Remove(Callback);
 }
 
+void UAbilityHandler::SubscribeToAbilityMispredicted(FAbilityMispredictionCallback const& Callback)
+{
+	if (GetOwnerRole() != ROLE_AutonomousProxy || !Callback.IsBound())
+	{
+		return;
+	}
+	OnAbilityMispredicted.AddUnique(Callback);
+}
+
+void UAbilityHandler::UnsubscribeFromAbilityMispredicted(FAbilityMispredictionCallback const& Callback)
+{
+	if (GetOwnerRole() != ROLE_AutonomousProxy || !Callback.IsBound())
+	{
+		return;
+	}
+	OnAbilityMispredicted.Remove(Callback);
+}
+
 void UAbilityHandler::BroadcastAbilityComplete_Implementation(FCastEvent const& CastEvent)
 {
 	if (GetOwnerRole() == ROLE_SimulatedProxy)
@@ -1441,18 +1459,20 @@ void UAbilityHandler::ClientFailPredictedAbility_Implementation(int32 const Pred
 		//Do nothing. Replication will eventually handle things.
 		return;
 	}
+	if (IsValid(ResourceHandler) && !OriginalPrediction->PredictedCostClasses.Num() == 0)
+	{
+		ResourceHandler->RollbackFailedCosts(OriginalPrediction->PredictedCostClasses, PredictionID);
+	}
 	if (OriginalPrediction->bPredictedCharges)
 	{
 		if (IsValid(OriginalPrediction->Ability))
 		{
 			OriginalPrediction->Ability->RollbackFailedCharges(PredictionID);
+			OriginalPrediction->Ability->AbilityMisprediction(PredictionID, FailReason);
 		}
 	}
-	if (IsValid(ResourceHandler) && !OriginalPrediction->PredictedCostClasses.Num() == 0)
-	{
-		ResourceHandler->RollbackFailedCosts(OriginalPrediction->PredictedCostClasses, PredictionID);
-	}
 	UnackedAbilityPredictions.Remove(PredictionID);
+	OnAbilityMispredicted.Broadcast(PredictionID, FailReason);
 }
 #pragma endregion
 #pragma region PredictedGlobal

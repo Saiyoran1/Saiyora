@@ -7,7 +7,6 @@
 #include "Components/ActorComponent.h"
 #include "ResourceStructs.h"
 #include "Resource.h"
-#include "GameplayTagContainer.h"
 #include "ResourceHandler.generated.h"
 
 struct FFinalAbilityCost;

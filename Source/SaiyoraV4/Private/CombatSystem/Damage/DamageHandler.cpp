@@ -13,8 +13,8 @@ FGameplayTag const UDamageHandler::DamageDoneTag = FGameplayTag::RequestGameplay
 FGameplayTag const UDamageHandler::HealingDoneTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.HealingDone")), false);
 FGameplayTag const UDamageHandler::DamageTakenTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.DamageTaken")), false);
 FGameplayTag const UDamageHandler::HealingTakenTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.HealingTaken")), false);
-FGameplayTag const UDamageHandler::GenericDamageTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Damage")), false);
-FGameplayTag const UDamageHandler::GenericHealingTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Healing")), false);
+FGameplayTag const UDamageHandler::BuffDamageTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Buff.Damage")), false);
+FGameplayTag const UDamageHandler::BuffHealingTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Buff.Healing")), false);
 
 UDamageHandler::UDamageHandler()
 {
@@ -362,7 +362,7 @@ bool UDamageHandler::RestrictDamageBuffs(FBuffApplyEvent const& BuffEvent)
 	{
 		FGameplayTagContainer BuffFunctionTags;
 		Buff->GetServerFunctionTags(BuffFunctionTags);
-		if (BuffFunctionTags.HasTag(GenericDamageTag))
+		if (BuffFunctionTags.HasTag(BuffDamageTag))
 		{
 			return true;
 		}
@@ -480,7 +480,7 @@ bool UDamageHandler::RestrictHealingBuffs(FBuffApplyEvent const& BuffEvent)
 	{
 		FGameplayTagContainer BuffFunctionTags;
 		Buff->GetServerFunctionTags(BuffFunctionTags);
-		if (BuffFunctionTags.HasTag(GenericHealingTag))
+		if (BuffFunctionTags.HasTag(BuffHealingTag))
 		{
 			return true;
 		}

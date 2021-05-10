@@ -356,6 +356,11 @@ void UCombatAbility::CancelCast()
     OnCastCancelled();
 }
 
+void UCombatAbility::AbilityMisprediction(int32 const PredictionID, FString const& FailReason)
+{
+    OnAbilityMispredicted(PredictionID, FailReason);
+}
+
 void UCombatAbility::SubscribeToChargesChanged(FAbilityChargeCallback const& Callback)
 {
     if (Callback.IsBound())
@@ -450,4 +455,59 @@ void UCombatAbility::OnRep_Deactivated(bool const Previous)
         OnDeactivate();
         OwningComponent->NotifyOfReplicatedRemovedAbility(this);
     }
+}
+
+void UCombatAbility::OnInitialize_Implementation()
+{
+    return;
+}
+
+void UCombatAbility::SetupCustomCastRestrictions_Implementation()
+{
+    return;
+}
+
+void UCombatAbility::OnDeactivate_Implementation()
+{
+    return;
+}
+
+void UCombatAbility::OnPredictedTick_Implementation(int32, TArray<FCombatParameter>& PredictionParams)
+{
+    return;
+}
+
+void UCombatAbility::OnServerNonPredictedTick_Implementation(int32, TArray<FCombatParameter>& BroadcastParams)
+{
+    return;
+}
+
+void UCombatAbility::OnServerPredictedTick_Implementation(int32, TArray<FCombatParameter> const& PredictionParams, TArray<FCombatParameter>& BroadcastParams)
+{
+    return;
+}
+
+bool UCombatAbility::OnSimulatedTick_Implementation(int32, TArray<FCombatParameter> const& BroadcastParams)
+{
+    return false;
+}
+
+void UCombatAbility::OnCastComplete_Implementation()
+{
+    return;
+}
+
+void UCombatAbility::OnCastCancelled_Implementation()
+{
+    return;
+}
+
+void UCombatAbility::OnCastInterrupted_Implementation(FInterruptEvent const& InterruptEvent)
+{
+    return;
+}
+
+void UCombatAbility::OnAbilityMispredicted_Implementation(int32, FString const& FailReason)
+{
+    return;
 }

@@ -28,8 +28,8 @@ public:
 	static const FGameplayTag HealingDoneTag;
 	static const FGameplayTag HealingTakenTag;
 	static const FGameplayTag MaxHealthTag;
-	static const FGameplayTag GenericDamageTag;
-	static const FGameplayTag GenericHealingTag;
+	static const FGameplayTag BuffDamageTag;
+	static const FGameplayTag BuffHealingTag;
 
 private:
 	
