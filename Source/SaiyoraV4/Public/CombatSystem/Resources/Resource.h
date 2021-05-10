@@ -3,8 +3,6 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "AbilityStructs.h"
-#include "GameplayTagContainer.h"
 #include "ResourceStructs.h"
 #include "Styling/SlateBrush.h"
 #include "Resource.generated.h"
@@ -18,8 +16,6 @@ class SAIYORAV4_API UResource : public UObject
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditDefaultsOnly, Category = "Resource", meta = (GameplayTagFilter = "Resource"))
-	FGameplayTag ResourceTag;
 	UPROPERTY(EditDefaultsOnly, Category = "Resource", meta = (ClampMin = "0"))
 	float DefaultMinimum = 0.0f;
 	UPROPERTY(EditDefaultsOnly, Category = "Resource", meta = (GameplayTagFilter = "Stat"))
@@ -72,7 +68,7 @@ class SAIYORAV4_API UResource : public UObject
 	TArray<FResourceDeltaModifier> ResourceDeltaMods;
 
 	FResourceValueNotification OnResourceChanged;
-	FResourceTagNotification OnResourceDeltaModsChanged;
+	FResourceInstanceNotification OnResourceDeltaModsChanged;
 
 protected:
 
@@ -92,24 +88,28 @@ public:
 	void AuthInitializeResource(UResourceHandler* NewHandler, UStatHandler* StatHandler, FResourceInitInfo const& InitInfo);
 	void AuthDeactivateResource();
 
-	bool CalculateAndCheckAbilityCost(UCombatAbility* Ability, FAbilityCost& Cost);
-	void CommitAbilityCost(UCombatAbility* Ability, int32 const PredictionID, FAbilityCost const& Cost);
-	void PredictAbilityCost(UCombatAbility* Ability, int32 const PredictionID, FAbilityCost const& Cost);
+	bool CalculateAndCheckAbilityCost(UCombatAbility* Ability, float& Cost, bool const bStaticCost);
+	void CommitAbilityCost(UCombatAbility* Ability, int32 const PredictionID, float const Cost);
+	void PredictAbilityCost(UCombatAbility* Ability, int32 const PredictionID, float const Cost);
 	void RollbackFailedCost(int32 const PredictionID);
-	void UpdateCostPredictionFromServer(int32 const PredictionID, FAbilityCost const& ServerCost);
+	void UpdateCostPredictionFromServer(int32 const PredictionID, float const ServerCost);
 
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Resource")
 	void ModifyResource(UObject* Source, float const Amount, bool const bIgnoreModifiers);
 
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Resource")
 	void AddResourceDeltaModifier(FResourceDeltaModifier const& Modifier);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Resource")
 	void RemoveResourceDeltaModifier(FResourceDeltaModifier const& Modifier);
-	
+	UFUNCTION(BlueprintCallable, Category = "Resource")
 	void SubscribeToResourceChanged(FResourceValueCallback const& Callback);
+	UFUNCTION(BlueprintCallable, Category = "Resource")
 	void UnsubscribeFromResourceChanged(FResourceValueCallback const& Callback);
-	void SubscribeToResourceModsChanged(FResourceTagCallback const& Callback);
-	void UnsubscribeFromResourceModsChanged(FResourceTagCallback const& Callback);
+	UFUNCTION(BlueprintCallable, Category = "Resource")
+	void SubscribeToResourceModsChanged(FResourceInstanceCallback const& Callback);
+	UFUNCTION(BlueprintCallable, Category = "Resource")
+	void UnsubscribeFromResourceModsChanged(FResourceInstanceCallback const& Callback);
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resource")
-	FGameplayTag GetResourceTag() const { return ResourceTag; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resource")
 	float GetCurrentValue() const;
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resource")

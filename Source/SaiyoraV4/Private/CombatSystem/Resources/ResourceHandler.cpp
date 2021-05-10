@@ -10,8 +10,6 @@
 #include "CombatAbility.h"
 #include "SaiyoraCombatInterface.h"
 
-const FGameplayTag UResourceHandler::GenericResourceTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Resource")), false);
-
 UResourceHandler::UResourceHandler()
 {
 	PrimaryComponentTick.bCanEverTick = false;
@@ -29,9 +27,9 @@ void UResourceHandler::BeginPlay()
 	
 	if (GetOwnerRole() == ROLE_Authority)
 	{
-		for (FResourceInitInfo const& InitInfo : DefaultResources)
+		for (TTuple<TSubclassOf<UResource>, FResourceInitInfo> const& InitInfo : DefaultResources)
 		{
-			AddNewResource(InitInfo);
+			AddNewResource(InitInfo.Key, InitInfo.Value);
 		}
 	}
 }
@@ -45,21 +43,27 @@ bool UResourceHandler::ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bu
 {
 	bool bWroteSomething = Super::ReplicateSubobjects(Channel, Bunch, RepFlags);
 	
-	TArray<UResource*> ReplicableResources;
-	ActiveResources.GenerateValueArray(ReplicableResources);
-	bWroteSomething |= Channel->ReplicateSubobjectList(ReplicableResources, *Bunch, *RepFlags);
+	bWroteSomething |= Channel->ReplicateSubobjectList(ActiveResources, *Bunch, *RepFlags);
 	bWroteSomething |= Channel->ReplicateSubobjectList(RecentlyRemovedResources, *Bunch, *RepFlags);
 
 	return bWroteSomething;
 }
 
-UResource* UResourceHandler::FindActiveResource(FGameplayTag const& ResourceTag) const
+UResource* UResourceHandler::FindActiveResource(TSubclassOf<UResource> const ResourceClass) const
 {
-	if (!ResourceTag.IsValid() || !ResourceTag.MatchesTag(GenericResourceTag))
+	if (!IsValid(ResourceClass))
 	{
 		return nullptr;
 	}
-	UResource* Found = ActiveResources.FindRef(ResourceTag);
+	UResource* Found = nullptr;
+	for (UResource* Resource : ActiveResources)
+	{
+		if (Resource->GetClass() == ResourceClass)
+		{
+			Found = Resource;
+			break;
+		}
+	}
 	if (!IsValid(Found) || !Found->GetInitialized() || Found->GetDeactivated())
 	{
 		return nullptr;
@@ -69,112 +73,37 @@ UResource* UResourceHandler::FindActiveResource(FGameplayTag const& ResourceTag)
 
 void UResourceHandler::NotifyOfReplicatedResource(UResource* ReplicatedResource)
 {
-	if (!ReplicatedResource->GetResourceTag().IsValid() || !ReplicatedResource->GetResourceTag().MatchesTag(GenericResourceTag))
+	if (!IsValid(ReplicatedResource))
 	{
 		return;
 	}
-	UResource* ExistingResource = FindActiveResource(ReplicatedResource->GetResourceTag());
+	UResource* ExistingResource = FindActiveResource(ReplicatedResource->GetClass());
 	if (IsValid(ExistingResource))
 	{
 		return;
 	}
-	ActiveResources.Add(ReplicatedResource->GetResourceTag(), ReplicatedResource);
-	OnResourceAdded.Broadcast(ReplicatedResource->GetResourceTag());
+	ActiveResources.Add(ReplicatedResource);
+	OnResourceAdded.Broadcast(ReplicatedResource);
 }
 
-void UResourceHandler::NotifyOfRemovedReplicatedResource(FGameplayTag const& ResourceTag)
+void UResourceHandler::NotifyOfRemovedReplicatedResource(UResource* Resource)
 {
-	if (ActiveResources.Remove(ResourceTag) != 0)
+	if (ActiveResources.Remove(Resource) != 0)
 	{
-		OnResourceRemoved.Broadcast(ResourceTag);
+		OnResourceRemoved.Broadcast(Resource);
 	}
-}
-
-FGameplayTagContainer UResourceHandler::GetActiveResources() const
-{
-	FGameplayTagContainer ResourceTags;
-	for (TTuple<FGameplayTag, UResource*> Resource : ActiveResources)
-	{
-		if (IsValid(Resource.Value) && Resource.Value->GetInitialized() && !Resource.Value->GetDeactivated())
-		{
-			ResourceTags.AddTag(Resource.Key);
-		}
-	}
-	return ResourceTags;
-}
-
-float UResourceHandler::GetResourceValue(FGameplayTag const& ResourceTag) const
-{
-	UResource* Resource = FindActiveResource(ResourceTag);
-	if (!IsValid(Resource))
-	{
-		return -1.0f;
-	}
-	return Resource->GetCurrentValue();
-}
-
-float UResourceHandler::GetResourceMinimum(FGameplayTag const& ResourceTag) const
-{
-	UResource* Resource = FindActiveResource(ResourceTag);
-	if (!IsValid(Resource))
-	{
-		return -1.0f;	
-	}
-	return Resource->GetMinimum();
-}
-
-float UResourceHandler::GetResourceMaximum(FGameplayTag const& ResourceTag) const
-{
-	UResource* Resource = FindActiveResource(ResourceTag);
-	if (!IsValid(Resource))
-	{
-		return -1.0f;	
-	}
-	return Resource->GetMaximum();
-}
-
-FSlateBrush UResourceHandler::GetResourceFillBrush(FGameplayTag const& ResourceTag) const
-{
-	UResource* Resource = FindActiveResource(ResourceTag);
-	if (!IsValid(Resource))
-	{
-		FSlateBrush const DefaultBrush;
-		return DefaultBrush;	
-	}
-	return Resource->GetDisplayFillBrush();
-}
-
-FSlateBrush UResourceHandler::GetResourceBackgroundBrush(FGameplayTag const& ResourceTag) const
-{
-	UResource* Resource = FindActiveResource(ResourceTag);
-	if (!IsValid(Resource))
-	{
-		FSlateBrush const DefaultBrush;
-		return DefaultBrush;	
-	}
-	return Resource->GetDisplayBackgroundBrush();
-}
-
-void UResourceHandler::ModifyResource(FGameplayTag const& ResourceTag, float const Amount, UObject* Source, bool const bIgnoreModifiers)
-{
-	UResource* Resource = FindActiveResource(ResourceTag);
-	if (!IsValid(Resource))
-	{
-		return;
-	}
-	Resource->ModifyResource(Source, Amount, bIgnoreModifiers);
 }
 
 bool UResourceHandler::CheckAbilityCostsMet(UCombatAbility* Ability, TArray<FAbilityCost>& OutCosts) const
 {
 	for (FAbilityCost& Cost : OutCosts)
 	{
-		UResource* Resource = FindActiveResource(Cost.ResourceTag);
+		UResource* Resource = FindActiveResource(Cost.ResourceClass);
 		if (!IsValid(Resource))
 		{
 			return false;
 		}
-		if (!Resource->CalculateAndCheckAbilityCost(Ability, Cost))
+		if (!Resource->CalculateAndCheckAbilityCost(Ability, Cost.Cost, Cost.bStaticCost))
 		{
 			return false;
 		}
@@ -187,12 +116,12 @@ void UResourceHandler::AuthCommitAbilityCosts(UCombatAbility* Ability, int32 con
 {
 	for (FAbilityCost const& Cost : Costs)
 	{
-		UResource* Resource = FindActiveResource(Cost.ResourceTag);
+		UResource* Resource = FindActiveResource(Cost.ResourceClass);
 		if (!IsValid(Resource))
 		{
 			continue;
 		}
-		Resource->CommitAbilityCost(Ability, PredictionID, Cost);
+		Resource->CommitAbilityCost(Ability, PredictionID, Cost.Cost);
 	}
 }
 
@@ -201,21 +130,19 @@ void UResourceHandler::PredictCommitAbilityCosts(UCombatAbility* Ability, int32 
 {
 	for (FAbilityCost const& Cost : Costs)
 	{
-		UResource* Resource = FindActiveResource(Cost.ResourceTag);
+		UResource* Resource = FindActiveResource(Cost.ResourceClass);
 		if (IsValid(Resource))
 		{
-			Resource->PredictAbilityCost(Ability, PredictionID, Cost);
+			Resource->PredictAbilityCost(Ability, PredictionID, Cost.Cost);
 		}
 	}
 }
 
-void UResourceHandler::RollbackFailedCosts(FGameplayTagContainer const& CostTags, int32 const PredictionID)
+void UResourceHandler::RollbackFailedCosts(TArray<TSubclassOf<UResource>> const& CostClasses, int32 const PredictionID)
 {
-	TArray<FGameplayTag> RollbackTags;
-	CostTags.GetGameplayTagArray(RollbackTags);
-	for (FGameplayTag const ResourceTag : RollbackTags)
+	for (TSubclassOf<UResource> const ResourceClass : CostClasses)
 	{
-		UResource* Resource = FindActiveResource(ResourceTag);
+		UResource* Resource = FindActiveResource(ResourceClass);
 		if (IsValid(Resource))
 		{
 			Resource->RollbackFailedCost(PredictionID);
@@ -223,19 +150,19 @@ void UResourceHandler::RollbackFailedCosts(FGameplayTagContainer const& CostTags
 	}
 }
 
-void UResourceHandler::UpdatePredictedCostsFromServer(FServerAbilityResult const& ServerResult, TArray<FGameplayTag> const& MispredictedCosts)
+void UResourceHandler::UpdatePredictedCostsFromServer(FServerAbilityResult const& ServerResult, TArray<TSubclassOf<UResource>> const& MispredictedCosts)
 {
 	for (FAbilityCost const& Cost : ServerResult.AbilityCosts)
 	{
-		UResource* Resource = FindActiveResource(Cost.ResourceTag);
+		UResource* Resource = FindActiveResource(Cost.ResourceClass);
 		if (IsValid(Resource))
 		{
-			Resource->UpdateCostPredictionFromServer(ServerResult.PredictionID, Cost);
+			Resource->UpdateCostPredictionFromServer(ServerResult.PredictionID, Cost.Cost);
 		}
 	}
-	for (FGameplayTag const& MispredictionTag : MispredictedCosts)
+	for (TSubclassOf<UResource> const ResourceClass : MispredictedCosts)
 	{
-		UResource* Resource = FindActiveResource(MispredictionTag);
+		UResource* Resource = FindActiveResource(ResourceClass);
 		if (IsValid(Resource))
 		{
 			Resource->RollbackFailedCost(ServerResult.PredictionID);
@@ -261,7 +188,7 @@ void UResourceHandler::UnsubscribeFromResourceAdded(FResourceInstanceCallback co
 	OnResourceAdded.Remove(Callback);
 }
 
-void UResourceHandler::SubscribeToResourceRemoved(FResourceTagCallback const& Callback)
+void UResourceHandler::SubscribeToResourceRemoved(FResourceInstanceCallback const& Callback)
 {
 	if (!Callback.IsBound())
 	{
@@ -270,7 +197,7 @@ void UResourceHandler::SubscribeToResourceRemoved(FResourceTagCallback const& Ca
 	OnResourceRemoved.AddUnique(Callback);
 }
 
-void UResourceHandler::UnsubscribeFromResourceRemoved(FResourceTagCallback const& Callback)
+void UResourceHandler::UnsubscribeFromResourceRemoved(FResourceInstanceCallback const& Callback)
 {
 	if (!Callback.IsBound())
 	{
@@ -279,113 +206,41 @@ void UResourceHandler::UnsubscribeFromResourceRemoved(FResourceTagCallback const
 	OnResourceRemoved.Remove(Callback);
 }
 
-void UResourceHandler::SubscribeToResourceChanged(FGameplayTag const& ResourceTag, FResourceValueCallback const& Callback)
-{
-	UResource* Resource = FindActiveResource(ResourceTag);
-	if (!IsValid(Resource))
-	{
-		return;
-	}
-	Resource->SubscribeToResourceChanged(Callback);
-}
-
-void UResourceHandler::UnsubscribeFromResourceChanged(FGameplayTag const& ResourceTag,
-	FResourceValueCallback const& Callback)
-{
-	UResource* Resource = FindActiveResource(ResourceTag);
-	if (!IsValid(Resource))
-	{
-		return;
-	}
-	Resource->UnsubscribeFromResourceChanged(Callback);
-}
-
-void UResourceHandler::SubscribeToResourceModsChanged(FGameplayTag const& ResourceTag,
-	FResourceTagCallback const& Callback)
-{
-	UResource* Resource = FindActiveResource(ResourceTag);
-	if (!IsValid(Resource))
-	{
-		return;
-	}
-	Resource->SubscribeToResourceModsChanged(Callback);
-}
-
-void UResourceHandler::UnsubscribeFromResourceModsChanged(FGameplayTag const& ResourceTag,
-	FResourceTagCallback const& Callback)
-{
-	UResource* Resource = FindActiveResource(ResourceTag);
-	if (!IsValid(Resource))
-	{
-		return;
-	}
-	Resource->UnsubscribeFromResourceModsChanged(Callback);
-}
-
-void UResourceHandler::AddResourceDeltaModifier(FResourceDeltaModifier const& Modifier, FGameplayTag const& ResourceTag)
-{
-	if (!Modifier.IsBound())
-	{
-		return;
-	}
-	UResource* Resource = FindActiveResource(ResourceTag);
-	if (!IsValid(Resource))
-	{
-		return;
-	}
-	Resource->AddResourceDeltaModifier(Modifier);
-}
-
-void UResourceHandler::RemoveResourceDeltaModifier(FResourceDeltaModifier const& Modifier,
-	FGameplayTag const& ResourceTag)
-{
-	if (!Modifier.IsBound())
-	{
-		return;
-	}
-	UResource* Resource = FindActiveResource(ResourceTag);
-	if (!IsValid(Resource))
-	{
-		return;
-	}
-	Resource->RemoveResourceDeltaModifier(Modifier);
-}
-
 void UResourceHandler::FinishRemoveResource(UResource* Resource)
 {
 	RecentlyRemovedResources.RemoveSingleSwap(Resource);
 }
 
-void UResourceHandler::AddNewResource(FResourceInitInfo const& InitInfo)
+void UResourceHandler::AddNewResource(TSubclassOf<UResource> const ResourceClass, FResourceInitInfo const& InitInfo)
 {
 	if (GetOwnerRole() != ROLE_Authority)
 	{
 		return;
 	}
-	if (!IsValid(InitInfo.ResourceClass) || CheckResourceAlreadyExists(InitInfo.ResourceClass->GetDefaultObject<UResource>()->GetResourceTag()))
+	if (!IsValid(ResourceClass) || CheckResourceAlreadyExists(ResourceClass))
 	{
 		return;
 	}
-	UResource* NewResource = NewObject<UResource>(GetOwner(), InitInfo.ResourceClass);
-	ActiveResources.Add(NewResource->GetResourceTag(), NewResource);
+	UResource* NewResource = NewObject<UResource>(GetOwner(), ResourceClass);
+	ActiveResources.Add(NewResource);
 	NewResource->AuthInitializeResource(this, StatHandler, InitInfo);
 	if (NewResource->GetInitialized())
 	{
-		OnResourceAdded.Broadcast(NewResource->GetResourceTag());
+		OnResourceAdded.Broadcast(NewResource);
 	}
 	else
 	{
-		ActiveResources.Remove(NewResource->GetResourceTag());
+		ActiveResources.Remove(NewResource);
 	}
 }
 
-void UResourceHandler::RemoveResource(FGameplayTag const& ResourceTag)
+void UResourceHandler::RemoveResource(TSubclassOf<UResource> const ResourceClass)
 {
 	if (GetOwnerRole() != ROLE_Authority)
 	{
 		return;
 	}
-	UResource* Resource = FindActiveResource(ResourceTag);
+	UResource* Resource = FindActiveResource(ResourceClass);
 	if (!IsValid(Resource))
 	{
 		return;
@@ -393,9 +248,9 @@ void UResourceHandler::RemoveResource(FGameplayTag const& ResourceTag)
 	Resource->AuthDeactivateResource();
 	if (Resource->GetDeactivated())
 	{
-		if (ActiveResources.Remove(ResourceTag) != 0)
+		if (ActiveResources.Remove(Resource) != 0)
     	{
-    		OnResourceRemoved.Broadcast(ResourceTag);
+    		OnResourceRemoved.Broadcast(Resource);
     		RecentlyRemovedResources.Add(Resource);
 			FTimerHandle RemovalHandle;
 			FTimerDelegate RemovalDelegate;
@@ -405,7 +260,18 @@ void UResourceHandler::RemoveResource(FGameplayTag const& ResourceTag)
 	}
 }
 
-bool UResourceHandler::CheckResourceAlreadyExists(FGameplayTag const& ResourceTag) const
+bool UResourceHandler::CheckResourceAlreadyExists(TSubclassOf<UResource> const ResourceClass) const
 {
-	return ActiveResources.Contains(ResourceTag);
+	if (!IsValid(ResourceClass))
+	{
+		return false;
+	}
+	for (UResource* Resource : ActiveResources)
+	{
+		if (Resource->GetClass() == ResourceClass)
+		{
+			return true;
+		}
+	}
+	return false;
 }

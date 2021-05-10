@@ -79,9 +79,9 @@ private:
 
     //Mutable cost values, these are what are actually checked at runtime and modified.
     UPROPERTY()
-    TMap<FGameplayTag, FAbilityCost> AbilityCosts;
+    TMap<TSubclassOf<UResource>, FAbilityCost> AbilityCosts;
     TArray<FAbilityCostModifier> CostModifiers;
-    void RecalculateAbilityCost(FGameplayTag const& ResourceTag);
+    void RecalculateAbilityCost(TSubclassOf<UResource> const ResourceClass);
     
         //***Ability Cooldown***
 
@@ -188,7 +188,7 @@ public:
     void UpdatePredictedChargesFromServer(FServerAbilityResult const& ServerResult);
     
     UFUNCTION(BlueprintCallable, BlueprintPure)
-    float GetAbilityCost(FGameplayTag const& ResourceTag) const;
+    float GetAbilityCost(TSubclassOf<UResource> const ResourceClass) const;
     UFUNCTION(BlueprintCallable, BlueprintPure)
     void GetAbilityCosts(TArray<FAbilityCost>& OutCosts) const;
 

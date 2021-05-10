@@ -3,17 +3,18 @@
 
 #include "SaiyoraResourceFunctions.h"
 #include "SaiyoraCombatInterface.h"
+#include "Resource.h"
 
 //TODO: Non-ability resource usage.
 
-void USaiyoraResourceFunctions::ModifyResource(AActor* AppliedTo, FGameplayTag const& ResourceTag, 
-    float const Amount, UObject* Source, bool const bIgnoreModifiers)
+void USaiyoraResourceFunctions::ModifyResource(AActor* AppliedTo, TSubclassOf<UResource> const ResourceClass, 
+    UObject* Source, float const Amount, bool const bIgnoreModifiers)
 {
     if (!IsValid(AppliedTo) || AppliedTo->GetLocalRole() != ROLE_Authority)
     {
         return;
     }
-    if (!ResourceTag.IsValid() || !ResourceTag.MatchesTag(UResourceHandler::GenericResourceTag))
+    if (!IsValid(ResourceClass))
     {
         return;
     }
@@ -26,5 +27,10 @@ void USaiyoraResourceFunctions::ModifyResource(AActor* AppliedTo, FGameplayTag c
     {
         return;
     }
-    TargetComponent->ModifyResource(ResourceTag, Amount, Source, bIgnoreModifiers);
+    UResource* Found = TargetComponent->FindActiveResource(ResourceClass);
+    if (!IsValid(Found))
+    {
+        return;
+    }
+    Found->ModifyResource(Source, Amount, bIgnoreModifiers);
 }

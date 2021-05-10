@@ -6,50 +6,16 @@
 #include "GameplayTagContainer.h"
 #include "AbilityEnums.h"
 #include "SaiyoraStructs.h"
+#include "Resource.h"
 #include "AbilityStructs.generated.h"
-
-USTRUCT()
-struct FReplicatedAbilityCost : public FFastArraySerializerItem
-{
-    GENERATED_BODY()
-
-    FORCEINLINE bool operator==(const FReplicatedAbilityCost& Other) const { return Other.ResourceTag.MatchesTag(ResourceTag); }
-
-    void PostReplicatedChange(struct FAbilityCostArray const& InArraySerializer);
-    void PostReplicatedAdd(struct FAbilityCostArray const& InArraySerializer);
-    void PreReplicatedRemove(struct FAbilityCostArray const& InArraySerializer);
-
-    UPROPERTY(meta = (Categories = "Resource"))
-    FGameplayTag ResourceTag;
-    UPROPERTY()
-    float Cost = 0.0f;
-    UPROPERTY()
-    bool bStaticCost = false;
-};
-
-USTRUCT()
-struct FAbilityCostArray : public FFastArraySerializer
-{
-    GENERATED_BODY()
-
-    UPROPERTY()
-    TArray<FReplicatedAbilityCost> Items;
-    UPROPERTY(NotReplicated)
-    class UCombatAbility* Ability;
-    
-    bool NetDeltaSerialize(FNetDeltaSerializeInfo & DeltaParms)
-    {
-        return FFastArraySerializer::FastArrayDeltaSerialize<FReplicatedAbilityCost, FAbilityCostArray>( Items, DeltaParms, *this );
-    }
-};
 
 USTRUCT(BlueprintType)
 struct FAbilityCost
 {
     GENERATED_BODY();
 
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta = (Categories = "Resource"))
-    FGameplayTag ResourceTag;
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+    TSubclassOf<UResource> ResourceClass;
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
     float Cost = 0.0f;
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
@@ -220,7 +186,8 @@ struct FClientAbilityPrediction
     bool bPredictedGCD = false;
     bool bPredictedCharges = false;
     bool bPredictedCastBar = false;
-    FGameplayTagContainer PredictedCostTags;
+    UPROPERTY()
+    TArray<TSubclassOf<UResource>> PredictedCostClasses;
 };
 
 USTRUCT()
@@ -274,11 +241,11 @@ struct FAbilityCostModifier
     GENERATED_BODY();
 
     UPROPERTY(BlueprintReadWrite, Category = "Abilities", meta = (Categories = "Resource"))
-    FGameplayTag ResourceTag;
+    TSubclassOf<UResource> ResourceClass;
     UPROPERTY(BlueprintReadWrite, Category = "Abilities")
     FCombatModifier CostModifier;
 
-    FORCEINLINE bool operator==(const FAbilityCostModifier& Other) const { return Other.ResourceTag.MatchesTagExact(ResourceTag) && Other.CostModifier == CostModifier; }
+    FORCEINLINE bool operator==(const FAbilityCostModifier& Other) const { return Other.ResourceClass == ResourceClass && Other.CostModifier == CostModifier; }
 };
 
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FAbilityModCondition, UCombatAbility*, Ability);

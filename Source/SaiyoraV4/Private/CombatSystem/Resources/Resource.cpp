@@ -95,36 +95,36 @@ void UResource::AuthDeactivateResource()
     bDeactivated = true;
 }
 
-bool UResource::CalculateAndCheckAbilityCost(UCombatAbility* Ability, FAbilityCost& Cost)
+bool UResource::CalculateAndCheckAbilityCost(UCombatAbility* Ability, float& Cost, bool const bStaticCost)
 {
-    if (!Cost.bStaticCost)
+    if (!bStaticCost)
     {
         TArray<FCombatModifier> Mods;
         for (FResourceDeltaModifier const& Condition : ResourceDeltaMods)
         {
-            Mods.Add(Condition.Execute(ResourceTag, Ability, Cost));
+            Mods.Add(Condition.Execute(this, Ability, Cost));
         }
-        Cost.Cost = FCombatModifier::CombineModifiers(Mods, Cost.Cost);
+        Cost = FCombatModifier::CombineModifiers(Mods, Cost);
     }
-    if (Cost.Cost <= GetCurrentValue())
+    if (Cost <= GetCurrentValue())
     {
         return true;
     }
     return false;
 }
 
-void UResource::CommitAbilityCost(UCombatAbility* Ability, int32 const PredictionID, FAbilityCost const& Cost)
+void UResource::CommitAbilityCost(UCombatAbility* Ability, int32 const PredictionID, float const Cost)
 {
     if (Handler->GetOwnerRole() != ROLE_Authority)
     {
         return;
     }
-    SetResourceValue(ResourceState.CurrentValue - Cost.Cost, Ability, PredictionID);
+    SetResourceValue(ResourceState.CurrentValue - Cost, Ability, PredictionID);
 }
 
-void UResource::PredictAbilityCost(UCombatAbility* Ability, int32 const PredictionID, FAbilityCost const& Cost)
+void UResource::PredictAbilityCost(UCombatAbility* Ability, int32 const PredictionID, float const Cost)
 {
-    ResourcePredictions.Add(PredictionID, Cost.Cost);
+    ResourcePredictions.Add(PredictionID, Cost);
     RecalculatePredictedResource(Ability);
 }
 
@@ -136,16 +136,16 @@ void UResource::RollbackFailedCost(int32 const PredictionID)
     }
 }
 
-void UResource::UpdateCostPredictionFromServer(int32 const PredictionID, FAbilityCost const& ServerCost)
+void UResource::UpdateCostPredictionFromServer(int32 const PredictionID, float const ServerCost)
 {
     if (ResourceState.PredictionID >= PredictionID)
     {
         return;
     }
     float const OldPrediction = ResourcePredictions.FindRef(PredictionID);
-    if (OldPrediction != ServerCost.Cost)
+    if (OldPrediction != ServerCost)
     {
-        ResourcePredictions.Add(PredictionID, ServerCost.Cost);
+        ResourcePredictions.Add(PredictionID, ServerCost);
         RecalculatePredictedResource(nullptr);
     }
 }
@@ -156,23 +156,20 @@ void UResource::ModifyResource(UObject* Source, float const Amount, bool const b
     {
         return;
     }
-    
-    FAbilityCost DummyCost;
-    DummyCost.Cost = Amount;
-    DummyCost.bStaticCost = bIgnoreModifiers;
-    DummyCost.ResourceTag = ResourceTag;
+
+    float ModifiedCost = Amount;
     
     if (!bIgnoreModifiers)
     {
         TArray<FCombatModifier> Mods;
         for (FResourceDeltaModifier const& Condition : ResourceDeltaMods)
         {
-            Mods.Add(Condition.Execute(ResourceTag, Source, DummyCost));
+            Mods.Add(Condition.Execute(this, Source, Amount));
         }
-        DummyCost.Cost = FCombatModifier::CombineModifiers(Mods, DummyCost.Cost);
+        ModifiedCost = FCombatModifier::CombineModifiers(Mods, Amount);
     }
     
-    SetResourceValue(ResourceState.CurrentValue + DummyCost.Cost, Source);
+    SetResourceValue(ResourceState.CurrentValue + ModifiedCost, Source);
 }
 
 void UResource::RecalculatePredictedResource(UObject* ChangeSource)
@@ -185,7 +182,7 @@ void UResource::RecalculatePredictedResource(UObject* ChangeSource)
     }
     if (PreviousState.CurrentValue != PredictedResourceState.CurrentValue)
     {
-        OnResourceChanged.Broadcast(ResourceTag, ChangeSource, PreviousState, PredictedResourceState);
+        OnResourceChanged.Broadcast(this, ChangeSource, PreviousState, PredictedResourceState);
     }
 }
 
@@ -219,7 +216,7 @@ void UResource::OnRep_Deactivated()
         DeactivateResource();
         if (IsValid(Handler))
         {
-            Handler->NotifyOfRemovedReplicatedResource(ResourceTag);
+            Handler->NotifyOfRemovedReplicatedResource(this);
         }
     }
 }
@@ -262,7 +259,7 @@ void UResource::OnRep_ResourceState(FResourceState const& PreviousState)
     {
         if (PreviousState.Maximum != ResourceState.Maximum || PreviousState.Minimum != ResourceState.Minimum || PreviousState.CurrentValue != ResourceState.CurrentValue)
         {
-            OnResourceChanged.Broadcast(ResourceTag, nullptr, PreviousState, ResourceState);
+            OnResourceChanged.Broadcast(this, nullptr, PreviousState, ResourceState);
         }
         return;
     }
@@ -284,7 +281,7 @@ void UResource::SetNewMinimum(float const NewValue)
     }
     if (PreviousState.Minimum != ResourceState.Minimum || PreviousState.CurrentValue != ResourceState.CurrentValue)
     {
-        OnResourceChanged.Broadcast(ResourceTag, nullptr, PreviousState, ResourceState);
+        OnResourceChanged.Broadcast(this, nullptr, PreviousState, ResourceState);
     }
 }
 
@@ -302,7 +299,7 @@ void UResource::SetNewMaximum(float const NewValue)
     }
     if (PreviousState.Maximum != ResourceState.Maximum || PreviousState.CurrentValue != ResourceState.CurrentValue)
     {
-        OnResourceChanged.Broadcast(ResourceTag, nullptr, PreviousState, ResourceState);
+        OnResourceChanged.Broadcast(this, nullptr, PreviousState, ResourceState);
     }
 }
 
@@ -316,7 +313,7 @@ void UResource::SetResourceValue(float const NewValue, UObject* Source, int32 co
     }
     if (PreviousState.CurrentValue != ResourceState.CurrentValue)
     {
-        OnResourceChanged.Broadcast(ResourceTag, Source, PreviousState, ResourceState);
+        OnResourceChanged.Broadcast(this, Source, PreviousState, ResourceState);
     }
 }
 
@@ -356,7 +353,7 @@ void UResource::AddResourceDeltaModifier(FResourceDeltaModifier const& Modifier)
     ResourceDeltaMods.AddUnique(Modifier);
     if (PreviousLength != ResourceDeltaMods.Num())
     {
-        OnResourceDeltaModsChanged.Broadcast(ResourceTag);
+        OnResourceDeltaModsChanged.Broadcast(this);
     }
 }
 
@@ -368,7 +365,7 @@ void UResource::RemoveResourceDeltaModifier(FResourceDeltaModifier const& Modifi
     }
     if (ResourceDeltaMods.RemoveSingleSwap(Modifier) != 0)
     {
-        OnResourceDeltaModsChanged.Broadcast(ResourceTag);
+        OnResourceDeltaModsChanged.Broadcast(this);
     }
 }
 
@@ -390,7 +387,7 @@ void UResource::UnsubscribeFromResourceChanged(FResourceValueCallback const& Cal
     OnResourceChanged.Remove(Callback);
 }
 
-void UResource::SubscribeToResourceModsChanged(FResourceTagCallback const& Callback)
+void UResource::SubscribeToResourceModsChanged(FResourceInstanceCallback const& Callback)
 {
     if (!Callback.IsBound())
     {
@@ -399,7 +396,7 @@ void UResource::SubscribeToResourceModsChanged(FResourceTagCallback const& Callb
     OnResourceDeltaModsChanged.AddUnique(Callback);
 }
 
-void UResource::UnsubscribeFromResourceModsChanged(FResourceTagCallback const& Callback)
+void UResource::UnsubscribeFromResourceModsChanged(FResourceInstanceCallback const& Callback)
 {
     if (!Callback.IsBound())
     {

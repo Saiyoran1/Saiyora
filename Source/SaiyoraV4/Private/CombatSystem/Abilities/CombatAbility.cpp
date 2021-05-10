@@ -142,13 +142,13 @@ bool UCombatAbility::GetTickNeedsPredictionParams(int32 const TickNumber) const
     return TicksWithPredictionParams.Contains(TickNumber);
 }
 
-float UCombatAbility::GetAbilityCost(FGameplayTag const& ResourceTag) const
+float UCombatAbility::GetAbilityCost(TSubclassOf<UResource> const ResourceClass) const
 {
-    if (!ResourceTag.IsValid() || !ResourceTag.MatchesTag(UResourceHandler::GenericResourceTag))
+    if (!IsValid(ResourceClass))
     {
         return -1.0f;
     }
-    FAbilityCost const* Cost = AbilityCosts.Find(ResourceTag);
+    FAbilityCost const* Cost = AbilityCosts.Find(ResourceClass);
     if (Cost)
     {
         return Cost->Cost;
@@ -156,9 +156,9 @@ float UCombatAbility::GetAbilityCost(FGameplayTag const& ResourceTag) const
     return -1.0f;
 }
 
-void UCombatAbility::RecalculateAbilityCost(FGameplayTag const& ResourceTag)
+void UCombatAbility::RecalculateAbilityCost(TSubclassOf<UResource> const ResourceClass)
 {
-    if (!ResourceTag.IsValid() || !ResourceTag.MatchesTag(UResourceHandler::GenericResourceTag))
+    if (!IsValid(ResourceClass))
     {
         return;
     }
@@ -166,7 +166,7 @@ void UCombatAbility::RecalculateAbilityCost(FGameplayTag const& ResourceTag)
     bool bFoundCost = false;
     for (FAbilityCost const& Cost : DefaultAbilityCosts)
     {
-        if (Cost.ResourceTag.MatchesTagExact(ResourceTag))
+        if (Cost.ResourceClass == ResourceClass)
         {
             MutableCost = Cost;
             bFoundCost = true;
@@ -179,19 +179,19 @@ void UCombatAbility::RecalculateAbilityCost(FGameplayTag const& ResourceTag)
     }
     if (MutableCost.bStaticCost)
     {
-        AbilityCosts.Add(ResourceTag, MutableCost);
+        AbilityCosts.Add(ResourceClass, MutableCost);
         return;
     }
     TArray<FCombatModifier> RelevantMods;
     for (FAbilityCostModifier const& Modifier : CostModifiers)
     {
-        if (Modifier.ResourceTag.MatchesTagExact(ResourceTag))
+        if (Modifier.ResourceClass == ResourceClass)
         {
             RelevantMods.Add(Modifier.CostModifier);
         }
     }
     MutableCost.Cost = FMath::Max(0.0f, FCombatModifier::CombineModifiers(RelevantMods, MutableCost.Cost));
-    AbilityCosts.Add(ResourceTag, MutableCost);
+    AbilityCosts.Add(ResourceClass, MutableCost);
 }
 
 void UCombatAbility::PurgeOldPredictions()
@@ -287,7 +287,7 @@ void UCombatAbility::InitializeAbility(UAbilityHandler* AbilityComponent)
     ChargesPerCooldown = DefaultChargesPerCooldown;
     for (FAbilityCost const& Cost : DefaultAbilityCosts)
     {
-        AbilityCosts.Add(Cost.ResourceTag, Cost);
+        AbilityCosts.Add(Cost.ResourceClass, Cost);
     }
     OnInitialize();
     SetupCustomCastRestrictions();
@@ -382,12 +382,12 @@ void UCombatAbility::AddAbilityCostModifier(FAbilityCostModifier const& Modifier
     {
         return;
     }
-    if (!Modifier.ResourceTag.IsValid() || !Modifier.ResourceTag.MatchesTag(UResourceHandler::GenericResourceTag))
+    if (!IsValid(Modifier.ResourceClass))
     {
         return;   
     }
     CostModifiers.Add(Modifier);
-    RecalculateAbilityCost(Modifier.ResourceTag);
+    RecalculateAbilityCost(Modifier.ResourceClass);
 }
 
 void UCombatAbility::RemoveAbilityCostModifier(FAbilityCostModifier const& Modifier)
@@ -400,13 +400,13 @@ void UCombatAbility::RemoveAbilityCostModifier(FAbilityCostModifier const& Modif
     {
         return;
     }
-    if (!Modifier.ResourceTag.IsValid() || !Modifier.ResourceTag.MatchesTag(UResourceHandler::GenericResourceTag))
+    if (!IsValid(Modifier.ResourceClass))
     {
         return;   
     }
-    if (CostModifiers.Remove(Modifier) > 0)
+    if (CostModifiers.Remove(Modifier) != 0)
     {
-        RecalculateAbilityCost(Modifier.ResourceTag);
+        RecalculateAbilityCost(Modifier.ResourceClass);
     }
 }
 

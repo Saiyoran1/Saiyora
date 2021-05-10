@@ -1203,7 +1203,7 @@ FCastEvent UAbilityHandler::PredictUseAbility(TSubclassOf<UCombatAbility> const 
 		ResourceHandler->PredictCommitAbilityCosts(Result.Ability, Result.PredictionID, Costs);
 		for (FAbilityCost const& Cost : Costs)
 		{
-			AbilityPrediction.PredictedCostTags.AddTag(Cost.ResourceTag);
+			AbilityPrediction.PredictedCostClasses.Add(Cost.ResourceClass);
 		}
 	}
 	
@@ -1395,16 +1395,16 @@ void UAbilityHandler::ClientSucceedPredictedAbility_Implementation(FServerAbilit
 
 	UpdatePredictedCastFromServer(ServerResult);
 	UpdatePredictedGlobalFromServer(ServerResult);
-	TArray<FGameplayTag> MispredictedCosts;
+	TArray<TSubclassOf<UResource>> MispredictedCosts;
 	UCombatAbility* Ability;
 	
 	FClientAbilityPrediction* OriginalPrediction = UnackedAbilityPredictions.Find(ServerResult.PredictionID);
 	if (OriginalPrediction != nullptr)
 	{
-		OriginalPrediction->PredictedCostTags.GetGameplayTagArray(MispredictedCosts);
+		MispredictedCosts = OriginalPrediction->PredictedCostClasses;
 		for (FAbilityCost const& Cost : ServerResult.AbilityCosts)
 		{
-			MispredictedCosts.Remove(Cost.ResourceTag);
+			MispredictedCosts.Remove(Cost.ResourceClass);
 		}
 		Ability = OriginalPrediction->Ability;
 		UnackedAbilityPredictions.Remove(ServerResult.PredictionID);
@@ -1448,9 +1448,9 @@ void UAbilityHandler::ClientFailPredictedAbility_Implementation(int32 const Pred
 			OriginalPrediction->Ability->RollbackFailedCharges(PredictionID);
 		}
 	}
-	if (IsValid(ResourceHandler) && !OriginalPrediction->PredictedCostTags.IsEmpty())
+	if (IsValid(ResourceHandler) && !OriginalPrediction->PredictedCostClasses.Num() == 0)
 	{
-		ResourceHandler->RollbackFailedCosts(OriginalPrediction->PredictedCostTags, PredictionID);
+		ResourceHandler->RollbackFailedCosts(OriginalPrediction->PredictedCostClasses, PredictionID);
 	}
 	UnackedAbilityPredictions.Remove(PredictionID);
 }

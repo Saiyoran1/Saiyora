@@ -4,8 +4,6 @@
 
 #include "CoreMinimal.h"
 #include "SaiyoraStructs.h"
-#include "GameplayTagContainer.h"
-#include "AbilityStructs.h"
 #include "ResourceStructs.generated.h"
 
 class UResource;
@@ -31,8 +29,6 @@ struct FResourceInitInfo
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Resource")
-	TSubclassOf<UResource> ResourceClass;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Resource")
 	bool bHasCustomMinimum = false;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Resource")
 	float CustomMinValue = 0.0f;
@@ -47,16 +43,12 @@ struct FResourceInitInfo
 };
 
 //For modifiers to resource expenditure and generation.
-DECLARE_DYNAMIC_DELEGATE_RetVal_ThreeParams(FCombatModifier, FResourceDeltaModifier, FGameplayTag const&, ResourceTag, UObject*, Source, FAbilityCost const&, InitialDelta);
+DECLARE_DYNAMIC_DELEGATE_RetVal_ThreeParams(FCombatModifier, FResourceDeltaModifier, UResource*, Resource, UObject*, Source, float const, InitialDelta);
 
 //For notification of resource expenditure and generation.
-DECLARE_DYNAMIC_DELEGATE_FourParams(FResourceValueCallback, FGameplayTag const&, ResourceTag, UObject*, ChangeSource, FResourceState const&, PreviousState, FResourceState const&, NewState);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_FourParams(FResourceValueNotification, FGameplayTag const&, ResourceTag, UObject*, ChangeSource, FResourceState const&, PreviousState, FResourceState const&, NewState);
-
-//For notification of modifiers added to a resource (for spells to recalculate their costs and support client prediction).
-DECLARE_DYNAMIC_DELEGATE_OneParam(FResourceTagCallback, FGameplayTag const&, ResourceTag);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FResourceTagNotification, FGameplayTag const&, ResourceTag);
+DECLARE_DYNAMIC_DELEGATE_FourParams(FResourceValueCallback, UResource*, Resource, UObject*, ChangeSource, FResourceState const&, PreviousState, FResourceState const&, NewState);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_FourParams(FResourceValueNotification, UResource*, Resource, UObject*, ChangeSource, FResourceState const&, PreviousState, FResourceState const&, NewState);
 
 //For notification of a resource being instantiated.
-DECLARE_DYNAMIC_DELEGATE_OneParam(FResourceInstanceCallback, FGameplayTag const&, ResourceTag);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FResourceInstanceNotification, FGameplayTag const&, ResourceTag);
+DECLARE_DYNAMIC_DELEGATE_OneParam(FResourceInstanceCallback, UResource*, Resource);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FResourceInstanceNotification, UResource*, Resource);

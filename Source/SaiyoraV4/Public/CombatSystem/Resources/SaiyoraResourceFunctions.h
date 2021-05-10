@@ -13,6 +13,6 @@ class SAIYORAV4_API USaiyoraResourceFunctions : public UBlueprintFunctionLibrary
 {
 	GENERATED_BODY()
 
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Resources", meta = (GameplayTagFilter = "Resource"))
-	static void ModifyResource(AActor* Target, FGameplayTag const& ResourceTag, float const Amount, UObject* Source, bool const bIgnoreModifiers);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Resources")
+	static void ModifyResource(AActor* Target, TSubclassOf<UResource> const ResourceClass, UObject* Source, float const Amount, bool const bIgnoreModifiers);
 };
