@@ -351,9 +351,41 @@ void UCombatAbility::InterruptCast(FInterruptEvent const& InterruptEvent)
     OnCastInterrupted(InterruptEvent);
 }
 
-void UCombatAbility::CancelCast()
+void UCombatAbility::PredictedCancel(FCombatParameters& PredictionParams)
 {
-    OnCastCancelled();
+    if (GetHandler()->GetOwnerRole() != ROLE_AutonomousProxy)
+    {
+        return;
+    }
+    OnPredictedCancel(PredictionParams.Parameters);
+}
+
+void UCombatAbility::ServerPredictedCancel(FCombatParameters const& PredictionParams,
+    FCombatParameters& BroadcastParams)
+{
+    if (GetHandler()->GetOwnerRole() != ROLE_Authority)
+    {
+        return;
+    }
+    OnServerPredictedCancel(PredictionParams.Parameters, BroadcastParams.Parameters);
+}
+
+void UCombatAbility::ServerNonPredictedCancel(FCombatParameters& BroadcastParams)
+{
+    if (GetHandler()->GetOwnerRole() != ROLE_Authority)
+    {
+        return;
+    }
+    OnServerNonPredictedCancel(BroadcastParams.Parameters);
+}
+
+void UCombatAbility::SimulatedCancel(FCombatParameters const& BroadcastParams)
+{
+    if (GetHandler()->GetOwnerRole() != ROLE_SimulatedProxy)
+    {
+        return;
+    }
+    OnSimulatedCancel(BroadcastParams.Parameters);
 }
 
 void UCombatAbility::AbilityMisprediction(int32 const PredictionID, FString const& FailReason)
@@ -497,7 +529,22 @@ void UCombatAbility::OnCastComplete_Implementation()
     return;
 }
 
-void UCombatAbility::OnCastCancelled_Implementation()
+void UCombatAbility::OnPredictedCancel_Implementation(TArray<FCombatParameter>& PredictionParams)
+{
+    return;
+}
+
+void UCombatAbility::OnServerPredictedCancel_Implementation(TArray<FCombatParameter> const& PredictionParams, TArray<FCombatParameter>& BroadcastParams)
+{
+    return;
+}
+
+void UCombatAbility::OnServerNonPredictedCancel_Implementation(TArray<FCombatParameter>& BroadcastParams)
+{
+    return;
+}
+
+void UCombatAbility::OnSimulatedCancel_Implementation(TArray<FCombatParameter> const& BroadcastParams)
 {
     return;
 }

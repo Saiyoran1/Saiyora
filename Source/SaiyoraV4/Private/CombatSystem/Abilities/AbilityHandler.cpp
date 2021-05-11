@@ -490,13 +490,13 @@ void UAbilityHandler::BroadcastAbilityComplete_Implementation(FCastEvent const& 
 	}
 }
 
-void UAbilityHandler::BroadcastAbilityCancel_Implementation(FCancelEvent const& CancelEvent)
+void UAbilityHandler::BroadcastAbilityCancel_Implementation(FCancelEvent const& CancelEvent, FCombatParameters const& BroadcastParams)
 {
 	if (GetOwnerRole() == ROLE_SimulatedProxy)
 	{
 		if (IsValid(CancelEvent.CancelledAbility))
 		{
-			CancelEvent.CancelledAbility->CancelCast();
+			CancelEvent.CancelledAbility->SimulatedCancel(BroadcastParams);
 			OnAbilityCancelled.Broadcast(CancelEvent);
 		}
 	}
@@ -680,25 +680,26 @@ FCancelEvent UAbilityHandler::AuthCancelAbility()
 	Result.CancelledCastEnd = CastingState.CastEndTime;
 	Result.CancelledCastID = CastingState.PredictionID;
 	Result.ElapsedTicks = CastingState.ElapsedTicks;
-	Result.CancelledAbility->CancelCast();
+	FCombatParameters CancelParams;
+	Result.CancelledAbility->ServerNonPredictedCancel(CancelParams);
 	OnAbilityCancelled.Broadcast(Result);
 	if (GetOwner()->GetRemoteRole() == ROLE_AutonomousProxy)
 	{
-		ClientCancelCast(Result);
+		ClientCancelCast(Result, CancelParams);
 	}
-	BroadcastAbilityCancel(Result);
+	BroadcastAbilityCancel(Result, CancelParams);
 	EndCast();
 	return Result;
 }
 
-void UAbilityHandler::ClientCancelCast_Implementation(FCancelEvent const& CancelEvent)
+void UAbilityHandler::ClientCancelCast_Implementation(FCancelEvent const& CancelEvent, FCombatParameters const& BroadcastParams)
 {
 	if (!CastingState.bIsCasting || CastingState.PredictionID > CancelEvent.CancelledCastID || !IsValid(CastingState.CurrentCast) || CastingState.CurrentCast != CancelEvent.CancelledAbility)
 	{
 		//We have already moved on.
 		return;
 	}
-	CastingState.CurrentCast->CancelCast();
+	CastingState.CurrentCast->SimulatedCancel(BroadcastParams);
 	OnAbilityCancelled.Broadcast(CancelEvent);
 	EndCast();
 }
@@ -725,8 +726,8 @@ FCancelEvent UAbilityHandler::PredictCancelAbility()
 	CancelRequest.CancelTime = Result.CancelTime;
 	CancelRequest.CancelID = Result.CancelID;
 	CancelRequest.CancelledCastID = Result.CancelledCastID;
+	Result.CancelledAbility->PredictedCancel(CancelRequest.PredictionParams);
 	ServerPredictCancelAbility(CancelRequest);
-	Result.CancelledAbility->CancelCast();
 	OnAbilityCancelled.Broadcast(Result);
 	CastingState.PredictionID = Result.CancelID;
 	EndCast();
@@ -757,9 +758,10 @@ void UAbilityHandler::ServerPredictCancelAbility_Implementation(FCancelRequest c
 	Result.CancelledCastEnd = CastingState.CastEndTime;
 	Result.CancelledCastID = CastingState.PredictionID;
 	Result.ElapsedTicks = CastingState.ElapsedTicks;
-	Result.CancelledAbility->CancelCast();
+	FCombatParameters BroadcastParams;
+	Result.CancelledAbility->ServerPredictedCancel(CancelRequest.PredictionParams, BroadcastParams);
 	OnAbilityCancelled.Broadcast(Result);
-	BroadcastAbilityCancel(Result);
+	BroadcastAbilityCancel(Result, BroadcastParams);
 	EndCast();
 }
 

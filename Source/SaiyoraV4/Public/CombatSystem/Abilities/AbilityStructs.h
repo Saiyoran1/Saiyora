@@ -89,6 +89,8 @@ struct FCancelRequest
     int32 CancelledCastID = 0;
     UPROPERTY()
     float CancelTime = 0.0f;
+    UPROPERTY()
+    FCombatParameters PredictionParams;
 };
 
 USTRUCT(BlueprintType)

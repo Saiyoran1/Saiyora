@@ -208,7 +208,10 @@ public:
     void SimulatedTick(int32 const TickNumber, FCombatParameters const& BroadcastParams);
     void CompleteCast();
     void InterruptCast(FInterruptEvent const& InterruptEvent);
-    void CancelCast();
+    void PredictedCancel(FCombatParameters& PredictionParams);
+    void ServerPredictedCancel(FCombatParameters const& PredictionParams, FCombatParameters& BroadcastParams);
+    void ServerNonPredictedCancel(FCombatParameters& BroadcastParams);
+    void SimulatedCancel(FCombatParameters const& BroadcastParams);
     void AbilityMisprediction(int32 const PredictionID, FString const& FailReason);
 
     UFUNCTION(BlueprintCallable, Category = "Abilities")
@@ -244,7 +247,13 @@ protected:
     UFUNCTION(BlueprintNativeEvent)
     void OnCastInterrupted(FInterruptEvent const& InterruptEvent);
     UFUNCTION(BlueprintNativeEvent)
-    void OnCastCancelled();
+    void OnPredictedCancel(TArray<FCombatParameter>& PredictionParams);
+    UFUNCTION(BlueprintNativeEvent)
+    void OnServerPredictedCancel(TArray<FCombatParameter> const& PredictionParams, TArray<FCombatParameter>& BroadcastParams);
+    UFUNCTION(BlueprintNativeEvent)
+    void OnServerNonPredictedCancel(TArray<FCombatParameter>& BroadcastParams);
+    UFUNCTION(BlueprintNativeEvent)
+    void OnSimulatedCancel(TArray<FCombatParameter> const& BroadcastParams);
     UFUNCTION(BlueprintNativeEvent)
     void OnAbilityMispredicted(int32 const PredictionID, FString const& FailReason);
 

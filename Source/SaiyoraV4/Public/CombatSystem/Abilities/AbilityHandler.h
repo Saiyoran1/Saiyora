@@ -152,7 +152,7 @@ private:
 	bool ServerHandlePredictedTick_Validate(FAbilityRequest const& TickRequest) { return true; }
 	FCancelEvent AuthCancelAbility();
 	UFUNCTION(Client, Reliable)
-	void ClientCancelCast(FCancelEvent const& CancelEvent);
+	void ClientCancelCast(FCancelEvent const& CancelEvent, FCombatParameters const& BroadcastParams);
 	UFUNCTION(Client, Reliable)
 	void ClientInterruptCast(FInterruptEvent const& InterruptEvent);
 	FCancelEvent PredictCancelAbility();
@@ -238,7 +238,7 @@ private:
 	UFUNCTION(NetMulticast, Unreliable)
 	void BroadcastAbilityComplete(FCastEvent const& CastEvent);
 	UFUNCTION(NetMulticast, Unreliable)
-	void BroadcastAbilityCancel(FCancelEvent const& CancelEvent);
+	void BroadcastAbilityCancel(FCancelEvent const& CancelEvent, FCombatParameters const& BroadcastParams);
 	UFUNCTION(NetMulticast, Unreliable)
 	void BroadcastAbilityInterrupt(FInterruptEvent const& InterruptEvent);
 
