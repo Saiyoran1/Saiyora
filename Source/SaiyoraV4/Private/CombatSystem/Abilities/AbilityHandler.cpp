@@ -728,12 +728,15 @@ FCancelEvent UAbilityHandler::PredictCancelAbility()
 	ServerPredictCancelAbility(CancelRequest);
 	Result.CancelledAbility->CancelCast();
 	OnAbilityCancelled.Broadcast(Result);
+	CastingState.PredictionID = Result.CancelID;
 	EndCast();
+	Result.bSuccess = true;
 	return Result;
 }
 
 void UAbilityHandler::ServerPredictCancelAbility_Implementation(FCancelRequest const& CancelRequest)
 {
+	
 	if (!CastingState.bIsCasting || !IsValid(CastingState.CurrentCast) || CastingState.PredictionID != CancelRequest.CancelledCastID)
 	{
 		if (CancelRequest.CancelID > CastingState.PredictionID)
@@ -741,6 +744,10 @@ void UAbilityHandler::ServerPredictCancelAbility_Implementation(FCancelRequest c
 			CastingState.PredictionID = CancelRequest.CancelID;
 		}
 		return;
+	}
+	if (CancelRequest.CancelID > CastingState.PredictionID)
+	{
+		CastingState.PredictionID = CancelRequest.CancelID;
 	}
 	FCancelEvent Result;
 	Result.CancelledAbility = CastingState.CurrentCast;
