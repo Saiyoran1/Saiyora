@@ -16,6 +16,7 @@ void UCombatAbility::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& Out
     DOREPLIFETIME_CONDITION(UCombatAbility, AbilityCooldown, COND_OwnerOnly);
     DOREPLIFETIME_CONDITION(UCombatAbility, MaxCharges, COND_OwnerOnly);
     DOREPLIFETIME_CONDITION(UCombatAbility, ChargesPerCast, COND_OwnerOnly);
+    DOREPLIFETIME_CONDITION(UCombatAbility, ReplicatedCosts, COND_OwnerOnly);
 }
 
 UWorld* UCombatAbility::GetWorld() const
@@ -180,6 +181,7 @@ void UCombatAbility::RecalculateAbilityCost(TSubclassOf<UResource> const Resourc
     if (MutableCost.bStaticCost)
     {
         AbilityCosts.Add(ResourceClass, MutableCost);
+        ReplicatedCosts.UpdateAbilityCost(MutableCost);
         return;
     }
     TArray<FCombatModifier> RelevantMods;
@@ -192,6 +194,7 @@ void UCombatAbility::RecalculateAbilityCost(TSubclassOf<UResource> const Resourc
     }
     MutableCost.Cost = FMath::Max(0.0f, FCombatModifier::CombineModifiers(RelevantMods, MutableCost.Cost));
     AbilityCosts.Add(ResourceClass, MutableCost);
+    ReplicatedCosts.UpdateAbilityCost(MutableCost);
 }
 
 void UCombatAbility::PurgeOldPredictions()
@@ -285,9 +288,16 @@ void UCombatAbility::InitializeAbility(UAbilityHandler* AbilityComponent)
     AbilityCooldown.CurrentCharges = GetMaxCharges();
     ChargesPerCast = DefaultChargesPerCast;
     ChargesPerCooldown = DefaultChargesPerCooldown;
+    ReplicatedCosts.Ability = this;
     for (FAbilityCost const& Cost : DefaultAbilityCosts)
     {
         AbilityCosts.Add(Cost.ResourceClass, Cost);
+        if (AbilityComponent->GetOwnerRole() == ROLE_Authority)
+        {
+            FReplicatedAbilityCost ReplicatedCost;
+            ReplicatedCost.AbilityCost = Cost;
+            ReplicatedCosts.MarkItemDirty(ReplicatedCosts.Items.Add_GetRef(ReplicatedCost));
+        }
     }
     OnInitialize();
     SetupCustomCastRestrictions();
@@ -444,6 +454,14 @@ void UCombatAbility::RemoveAbilityCostModifier(FAbilityCostModifier const& Modif
     if (CostModifiers.Remove(Modifier) != 0)
     {
         RecalculateAbilityCost(Modifier.ResourceClass);
+    }
+}
+
+void UCombatAbility::NotifyOfReplicatedCost(FAbilityCost const& NewCost)
+{
+    if (IsValid(NewCost.ResourceClass))
+    {
+        AbilityCosts.Add(NewCost.ResourceClass, NewCost);
     }
 }
 

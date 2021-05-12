@@ -32,6 +32,10 @@ private:
     UTexture2D* Icon;
     UPROPERTY(EditDefaultsOnly, Category = "Display Info")
     EDamageSchool AbilitySchool;
+    UPROPERTY(EditDefaultsOnly, Category = "Display Info")
+    bool bHiddenCastBar = false;
+    UPROPERTY(EditDefaultsOnly, Category = "Display Info")
+    bool bHiddenOnActionBar = false;
 
     UPROPERTY(EditDefaultsOnly, Category = "Cast Info")
     EAbilityCastType CastType = EAbilityCastType::None;
@@ -79,6 +83,8 @@ private:
     UPROPERTY()
     TMap<TSubclassOf<UResource>, FAbilityCost> AbilityCosts;
     TArray<FAbilityCostModifier> CostModifiers;
+    UPROPERTY(Replicated)
+    FReplicatedAbilityCostArray ReplicatedCosts;
     void RecalculateAbilityCost(TSubclassOf<UResource> const ResourceClass);
     
         //***Ability Cooldown***
@@ -133,6 +139,10 @@ public:
     UTexture2D* GetAbilityIcon() const { return Icon; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
     EDamageSchool GetAbilitySchool() const { return AbilitySchool; }
+    UFUNCTION(BlueprintCallable, BlueprintPure)
+    bool GetHiddenCastBar() const { return bHiddenCastBar; }
+    UFUNCTION(BlueprintCallable, BlueprintPure)
+    bool GetHiddenOnActionBar() const { return bHiddenOnActionBar; }
     
     UFUNCTION(BlueprintCallable, BlueprintPure)
     EAbilityCastType GetCastType() const { return CastType; }
@@ -223,6 +233,8 @@ public:
     void AddAbilityCostModifier(FAbilityCostModifier const& Modifier);
     UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
     void RemoveAbilityCostModifier(FAbilityCostModifier const& Modifier);
+
+    void NotifyOfReplicatedCost(FAbilityCost const& NewCost);
 
 protected:
     

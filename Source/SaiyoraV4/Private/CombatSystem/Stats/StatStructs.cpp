@@ -7,7 +7,7 @@
 
 void FReplicatedStat::PostReplicatedChange(FReplicatedStatArray const& InArraySerializer)
 {
-    if (InArraySerializer.StatHandler)
+    if (IsValid(InArraySerializer.StatHandler))
     {
        InArraySerializer.StatHandler->NotifyOfReplicatedStat(StatTag, Value);
     }
@@ -15,7 +15,7 @@ void FReplicatedStat::PostReplicatedChange(FReplicatedStatArray const& InArraySe
 
 void FReplicatedStat::PostReplicatedAdd(FReplicatedStatArray const& InArraySerializer)
 {
-    if (InArraySerializer.StatHandler)
+    if (IsValid(InArraySerializer.StatHandler))
     {
         InArraySerializer.StatHandler->NotifyOfReplicatedStat(StatTag, Value);
     }

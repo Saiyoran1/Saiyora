@@ -669,6 +669,10 @@ FCancelEvent UAbilityHandler::CancelCurrentCast()
 FCancelEvent UAbilityHandler::AuthCancelAbility()
 {
 	FCancelEvent Result;
+	if (GetOwner()->GetRemoteRole() == ROLE_AutonomousProxy)
+	{
+		return Result;
+	}
 	if (!CastingState.bIsCasting || !IsValid(CastingState.CurrentCast))
 	{
 		return Result;
@@ -683,25 +687,9 @@ FCancelEvent UAbilityHandler::AuthCancelAbility()
 	FCombatParameters CancelParams;
 	Result.CancelledAbility->ServerNonPredictedCancel(CancelParams);
 	OnAbilityCancelled.Broadcast(Result);
-	if (GetOwner()->GetRemoteRole() == ROLE_AutonomousProxy)
-	{
-		ClientCancelCast(Result, CancelParams);
-	}
 	BroadcastAbilityCancel(Result, CancelParams);
 	EndCast();
 	return Result;
-}
-
-void UAbilityHandler::ClientCancelCast_Implementation(FCancelEvent const& CancelEvent, FCombatParameters const& BroadcastParams)
-{
-	if (!CastingState.bIsCasting || CastingState.PredictionID > CancelEvent.CancelledCastID || !IsValid(CastingState.CurrentCast) || CastingState.CurrentCast != CancelEvent.CancelledAbility)
-	{
-		//We have already moved on.
-		return;
-	}
-	CastingState.CurrentCast->SimulatedCancel(BroadcastParams);
-	OnAbilityCancelled.Broadcast(CancelEvent);
-	EndCast();
 }
 
 FCancelEvent UAbilityHandler::PredictCancelAbility()
@@ -765,7 +753,7 @@ void UAbilityHandler::ServerPredictCancelAbility_Implementation(FCancelRequest c
 	EndCast();
 }
 
-FInterruptEvent UAbilityHandler::InterruptCurrentCast(AActor* AppliedBy, UObject* InterruptSource)
+FInterruptEvent UAbilityHandler::InterruptCurrentCast(AActor* AppliedBy, UObject* InterruptSource, bool const bIgnoreRestrictions)
 {
 	FInterruptEvent Result;
 	Result.InterruptAppliedBy = AppliedBy;
@@ -778,7 +766,7 @@ FInterruptEvent UAbilityHandler::InterruptCurrentCast(AActor* AppliedBy, UObject
 		Result.FailReason = FString(TEXT("Not currently casting."));
 		return Result;
 	}
-	if (!GetCastingState().bInterruptible)
+	if (!bIgnoreRestrictions && !GetCastingState().bInterruptible)
 	{
 		Result.FailReason = FString(TEXT("Cast was not interruptible."));
 		return Result;

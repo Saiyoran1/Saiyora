@@ -22,6 +22,45 @@ struct FAbilityCost
 };
 
 USTRUCT()
+struct FReplicatedAbilityCost : public FFastArraySerializerItem
+{
+    GENERATED_BODY()
+
+    void PostReplicatedChange(struct FReplicatedAbilityCostArray const& InArraySerializer);
+    void PostReplicatedAdd(struct FReplicatedAbilityCostArray const& InArraySerializer);
+
+    UPROPERTY()
+    FAbilityCost AbilityCost;
+};
+
+USTRUCT()
+struct FReplicatedAbilityCostArray : public FFastArraySerializer
+{
+    GENERATED_BODY()
+
+    void UpdateAbilityCost(FAbilityCost const& NewCost);
+
+    UPROPERTY()
+    TArray<FReplicatedAbilityCost> Items;
+    UPROPERTY()
+    class UCombatAbility* Ability;
+
+    bool NetDeltaSerialize(FNetDeltaSerializeInfo & DeltaParms)
+    {
+        return FFastArraySerializer::FastArrayDeltaSerialize<FReplicatedAbilityCost, FReplicatedAbilityCostArray>( Items, DeltaParms, *this );
+    }
+};
+
+template<>
+struct TStructOpsTypeTraits<FReplicatedAbilityCostArray> : public TStructOpsTypeTraitsBase2<FReplicatedAbilityCostArray>
+{
+    enum 
+    {
+        WithNetDeltaSerializer = true,
+   };
+};
+
+USTRUCT()
 struct FAbilityCooldown
 {
     GENERATED_BODY()
