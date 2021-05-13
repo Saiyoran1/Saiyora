@@ -135,6 +135,11 @@ public:
 	void AddAbilityRestriction(FAbilityRestriction const& Restriction);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void RemoveAbilityRestriction(FAbilityRestriction const& Restriction);
+
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+	void AddInterruptRestriction(FInterruptRestriction const& Restriction);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+	void RemoveInterruptRestriction(FInterruptRestriction const& Restriction);
 	
 private:
 
@@ -157,6 +162,8 @@ private:
 	UFUNCTION(Server, WithValidation, Reliable)
 	void ServerPredictCancelAbility(FCancelRequest const& CancelRequest);
 	bool ServerPredictCancelAbility_Validate(FCancelRequest const& CancelRequest) { return true; }
+	bool CheckInterruptRestricted(FInterruptEvent const& InterruptEvent);
+	TArray<FInterruptRestriction> InterruptRestrictions;
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Abilities", meta = (AllowPrivateAccess = "true"))
 	TArray<TSubclassOf<UCombatAbility>> DefaultAbilities;
@@ -209,9 +216,9 @@ private:
 	FCombatModifier ModifyCooldownFromStat(UCombatAbility* Ability);
 
 	UFUNCTION()
-	void CancelCastOnDeath(ELifeStatus PreviousStatus, ELifeStatus NewStatus);
+	void InterruptCastOnDeath(ELifeStatus PreviousStatus, ELifeStatus NewStatus);
 	UFUNCTION()
-	void CancelCastOnCrowdControl(FCrowdControlStatus const& PreviousStatus, FCrowdControlStatus const& NewStatus);
+	void InterruptCastOnCrowdControl(FCrowdControlStatus const& PreviousStatus, FCrowdControlStatus const& NewStatus);
 
 	bool CheckAbilityRestricted(UCombatAbility* Ability);
 	TArray<FAbilityRestriction> AbilityRestrictions;

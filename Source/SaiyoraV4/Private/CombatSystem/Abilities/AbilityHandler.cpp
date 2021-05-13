@@ -78,13 +78,13 @@ void UAbilityHandler::BeginPlay()
 		if (IsValid(DamageHandler))
 		{
 			FLifeStatusCallback DeathCallback;
-			DeathCallback.BindUFunction(this, FName(TEXT("CancelCastOnDeath")));
+			DeathCallback.BindUFunction(this, FName(TEXT("InterruptCastOnDeath")));
 			DamageHandler->SubscribeToLifeStatusChanged(DeathCallback);
 		}
 		if (IsValid(CrowdControlHandler))
 		{
 			FCrowdControlCallback CcCallback;
-			CcCallback.BindUFunction(this, FName(TEXT("CancelCastOnCrowdControl")));
+			CcCallback.BindUFunction(this, FName(TEXT("InterruptCastOnCrowdControl")));
 			CrowdControlHandler->SubscribeToCrowdControlChanged(CcCallback);
 		}
 		for (TSubclassOf<UCombatAbility> const AbilityClass : DefaultAbilities)
@@ -139,21 +139,21 @@ FCombatModifier UAbilityHandler::ModifyCastLengthFromStat(UCombatAbility* Abilit
 	return Mod;
 }
 
-void UAbilityHandler::CancelCastOnDeath(ELifeStatus PreviousStatus, ELifeStatus NewStatus)
+void UAbilityHandler::InterruptCastOnDeath(ELifeStatus PreviousStatus, ELifeStatus NewStatus)
 {
 	if (GetCastingState().bIsCasting)
 	{
 		switch (NewStatus)
 		{
 			case ELifeStatus::Invalid :
-				CancelCurrentCast();
+				InterruptCurrentCast(GetOwner(), nullptr, true);
 				break;
 			case ELifeStatus::Alive :
 				break;
 			case ELifeStatus::Dead :
 				if (!GetCastingState().CurrentCast->GetCastableWhileDead())
 				{
-					CancelCurrentCast();
+					InterruptCurrentCast(GetOwner(), nullptr, true);
 					return;
 				}
 				break;
@@ -163,13 +163,13 @@ void UAbilityHandler::CancelCastOnDeath(ELifeStatus PreviousStatus, ELifeStatus 
 	}
 }
 
-void UAbilityHandler::CancelCastOnCrowdControl(FCrowdControlStatus const& PreviousStatus, FCrowdControlStatus const& NewStatus)
+void UAbilityHandler::InterruptCastOnCrowdControl(FCrowdControlStatus const& PreviousStatus, FCrowdControlStatus const& NewStatus)
 {
 	if (GetCastingState().bIsCasting && NewStatus.bActive == true)
 	{
 		if (GetCastingState().CurrentCast->GetRestrictedCrowdControls().Contains(NewStatus.CrowdControlClass))
 		{
-			CancelCurrentCast();
+			InterruptCurrentCast(GetOwner(), nullptr, true);
 		}
 	}
 }
@@ -756,28 +756,32 @@ void UAbilityHandler::ServerPredictCancelAbility_Implementation(FCancelRequest c
 FInterruptEvent UAbilityHandler::InterruptCurrentCast(AActor* AppliedBy, UObject* InterruptSource, bool const bIgnoreRestrictions)
 {
 	FInterruptEvent Result;
-	Result.InterruptAppliedBy = AppliedBy;
-	Result.InterruptSource = InterruptSource;
-	Result.InterruptAppliedTo = GetOwner();
-	Result.InterruptedAbility = GetCastingState().CurrentCast;
-	
+
 	if (!GetCastingState().bIsCasting || !IsValid(Result.InterruptedAbility))
 	{
 		Result.FailReason = FString(TEXT("Not currently casting."));
 		return Result;
 	}
-	if (!bIgnoreRestrictions && !GetCastingState().bInterruptible)
-	{
-		Result.FailReason = FString(TEXT("Cast was not interruptible."));
-		return Result;
-	}
-
+	
+	Result.InterruptAppliedBy = AppliedBy;
+	Result.InterruptSource = InterruptSource;
+	Result.InterruptAppliedTo = GetOwner();
+	Result.InterruptedAbility = CastingState.CurrentCast;
 	Result.InterruptedCastStart = GetCastingState().CastStartTime;
 	Result.InterruptedCastEnd = GetCastingState().CastEndTime;
-	Result.InterruptedAbility = GetCastingState().CurrentCast;
-	Result.ElapsedTicks = GetCastingState().ElapsedTicks;
-	Result.CancelledCastID = GetCastingState().PredictionID;
+	Result.ElapsedTicks = CastingState.ElapsedTicks;
+	Result.CancelledCastID = CastingState.PredictionID;
 	Result.InterruptTime = GetGameStateRef()->GetServerWorldTimeSeconds();
+	
+	if (!bIgnoreRestrictions)
+	{
+		if (!CastingState.CurrentCast->GetInterruptible() || CheckInterruptRestricted(Result))
+		{
+			Result.FailReason = FString(TEXT("Cast was not interruptible."));
+			return Result;
+		}
+	}
+	
 	Result.bSuccess = true;
 	Result.InterruptedAbility->InterruptCast(Result);
 	OnAbilityInterrupted.Broadcast(Result);
@@ -801,6 +805,36 @@ void UAbilityHandler::ClientInterruptCast_Implementation(FInterruptEvent const& 
 	CastingState.CurrentCast->InterruptCast(InterruptEvent);
 	OnAbilityInterrupted.Broadcast(InterruptEvent);
 	EndCast();
+}
+
+void UAbilityHandler::AddInterruptRestriction(FInterruptRestriction const& Restriction)
+{
+	if (!Restriction.IsBound())
+	{
+		return;
+	}
+	InterruptRestrictions.AddUnique(Restriction);
+}
+
+void UAbilityHandler::RemoveInterruptRestriction(FInterruptRestriction const& Restriction)
+{
+	if (!Restriction.IsBound())
+	{
+		return;
+	}
+	InterruptRestrictions.RemoveSingleSwap(Restriction);
+}
+
+bool UAbilityHandler::CheckInterruptRestricted(FInterruptEvent const& InterruptEvent)
+{
+	for (FInterruptRestriction const& Restriction : InterruptRestrictions)
+	{
+		if (Restriction.IsBound() && Restriction.Execute(InterruptEvent))
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 void UAbilityHandler::EndCast()
