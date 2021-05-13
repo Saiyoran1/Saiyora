@@ -12,34 +12,9 @@
 
 const float UBuff::MinimumBuffDuration = 0.1f;
 
-void UBuff::GetServerFunctionTags(FGameplayTagContainer& OutContainer) const
+void UBuff::GetBuffTags(FGameplayTagContainer& OutContainer) const
 {
-    for (TSubclassOf<UBuffFunction> const FunctionClass : ServerFunctionClasses)
-    {
-        if (IsValid(FunctionClass))
-        {
-            UBuffFunction const* FunctionDefault = FunctionClass->GetDefaultObject<UBuffFunction>();
-            if (IsValid(FunctionDefault))
-            {
-                OutContainer.AppendTags(FunctionDefault->GetBuffFunctionTags());
-            }
-        }
-    }
-}
-
-void UBuff::GetClientFunctionTags(FGameplayTagContainer& OutContainer) const
-{
-    for (TSubclassOf<UBuffFunction> const FunctionClass : ClientFunctionClasses)
-    {
-        if (IsValid(FunctionClass))
-        {
-            UBuffFunction const* FunctionDefault = FunctionClass->GetDefaultObject<UBuffFunction>();
-            if (IsValid(FunctionDefault))
-            {
-                OutContainer.AppendTags(FunctionDefault->GetBuffFunctionTags());
-            }
-        }
-    }
+    OutContainer.AppendTags(BuffTags);
 }
 
 void UBuff::InitializeBuff(FBuffApplyEvent& ApplicationEvent)
@@ -62,17 +37,9 @@ void UBuff::InitializeBuff(FBuffApplyEvent& ApplicationEvent)
     ApplicationEvent.Result.NewApplyTime = GameStateRef->GetServerWorldTimeSeconds();
 
     CreationEvent = ApplicationEvent;
-
-    for (TSubclassOf<UBuffFunction> const& FunctionClass : ServerFunctionClasses)
-    {
-        if (IsValid(FunctionClass))
-        {
-            UBuffFunction* NewFunction = Functions.Add_GetRef(NewObject<UBuffFunction>(ApplicationEvent.AppliedTo, FunctionClass));
-            NewFunction->SetupBuffFunction(this);
-        }   
-    }
-
     Status = EBuffStatus::Active;
+    
+    BuffFunctionality();
     
     for (UBuffFunction* Function : Functions)
     {
@@ -283,6 +250,11 @@ void UBuff::ExpireBuff(FBuffRemoveEvent const & RemoveEvent)
     RemovingEvent = RemoveEvent;
 }
 
+void UBuff::RegisterBuffFunction(UBuffFunction* NewFunction)
+{
+    Functions.AddUnique(NewFunction);
+}
+
 void UBuff::UpdateDurationNoOverride()
 {
     float const TimeRemaining = GetWorld()->GetTimerManager().GetTimerRemaining(ExpireHandle);
@@ -342,17 +314,9 @@ void UBuff::OnRep_CreationEvent()
     }
     
     UpdateClientStateOnApply(CreationEvent);
-
-    for (TSubclassOf<UBuffFunction> const& FunctionClass : ClientFunctionClasses)
-    {
-        if (FunctionClass)
-        {
-            UBuffFunction* NewFunction = Functions.Add_GetRef(NewObject<UBuffFunction>(this, FunctionClass));
-            NewFunction->SetupBuffFunction(this);
-        }   
-    }
-    
     Status = EBuffStatus::Active;
+
+    BuffFunctionality();
 
     for (UBuffFunction* Function : Functions)
     {

@@ -360,9 +360,9 @@ bool UDamageHandler::RestrictDamageBuffs(FBuffApplyEvent const& BuffEvent)
 	UBuff const* Buff = BuffEvent.BuffClass.GetDefaultObject();
 	if (IsValid(Buff))
 	{
-		FGameplayTagContainer BuffFunctionTags;
-		Buff->GetServerFunctionTags(BuffFunctionTags);
-		if (BuffFunctionTags.HasTag(BuffDamageTag))
+		FGameplayTagContainer BuffTags;
+		Buff->GetBuffTags(BuffTags);
+		if (BuffTags.HasTag(BuffDamageTag))
 		{
 			return true;
 		}
@@ -479,7 +479,7 @@ bool UDamageHandler::RestrictHealingBuffs(FBuffApplyEvent const& BuffEvent)
 	if (IsValid(Buff))
 	{
 		FGameplayTagContainer BuffFunctionTags;
-		Buff->GetServerFunctionTags(BuffFunctionTags);
+		Buff->GetBuffTags(BuffFunctionTags);
 		if (BuffFunctionTags.HasTag(BuffHealingTag))
 		{
 			return true;

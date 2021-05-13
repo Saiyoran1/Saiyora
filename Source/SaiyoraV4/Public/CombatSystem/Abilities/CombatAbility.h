@@ -233,7 +233,6 @@ public:
     void AddAbilityCostModifier(FAbilityCostModifier const& Modifier);
     UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
     void RemoveAbilityCostModifier(FAbilityCostModifier const& Modifier);
-
     void NotifyOfReplicatedCost(FAbilityCost const& NewCost);
 
 protected:

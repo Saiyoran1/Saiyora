@@ -295,9 +295,9 @@ bool UStatHandler::CheckBuffStatMods(FBuffApplyEvent const& BuffEvent) const
 	{
 		return false;
 	}
-	FGameplayTagContainer BuffFunctionTags;
-	Default->GetServerFunctionTags(BuffFunctionTags);
-	if (BuffFunctionTags.HasAny(UnmodifiableStats))
+	FGameplayTagContainer BuffTags;
+	Default->GetBuffTags(BuffTags);
+	if (BuffTags.HasAny(UnmodifiableStats))
 	{
 		return true;
 	}

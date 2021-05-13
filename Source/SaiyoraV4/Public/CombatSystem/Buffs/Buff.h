@@ -39,6 +39,8 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Application Behavior")
 	EBuffType BuffType = EBuffType::Buff;
+	UPROPERTY(EditDefaultsOnly, Category = "Application Behavior")
+	FGameplayTagContainer BuffTags;
 	
 	UPROPERTY(EditDefaultsOnly, Category = "Application Behavior")
 	bool bDuplicable = false;
@@ -86,12 +88,8 @@ private:
 	EBuffStatus Status = EBuffStatus::Spawning;
 	
 	//Functionality
-	//Class references to the different functions this buff will instantiate and activate.
+	//This different objects this buff manages that provide functionality on Apply, Stack, Refresh, and Expire.
 
-	UPROPERTY(EditDefaultsOnly, Category = "Functionality")
-	TArray<TSubclassOf<UBuffFunction>> ServerFunctionClasses;
-	UPROPERTY(EditDefaultsOnly, Category = "Functionality")
-	TArray<TSubclassOf<UBuffFunction>> ClientFunctionClasses;
 	UPROPERTY()
 	TArray<UBuffFunction*> Functions;
 
@@ -112,9 +110,7 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Getter")
 	bool GetRefreshable() const { return bRefreshable; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Getter")
-	void GetServerFunctionTags(FGameplayTagContainer& OutContainer) const;
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Getter")
-    void GetClientFunctionTags(FGameplayTagContainer& OutContainer) const;
+	void GetBuffTags(FGameplayTagContainer& OutContainer) const;
 
 	//Getters for basic information.
 	
@@ -169,10 +165,6 @@ public:
     AActor* GetAppliedTo() const { return CreationEvent.AppliedTo; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Getter")
     UObject* GetSource() const { return CreationEvent.Source; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Getter")
-    TArray<TSubclassOf<UBuffFunction>> GetServerFunctionClasses() const { return ServerFunctionClasses; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Getter")
-	TArray<TSubclassOf<UBuffFunction>> GetClientFunctionClasses() const { return ClientFunctionClasses; }
 
 #pragma endregion
 
@@ -183,6 +175,12 @@ public:
 	void InitializeBuff(FBuffApplyEvent& ApplicationEvent);
 	void ApplyEvent(FBuffApplyEvent& ApplicationEvent);
 	void ExpireBuff(FBuffRemoveEvent const & RemoveEvent);
+	void RegisterBuffFunction(UBuffFunction* NewFunction);
+	
+protected:
+	
+	UFUNCTION(BlueprintImplementableEvent)
+	void BuffFunctionality();
 	
 private:
 
