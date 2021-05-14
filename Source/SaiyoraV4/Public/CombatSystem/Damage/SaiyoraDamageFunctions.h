@@ -41,4 +41,14 @@ public:
 		bool const bIgnoreRestrictions,
 		bool const bIgnoreModifiers,
 		bool const bFromSnapshot);
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Damage")
+	static float GetSnapshotDamage(
+		float const Amount,
+		AActor* AppliedBy,
+		AActor* AppliedTo,
+		UObject* Source,
+		EDamageHitStyle const HitStyle,
+		EDamageSchool const School,
+		bool const bIgnoreModifiers);
 };

@@ -2,6 +2,7 @@
 
 #pragma once
 #include "BuffStructs.h"
+#include "DamageEnums.h"
 #include "GameplayTagContainer.h"
 #include "BuffFunction.generated.h"
 
@@ -66,4 +67,48 @@ protected:
 	void CustomRemove();
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "Cleanup"))
 	void CustomCleanup();
+};
+
+//Commonly used buff functions.
+UCLASS()
+class UDamageOverTimeFunction : public UBuffFunction
+{
+	GENERATED_BODY()
+
+	float BaseDamage = 0.0f;
+	EDamageSchool DamageSchool = EDamageSchool::None;
+	float DamageInterval = 0.0f;
+	bool bIgnoresRestrictions = false;
+	bool bIgnoresModifiers = false;
+	bool bSnapshots = false;
+	bool bScalesWithStacks = true;
+	bool bTicksOnExpire = false;
+	
+	bool bHasInitialTick = false;
+	bool bUsesSeparateInitialDamage = false;
+	float InitialDamageAmount = 0.0f;
+	EDamageSchool InitialDamageSchool = EDamageSchool::None;
+	
+	FTimerHandle TickHandle;
+
+	void InitialTick();
+	UFUNCTION()
+	void TickDamage();
+
+	void SetDamageVars(float const Damage, EDamageSchool const School,
+		float const Interval, bool const bIgnoreRestrictions, bool const bIgnoreModifiers,
+		bool const bSnapshot, bool const bScaleWithStacks, bool const bPartialTickOnExpire,
+		bool const bInitialTick, bool const bUseSeparateInitialDamage, float const InitialDamage,
+		EDamageSchool const InitialSchool);
+	
+	virtual void OnApply(FBuffApplyEvent const& ApplyEvent) override;
+	virtual void OnRemove(FBuffRemoveEvent const& RemoveEvent) override;
+	virtual void CleanupBuffFunction() override;
+
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Damage Over Time", meta = (DefaultToSelf = "Buff", HidePin = "Buff"))
+	static void DamageOverTime(UBuff* Buff, float const Damage, EDamageSchool const School,
+		float const Interval, bool const bIgnoreRestrictions, bool const bIgnoreModifiers,
+		bool const bSnapshots, bool const bScalesWithStacks, bool const bPartialTickOnExpire,
+		bool const bHasInitialTick, bool const bUseSeparateInitialDamage, float const InitialDamage,
+		EDamageSchool const InitialSchool);
 };

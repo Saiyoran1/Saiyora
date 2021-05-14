@@ -243,6 +243,7 @@ void UBuff::ExpireBuff(FBuffRemoveEvent const & RemoveEvent)
     for (UBuffFunction* Function : Functions)
     {
         Function->OnRemove(RemoveEvent);
+        Function->CleanupBuffFunction();
     }
 
     Status = EBuffStatus::Removed;
@@ -374,6 +375,7 @@ void UBuff::OnRep_RemovingEvent()
     for (UBuffFunction* Function : Functions)
     {
         Function->OnRemove(RemovingEvent);
+        Function->CleanupBuffFunction();
     }
 
     Status = EBuffStatus::Removed;

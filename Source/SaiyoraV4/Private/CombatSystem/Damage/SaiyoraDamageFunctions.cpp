@@ -185,3 +185,58 @@ FHealingEvent USaiyoraDamageFunctions::ApplyHealing(float const Amount, AActor* 
     
     return HealingEvent;
 }
+
+float USaiyoraDamageFunctions::GetSnapshotDamage(float const Amount, AActor* AppliedBy, AActor* AppliedTo,
+    UObject* Source, EDamageHitStyle const HitStyle, EDamageSchool const School,
+    bool const bIgnoreModifiers)
+{
+    //Null checks.
+    if (!IsValid(AppliedBy) || !IsValid(AppliedTo) || !IsValid(Source))
+    {
+        return 0.0f;
+    }
+
+    //Check for valid target component.
+     if (!AppliedTo->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+     {
+         return 0.0f;
+     }
+    UDamageHandler* TargetComponent = ISaiyoraCombatInterface::Execute_GetDamageHandler(AppliedTo);
+    if (!IsValid(TargetComponent) || !TargetComponent->CanEverReceiveDamage() || TargetComponent->GetLifeStatus() != ELifeStatus::Alive)
+    {
+        return 0.0f;
+    }
+
+    //Fill the struct.
+    
+    //Check for generator. Not required.
+    UDamageHandler* GeneratorComponent = nullptr;
+    if (AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+    {
+        GeneratorComponent = ISaiyoraCombatInterface::Execute_GetDamageHandler(AppliedBy);
+    }
+     if (IsValid(GeneratorComponent) && !GeneratorComponent->CanEverDealDamage())
+     {
+         return 0.0f;
+     }
+
+    if (!bIgnoreModifiers && IsValid(GeneratorComponent))
+    {
+        FDamagingEvent DamageEvent;
+        DamageEvent.DamageInfo.Damage = Amount;
+        DamageEvent.DamageInfo.SnapshotDamage = Amount;
+        DamageEvent.DamageInfo.AppliedBy = AppliedBy;
+        DamageEvent.DamageInfo.AppliedTo = AppliedTo;
+        DamageEvent.DamageInfo.Source = Source;
+        DamageEvent.DamageInfo.HitStyle = HitStyle;
+        DamageEvent.DamageInfo.School = School;
+        DamageEvent.DamageInfo.AppliedByPlane = USaiyoraCombatLibrary::GetActorPlane(AppliedBy);
+        DamageEvent.DamageInfo.AppliedToPlane = USaiyoraCombatLibrary::GetActorPlane(AppliedTo);
+        DamageEvent.DamageInfo.AppliedXPlane = USaiyoraCombatLibrary::CheckForXPlane(
+            DamageEvent.DamageInfo.AppliedByPlane, DamageEvent.DamageInfo.AppliedToPlane);
+        //Apply relevant outgoing mods.
+        return FCombatModifier::CombineModifiers(
+            GeneratorComponent->GetRelevantOutgoingDamageMods(DamageEvent.DamageInfo), DamageEvent.DamageInfo.Damage);
+    }
+    return Amount;
+}
