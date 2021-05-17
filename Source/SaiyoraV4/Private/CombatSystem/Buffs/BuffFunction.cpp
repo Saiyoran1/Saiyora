@@ -149,3 +149,100 @@ void UDamageOverTimeFunction::DamageOverTime(UBuff* Buff, float const Damage, ED
     NewDotFunction->SetDamageVars(Damage, School, Interval, bIgnoreRestrictions, bIgnoreModifiers, bSnapshots,
         bScalesWithStacks, bPartialTickOnExpire, bHasInitialTick, bUseSeparateInitialDamage, InitialDamage, InitialSchool);
 }
+
+//Healing Over Time
+
+void UHealingOverTimeFunction::InitialTick()
+{
+    float const InitHealing = bUsesSeparateInitialHealing ? InitialHealingAmount : BaseHealing;
+    EDamageSchool const InitSchool = bUsesSeparateInitialHealing ? InitialHealingSchool : HealingSchool;
+        
+    USaiyoraDamageFunctions::ApplyHealing(InitHealing, GetOwningBuff()->GetAppliedBy(),
+        GetOwningBuff()->GetAppliedTo(), GetOwningBuff(), EDamageHitStyle::Chronic, InitSchool, bIgnoresRestrictions,
+        bIgnoresModifiers, false);
+}
+
+void UHealingOverTimeFunction::TickHealing()
+{
+    float const TickHealing = bScalesWithStacks ? BaseHealing * GetOwningBuff()->GetCurrentStacks() : BaseHealing;
+
+    USaiyoraDamageFunctions::ApplyHealing(TickHealing, GetOwningBuff()->GetAppliedBy(),
+        GetOwningBuff()->GetAppliedTo(), GetOwningBuff(), EDamageHitStyle::Chronic, HealingSchool, bIgnoresRestrictions,
+        bIgnoresModifiers, bSnapshots);
+}
+
+void UHealingOverTimeFunction::SetHealingVars(float const Healing, EDamageSchool const School, float const Interval,
+    bool const bIgnoreRestrictions, bool const bIgnoreModifiers, bool const bSnapshot, bool const bScaleWithStacks,
+    bool const bPartialTickOnExpire, bool const bInitialTick, bool const bUseSeparateInitialHealing,
+    float const InitialHealing, EDamageSchool const InitialSchool)
+{
+    BaseHealing = Healing;
+    HealingSchool = School;
+    HealingInterval = Interval;
+    bIgnoresRestrictions = bIgnoreRestrictions;
+    bIgnoresModifiers = bIgnoreModifiers;
+    bSnapshots = bSnapshot;
+    bScalesWithStacks = bScaleWithStacks;
+    bTicksOnExpire = bPartialTickOnExpire;
+    bHasInitialTick = bInitialTick;
+    bUsesSeparateInitialHealing = bUseSeparateInitialHealing;
+    InitialHealingAmount = InitialHealing;
+    InitialHealingSchool = InitialSchool;
+}
+
+void UHealingOverTimeFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
+{
+    if (bHasInitialTick)
+    {
+        InitialTick();
+    }
+    if (bSnapshots)
+    {
+        BaseHealing = USaiyoraDamageFunctions::GetSnapshotHealing(BaseHealing, GetOwningBuff()->GetAppliedBy(),
+            GetOwningBuff()->GetAppliedTo(), GetOwningBuff(), EDamageHitStyle::Chronic, HealingSchool, bIgnoresModifiers);
+    }
+    if (HealingInterval > 0.0f)
+    {
+        FTimerDelegate TickDelegate;
+        TickDelegate.BindUFunction(this, FName(TEXT("TickHealing")));
+        GetWorld()->GetTimerManager().SetTimer(TickHandle, TickDelegate, HealingInterval, true);
+    }
+}
+
+void UHealingOverTimeFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
+{
+    if (bTicksOnExpire && RemoveEvent.ExpireReason == EBuffExpireReason::TimedOut && HealingInterval > 0.0f)
+    {
+        float const TickFraction = GetWorld()->GetTimerManager().GetTimerRemaining(TickHandle) / HealingInterval;
+        if (TickFraction > 0.0f)
+        {
+            float const ExpireTickHealing = (bScalesWithStacks ? BaseHealing * GetOwningBuff()->GetCurrentStacks() : BaseHealing) * TickFraction;
+            USaiyoraDamageFunctions::ApplyHealing(ExpireTickHealing, GetOwningBuff()->GetAppliedBy(),
+                GetOwningBuff()->GetAppliedTo(), GetOwningBuff(), EDamageHitStyle::Chronic, HealingSchool, bIgnoresRestrictions,
+                bIgnoresModifiers, bSnapshots);
+        }
+    }
+}
+
+void UHealingOverTimeFunction::CleanupBuffFunction()
+{
+    GetWorld()->GetTimerManager().ClearTimer(TickHandle);
+}
+
+void UHealingOverTimeFunction::HealingOverTime(UBuff* Buff, float const Healing, EDamageSchool const School, float const Interval,
+    bool const bIgnoreRestrictions, bool const bIgnoreModifiers, bool const bSnapshots, bool const bScalesWithStacks,
+    bool const bPartialTickOnExpire, bool const bHasInitialTick, bool const bUseSeparateInitialHealing,
+    float const InitialHealing, EDamageSchool const InitialSchool)
+{
+    if (!IsValid(Buff) || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
+    {
+        return;
+    }
+    UHealingOverTimeFunction* NewHotFunction = Cast<UHealingOverTimeFunction>(InstantiateBuffFunction(Buff, UHealingOverTimeFunction::StaticClass()));
+    if (!IsValid(NewHotFunction))
+    {
+        return;
+    }
+    NewHotFunction->SetHealingVars(Healing, School, Interval, bIgnoreRestrictions, bIgnoreModifiers, bSnapshots,
+        bScalesWithStacks, bPartialTickOnExpire, bHasInitialTick, bUseSeparateInitialHealing, InitialHealing, InitialSchool);
+}

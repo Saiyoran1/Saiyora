@@ -240,3 +240,57 @@ float USaiyoraDamageFunctions::GetSnapshotDamage(float const Amount, AActor* App
     }
     return Amount;
 }
+
+float USaiyoraDamageFunctions::GetSnapshotHealing(float const Amount, AActor* AppliedBy, AActor* AppliedTo,
+    UObject* Source, EDamageHitStyle const HitStyle, EDamageSchool const School, bool const bIgnoreModifiers)
+{
+    //Null checks.
+    if (!IsValid(AppliedBy) || !IsValid(AppliedTo) || !IsValid(Source))
+    {
+        return 0.0f;
+    }
+
+    //Check for valid target component.
+     if (!AppliedTo->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+     {
+         return 0.0f;
+     }
+    UDamageHandler* TargetComponent = ISaiyoraCombatInterface::Execute_GetDamageHandler(AppliedTo);
+    if (!IsValid(TargetComponent) || !TargetComponent->CanEverReceiveHealing() || TargetComponent->GetLifeStatus() != ELifeStatus::Alive)
+    {
+        return 0.0f;
+    }
+
+    //Fill the struct.
+    
+    //Check for generator. Not required.
+    UDamageHandler* GeneratorComponent = nullptr;
+    if (AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+    {
+        GeneratorComponent = ISaiyoraCombatInterface::Execute_GetDamageHandler(AppliedBy);
+    }
+     if (IsValid(GeneratorComponent) && !GeneratorComponent->CanEverDealHealing())
+     {
+         return 0.0f;
+     }
+
+    if (!bIgnoreModifiers && IsValid(GeneratorComponent))
+    {
+        FHealingEvent HealingEvent;
+        HealingEvent.HealingInfo.Healing = Amount;
+        HealingEvent.HealingInfo.SnapshotHealing = Amount;
+        HealingEvent.HealingInfo.AppliedBy = AppliedBy;
+        HealingEvent.HealingInfo.AppliedTo = AppliedTo;
+        HealingEvent.HealingInfo.Source = Source;
+        HealingEvent.HealingInfo.HitStyle = HitStyle;
+        HealingEvent.HealingInfo.School = School;
+        HealingEvent.HealingInfo.AppliedByPlane = USaiyoraCombatLibrary::GetActorPlane(AppliedBy);
+        HealingEvent.HealingInfo.AppliedToPlane = USaiyoraCombatLibrary::GetActorPlane(AppliedTo);
+        HealingEvent.HealingInfo.AppliedXPlane = USaiyoraCombatLibrary::CheckForXPlane(
+            HealingEvent.HealingInfo.AppliedByPlane, HealingEvent.HealingInfo.AppliedToPlane);
+        //Apply relevant outgoing mods.
+        return FCombatModifier::CombineModifiers(
+            GeneratorComponent->GetRelevantOutgoingHealingMods(HealingEvent.HealingInfo), HealingEvent.HealingInfo.Healing);
+    }
+    return Amount;
+}

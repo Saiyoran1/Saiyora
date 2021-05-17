@@ -70,6 +70,7 @@ protected:
 };
 
 //Commonly used buff functions.
+
 UCLASS()
 class UDamageOverTimeFunction : public UBuffFunction
 {
@@ -110,5 +111,48 @@ class UDamageOverTimeFunction : public UBuffFunction
 		float const Interval, bool const bIgnoreRestrictions, bool const bIgnoreModifiers,
 		bool const bSnapshots, bool const bScalesWithStacks, bool const bPartialTickOnExpire,
 		bool const bHasInitialTick, bool const bUseSeparateInitialDamage, float const InitialDamage,
+		EDamageSchool const InitialSchool);
+};
+
+UCLASS()
+class UHealingOverTimeFunction : public UBuffFunction
+{
+	GENERATED_BODY()
+
+	float BaseHealing = 0.0f;
+	EDamageSchool HealingSchool = EDamageSchool::None;
+	float HealingInterval = 0.0f;
+	bool bIgnoresRestrictions = false;
+	bool bIgnoresModifiers = false;
+	bool bSnapshots = false;
+	bool bScalesWithStacks = true;
+	bool bTicksOnExpire = false;
+
+	bool bHasInitialTick = false;
+	bool bUsesSeparateInitialHealing = false;
+	float InitialHealingAmount = 0.0f;
+	EDamageSchool InitialHealingSchool = EDamageSchool::None;
+
+	FTimerHandle TickHandle;
+
+	void InitialTick();
+	UFUNCTION()
+	void TickHealing();
+
+	void SetHealingVars(float const Healing, EDamageSchool const School,
+		float const Interval, bool const bIgnoreRestrictions, bool const bIgnoreModifiers,
+		bool const bSnapshot, bool const bScaleWithStacks, bool const bPartialTickOnExpire,
+		bool const bInitialTick, bool const bUseSeparateInitialHealing, float const InitialHealing,
+		EDamageSchool const InitialSchool);
+
+	virtual void OnApply(FBuffApplyEvent const& ApplyEvent) override;
+	virtual void OnRemove(FBuffRemoveEvent const& RemoveEvent) override;
+	virtual void CleanupBuffFunction() override;
+
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Healing Over Time", meta = (DefaultToSelf = "Buff", HidePin = "Buff"))
+	static void HealingOverTime(UBuff* Buff, float const Healing, EDamageSchool const School,
+		float const Interval, bool const bIgnoreRestrictions, bool const bIgnoreModifiers,
+		bool const bSnapshots, bool const bScalesWithStacks, bool const bPartialTickOnExpire,
+		bool const bHasInitialTick, bool const bUseSeparateInitialHealing, float const InitialHealing,
 		EDamageSchool const InitialSchool);
 };

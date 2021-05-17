@@ -51,4 +51,14 @@ public:
 		EDamageHitStyle const HitStyle,
 		EDamageSchool const School,
 		bool const bIgnoreModifiers);
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Healing")
+	static float GetSnapshotHealing(
+		float const Amount,
+		AActor* AppliedBy,
+		AActor* AppliedTo,
+		UObject* Source,
+		EDamageHitStyle const HitStyle,
+		EDamageSchool const School,
+		bool const bIgnoreModifiers);
 };
