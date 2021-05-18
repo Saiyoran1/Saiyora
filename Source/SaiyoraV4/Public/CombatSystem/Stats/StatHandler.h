@@ -32,9 +32,11 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stat", meta = (GameplayTagFilter = "Stat"))
 	float GetStatValue(FGameplayTag const& StatTag) const;
 
-	void AddStatModifier(FGameplayTag const& StatTag, FStatModCondition const& Modifier);
-	void RemoveStatModifier(FGameplayTag const& StatTag, FStatModCondition const& Modifier);
-    void UpdateModifiedStat(FGameplayTag const& StatTag);
+	void AddStatModifier(FStatModifier const& Modifier);
+	void AddStatModifiers(TArray<FStatModifier> const& Modifiers);
+	void RemoveStatModifier(FStatModifier const& Modifier);
+	void RemoveStatModifiers(UBuff* Source, TSet<FGameplayTag> const& AffectedStats);
+    void UpdateStackingModifiers(UBuff* Source, TSet<FGameplayTag> const& AffectedStats);
 	
 	UFUNCTION(BlueprintCallable, Category = "Stat", meta = (GameplayTagFilter = "Stat"))
 	void SubscribeToStatChanged(FGameplayTag const& StatTag, FStatCallback const& Callback);
@@ -48,9 +50,7 @@ private:
 
 	void RecalculateStat(FGameplayTag const& StatTag);
 
-	//Can't be UFUNCTION because struct pointer returns aren't allowed by reflection.
 	FStatInfo* GetStatInfoPtr(FGameplayTag const& StatTag);
-	//Can't be UFUNCTION because struct pointer returns aren't allowed by reflection.
 	FStatInfo const* GetStatInfoConstPtr(FGameplayTag const& StatTag) const;
 
 	UFUNCTION()

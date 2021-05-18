@@ -251,12 +251,13 @@ void UHealingOverTimeFunction::HealingOverTime(UBuff* Buff, float const Healing,
 
 //Stat Modifiers
 
-void UStatModifierFunction::SetModifierVars(TArray<FGameplayTag> const& StatTagArray, FStatModCondition const& Modifier,
-    bool const bScaleWithStacks)
+void UStatModifierFunction::SetModifierVars(TArray<FStatModifier> const& Modifiers)
 {
-    StatTags = StatTagArray;
-    StatModifier = Modifier;
-    bScalesWithStacks = bScaleWithStacks;
+    StatMods = Modifiers;
+    for (FStatModifier& StatMod : StatMods)
+    {
+        StatMod.Source = GetOwningBuff();
+    }
 }
 
 void UStatModifierFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
@@ -270,39 +271,43 @@ void UStatModifierFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
     {
         return;
     }
-    for (FGameplayTag const& StatTag : StatTags)
-    {
-        if (StatTag.MatchesTag(UStatHandler::GenericStatTag))
-        {
-            TargetHandler->AddStatModifier(StatTag, StatModifier);
-        }
-    }
+    TargetHandler->AddStatModifiers(StatMods);
 }
 
 void UStatModifierFunction::OnStack(FBuffApplyEvent const& ApplyEvent)
 {
-    if (bScalesWithStacks && IsValid(TargetHandler))
+    if (!IsValid(TargetHandler))
     {
-        for (FGameplayTag const& StatTag : StatTags)
+        return;
+    }
+    TSet<FGameplayTag> StatTags;
+    for (FStatModifier const& StatMod : StatMods)
+    {
+        if (StatMod.bStackable && StatMod.StatTag.MatchesTag(UStatHandler::GenericStatTag) && StatMod.ModType != EModifierType::Invalid)
         {
-            TargetHandler->UpdateModifiedStat(StatTag);
+            StatTags.Add(StatMod.StatTag);
         }
     }
+    TargetHandler->UpdateStackingModifiers(GetOwningBuff(), StatTags);
 }
 
 void UStatModifierFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
 {
     if (IsValid(TargetHandler))
     {
-        for (FGameplayTag const& StatTag : StatTags)
+        TSet<FGameplayTag> StatTags;
+        for (FStatModifier const& StatMod : StatMods)
         {
-            TargetHandler->RemoveStatModifier(StatTag, StatModifier);
+            if (StatMod.StatTag.MatchesTag(UStatHandler::GenericStatTag) && StatMod.ModType != EModifierType::Invalid)
+            {
+                StatTags.Add(StatMod.StatTag);
+            }
         }
+        TargetHandler->RemoveStatModifiers(GetOwningBuff(), StatTags);
     }
 }
 
-void UStatModifierFunction::StatModifiers(UBuff* Buff, TArray<FGameplayTag> const& StatsToModify,
-                                          FStatModCondition const& Modifier, bool const bScalesWithStacks)
+void UStatModifierFunction::StatModifiers(UBuff* Buff, TArray<FStatModifier> const& Modifiers)
 {
     if (!IsValid(Buff) || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
     {
@@ -313,5 +318,5 @@ void UStatModifierFunction::StatModifiers(UBuff* Buff, TArray<FGameplayTag> cons
     {
         return;
     }
-    NewStatModFunction->SetModifierVars(StatsToModify, Modifier, bScalesWithStacks);
+    NewStatModFunction->SetModifierVars(Modifiers);
 }

@@ -8,9 +8,27 @@
 #include "GameplayTagContainer.h"
 #include "StatStructs.generated.h"
 
-DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FStatModCondition, FGameplayTag const&, StatTag);
 DECLARE_DYNAMIC_DELEGATE_TwoParams(FStatCallback, FGameplayTag const&, StatTag, float const, NewValue);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FStatNotification, FGameplayTag const&, StatTag, float const, NewValue);
+
+USTRUCT(BlueprintType)
+struct FStatModifier
+{
+    GENERATED_BODY()
+
+    UPROPERTY()
+    class UBuff* Source = nullptr;
+    UPROPERTY(BlueprintReadWrite, meta = (GameplayTagFilter = "Stat"))
+    FGameplayTag StatTag;
+    UPROPERTY(BlueprintReadWrite)
+    EModifierType ModType = EModifierType::Invalid;
+    UPROPERTY(BlueprintReadWrite)
+    float ModValue = 0.0f;
+    UPROPERTY(BlueprintReadWrite)
+    bool bStackable = true;
+
+    FORCEINLINE bool operator==(const FStatModifier& Other) const { return Other.Source == Source && Other.StatTag.MatchesTagExact(StatTag); }
+};
 
 USTRUCT()
 struct FStatInfo
@@ -39,7 +57,7 @@ struct FStatInfo
     UPROPERTY()
     FStatNotification OnStatChanged;
     UPROPERTY()
-    TArray<FStatModCondition> StatModifiers;
+    TArray<FStatModifier> StatModifiers;
 };
 
 USTRUCT()

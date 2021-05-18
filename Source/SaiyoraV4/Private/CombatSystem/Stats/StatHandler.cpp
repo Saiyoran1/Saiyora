@@ -124,50 +124,133 @@ float UStatHandler::GetStatValue(FGameplayTag const& StatTag) const
 	return -1.0f;
 }
 
-void UStatHandler::AddStatModifier(FGameplayTag const& StatTag, FStatModCondition const& Modifier)
+void UStatHandler::AddStatModifier(FStatModifier const& Modifier)
 {
-	if (!Modifier.IsBound())
+	if (!IsValid(Modifier.Source) || Modifier.ModType == EModifierType::Invalid)
 	{
 		return;
 	}
-	FStatInfo* Info = GetStatInfoPtr(StatTag);
-	if (Info && Info->bInitialized)
+	FStatInfo* Info = GetStatInfoPtr(Modifier.StatTag);
+	if (Info && Info->bInitialized && Info->bModifiable)
 	{
 		int32 const PreviousMods = Info->StatModifiers.Num();
 		Info->StatModifiers.AddUnique(Modifier);
 		if (Info->StatModifiers.Num() != PreviousMods)
 		{
-			RecalculateStat(StatTag);
+			RecalculateStat(Modifier.StatTag);
 		}
 	}
 }
 
-void UStatHandler::RemoveStatModifier(FGameplayTag const& StatTag, FStatModCondition const& Modifier)
+void UStatHandler::AddStatModifiers(TArray<FStatModifier> const& Modifiers)
 {
-	if (!Modifier.IsBound())
+	TSet<FGameplayTag> ModifiedStats;
+	for (FStatModifier const& StatMod : Modifiers)
+	{
+		if (!IsValid(StatMod.Source) || StatMod.ModType == EModifierType::Invalid)
+		{
+			continue;
+		}
+		FStatInfo* Info = GetStatInfoPtr(StatMod.StatTag);
+		if (Info && Info->bInitialized && Info->bModifiable)
+		{
+			int32 const PreviousMods = Info->StatModifiers.Num();
+			Info->StatModifiers.AddUnique(StatMod);
+			if (Info->StatModifiers.Num() != PreviousMods)
+			{
+				ModifiedStats.Add(StatMod.StatTag);
+			}
+		}
+	}
+	for (FGameplayTag const& StatTag : ModifiedStats)
+	{
+		RecalculateStat(StatTag);
+	}
+}
+
+void UStatHandler::RemoveStatModifier(FStatModifier const& Modifier)
+{
+	if (!IsValid(Modifier.Source) || Modifier.ModType == EModifierType::Invalid)
 	{
 		return;
 	}
-	FStatInfo* Info = GetStatInfoPtr(StatTag);
-	if (Info && Info->bInitialized)
+	FStatInfo* Info = GetStatInfoPtr(Modifier.StatTag);
+	if (Info && Info->bInitialized && Info->bModifiable)
 	{
 		if (Info->StatModifiers.RemoveSingleSwap(Modifier) != 0)
 		{
-			RecalculateStat(StatTag);
+			RecalculateStat(Modifier.StatTag);
 		}
 	}
 }
 
-void UStatHandler::UpdateModifiedStat(FGameplayTag const& StatTag)
+void UStatHandler::RemoveStatModifiers(UBuff* Source, TSet<FGameplayTag> const& AffectedStats)
 {
-	if (!StatTag.IsValid() || !StatTag.MatchesTag(GenericStatTag))
+	if (!IsValid(Source))
 	{
 		return;
 	}
-	FStatInfo const* Info = GetStatInfoConstPtr(StatTag);
-	if (Info && Info->bInitialized && Info->bModifiable)
+	TSet<FGameplayTag> ModifiedStats;
+	for (FGameplayTag const& StatTag : AffectedStats)
+	{
+		if (StatTag.MatchesTag(GenericStatTag))
+		{
+			FStatInfo* Info = GetStatInfoPtr(StatTag);
+			if (Info && Info->bInitialized && Info->bModifiable)
+			{
+				bool bSuccessfullyRemoved = false;
+				for (int32 Index = Info->StatModifiers.Num()-1; Index >= 0; --Index)
+				{
+					if (Info->StatModifiers[Index].Source == Source)
+					{
+						int32 const PreviousNum = Info->StatModifiers.Num();
+						Info->StatModifiers.RemoveAt(Index);
+						if (!bSuccessfullyRemoved && PreviousNum != Info->StatModifiers.Num())
+						{
+							bSuccessfullyRemoved = true;
+						}
+					}
+				}
+				if (bSuccessfullyRemoved)
+				{
+					ModifiedStats.Add(StatTag);
+				}
+			}
+		}
+	}
+	for (FGameplayTag const& StatTag : ModifiedStats)
 	{
 		RecalculateStat(StatTag);
+	}
+}
+
+void UStatHandler::UpdateStackingModifiers(UBuff* Source, TSet<FGameplayTag> const& AffectedStats)
+{
+	if (!IsValid(Source))
+	{
+		return;
+	}
+	for (FGameplayTag const& StatTag : AffectedStats)
+	{
+		if (StatTag.MatchesTag(GenericStatTag))
+		{
+			FStatInfo* Info = GetStatInfoPtr(StatTag);
+			if (Info && Info->bInitialized && Info->bModifiable)
+			{
+				bool bSuccessfullyStacked = false;
+				for (FStatModifier& StatMod : Info->StatModifiers)
+				{
+					if (StatMod.Source == Source)
+					{
+						bSuccessfullyStacked = true;
+					}
+				}
+				if (bSuccessfullyStacked)
+				{
+					RecalculateStat(StatTag);
+				}
+			}
+		}
 	}
 }
 
@@ -234,9 +317,16 @@ void UStatHandler::RecalculateStat(FGameplayTag const& StatTag)
 	if (Info->bModifiable)
 	{
 		TArray<FCombatModifier> Mods;
-		for (FStatModCondition const& Mod : Info->StatModifiers)
+		for (FStatModifier const& StatMod : Info->StatModifiers)
 		{
-			Mods.Add(Mod.Execute(StatTag));
+			FCombatModifier NewMod;
+			NewMod.ModifierType = StatMod.ModType;
+			NewMod.ModifierValue = StatMod.ModValue;
+			if (StatMod.bStackable && IsValid(StatMod.Source))
+			{
+				NewMod.Stacks = StatMod.Source->GetCurrentStacks();
+			}
+			Mods.Add(NewMod);
 		}
 		NewValue = FCombatModifier::CombineModifiers(Mods, NewValue);
 	}
@@ -285,12 +375,12 @@ FStatInfo const* UStatHandler::GetStatInfoConstPtr(FGameplayTag const& StatTag) 
 
 bool UStatHandler::CheckBuffStatMods(FBuffApplyEvent const& BuffEvent) const
 {
-	if (!BuffEvent.BuffClass)
+	if (!IsValid(BuffEvent.BuffClass))
 	{
 		return false;
 	}
 	UBuff const* Default = BuffEvent.BuffClass.GetDefaultObject();
-	if (!Default)
+	if (!IsValid(Default))
 	{
 		return false;
 	}

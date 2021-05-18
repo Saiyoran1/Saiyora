@@ -5,7 +5,6 @@
 #include "DamageEnums.h"
 #include "GameplayTagContainer.h"
 #include "StatStructs.h"
-
 #include "BuffFunction.generated.h"
 
 UCLASS(Abstract)
@@ -164,18 +163,16 @@ class UStatModifierFunction : public UBuffFunction
 {
 	GENERATED_BODY()
 	
-	bool bScalesWithStacks = true;
-	TArray<FGameplayTag> StatTags;
-	FStatModCondition StatModifier;
+	TArray<FStatModifier> StatMods;
 	UPROPERTY()
 	UStatHandler* TargetHandler = nullptr;
 
-	void SetModifierVars(TArray<FGameplayTag> const& StatTagArray, FStatModCondition const& Modifier, bool const bScaleWithStacks);
+	void SetModifierVars(TArray<FStatModifier> const& Modifiers);
 
 	virtual void OnApply(FBuffApplyEvent const& ApplyEvent) override;
 	virtual void OnStack(FBuffApplyEvent const& ApplyEvent) override;
 	virtual void OnRemove(FBuffRemoveEvent const& RemoveEvent) override;
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Stat Modifiers", meta = (DefaultToSelf = "Buff", HidePin = "Buff", GameplayTagFilter = "Stat"))
-	static void StatModifiers(UBuff* Buff, TArray<FGameplayTag> const& StatsToModify, FStatModCondition const& Modifier, bool const bScalesWithStacks);
+	static void StatModifiers(UBuff* Buff, TArray<FStatModifier> const& Modifiers);
 };
