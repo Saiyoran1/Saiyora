@@ -1,7 +1,9 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 #include "BuffFunction.h"
 #include "Buff.h"
+#include "SaiyoraCombatInterface.h"
 #include "SaiyoraDamageFunctions.h"
+#include "StatHandler.h"
 
 UBuffFunction* UBuffFunction::InstantiateBuffFunction(UBuff* Buff, TSubclassOf<UBuffFunction> const FunctionClass)
 {
@@ -245,4 +247,71 @@ void UHealingOverTimeFunction::HealingOverTime(UBuff* Buff, float const Healing,
     }
     NewHotFunction->SetHealingVars(Healing, School, Interval, bIgnoreRestrictions, bIgnoreModifiers, bSnapshots,
         bScalesWithStacks, bPartialTickOnExpire, bHasInitialTick, bUseSeparateInitialHealing, InitialHealing, InitialSchool);
+}
+
+//Stat Modifiers
+
+void UStatModifierFunction::SetModifierVars(TArray<FGameplayTag> const& StatTagArray, FStatModCondition const& Modifier,
+    bool const bScaleWithStacks)
+{
+    StatTags = StatTagArray;
+    StatModifier = Modifier;
+    bScalesWithStacks = bScaleWithStacks;
+}
+
+void UStatModifierFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
+{
+    if (!GetOwningBuff()->GetAppliedTo()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+    {
+        return;
+    }
+    TargetHandler = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwningBuff()->GetAppliedTo());
+    if (!IsValid(TargetHandler))
+    {
+        return;
+    }
+    for (FGameplayTag const& StatTag : StatTags)
+    {
+        if (StatTag.MatchesTag(UStatHandler::GenericStatTag))
+        {
+            TargetHandler->AddStatModifier(StatTag, StatModifier);
+        }
+    }
+}
+
+void UStatModifierFunction::OnStack(FBuffApplyEvent const& ApplyEvent)
+{
+    if (bScalesWithStacks && IsValid(TargetHandler))
+    {
+        for (FGameplayTag const& StatTag : StatTags)
+        {
+            TargetHandler->UpdateModifiedStat(StatTag);
+        }
+    }
+}
+
+void UStatModifierFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
+{
+    if (IsValid(TargetHandler))
+    {
+        for (FGameplayTag const& StatTag : StatTags)
+        {
+            TargetHandler->RemoveStatModifier(StatTag, StatModifier);
+        }
+    }
+}
+
+void UStatModifierFunction::StatModifiers(UBuff* Buff, TArray<FGameplayTag> const& StatsToModify,
+                                          FStatModCondition const& Modifier, bool const bScalesWithStacks)
+{
+    if (!IsValid(Buff) || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
+    {
+        return;
+    }
+    UStatModifierFunction* NewStatModFunction = Cast<UStatModifierFunction>(InstantiateBuffFunction(Buff, UStatModifierFunction::StaticClass()));
+    if (!IsValid(NewStatModFunction))
+    {
+        return;
+    }
+    NewStatModFunction->SetModifierVars(StatsToModify, Modifier, bScalesWithStacks);
 }

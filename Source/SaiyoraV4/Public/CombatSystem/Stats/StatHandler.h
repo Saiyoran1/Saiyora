@@ -31,12 +31,9 @@ public:
 	bool GetStatValid(FGameplayTag const& StatTag) const;
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stat", meta = (GameplayTagFilter = "Stat"))
 	float GetStatValue(FGameplayTag const& StatTag) const;
-	
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Stat", meta = (GameplayTagFilter = "Stat"))
+
 	void AddStatModifier(FGameplayTag const& StatTag, FStatModCondition const& Modifier);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Stat", meta = (GameplayTagFilter = "Stat"))
 	void RemoveStatModifier(FGameplayTag const& StatTag, FStatModCondition const& Modifier);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Stat", meta = (GameplayTagFilter = "Stat"))
     void UpdateModifiedStat(FGameplayTag const& StatTag);
 	
 	UFUNCTION(BlueprintCallable, Category = "Stat", meta = (GameplayTagFilter = "Stat"))

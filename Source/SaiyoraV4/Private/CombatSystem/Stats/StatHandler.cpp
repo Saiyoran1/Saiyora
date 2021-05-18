@@ -219,7 +219,6 @@ void UStatHandler::NotifyOfReplicatedStat(FGameplayTag const& StatTag, float con
 
 void UStatHandler::RecalculateStat(FGameplayTag const& StatTag)
 {
-	UE_LOG(LogTemp, Warning, TEXT("Recalculating."));
 	//Check the stat is initialized and is in our stat map.
 	FStatInfo* Info = GetStatInfoPtr(StatTag);
 	if (!Info || !Info->bInitialized)

@@ -4,6 +4,8 @@
 #include "BuffStructs.h"
 #include "DamageEnums.h"
 #include "GameplayTagContainer.h"
+#include "StatStructs.h"
+
 #include "BuffFunction.generated.h"
 
 UCLASS(Abstract)
@@ -155,4 +157,25 @@ class UHealingOverTimeFunction : public UBuffFunction
 		bool const bSnapshots, bool const bScalesWithStacks, bool const bPartialTickOnExpire,
 		bool const bHasInitialTick, bool const bUseSeparateInitialHealing, float const InitialHealing,
 		EDamageSchool const InitialSchool);
+};
+
+UCLASS()
+class UStatModifierFunction : public UBuffFunction
+{
+	GENERATED_BODY()
+	
+	bool bScalesWithStacks = true;
+	TArray<FGameplayTag> StatTags;
+	FStatModCondition StatModifier;
+	UPROPERTY()
+	UStatHandler* TargetHandler = nullptr;
+
+	void SetModifierVars(TArray<FGameplayTag> const& StatTagArray, FStatModCondition const& Modifier, bool const bScaleWithStacks);
+
+	virtual void OnApply(FBuffApplyEvent const& ApplyEvent) override;
+	virtual void OnStack(FBuffApplyEvent const& ApplyEvent) override;
+	virtual void OnRemove(FBuffRemoveEvent const& RemoveEvent) override;
+
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Stat Modifiers", meta = (DefaultToSelf = "Buff", HidePin = "Buff", GameplayTagFilter = "Stat"))
+	static void StatModifiers(UBuff* Buff, TArray<FGameplayTag> const& StatsToModify, FStatModCondition const& Modifier, bool const bScalesWithStacks);
 };
