@@ -39,9 +39,12 @@ ESaiyoraPlane USaiyoraPlaneComponent::PlaneSwap(bool const bIgnoreRestrictions, 
 	{
 		for (FPlaneSwapCondition const& Condition : PlaneSwapRestrictions)
 		{
-			if (Condition.Execute(this, Source, bToSpecificPlane, TargetPlane))
+			if (Condition.IsBound())
 			{
-				return PlaneStatus.CurrentPlane;
+				if (Condition.Execute(this, Source, bToSpecificPlane, TargetPlane))
+				{
+					return PlaneStatus.CurrentPlane;
+				}
 			}
 		}
 	}
@@ -85,6 +88,10 @@ ESaiyoraPlane USaiyoraPlaneComponent::PlaneSwap(bool const bIgnoreRestrictions, 
 
 void USaiyoraPlaneComponent::AddPlaneSwapRestriction(FPlaneSwapCondition const& Condition)
 {
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
 	if (bCanEverPlaneSwap && Condition.IsBound())
 	{
 		PlaneSwapRestrictions.AddUnique(Condition);
@@ -93,6 +100,10 @@ void USaiyoraPlaneComponent::AddPlaneSwapRestriction(FPlaneSwapCondition const& 
 
 void USaiyoraPlaneComponent::RemovePlaneSwapRestriction(FPlaneSwapCondition const& Condition)
 {
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
 	if (bCanEverPlaneSwap && Condition.IsBound())
 	{
 		PlaneSwapRestrictions.RemoveSingleSwap(Condition);

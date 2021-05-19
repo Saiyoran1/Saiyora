@@ -124,9 +124,12 @@ bool UCrowdControlHandler::CheckCrowdControlRestricted(UBuff* Source, TSubclassO
 {
 	for (FCrowdControlRestriction const& Restriction : CrowdControlRestrictions)
 	{
-		if (Restriction.Execute(Source, CrowdControlType))
+		if (Restriction.IsBound())
 		{
-			return true;
+			if (Restriction.Execute(Source, CrowdControlType))
+			{
+				return true;
+			}
 		}
 	}
 	return false;

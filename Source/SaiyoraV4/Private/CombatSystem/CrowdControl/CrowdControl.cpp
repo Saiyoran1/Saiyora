@@ -177,6 +177,10 @@ FCrowdControlStatus UCrowdControl::UpdateCrowdControl(UBuff* RefreshedBuff)
 
 void UCrowdControl::RemoveNewlyRestrictedCrowdControls(FCrowdControlRestriction const& Restriction)
 {
+    if (!Restriction.IsBound())
+    {
+        return;
+    }
     TArray<UBuff*> BuffsToRemove;
     for (UBuff* Buff : CrowdControls)
     {

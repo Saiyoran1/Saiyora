@@ -102,7 +102,10 @@ bool UResource::CalculateAndCheckAbilityCost(UCombatAbility* Ability, float& Cos
         TArray<FCombatModifier> Mods;
         for (FResourceDeltaModifier const& Condition : ResourceDeltaMods)
         {
-            Mods.Add(Condition.Execute(this, Ability, Cost));
+            if (Condition.IsBound())
+            {
+                Mods.Add(Condition.Execute(this, Ability, Cost));
+            }
         }
         Cost = FCombatModifier::CombineModifiers(Mods, Cost);
     }
@@ -164,7 +167,10 @@ void UResource::ModifyResource(UObject* Source, float const Amount, bool const b
         TArray<FCombatModifier> Mods;
         for (FResourceDeltaModifier const& Condition : ResourceDeltaMods)
         {
-            Mods.Add(Condition.Execute(this, Source, Amount));
+            if (Condition.IsBound())
+            {
+                Mods.Add(Condition.Execute(this, Source, Amount));
+            }
         }
         ModifiedCost = FCombatModifier::CombineModifiers(Mods, Amount);
     }
@@ -350,6 +356,10 @@ void UResource::UpdateMaximumFromStatBind(FGameplayTag const& StatTag, float con
 
 void UResource::AddResourceDeltaModifier(FResourceDeltaModifier const& Modifier)
 {
+    if (GetHandler()->GetOwnerRole() != ROLE_Authority)
+    {
+        return;
+    }
     if (!Modifier.IsBound())
     {
         return;
@@ -364,6 +374,10 @@ void UResource::AddResourceDeltaModifier(FResourceDeltaModifier const& Modifier)
 
 void UResource::RemoveResourceDeltaModifier(FResourceDeltaModifier const& Modifier)
 {
+    if (GetHandler()->GetOwnerRole() != ROLE_Authority)
+    {
+        return;
+    }
     if (!Modifier.IsBound())
     {
         return;

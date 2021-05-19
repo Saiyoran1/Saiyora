@@ -29,6 +29,11 @@ FBuffApplyEvent USaiyoraBuffLibrary::ApplyBuff(
         Event.Result.ActionTaken = EBuffApplyAction::Failed;
         return Event;
     }
+    
+    if (AppliedBy->GetLocalRole() != ROLE_Authority)
+    {
+        return Event;
+    }
 
     //Check that the target implements the combat interface.
     if (!AppliedTo->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
@@ -99,6 +104,12 @@ FBuffRemoveEvent USaiyoraBuffLibrary::RemoveBuff(UBuff* Buff, EBuffExpireReason 
 
     //Null buff will result in a failed removal.
     if (!IsValid(Buff) || !IsValid(Buff->GetAppliedTo()))
+    {
+        Event.Result = false;
+        return Event;
+    }
+
+    if (Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
     {
         Event.Result = false;
         return Event;

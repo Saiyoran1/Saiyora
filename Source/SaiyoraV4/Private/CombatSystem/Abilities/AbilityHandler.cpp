@@ -305,9 +305,12 @@ bool UAbilityHandler::CheckAbilityRestricted(UCombatAbility* Ability)
 {
 	for (FAbilityRestriction const& Restriction : AbilityRestrictions)
 	{
-		if (Restriction.Execute(Ability))
+		if (Restriction.IsBound())
 		{
-			return true;
+			if (Restriction.Execute(Ability))
+			{
+				return true;
+			}
 		}
 	}
 	return false;
@@ -559,7 +562,10 @@ float UAbilityHandler::CalculateCastLength(UCombatAbility* Ability)
 		TArray<FCombatModifier> Mods;
 		for (FAbilityModCondition const& Mod : CastLengthMods)
 		{
-			Mods.Add(Mod.Execute(Ability));
+			if (Mod.IsBound())
+			{
+				Mods.Add(Mod.Execute(Ability));
+			}
 		}
 		CastLength = FCombatModifier::CombineModifiers(Mods, CastLength);
 	}
@@ -756,7 +762,10 @@ void UAbilityHandler::ServerPredictCancelAbility_Implementation(FCancelRequest c
 FInterruptEvent UAbilityHandler::InterruptCurrentCast(AActor* AppliedBy, UObject* InterruptSource, bool const bIgnoreRestrictions)
 {
 	FInterruptEvent Result;
-
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return Result;
+	}
 	if (!GetCastingState().bIsCasting || !IsValid(Result.InterruptedAbility))
 	{
 		Result.FailReason = FString(TEXT("Not currently casting."));
@@ -809,6 +818,10 @@ void UAbilityHandler::ClientInterruptCast_Implementation(FInterruptEvent const& 
 
 void UAbilityHandler::AddInterruptRestriction(FInterruptRestriction const& Restriction)
 {
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
 	if (!Restriction.IsBound())
 	{
 		return;
@@ -818,6 +831,10 @@ void UAbilityHandler::AddInterruptRestriction(FInterruptRestriction const& Restr
 
 void UAbilityHandler::RemoveInterruptRestriction(FInterruptRestriction const& Restriction)
 {
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
 	if (!Restriction.IsBound())
 	{
 		return;
@@ -871,6 +888,10 @@ void UAbilityHandler::OnRep_CastingState(FCastingState const& PreviousState)
 
 void UAbilityHandler::AddCooldownModifier(FAbilityModCondition const& Modifier)
 {
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
 	if (!Modifier.IsBound())
 	{
 		return;
@@ -880,6 +901,10 @@ void UAbilityHandler::AddCooldownModifier(FAbilityModCondition const& Modifier)
 
 void UAbilityHandler::RemoveCooldownModifier(FAbilityModCondition const& Modifier)
 {
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
 	if (!Modifier.IsBound())
 	{
 		return;
@@ -895,7 +920,10 @@ float UAbilityHandler::CalculateAbilityCooldown(UCombatAbility* Ability)
 		TArray<FCombatModifier> ModArray;
 		for (FAbilityModCondition const& Condition : CooldownLengthMods)
 		{
-			ModArray.Add(Condition.Execute(Ability));
+			if (Condition.IsBound())
+			{
+				ModArray.Add(Condition.Execute(Ability));
+			}
 		}
 		CooldownLength = FCombatModifier::CombineModifiers(ModArray, CooldownLength);
 	}
@@ -908,6 +936,10 @@ float UAbilityHandler::CalculateAbilityCooldown(UCombatAbility* Ability)
 
 void UAbilityHandler::AddGlobalCooldownModifier(FAbilityModCondition const& Modifier)
 {
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
 	if (!Modifier.IsBound())
 	{
 		return;
@@ -917,6 +949,10 @@ void UAbilityHandler::AddGlobalCooldownModifier(FAbilityModCondition const& Modi
 
 void UAbilityHandler::RemoveGlobalCooldownModifier(FAbilityModCondition const& Modifier)
 {
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
 	if (!Modifier.IsBound())
 	{
 		return;
@@ -932,7 +968,10 @@ float UAbilityHandler::CalculateGlobalCooldownLength(UCombatAbility* Ability)
 		TArray<FCombatModifier> Mods;
 		for (FAbilityModCondition const& Mod : GlobalCooldownMods)
 		{
-			Mods.Add(Mod.Execute(Ability));
+			if (Mod.IsBound())
+			{
+				Mods.Add(Mod.Execute(Ability));
+			}
 		}
 		GlobalLength = FCombatModifier::CombineModifiers(Mods, GlobalLength);
 	}

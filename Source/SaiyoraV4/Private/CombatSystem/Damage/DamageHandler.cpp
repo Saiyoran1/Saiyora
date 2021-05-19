@@ -238,6 +238,10 @@ void UDamageHandler::UnsubscribeFromLifeStatusChanged(FLifeStatusCallback const&
 
 void UDamageHandler::AddDeathRestriction(FDamageCondition const& Restriction)
 {
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
 	if (Restriction.IsBound())
 	{
 		DeathConditions.AddUnique(Restriction);
@@ -246,6 +250,10 @@ void UDamageHandler::AddDeathRestriction(FDamageCondition const& Restriction)
 
 void UDamageHandler::RemoveDeathRestriction(FDamageCondition const& Restriction)
 {
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
 	if (Restriction.IsBound())
 	{
 		DeathConditions.RemoveSingleSwap(Restriction);
@@ -293,10 +301,13 @@ TArray<FCombatModifier> UDamageHandler::GetRelevantOutgoingDamageMods(FDamageInf
 	TArray<FCombatModifier> RelevantMods;
 	for (FDamageModCondition const& Mod : OutgoingDamageModifiers)
 	{
-		FCombatModifier TempMod = Mod.Execute(DamageInfo);
-		if (TempMod.ModifierType != EModifierType::Invalid)
+		if (Mod.IsBound())
 		{
-			RelevantMods.Add(TempMod);
+			FCombatModifier TempMod = Mod.Execute(DamageInfo);
+			if (TempMod.ModifierType != EModifierType::Invalid)
+			{
+				RelevantMods.Add(TempMod);
+			}
 		}
 	}
 	return RelevantMods;
@@ -320,6 +331,10 @@ void UDamageHandler::UnsubscribeFromOutgoingDamageSuccess(FDamageEventCallback c
 
 void UDamageHandler::AddOutgoingDamageRestriction(FDamageCondition const& Restriction)
 {
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
 	if (Restriction.IsBound())
 	{
 		OutgoingDamageConditions.AddUnique(Restriction);
@@ -328,6 +343,10 @@ void UDamageHandler::AddOutgoingDamageRestriction(FDamageCondition const& Restri
 
 void UDamageHandler::RemoveOutgoingDamageRestriction(FDamageCondition const& Restriction)
 {
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
 	if (Restriction.IsBound())
 	{
 		OutgoingDamageConditions.RemoveSingleSwap(Restriction);
@@ -336,6 +355,10 @@ void UDamageHandler::RemoveOutgoingDamageRestriction(FDamageCondition const& Res
 
 void UDamageHandler::AddOutgoingDamageModifier(FDamageModCondition const& Modifier)
 {
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
 	if (Modifier.IsBound())
 	{
 		OutgoingDamageModifiers.AddUnique(Modifier);
@@ -344,6 +367,10 @@ void UDamageHandler::AddOutgoingDamageModifier(FDamageModCondition const& Modifi
 
 void UDamageHandler::RemoveOutgoingDamageModifier(FDamageModCondition const& Modifier)
 {
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
 	if (Modifier.IsBound())
 	{
 		OutgoingDamageModifiers.RemoveSingleSwap(Modifier);
@@ -411,10 +438,13 @@ TArray<FCombatModifier> UDamageHandler::GetRelevantOutgoingHealingMods(FHealingI
 	TArray<FCombatModifier> RelevantMods;
 	for (FHealingModCondition const& Mod : OutgoingHealingModifiers)
 	{
-		FCombatModifier TempMod = Mod.Execute(HealingInfo);
-		if (TempMod.ModifierType != EModifierType::Invalid)
+		if (Mod.IsBound())
 		{
-			RelevantMods.Add(TempMod);
+			FCombatModifier TempMod = Mod.Execute(HealingInfo);
+			if (TempMod.ModifierType != EModifierType::Invalid)
+			{
+				RelevantMods.Add(TempMod);
+			}
 		}
 	}
 	return RelevantMods;
@@ -438,6 +468,10 @@ void UDamageHandler::UnsubscribeFromOutgoingHealingSuccess(FHealingEventCallback
 
 void UDamageHandler::AddOutgoingHealingRestriction(FHealingCondition const& Restriction)
 {
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
 	if (Restriction.IsBound())
 	{
 		OutgoingHealingConditions.AddUnique(Restriction);
@@ -446,6 +480,10 @@ void UDamageHandler::AddOutgoingHealingRestriction(FHealingCondition const& Rest
 
 void UDamageHandler::RemoveOutgoingHealingRestriction(FHealingCondition const& Restriction)
 {
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
 	if (Restriction.IsBound())
 	{
 		OutgoingHealingConditions.RemoveSingleSwap(Restriction);
@@ -454,6 +492,10 @@ void UDamageHandler::RemoveOutgoingHealingRestriction(FHealingCondition const& R
 
 void UDamageHandler::AddOutgoingHealingModifier(FHealingModCondition const& Modifier)
 {
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
 	if (Modifier.IsBound())
 	{
 		OutgoingHealingModifiers.AddUnique(Modifier);
@@ -462,6 +504,10 @@ void UDamageHandler::AddOutgoingHealingModifier(FHealingModCondition const& Modi
 
 void UDamageHandler::RemoveOutgoingHealingModifier(FHealingModCondition const& Modifier)
 {
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
 	if (Modifier.IsBound())
 	{
 		OutgoingHealingModifiers.RemoveSingleSwap(Modifier);
@@ -574,6 +620,10 @@ void UDamageHandler::UnsubscribeFromIncomingDamageSuccess(FDamageEventCallback c
 
 void UDamageHandler::AddIncomingDamageRestriction(FDamageCondition const& Restriction)
 {
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
 	if (Restriction.IsBound())
 	{
 		IncomingDamageConditions.AddUnique(Restriction);
@@ -582,6 +632,10 @@ void UDamageHandler::AddIncomingDamageRestriction(FDamageCondition const& Restri
 
 void UDamageHandler::RemoveIncomingDamageRestriction(FDamageCondition const& Restriction)
 {
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
 	if (Restriction.IsBound())
 	{
 		IncomingDamageConditions.RemoveSingleSwap(Restriction);
@@ -590,6 +644,10 @@ void UDamageHandler::RemoveIncomingDamageRestriction(FDamageCondition const& Res
 
 void UDamageHandler::AddIncomingDamageModifier(FDamageModCondition const& Modifier)
 {
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
 	if (Modifier.IsBound())
 	{
 		IncomingDamageModifiers.AddUnique(Modifier);
@@ -598,6 +656,10 @@ void UDamageHandler::AddIncomingDamageModifier(FDamageModCondition const& Modifi
 
 void UDamageHandler::RemoveIncomingDamageModifier(FDamageModCondition const& Modifier)
 {
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
 	if (Modifier.IsBound())
 	{
 		IncomingDamageModifiers.RemoveSingleSwap(Modifier);
@@ -686,6 +748,10 @@ void UDamageHandler::UnsubscribeFromIncomingHealingSuccess(FHealingEventCallback
 
 void UDamageHandler::AddIncomingHealingRestriction(FHealingCondition const& Restriction)
 {
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
 	if (Restriction.IsBound())
 	{
 		IncomingHealingConditions.AddUnique(Restriction);
@@ -694,6 +760,10 @@ void UDamageHandler::AddIncomingHealingRestriction(FHealingCondition const& Rest
 
 void UDamageHandler::RemoveIncomingHealingRestriction(FHealingCondition const& Restriction)
 {
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
 	if (Restriction.IsBound())
 	{
 		IncomingHealingConditions.RemoveSingleSwap(Restriction);
@@ -702,6 +772,10 @@ void UDamageHandler::RemoveIncomingHealingRestriction(FHealingCondition const& R
 
 void UDamageHandler::AddIncomingHealingModifier(FHealingModCondition const& Modifier)
 {
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
 	if (Modifier.IsBound())
 	{
 		IncomingHealingModifiers.AddUnique(Modifier);
@@ -710,6 +784,10 @@ void UDamageHandler::AddIncomingHealingModifier(FHealingModCondition const& Modi
 
 void UDamageHandler::RemoveIncomingHealingModifier(FHealingModCondition const& Modifier)
 {
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
 	if (Modifier.IsBound())
 	{
 		IncomingHealingModifiers.RemoveSingleSwap(Modifier);

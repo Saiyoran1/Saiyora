@@ -19,6 +19,11 @@ FDamagingEvent USaiyoraDamageFunctions::ApplyDamage(float const Amount, AActor* 
         return DamageEvent;
     }
 
+     if (AppliedBy->GetLocalRole() != ROLE_Authority)
+     {
+         return DamageEvent;
+     }
+
     //Check for valid target component.
      if (!AppliedTo->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
      {
@@ -105,6 +110,11 @@ FHealingEvent USaiyoraDamageFunctions::ApplyHealing(float const Amount, AActor* 
 
     //Null checks.
     if (!IsValid(AppliedBy) || !IsValid(AppliedTo) || !IsValid(Source))
+    {
+        return HealingEvent;
+    }
+
+    if (AppliedBy->GetLocalRole() != ROLE_Authority)
     {
         return HealingEvent;
     }

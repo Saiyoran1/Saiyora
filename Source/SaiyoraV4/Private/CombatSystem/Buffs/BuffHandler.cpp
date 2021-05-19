@@ -170,6 +170,10 @@ UBuff* UBuffHandler::FindExistingBuff(TSubclassOf<UBuff> const BuffClass, AActor
 
 void UBuffHandler::AddIncomingBuffRestriction(FBuffEventCondition const& Restriction)
 {
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
 	if (Restriction.IsBound())
 	{
 		IncomingBuffConditions.AddUnique(Restriction);
@@ -178,6 +182,10 @@ void UBuffHandler::AddIncomingBuffRestriction(FBuffEventCondition const& Restric
 
 void UBuffHandler::RemoveIncomingBuffRestriction(FBuffEventCondition const& Restriction)
 {
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
 	if (Restriction.IsBound())
 	{
 		IncomingBuffConditions.RemoveSingleSwap(Restriction);
@@ -277,6 +285,10 @@ void UBuffHandler::SuccessfulOutgoingBuffRemoval(FBuffRemoveEvent const& RemoveE
 
 void UBuffHandler::AddOutgoingBuffRestriction(FBuffEventCondition const& Restriction)
 {
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
 	if (Restriction.IsBound())
 	{
 		OutgoingBuffConditions.AddUnique(Restriction);
@@ -285,6 +297,10 @@ void UBuffHandler::AddOutgoingBuffRestriction(FBuffEventCondition const& Restric
 
 void UBuffHandler::RemoveOutgoingBuffRestriction(FBuffEventCondition const& Restriction)
 {
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
 	if (Restriction.IsBound())
 	{
 		OutgoingBuffConditions.RemoveSingleSwap(Restriction);
