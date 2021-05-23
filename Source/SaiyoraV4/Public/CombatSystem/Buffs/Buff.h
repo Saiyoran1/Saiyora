@@ -5,7 +5,6 @@
 #include "GameplayTagContainer.h"
 #include "SaiyoraCombatLibrary.h"
 #include "GameFramework/GameStateBase.h"
-
 #include "Buff.generated.h"
 
 class UBuffFunction;

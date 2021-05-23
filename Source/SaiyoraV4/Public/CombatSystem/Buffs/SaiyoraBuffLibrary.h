@@ -18,7 +18,7 @@ class SAIYORAV4_API USaiyoraBuffLibrary : public UBlueprintFunctionLibrary
 public:
 
 	//Attempt to apply a buff to an actor.
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Buffs", meta = (AutoCreateRefTerm = "EventParams"))
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Buffs", meta = (AutoCreateRefTerm = "BuffParams"))
 	static FBuffApplyEvent ApplyBuff(
 		TSubclassOf<UBuff> const BuffClass,
 		AActor* const AppliedBy,
