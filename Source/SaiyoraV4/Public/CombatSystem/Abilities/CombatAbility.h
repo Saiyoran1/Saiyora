@@ -8,7 +8,6 @@
 #include "DamageEnums.h"
 #include "CombatAbility.generated.h"
 
-struct FCombatModifier;
 class UCrowdControl;
 
 UCLASS(Abstract, Blueprintable)
@@ -82,7 +81,7 @@ private:
     //Mutable cost values, these are what are actually checked at runtime and modified.
     UPROPERTY()
     TMap<TSubclassOf<UResource>, FAbilityCost> AbilityCosts;
-    TArray<FAbilityCostModifier> CostModifiers;
+    TMultiMap<TSubclassOf<UResource>, FCombatModifier> CostModifiers;
     UPROPERTY(Replicated)
     FReplicatedAbilityCostArray ReplicatedCosts;
     void RecalculateAbilityCost(TSubclassOf<UResource> const ResourceClass);
@@ -229,11 +228,10 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Abilities")
     void UnsubscribeFromChargesChanged(FAbilityChargeCallback const& Callback);
 
-    //TODO: Restrict to buff functions.
     UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
-    void AddAbilityCostModifier(FAbilityCostModifier const& Modifier);
+    void AddAbilityCostModifier(TSubclassOf<UResource> const ResourceClass, FCombatModifier const& Modifier);
     UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
-    void RemoveAbilityCostModifier(FAbilityCostModifier const& Modifier);
+    void RemoveAbilityCostModifier(TSubclassOf<UResource> const ResourceClass, int32 const ModifierID);
     void NotifyOfReplicatedCost(FAbilityCost const& NewCost);
 
     /*UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")

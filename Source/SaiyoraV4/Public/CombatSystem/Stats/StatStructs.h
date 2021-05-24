@@ -19,11 +19,13 @@ struct FStatModifier
     UPROPERTY(BlueprintReadWrite, meta = (GameplayTagFilter = "Stat"))
     FGameplayTag StatTag;
     UPROPERTY(BlueprintReadWrite)
-    FDurationModifier Modifier;
+    EModifierType ModType = EModifierType::Invalid;
+    UPROPERTY(BlueprintReadWrite)
+    float ModValue = 0.0f;
+    UPROPERTY(BlueprintReadWrite)
+    bool bStackable = false;
 
-    FORCEINLINE bool operator==(const FStatModifier& Other) const { return Other.Modifier.Source == Modifier.Source && Other.StatTag.MatchesTagExact(StatTag); }
-
-    FCombatModifier GetModifier() const;
+    FORCEINLINE bool operator==(const FStatModifier& Other) const { return Other.StatTag.MatchesTagExact(StatTag) && Other.ModType == ModType && Other.ModValue == ModValue && Other.bStackable == bStackable; }
 };
 
 USTRUCT()
@@ -53,7 +55,7 @@ struct FStatInfo
     UPROPERTY()
     FStatNotification OnStatChanged;
     UPROPERTY()
-    TArray<FStatModifier> StatModifiers;
+    TArray<FCombatModifier> StatModifiers;
 };
 
 USTRUCT()

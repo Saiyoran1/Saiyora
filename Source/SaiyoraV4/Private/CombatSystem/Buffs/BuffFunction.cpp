@@ -253,10 +253,15 @@ void UHealingOverTimeFunction::HealingOverTime(UBuff* Buff, float const Healing,
 
 void UStatModifierFunction::SetModifierVars(TArray<FStatModifier> const& Modifiers)
 {
-    StatMods = Modifiers;
-    for (FStatModifier& StatMod : StatMods)
+    for (FStatModifier const& StatMod : Modifiers)
     {
-        StatMod.Modifier.Source = GetOwningBuff();
+        if (!StatMod.StatTag.MatchesTag(UStatHandler::GenericStatTag) || StatMod.ModType == EModifierType::Invalid)
+        {
+            continue;
+        }
+        int32 ModID = 0;
+        FCombatModifier Mod = USaiyoraCombatLibrary::MakeCombatModifier(ModID, GetOwningBuff(), StatMod.ModType, StatMod.ModValue, StatMod.bStackable);
+        StatMods.Add(StatMod.StatTag, Mod);
     }
 }
 
@@ -281,14 +286,14 @@ void UStatModifierFunction::OnStack(FBuffApplyEvent const& ApplyEvent)
         return;
     }
     TSet<FGameplayTag> StatTags;
-    for (FStatModifier const& StatMod : StatMods)
+    for (TTuple<FGameplayTag, FCombatModifier> const& ModPair : StatMods)
     {
-        if (StatMod.Modifier.bStackable && StatMod.StatTag.MatchesTag(UStatHandler::GenericStatTag) && StatMod.Modifier.ModType != EModifierType::Invalid)
+        if (ModPair.Value.bStackable && ModPair.Key.MatchesTag(UStatHandler::GenericStatTag) && ModPair.Value.ModType != EModifierType::Invalid)
         {
-            StatTags.Add(StatMod.StatTag);
+            StatTags.Add(ModPair.Key);
         }
     }
-    TargetHandler->UpdateStackingModifiers(GetOwningBuff(), StatTags);
+    TargetHandler->UpdateStackingModifiers(StatTags);
 }
 
 void UStatModifierFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
@@ -296,14 +301,14 @@ void UStatModifierFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
     if (IsValid(TargetHandler))
     {
         TSet<FGameplayTag> StatTags;
-        for (FStatModifier const& StatMod : StatMods)
+        for (TTuple<FGameplayTag, FCombatModifier> const& StatMod : StatMods)
         {
-            if (StatMod.StatTag.MatchesTag(UStatHandler::GenericStatTag) && StatMod.Modifier.ModType != EModifierType::Invalid)
+            if (StatMod.Key.MatchesTag(UStatHandler::GenericStatTag) && StatMod.Value.ModType != EModifierType::Invalid)
             {
-                StatTags.Add(StatMod.StatTag);
+                StatTags.Add(StatMod.Key);
             }
         }
-        TargetHandler->RemoveStatModifiers(GetOwningBuff(), StatTags);
+        TargetHandler->RemoveStatModifiers(StatTags, GetOwningBuff());
     }
 }
 

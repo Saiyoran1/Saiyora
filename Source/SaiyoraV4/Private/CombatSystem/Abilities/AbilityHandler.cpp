@@ -104,8 +104,7 @@ FCombatModifier UAbilityHandler::ModifyCooldownFromStat(UCombatAbility* Ability)
 	{
 		if (StatHandler->GetStatValid(CooldownLengthStatTag))
 		{
-			Mod.ModifierType = EModifierType::Multiplicative;
-			Mod.ModifierValue = StatHandler->GetStatValue(CooldownLengthStatTag);
+			Mod = USaiyoraCombatLibrary::MakeCombatModifier(EModifierType::Multiplicative, StatHandler->GetStatValue(CooldownLengthStatTag));
 		}
 	}
 	return Mod;
@@ -118,8 +117,7 @@ FCombatModifier UAbilityHandler::ModifyGlobalCooldownFromStat(UCombatAbility* Ab
 	{
 		if (StatHandler->GetStatValid(GlobalCooldownLengthStatTag))
 		{
-			Mod.ModifierType = EModifierType::Multiplicative;
-			Mod.ModifierValue = StatHandler->GetStatValue(GlobalCooldownLengthStatTag);
+			Mod = USaiyoraCombatLibrary::MakeCombatModifier(EModifierType::Multiplicative, StatHandler->GetStatValue(GlobalCooldownLengthStatTag));
 		}
 	}
 	return Mod;
@@ -132,8 +130,7 @@ FCombatModifier UAbilityHandler::ModifyCastLengthFromStat(UCombatAbility* Abilit
 	{
 		if (StatHandler->GetStatValid(CastLengthStatTag))
 		{
-			Mod.ModifierType = EModifierType::Multiplicative;
-			Mod.ModifierValue = StatHandler->GetStatValue(CastLengthStatTag);
+			Mod = USaiyoraCombatLibrary::MakeCombatModifier(EModifierType::Multiplicative, StatHandler->GetStatValue(CastLengthStatTag));
 		}
 	}
 	return Mod;

@@ -9,23 +9,6 @@
 USTRUCT(BlueprintType)
 struct FCombatModifier
 {
-  GENERATED_BODY()
-
-  UPROPERTY(BlueprintReadWrite, Category = "Modifier")
-  EModifierType ModifierType = EModifierType::Invalid;
-  UPROPERTY(BlueprintReadWrite, Category = "Modifier", meta = (ClampMin = "0.0"))
-  float ModifierValue = 0.0f;
-  UPROPERTY(BlueprintReadWrite, Category = "Modifier", meta = (ClampMin = "1.0"))
-  int32 Stacks = 1;
-
-  static float CombineModifiers(TArray<FCombatModifier> const& ModArray, float const BaseValue);
-
-  FORCEINLINE bool operator==(const FCombatModifier& Other) const { return Other.ModifierType == ModifierType && Other.ModifierValue == ModifierValue && Other.Stacks == Stacks; }
-};
-
-USTRUCT(BlueprintType)
-struct FDurationModifier
-{
     GENERATED_BODY()
 
     int32 ID = 0;
@@ -39,7 +22,10 @@ struct FDurationModifier
     UPROPERTY(BlueprintReadOnly)
     bool bStackable = true;
 
-    FORCEINLINE bool operator==(FDurationModifier const& Other) const { return Other.ID == ID; }
+    FORCEINLINE bool operator==(FCombatModifier const& Other) const { return Other.ID == ID; }
+    FORCEINLINE bool operator==(int32 const Other) const { return ID == Other; }
+
+    static float CombineModifiers(TArray<FCombatModifier> const& ModArray, float const BaseValue);
 
     static int32 GlobalID;
     static int32 GetID() { return ++GlobalID; }

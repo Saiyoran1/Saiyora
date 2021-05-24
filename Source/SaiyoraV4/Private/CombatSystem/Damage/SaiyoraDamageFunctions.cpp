@@ -66,12 +66,12 @@ FDamagingEvent USaiyoraDamageFunctions::ApplyDamage(float const Amount, AActor* 
         {
             //Apply relevant outgoing mods, save off snapshot damage for use in DoTs.
             DamageEvent.DamageInfo.Damage = FCombatModifier::CombineModifiers(
-                GeneratorComponent->GetRelevantOutgoingDamageMods(DamageEvent.DamageInfo), DamageEvent.DamageInfo.Damage);
+                GeneratorComponent->GetOutgoingDamageMods(DamageEvent.DamageInfo), DamageEvent.DamageInfo.Damage);
             DamageEvent.DamageInfo.SnapshotDamage = DamageEvent.DamageInfo.Damage;
         }
         //Apply relevant incoming mods.
         DamageEvent.DamageInfo.Damage = FCombatModifier::CombineModifiers(
-            TargetComponent->GetRelevantIncomingDamageMods(DamageEvent.DamageInfo), DamageEvent.DamageInfo.Damage);
+            TargetComponent->GetIncomingDamageMods(DamageEvent.DamageInfo), DamageEvent.DamageInfo.Damage);
     }
 
     //Check for restrictions, if ignore restrictions is false.
@@ -161,12 +161,12 @@ FHealingEvent USaiyoraDamageFunctions::ApplyHealing(float const Amount, AActor* 
         if (!bFromSnapshot && IsValid(GeneratorComponent))
         {
             HealingEvent.HealingInfo.Healing = FCombatModifier::CombineModifiers(
-                GeneratorComponent->GetRelevantOutgoingHealingMods(HealingEvent.HealingInfo), HealingEvent.HealingInfo.Healing);
+                GeneratorComponent->GetOutgoingHealingMods(HealingEvent.HealingInfo), HealingEvent.HealingInfo.Healing);
             HealingEvent.HealingInfo.SnapshotHealing = HealingEvent.HealingInfo.Healing;
         }
         //Apply relevant incoming mods.
         HealingEvent.HealingInfo.Healing = FCombatModifier::CombineModifiers(
-            TargetComponent->GetRelevantIncomingHealingMods(HealingEvent.HealingInfo), HealingEvent.HealingInfo.Healing);
+            TargetComponent->GetIncomingHealingMods(HealingEvent.HealingInfo), HealingEvent.HealingInfo.Healing);
     }
 
     //Check for restrictions, if ignore restrictions is false.
@@ -246,7 +246,7 @@ float USaiyoraDamageFunctions::GetSnapshotDamage(float const Amount, AActor* App
             DamageEvent.DamageInfo.AppliedByPlane, DamageEvent.DamageInfo.AppliedToPlane);
         //Apply relevant outgoing mods.
         return FCombatModifier::CombineModifiers(
-            GeneratorComponent->GetRelevantOutgoingDamageMods(DamageEvent.DamageInfo), DamageEvent.DamageInfo.Damage);
+            GeneratorComponent->GetOutgoingDamageMods(DamageEvent.DamageInfo), DamageEvent.DamageInfo.Damage);
     }
     return Amount;
 }
@@ -300,7 +300,7 @@ float USaiyoraDamageFunctions::GetSnapshotHealing(float const Amount, AActor* Ap
             HealingEvent.HealingInfo.AppliedByPlane, HealingEvent.HealingInfo.AppliedToPlane);
         //Apply relevant outgoing mods.
         return FCombatModifier::CombineModifiers(
-            GeneratorComponent->GetRelevantOutgoingHealingMods(HealingEvent.HealingInfo), HealingEvent.HealingInfo.Healing);
+            GeneratorComponent->GetOutgoingHealingMods(HealingEvent.HealingInfo), HealingEvent.HealingInfo.Healing);
     }
     return Amount;
 }

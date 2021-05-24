@@ -2,6 +2,9 @@
 
 
 #include "StatHandler.h"
+
+#include <PxContactModifyCallback.h>
+
 #include "SaiyoraBuffLibrary.h"
 #include "UnrealNetwork.h"
 #include "Engine/ActorChannel.h"
@@ -124,41 +127,45 @@ float UStatHandler::GetStatValue(FGameplayTag const& StatTag) const
 	return -1.0f;
 }
 
-void UStatHandler::AddStatModifier(FStatModifier const& Modifier)
+void UStatHandler::AddStatModifier(FGameplayTag const StatTag, FCombatModifier const& Modifier)
 {
-	if (!IsValid(Modifier.Modifier.Source) || Modifier.Modifier.ModType == EModifierType::Invalid)
+	if (GetOwnerRole() != ROLE_Authority)
 	{
 		return;
 	}
-	FStatInfo* Info = GetStatInfoPtr(Modifier.StatTag);
+	if (!IsValid(Modifier.Source) || Modifier.ModType == EModifierType::Invalid || !StatTag.MatchesTag(GenericStatTag))
+	{
+		return;
+	}
+	FStatInfo* Info = GetStatInfoPtr(StatTag);
 	if (Info && Info->bInitialized && Info->bModifiable)
 	{
 		int32 const PreviousMods = Info->StatModifiers.Num();
 		Info->StatModifiers.AddUnique(Modifier);
 		if (Info->StatModifiers.Num() != PreviousMods)
 		{
-			RecalculateStat(Modifier.StatTag);
+			RecalculateStat(StatTag);
 		}
 	}
 }
 
-void UStatHandler::AddStatModifiers(TArray<FStatModifier> const& Modifiers)
+void UStatHandler::AddStatModifiers(TMultiMap<FGameplayTag, FCombatModifier> const& Modifiers)
 {
 	TSet<FGameplayTag> ModifiedStats;
-	for (FStatModifier const& StatMod : Modifiers)
+	for (TTuple<FGameplayTag, FCombatModifier> const& ModPair : Modifiers)
 	{
-		if (!IsValid(StatMod.Modifier.Source) || StatMod.Modifier.ModType == EModifierType::Invalid)
+		if (!IsValid(ModPair.Value.Source) || ModPair.Value.ModType == EModifierType::Invalid)
 		{
 			continue;
 		}
-		FStatInfo* Info = GetStatInfoPtr(StatMod.StatTag);
+		FStatInfo* Info = GetStatInfoPtr(ModPair.Key);
 		if (Info && Info->bInitialized && Info->bModifiable)
 		{
 			int32 const PreviousMods = Info->StatModifiers.Num();
-			Info->StatModifiers.AddUnique(StatMod);
+			Info->StatModifiers.AddUnique(ModPair.Value);
 			if (Info->StatModifiers.Num() != PreviousMods)
 			{
-				ModifiedStats.Add(StatMod.StatTag);
+				ModifiedStats.Add(ModPair.Key);
 			}
 		}
 	}
@@ -168,28 +175,35 @@ void UStatHandler::AddStatModifiers(TArray<FStatModifier> const& Modifiers)
 	}
 }
 
-void UStatHandler::RemoveStatModifier(FStatModifier const& Modifier)
+void UStatHandler::RemoveStatModifier(FGameplayTag const StatTag, int32 const ModifierID)
 {
-	if (!IsValid(Modifier.Modifier.Source) || Modifier.Modifier.ModType == EModifierType::Invalid)
+	if (GetOwnerRole() != ROLE_Authority)
 	{
 		return;
 	}
-	FStatInfo* Info = GetStatInfoPtr(Modifier.StatTag);
+	if (!StatTag.MatchesTag(GenericStatTag))
+	{
+		return;
+	}
+	FStatInfo* Info = GetStatInfoPtr(StatTag);
 	if (Info && Info->bInitialized && Info->bModifiable)
 	{
-		if (Info->StatModifiers.RemoveSingleSwap(Modifier) != 0)
+		for (FCombatModifier const& Modifier : Info->StatModifiers)
 		{
-			RecalculateStat(Modifier.StatTag);
+			if (Modifier == ModifierID)
+			{
+				if (Info->StatModifiers.RemoveSingleSwap(Modifier) != 0)
+				{
+					RecalculateStat(StatTag);
+				}
+				break;
+			}
 		}
 	}
 }
 
-void UStatHandler::RemoveStatModifiers(UBuff* Source, TSet<FGameplayTag> const& AffectedStats)
+void UStatHandler::RemoveStatModifiers(TSet<FGameplayTag> const& AffectedStats, UBuff* Source)
 {
-	if (!IsValid(Source))
-	{
-		return;
-	}
 	TSet<FGameplayTag> ModifiedStats;
 	for (FGameplayTag const& StatTag : AffectedStats)
 	{
@@ -201,7 +215,7 @@ void UStatHandler::RemoveStatModifiers(UBuff* Source, TSet<FGameplayTag> const& 
 				bool bSuccessfullyRemoved = false;
 				for (int32 Index = Info->StatModifiers.Num()-1; Index >= 0; --Index)
 				{
-					if (Info->StatModifiers[Index].Modifier.Source == Source)
+					if (Info->StatModifiers[Index].Source == Source)
 					{
 						int32 const PreviousNum = Info->StatModifiers.Num();
 						Info->StatModifiers.RemoveAt(Index);
@@ -224,32 +238,14 @@ void UStatHandler::RemoveStatModifiers(UBuff* Source, TSet<FGameplayTag> const& 
 	}
 }
 
-void UStatHandler::UpdateStackingModifiers(UBuff* Source, TSet<FGameplayTag> const& AffectedStats)
+void UStatHandler::UpdateStackingModifiers(TSet<FGameplayTag> const& AffectedStats)
 {
-	if (!IsValid(Source))
-	{
-		return;
-	}
 	for (FGameplayTag const& StatTag : AffectedStats)
 	{
-		if (StatTag.MatchesTag(GenericStatTag))
+		FStatInfo const* Info = GetStatInfoConstPtr(StatTag);
+		if (Info && Info->bInitialized && Info->bModifiable)
 		{
-			FStatInfo* Info = GetStatInfoPtr(StatTag);
-			if (Info && Info->bInitialized && Info->bModifiable)
-			{
-				bool bSuccessfullyStacked = false;
-				for (FStatModifier& StatMod : Info->StatModifiers)
-				{
-					if (StatMod.Modifier.Source == Source)
-					{
-						bSuccessfullyStacked = true;
-					}
-				}
-				if (bSuccessfullyStacked)
-				{
-					RecalculateStat(StatTag);
-				}
-			}
+			RecalculateStat(StatTag);
 		}
 	}
 }
@@ -316,12 +312,7 @@ void UStatHandler::RecalculateStat(FGameplayTag const& StatTag)
 	//Modify based on current modifiers, if applicable.
 	if (Info->bModifiable)
 	{
-		TArray<FCombatModifier> Mods;
-		for (FStatModifier const& StatMod : Info->StatModifiers)
-		{
-			Mods.Add(StatMod.GetModifier());
-		}
-		NewValue = FCombatModifier::CombineModifiers(Mods, NewValue);
+		NewValue = FCombatModifier::CombineModifiers(Info->StatModifiers, NewValue);
 	}
 	//Check to see if the stat value actually changed.
 	if (NewValue != OldValue)

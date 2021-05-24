@@ -62,10 +62,10 @@ bool USaiyoraCombatLibrary::CheckForXPlane(ESaiyoraPlane const FromPlane, ESaiyo
     return FromPlane != ToPlane;
 }
 
-FDurationModifier USaiyoraCombatLibrary::MakeCombatModifier(int32& ModifierID, UBuff* Source, EModifierType const ModifierType,
+FCombatModifier USaiyoraCombatLibrary::MakeCombatModifier(int32& ModifierID, UBuff* Source, EModifierType const ModifierType,
     float const ModifierValue, bool const bStackable)
 {
-    FDurationModifier OutMod;
+    FCombatModifier OutMod;
     if (ModifierType == EModifierType::Invalid)
     {
         ModifierID = 0;
@@ -79,7 +79,20 @@ FDurationModifier USaiyoraCombatLibrary::MakeCombatModifier(int32& ModifierID, U
     OutMod.ModType = ModifierType;
     OutMod.ModValue = ModifierValue;
     OutMod.bStackable = bStackable;
-    OutMod.ID = FDurationModifier::GetID();
+    OutMod.ID = FCombatModifier::GetID();
     ModifierID = OutMod.ID;
+    return OutMod;
+}
+
+FCombatModifier USaiyoraCombatLibrary::MakeCombatModifier(EModifierType const ModifierType, float const ModifierValue)
+{
+    FCombatModifier OutMod;
+    if (ModifierType == EModifierType::Invalid)
+    {
+        return OutMod;
+    }
+    OutMod.ModType = ModifierType;
+    OutMod.ModValue = ModifierValue;
+    OutMod.ID = FCombatModifier::GetID();
     return OutMod;
 }

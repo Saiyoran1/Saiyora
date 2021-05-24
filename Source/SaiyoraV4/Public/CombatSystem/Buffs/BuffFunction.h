@@ -163,7 +163,7 @@ class UStatModifierFunction : public UBuffFunction
 {
 	GENERATED_BODY()
 	
-	TArray<FStatModifier> StatMods;
+	TMultiMap<FGameplayTag, FCombatModifier> StatMods;
 	UPROPERTY()
 	UStatHandler* TargetHandler = nullptr;
 

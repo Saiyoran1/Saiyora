@@ -108,7 +108,7 @@ public:
 	
 	void NotifyOfOutgoingDamageSuccess(FDamagingEvent const& DamageEvent);
     bool CheckOutgoingDamageRestricted(FDamageInfo const& DamageInfo);
-    TArray<FCombatModifier> GetRelevantOutgoingDamageMods(FDamageInfo const& DamageInfo);
+    TArray<FCombatModifier> GetOutgoingDamageMods(FDamageInfo const& DamageInfo);
 
 	UFUNCTION(BlueprintCallable, Category = "Damage")
     void SubscribeToOutgoingDamageSuccess(FDamageEventCallback const& Callback);
@@ -151,7 +151,7 @@ public:
 	
 	void NotifyOfOutgoingHealingSuccess(FHealingEvent const& HealingEvent);
     bool CheckOutgoingHealingRestricted(FHealingInfo const& HealingInfo);
-   	TArray<FCombatModifier> GetRelevantOutgoingHealingMods(FHealingInfo const& HealingInfo);
+   	TArray<FCombatModifier> GetOutgoingHealingMods(FHealingInfo const& HealingInfo);
 
 	UFUNCTION(BlueprintCallable, Category = "Healing")
    	void SubscribeToOutgoingHealingSuccess(FHealingEventCallback const& Callback);
@@ -194,7 +194,7 @@ public:
 	
 	void ApplyDamage(FDamagingEvent& DamageEvent);
 	bool CheckIncomingDamageRestricted(FDamageInfo const& DamageInfo);
-	TArray<FCombatModifier> GetRelevantIncomingDamageMods(FDamageInfo const& DamageInfo);
+	TArray<FCombatModifier> GetIncomingDamageMods(FDamageInfo const& DamageInfo);
 
 	UFUNCTION(BlueprintCallable, Category = "Damage")
 	void SubscribeToIncomingDamageSuccess(FDamageEventCallback const& Callback);
@@ -234,7 +234,7 @@ public:
 	
 	void ApplyHealing(FHealingEvent& HealingEvent);
 	bool CheckIncomingHealingRestricted(FHealingInfo const& HealingInfo);
-	TArray<FCombatModifier> GetRelevantIncomingHealingMods(FHealingInfo const& HealingInfo);
+	TArray<FCombatModifier> GetIncomingHealingMods(FHealingInfo const& HealingInfo);
 
 	UFUNCTION(BlueprintCallable, Category = "Healing")
 	void SubscribeToIncomingHealingSuccess(FHealingEventCallback const& Callback);

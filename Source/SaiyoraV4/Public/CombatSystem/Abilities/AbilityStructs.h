@@ -275,19 +275,6 @@ FORCEINLINE uint32 GetTypeHash(const FPredictedTick& Tick)
     return FCrc::MemCrc32(&Tick, sizeof(FPredictedTick));
 }
 
-USTRUCT(BlueprintType)
-struct FAbilityCostModifier
-{
-    GENERATED_BODY();
-
-    UPROPERTY(BlueprintReadWrite, Category = "Abilities", meta = (Categories = "Resource"))
-    TSubclassOf<UResource> ResourceClass;
-    UPROPERTY(BlueprintReadWrite, Category = "Abilities")
-    FCombatModifier CostModifier;
-
-    FORCEINLINE bool operator==(const FAbilityCostModifier& Other) const { return Other.ResourceClass == ResourceClass && Other.CostModifier == CostModifier; }
-};
-
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FAbilityModCondition, UCombatAbility*, Ability);
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FAbilityRestriction, UCombatAbility*, Ability);
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FInterruptRestriction, FInterruptEvent const&, InterruptEvent);

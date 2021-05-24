@@ -289,25 +289,20 @@ FCombatModifier UDamageHandler::ModifyDamageDoneFromStat(FDamageInfo const& Dama
 	{
 		if (StatHandler->GetStatValid(DamageDoneTag))
 		{
-			Mod.ModifierType = EModifierType::Multiplicative;
-			Mod.ModifierValue = StatHandler->GetStatValue(DamageDoneTag);
+			Mod = USaiyoraCombatLibrary::MakeCombatModifier(EModifierType::Multiplicative, StatHandler->GetStatValue(DamageDoneTag));
 		}
 	}
 	return Mod;
 }
 
-TArray<FCombatModifier> UDamageHandler::GetRelevantOutgoingDamageMods(FDamageInfo const& DamageInfo)
+TArray<FCombatModifier> UDamageHandler::GetOutgoingDamageMods(FDamageInfo const& DamageInfo)
 {
 	TArray<FCombatModifier> RelevantMods;
 	for (FDamageModCondition const& Mod : OutgoingDamageModifiers)
 	{
 		if (Mod.IsBound())
 		{
-			FCombatModifier TempMod = Mod.Execute(DamageInfo);
-			if (TempMod.ModifierType != EModifierType::Invalid)
-			{
-				RelevantMods.Add(TempMod);
-			}
+			RelevantMods.Add(Mod.Execute(DamageInfo));
 		}
 	}
 	return RelevantMods;
@@ -426,25 +421,20 @@ FCombatModifier UDamageHandler::ModifyHealingDoneFromStat(FHealingInfo const& He
 	{
 		if (StatHandler->GetStatValid(HealingDoneTag))
 		{
-			Mod.ModifierType = EModifierType::Multiplicative;
-			Mod.ModifierValue = StatHandler->GetStatValue(HealingDoneTag);
+			Mod = USaiyoraCombatLibrary::MakeCombatModifier(EModifierType::Multiplicative, StatHandler->GetStatValue(HealingDoneTag));
 		}
 	}
 	return Mod;
 }
 
-TArray<FCombatModifier> UDamageHandler::GetRelevantOutgoingHealingMods(FHealingInfo const& HealingInfo)
+TArray<FCombatModifier> UDamageHandler::GetOutgoingHealingMods(FHealingInfo const& HealingInfo)
 {
 	TArray<FCombatModifier> RelevantMods;
 	for (FHealingModCondition const& Mod : OutgoingHealingModifiers)
 	{
 		if (Mod.IsBound())
 		{
-			FCombatModifier TempMod = Mod.Execute(HealingInfo);
-			if (TempMod.ModifierType != EModifierType::Invalid)
-			{
-				RelevantMods.Add(TempMod);
-			}
+			RelevantMods.Add(Mod.Execute(HealingInfo));
 		}
 	}
 	return RelevantMods;
@@ -578,25 +568,20 @@ FCombatModifier UDamageHandler::ModifyDamageTakenFromStat(FDamageInfo const& Dam
 	{
 		if (StatHandler->GetStatValid(DamageTakenTag))
 		{
-			Mod.ModifierType = EModifierType::Multiplicative;
-			Mod.ModifierValue = StatHandler->GetStatValue(DamageTakenTag);
+			Mod = USaiyoraCombatLibrary::MakeCombatModifier(EModifierType::Multiplicative, StatHandler->GetStatValue(DamageTakenTag));
 		}
 	}
 	return Mod;
 }
 
-TArray<FCombatModifier> UDamageHandler::GetRelevantIncomingDamageMods(FDamageInfo const& DamageInfo)
+TArray<FCombatModifier> UDamageHandler::GetIncomingDamageMods(FDamageInfo const& DamageInfo)
 {
 	TArray<FCombatModifier> RelevantMods;
 	for (FDamageModCondition const& Mod : IncomingDamageModifiers)
 	{
 		if (Mod.IsBound())
 		{
-			FCombatModifier TempMod = Mod.Execute(DamageInfo);
-			if (TempMod.ModifierType != EModifierType::Invalid)
-			{
-				RelevantMods.Add(TempMod);
-			}
+			RelevantMods.Add(Mod.Execute(DamageInfo));
 		}
 	}
 	return RelevantMods;
@@ -706,25 +691,20 @@ FCombatModifier UDamageHandler::ModifyHealingTakenFromStat(FHealingInfo const& H
 	{
 		if (StatHandler->GetStatValid(HealingTakenTag))
 		{
-			Mod.ModifierType = EModifierType::Multiplicative;
-			Mod.ModifierValue = StatHandler->GetStatValue(HealingTakenTag);
+			Mod = USaiyoraCombatLibrary::MakeCombatModifier(EModifierType::Multiplicative, StatHandler->GetStatValue(HealingTakenTag));
 		}
 	}
 	return Mod;
 }
 
-TArray<FCombatModifier> UDamageHandler::GetRelevantIncomingHealingMods(FHealingInfo const& HealingInfo)
+TArray<FCombatModifier> UDamageHandler::GetIncomingHealingMods(FHealingInfo const& HealingInfo)
 {
 	TArray<FCombatModifier> RelevantMods;
 	for (FHealingModCondition const& Mod : IncomingHealingModifiers)
 	{
 		if (Mod.IsBound())
 		{
-			FCombatModifier TempMod = Mod.Execute(HealingInfo);
-			if (TempMod.ModifierType != EModifierType::Invalid)
-			{
-				RelevantMods.Add(TempMod);
-			}
+			RelevantMods.Add(Mod.Execute(HealingInfo));
 		}
 	}
 	return RelevantMods;

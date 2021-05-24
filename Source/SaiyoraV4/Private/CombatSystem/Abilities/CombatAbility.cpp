@@ -185,13 +185,7 @@ void UCombatAbility::RecalculateAbilityCost(TSubclassOf<UResource> const Resourc
         return;
     }
     TArray<FCombatModifier> RelevantMods;
-    for (FAbilityCostModifier const& Modifier : CostModifiers)
-    {
-        if (Modifier.ResourceClass == ResourceClass)
-        {
-            RelevantMods.Add(Modifier.CostModifier);
-        }
-    }
+    CostModifiers.MultiFind(ResourceClass, RelevantMods);
     MutableCost.Cost = FMath::Max(0.0f, FCombatModifier::CombineModifiers(RelevantMods, MutableCost.Cost));
     AbilityCosts.Add(ResourceClass, MutableCost);
     ReplicatedCosts.UpdateAbilityCost(MutableCost);
@@ -419,41 +413,46 @@ void UCombatAbility::UnsubscribeFromChargesChanged(FAbilityChargeCallback const&
     }
 }
 
-void UCombatAbility::AddAbilityCostModifier(FAbilityCostModifier const& Modifier)
+void UCombatAbility::AddAbilityCostModifier(TSubclassOf<UResource> const ResourceClass, FCombatModifier const& Modifier)
 {
     if (GetHandler()->GetOwnerRole() != ROLE_Authority)
     {
         return;
     }
-    if (Modifier.CostModifier.ModifierType == EModifierType::Invalid)
+    if (Modifier.ModType == EModifierType::Invalid)
     {
         return;
     }
-    if (!IsValid(Modifier.ResourceClass))
+    if (!IsValid(ResourceClass))
     {
         return;   
     }
-    CostModifiers.Add(Modifier);
-    RecalculateAbilityCost(Modifier.ResourceClass);
+    CostModifiers.Add(ResourceClass, Modifier);
+    RecalculateAbilityCost(ResourceClass);
 }
 
-void UCombatAbility::RemoveAbilityCostModifier(FAbilityCostModifier const& Modifier)
+void UCombatAbility::RemoveAbilityCostModifier(TSubclassOf<UResource> const ResourceClass, int32 const ModifierID)
 {
     if (GetHandler()->GetOwnerRole() != ROLE_Authority)
     {
         return;
     }
-    if (Modifier.CostModifier.ModifierType == EModifierType::Invalid)
-    {
-        return;
-    }
-    if (!IsValid(Modifier.ResourceClass))
+    if (!IsValid(ResourceClass))
     {
         return;   
     }
-    if (CostModifiers.Remove(Modifier) != 0)
+    TArray<FCombatModifier*> RelevantMods;
+    CostModifiers.MultiFindPointer(ResourceClass, RelevantMods);
+    for (FCombatModifier* Mod : RelevantMods)
     {
-        RecalculateAbilityCost(Modifier.ResourceClass);
+        if (Mod && Mod->ID == ModifierID)
+        {
+            if (CostModifiers.RemoveSingle(ResourceClass, *Mod) != 0)
+            {
+                RecalculateAbilityCost(ResourceClass);
+            }
+            break;
+        }
     }
 }
 
