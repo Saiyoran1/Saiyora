@@ -256,7 +256,7 @@ void UStatModifierFunction::SetModifierVars(TArray<FStatModifier> const& Modifie
     StatMods = Modifiers;
     for (FStatModifier& StatMod : StatMods)
     {
-        StatMod.Source = GetOwningBuff();
+        StatMod.Modifier.Source = GetOwningBuff();
     }
 }
 
@@ -283,7 +283,7 @@ void UStatModifierFunction::OnStack(FBuffApplyEvent const& ApplyEvent)
     TSet<FGameplayTag> StatTags;
     for (FStatModifier const& StatMod : StatMods)
     {
-        if (StatMod.bStackable && StatMod.StatTag.MatchesTag(UStatHandler::GenericStatTag) && StatMod.ModType != EModifierType::Invalid)
+        if (StatMod.Modifier.bStackable && StatMod.StatTag.MatchesTag(UStatHandler::GenericStatTag) && StatMod.Modifier.ModType != EModifierType::Invalid)
         {
             StatTags.Add(StatMod.StatTag);
         }
@@ -298,7 +298,7 @@ void UStatModifierFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
         TSet<FGameplayTag> StatTags;
         for (FStatModifier const& StatMod : StatMods)
         {
-            if (StatMod.StatTag.MatchesTag(UStatHandler::GenericStatTag) && StatMod.ModType != EModifierType::Invalid)
+            if (StatMod.StatTag.MatchesTag(UStatHandler::GenericStatTag) && StatMod.Modifier.ModType != EModifierType::Invalid)
             {
                 StatTags.Add(StatMod.StatTag);
             }

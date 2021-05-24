@@ -25,6 +25,11 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Plane")
 	static bool CheckForXPlane(ESaiyoraPlane const FromPlane, ESaiyoraPlane const ToPlane);
+
+	//Modifier
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Modifier", meta = (DefaultToSelt = "Source", HidePin = "Source", NativeMakeFunc))
+	static FDurationModifier MakeCombatModifier(int32& ModifierID, class UBuff* Source, enum EModifierType const ModifierType, float const ModifierValue, bool const bStackable);
 };
 
 

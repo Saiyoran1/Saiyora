@@ -16,18 +16,14 @@ struct FStatModifier
 {
     GENERATED_BODY()
 
-    UPROPERTY()
-    class UBuff* Source = nullptr;
     UPROPERTY(BlueprintReadWrite, meta = (GameplayTagFilter = "Stat"))
     FGameplayTag StatTag;
     UPROPERTY(BlueprintReadWrite)
-    EModifierType ModType = EModifierType::Invalid;
-    UPROPERTY(BlueprintReadWrite)
-    float ModValue = 0.0f;
-    UPROPERTY(BlueprintReadWrite)
-    bool bStackable = true;
+    FDurationModifier Modifier;
 
-    FORCEINLINE bool operator==(const FStatModifier& Other) const { return Other.Source == Source && Other.StatTag.MatchesTagExact(StatTag); }
+    FORCEINLINE bool operator==(const FStatModifier& Other) const { return Other.Modifier.Source == Modifier.Source && Other.StatTag.MatchesTagExact(StatTag); }
+
+    FCombatModifier GetModifier() const;
 };
 
 USTRUCT()

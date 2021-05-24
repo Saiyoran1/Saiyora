@@ -6,6 +6,7 @@
 #include "SaiyoraPlayerController.h"
 #include "GameFramework/GameState.h"
 #include "SaiyoraPlaneComponent.h"
+#include "Buff.h"
 
 float USaiyoraCombatLibrary::GetActorPing(AActor const* Actor)
 {
@@ -59,4 +60,26 @@ bool USaiyoraCombatLibrary::CheckForXPlane(ESaiyoraPlane const FromPlane, ESaiyo
     }
     //Actors in a normal plane will only see actors in the same plane or both planes as the same plane.
     return FromPlane != ToPlane;
+}
+
+FDurationModifier USaiyoraCombatLibrary::MakeCombatModifier(int32& ModifierID, UBuff* Source, EModifierType const ModifierType,
+    float const ModifierValue, bool const bStackable)
+{
+    FDurationModifier OutMod;
+    if (ModifierType == EModifierType::Invalid)
+    {
+        ModifierID = 0;
+        return OutMod;
+    }
+    if (IsValid(Source))
+    {
+        OutMod.Source = Source;
+        OutMod.bFromBuff = true;
+    }
+    OutMod.ModType = ModifierType;
+    OutMod.ModValue = ModifierValue;
+    OutMod.bStackable = bStackable;
+    OutMod.ID = FDurationModifier::GetID();
+    ModifierID = OutMod.ID;
+    return OutMod;
 }

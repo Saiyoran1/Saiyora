@@ -229,11 +229,17 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Abilities")
     void UnsubscribeFromChargesChanged(FAbilityChargeCallback const& Callback);
 
+    //TODO: Restrict to buff functions.
     UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
     void AddAbilityCostModifier(FAbilityCostModifier const& Modifier);
     UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
     void RemoveAbilityCostModifier(FAbilityCostModifier const& Modifier);
     void NotifyOfReplicatedCost(FAbilityCost const& NewCost);
+
+    /*UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+    void AddCastLengthModifier(FCombatModifier const& Modifier);
+    UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+    void RemoveCastLengthModifier(FCombatModifier const& Modifier);*/
 
 protected:
     

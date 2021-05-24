@@ -24,6 +24,28 @@ struct FCombatModifier
 };
 
 USTRUCT(BlueprintType)
+struct FDurationModifier
+{
+    GENERATED_BODY()
+
+    int32 ID = 0;
+    UPROPERTY()
+    class UBuff* Source = nullptr;
+    bool bFromBuff = false;
+    UPROPERTY(BlueprintReadOnly)
+    EModifierType ModType = EModifierType::Invalid;
+    UPROPERTY(BlueprintReadOnly)
+    float ModValue = 0.0f;
+    UPROPERTY(BlueprintReadOnly)
+    bool bStackable = true;
+
+    FORCEINLINE bool operator==(FDurationModifier const& Other) const { return Other.ID == ID; }
+
+    static int32 GlobalID;
+    static int32 GetID() { return ++GlobalID; }
+};
+
+USTRUCT(BlueprintType)
 struct FCombatParameter
 {
     GENERATED_BODY()

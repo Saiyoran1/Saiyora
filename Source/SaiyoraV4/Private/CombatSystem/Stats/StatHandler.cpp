@@ -126,7 +126,7 @@ float UStatHandler::GetStatValue(FGameplayTag const& StatTag) const
 
 void UStatHandler::AddStatModifier(FStatModifier const& Modifier)
 {
-	if (!IsValid(Modifier.Source) || Modifier.ModType == EModifierType::Invalid)
+	if (!IsValid(Modifier.Modifier.Source) || Modifier.Modifier.ModType == EModifierType::Invalid)
 	{
 		return;
 	}
@@ -147,7 +147,7 @@ void UStatHandler::AddStatModifiers(TArray<FStatModifier> const& Modifiers)
 	TSet<FGameplayTag> ModifiedStats;
 	for (FStatModifier const& StatMod : Modifiers)
 	{
-		if (!IsValid(StatMod.Source) || StatMod.ModType == EModifierType::Invalid)
+		if (!IsValid(StatMod.Modifier.Source) || StatMod.Modifier.ModType == EModifierType::Invalid)
 		{
 			continue;
 		}
@@ -170,7 +170,7 @@ void UStatHandler::AddStatModifiers(TArray<FStatModifier> const& Modifiers)
 
 void UStatHandler::RemoveStatModifier(FStatModifier const& Modifier)
 {
-	if (!IsValid(Modifier.Source) || Modifier.ModType == EModifierType::Invalid)
+	if (!IsValid(Modifier.Modifier.Source) || Modifier.Modifier.ModType == EModifierType::Invalid)
 	{
 		return;
 	}
@@ -201,7 +201,7 @@ void UStatHandler::RemoveStatModifiers(UBuff* Source, TSet<FGameplayTag> const& 
 				bool bSuccessfullyRemoved = false;
 				for (int32 Index = Info->StatModifiers.Num()-1; Index >= 0; --Index)
 				{
-					if (Info->StatModifiers[Index].Source == Source)
+					if (Info->StatModifiers[Index].Modifier.Source == Source)
 					{
 						int32 const PreviousNum = Info->StatModifiers.Num();
 						Info->StatModifiers.RemoveAt(Index);
@@ -240,7 +240,7 @@ void UStatHandler::UpdateStackingModifiers(UBuff* Source, TSet<FGameplayTag> con
 				bool bSuccessfullyStacked = false;
 				for (FStatModifier& StatMod : Info->StatModifiers)
 				{
-					if (StatMod.Source == Source)
+					if (StatMod.Modifier.Source == Source)
 					{
 						bSuccessfullyStacked = true;
 					}
@@ -319,14 +319,7 @@ void UStatHandler::RecalculateStat(FGameplayTag const& StatTag)
 		TArray<FCombatModifier> Mods;
 		for (FStatModifier const& StatMod : Info->StatModifiers)
 		{
-			FCombatModifier NewMod;
-			NewMod.ModifierType = StatMod.ModType;
-			NewMod.ModifierValue = StatMod.ModValue;
-			if (StatMod.bStackable && IsValid(StatMod.Source))
-			{
-				NewMod.Stacks = StatMod.Source->GetCurrentStacks();
-			}
-			Mods.Add(NewMod);
+			Mods.Add(StatMod.GetModifier());
 		}
 		NewValue = FCombatModifier::CombineModifiers(Mods, NewValue);
 	}

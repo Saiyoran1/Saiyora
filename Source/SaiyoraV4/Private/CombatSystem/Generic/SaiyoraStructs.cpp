@@ -1,6 +1,10 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 #include "SaiyoraStructs.h"
 
+#include "Buff.h"
+
+int32 FDurationModifier::GlobalID = 0;
+
 float FCombatModifier::CombineModifiers(TArray<FCombatModifier> const& ModArray, float const BaseValue)
 {
     float AddMod = 0.0f;
