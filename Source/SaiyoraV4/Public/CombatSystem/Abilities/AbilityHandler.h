@@ -165,7 +165,7 @@ private:
 	bool CheckInterruptRestricted(FInterruptEvent const& InterruptEvent);
 	TArray<FInterruptRestriction> InterruptRestrictions;
 	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Abilities", meta = (AllowPrivateAccess = "true"))
+	UPROPERTY(EditAnywhere, Category = "Abilities")
 	TArray<TSubclassOf<UCombatAbility>> DefaultAbilities;
 	UPROPERTY()
 	TArray<UCombatAbility*> ActiveAbilities;
