@@ -28,9 +28,9 @@ public:
 	virtual void GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stat", meta = (GameplayTagFilter = "Stat"))
-	bool GetStatValid(FGameplayTag const& StatTag) const;
+	bool GetStatValid(FGameplayTag const StatTag) const;
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stat", meta = (GameplayTagFilter = "Stat"))
-	float GetStatValue(FGameplayTag const& StatTag) const;
+	float GetStatValue(FGameplayTag const StatTag) const;
 
 	//Individual Stat Mod functions.
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Stat", meta = (GameplayTagFilter = "Stat"))
@@ -44,11 +44,11 @@ public:
     void UpdateStackingModifiers(TSet<FGameplayTag> const& AffectedStats);
 	
 	UFUNCTION(BlueprintCallable, Category = "Stat", meta = (GameplayTagFilter = "Stat"))
-	void SubscribeToStatChanged(FGameplayTag const& StatTag, FStatCallback const& Callback);
+	void SubscribeToStatChanged(FGameplayTag const StatTag, FStatCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Stat", meta = (GameplayTagFilter = "Stat"))
-	void UnsubscribeFromStatChanged(FGameplayTag const& StatTag, FStatCallback const& Callback);
+	void UnsubscribeFromStatChanged(FGameplayTag const StatTag, FStatCallback const& Callback);
 	
-	UFUNCTION(meta = (GameplayTagFilter = "Stat"))
+	UFUNCTION()
 	void NotifyOfReplicatedStat(FGameplayTag const& StatTag, float const NewValue);
 
 private:
@@ -60,8 +60,9 @@ private:
 
 	UFUNCTION()
 	bool CheckBuffStatMods(FBuffApplyEvent const& BuffEvent) const;
-
-	UPROPERTY(EditAnywhere, Category = "Stat", meta = (Categories = "Stat"))
+	
+	UPROPERTY(EditAnywhere, Category = "Stat")
+	UDataTable* InitialStats;
 	TMap<FGameplayTag, FStatInfo> StatInfo;
 	UPROPERTY(Replicated)
 	FReplicatedStatArray ReplicatedStats;

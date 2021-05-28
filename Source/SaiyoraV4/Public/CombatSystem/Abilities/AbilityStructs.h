@@ -272,7 +272,7 @@ struct FPredictedTick
 
 FORCEINLINE uint32 GetTypeHash(const FPredictedTick& Tick)
 {
-    return FCrc::MemCrc32(&Tick, sizeof(FPredictedTick));
+    return HashCombine(GetTypeHash(Tick.PredictionID), GetTypeHash(Tick.TickNumber));
 }
 
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FAbilityModCondition, UCombatAbility*, Ability);

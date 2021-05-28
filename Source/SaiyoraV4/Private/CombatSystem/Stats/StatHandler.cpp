@@ -2,9 +2,6 @@
 
 
 #include "StatHandler.h"
-
-#include <PxContactModifyCallback.h>
-
 #include "SaiyoraBuffLibrary.h"
 #include "UnrealNetwork.h"
 #include "Engine/ActorChannel.h"
@@ -48,7 +45,50 @@ void UStatHandler::InitializeComponent()
 	//Only initialize stats on the server. Replication callbacks will initialize on the clients.
 	if (GetOwnerRole() == ROLE_Authority)
 	{
+		TArray<FStatInfo*> InitialStatArray;
+		InitialStats->GetAllRows<FStatInfo>(nullptr, InitialStatArray);
+		for (FStatInfo const* InitInfo : InitialStatArray)
+		{
+			if (!InitInfo || !InitInfo->StatTag.MatchesTag(GenericStatTag))
+			{
+				continue;
+			}
+			FStatInfo& NewStat = StatInfo.Add(InitInfo->StatTag, *InitInfo);
+			NewStat.DefaultValue = NewStat.bCappedHigh ?
+				FMath::Min(FMath::Max(NewStat.DefaultValue, NewStat.bCappedLow ? NewStat.MinClamp : 0.0f), NewStat.MaxClamp)
+				: FMath::Max(NewStat.DefaultValue, NewStat.bCappedLow ? NewStat.MinClamp : 0.0f);
+			NewStat.CurrentValue = NewStat.DefaultValue;
+			NewStat.bInitialized = true;
+			switch (NewStat.ReplicationNeeds)
+			{
+				case EReplicationNeeds::NotReplicated :
+					break;
+				case EReplicationNeeds::AllClients :
+					{
+						FReplicatedStat ReplicatedStat;
+						ReplicatedStat.StatTag = NewStat.StatTag;
+						ReplicatedStat.Value = NewStat.CurrentValue;
+						ReplicatedStats.MarkItemDirty(ReplicatedStats.Items.Add_GetRef(ReplicatedStat));
+					}
+					break;
+				case EReplicationNeeds::OwnerOnly :
+					{
+						FReplicatedStat OwnerOnlyStat;
+						OwnerOnlyStat.StatTag = NewStat.StatTag;
+						OwnerOnlyStat.Value = NewStat.CurrentValue;
+						OwnerOnlyStats.MarkItemDirty(OwnerOnlyStats.Items.Add_GetRef(OwnerOnlyStat));
+					}
+					break;
+				default :
+					break;
+			}
+			if (!NewStat.bModifiable)
+			{
+				UnmodifiableStats.AddTag(NewStat.StatTag);
+			}
+		}
 		//Initialize each editor-defined stat.
+		/*
 		for (TTuple<FGameplayTag, FStatInfo>& InitInfo : StatInfo)
 		{
 			//If the tag provided isn't a Stat.Tag, don't initialize.
@@ -100,6 +140,7 @@ void UStatHandler::InitializeComponent()
 				UnmodifiableStats.AddTag(InitInfo.Key);
 			}
 		}
+		*/
 	}
 }
 
@@ -112,12 +153,12 @@ void UStatHandler::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLi
 	DOREPLIFETIME_CONDITION(UStatHandler, OwnerOnlyStats, COND_OwnerOnly);
 }
 
-bool UStatHandler::GetStatValid(FGameplayTag const& StatTag) const
+bool UStatHandler::GetStatValid(FGameplayTag const StatTag) const
 {
 	return StatTag.IsValid() && StatInfo.Contains(StatTag);
 }
 
-float UStatHandler::GetStatValue(FGameplayTag const& StatTag) const
+float UStatHandler::GetStatValue(FGameplayTag const StatTag) const
 {
 	FStatInfo const* Info = GetStatInfoConstPtr(StatTag);
 	if (Info && Info->bInitialized)
@@ -250,7 +291,7 @@ void UStatHandler::UpdateStackingModifiers(TSet<FGameplayTag> const& AffectedSta
 	}
 }
 
-void UStatHandler::SubscribeToStatChanged(FGameplayTag const& StatTag, FStatCallback const& Callback)
+void UStatHandler::SubscribeToStatChanged(FGameplayTag const StatTag, FStatCallback const& Callback)
 {
 	if (!Callback.IsBound())
 	{
@@ -263,7 +304,7 @@ void UStatHandler::SubscribeToStatChanged(FGameplayTag const& StatTag, FStatCall
 	}
 }
 
-void UStatHandler::UnsubscribeFromStatChanged(FGameplayTag const& StatTag, FStatCallback const& Callback)
+void UStatHandler::UnsubscribeFromStatChanged(FGameplayTag const StatTag, FStatCallback const& Callback)
 {
 	if (!Callback.IsBound())
 	{

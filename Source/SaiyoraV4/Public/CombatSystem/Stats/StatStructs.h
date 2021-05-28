@@ -6,6 +6,7 @@
 #include "SaiyoraStructs.h"
 #include "SaiyoraEnums.h"
 #include "GameplayTagContainer.h"
+#include "Engine/DataTable.h"
 #include "StatStructs.generated.h"
 
 DECLARE_DYNAMIC_DELEGATE_TwoParams(FStatCallback, FGameplayTag const&, StatTag, float const, NewValue);
@@ -29,10 +30,12 @@ struct FStatModifier
 };
 
 USTRUCT()
-struct FStatInfo
+struct FStatInfo : public FTableRowBase
 {
     GENERATED_BODY()
-  
+
+    UPROPERTY(EditAnywhere, Category = "Stat", meta = (Categories = "Stat"))
+    FGameplayTag StatTag;
     UPROPERTY(EditAnywhere, Category = "Stat", meta = (ClampMin = "0"))
     float DefaultValue = 0.0f;
     UPROPERTY(EditAnywhere, Category = "Stat")
@@ -48,13 +51,9 @@ struct FStatInfo
     UPROPERTY(EditAnywhere, Category = "Stat")
     EReplicationNeeds ReplicationNeeds = EReplicationNeeds::NotReplicated;
 
-    UPROPERTY()
     bool bInitialized = false;
-    UPROPERTY()
     float CurrentValue = 0.0f;
-    UPROPERTY()
     FStatNotification OnStatChanged;
-    UPROPERTY()
     TArray<FCombatModifier> StatModifiers;
 };
 
