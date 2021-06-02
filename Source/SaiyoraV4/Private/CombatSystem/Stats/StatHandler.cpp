@@ -168,26 +168,29 @@ float UStatHandler::GetStatValue(FGameplayTag const StatTag) const
 	return -1.0f;
 }
 
-void UStatHandler::AddStatModifier(FGameplayTag const StatTag, FCombatModifier const& Modifier)
+int32 UStatHandler::AddStatModifier(FGameplayTag const StatTag, EModifierType const ModType, float const ModValue)
 {
 	if (GetOwnerRole() != ROLE_Authority)
 	{
-		return;
+		return -1;
 	}
-	if (!IsValid(Modifier.Source) || Modifier.ModType == EModifierType::Invalid || !StatTag.MatchesTag(GenericStatTag))
+	if (ModType == EModifierType::Invalid || !StatTag.MatchesTag(GenericStatTag))
 	{
-		return;
+		return -1;
 	}
 	FStatInfo* Info = GetStatInfoPtr(StatTag);
 	if (Info && Info->bInitialized && Info->bModifiable)
 	{
+		FCombatModifier const NewMod = USaiyoraCombatLibrary::MakeCombatModifier(ModType, ModValue);
 		int32 const PreviousMods = Info->StatModifiers.Num();
-		Info->StatModifiers.AddUnique(Modifier);
+		Info->StatModifiers.AddUnique(NewMod);
 		if (Info->StatModifiers.Num() != PreviousMods)
 		{
 			RecalculateStat(StatTag);
 		}
+		return NewMod.ID;
 	}
+	return -1;
 }
 
 void UStatHandler::AddStatModifiers(TMultiMap<FGameplayTag, FCombatModifier> const& Modifiers)
@@ -222,7 +225,7 @@ void UStatHandler::RemoveStatModifier(FGameplayTag const StatTag, int32 const Mo
 	{
 		return;
 	}
-	if (!StatTag.MatchesTag(GenericStatTag))
+	if (!StatTag.MatchesTag(GenericStatTag) || ModifierID == -1)
 	{
 		return;
 	}

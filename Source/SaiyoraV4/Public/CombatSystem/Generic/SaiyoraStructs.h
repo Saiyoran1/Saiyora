@@ -28,7 +28,7 @@ struct FCombatModifier
     static float CombineModifiers(TArray<FCombatModifier> const& ModArray, float const BaseValue);
 
     static int32 GlobalID;
-    static int32 GetID() { return ++GlobalID; }
+    static int32 GetID();
 };
 
 USTRUCT(BlueprintType)

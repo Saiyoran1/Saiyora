@@ -34,7 +34,7 @@ public:
 
 	//Individual Stat Mod functions.
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Stat", meta = (GameplayTagFilter = "Stat"))
-	void AddStatModifier(FGameplayTag const StatTag, FCombatModifier const& Modifier);
+	int32 AddStatModifier(FGameplayTag const StatTag, EModifierType const ModType, float const ModValue);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Stat", meta = (GameplayTagFilter = "Stat"))
 	void RemoveStatModifier(FGameplayTag const StatTag, int32 const ModifierID);
 

@@ -28,7 +28,7 @@ public:
 
 	//Modifier
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Modifier", meta = (DefaultToSelt = "Source", HidePin = "Source", NativeMakeFunc))
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Modifier", meta = (DefaultToSelf = "Source", HidePin = "Source", NativeMakeFunc))
 	static FCombatModifier MakeCombatModifier(int32& ModifierID, class UBuff* Source, enum EModifierType const ModifierType, float const ModifierValue, bool const bStackable);
 	static FCombatModifier MakeCombatModifier(enum EModifierType const ModifierType, float const ModifierValue);
 };

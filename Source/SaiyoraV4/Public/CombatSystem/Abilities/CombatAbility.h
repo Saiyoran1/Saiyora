@@ -32,6 +32,8 @@ private:
     UPROPERTY(EditDefaultsOnly, Category = "Display Info")
     EDamageSchool AbilitySchool;
     UPROPERTY(EditDefaultsOnly, Category = "Display Info")
+    ESaiyoraPlane AbilityPlane;
+    UPROPERTY(EditDefaultsOnly, Category = "Display Info")
     bool bHiddenCastBar = false;
     UPROPERTY(EditDefaultsOnly, Category = "Display Info")
     bool bHiddenOnActionBar = false;
@@ -138,6 +140,8 @@ public:
     UTexture2D* GetAbilityIcon() const { return Icon; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
     EDamageSchool GetAbilitySchool() const { return AbilitySchool; }
+    UFUNCTION(BlueprintCallable, BlueprintPure)
+    ESaiyoraPlane GetAbilityPlane() const { return AbilityPlane; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
     bool GetHiddenCastBar() const { return bHiddenCastBar; }
     UFUNCTION(BlueprintCallable, BlueprintPure)

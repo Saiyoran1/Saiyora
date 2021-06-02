@@ -36,3 +36,13 @@ float FCombatModifier::CombineModifiers(TArray<FCombatModifier> const& ModArray,
     //Again, no negative values.
     return FMath::Max(0.0f, FMath::Max(0.0f, BaseValue + AddMod) * MultMod);
 }
+
+int32 FCombatModifier::GetID()
+{
+    GlobalID++;
+    if (GlobalID == -1)
+    {
+        GlobalID++;
+    }
+    return GlobalID;
+}
