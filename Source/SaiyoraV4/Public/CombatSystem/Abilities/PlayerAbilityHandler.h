@@ -13,25 +13,38 @@ class SAIYORAV4_API UPlayerAbilityHandler : public UAbilityHandler
 
 	UPlayerAbilityHandler();
 	virtual void InitializeComponent() override;
+	virtual void BeginPlay() override;
 
 	UFUNCTION()
-	void AddNewAbilityToBars(UCombatAbility* NewAbility);
-
-	int32 FindFirstOpenAbilityBind(ESaiyoraPlane const BarPlane) const;
+	void SetupNewAbilityBind(UCombatAbility* NewAbility);
+	UFUNCTION()
+	void UpdateAbilityPlane(ESaiyoraPlane const PreviousPlane, ESaiyoraPlane const NewPlane, UObject* Source);
 
 	static const int32 AbilitiesPerBar;
 	
 	UPROPERTY()
-	TMap<int32, UCombatAbility*> AncientAbilities;
+	TMap<int32, UCombatAbility*> AncientBinds;
 	UPROPERTY()
-	TMap<int32, UCombatAbility*> ModernAbilities;
+	TMap<int32, UCombatAbility*> ModernBinds;
+	UPROPERTY()
+	TMap<int32, UCombatAbility*> HiddenBinds;
 
 	FAbilityBindingNotification OnAbilityBindUpdated;
+	FBarSwapNotification OnBarSwap;
+
+	ESaiyoraPlane AbilityPlane = ESaiyoraPlane::None;
 
 public:
 
 	UFUNCTION(BlueprintCallable)
+	void AbilityInput(int32 const BindNumber, bool const bHidden);
+	
+	UFUNCTION(BlueprintCallable)
 	void SubscribeToAbilityBindUpdated(FAbilityBindingCallback const& Callback);
 	UFUNCTION(BlueprintCallable)
 	void UnsubscribeFromAbilityBindUpdated(FAbilityBindingCallback const& Callback);
+	UFUNCTION(BlueprintCallable)
+	void SubscribeToBarSwap(FBarSwapCallback const& Callback);
+	UFUNCTION(BlueprintCallable)
+	void UnsubscribeFromBarSwap(FBarSwapCallback const& Callback);
 };

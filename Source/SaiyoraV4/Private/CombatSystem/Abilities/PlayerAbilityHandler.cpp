@@ -2,7 +2,11 @@
 
 #include "CombatSystem/Abilities/PlayerAbilityHandler.h"
 
-const int32 UPlayerAbilityHandler::AbilitiesPerBar = 7;
+#include "SaiyoraCombatInterface.h"
+#include "SaiyoraCombatLibrary.h"
+#include "SaiyoraPlaneComponent.h"
+
+const int32 UPlayerAbilityHandler::AbilitiesPerBar = 6;
 
 UPlayerAbilityHandler::UPlayerAbilityHandler()
 {
@@ -16,90 +20,75 @@ void UPlayerAbilityHandler::InitializeComponent()
 	if (GetOwnerRole() == ROLE_AutonomousProxy)
 	{
 		FAbilityInstanceCallback AbilityAddCallback;
-		AbilityAddCallback.BindUFunction(this, FName(TEXT("AddNewAbilityToBars")));
+		AbilityAddCallback.BindUFunction(this, FName(TEXT("SetupNewAbilityBind")));
 		SubscribeToAbilityAdded(AbilityAddCallback);
 	}
 }
 
-void UPlayerAbilityHandler::AddNewAbilityToBars(UCombatAbility* NewAbility)
+void UPlayerAbilityHandler::BeginPlay()
 {
-	if (!IsValid(NewAbility) || NewAbility->GetHiddenOnActionBar())
+	Super::BeginPlay();
+	if (GetOwnerRole() == ROLE_AutonomousProxy)
 	{
-		return;
-	}
-	int32 Bind = -1;
-	switch (NewAbility->GetAbilityPlane())
-	{
-		case ESaiyoraPlane::None :
-			break;
-		case ESaiyoraPlane::Neither :
-			break;
-		case ESaiyoraPlane::Both :
-			{
-				Bind = FindFirstOpenAbilityBind(ESaiyoraPlane::Modern);
-				if (Bind != -1)
-				{
-					ModernAbilities.Add(Bind, NewAbility);
-					OnAbilityBindUpdated.Broadcast(Bind, ESaiyoraPlane::Modern, NewAbility);
-				}
-				Bind = FindFirstOpenAbilityBind(ESaiyoraPlane::Ancient);
-				if (Bind != -1)
-				{
-					AncientAbilities.Add(Bind, NewAbility);
-					OnAbilityBindUpdated.Broadcast(Bind, ESaiyoraPlane::Ancient, NewAbility);
-				}
-			}
-			break;
-		case ESaiyoraPlane::Ancient :
-			{
-				Bind = FindFirstOpenAbilityBind(ESaiyoraPlane::Ancient);
-				if (Bind != -1)
-				{
-					AncientAbilities.Add(Bind, NewAbility);
-					OnAbilityBindUpdated.Broadcast(Bind, ESaiyoraPlane::Ancient, NewAbility);
-				}
-			}
-			break;
-		case ESaiyoraPlane::Modern :
-			{
-				Bind = FindFirstOpenAbilityBind(ESaiyoraPlane::Modern);
-				if (Bind != -1)
-				{
-					ModernAbilities.Add(Bind, NewAbility);
-					OnAbilityBindUpdated.Broadcast(Bind, ESaiyoraPlane::Modern, NewAbility);
-				}
-			}
-			break;
-		default :
-			break;
+		USaiyoraPlaneComponent* PlaneComponent = ISaiyoraCombatInterface::Execute_GetPlaneComponent(GetOwner());
+		if (IsValid(PlaneComponent))
+		{
+			AbilityPlane = PlaneComponent->GetCurrentPlane();
+			FPlaneSwapCallback PlaneSwapCallback;
+			PlaneSwapCallback.BindUFunction(this, FName(TEXT("UpdateAbilityPlane")));
+			PlaneComponent->SubscribeToPlaneSwap(PlaneSwapCallback);
+		}
 	}
 }
 
-int32 UPlayerAbilityHandler::FindFirstOpenAbilityBind(ESaiyoraPlane const BarPlane) const
+void UPlayerAbilityHandler::SetupNewAbilityBind(UCombatAbility* NewAbility)
 {
-	if (BarPlane == ESaiyoraPlane::Both || BarPlane == ESaiyoraPlane::Neither || BarPlane == ESaiyoraPlane::None)
+	if (!IsValid(NewAbility) || GetOwnerRole() != ROLE_AutonomousProxy)
 	{
-		return -1;
+		return;
 	}
-	TSet<int32> UsedBinds;
-	if (BarPlane == ESaiyoraPlane::Ancient)
+	
+}
+
+void UPlayerAbilityHandler::UpdateAbilityPlane(ESaiyoraPlane const PreviousPlane, ESaiyoraPlane const NewPlane, UObject* Source)
+{
+	if ((NewPlane == ESaiyoraPlane::Ancient || NewPlane == ESaiyoraPlane::Modern) && NewPlane != AbilityPlane)
 	{
-		AncientAbilities.GetKeys(UsedBinds);
+		AbilityPlane = NewPlane;
+		OnBarSwap.Broadcast(NewPlane);
+	}
+}
+
+void UPlayerAbilityHandler::AbilityInput(int32 const BindNumber, bool const bHidden)
+{
+	if (GetOwnerRole() != ROLE_AutonomousProxy)
+	{
+		return;
+	}
+	UCombatAbility* Ability = nullptr;
+	if (bHidden)
+	{
+		Ability = HiddenBinds.FindRef(BindNumber);
 	}
 	else
 	{
-		ModernAbilities.GetKeys(UsedBinds);
-	}
-	int32 OpenBind = -1;
-	for (int32 i = 0; i < AbilitiesPerBar; i++)
-	{
-		if (!UsedBinds.Contains(i))
+		if (AbilityPlane == ESaiyoraPlane::Both || AbilityPlane == ESaiyoraPlane::Neither || AbilityPlane == ESaiyoraPlane::None)
 		{
-			OpenBind = i;
-			break;
+			return;
+		}
+		if (AbilityPlane == ESaiyoraPlane::Ancient)
+		{
+			Ability = AncientBinds.FindRef(BindNumber);
+		}
+		else
+		{
+			Ability = ModernBinds.FindRef(BindNumber);
 		}
 	}
-	return OpenBind;
+	if (IsValid(Ability))
+	{
+		UseAbility(Ability->GetClass());
+	}
 }
 
 void UPlayerAbilityHandler::SubscribeToAbilityBindUpdated(FAbilityBindingCallback const& Callback)
@@ -118,4 +107,22 @@ void UPlayerAbilityHandler::UnsubscribeFromAbilityBindUpdated(FAbilityBindingCal
 		return;
 	}
 	OnAbilityBindUpdated.Remove(Callback);
+}
+
+void UPlayerAbilityHandler::SubscribeToBarSwap(FBarSwapCallback const& Callback)
+{
+	if (GetOwnerRole() != ROLE_AutonomousProxy || !Callback.IsBound())
+	{
+		return;
+	}
+	OnBarSwap.AddUnique(Callback);
+}
+
+void UPlayerAbilityHandler::UnsubscribeFromBarSwap(FBarSwapCallback const& Callback)
+{
+	if (GetOwnerRole() != ROLE_AutonomousProxy || !Callback.IsBound())
+	{
+		return;
+	}
+	OnBarSwap.Remove(Callback);
 }
