@@ -6,6 +6,8 @@
 #include "CombatSystem/Abilities/AbilityHandler.h"
 #include "PlayerAbilityHandler.generated.h"
 
+class UPlayerAbilitySave;
+
 UCLASS()
 class SAIYORAV4_API UPlayerAbilityHandler : public UAbilityHandler
 {
@@ -16,28 +18,32 @@ class SAIYORAV4_API UPlayerAbilityHandler : public UAbilityHandler
 	virtual void BeginPlay() override;
 
 	UFUNCTION()
-	void SetupNewAbilityBind(UCombatAbility* NewAbility);
-	UFUNCTION()
 	void UpdateAbilityPlane(ESaiyoraPlane const PreviousPlane, ESaiyoraPlane const NewPlane, UObject* Source);
 
 	static const int32 AbilitiesPerBar;
-	
-	UPROPERTY()
-	TMap<int32, UCombatAbility*> AncientBinds;
-	UPROPERTY()
-	TMap<int32, UCombatAbility*> ModernBinds;
-	UPROPERTY()
-	TMap<int32, UCombatAbility*> HiddenBinds;
+	FPlayerAbilityLoadout Loadout;
+	TSet<TSubclassOf<UCombatAbility>> Spellbook;
 
 	FAbilityBindingNotification OnAbilityBindUpdated;
 	FBarSwapNotification OnBarSwap;
 
-	ESaiyoraPlane AbilityPlane = ESaiyoraPlane::None;
+	EActionBarType CurrentBar = EActionBarType::None;
+	
+	UPROPERTY()
+	APlayerState* PlayerStateRef;
+	UPROPERTY()
+	UPlayerAbilitySave* AbilitySave;
+
+	UFUNCTION()
+	bool CheckForCorrectAbilityPlane(UCombatAbility* Ability);
 
 public:
 
-	UFUNCTION(BlueprintCallable)
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void AbilityInput(int32 const BindNumber, bool const bHidden);
+
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+	void LearnAbility(TSubclassOf<UCombatAbility> const NewAbility);
 	
 	UFUNCTION(BlueprintCallable)
 	void SubscribeToAbilityBindUpdated(FAbilityBindingCallback const& Callback);
@@ -47,4 +53,11 @@ public:
 	void SubscribeToBarSwap(FBarSwapCallback const& Callback);
 	UFUNCTION(BlueprintCallable)
 	void UnsubscribeFromBarSwap(FBarSwapCallback const& Callback);
+
+	static int32 GetAbilitiesPerBar() { return AbilitiesPerBar; }
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+	FPlayerAbilityLoadout GetPlayerLoadout() const { return Loadout; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+	TSet<TSubclassOf<UCombatAbility>> GetUnlockedAbilities() const { return Spellbook; }
 };

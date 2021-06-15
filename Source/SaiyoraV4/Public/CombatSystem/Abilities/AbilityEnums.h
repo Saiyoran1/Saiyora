@@ -31,3 +31,12 @@ enum class EQueueStatus : uint8
     WaitForCast,
     WaitForBoth,
 };
+
+UENUM()
+enum class EActionBarType : uint8
+{
+    None = 0,
+    Ancient = 1,
+    Modern = 2,
+    Hidden = 3,
+};

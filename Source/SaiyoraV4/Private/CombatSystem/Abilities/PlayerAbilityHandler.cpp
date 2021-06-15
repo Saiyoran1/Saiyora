@@ -2,9 +2,13 @@
 
 #include "CombatSystem/Abilities/PlayerAbilityHandler.h"
 
+#include "PlayerAbilitySave.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraCombatLibrary.h"
 #include "SaiyoraPlaneComponent.h"
+#include "SaiyoraPlayerCharacter.h"
+#include "GameFramework/PlayerState.h"
+#include "Kismet/GameplayStatics.h"
 
 const int32 UPlayerAbilityHandler::AbilitiesPerBar = 6;
 
@@ -17,45 +21,127 @@ UPlayerAbilityHandler::UPlayerAbilityHandler()
 
 void UPlayerAbilityHandler::InitializeComponent()
 {
-	if (GetOwnerRole() == ROLE_AutonomousProxy)
+	if (GetOwnerRole() == ROLE_SimulatedProxy)
 	{
-		FAbilityInstanceCallback AbilityAddCallback;
-		AbilityAddCallback.BindUFunction(this, FName(TEXT("SetupNewAbilityBind")));
-		SubscribeToAbilityAdded(AbilityAddCallback);
+		return;
+	}
+	ACharacter* OwningPlayer = Cast<ACharacter>(GetOwner());
+	if (IsValid(OwningPlayer))
+	{
+		PlayerStateRef = OwningPlayer->GetPlayerState();
+	}
+	if (IsValid(PlayerStateRef))
+	{
+		FString SaveName = PlayerStateRef->GetPlayerName();
+		SaveName.Append(TEXT("Abilities"));
+		AbilitySave = Cast<UPlayerAbilitySave>(UGameplayStatics::LoadGameFromSlot(SaveName, 0));
+	}
+	if (IsValid(AbilitySave))
+	{
+		if (GetOwnerRole() == ROLE_Authority)
+		{
+			AbilitySave->GetUnlockedAbilities(Spellbook);
+		}
+		AbilitySave->GetLastSavedLoadout(Loadout);
+	}
+	else
+	{
+		AbilitySave = NewObject<UPlayerAbilitySave>(GetOwner(), UPlayerAbilitySave::StaticClass());
+		AbilitySave->GetLastSavedLoadout(Loadout);
+	}
+	FAbilityRestriction PlaneAbilityRestriction;
+	PlaneAbilityRestriction.BindUFunction(this, FName(TEXT("CheckForCorrectAbilityPlane")));
+	AddAbilityRestriction(PlaneAbilityRestriction);
+}
+
+bool UPlayerAbilityHandler::CheckForCorrectAbilityPlane(UCombatAbility* Ability)
+{
+	if (!IsValid(Ability))
+	{
+		return false;
+	}
+	switch (Ability->GetAbilityPlane())
+	{
+		case ESaiyoraPlane::None :
+			return false;
+		case ESaiyoraPlane::Neither :
+			return false;
+		case ESaiyoraPlane::Both :
+			return false;
+		case ESaiyoraPlane::Ancient :
+			return CurrentBar != EActionBarType::Ancient;
+		case ESaiyoraPlane::Modern :
+			return CurrentBar != EActionBarType::Modern;
+		default :
+			return false;
 	}
 }
 
 void UPlayerAbilityHandler::BeginPlay()
 {
-	Super::BeginPlay();
 	if (GetOwnerRole() == ROLE_AutonomousProxy)
 	{
 		USaiyoraPlaneComponent* PlaneComponent = ISaiyoraCombatInterface::Execute_GetPlaneComponent(GetOwner());
 		if (IsValid(PlaneComponent))
 		{
-			AbilityPlane = PlaneComponent->GetCurrentPlane();
+			switch (PlaneComponent->GetCurrentPlane())
+			{
+				case ESaiyoraPlane::None :
+					break;
+				case ESaiyoraPlane::Neither :
+					break;
+				case ESaiyoraPlane::Both :
+					break;
+				case ESaiyoraPlane::Ancient :
+					CurrentBar = EActionBarType::Ancient;
+					break;
+				case ESaiyoraPlane::Modern :
+					CurrentBar = EActionBarType::Modern;
+					break;
+				default :
+					break;
+			}
 			FPlaneSwapCallback PlaneSwapCallback;
 			PlaneSwapCallback.BindUFunction(this, FName(TEXT("UpdateAbilityPlane")));
 			PlaneComponent->SubscribeToPlaneSwap(PlaneSwapCallback);
 		}
 	}
-}
-
-void UPlayerAbilityHandler::SetupNewAbilityBind(UCombatAbility* NewAbility)
-{
-	if (!IsValid(NewAbility) || GetOwnerRole() != ROLE_AutonomousProxy)
+	if (GetOwnerRole() == ROLE_Authority)
 	{
-		return;
+		for (TTuple<int32, TSubclassOf<UCombatAbility>> const& AbilityPair : Loadout.AncientLoadout)
+		{
+			if (Spellbook.Contains(AbilityPair.Value))
+			{
+				AddNewAbility(AbilityPair.Value);
+			}
+		}
+		for (TTuple<int32, TSubclassOf<UCombatAbility>> const& AbilityPair : Loadout.ModernLoadout)
+		{
+			if (Spellbook.Contains(AbilityPair.Value))
+			{
+				AddNewAbility(AbilityPair.Value);
+			}
+		}
+		for (TTuple<int32, TSubclassOf<UCombatAbility>> const& AbilityPair : Loadout.HiddenLoadout)
+		{
+			if (Spellbook.Contains(AbilityPair.Value))
+			{
+				AddNewAbility(AbilityPair.Value);
+			}
+		}
 	}
-	
 }
 
 void UPlayerAbilityHandler::UpdateAbilityPlane(ESaiyoraPlane const PreviousPlane, ESaiyoraPlane const NewPlane, UObject* Source)
 {
-	if ((NewPlane == ESaiyoraPlane::Ancient || NewPlane == ESaiyoraPlane::Modern) && NewPlane != AbilityPlane)
+	if (NewPlane == ESaiyoraPlane::Ancient || NewPlane == ESaiyoraPlane::Modern)
 	{
-		AbilityPlane = NewPlane;
-		OnBarSwap.Broadcast(NewPlane);
+		EActionBarType const PreviousBar = CurrentBar;
+		CurrentBar = NewPlane == ESaiyoraPlane::Ancient ? EActionBarType::Ancient : EActionBarType::Modern;
+		if (PreviousBar != CurrentBar)
+		{
+			OnBarSwap.Broadcast(CurrentBar);
+		}
 	}
 }
 
@@ -65,30 +151,39 @@ void UPlayerAbilityHandler::AbilityInput(int32 const BindNumber, bool const bHid
 	{
 		return;
 	}
-	UCombatAbility* Ability = nullptr;
+	TSubclassOf<UCombatAbility> AbilityClass;
 	if (bHidden)
 	{
-		Ability = HiddenBinds.FindRef(BindNumber);
+		AbilityClass = Loadout.HiddenLoadout.FindRef(BindNumber);
 	}
 	else
 	{
-		if (AbilityPlane == ESaiyoraPlane::Both || AbilityPlane == ESaiyoraPlane::Neither || AbilityPlane == ESaiyoraPlane::None)
+		switch (CurrentBar)
 		{
-			return;
-		}
-		if (AbilityPlane == ESaiyoraPlane::Ancient)
-		{
-			Ability = AncientBinds.FindRef(BindNumber);
-		}
-		else
-		{
-			Ability = ModernBinds.FindRef(BindNumber);
+			case EActionBarType::Ancient :
+				AbilityClass = Loadout.AncientLoadout.FindRef(BindNumber);
+				break;
+			case EActionBarType::Modern :
+				AbilityClass = Loadout.ModernLoadout.FindRef(BindNumber);
+				break;
+			default :
+				break;
 		}
 	}
-	if (IsValid(Ability))
+	if (IsValid(AbilityClass))
 	{
-		UseAbility(Ability->GetClass());
+		UseAbility(AbilityClass);
 	}
+}
+
+void UPlayerAbilityHandler::LearnAbility(TSubclassOf<UCombatAbility> const NewAbility)
+{
+	if (!IsValid(NewAbility) || Spellbook.Contains(NewAbility))
+	{
+		return;
+	}
+	Spellbook.Add(NewAbility);
+	//TODO: Spellbook delegate? Can't use TSubclassOf vars in the delegate I think.
 }
 
 void UPlayerAbilityHandler::SubscribeToAbilityBindUpdated(FAbilityBindingCallback const& Callback)
