@@ -180,7 +180,7 @@ UCombatAbility* UAbilityHandler::AddNewAbility(TSubclassOf<UCombatAbility> const
 	{
 		return nullptr;
 	}
-	if (IsValid(FindActiveAbility(AbilityClass)))
+	if (!IsValid(AbilityClass) || IsValid(FindActiveAbility(AbilityClass)))
 	{
 		return nullptr;
 	}

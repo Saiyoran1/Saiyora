@@ -32,6 +32,7 @@ void UPlayerAbilityHandler::InitializeComponent()
 	}
 	if (IsValid(PlayerStateRef))
 	{
+		//TODO: Not sure PlayerName is the best way to handle this, considering I have no idea how to set it.
 		FString SaveName = PlayerStateRef->GetPlayerName();
 		SaveName.Append(TEXT("Abilities"));
 		AbilitySave = Cast<UPlayerAbilitySave>(UGameplayStatics::LoadGameFromSlot(SaveName, 0));

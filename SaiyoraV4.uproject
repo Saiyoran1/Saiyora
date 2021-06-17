@@ -16,13 +16,8 @@
 	],
 	"Plugins": [
 		{
-			"Name": "CognitoDynamoDBGameLiftLambdaSDK",
-			"Enabled": false,
-			"MarketplaceURL": "com.epicgames.launcher://ue/marketplace/content/eee4bef24c9d429887ddcc107a5a9b4d"
-		},
-		{
 			"Name": "RiderLink",
 			"Enabled": true
-		}
+		},
 	]
 }
