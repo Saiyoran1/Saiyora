@@ -23,13 +23,20 @@ public:
 	virtual void InitializeComponent() override;
 	virtual void BeginPlay() override;
 
-	static const FGameplayTag DamageDoneTag;
-	static const FGameplayTag DamageTakenTag;
-	static const FGameplayTag HealingDoneTag;
-	static const FGameplayTag HealingTakenTag;
-	static const FGameplayTag MaxHealthTag;
-	static const FGameplayTag BuffDamageTag;
-	static const FGameplayTag BuffHealingTag;
+	//static const FGameplayTag DamageDoneTag;
+	static FGameplayTag DamageDoneStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.DamageDone")), false); }
+	//static const FGameplayTag DamageTakenTag;
+	static FGameplayTag DamageTakenStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.DamageTaken")), false); }
+	//static const FGameplayTag HealingDoneTag;
+	static FGameplayTag HealingDoneStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.HealingDone")), false); }
+	//static const FGameplayTag HealingTakenTag;
+	static FGameplayTag HealingTakenStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.HealingTaken")), false); }
+	//static const FGameplayTag MaxHealthTag;
+	static FGameplayTag MaxHealthStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.MaxHealth")), false); }
+	//static const FGameplayTag BuffDamageTag;
+	static FGameplayTag BuffFunctionDamageTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Buff.Damage")), false); }
+	//static const FGameplayTag BuffHealingTag;
+	static FGameplayTag BuffFunctionHealingTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Buff.Healing")), false); }
 
 private:
 	

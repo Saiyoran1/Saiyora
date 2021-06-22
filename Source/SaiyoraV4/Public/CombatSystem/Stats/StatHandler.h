@@ -21,7 +21,8 @@ protected:
 
 public:
 
-	static const FGameplayTag GenericStatTag;
+	//static const FGameplayTag GenericStatTag;
+	static FGameplayTag GenericStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat")), false); }
 	
 	UStatHandler();
 	virtual void InitializeComponent() override;

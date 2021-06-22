@@ -18,9 +18,9 @@ const float UAbilityHandler::MinimumCastLength = 0.5f;
 const float UAbilityHandler::MinimumCooldownLength = 0.5f;
 const float UAbilityHandler::AbilityQueWindowSec = 0.2f;
 const float UAbilityHandler::MaxPingCompensation = 0.2f;
-const FGameplayTag UAbilityHandler::CastLengthStatTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.CastLength")), false);
-const FGameplayTag UAbilityHandler::GlobalCooldownLengthStatTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.GlobalCooldownLength")), false);
-const FGameplayTag UAbilityHandler::CooldownLengthStatTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.CooldownLength")), false);
+//const FGameplayTag UAbilityHandler::CastLengthStatTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.CastLength")), false);
+//const FGameplayTag UAbilityHandler::GlobalCooldownLengthStatTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.GlobalCooldownLength")), false);
+//const FGameplayTag UAbilityHandler::CooldownLengthStatTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.CooldownLength")), false);
 
 #pragma region SetupFunctions
 UAbilityHandler::UAbilityHandler()
@@ -102,9 +102,9 @@ FCombatModifier UAbilityHandler::ModifyCooldownFromStat(UCombatAbility* Ability)
 	FCombatModifier Mod;
 	if (IsValid(StatHandler))
 	{
-		if (StatHandler->GetStatValid(CooldownLengthStatTag))
+		if (StatHandler->GetStatValid(CooldownLengthStatTag()))
 		{
-			Mod = USaiyoraCombatLibrary::MakeCombatModifier(EModifierType::Multiplicative, StatHandler->GetStatValue(CooldownLengthStatTag));
+			Mod = USaiyoraCombatLibrary::MakeCombatModifier(EModifierType::Multiplicative, StatHandler->GetStatValue(CooldownLengthStatTag()));
 		}
 	}
 	return Mod;
@@ -115,9 +115,9 @@ FCombatModifier UAbilityHandler::ModifyGlobalCooldownFromStat(UCombatAbility* Ab
 	FCombatModifier Mod;
 	if (IsValid(StatHandler))
 	{
-		if (StatHandler->GetStatValid(GlobalCooldownLengthStatTag))
+		if (StatHandler->GetStatValid(GlobalCooldownLengthStatTag()))
 		{
-			Mod = USaiyoraCombatLibrary::MakeCombatModifier(EModifierType::Multiplicative, StatHandler->GetStatValue(GlobalCooldownLengthStatTag));
+			Mod = USaiyoraCombatLibrary::MakeCombatModifier(EModifierType::Multiplicative, StatHandler->GetStatValue(GlobalCooldownLengthStatTag()));
 		}
 	}
 	return Mod;
@@ -128,9 +128,9 @@ FCombatModifier UAbilityHandler::ModifyCastLengthFromStat(UCombatAbility* Abilit
 	FCombatModifier Mod;
 	if (IsValid(StatHandler))
 	{
-		if (StatHandler->GetStatValid(CastLengthStatTag))
+		if (StatHandler->GetStatValid(CastLengthStatTag()))
 		{
-			Mod = USaiyoraCombatLibrary::MakeCombatModifier(EModifierType::Multiplicative, StatHandler->GetStatValue(CastLengthStatTag));
+			Mod = USaiyoraCombatLibrary::MakeCombatModifier(EModifierType::Multiplicative, StatHandler->GetStatValue(CastLengthStatTag()));
 		}
 	}
 	return Mod;

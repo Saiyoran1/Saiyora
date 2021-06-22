@@ -8,13 +8,13 @@
 #include "SaiyoraCombatInterface.h"
 #include "UnrealNetwork.h"
 
-FGameplayTag const UDamageHandler::MaxHealthTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.MaxHealth")), false);
-FGameplayTag const UDamageHandler::DamageDoneTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.DamageDone")), false);
-FGameplayTag const UDamageHandler::HealingDoneTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.HealingDone")), false);
-FGameplayTag const UDamageHandler::DamageTakenTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.DamageTaken")), false);
-FGameplayTag const UDamageHandler::HealingTakenTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.HealingTaken")), false);
-FGameplayTag const UDamageHandler::BuffDamageTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Buff.Damage")), false);
-FGameplayTag const UDamageHandler::BuffHealingTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Buff.Healing")), false);
+//FGameplayTag const UDamageHandler::MaxHealthTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.MaxHealth")), false);
+//FGameplayTag const UDamageHandler::DamageDoneTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.DamageDone")), false);
+//FGameplayTag const UDamageHandler::HealingDoneTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.HealingDone")), false);
+//FGameplayTag const UDamageHandler::DamageTakenTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.DamageTaken")), false);
+//FGameplayTag const UDamageHandler::HealingTakenTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.HealingTaken")), false);
+//FGameplayTag const UDamageHandler::BuffDamageTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Buff.Damage")), false);
+//FGameplayTag const UDamageHandler::BuffHealingTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Buff.Healing")), false);
 
 UDamageHandler::UDamageHandler()
 {
@@ -45,33 +45,33 @@ void UDamageHandler::BeginPlay()
 		//Bind Max Health stat, create damage and healing modifiers from stats.
 		if (IsValid(StatHandler))
 		{
-			if (!StaticMaxHealth && StatHandler->GetStatValid(MaxHealthTag))
+			if (!StaticMaxHealth && StatHandler->GetStatValid(MaxHealthStatTag()))
 			{
-				UpdateMaxHealth(StatHandler->GetStatValue(MaxHealthTag));
+				UpdateMaxHealth(StatHandler->GetStatValue(MaxHealthStatTag()));
 
 				FStatCallback MaxHealthStatCallback;
 				MaxHealthStatCallback.BindUFunction(this, FName(TEXT("ReactToMaxHealthStat")));
-				StatHandler->SubscribeToStatChanged(MaxHealthTag, MaxHealthStatCallback);
+				StatHandler->SubscribeToStatChanged(MaxHealthStatTag(), MaxHealthStatCallback);
 			}
-			if (StatHandler->GetStatValid(DamageDoneTag))
+			if (StatHandler->GetStatValid(DamageDoneStatTag()))
 			{
 				FDamageModCondition DamageDoneModFromStat;
 				DamageDoneModFromStat.BindUFunction(this, FName(TEXT("ModifyDamageDoneFromStat")));
 				AddOutgoingDamageModifier(DamageDoneModFromStat);
 			}
-			if (StatHandler->GetStatValid(DamageTakenTag))
+			if (StatHandler->GetStatValid(DamageTakenStatTag()))
 			{
 				FDamageModCondition DamageTakenModFromStat;
 				DamageTakenModFromStat.BindUFunction(this, FName(TEXT("ModifyDamageTakenFromStat")));
 				AddIncomingDamageModifier(DamageTakenModFromStat);
 			}
-			if (StatHandler->GetStatValid(HealingDoneTag))
+			if (StatHandler->GetStatValid(HealingDoneStatTag()))
 			{
 				FHealingModCondition HealingDoneModFromStat;
 				HealingDoneModFromStat.BindUFunction(this, FName(TEXT("ModifyHealingDoneFromStat")));
 				AddOutgoingHealingModifier(HealingDoneModFromStat);
 			}
-			if (StatHandler->GetStatValid(HealingTakenTag))
+			if (StatHandler->GetStatValid(HealingTakenStatTag()))
 			{
 				FHealingModCondition HealingTakenModFromStat;
 				HealingTakenModFromStat.BindUFunction(this, FName(TEXT("ModifyHealingTakenFromStat")));
@@ -147,7 +147,7 @@ void UDamageHandler::UpdateMaxHealth(float const NewMaxHealth)
 
 void UDamageHandler::ReactToMaxHealthStat(FGameplayTag const& StatTag, float const NewValue)
 {
-	if (StatTag.IsValid() && StatTag.MatchesTag(MaxHealthTag))
+	if (StatTag.IsValid() && StatTag.MatchesTag(MaxHealthStatTag()))
 	{
 		UpdateMaxHealth(NewValue);
 	}
@@ -287,9 +287,9 @@ FCombatModifier UDamageHandler::ModifyDamageDoneFromStat(FDamageInfo const& Dama
 	FCombatModifier Mod;
 	if (IsValid(StatHandler))
 	{
-		if (StatHandler->GetStatValid(DamageDoneTag))
+		if (StatHandler->GetStatValid(DamageDoneStatTag()))
 		{
-			Mod = USaiyoraCombatLibrary::MakeCombatModifier(EModifierType::Multiplicative, StatHandler->GetStatValue(DamageDoneTag));
+			Mod = USaiyoraCombatLibrary::MakeCombatModifier(EModifierType::Multiplicative, StatHandler->GetStatValue(DamageDoneStatTag()));
 		}
 	}
 	return Mod;
@@ -384,7 +384,7 @@ bool UDamageHandler::RestrictDamageBuffs(FBuffApplyEvent const& BuffEvent)
 	{
 		FGameplayTagContainer BuffTags;
 		Buff->GetBuffTags(BuffTags);
-		if (BuffTags.HasTag(BuffDamageTag))
+		if (BuffTags.HasTag(BuffFunctionDamageTag()))
 		{
 			return true;
 		}
@@ -419,9 +419,9 @@ FCombatModifier UDamageHandler::ModifyHealingDoneFromStat(FHealingInfo const& He
 	FCombatModifier Mod;
 	if (IsValid(StatHandler))
 	{
-		if (StatHandler->GetStatValid(HealingDoneTag))
+		if (StatHandler->GetStatValid(HealingDoneStatTag()))
 		{
-			Mod = USaiyoraCombatLibrary::MakeCombatModifier(EModifierType::Multiplicative, StatHandler->GetStatValue(HealingDoneTag));
+			Mod = USaiyoraCombatLibrary::MakeCombatModifier(EModifierType::Multiplicative, StatHandler->GetStatValue(HealingDoneStatTag()));
 		}
 	}
 	return Mod;
@@ -516,7 +516,7 @@ bool UDamageHandler::RestrictHealingBuffs(FBuffApplyEvent const& BuffEvent)
 	{
 		FGameplayTagContainer BuffFunctionTags;
 		Buff->GetBuffTags(BuffFunctionTags);
-		if (BuffFunctionTags.HasTag(BuffHealingTag))
+		if (BuffFunctionTags.HasTag(BuffFunctionHealingTag()))
 		{
 			return true;
 		}
@@ -566,9 +566,9 @@ FCombatModifier UDamageHandler::ModifyDamageTakenFromStat(FDamageInfo const& Dam
 	FCombatModifier Mod;
 	if (IsValid(StatHandler))
 	{
-		if (StatHandler->GetStatValid(DamageTakenTag))
+		if (StatHandler->GetStatValid(DamageTakenStatTag()))
 		{
-			Mod = USaiyoraCombatLibrary::MakeCombatModifier(EModifierType::Multiplicative, StatHandler->GetStatValue(DamageTakenTag));
+			Mod = USaiyoraCombatLibrary::MakeCombatModifier(EModifierType::Multiplicative, StatHandler->GetStatValue(DamageTakenStatTag()));
 		}
 	}
 	return Mod;
@@ -689,9 +689,9 @@ FCombatModifier UDamageHandler::ModifyHealingTakenFromStat(FHealingInfo const& H
 	FCombatModifier Mod;
 	if (IsValid(StatHandler))
 	{
-		if (StatHandler->GetStatValid(HealingTakenTag))
+		if (StatHandler->GetStatValid(HealingTakenStatTag()))
 		{
-			Mod = USaiyoraCombatLibrary::MakeCombatModifier(EModifierType::Multiplicative, StatHandler->GetStatValue(HealingTakenTag));
+			Mod = USaiyoraCombatLibrary::MakeCombatModifier(EModifierType::Multiplicative, StatHandler->GetStatValue(HealingTakenStatTag()));
 		}
 	}
 	return Mod;

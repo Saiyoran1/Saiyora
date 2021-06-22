@@ -40,7 +40,7 @@ void UResource::AuthInitializeResource(UResourceHandler* NewHandler, UStatHandle
     ResourceState.PredictionID = 0;
     
     //Bind the resource minimum to a stat if needed.
-    if (MinimumBindStat.IsValid() && MinimumBindStat.MatchesTag(UStatHandler::GenericStatTag))
+    if (MinimumBindStat.IsValid() && MinimumBindStat.MatchesTag(UStatHandler::GenericStatTag()))
     {
         if (IsValid(StatHandler))
         {
@@ -63,7 +63,7 @@ void UResource::AuthInitializeResource(UResourceHandler* NewHandler, UStatHandle
     }
 
     //Bind the resource maximum to a stat if needed.
-    if (MaximumBindStat.IsValid() && MaximumBindStat.MatchesTag(UStatHandler::GenericStatTag))
+    if (MaximumBindStat.IsValid() && MaximumBindStat.MatchesTag(UStatHandler::GenericStatTag()))
     {
         if (IsValid(StatHandler))
         {

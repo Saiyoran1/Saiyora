@@ -23,7 +23,7 @@ void FReplicatedStat::PostReplicatedAdd(FReplicatedStatArray const& InArraySeria
 
 void FReplicatedStatArray::UpdateStatValue(FGameplayTag const& StatTag, float const NewValue)
 {
-    if (!StatTag.IsValid() || !StatTag.MatchesTag(UStatHandler::GenericStatTag))
+    if (!StatTag.IsValid() || !StatTag.MatchesTag(UStatHandler::GenericStatTag()))
     {
         return;
     }

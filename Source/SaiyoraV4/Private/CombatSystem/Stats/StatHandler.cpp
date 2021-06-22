@@ -9,7 +9,7 @@
 #include "BuffHandler.h"
 #include "SaiyoraCombatInterface.h"
 
-const FGameplayTag UStatHandler::GenericStatTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat")), false);
+//const FGameplayTag UStatHandler::GenericStatTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat")), false);
 
 void UStatHandler::BeginPlay()
 {
@@ -49,7 +49,7 @@ void UStatHandler::InitializeComponent()
 		InitialStats->GetAllRows<FStatInfo>(nullptr, InitialStatArray);
 		for (FStatInfo const* InitInfo : InitialStatArray)
 		{
-			if (!InitInfo || !InitInfo->StatTag.MatchesTag(GenericStatTag))
+			if (!InitInfo || !InitInfo->StatTag.MatchesTag(GenericStatTag()))
 			{
 				continue;
 			}
@@ -174,7 +174,7 @@ int32 UStatHandler::AddStatModifier(FGameplayTag const StatTag, EModifierType co
 	{
 		return -1;
 	}
-	if (ModType == EModifierType::Invalid || !StatTag.MatchesTag(GenericStatTag))
+	if (ModType == EModifierType::Invalid || !StatTag.MatchesTag(GenericStatTag()))
 	{
 		return -1;
 	}
@@ -225,7 +225,7 @@ void UStatHandler::RemoveStatModifier(FGameplayTag const StatTag, int32 const Mo
 	{
 		return;
 	}
-	if (!StatTag.MatchesTag(GenericStatTag) || ModifierID == -1)
+	if (!StatTag.MatchesTag(GenericStatTag()) || ModifierID == -1)
 	{
 		return;
 	}
@@ -251,7 +251,7 @@ void UStatHandler::RemoveStatModifiers(TSet<FGameplayTag> const& AffectedStats, 
 	TSet<FGameplayTag> ModifiedStats;
 	for (FGameplayTag const& StatTag : AffectedStats)
 	{
-		if (StatTag.MatchesTag(GenericStatTag))
+		if (StatTag.MatchesTag(GenericStatTag()))
 		{
 			FStatInfo* Info = GetStatInfoPtr(StatTag);
 			if (Info && Info->bInitialized && Info->bModifiable)
@@ -322,7 +322,7 @@ void UStatHandler::UnsubscribeFromStatChanged(FGameplayTag const StatTag, FStatC
 
 void UStatHandler::NotifyOfReplicatedStat(FGameplayTag const& StatTag, float const NewValue)
 {
-	if (!StatTag.IsValid() || !StatTag.MatchesTag(GenericStatTag))
+	if (!StatTag.IsValid() || !StatTag.MatchesTag(GenericStatTag()))
 	{
 		return;
 	}
@@ -385,7 +385,7 @@ void UStatHandler::RecalculateStat(FGameplayTag const& StatTag)
 
 FStatInfo* UStatHandler::GetStatInfoPtr(FGameplayTag const& StatTag)
 {
-	if (!StatTag.IsValid() || !StatTag.MatchesTag(GenericStatTag))
+	if (!StatTag.IsValid() || !StatTag.MatchesTag(GenericStatTag()))
 	{
 		return nullptr;
 	}
@@ -394,7 +394,7 @@ FStatInfo* UStatHandler::GetStatInfoPtr(FGameplayTag const& StatTag)
 
 FStatInfo const* UStatHandler::GetStatInfoConstPtr(FGameplayTag const& StatTag) const
 {
-	if (!StatTag.IsValid() || !StatTag.MatchesTag(GenericStatTag))
+	if (!StatTag.IsValid() || !StatTag.MatchesTag(GenericStatTag()))
 	{
 		return nullptr;
 	}

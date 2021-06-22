@@ -255,7 +255,7 @@ void UStatModifierFunction::SetModifierVars(TArray<FStatModifier> const& Modifie
 {
     for (FStatModifier const& StatMod : Modifiers)
     {
-        if (!StatMod.StatTag.MatchesTag(UStatHandler::GenericStatTag) || StatMod.ModType == EModifierType::Invalid)
+        if (!StatMod.StatTag.MatchesTag(UStatHandler::GenericStatTag()) || StatMod.ModType == EModifierType::Invalid)
         {
             continue;
         }
@@ -288,7 +288,7 @@ void UStatModifierFunction::OnStack(FBuffApplyEvent const& ApplyEvent)
     TSet<FGameplayTag> StatTags;
     for (TTuple<FGameplayTag, FCombatModifier> const& ModPair : StatMods)
     {
-        if (ModPair.Value.bStackable && ModPair.Key.MatchesTag(UStatHandler::GenericStatTag) && ModPair.Value.ModType != EModifierType::Invalid)
+        if (ModPair.Value.bStackable && ModPair.Key.MatchesTag(UStatHandler::GenericStatTag()) && ModPair.Value.ModType != EModifierType::Invalid)
         {
             StatTags.Add(ModPair.Key);
         }
@@ -303,7 +303,7 @@ void UStatModifierFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
         TSet<FGameplayTag> StatTags;
         for (TTuple<FGameplayTag, FCombatModifier> const& StatMod : StatMods)
         {
-            if (StatMod.Key.MatchesTag(UStatHandler::GenericStatTag) && StatMod.Value.ModType != EModifierType::Invalid)
+            if (StatMod.Key.MatchesTag(UStatHandler::GenericStatTag()) && StatMod.Value.ModType != EModifierType::Invalid)
             {
                 StatTags.Add(StatMod.Key);
             }
