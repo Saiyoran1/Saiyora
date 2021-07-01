@@ -133,5 +133,3 @@ void USaiyoraPlaneComponent::OnRep_PlaneStatus(FPlaneStatus const PreviousStatus
 		OnPlaneSwapped.Broadcast(PreviousStatus.CurrentPlane, PlaneStatus.CurrentPlane, PlaneStatus.LastSwapSource);
 	}
 }
-
-

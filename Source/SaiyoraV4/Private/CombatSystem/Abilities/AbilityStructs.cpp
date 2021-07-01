@@ -35,3 +35,24 @@ void FReplicatedAbilityCostArray::UpdateAbilityCost(FAbilityCost const& NewCost)
 		}
 	}
 }
+
+FGlobalCooldown FPredictedGlobalCooldown::ToGlobalCooldown() const
+{
+	FGlobalCooldown Global;
+	Global.bGlobalCooldownActive = bGlobalCooldownActive;
+	Global.StartTime = StartTime;
+	Global.EndTime = EndTime;
+	return Global;
+}
+
+FCastingState FPredictedCastingState::ToCastingState() const
+{
+	FCastingState Cast;
+	Cast.bIsCasting = bIsCasting;
+	Cast.CurrentCast = CurrentCast;
+	Cast.CastStartTime = CastStartTime;
+	Cast.CastEndTime = CastEndTime;
+	Cast.bInterruptible = bInterruptible;
+	Cast.ElapsedTicks = ElapsedTicks;
+	return Cast;
+}

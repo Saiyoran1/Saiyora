@@ -109,8 +109,8 @@ bool UResourceHandler::CheckAbilityCostsMet(UCombatAbility* Ability, TArray<FAbi
 	return true;
 }
 
-void UResourceHandler::AuthCommitAbilityCosts(UCombatAbility* Ability, int32 const PredictionID,
-	TArray<FAbilityCost> const& Costs)
+void UResourceHandler::CommitAbilityCosts(UCombatAbility* Ability, TArray<FAbilityCost> const& Costs,
+	int32 const PredictionID)
 {
 	for (FAbilityCost const& Cost : Costs)
 	{
