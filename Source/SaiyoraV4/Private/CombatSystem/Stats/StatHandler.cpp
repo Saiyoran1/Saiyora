@@ -25,7 +25,7 @@ void UStatHandler::BeginPlay()
 		{
 			//Setup a restriction on buffs that modify stats that this component has determined can not be modified.
 			FBuffEventCondition BuffStatModCondition;
-			BuffStatModCondition.BindUFunction(this, FName(TEXT("CheckBuffStatMods")));
+			BuffStatModCondition.BindDynamic(this, &UStatHandler::CheckBuffStatMods);
 			BuffHandler->AddIncomingBuffRestriction(BuffStatModCondition);
 		}
 	}
@@ -401,7 +401,7 @@ FStatInfo const* UStatHandler::GetStatInfoConstPtr(FGameplayTag const& StatTag) 
 	return StatInfo.Find(StatTag);
 }
 
-bool UStatHandler::CheckBuffStatMods(FBuffApplyEvent const& BuffEvent) const
+bool UStatHandler::CheckBuffStatMods(FBuffApplyEvent const& BuffEvent)
 {
 	if (!IsValid(BuffEvent.BuffClass))
 	{

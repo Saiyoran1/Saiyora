@@ -66,25 +66,25 @@ void UAbilityHandler::BeginPlay()
 		if (IsValid(StatHandler))
 		{
 			FAbilityModCondition StatCooldownMod;
-			StatCooldownMod.BindUFunction(this, FName(TEXT("ModifyCooldownFromStat")));
+			StatCooldownMod.BindDynamic(this, &UAbilityHandler::ModifyCooldownFromStat);
 			AddCooldownModifier(StatCooldownMod);
 			FAbilityModCondition StatGlobalCooldownMod;
-			StatGlobalCooldownMod.BindUFunction(this, FName(TEXT("ModifyGlobalCooldownFromStat")));
+			StatGlobalCooldownMod.BindDynamic(this, &UAbilityHandler::ModifyGlobalCooldownFromStat);
 			AddGlobalCooldownModifier(StatGlobalCooldownMod);
 			FAbilityModCondition StatCastLengthMod;
-			StatCastLengthMod.BindUFunction(this, FName(TEXT("ModifyCastLengthFromStat")));
+			StatCastLengthMod.BindDynamic(this, &UAbilityHandler::ModifyCastLengthFromStat);
 			AddCastLengthModifier(StatCastLengthMod);
 		}
 		if (IsValid(DamageHandler))
 		{
 			FLifeStatusCallback DeathCallback;
-			DeathCallback.BindUFunction(this, FName(TEXT("InterruptCastOnDeath")));
+			DeathCallback.BindDynamic(this, &UAbilityHandler::InterruptCastOnDeath);
 			DamageHandler->SubscribeToLifeStatusChanged(DeathCallback);
 		}
 		if (IsValid(CrowdControlHandler))
 		{
 			FCrowdControlCallback CcCallback;
-			CcCallback.BindUFunction(this, FName(TEXT("InterruptCastOnCrowdControl")));
+			CcCallback.BindDynamic(this, &UAbilityHandler::InterruptCastOnCrowdControl);
 			CrowdControlHandler->SubscribeToCrowdControlChanged(CcCallback);
 		}
 		for (TSubclassOf<UCombatAbility> const AbilityClass : DefaultAbilities)
@@ -224,8 +224,7 @@ void UAbilityHandler::RemoveAbility(TSubclassOf<UCombatAbility> const AbilityCla
 	ActiveAbilities.RemoveSingleSwap(AbilityToRemove);
 	OnAbilityRemoved.Broadcast(AbilityToRemove);
 	FTimerHandle RemovalHandle;
-	FTimerDelegate RemovalDelegate;
-	RemovalDelegate.BindUFunction(this, FName(TEXT("CleanupRemovedAbility")), AbilityToRemove);
+	FTimerDelegate const RemovalDelegate = FTimerDelegate::CreateUObject(this, &UAbilityHandler::CleanupRemovedAbility, AbilityToRemove);
 	GetWorld()->GetTimerManager().SetTimer(RemovalHandle, RemovalDelegate, 1.0f, false);
 }
 
@@ -585,19 +584,17 @@ void UAbilityHandler::AuthStartCast(UCombatAbility* Ability, bool const bPredict
 	}
 	CastingState.CastEndTime = CastingState.CastStartTime + CastLength;
 	CastingState.bInterruptible = Ability->GetInterruptible();
-	FTimerDelegate CastDelegate;
-	CastDelegate.BindUFunction(this, FName(TEXT("CompleteCast")));
-	GetWorld()->GetTimerManager().SetTimer(CastHandle, CastDelegate, CastingState.CastEndTime - GameStateRef->GetServerWorldTimeSeconds(), false);
-	FTimerDelegate TickDelegate;
+	GetWorld()->GetTimerManager().SetTimer(CastHandle, this, &UAbilityHandler::CompleteCast, CastLength, false);
 	if (bPredicted)
 	{
-		TickDelegate.BindUFunction(this, FName(TEXT("AuthTickPredictedCast")));
+		GetWorld()->GetTimerManager().SetTimer(TickHandle, this, &UAbilityHandler::AuthTickPredictedCast,
+			(CastLength / Ability->GetNumberOfTicks()), true);
 	}
 	else
 	{
-		TickDelegate.BindUFunction(this, FName(TEXT("TickCurrentAbility")));
+		GetWorld()->GetTimerManager().SetTimer(TickHandle, this, &UAbilityHandler::TickCurrentAbility,
+			(CastLength / Ability->GetNumberOfTicks()), true);
 	}
-	GetWorld()->GetTimerManager().SetTimer(TickHandle, TickDelegate, (CastingState.CastEndTime - CastingState.CastStartTime) / Ability->GetNumberOfTicks(), true);
 	OnCastStateChanged.Broadcast(PreviousState, CastingState);
 }
 
@@ -988,9 +985,7 @@ void UAbilityHandler::AuthStartGlobal(UCombatAbility* Ability, bool const bPredi
 		GlobalLength = FMath::Max(MinimumGlobalCooldownLength, GlobalLength - PingCompensation);
 	}
 	GlobalCooldownState.EndTime = GlobalCooldownState.StartTime + GlobalLength;
-	FTimerDelegate GCDDelegate;
-	GCDDelegate.BindUFunction(this, FName(TEXT("EndGlobalCooldown")));
-	GetWorld()->GetTimerManager().SetTimer(GlobalCooldownHandle, GCDDelegate, GlobalCooldownState.EndTime - GameStateRef->GetServerWorldTimeSeconds(), false);
+	GetWorld()->GetTimerManager().SetTimer(GlobalCooldownHandle, this, &UAbilityHandler::EndGlobalCooldown, GlobalLength, false);
 	OnGlobalCooldownChanged.Broadcast(PreviousGlobal, GlobalCooldownState);
 }
 
@@ -1571,9 +1566,7 @@ void UAbilityHandler::UpdatePredictedGlobalFromServer(FServerAbilityResult const
 	GlobalCooldownState.StartTime = ServerResult.ClientStartTime;
 	GlobalCooldownState.EndTime = GlobalCooldownState.StartTime + ServerResult.GlobalLength;
 	GetWorld()->GetTimerManager().ClearTimer(GlobalCooldownHandle);
-	FTimerDelegate GlobalDelegate;
-	GlobalDelegate.BindUFunction(this, FName(TEXT("EndGlobalCooldown")));
-	GetWorld()->GetTimerManager().SetTimer(GlobalCooldownHandle, GlobalDelegate, GlobalCooldownState.EndTime - GameStateRef->GetServerWorldTimeSeconds(), false);
+	GetWorld()->GetTimerManager().SetTimer(GlobalCooldownHandle, this, &UAbilityHandler::EndGlobalCooldown, GlobalCooldownState.EndTime - GameStateRef->GetServerWorldTimeSeconds(), false);
 	OnGlobalCooldownChanged.Broadcast(PreviousState, GlobalCooldownState);
 }
 #pragma endregion
@@ -1620,13 +1613,9 @@ void UAbilityHandler::UpdatePredictedCastFromServer(FServerAbilityResult const& 
 	GetWorld()->GetTimerManager().ClearTimer(TickHandle);
 
 	//Set new handles for predicting the cast end and predicting the next tick.
-	FTimerDelegate CastDelegate;
-	CastDelegate.BindUFunction(this, FName(TEXT("CompleteCast")));
-	GetWorld()->GetTimerManager().SetTimer(CastHandle, CastDelegate, CastingState.CastEndTime - GameStateRef->GetServerWorldTimeSeconds(), false);
-	FTimerDelegate TickDelegate;
-	TickDelegate.BindUFunction(this, FName(TEXT("PredictAbilityTick")));
+	GetWorld()->GetTimerManager().SetTimer(CastHandle, this, &UAbilityHandler::CompleteCast, CastingState.CastEndTime - GameStateRef->GetServerWorldTimeSeconds(), false);
 	//First iteration of the tick timer will get time remaining until the next tick (to account for travel time). Subsequent ticks use regular interval.
-	GetWorld()->GetTimerManager().SetTimer(TickHandle, TickDelegate, TickInterval, true,
+	GetWorld()->GetTimerManager().SetTimer(TickHandle, this, &UAbilityHandler::PredictAbilityTick, TickInterval, true,
 		(CastingState.CastStartTime + (TickInterval * (CastingState.ElapsedTicks + 1))) - GameStateRef->GetServerWorldTimeSeconds());
 
 	//Immediately perform the last missed tick if one happened during the wait time between ability prediction and confirmation.
@@ -1877,9 +1866,7 @@ void UAbilityHandler::ClearQueue()
 
 void UAbilityHandler::SetQueueExpirationTimer()
 {
-	FTimerDelegate QueueExpirationDelegate;
-	QueueExpirationDelegate.BindUFunction(this, FName(TEXT("ClearQueue")));
-	GetWorld()->GetTimerManager().SetTimer(QueueClearHandle, QueueExpirationDelegate, AbilityQueWindowSec, false);
+	GetWorld()->GetTimerManager().SetTimer(QueueClearHandle, this, &UAbilityHandler::ClearQueue, AbilityQueWindowSec, false);
 }
 
 void UAbilityHandler::CheckForQueuedAbilityOnGlobalEnd()

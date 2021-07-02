@@ -108,9 +108,7 @@ void UDamageOverTimeFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
     }
     if (DamageInterval > 0.0f)
     {
-        FTimerDelegate TickDelegate;
-        TickDelegate.BindUFunction(this, FName(TEXT("TickDamage")));
-        GetWorld()->GetTimerManager().SetTimer(TickHandle, TickDelegate, DamageInterval, true);
+        GetWorld()->GetTimerManager().SetTimer(TickHandle, this, &UDamageOverTimeFunction::TickDamage, DamageInterval, true);
     }
 }
 
@@ -205,9 +203,7 @@ void UHealingOverTimeFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
     }
     if (HealingInterval > 0.0f)
     {
-        FTimerDelegate TickDelegate;
-        TickDelegate.BindUFunction(this, FName(TEXT("TickHealing")));
-        GetWorld()->GetTimerManager().SetTimer(TickHandle, TickDelegate, HealingInterval, true);
+        GetWorld()->GetTimerManager().SetTimer(TickHandle, this, &UHealingOverTimeFunction::TickHealing, HealingInterval, true);
     }
 }
 

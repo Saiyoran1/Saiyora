@@ -58,8 +58,7 @@ void UBuffHandler::RemoveBuff(FBuffRemoveEvent& RemoveEvent)
 		//This is to allow replication one last time (replicating the remove event).
 		RecentlyRemoved.Add(RemoveEvent.RemovedBuff);
 		FTimerHandle RemoveTimer;
-		FTimerDelegate RemoveDel;
-		RemoveDel.BindUFunction(this, FName(TEXT("PostRemoveCleanup")), RemoveEvent.RemovedBuff);
+		FTimerDelegate const RemoveDel = FTimerDelegate::CreateUObject(this, &UBuffHandler::PostRemoveCleanup, RemoveEvent.RemovedBuff);
 		GetWorld()->GetTimerManager().SetTimer(RemoveTimer, RemoveDel, 1.0f, false);
 	}
 }

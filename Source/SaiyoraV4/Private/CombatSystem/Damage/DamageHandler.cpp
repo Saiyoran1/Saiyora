@@ -50,31 +50,31 @@ void UDamageHandler::BeginPlay()
 				UpdateMaxHealth(StatHandler->GetStatValue(MaxHealthStatTag()));
 
 				FStatCallback MaxHealthStatCallback;
-				MaxHealthStatCallback.BindUFunction(this, FName(TEXT("ReactToMaxHealthStat")));
+				MaxHealthStatCallback.BindDynamic(this, &UDamageHandler::ReactToMaxHealthStat);
 				StatHandler->SubscribeToStatChanged(MaxHealthStatTag(), MaxHealthStatCallback);
 			}
 			if (StatHandler->GetStatValid(DamageDoneStatTag()))
 			{
 				FDamageModCondition DamageDoneModFromStat;
-				DamageDoneModFromStat.BindUFunction(this, FName(TEXT("ModifyDamageDoneFromStat")));
+				DamageDoneModFromStat.BindDynamic(this, &UDamageHandler::ModifyDamageDoneFromStat);
 				AddOutgoingDamageModifier(DamageDoneModFromStat);
 			}
 			if (StatHandler->GetStatValid(DamageTakenStatTag()))
 			{
 				FDamageModCondition DamageTakenModFromStat;
-				DamageTakenModFromStat.BindUFunction(this, FName(TEXT("ModifyDamageTakenFromStat")));
+				DamageTakenModFromStat.BindDynamic(this, &UDamageHandler::ModifyDamageTakenFromStat);
 				AddIncomingDamageModifier(DamageTakenModFromStat);
 			}
 			if (StatHandler->GetStatValid(HealingDoneStatTag()))
 			{
 				FHealingModCondition HealingDoneModFromStat;
-				HealingDoneModFromStat.BindUFunction(this, FName(TEXT("ModifyHealingDoneFromStat")));
+				HealingDoneModFromStat.BindDynamic(this, &UDamageHandler::ModifyHealingDoneFromStat);
 				AddOutgoingHealingModifier(HealingDoneModFromStat);
 			}
 			if (StatHandler->GetStatValid(HealingTakenStatTag()))
 			{
 				FHealingModCondition HealingTakenModFromStat;
-				HealingTakenModFromStat.BindUFunction(this, FName(TEXT("ModifyHealingTakenFromStat")));
+				HealingTakenModFromStat.BindDynamic(this, &UDamageHandler::ModifyHealingTakenFromStat);
 				AddIncomingHealingModifier(HealingTakenModFromStat);
 			}
 		}
@@ -85,28 +85,28 @@ void UDamageHandler::BeginPlay()
 			if (!CanEverDealDamage())
 			{
 				FBuffEventCondition DamageBuffRestriction;
-				DamageBuffRestriction.BindUFunction(this, FName(TEXT("RestrictDamageBuffs")));
+				DamageBuffRestriction.BindDynamic(this, &UDamageHandler::RestrictDamageBuffs);
 				BuffHandler->AddOutgoingBuffRestriction(DamageBuffRestriction);
 			}
 
 			if (!CanEverReceiveDamage())
 			{
 				FBuffEventCondition DamageBuffRestriction;
-				DamageBuffRestriction.BindUFunction(this, FName(TEXT("RestrictDamageBuffs")));
+				DamageBuffRestriction.BindDynamic(this, &UDamageHandler::RestrictDamageBuffs);
 				BuffHandler->AddIncomingBuffRestriction(DamageBuffRestriction);
 			}
 
 			if (!CanEverDealHealing())
 			{
 				FBuffEventCondition HealingBuffRestriction;
-				HealingBuffRestriction.BindUFunction(this, FName(TEXT("RestrictHealingBuffs")));
+				HealingBuffRestriction.BindDynamic(this, &UDamageHandler::RestrictHealingBuffs);
 				BuffHandler->AddOutgoingBuffRestriction(HealingBuffRestriction);
 			}
 
 			if (!CanEverReceiveHealing())
 			{
 				FBuffEventCondition HealingBuffRestriction;
-				HealingBuffRestriction.BindUFunction(this, FName(TEXT("RestrictHealingBuffs")));
+				HealingBuffRestriction.BindDynamic(this, &UDamageHandler::RestrictHealingBuffs);
 				BuffHandler->AddIncomingBuffRestriction(HealingBuffRestriction);
 			}
 		}

@@ -19,7 +19,7 @@ void UCrowdControlHandler::InitializeComponent()
 	if (GetOwnerRole() == ROLE_Authority)
 	{
 		FCrowdControlRestriction ImmunityRestriction;
-		ImmunityRestriction.BindUFunction(this, FName(TEXT("RestrictImmunedCrowdControls")));
+		ImmunityRestriction.BindDynamic(this, &UCrowdControlHandler::RestrictImmunedCrowdControls);
 		AddCrowdControlRestriction(ImmunityRestriction);
 	}
 }

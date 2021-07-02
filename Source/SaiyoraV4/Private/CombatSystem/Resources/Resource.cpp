@@ -45,7 +45,7 @@ void UResource::AuthInitializeResource(UResourceHandler* NewHandler, UStatHandle
         if (IsValid(StatHandler))
         {
             FStatCallback MinStatBind;
-            MinStatBind.BindUFunction(this, FName(TEXT("UpdateMinimumFromStatBind")));
+            MinStatBind.BindDynamic(this, &UResource::UpdateMinimumFromStatBind);
             StatHandler->SubscribeToStatChanged(MinimumBindStat, MinStatBind);
             //Manually set the minimum with the initial stat value.
             float const StatValue = StatHandler->GetStatValue(MinimumBindStat);
@@ -68,7 +68,7 @@ void UResource::AuthInitializeResource(UResourceHandler* NewHandler, UStatHandle
         if (IsValid(StatHandler))
         {
             FStatCallback MaxStatBind;
-            MaxStatBind.BindUFunction(this, FName(TEXT("UpdateMaximumFromStatBind")));
+            MaxStatBind.BindDynamic(this, &UResource::UpdateMaximumFromStatBind);
             StatHandler->SubscribeToStatChanged(MaximumBindStat, MaxStatBind);
             //Manually set the maximum with the initial stat value.
             float const StatValue = StatHandler->GetStatValue(MaximumBindStat);

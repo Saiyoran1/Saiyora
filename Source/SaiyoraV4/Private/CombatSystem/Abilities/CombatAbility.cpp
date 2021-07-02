@@ -231,15 +231,13 @@ void UCombatAbility::RecalculatePredictedCooldown()
 
 void UCombatAbility::StartCooldown(bool const bFromPrediction)
 {
-    FTimerDelegate CooldownDelegate;
-    CooldownDelegate.BindUFunction(this, FName(TEXT("CompleteCooldown")));
     float CooldownLength = GetHandler()->CalculateAbilityCooldown(this);
     if (bFromPrediction)
     {
         float const PingCompensation = bFromPrediction ? FMath::Clamp(USaiyoraCombatLibrary::GetActorPing(GetHandler()->GetOwner()), 0.0f, UAbilityHandler::MaxPingCompensation) : 0.0f;
         CooldownLength = FMath::Max(UAbilityHandler::MinimumCooldownLength, CooldownLength - PingCompensation);
     }
-    GetWorld()->GetTimerManager().SetTimer(CooldownHandle, CooldownDelegate, CooldownLength, false);
+    GetWorld()->GetTimerManager().SetTimer(CooldownHandle, this, &UCombatAbility::CompleteCooldown, CooldownLength, false);
     AbilityCooldown.OnCooldown = true;
     AbilityCooldown.CooldownStartTime = OwningComponent->GetGameStateRef()->GetServerWorldTimeSeconds();
     AbilityCooldown.CooldownEndTime = AbilityCooldown.CooldownStartTime + CooldownLength;

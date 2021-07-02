@@ -27,11 +27,8 @@ public:
 	static const float MinimumCooldownLength;
 	static const float AbilityQueWindowSec;
 	static const float MaxPingCompensation;
-	//static const FGameplayTag CastLengthStatTag;
 	static FGameplayTag CastLengthStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.CastLength")), false); }
-	//static const FGameplayTag GlobalCooldownLengthStatTag;
 	static FGameplayTag GlobalCooldownLengthStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.GlobalCooldownLength")), false); }
-	//static const FGameplayTag CooldownLengthStatTag;
 	static FGameplayTag CooldownLengthStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.CooldownLength")), false); }
 	
 	UAbilityHandler();

@@ -60,7 +60,7 @@ private:
 	FStatInfo const* GetStatInfoConstPtr(FGameplayTag const& StatTag) const;
 
 	UFUNCTION()
-	bool CheckBuffStatMods(FBuffApplyEvent const& BuffEvent) const;
+	bool CheckBuffStatMods(FBuffApplyEvent const& BuffEvent);
 	
 	UPROPERTY(EditAnywhere, Category = "Stat")
 	UDataTable* InitialStats;

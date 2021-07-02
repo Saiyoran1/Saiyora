@@ -251,8 +251,7 @@ void UResourceHandler::RemoveResource(TSubclassOf<UResource> const ResourceClass
     		OnResourceRemoved.Broadcast(Resource);
     		RecentlyRemovedResources.Add(Resource);
 			FTimerHandle RemovalHandle;
-			FTimerDelegate RemovalDelegate;
-           	RemovalDelegate.BindUFunction(this, FName(TEXT("FinishRemoveResource")), Resource);
+			FTimerDelegate const RemovalDelegate = FTimerDelegate::CreateUObject(this, &UResourceHandler::FinishRemoveResource, Resource);
            	GetWorld()->GetTimerManager().SetTimer(RemovalHandle, RemovalDelegate, 1.0f, false);
     	}
 	}
