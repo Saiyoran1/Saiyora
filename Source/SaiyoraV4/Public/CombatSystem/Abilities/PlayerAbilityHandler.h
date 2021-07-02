@@ -94,6 +94,7 @@ private:
 
 	void PredictStartCast(UCombatAbility* Ability, int32 const PredictionID);
 	void StartCast(UCombatAbility* Ability, int32 const PredictionID);
+	void EndCast();
 	UFUNCTION()
 	void CompleteCast();
 	UFUNCTION()
@@ -101,6 +102,14 @@ private:
 	FPredictedCastingState CastingState;
 	FTimerHandle CastHandle;
 	FTimerHandle TickHandle;
+	UFUNCTION(NetMulticast, Unreliable)
+	void BroadcastAbilityTick(FCastEvent const& TickEvent, FCombatParameters const& BroadcastParams);
+	UFUNCTION(NetMulticast, Unreliable)
+	void BroadcastAbilityComplete(FCastEvent const& CompletionEvent);
+	UFUNCTION(NetMulticast, Unreliable)
+	void BroadcastAbilityCancel(FCancelEvent const& CancelEvent, FCombatParameters const& BroadcastParams);
+	UFUNCTION(NetMulticast, Unreliable)
+	void BroadcastAbilityInterrupt(FInterruptEvent const& InterruptEvent);
 
 	//Other
 

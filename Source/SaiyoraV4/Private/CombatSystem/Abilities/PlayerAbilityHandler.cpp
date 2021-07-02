@@ -82,7 +82,22 @@ FCastEvent UPlayerAbilityHandler::UseAbility(TSubclassOf<UCombatAbility> const A
 		Failure.FailReason = FString(TEXT("Tried to use ability without being local player."));
 		return Failure;
 	}
-	return PredictUseAbility(AbilityClass, false);
+	switch (GetOwnerRole())
+	{
+		case ROLE_Authority :
+			FCastEvent Auth;
+			return Auth;//TODO: Listen Server ability usage.
+		case ROLE_AutonomousProxy :
+			return PredictUseAbility(AbilityClass, false);
+		case ROLE_SimulatedProxy :
+			FCastEvent Sim;
+			Sim.FailReason = FString(TEXT("Tried to use ability on simualted proxy."));
+			return Sim;
+		default :
+			FCastEvent Failure;
+			Failure.FailReason = FString(TEXT("Defaulted on OwnerRole during ability usage."));
+			return Failure;
+	}
 }
 
 FCastEvent UPlayerAbilityHandler::PredictUseAbility(TSubclassOf<UCombatAbility> const AbilityClass,
@@ -237,9 +252,38 @@ FCastEvent UPlayerAbilityHandler::PredictUseAbility(TSubclassOf<UCombatAbility> 
 	return Result;
 }
 
-void UPlayerAbilityHandler::ClientFailPredictedAbility_Implementation(int32, FString const& FailReason)
+void UPlayerAbilityHandler::ClientFailPredictedAbility_Implementation(int32 const PredictionID, FString const& FailReason)
 {
-	//TODO: Rollback.
+	if (GlobalCooldown.bGlobalCooldownActive && GlobalCooldown.PredictionID <= PredictionID)
+	{
+		EndGlobalCooldown();
+		GlobalCooldown.PredictionID = PredictionID;
+	}
+	if (CastingState.bIsCasting && CastingState.PredictionID <= PredictionID)
+	{
+		EndCast();
+		CastingState.PredictionID = PredictionID;
+	}
+	FClientAbilityPrediction* OriginalPrediction = UnackedAbilityPredictions.Find(PredictionID);
+	if (OriginalPrediction == nullptr)
+	{
+		//Do nothing. Replication will eventually handle things.
+		return;
+	}
+	if (IsValid(GetResourceHandler()) && !OriginalPrediction->PredictedCostClasses.Num() == 0)
+	{
+		GetResourceHandler()->RollbackFailedCosts(OriginalPrediction->PredictedCostClasses, PredictionID);
+	}
+	if (OriginalPrediction->bPredictedCharges)
+	{
+		if (IsValid(OriginalPrediction->Ability))
+		{
+			OriginalPrediction->Ability->RollbackFailedCharges(PredictionID);
+			OriginalPrediction->Ability->AbilityMisprediction(PredictionID, FailReason);
+		}
+	}
+	UnackedAbilityPredictions.Remove(PredictionID);
+	OnAbilityMispredicted.Broadcast(PredictionID, FailReason);
 }
 
 void UPlayerAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest const& AbilityRequest)
@@ -461,6 +505,95 @@ void UPlayerAbilityHandler::StartCast(UCombatAbility* Ability, int32 const Predi
 	GetWorld()->GetTimerManager().SetTimer(CastHandle, this, &UPlayerAbilityHandler::CompleteCast, CastLength, false);
 	GetWorld()->GetTimerManager().SetTimer(TickHandle, this, &UPlayerAbilityHandler::TickCast, (CastLength / Ability->GetNumberOfTicks()), true);
 	FireOnCastStateChanged(PreviousState, CastingState.ToCastingState());
+}
+
+void UPlayerAbilityHandler::EndCast()
+{
+	FCastingState const PreviousState = CastingState.ToCastingState();
+	CastingState.bIsCasting = false;
+	CastingState.CurrentCast = nullptr;
+	CastingState.bInterruptible = false;
+	CastingState.ElapsedTicks = 0;
+	CastingState.CastStartTime = 0.0f;
+	CastingState.CastEndTime = 0.0f;
+	GetWorld()->GetTimerManager().ClearTimer(CastHandle);
+	GetWorld()->GetTimerManager().ClearTimer(TickHandle);
+	FireOnCastStateChanged(PreviousState, CastingState.ToCastingState());
+	if (GetOwnerRole() == ROLE_AutonomousProxy)
+	{
+		CheckForQueuedAbilityOnCastEnd();
+	}
+}
+
+void UPlayerAbilityHandler::CompleteCast()
+{
+	FCastEvent CompletionEvent;
+    CompletionEvent.Ability = CastingState.CurrentCast;
+    CompletionEvent.ActionTaken = ECastAction::Complete;
+    CompletionEvent.Tick = CastingState.ElapsedTicks;
+    if (IsValid(CompletionEvent.Ability))
+    {
+    	CastingState.CurrentCast->CompleteCast();
+    	FireOnAbilityComplete(CastingState.CurrentCast);
+    	if (GetOwnerRole() == ROLE_Authority)
+    	{
+    		BroadcastAbilityComplete(CompletionEvent);
+    	}
+    }
+    GetWorld()->GetTimerManager().ClearTimer(CastHandle);
+    if (!GetWorld()->GetTimerManager().IsTimerActive(TickHandle))
+    {
+    	EndCast();
+    }
+}
+
+void UPlayerAbilityHandler::BroadcastAbilityTick_Implementation(FCastEvent const& TickEvent, FCombatParameters const& BroadcastParams)
+{
+	if (GetOwnerRole() == ROLE_SimulatedProxy)
+	{
+		if (IsValid(TickEvent.Ability))
+		{
+			TickEvent.Ability->SimulatedTick(TickEvent.Tick, BroadcastParams);
+			FireOnAbilityTick(TickEvent);
+		}
+	}
+}
+
+void UPlayerAbilityHandler::BroadcastAbilityComplete_Implementation(FCastEvent const& CompletionEvent)
+{
+	if (GetOwnerRole() == ROLE_SimulatedProxy)
+	{
+		if (IsValid(CompletionEvent.Ability))
+		{
+			CompletionEvent.Ability->CompleteCast();
+			FireOnAbilityComplete(CompletionEvent.Ability);
+		}
+	}
+}
+
+void UPlayerAbilityHandler::BroadcastAbilityCancel_Implementation(FCancelEvent const& CancelEvent,
+	FCombatParameters const& BroadcastParams)
+{
+	if (GetOwnerRole() == ROLE_SimulatedProxy)
+	{
+		if (IsValid(CancelEvent.CancelledAbility))
+		{
+			CancelEvent.CancelledAbility->SimulatedCancel(BroadcastParams);
+			FireOnAbilityCancelled(CancelEvent);
+		}
+	}
+}
+
+void UPlayerAbilityHandler::BroadcastAbilityInterrupt_Implementation(FInterruptEvent const& InterruptEvent)
+{
+	if (GetOwnerRole() == ROLE_SimulatedProxy)
+	{
+		if (IsValid(InterruptEvent.InterruptedAbility))
+		{
+			InterruptEvent.InterruptedAbility->InterruptCast(InterruptEvent);
+			FireOnAbilityInterrupted(InterruptEvent);
+		}
+	}
 }
 
 //OTHER STUFF
