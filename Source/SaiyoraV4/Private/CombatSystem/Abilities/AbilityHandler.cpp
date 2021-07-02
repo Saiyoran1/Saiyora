@@ -16,6 +16,11 @@
 const float UAbilityHandler::MinimumGlobalCooldownLength = 0.5f;
 const float UAbilityHandler::MinimumCastLength = 0.5f;
 const float UAbilityHandler::MinimumCooldownLength = 0.5f;
+const float UAbilityHandler::AbilityQueWindowSec = 0.2f;
+const float UAbilityHandler::MaxPingCompensation = 0.2f;
+//const FGameplayTag UAbilityHandler::CastLengthStatTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.CastLength")), false);
+//const FGameplayTag UAbilityHandler::GlobalCooldownLengthStatTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.GlobalCooldownLength")), false);
+//const FGameplayTag UAbilityHandler::CooldownLengthStatTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.CooldownLength")), false);
 
 #pragma region SetupFunctions
 UAbilityHandler::UAbilityHandler()
@@ -27,6 +32,8 @@ UAbilityHandler::UAbilityHandler()
 void UAbilityHandler::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME_CONDITION(UAbilityHandler, CastingState, COND_SkipOwner);
 }
 
 bool UAbilityHandler::ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags)
@@ -42,7 +49,7 @@ void UAbilityHandler::BeginPlay()
 {
 	Super::BeginPlay();
 	
-	GameStateRef = GetWorld()->GetGameState();
+	GameStateRef = GetWorld()->GetGameState<ASaiyoraGameState>();
 	if (!GameStateRef)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Invalid Game State Ref in Ability Component."));
@@ -59,25 +66,25 @@ void UAbilityHandler::BeginPlay()
 		if (IsValid(StatHandler))
 		{
 			FAbilityModCondition StatCooldownMod;
-			StatCooldownMod.BindDynamic(this, &UAbilityHandler::ModifyCooldownFromStat);
+			StatCooldownMod.BindUFunction(this, FName(TEXT("ModifyCooldownFromStat")));
 			AddCooldownModifier(StatCooldownMod);
 			FAbilityModCondition StatGlobalCooldownMod;
-			StatGlobalCooldownMod.BindDynamic(this, &UAbilityHandler::ModifyGlobalCooldownFromStat);
+			StatGlobalCooldownMod.BindUFunction(this, FName(TEXT("ModifyGlobalCooldownFromStat")));
 			AddGlobalCooldownModifier(StatGlobalCooldownMod);
 			FAbilityModCondition StatCastLengthMod;
-			StatCastLengthMod.BindDynamic(this, &UAbilityHandler::UAbilityHandler::ModifyCastLengthFromStat);
+			StatCastLengthMod.BindUFunction(this, FName(TEXT("ModifyCastLengthFromStat")));
 			AddCastLengthModifier(StatCastLengthMod);
 		}
 		if (IsValid(DamageHandler))
 		{
 			FLifeStatusCallback DeathCallback;
-			DeathCallback.BindDynamic(this, &UAbilityHandler::InterruptCastOnDeath);
+			DeathCallback.BindUFunction(this, FName(TEXT("InterruptCastOnDeath")));
 			DamageHandler->SubscribeToLifeStatusChanged(DeathCallback);
 		}
 		if (IsValid(CrowdControlHandler))
 		{
 			FCrowdControlCallback CcCallback;
-			CcCallback.BindDynamic(this, &UAbilityHandler::InterruptCastOnCrowdControl);
+			CcCallback.BindUFunction(this, FName(TEXT("InterruptCastOnCrowdControl")));
 			CrowdControlHandler->SubscribeToCrowdControlChanged(CcCallback);
 		}
 		for (TSubclassOf<UCombatAbility> const AbilityClass : DefaultAbilities)
@@ -131,7 +138,7 @@ FCombatModifier UAbilityHandler::ModifyCastLengthFromStat(UCombatAbility* Abilit
 
 void UAbilityHandler::InterruptCastOnDeath(ELifeStatus PreviousStatus, ELifeStatus NewStatus)
 {
-	if (GetIsCasting())
+	if (GetCastingState().bIsCasting)
 	{
 		switch (NewStatus)
 		{
@@ -141,7 +148,7 @@ void UAbilityHandler::InterruptCastOnDeath(ELifeStatus PreviousStatus, ELifeStat
 			case ELifeStatus::Alive :
 				break;
 			case ELifeStatus::Dead :
-				if (IsValid(GetCurrentCastAbility()) && !GetCurrentCastAbility()->GetCastableWhileDead())
+				if (!GetCastingState().CurrentCast->GetCastableWhileDead())
 				{
 					InterruptCurrentCast(GetOwner(), nullptr, true);
 					return;
@@ -155,9 +162,9 @@ void UAbilityHandler::InterruptCastOnDeath(ELifeStatus PreviousStatus, ELifeStat
 
 void UAbilityHandler::InterruptCastOnCrowdControl(FCrowdControlStatus const& PreviousStatus, FCrowdControlStatus const& NewStatus)
 {
-	if (GetIsCasting() && NewStatus.bActive == true)
+	if (GetCastingState().bIsCasting && NewStatus.bActive == true)
 	{
-		if (IsValid(GetCurrentCastAbility()) && GetCurrentCastAbility()->GetRestrictedCrowdControls().Contains(NewStatus.CrowdControlClass))
+		if (GetCastingState().CurrentCast->GetRestrictedCrowdControls().Contains(NewStatus.CrowdControlClass))
 		{
 			InterruptCurrentCast(GetOwner(), nullptr, true);
 		}
@@ -218,7 +225,7 @@ void UAbilityHandler::RemoveAbility(TSubclassOf<UCombatAbility> const AbilityCla
 	OnAbilityRemoved.Broadcast(AbilityToRemove);
 	FTimerHandle RemovalHandle;
 	FTimerDelegate RemovalDelegate;
-	RemovalDelegate.BindUObject(this, &UAbilityHandler::CleanupRemovedAbility, AbilityToRemove);
+	RemovalDelegate.BindUFunction(this, FName(TEXT("CleanupRemovedAbility")), AbilityToRemove);
 	GetWorld()->GetTimerManager().SetTimer(RemovalHandle, RemovalDelegate, 1.0f, false);
 }
 
@@ -251,44 +258,26 @@ UCombatAbility* UAbilityHandler::FindActiveAbility(TSubclassOf<UCombatAbility> c
 	return nullptr;
 }
 
-bool UAbilityHandler::GetIsCasting() const
-{
-	return false;
-}
-
 float UAbilityHandler::GetCurrentCastLength() const
 {
-	return -1.0f;
+	return CastingState.bIsCasting && CastingState.CastEndTime != 0.0 ?
+		FMath::Max(0.0f, CastingState.CastEndTime - CastingState.CastStartTime) : 0.0f;
 }
 
 float UAbilityHandler::GetCastTimeRemaining() const
 {
-	return -1.0f;
-}
-
-bool UAbilityHandler::GetIsInterruptible() const
-{
-	return false;
-}
-
-UCombatAbility* UAbilityHandler::GetCurrentCastAbility() const
-{
-	return nullptr;
-}
-
-bool UAbilityHandler::GetGlobalCooldownActive() const
-{
-	return false;
+	return FMath::Max(GetWorld()->GetTimerManager().GetTimerRemaining(CastHandle), 0.0f);
 }
 
 float UAbilityHandler::GetGlobalCooldownTimeRemaining() const
 {
-	return -1.0f;
+	return FMath::Max(GetWorld()->GetTimerManager().GetTimerRemaining(GlobalCooldownHandle), 0.0f);
 }
 
 float UAbilityHandler::GetCurrentGlobalCooldownLength() const
 {
-	return -1.0f;
+	return GlobalCooldownState.bGlobalCooldownActive && GlobalCooldownState.EndTime != 0.0f ?
+		FMath::Max(0.0f, GlobalCooldownState.EndTime - GlobalCooldownState.StartTime) : 0.0f;
 }
 
 void UAbilityHandler::AddAbilityRestriction(FAbilityRestriction const& Restriction)
@@ -471,34 +460,22 @@ void UAbilityHandler::UnsubscribeFromGlobalCooldownChanged(FGlobalCooldownCallba
 	OnGlobalCooldownChanged.Remove(Callback);
 }
 
-void UAbilityHandler::FireOnAbilityTick(FCastEvent const& CastEvent)
+void UAbilityHandler::SubscribeToAbilityMispredicted(FAbilityMispredictionCallback const& Callback)
 {
-	OnAbilityTick.Broadcast(CastEvent);
+	if (GetOwnerRole() != ROLE_AutonomousProxy || !Callback.IsBound())
+	{
+		return;
+	}
+	OnAbilityMispredicted.AddUnique(Callback);
 }
 
-void UAbilityHandler::FireOnAbilityComplete(UCombatAbility* Ability)
+void UAbilityHandler::UnsubscribeFromAbilityMispredicted(FAbilityMispredictionCallback const& Callback)
 {
-	OnAbilityComplete.Broadcast(Ability);
-}
-
-void UAbilityHandler::FireOnAbilityCancelled(FCancelEvent const& CancelEvent)
-{
-	OnAbilityCancelled.Broadcast(CancelEvent);
-}
-
-void UAbilityHandler::FireOnAbilityInterrupted(FInterruptEvent const& InterruptEvent)
-{
-	OnAbilityInterrupted.Broadcast(InterruptEvent);
-}
-
-void UAbilityHandler::FireOnCastStateChanged(FCastingState const& Previous, FCastingState const& New)
-{
-	OnCastStateChanged.Broadcast(Previous, New);
-}
-
-void UAbilityHandler::FireOnGlobalCooldownChanged(FGlobalCooldown const& Previous, FGlobalCooldown const& New)
-{
-	OnGlobalCooldownChanged.Broadcast(Previous, New);
+	if (GetOwnerRole() != ROLE_AutonomousProxy || !Callback.IsBound())
+	{
+		return;
+	}
+	OnAbilityMispredicted.Remove(Callback);
 }
 
 void UAbilityHandler::BroadcastAbilityComplete_Implementation(FCastEvent const& CastEvent)
@@ -932,7 +909,7 @@ void UAbilityHandler::RemoveCooldownModifier(FAbilityModCondition const& Modifie
 	CooldownLengthMods.RemoveSingleSwap(Modifier);
 }
 
-float UAbilityHandler::CalculateCooldownLength(UCombatAbility* Ability)
+float UAbilityHandler::CalculateAbilityCooldown(UCombatAbility* Ability)
 {
 	float CooldownLength = Ability->GetDefaultCooldown();
 	if (!Ability->GetHasStaticCooldown())
@@ -1040,7 +1017,19 @@ void UAbilityHandler::EndGlobalCooldown()
 FCastEvent UAbilityHandler::UseAbility(TSubclassOf<UCombatAbility> const AbilityClass)
 {
 	FCastEvent Result;
-	return Result;
+	switch (GetOwnerRole())
+	{
+	case ROLE_Authority :
+		return AuthUseAbility(AbilityClass);
+	case ROLE_AutonomousProxy :
+		return PredictUseAbility(AbilityClass, false);
+	case ROLE_SimulatedProxy :
+		Result.FailReason = FString(TEXT("Tried to use ability from simulated proxy."));
+		return Result;
+	default :
+		Result.FailReason = FString(TEXT("GetOwnerRole defaulted."));
+		return Result;
+	}
 }
 
 FCastEvent UAbilityHandler::AuthUseAbility(TSubclassOf<UCombatAbility> const AbilityClass)
@@ -1134,7 +1123,7 @@ FCastEvent UAbilityHandler::AuthUseAbility(TSubclassOf<UCombatAbility> const Abi
 	
 	if (Costs.Num() > 0 && IsValid(ResourceHandler))
 	{
-		ResourceHandler->CommitAbilityCosts(Result.Ability, Result.PredictionID, Costs);
+		ResourceHandler->AuthCommitAbilityCosts(Result.Ability, Result.PredictionID, Costs);
 	}
 
 	FCombatParameters BroadcastParams;
@@ -1441,7 +1430,7 @@ void UAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest const&
 
 	if (Costs.Num() > 0 && IsValid(ResourceHandler))
 	{
-		ResourceHandler->CommitAbilityCosts(Result.Ability, Result.PredictionID, Costs);
+		ResourceHandler->AuthCommitAbilityCosts(Result.Ability, Result.PredictionID, Costs);
 		ServerResult.AbilityCosts = Costs;
 	}
 

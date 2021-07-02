@@ -15,7 +15,7 @@ class UResourceHandler;
 class UCrowdControlHandler;
 class UDamageHandler;
 
-UCLASS( ClassGroup=(Custom), Abstract, meta=(BlueprintSpawnableComponent) )
+UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class SAIYORAV4_API UAbilityHandler : public UActorComponent
 {
 	GENERATED_BODY()
@@ -25,121 +25,57 @@ public:
 	static const float MinimumGlobalCooldownLength;
 	static const float MinimumCastLength;
 	static const float MinimumCooldownLength;
+	static const float AbilityQueWindowSec;
+	static const float MaxPingCompensation;
+	//static const FGameplayTag CastLengthStatTag;
 	static FGameplayTag CastLengthStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.CastLength")), false); }
+	//static const FGameplayTag GlobalCooldownLengthStatTag;
 	static FGameplayTag GlobalCooldownLengthStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.GlobalCooldownLength")), false); }
+	//static const FGameplayTag CooldownLengthStatTag;
 	static FGameplayTag CooldownLengthStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.CooldownLength")), false); }
-
-//Setup Functions
-public:
+	
 	UAbilityHandler();
-	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void BeginPlay() override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual bool ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags) override;
-protected:
-	UDamageHandler* GetDamageHandler() const { return DamageHandler; }
-	UResourceHandler* GetResourceHandler() const { return ResourceHandler; }
-	UStatHandler* GetStatHandler() const { return StatHandler; }
-	UCrowdControlHandler* GetCrowdControlHandler() const { return CrowdControlHandler; }
-	AGameStateBase* GetGameState() const { return GameStateRef; }
-private:
-	UPROPERTY()
-	AGameStateBase* GameStateRef;
-	UPROPERTY()
-	UResourceHandler* ResourceHandler;
-	UPROPERTY()
-	UStatHandler* StatHandler;
-	UPROPERTY()
-	UCrowdControlHandler* CrowdControlHandler;
-	UPROPERTY()
-	UDamageHandler* DamageHandler;
-private:
-	UFUNCTION()
-	void InterruptCastOnDeath(ELifeStatus PreviousStatus, ELifeStatus NewStatus);
-	UFUNCTION()
-	void InterruptCastOnCrowdControl(FCrowdControlStatus const& PreviousStatus, FCrowdControlStatus const& NewStatus);
 
-//Parent Class: Ability Management
-public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
 	UCombatAbility* AddNewAbility(TSubclassOf<UCombatAbility> const AbilityClass);
+	void NotifyOfReplicatedAddedAbility(UCombatAbility* NewAbility);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
 	void RemoveAbility(TSubclassOf<UCombatAbility> const AbilityClass);
-	void NotifyOfReplicatedAddedAbility(UCombatAbility* NewAbility);
 	void NotifyOfReplicatedRemovedAbility(UCombatAbility* RemovedAbility);
-private:
 	UFUNCTION()
 	void CleanupRemovedAbility(UCombatAbility* Ability);
-public:
+
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	FCastEvent UseAbility(TSubclassOf<UCombatAbility> const AbilityClass);
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	FCancelEvent CancelCurrentCast();
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+	FInterruptEvent InterruptCurrentCast(AActor* AppliedBy, UObject* InterruptSource, bool const bIgnoreRestrictions);
+
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-	UCombatAbility* FindActiveAbility(TSubclassOf<UCombatAbility> const AbilityClass);
+    UCombatAbility* FindActiveAbility(TSubclassOf<UCombatAbility> const AbilityClass);
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
 	TArray<UCombatAbility*> GetActiveAbilities() const { return ActiveAbilities; }
-private:
-	UPROPERTY(EditAnywhere, Category = "Abilities")
-	TArray<TSubclassOf<UCombatAbility>> DefaultAbilities;
-	UPROPERTY()
-	TArray<UCombatAbility*> ActiveAbilities;
-	UPROPERTY()
-	TArray<UCombatAbility*> RecentlyRemovedAbilities;
-
-//Parent Class: Mods and Restrictions
-public:
-	UFUNCTION(BlueprintCallable, Category = "Abilities")
-	void AddAbilityRestriction(FAbilityRestriction const& Restriction);
-	UFUNCTION(BlueprintCallable, Category = "Abilities")
-	void RemoveAbilityRestriction(FAbilityRestriction const& Restriction);
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-	bool CheckAbilityRestricted(UCombatAbility* Ability);
-private:
-	TArray<FAbilityRestriction> AbilityRestrictions;
-
-public:
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
-	void AddInterruptRestriction(FInterruptRestriction const& Restriction);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
-	void RemoveInterruptRestriction(FInterruptRestriction const& Restriction);
-	bool CheckInterruptRestricted(FInterruptEvent const& InterruptEvent);
-private:
-	TArray<FInterruptRestriction> InterruptRestrictions;
-	
-public:
-	UFUNCTION(BlueprintCallable, Category = "Abilities")
-	void AddCastLengthModifier(FAbilityModCondition const& Modifier);
-	UFUNCTION(BlueprintCallable, Category = "Abilities")
-	void RemoveCastLengthModifier(FAbilityModCondition const& Modifier);
+	FCastingState GetCastingState() const { return CastingState; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-	float CalculateCastLength(UCombatAbility* Ability);
-private:
-	UFUNCTION()
-	FCombatModifier ModifyCastLengthFromStat(UCombatAbility* Ability);
-	TArray<FAbilityModCondition> CastLengthMods;
-	
-public:
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
-	void AddCooldownModifier(FAbilityModCondition const& Modifier);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
-	void RemoveCooldownModifier(FAbilityModCondition const& Modifier);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, BlueprintPure, Category = "Abilities")
-	float CalculateCooldownLength(UCombatAbility* Ability);
-private:
-	UFUNCTION()
-	FCombatModifier ModifyCooldownFromStat(UCombatAbility* Ability);
-	TArray<FAbilityModCondition> CooldownLengthMods;
-
-public:
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
-	void AddGlobalCooldownModifier(FAbilityModCondition const& Modifier);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
-	void RemoveGlobalCooldownModifier(FAbilityModCondition const& Modifier);
+	float GetCurrentCastLength() const;
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-	float CalculateGlobalCooldownLength(UCombatAbility* Ability);
-private:
-	UFUNCTION()
-	FCombatModifier ModifyGlobalCooldownFromStat(UCombatAbility* Ability);
-	TArray<FAbilityModCondition> GlobalCooldownMods;
+	FGlobalCooldown GetGlobalCooldownState() const { return GlobalCooldownState; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+	float GetCastTimeRemaining() const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+	float GetGlobalCooldownTimeRemaining() const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+	float GetCurrentGlobalCooldownLength() const;
 
-//Parent Class: Subscriptions
-public:
+	UResourceHandler* GetResourceHandlerRef() const { return ResourceHandler; }
+	UStatHandler* GetStatHandlerRef() const { return StatHandler; }
+	ASaiyoraGameState* GetGameStateRef() const { return GameStateRef; }
+
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void SubscribeToAbilityAdded(FAbilityInstanceCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
@@ -148,38 +84,153 @@ public:
 	void SubscribeToAbilityRemoved(FAbilityInstanceCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void UnsubscribeFromAbilityRemoved(FAbilityInstanceCallback const& Callback);
+
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void SubscribeToAbilityTicked(FAbilityCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void UnsubscribeFromAbilityTicked(FAbilityCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
-	void SubscribeToAbilityCompleted(FAbilityInstanceCallback const& Callback);
+    void SubscribeToAbilityCompleted(FAbilityInstanceCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
-	void UnsubscribeFromAbilityCompleted(FAbilityInstanceCallback const& Callback);
+    void UnsubscribeFromAbilityCompleted(FAbilityInstanceCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
-	void SubscribeToAbilityCancelled(FAbilityCallback const& Callback);
+    void SubscribeToAbilityCancelled(FAbilityCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
-	void UnsubscribeFromAbilityCancelled(FAbilityCallback const& Callback);
+    void UnsubscribeFromAbilityCancelled(FAbilityCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
-	void SubscribeToAbilityInterrupted(FInterruptCallback const& Callback);
+    void SubscribeToAbilityInterrupted(FInterruptCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
-	void UnsubscribeFromAbilityInterrupted(FInterruptCallback const& Callback);
+    void UnsubscribeFromAbilityInterrupted(FInterruptCallback const& Callback);
+	
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void SubscribeToCastStateChanged(FCastingStateCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void UnsubscribeFromCastStateChanged(FCastingStateCallback const& Callback);
+
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
-	void SubscribeToGlobalCooldownChanged(FGlobalCooldownCallback const& Callback);
+    void SubscribeToGlobalCooldownChanged(FGlobalCooldownCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
-	void UnsubscribeFromGlobalCooldownChanged(FGlobalCooldownCallback const& Callback);
-protected:
-	void FireOnAbilityTick(FCastEvent const& CastEvent);
-	void FireOnAbilityComplete(UCombatAbility* Ability);
-	void FireOnAbilityCancelled(FCancelEvent const& CancelEvent);
-	void FireOnAbilityInterrupted(FInterruptEvent const& InterruptEvent);
-	void FireOnCastStateChanged(FCastingState const& Previous, FCastingState const& New);
-	void FireOnGlobalCooldownChanged(FGlobalCooldown const& Previous, FGlobalCooldown const& New);
+    void UnsubscribeFromGlobalCooldownChanged(FGlobalCooldownCallback const& Callback);
+
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	void SubscribeToAbilityMispredicted(FAbilityMispredictionCallback const& Callback);
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	void UnsubscribeFromAbilityMispredicted(FAbilityMispredictionCallback const& Callback);
+
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	void AddCastLengthModifier(FAbilityModCondition const& Modifier);
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	void RemoveCastLengthModifier(FAbilityModCondition const& Modifier);
+
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+	void AddCooldownModifier(FAbilityModCondition const& Modifier);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+	void RemoveCooldownModifier(FAbilityModCondition const& Modifier);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, BlueprintPure, Category = "Abilities")
+	float CalculateAbilityCooldown(UCombatAbility* Ability);
+
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+	void AddGlobalCooldownModifier(FAbilityModCondition const& Modifier);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+	void RemoveGlobalCooldownModifier(FAbilityModCondition const& Modifier);
+
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	void AddAbilityRestriction(FAbilityRestriction const& Restriction);
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	void RemoveAbilityRestriction(FAbilityRestriction const& Restriction);
+
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+	void AddInterruptRestriction(FInterruptRestriction const& Restriction);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+	void RemoveInterruptRestriction(FInterruptRestriction const& Restriction);
+	
 private:
+
+	FCastEvent AuthUseAbility(TSubclassOf<UCombatAbility> const AbilityClass);
+	FCastEvent PredictUseAbility(TSubclassOf<UCombatAbility> const AbilityClass, bool const bFromQueue);
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerPredictAbility(FAbilityRequest const& AbilityRequest);
+	bool ServerPredictAbility_Validate(FAbilityRequest const& AbilityRequest) { return true; }
+	UFUNCTION(Client, Reliable)
+    void ClientSucceedPredictedAbility(FServerAbilityResult const& ServerResult);
+	UFUNCTION(Client, Reliable)
+	void ClientFailPredictedAbility(int32 const PredictionID, FString const& FailReason);
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerHandlePredictedTick(FAbilityRequest const& TickRequest);
+	bool ServerHandlePredictedTick_Validate(FAbilityRequest const& TickRequest) { return true; }
+	FCancelEvent AuthCancelAbility();
+	UFUNCTION(Client, Reliable)
+	void ClientInterruptCast(FInterruptEvent const& InterruptEvent);
+	FCancelEvent PredictCancelAbility();
+	UFUNCTION(Server, WithValidation, Reliable)
+	void ServerPredictCancelAbility(FCancelRequest const& CancelRequest);
+	bool ServerPredictCancelAbility_Validate(FCancelRequest const& CancelRequest) { return true; }
+	bool CheckInterruptRestricted(FInterruptEvent const& InterruptEvent);
+	TArray<FInterruptRestriction> InterruptRestrictions;
+	
+	UPROPERTY(EditAnywhere, Category = "Abilities")
+	TArray<TSubclassOf<UCombatAbility>> DefaultAbilities;
+	UPROPERTY()
+	TArray<UCombatAbility*> ActiveAbilities;
+	UPROPERTY()
+	TArray<UCombatAbility*> RecentlyRemovedAbilities;
+
+	FGlobalCooldown GlobalCooldownState;
+	FTimerHandle GlobalCooldownHandle;
+	void AuthStartGlobal(UCombatAbility* Ability, bool const bPredicted);
+	void PredictStartGlobal(int32 const PredictionID);
+	void UpdatePredictedGlobalFromServer(FServerAbilityResult const& ServerResult);
+	UFUNCTION()
+	void EndGlobalCooldown();
+	float CalculateGlobalCooldownLength(UCombatAbility* Ability);
+	TArray<FAbilityModCondition> GlobalCooldownMods;
+	UFUNCTION()
+	FCombatModifier ModifyGlobalCooldownFromStat(UCombatAbility* Ability);
+
+	UPROPERTY(ReplicatedUsing = OnRep_CastingState)
+	FCastingState CastingState;
+	FTimerHandle CastHandle;
+	FTimerHandle TickHandle;
+	UFUNCTION()
+	void OnRep_CastingState(FCastingState const& PreviousState);
+	void AuthStartCast(UCombatAbility* Ability, bool const bPredicted, int32 const PredictionID);
+	void PredictStartCast(UCombatAbility* Ability, int32 const PredictionID);
+	void UpdatePredictedCastFromServer(FServerAbilityResult const& ServerResult);
+	UFUNCTION()
+	void CompleteCast();
+	UFUNCTION()
+	void TickCurrentAbility();
+	UFUNCTION()
+    void PredictAbilityTick();
+	void PurgeExpiredPredictedTicks();
+	UFUNCTION()
+	void AuthTickPredictedCast();
+	void HandleMissedPredictedTick(int32 const TickNumber);
+	TArray<FPredictedTick> TicksAwaitingParams;
+	TMap<FPredictedTick, FCombatParameters> ParamsAwaitingTicks;
+	void EndCast();
+	float CalculateCastLength(UCombatAbility* Ability);
+	TArray<FAbilityModCondition> CastLengthMods;
+	UFUNCTION()
+	FCombatModifier ModifyCastLengthFromStat(UCombatAbility* Ability);
+
+	TArray<FAbilityModCondition> CooldownLengthMods;
+	UFUNCTION()
+	FCombatModifier ModifyCooldownFromStat(UCombatAbility* Ability);
+
+	UFUNCTION()
+	void InterruptCastOnDeath(ELifeStatus PreviousStatus, ELifeStatus NewStatus);
+	UFUNCTION()
+	void InterruptCastOnCrowdControl(FCrowdControlStatus const& PreviousStatus, FCrowdControlStatus const& NewStatus);
+
+	bool CheckAbilityRestricted(UCombatAbility* Ability);
+	TArray<FAbilityRestriction> AbilityRestrictions;
+
+	void GenerateNewPredictionID(FCastEvent& CastEvent);
+	void GenerateNewPredictionID(FCancelEvent& CancelEvent);
+	int32 ClientPredictionID = 0;
+	TMap<int32, FClientAbilityPrediction> UnackedAbilityPredictions;
+
 	FAbilityInstanceNotification OnAbilityAdded;
 	FAbilityInstanceNotification OnAbilityRemoved;
 	FAbilityNotification OnAbilityTick;
@@ -188,65 +239,7 @@ private:
 	FInterruptNotification OnAbilityInterrupted;
 	FCastingStateNotification OnCastStateChanged;
 	FGlobalCooldownNotification OnGlobalCooldownChanged;
-	
-//Child Class: Getters
-public:
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-	virtual bool GetIsCasting() const;
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-	virtual float GetCurrentCastLength() const;
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-	virtual float GetCastTimeRemaining() const;
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-	virtual bool GetIsInterruptible() const;
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-	virtual UCombatAbility* GetCurrentCastAbility() const;
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-	virtual bool GetGlobalCooldownActive() const;
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-	virtual float GetCurrentGlobalCooldownLength() const;
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-	virtual float GetGlobalCooldownTimeRemaining() const;
-
-//Child Class: Functionality
-public:
-	
-	UFUNCTION(BlueprintCallable, Category = "Abilities")
-	virtual FCastEvent UseAbility(TSubclassOf<UCombatAbility> const AbilityClass);
-	UFUNCTION(BlueprintCallable, Category = "Abilities")
-	virtual FCancelEvent CancelCurrentCast();
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
-	virtual FInterruptEvent InterruptCurrentCast(AActor* AppliedBy, UObject* InterruptSource, bool const bIgnoreRestrictions);
-
-	//End Interface (player and npc)
-
-	//Implementation details (player and npc)
-	/*
-protected:
-	FGlobalCooldown GlobalCooldownState;
-	FTimerHandle GlobalCooldownHandle;
-	void AuthStartGlobal(UCombatAbility* Ability, bool const bPredicted);
-	UFUNCTION()
-	void EndGlobalCooldown();
-	
-	
-protected:
-	UPROPERTY(ReplicatedUsing = OnRep_CastingState)
-	FCastingState CastingState;
-	FTimerHandle CastHandle;
-	FTimerHandle TickHandle;
-	UFUNCTION()
-	void OnRep_CastingState(FCastingState const& PreviousState);
-	void AuthStartCast(UCombatAbility* Ability, bool const bPredicted, int32 const PredictionID);
-	UFUNCTION()
-	void CompleteCast();
-	UFUNCTION()
-	void TickCurrentAbility();
-	void EndCast();
-private:
-	
-
-protected:
+	FAbilityMispredictionNotification OnAbilityMispredicted;
 
 	UFUNCTION(NetMulticast, Unreliable)
 	void BroadcastAbilityTick(FCastEvent const& CastEvent, FCombatParameters const& BroadcastParams);
@@ -257,8 +250,27 @@ protected:
 	UFUNCTION(NetMulticast, Unreliable)
 	void BroadcastAbilityInterrupt(FInterruptEvent const& InterruptEvent);
 
-	FCastEvent AuthUseAbility(TSubclassOf<UCombatAbility> const AbilityClass);
-	FCancelEvent AuthCancelAbility();
+	bool TryQueueAbility(TSubclassOf<UCombatAbility> const Ability);
+	UFUNCTION()
+	void ClearQueue();
+	void SetQueueExpirationTimer();
+	UPROPERTY()
+	TSubclassOf<UCombatAbility> QueuedAbility;
+	EQueueStatus QueueStatus = EQueueStatus::Empty;
+	FTimerHandle QueueClearHandle;
+	void CheckForQueuedAbilityOnGlobalEnd();
+	void CheckForQueuedAbilityOnCastEnd();
 
-*/
+protected:
+	
+	UPROPERTY()
+	ASaiyoraGameState* GameStateRef;
+	UPROPERTY()
+	UResourceHandler* ResourceHandler;
+	UPROPERTY()
+	UStatHandler* StatHandler;
+	UPROPERTY()
+	UCrowdControlHandler* CrowdControlHandler;
+	UPROPERTY()
+	UDamageHandler* DamageHandler;
 };

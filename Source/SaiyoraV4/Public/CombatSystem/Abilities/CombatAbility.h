@@ -193,7 +193,7 @@ public:
     int32 GetChargeCost() const { return ChargesPerCast; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
     bool CheckChargesMet() const;
-    void CommitCharges(int32 const PredictionID = 0);
+    void CommitCharges(int32 const PredictionID);
     void PredictCommitCharges(int32 const PredictionID);
     void RollbackFailedCharges(int32 const PredictionID);
     void UpdatePredictedChargesFromServer(FServerAbilityResult const& ServerResult);

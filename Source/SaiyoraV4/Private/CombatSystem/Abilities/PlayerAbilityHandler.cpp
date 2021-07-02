@@ -3,18 +3,14 @@
 #include "CombatSystem/Abilities/PlayerAbilityHandler.h"
 
 #include "PlayerAbilitySave.h"
+#include "SaiyoraCombatInterface.h"
 #include "SaiyoraCombatLibrary.h"
 #include "SaiyoraPlaneComponent.h"
 #include "SaiyoraPlayerCharacter.h"
 #include "GameFramework/PlayerState.h"
 #include "Kismet/GameplayStatics.h"
-#include "DamageHandler.h"
-#include "ResourceHandler.h"
-#include "CrowdControlHandler.h"
 
 const int32 UPlayerAbilityHandler::AbilitiesPerBar = 6;
-const float UPlayerAbilityHandler::AbilityQueWindowSec = 0.2f;
-const float UPlayerAbilityHandler::MaxPingCompensation = 0.2f;
 
 UPlayerAbilityHandler::UPlayerAbilityHandler()
 {
@@ -25,18 +21,10 @@ UPlayerAbilityHandler::UPlayerAbilityHandler()
 
 void UPlayerAbilityHandler::InitializeComponent()
 {
-	OwnerAsPawn = Cast<APawn>(GetOwner());
-	if (!IsValid(OwnerAsPawn))
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Owner of PlayerAbilityComponent was not a Pawn!"));
-		return;
-	}
-	bOwnerIsLocal = OwnerAsPawn->IsLocallyControlled();
 	if (GetOwnerRole() == ROLE_SimulatedProxy)
 	{
 		return;
 	}
-	/*
 	ACharacter* OwningPlayer = Cast<ACharacter>(GetOwner());
 	if (IsValid(OwningPlayer))
 	{
@@ -65,6 +53,7 @@ void UPlayerAbilityHandler::InitializeComponent()
 	FAbilityRestriction PlaneAbilityRestriction;
 	PlaneAbilityRestriction.BindUFunction(this, FName(TEXT("CheckForCorrectAbilityPlane")));
 	AddAbilityRestriction(PlaneAbilityRestriction);
+<<<<<<< HEAD
 	*/
 }
 
@@ -598,6 +587,10 @@ void UPlayerAbilityHandler::BroadcastAbilityInterrupt_Implementation(FInterruptE
 
 //OTHER STUFF
 
+=======
+}
+
+>>>>>>> parent of 56ba23a (Refactor of Ability Component)
 bool UPlayerAbilityHandler::CheckForCorrectAbilityPlane(UCombatAbility* Ability)
 {
 	if (!IsValid(Ability))
@@ -623,8 +616,6 @@ bool UPlayerAbilityHandler::CheckForCorrectAbilityPlane(UCombatAbility* Ability)
 
 void UPlayerAbilityHandler::BeginPlay()
 {
-	Super::BeginPlay();
-	/*
 	if (GetOwnerRole() == ROLE_AutonomousProxy)
 	{
 		USaiyoraPlaneComponent* PlaneComponent = ISaiyoraCombatInterface::Execute_GetPlaneComponent(GetOwner());
@@ -676,7 +667,6 @@ void UPlayerAbilityHandler::BeginPlay()
 			}
 		}
 	}
-	*/
 }
 
 void UPlayerAbilityHandler::UpdateAbilityPlane(ESaiyoraPlane const PreviousPlane, ESaiyoraPlane const NewPlane, UObject* Source)
@@ -767,22 +757,4 @@ void UPlayerAbilityHandler::UnsubscribeFromBarSwap(FBarSwapCallback const& Callb
 		return;
 	}
 	OnBarSwap.Remove(Callback);
-}
-
-void UPlayerAbilityHandler::SubscribeToAbilityMispredicted(FAbilityMispredictionCallback const& Callback)
-{
-	if (GetOwnerRole() != ROLE_AutonomousProxy || !Callback.IsBound())
-	{
-		return;
-	}
-	OnAbilityMispredicted.AddUnique(Callback);
-}
-
-void UPlayerAbilityHandler::UnsubscribeFromAbilityMispredicted(FAbilityMispredictionCallback const& Callback)
-{
-	if (GetOwnerRole() != ROLE_AutonomousProxy || !Callback.IsBound())
-	{
-		return;
-	}
-	OnAbilityMispredicted.Remove(Callback);
 }

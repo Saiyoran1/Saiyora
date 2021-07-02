@@ -91,6 +91,8 @@ struct FCastEvent
     int32 Tick = 0;
     UPROPERTY(BlueprintReadOnly)
     FString FailReason;
+    UPROPERTY()
+    int32 PredictionID = 0;
 };
 
 USTRUCT(BlueprintType)
@@ -102,41 +104,18 @@ struct FCancelEvent
     bool bSuccess = false;
     UPROPERTY(BlueprintReadOnly)
     UCombatAbility* CancelledAbility = nullptr;
-    UPROPERTY(BlueprintReadOnly)
-    float CancelledCastStart = 0.0f;
-    UPROPERTY(BlueprintReadOnly)
-    float CancelledCastEnd = 0.0f;
-    UPROPERTY(BlueprintReadOnly)
-    float CancelTime = 0.0f;
-    UPROPERTY(BlueprintReadOnly)
-    int32 ElapsedTicks = 0;
-    UPROPERTY(BlueprintReadOnly)
-    FString FailReason;
-};
-
-USTRUCT()
-struct FPredictedCancelEvent
-{
-    GENERATED_BODY()
-
-    UPROPERTY()
-    bool bSuccess = false;
-    UPROPERTY()
-    UCombatAbility* CancelledAbility = nullptr;
-    UPROPERTY()
-    float CancelledCastStart = 0.0f;
-    UPROPERTY()
-    float CancelledCastEnd = 0.0f;
-    UPROPERTY()
-    float CancelTime = 0.0f;
-    UPROPERTY()
-    int32 ElapsedTicks = 0;
-    UPROPERTY()
-    int32 CancelledCastID = 0;
     UPROPERTY()
     int32 CancelID = 0;
     UPROPERTY()
-    FString FailReason;
+    int32 CancelledCastID = 0;
+    UPROPERTY(BlueprintReadOnly)
+    float CancelledCastStart = 0.0f;
+    UPROPERTY(BlueprintReadOnly)
+    float CancelledCastEnd = 0.0f;
+    UPROPERTY(BlueprintReadOnly)
+    float CancelTime = 0.0f;
+    UPROPERTY(BlueprintReadOnly)
+    int32 ElapsedTicks = 0;
 };
 
 USTRUCT()
@@ -162,11 +141,15 @@ struct FInterruptEvent
     UPROPERTY(BlueprintReadOnly)
     bool bSuccess = false;
     UPROPERTY(BlueprintReadOnly)
+    FString FailReason;
+    UPROPERTY(BlueprintReadOnly)
     AActor* InterruptAppliedTo = nullptr;
     UPROPERTY(BlueprintReadOnly)
     AActor* InterruptAppliedBy = nullptr;
     UPROPERTY(BlueprintReadOnly)
     UCombatAbility* InterruptedAbility = nullptr;
+    UPROPERTY()
+    int32 CancelledCastID = 0;
     UPROPERTY(BlueprintReadOnly)
     UObject* InterruptSource = nullptr;
     UPROPERTY(BlueprintReadOnly)
@@ -177,37 +160,6 @@ struct FInterruptEvent
     float InterruptTime = 0.0f;
     UPROPERTY(BlueprintReadOnly)
     int32 ElapsedTicks = 0;
-    UPROPERTY(BlueprintReadOnly)
-    FString FailReason;
-};
-
-USTRUCT()
-struct FPredictedInterruptEvent
-{
-    GENERATED_BODY()
-
-    UPROPERTY()
-    bool bSuccess = false;
-    UPROPERTY()
-    AActor* InterruptAppliedTo = nullptr;
-    UPROPERTY()
-    AActor* InterruptAppliedBy = nullptr;
-    UPROPERTY()
-    UCombatAbility* InterruptedAbility = nullptr;
-    UPROPERTY()
-    UObject* InterruptSource = nullptr;
-    UPROPERTY()
-    float InterruptedCastStart = 0.0f;
-    UPROPERTY()
-    float InterruptedCastEnd = 0.0f;
-    UPROPERTY()
-    float InterruptTime = 0.0f;
-    UPROPERTY()
-    int32 ElapsedTicks = 0;
-    UPROPERTY()
-    int32 InterruptedCastID = 0;
-    UPROPERTY()
-    FString FailReason;
 };
 
 USTRUCT(BlueprintType)
@@ -217,27 +169,12 @@ struct FGlobalCooldown
 
     UPROPERTY(BlueprintReadOnly)
     bool bGlobalCooldownActive = false;
-    UPROPERTY(BlueprintReadOnly)
-    float StartTime = 0.0f;
-    UPROPERTY(BlueprintReadOnly)
-    float EndTime = 0.0f;
-};
-
-USTRUCT()
-struct FPredictedGlobalCooldown
-{
-    GENERATED_BODY()
-
-    UPROPERTY()
-    bool bGlobalCooldownActive = false;
-    UPROPERTY()
-    float StartTime = 0.0f;
-    UPROPERTY()
-    float EndTime = 0.0f;
     UPROPERTY()
     int32 PredictionID = 0;
-
-    FGlobalCooldown ToGlobalCooldown() const;
+    UPROPERTY(BlueprintReadOnly)
+    float StartTime = 0.0f;
+    UPROPERTY(BlueprintReadOnly)
+    float EndTime = 0.0f;
 };
 
 USTRUCT(BlueprintType)
@@ -249,37 +186,16 @@ struct FCastingState
     bool bIsCasting = false;
     UPROPERTY(BlueprintReadOnly)
     UCombatAbility* CurrentCast = nullptr;
-    UPROPERTY(BlueprintReadOnly)
-    float CastStartTime = 0.0f;
-    UPROPERTY(BlueprintReadOnly)
-    float CastEndTime = 0.0f;
-    UPROPERTY(BlueprintReadOnly)
-    bool bInterruptible = true;
-    UPROPERTY(BlueprintReadOnly, NotReplicated)
-    int32 ElapsedTicks = 0;
-};
-
-USTRUCT(BlueprintType)
-struct FPredictedCastingState
-{
-    GENERATED_BODY()
-
-    UPROPERTY(BlueprintReadOnly)
-    bool bIsCasting = false;
-    UPROPERTY(BlueprintReadOnly)
-    UCombatAbility* CurrentCast = nullptr;
-    UPROPERTY(BlueprintReadOnly)
-    float CastStartTime = 0.0f;
-    UPROPERTY(BlueprintReadOnly)
-    float CastEndTime = 0.0f;
-    UPROPERTY(BlueprintReadOnly)
-    bool bInterruptible = true;
-    UPROPERTY(BlueprintReadOnly, NotReplicated)
-    int32 ElapsedTicks = 0;
     UPROPERTY(NotReplicated)
     int32 PredictionID = 0;
-
-    FCastingState ToCastingState() const;
+    UPROPERTY(BlueprintReadOnly)
+    float CastStartTime = 0.0f;
+    UPROPERTY(BlueprintReadOnly)
+    float CastEndTime = 0.0f;
+    UPROPERTY(BlueprintReadOnly)
+    bool bInterruptible = true;
+    UPROPERTY(BlueprintReadOnly, NotReplicated)
+    int32 ElapsedTicks = 0;
 };
 
 USTRUCT()

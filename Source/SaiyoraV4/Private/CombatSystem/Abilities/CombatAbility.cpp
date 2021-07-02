@@ -233,7 +233,7 @@ void UCombatAbility::StartCooldown(bool const bFromPrediction)
 {
     FTimerDelegate CooldownDelegate;
     CooldownDelegate.BindUFunction(this, FName(TEXT("CompleteCooldown")));
-    float CooldownLength = GetHandler()->CalculateCooldownLength(this);
+    float CooldownLength = GetHandler()->CalculateAbilityCooldown(this);
     if (bFromPrediction)
     {
         float const PingCompensation = bFromPrediction ? FMath::Clamp(USaiyoraCombatLibrary::GetActorPing(GetHandler()->GetOwner()), 0.0f, UAbilityHandler::MaxPingCompensation) : 0.0f;

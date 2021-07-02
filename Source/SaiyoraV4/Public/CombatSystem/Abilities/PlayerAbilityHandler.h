@@ -13,6 +13,7 @@ class SAIYORAV4_API UPlayerAbilityHandler : public UAbilityHandler
 {
 	GENERATED_BODY()
 
+<<<<<<< HEAD
 	//Player Ability Handler
 	
 public:
@@ -113,6 +114,8 @@ private:
 
 	//Other
 
+=======
+>>>>>>> parent of 56ba23a (Refactor of Ability Component)
 	UPlayerAbilityHandler();
 	virtual void InitializeComponent() override;
 	virtual void BeginPlay() override;
