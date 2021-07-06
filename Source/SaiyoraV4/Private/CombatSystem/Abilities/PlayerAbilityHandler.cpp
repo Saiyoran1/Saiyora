@@ -1,14 +1,9 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "CombatSystem/Abilities/PlayerAbilityHandler.h"
-
-#include "PlayerAbilitySave.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraCombatLibrary.h"
 #include "SaiyoraPlaneComponent.h"
-#include "SaiyoraPlayerCharacter.h"
-#include "GameFramework/PlayerState.h"
-#include "Kismet/GameplayStatics.h"
 
 const int32 UPlayerAbilityHandler::AbilitiesPerBar = 6;
 
@@ -24,31 +19,6 @@ void UPlayerAbilityHandler::InitializeComponent()
 	if (GetOwnerRole() == ROLE_SimulatedProxy)
 	{
 		return;
-	}
-	ACharacter* OwningPlayer = Cast<ACharacter>(GetOwner());
-	if (IsValid(OwningPlayer))
-	{
-		PlayerStateRef = OwningPlayer->GetPlayerState();
-	}
-	if (IsValid(PlayerStateRef))
-	{
-		//TODO: Not sure PlayerName is the best way to handle this, considering I have no idea how to set it.
-		FString SaveName = PlayerStateRef->GetPlayerName();
-		SaveName.Append(TEXT("Abilities"));
-		AbilitySave = Cast<UPlayerAbilitySave>(UGameplayStatics::LoadGameFromSlot(SaveName, 0));
-	}
-	if (IsValid(AbilitySave))
-	{
-		if (GetOwnerRole() == ROLE_Authority)
-		{
-			AbilitySave->GetUnlockedAbilities(Spellbook);
-		}
-		AbilitySave->GetLastSavedLoadout(Loadout);
-	}
-	else
-	{
-		AbilitySave = NewObject<UPlayerAbilitySave>(GetOwner(), UPlayerAbilitySave::StaticClass());
-		AbilitySave->GetLastSavedLoadout(Loadout);
 	}
 	FAbilityRestriction PlaneAbilityRestriction;
 	PlaneAbilityRestriction.BindDynamic(this, &UPlayerAbilityHandler::CheckForCorrectAbilityPlane);
@@ -80,6 +50,7 @@ bool UPlayerAbilityHandler::CheckForCorrectAbilityPlane(UCombatAbility* Ability)
 
 void UPlayerAbilityHandler::BeginPlay()
 {
+	Super::BeginPlay();
 	if (GetOwnerRole() == ROLE_AutonomousProxy)
 	{
 		USaiyoraPlaneComponent* PlaneComponent = ISaiyoraCombatInterface::Execute_GetPlaneComponent(GetOwner());
@@ -105,30 +76,6 @@ void UPlayerAbilityHandler::BeginPlay()
 			FPlaneSwapCallback PlaneSwapCallback;
 			PlaneSwapCallback.BindDynamic(this, &UPlayerAbilityHandler::UpdateAbilityPlane);
 			PlaneComponent->SubscribeToPlaneSwap(PlaneSwapCallback);
-		}
-	}
-	if (GetOwnerRole() == ROLE_Authority)
-	{
-		for (TTuple<int32, TSubclassOf<UCombatAbility>> const& AbilityPair : Loadout.AncientLoadout)
-		{
-			if (Spellbook.Contains(AbilityPair.Value))
-			{
-				AddNewAbility(AbilityPair.Value);
-			}
-		}
-		for (TTuple<int32, TSubclassOf<UCombatAbility>> const& AbilityPair : Loadout.ModernLoadout)
-		{
-			if (Spellbook.Contains(AbilityPair.Value))
-			{
-				AddNewAbility(AbilityPair.Value);
-			}
-		}
-		for (TTuple<int32, TSubclassOf<UCombatAbility>> const& AbilityPair : Loadout.HiddenLoadout)
-		{
-			if (Spellbook.Contains(AbilityPair.Value))
-			{
-				AddNewAbility(AbilityPair.Value);
-			}
 		}
 	}
 }
@@ -184,7 +131,7 @@ void UPlayerAbilityHandler::LearnAbility(TSubclassOf<UCombatAbility> const NewAb
 		return;
 	}
 	Spellbook.Add(NewAbility);
-	//TODO: Spellbook delegate? Can't use TSubclassOf vars in the delegate I think.
+	OnSpellbookUpdated.Broadcast();
 }
 
 void UPlayerAbilityHandler::SubscribeToAbilityBindUpdated(FAbilityBindingCallback const& Callback)
@@ -221,4 +168,22 @@ void UPlayerAbilityHandler::UnsubscribeFromBarSwap(FBarSwapCallback const& Callb
 		return;
 	}
 	OnBarSwap.Remove(Callback);
+}
+
+void UPlayerAbilityHandler::SubscribeToSpellbookUpdated(FSpellbookCallback const& Callback)
+{
+	if (!Callback.IsBound())
+	{
+		return;
+	}
+	OnSpellbookUpdated.AddUnique(Callback);
+}
+
+void UPlayerAbilityHandler::UnsubscribeFromSpellbookUpdated(FSpellbookCallback const& Callback)
+{
+	if (!Callback.IsBound())
+	{
+		return;
+	}
+	OnSpellbookUpdated.Remove(Callback);
 }

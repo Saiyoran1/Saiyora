@@ -8,7 +8,7 @@
 
 class UPlayerAbilitySave;
 
-UCLASS()
+UCLASS(meta = (BlueprintSpawnableComponent))
 class SAIYORAV4_API UPlayerAbilityHandler : public UAbilityHandler
 {
 	GENERATED_BODY()
@@ -20,7 +20,9 @@ public:
 	UPlayerAbilityHandler();
 	virtual void InitializeComponent() override;
 	virtual void BeginPlay() override;
-
+	
+private:
+	
 	UFUNCTION()
 	void UpdateAbilityPlane(ESaiyoraPlane const PreviousPlane, ESaiyoraPlane const NewPlane, UObject* Source);
 
@@ -30,13 +32,9 @@ public:
 
 	FAbilityBindingNotification OnAbilityBindUpdated;
 	FBarSwapNotification OnBarSwap;
+	FSpellbookNotification OnSpellbookUpdated;
 
 	EActionBarType CurrentBar = EActionBarType::None;
-	
-	UPROPERTY()
-	APlayerState* PlayerStateRef;
-	UPROPERTY()
-	UPlayerAbilitySave* AbilitySave;
 
 	UFUNCTION()
 	bool CheckForCorrectAbilityPlane(UCombatAbility* Ability);
@@ -57,6 +55,10 @@ public:
 	void SubscribeToBarSwap(FBarSwapCallback const& Callback);
 	UFUNCTION(BlueprintCallable)
 	void UnsubscribeFromBarSwap(FBarSwapCallback const& Callback);
+	UFUNCTION(BlueprintCallable)
+	void SubscribeToSpellbookUpdated(FSpellbookCallback const& Callback);
+	UFUNCTION(BlueprintCallable)
+	void UnsubscribeFromSpellbookUpdated(FSpellbookCallback const& Callback);
 
 	static int32 GetAbilitiesPerBar() { return AbilitiesPerBar; }
 

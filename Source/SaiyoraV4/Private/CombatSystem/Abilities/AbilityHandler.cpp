@@ -18,9 +18,6 @@ const float UAbilityHandler::MinimumCastLength = 0.5f;
 const float UAbilityHandler::MinimumCooldownLength = 0.5f;
 const float UAbilityHandler::AbilityQueWindowSec = 0.2f;
 const float UAbilityHandler::MaxPingCompensation = 0.2f;
-//const FGameplayTag UAbilityHandler::CastLengthStatTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.CastLength")), false);
-//const FGameplayTag UAbilityHandler::GlobalCooldownLengthStatTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.GlobalCooldownLength")), false);
-//const FGameplayTag UAbilityHandler::CooldownLengthStatTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.CooldownLength")), false);
 
 #pragma region SetupFunctions
 UAbilityHandler::UAbilityHandler()
