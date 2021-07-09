@@ -217,13 +217,13 @@ public:
     void DeactivateAbility();
     void PredictedTick(int32 const TickNumber, FCombatParameters& PredictionParams);
     void ServerPredictedTick(int32 const TickNumber, FCombatParameters const& PredictionParams, FCombatParameters& BroadcastParams);
-    void ServerNonPredictedTick(int32 const TickNumber, FCombatParameters& BroadcastParams);
+    void ServerTick(int32 const TickNumber, FCombatParameters& BroadcastParams);
     void SimulatedTick(int32 const TickNumber, FCombatParameters const& BroadcastParams);
     void CompleteCast();
     void InterruptCast(FInterruptEvent const& InterruptEvent);
     void PredictedCancel(FCombatParameters& PredictionParams);
     void ServerPredictedCancel(FCombatParameters const& PredictionParams, FCombatParameters& BroadcastParams);
-    void ServerNonPredictedCancel(FCombatParameters& BroadcastParams);
+    void ServerCancel(FCombatParameters& BroadcastParams);
     void SimulatedCancel(FCombatParameters const& BroadcastParams);
     void AbilityMisprediction(int32 const PredictionID, FString const& FailReason);
 
@@ -258,7 +258,7 @@ protected:
     UFUNCTION(BlueprintNativeEvent)
     void OnServerPredictedTick(int32 const TickNumber, TArray<FCombatParameter> const& PredictionParams, TArray<FCombatParameter>& BroadcastParams);
     UFUNCTION(BlueprintNativeEvent)
-    void OnServerNonPredictedTick(int32 const TickNumber, TArray<FCombatParameter>& BroadcastParams);
+    void OnServerTick(int32 const TickNumber, TArray<FCombatParameter>& BroadcastParams);
     UFUNCTION(BlueprintNativeEvent)
     bool OnSimulatedTick(int32 const TickNumber, TArray<FCombatParameter> const& BroadcastParams);
     UFUNCTION(BlueprintNativeEvent)
@@ -270,7 +270,7 @@ protected:
     UFUNCTION(BlueprintNativeEvent)
     void OnServerPredictedCancel(TArray<FCombatParameter> const& PredictionParams, TArray<FCombatParameter>& BroadcastParams);
     UFUNCTION(BlueprintNativeEvent)
-    void OnServerNonPredictedCancel(TArray<FCombatParameter>& BroadcastParams);
+    void OnServerCancel(TArray<FCombatParameter>& BroadcastParams);
     UFUNCTION(BlueprintNativeEvent)
     void OnSimulatedCancel(TArray<FCombatParameter> const& BroadcastParams);
     UFUNCTION(BlueprintNativeEvent)

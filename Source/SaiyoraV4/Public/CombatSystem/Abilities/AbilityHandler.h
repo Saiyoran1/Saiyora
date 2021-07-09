@@ -59,15 +59,19 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
 	FCastingState GetCastingState() const { return CastingState; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-	float GetCurrentCastLength() const;
+    bool GetIsCasting() const { return CastingState.bIsCasting; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-	FGlobalCooldown GetGlobalCooldownState() const { return GlobalCooldownState; }
+	float GetCurrentCastLength() const;
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
 	float GetCastTimeRemaining() const;
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-	float GetGlobalCooldownTimeRemaining() const;
+    FGlobalCooldown GetGlobalCooldownState() const { return GlobalCooldownState; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-	float GetCurrentGlobalCooldownLength() const;
+	bool GetIsGlobalCooldownActive() const { return GlobalCooldownState.bGlobalCooldownActive; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+    float GetCurrentGlobalCooldownLength() const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+	float GetGlobalCooldownTimeRemaining() const;
 
 	UResourceHandler* GetResourceHandlerRef() const { return ResourceHandler; }
 	UStatHandler* GetStatHandlerRef() const { return StatHandler; }
@@ -119,16 +123,16 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void RemoveCastLengthModifier(FAbilityModCondition const& Modifier);
 
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void AddCooldownModifier(FAbilityModCondition const& Modifier);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void RemoveCooldownModifier(FAbilityModCondition const& Modifier);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, BlueprintPure, Category = "Abilities")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
 	float CalculateAbilityCooldown(UCombatAbility* Ability);
 
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void AddGlobalCooldownModifier(FAbilityModCondition const& Modifier);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void RemoveGlobalCooldownModifier(FAbilityModCondition const& Modifier);
 
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
@@ -155,7 +159,7 @@ private:
 	UFUNCTION(Server, Reliable, WithValidation)
 	void ServerHandlePredictedTick(FAbilityRequest const& TickRequest);
 	bool ServerHandlePredictedTick_Validate(FAbilityRequest const& TickRequest) { return true; }
-	FCancelEvent AuthCancelAbility();
+	FCancelEvent CancelAbility();
 	UFUNCTION(Client, Reliable)
 	void ClientInterruptCast(FInterruptEvent const& InterruptEvent);
 	FCancelEvent PredictCancelAbility();
@@ -174,7 +178,7 @@ private:
 
 	FGlobalCooldown GlobalCooldownState;
 	FTimerHandle GlobalCooldownHandle;
-	void AuthStartGlobal(UCombatAbility* Ability, bool const bPredicted = false);
+	void StartGlobal(UCombatAbility* Ability, bool const bPredicted = false);
 	void PredictStartGlobal(int32 const PredictionID);
 	void UpdatePredictedGlobalFromServer(FServerAbilityResult const& ServerResult);
 	UFUNCTION()
@@ -190,7 +194,7 @@ private:
 	FTimerHandle TickHandle;
 	UFUNCTION()
 	void OnRep_CastingState(FCastingState const& PreviousState);
-	void AuthStartCast(UCombatAbility* Ability, bool const bPredicted, int32 const PredictionID);
+	void StartCast(UCombatAbility* Ability, bool const bPredicted = false, int32 const PredictionID = 0);
 	void PredictStartCast(UCombatAbility* Ability, int32 const PredictionID);
 	void UpdatePredictedCastFromServer(FServerAbilityResult const& ServerResult);
 	UFUNCTION()

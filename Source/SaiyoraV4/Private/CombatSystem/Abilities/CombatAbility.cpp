@@ -325,13 +325,13 @@ void UCombatAbility::ServerPredictedTick(int32 const TickNumber, FCombatParamete
     OnServerPredictedTick(TickNumber, PredictionParams.Parameters, BroadcastParams.Parameters);
 }
 
-void UCombatAbility::ServerNonPredictedTick(int32 const TickNumber, FCombatParameters& BroadcastParams)
+void UCombatAbility::ServerTick(int32 const TickNumber, FCombatParameters& BroadcastParams)
 {
     if (GetHandler()->GetOwnerRole() != ROLE_Authority)
     {
         return;
     }
-    OnServerNonPredictedTick(TickNumber, BroadcastParams.Parameters);
+    OnServerTick(TickNumber, BroadcastParams.Parameters);
 }
 
 void UCombatAbility::SimulatedTick(int32 const TickNumber, FCombatParameters const& BroadcastParams)
@@ -372,13 +372,13 @@ void UCombatAbility::ServerPredictedCancel(FCombatParameters const& PredictionPa
     OnServerPredictedCancel(PredictionParams.Parameters, BroadcastParams.Parameters);
 }
 
-void UCombatAbility::ServerNonPredictedCancel(FCombatParameters& BroadcastParams)
+void UCombatAbility::ServerCancel(FCombatParameters& BroadcastParams)
 {
     if (GetHandler()->GetOwnerRole() != ROLE_Authority)
     {
         return;
     }
-    OnServerNonPredictedCancel(BroadcastParams.Parameters);
+    OnServerCancel(BroadcastParams.Parameters);
 }
 
 void UCombatAbility::SimulatedCancel(FCombatParameters const& BroadcastParams)
@@ -524,7 +524,7 @@ void UCombatAbility::OnPredictedTick_Implementation(int32, TArray<FCombatParamet
     return;
 }
 
-void UCombatAbility::OnServerNonPredictedTick_Implementation(int32, TArray<FCombatParameter>& BroadcastParams)
+void UCombatAbility::OnServerTick_Implementation(int32, TArray<FCombatParameter>& BroadcastParams)
 {
     return;
 }
@@ -554,7 +554,7 @@ void UCombatAbility::OnServerPredictedCancel_Implementation(TArray<FCombatParame
     return;
 }
 
-void UCombatAbility::OnServerNonPredictedCancel_Implementation(TArray<FCombatParameter>& BroadcastParams)
+void UCombatAbility::OnServerCancel_Implementation(TArray<FCombatParameter>& BroadcastParams)
 {
     return;
 }

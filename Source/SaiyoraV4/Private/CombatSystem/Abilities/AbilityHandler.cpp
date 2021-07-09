@@ -265,15 +265,15 @@ float UAbilityHandler::GetCastTimeRemaining() const
 	return FMath::Max(GetWorld()->GetTimerManager().GetTimerRemaining(CastHandle), 0.0f);
 }
 
-float UAbilityHandler::GetGlobalCooldownTimeRemaining() const
-{
-	return FMath::Max(GetWorld()->GetTimerManager().GetTimerRemaining(GlobalCooldownHandle), 0.0f);
-}
-
 float UAbilityHandler::GetCurrentGlobalCooldownLength() const
 {
 	return GlobalCooldownState.bGlobalCooldownActive && GlobalCooldownState.EndTime != 0.0f ?
-		FMath::Max(0.0f, GlobalCooldownState.EndTime - GlobalCooldownState.StartTime) : 0.0f;
+        FMath::Max(0.0f, GlobalCooldownState.EndTime - GlobalCooldownState.StartTime) : 0.0f;
+}
+
+float UAbilityHandler::GetGlobalCooldownTimeRemaining() const
+{
+	return FMath::Max(GetWorld()->GetTimerManager().GetTimerRemaining(GlobalCooldownHandle), 0.0f);
 }
 
 void UAbilityHandler::AddAbilityRestriction(FAbilityRestriction const& Restriction)
@@ -566,7 +566,7 @@ float UAbilityHandler::CalculateCastLength(UCombatAbility* Ability)
 	return CastLength;
 }
 
-void UAbilityHandler::AuthStartCast(UCombatAbility* Ability, bool const bPredicted, int32 const PredictionID)
+void UAbilityHandler::StartCast(UCombatAbility* Ability, bool const bPredicted, int32 const PredictionID)
 {
 	FCastingState const PreviousState = CastingState;
 	CastingState.bIsCasting = true;
@@ -604,12 +604,11 @@ void UAbilityHandler::TickCurrentAbility()
 	}
 	CastingState.ElapsedTicks++;
 	FCombatParameters BroadcastParams;
-	CastingState.CurrentCast->ServerNonPredictedTick(CastingState.ElapsedTicks, BroadcastParams);
+	CastingState.CurrentCast->ServerTick(CastingState.ElapsedTicks, BroadcastParams);
 	FCastEvent TickEvent;
 	TickEvent.Ability = CastingState.CurrentCast;
 	TickEvent.Tick = CastingState.ElapsedTicks;
 	TickEvent.ActionTaken = ECastAction::Tick;
-	TickEvent.PredictionID = CastingState.PredictionID;
 	OnAbilityTick.Broadcast(TickEvent);
 	BroadcastAbilityTick(TickEvent, BroadcastParams);
 	if (CastingState.ElapsedTicks >= CastingState.CurrentCast->GetNumberOfTicks())
@@ -631,7 +630,7 @@ void UAbilityHandler::CompleteCast()
 	CompletionEvent.Tick = CastingState.ElapsedTicks;
 	if (IsValid(CompletionEvent.Ability))
 	{
-		GetCastingState().CurrentCast->CompleteCast();
+		CastingState.CurrentCast->CompleteCast();
 		OnAbilityComplete.Broadcast(CompletionEvent.Ability);
 		if (GetOwnerRole() == ROLE_Authority)
 		{
@@ -651,7 +650,7 @@ FCancelEvent UAbilityHandler::CancelCurrentCast()
 	switch (GetOwnerRole())
 	{
 		case ROLE_Authority :
-			return AuthCancelAbility();
+			return CancelAbility();
 		case ROLE_AutonomousProxy :
 			return PredictCancelAbility();
 		case ROLE_SimulatedProxy :
@@ -663,7 +662,7 @@ FCancelEvent UAbilityHandler::CancelCurrentCast()
 	}
 }
 
-FCancelEvent UAbilityHandler::AuthCancelAbility()
+FCancelEvent UAbilityHandler::CancelAbility()
 {
 	FCancelEvent Result;
 	if (GetOwner()->GetRemoteRole() == ROLE_AutonomousProxy)
@@ -676,13 +675,11 @@ FCancelEvent UAbilityHandler::AuthCancelAbility()
 	}
 	Result.CancelledAbility = CastingState.CurrentCast;
 	Result.CancelTime = GameStateRef->GetServerWorldTimeSeconds();
-	Result.CancelID = 0;
 	Result.CancelledCastStart = CastingState.CastStartTime;
 	Result.CancelledCastEnd = CastingState.CastEndTime;
-	Result.CancelledCastID = CastingState.PredictionID;
 	Result.ElapsedTicks = CastingState.ElapsedTicks;
 	FCombatParameters CancelParams;
-	Result.CancelledAbility->ServerNonPredictedCancel(CancelParams);
+	Result.CancelledAbility->ServerCancel(CancelParams);
 	OnAbilityCancelled.Broadcast(Result);
 	BroadcastAbilityCancel(Result, CancelParams);
 	EndCast();
@@ -879,10 +876,6 @@ void UAbilityHandler::OnRep_CastingState(FCastingState const& PreviousState)
 
 void UAbilityHandler::AddCooldownModifier(FAbilityModCondition const& Modifier)
 {
-	if (GetOwnerRole() != ROLE_Authority)
-	{
-		return;
-	}
 	if (!Modifier.IsBound())
 	{
 		return;
@@ -892,10 +885,6 @@ void UAbilityHandler::AddCooldownModifier(FAbilityModCondition const& Modifier)
 
 void UAbilityHandler::RemoveCooldownModifier(FAbilityModCondition const& Modifier)
 {
-	if (GetOwnerRole() != ROLE_Authority)
-	{
-		return;
-	}
 	if (!Modifier.IsBound())
 	{
 		return;
@@ -927,10 +916,6 @@ float UAbilityHandler::CalculateAbilityCooldown(UCombatAbility* Ability)
 
 void UAbilityHandler::AddGlobalCooldownModifier(FAbilityModCondition const& Modifier)
 {
-	if (GetOwnerRole() != ROLE_Authority)
-	{
-		return;
-	}
 	if (!Modifier.IsBound())
 	{
 		return;
@@ -940,10 +925,6 @@ void UAbilityHandler::AddGlobalCooldownModifier(FAbilityModCondition const& Modi
 
 void UAbilityHandler::RemoveGlobalCooldownModifier(FAbilityModCondition const& Modifier)
 {
-	if (GetOwnerRole() != ROLE_Authority)
-	{
-		return;
-	}
 	if (!Modifier.IsBound())
 	{
 		return;
@@ -970,7 +951,7 @@ float UAbilityHandler::CalculateGlobalCooldownLength(UCombatAbility* Ability)
 	return GlobalLength;
 }
 
-void UAbilityHandler::AuthStartGlobal(UCombatAbility* Ability, bool const bPredicted)
+void UAbilityHandler::StartGlobal(UCombatAbility* Ability, bool const bPredicted)
 {
 	FGlobalCooldown const PreviousGlobal = GlobalCooldownState;
 	GlobalCooldownState.bGlobalCooldownActive = true;
@@ -1016,10 +997,10 @@ FCastEvent UAbilityHandler::UseAbility(TSubclassOf<UCombatAbility> const Ability
 	case ROLE_AutonomousProxy :
 		return PredictUseAbility(AbilityClass, false);
 	case ROLE_SimulatedProxy :
-		Result.FailReason = FString(TEXT("Tried to use ability from simulated proxy."));
+		Result.FailReason = TEXT("Tried to use ability from simulated proxy.");
 		return Result;
 	default :
-		Result.FailReason = FString(TEXT("GetOwnerRole defaulted."));
+		Result.FailReason = TEXT("GetOwnerRole defaulted.");
 		return Result;
 	}
 }
@@ -1028,16 +1009,16 @@ FCastEvent UAbilityHandler::AuthUseAbility(TSubclassOf<UCombatAbility> const Abi
 {
 	FCastEvent Result;
 
-	if (GetOwner()->GetRemoteRole() != ROLE_SimulatedProxy)
+	if (GetOwnerRole() != ROLE_Authority || GetOwner()->GetRemoteRole() != ROLE_SimulatedProxy)
 	{
-		Result.FailReason = FString(TEXT("Tried to initiate an ability from server with an actor that isn't server-owned."));
+		Result.FailReason = TEXT("Tried to initiate an ability with incorrect NetRole.");
 		return Result;
 	}
 	
 	Result.Ability = FindActiveAbility(AbilityClass);
 	if (!IsValid(Result.Ability))
 	{
-		Result.FailReason = FString(TEXT("Did not find valid active ability."));
+		Result.FailReason = TEXT("Did not find valid active ability.");
 		return Result;
 	}
 
@@ -1049,7 +1030,7 @@ FCastEvent UAbilityHandler::AuthUseAbility(TSubclassOf<UCombatAbility> const Abi
 	
 	if (Result.Ability->GetHasGlobalCooldown())
 	{
-		AuthStartGlobal(Result.Ability);
+		StartGlobal(Result.Ability);
 	}
 	
 	Result.Ability->CommitCharges();
@@ -1068,16 +1049,16 @@ FCastEvent UAbilityHandler::AuthUseAbility(TSubclassOf<UCombatAbility> const Abi
 		return Result;
 	case EAbilityCastType::Instant :
 		Result.ActionTaken = ECastAction::Success;
-		Result.Ability->ServerNonPredictedTick(0, BroadcastParams);
+		Result.Ability->ServerTick(0, BroadcastParams);
 		OnAbilityTick.Broadcast(Result);
 		BroadcastAbilityTick(Result, BroadcastParams);
 		break;
 	case EAbilityCastType::Channel :
 		Result.ActionTaken = ECastAction::Success;
-		AuthStartCast(Result.Ability, false, 0);
+		StartCast(Result.Ability);
 		if (Result.Ability->GetHasInitialTick())
 		{
-			Result.Ability->ServerNonPredictedTick(0, BroadcastParams);
+			Result.Ability->ServerTick(0, BroadcastParams);
 			OnAbilityTick.Broadcast(Result);
 			BroadcastAbilityTick(Result, BroadcastParams);
 		}
@@ -1109,7 +1090,7 @@ bool UAbilityHandler::CheckCanCastAbility(UCombatAbility* Ability, TArray<FAbili
 		return false;
 	}
 	
-	if (GetCastingState().bIsCasting)
+	if (CastingState.bIsCasting)
 	{
 		OutFailReason = TEXT("Already casting.");
 		return false;
@@ -1138,7 +1119,7 @@ bool UAbilityHandler::CheckCanCastAbility(UCombatAbility* Ability, TArray<FAbili
 
 	if (!Ability->CheckCustomCastConditionsMet())
 	{
-		OutFailReason = TEXT("Custom cast conditions not met.");
+		OutFailReason = TEXT("Ability's custom cast conditions not met.");
 		return false;
 	}
 
@@ -1423,7 +1404,7 @@ void UAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest const&
 
 	if (Result.Ability->GetHasGlobalCooldown())
 	{
-		AuthStartGlobal(Result.Ability, true);
+		StartGlobal(Result.Ability, true);
 		ServerResult.bActivatedGlobal = true;
 		ServerResult.GlobalLength = CalculateGlobalCooldownLength(Result.Ability);
 	}
@@ -1457,7 +1438,7 @@ void UAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest const&
 	case EAbilityCastType::Channel :
 		Result.ActionTaken = ECastAction::Success;
 		ServerResult.CastLength = CalculateCastLength(Result.Ability);
-		AuthStartCast(Result.Ability, true, Result.PredictionID);
+		StartCast(Result.Ability, true, Result.PredictionID);
 		ServerResult.bActivatedCastBar = true;
 		ServerResult.bInterruptible = CastingState.bInterruptible;
 		if (Result.Ability->GetHasInitialTick())
@@ -1781,7 +1762,7 @@ void UAbilityHandler::AuthTickPredictedCast()
 	FCombatParameters BroadcastParams;
 	if (!CastingState.CurrentCast->GetTickNeedsPredictionParams(CastingState.ElapsedTicks))
 	{
-		CastingState.CurrentCast->ServerNonPredictedTick(CastingState.ElapsedTicks, BroadcastParams);
+		CastingState.CurrentCast->ServerTick(CastingState.ElapsedTicks, BroadcastParams);
 		FCastEvent TickEvent;
 		TickEvent.Ability = CastingState.CurrentCast;
 		TickEvent.Tick = CastingState.ElapsedTicks;
