@@ -109,29 +109,30 @@ bool UResourceHandler::CheckAbilityCostsMet(UCombatAbility* Ability, TArray<FAbi
 	return true;
 }
 
-void UResourceHandler::AuthCommitAbilityCosts(UCombatAbility* Ability, int32 const PredictionID,
-	TArray<FAbilityCost> const& Costs)
+void UResourceHandler::CommitAbilityCosts(UCombatAbility* Ability, TArray<FAbilityCost> const& Costs, int32 const PredictionID)
 {
-	for (FAbilityCost const& Cost : Costs)
+	if (GetOwnerRole() == ROLE_Authority)
 	{
-		UResource* Resource = FindActiveResource(Cost.ResourceClass);
-		if (!IsValid(Resource))
+		for (FAbilityCost const& Cost : Costs)
 		{
-			continue;
+			UResource* Resource = FindActiveResource(Cost.ResourceClass);
+			if (!IsValid(Resource))
+			{
+				continue;
+			}
+			Resource->CommitAbilityCost(Ability, Cost.Cost, PredictionID);
 		}
-		Resource->CommitAbilityCost(Ability, PredictionID, Cost.Cost);
 	}
-}
-
-void UResourceHandler::PredictCommitAbilityCosts(UCombatAbility* Ability, int32 const PredictionID,
-	TArray<FAbilityCost> const& Costs)
-{
-	for (FAbilityCost const& Cost : Costs)
+	else if (GetOwnerRole() == ROLE_AutonomousProxy)
 	{
-		UResource* Resource = FindActiveResource(Cost.ResourceClass);
-		if (IsValid(Resource))
+		for (FAbilityCost const& Cost : Costs)
 		{
-			Resource->PredictAbilityCost(Ability, PredictionID, Cost.Cost);
+			UResource* Resource = FindActiveResource(Cost.ResourceClass);
+			if (!IsValid(Resource))
+			{
+				continue;
+			}
+			Resource->PredictAbilityCost(Ability, Cost.Cost, PredictionID);
 		}
 	}
 }

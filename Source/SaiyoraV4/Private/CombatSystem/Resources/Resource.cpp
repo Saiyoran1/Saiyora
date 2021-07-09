@@ -116,7 +116,7 @@ bool UResource::CalculateAndCheckAbilityCost(UCombatAbility* Ability, float& Cos
     return false;
 }
 
-void UResource::CommitAbilityCost(UCombatAbility* Ability, int32 const PredictionID, float const Cost)
+void UResource::CommitAbilityCost(UCombatAbility* Ability, float const Cost, int32 const PredictionID)
 {
     if (Handler->GetOwnerRole() != ROLE_Authority)
     {

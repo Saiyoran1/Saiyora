@@ -74,13 +74,13 @@ void UPlayerAbilityHandler::BeginPlay()
 					break;
 			}
 			FPlaneSwapCallback PlaneSwapCallback;
-			PlaneSwapCallback.BindDynamic(this, &UPlayerAbilityHandler::UpdateAbilityPlane);
+			PlaneSwapCallback.BindDynamic(this, &UPlayerAbilityHandler::SwapBarOnPlaneSwap);
 			PlaneComponent->SubscribeToPlaneSwap(PlaneSwapCallback);
 		}
 	}
 }
 
-void UPlayerAbilityHandler::UpdateAbilityPlane(ESaiyoraPlane const PreviousPlane, ESaiyoraPlane const NewPlane, UObject* Source)
+void UPlayerAbilityHandler::SwapBarOnPlaneSwap(ESaiyoraPlane const PreviousPlane, ESaiyoraPlane const NewPlane, UObject* Source)
 {
 	if (NewPlane == ESaiyoraPlane::Ancient || NewPlane == ESaiyoraPlane::Modern)
 	{
@@ -132,6 +132,34 @@ void UPlayerAbilityHandler::LearnAbility(TSubclassOf<UCombatAbility> const NewAb
 	}
 	Spellbook.Add(NewAbility);
 	OnSpellbookUpdated.Broadcast();
+}
+
+void UPlayerAbilityHandler::UpdateAbilityBind(TSubclassOf<UCombatAbility> const Ability, int32 const Bind,
+	EActionBarType const Bar)
+{
+	if (GetOwnerRole() == ROLE_SimulatedProxy || (GetOwnerRole() == ROLE_Authority && GetOwner()->GetRemoteRole() == ROLE_AutonomousProxy))
+	{
+		return;
+	}
+	if (!IsValid(Ability) || !Spellbook.Contains(Ability))
+	{
+		return;
+	}
+	switch (Bar)
+	{
+		case EActionBarType::Ancient :
+			Loadout.AncientLoadout.Add(Bind, Ability);
+			break;
+		case EActionBarType::Modern :
+			Loadout.ModernLoadout.Add(Bind, Ability);
+			break;
+		case EActionBarType::Hidden :
+			Loadout.HiddenLoadout.Add(Bind, Ability);
+			break;
+		default :
+			return;
+	}
+	OnAbilityBindUpdated.Broadcast(Bind, Bar, FindActiveAbility(Ability));
 }
 
 void UPlayerAbilityHandler::SubscribeToAbilityBindUpdated(FAbilityBindingCallback const& Callback)

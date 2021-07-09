@@ -24,7 +24,7 @@ public:
 private:
 	
 	UFUNCTION()
-	void UpdateAbilityPlane(ESaiyoraPlane const PreviousPlane, ESaiyoraPlane const NewPlane, UObject* Source);
+	void SwapBarOnPlaneSwap(ESaiyoraPlane const PreviousPlane, ESaiyoraPlane const NewPlane, UObject* Source);
 
 	static const int32 AbilitiesPerBar;
 	FPlayerAbilityLoadout Loadout;
@@ -46,6 +46,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
 	void LearnAbility(TSubclassOf<UCombatAbility> const NewAbility);
+
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	void UpdateAbilityBind(TSubclassOf<UCombatAbility> const Ability, int32 const Bind, EActionBarType const Bar);
 	
 	UFUNCTION(BlueprintCallable)
 	void SubscribeToAbilityBindUpdated(FAbilityBindingCallback const& Callback);

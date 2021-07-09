@@ -1027,7 +1027,6 @@ FCastEvent UAbilityHandler::UseAbility(TSubclassOf<UCombatAbility> const Ability
 FCastEvent UAbilityHandler::AuthUseAbility(TSubclassOf<UCombatAbility> const AbilityClass)
 {
 	FCastEvent Result;
-	Result.PredictionID = 0;
 
 	if (GetOwner()->GetRemoteRole() != ROLE_SimulatedProxy)
 	{
@@ -1042,80 +1041,22 @@ FCastEvent UAbilityHandler::AuthUseAbility(TSubclassOf<UCombatAbility> const Abi
 		return Result;
 	}
 
-	if (!Result.Ability->GetCastableWhileDead() && IsValid(DamageHandler) && DamageHandler->GetLifeStatus() != ELifeStatus::Alive)
-	{
-		Result.FailReason = FString(TEXT("Cannot activate while dead."));
-		return Result;
-	}
-	
-	if (Result.Ability->GetHasGlobalCooldown() && GlobalCooldownState.bGlobalCooldownActive)
-	{
-		Result.FailReason = FString(TEXT("Already on global cooldown."));
-		return Result;
-	}
-	
-	if (GetCastingState().bIsCasting)
-	{
-		Result.FailReason = FString(TEXT("Already casting."));
-		return Result;
-	}
-	
 	TArray<FAbilityCost> Costs;
-	Result.Ability->GetAbilityCosts(Costs);
-	if (Costs.Num() > 0)
+	if (!CheckCanCastAbility(Result.Ability, Costs, Result.FailReason))
 	{
-		if (!IsValid(ResourceHandler))
-		{
-			Result.FailReason = FString(TEXT("No valid resource handler found."));
-			return Result;
-		}
-		if (!ResourceHandler->CheckAbilityCostsMet(Result.Ability, Costs))
-		{
-			Result.FailReason = FString(TEXT("Ability costs not met."));
-			return Result;
-		}
-	}
-
-	if (!Result.Ability->CheckChargesMet())
-	{
-		Result.FailReason = FString(TEXT("Charges not met."));
 		return Result;
-	}
-
-	if (!Result.Ability->CheckCustomCastConditionsMet())
-	{
-		Result.FailReason = FString(TEXT("Custom cast conditions not met."));
-		return Result;
-	}
-
-	if (CheckAbilityRestricted(Result.Ability))
-	{
-		Result.FailReason = FString(TEXT("Cast restriction returned true."));
-		return Result;
-	}
-
-	if (IsValid(CrowdControlHandler))
-	{
-		for (TSubclassOf<UCrowdControl> const CcClass : Result.Ability->GetRestrictedCrowdControls())
-		{
-			if (CrowdControlHandler->GetActiveCcTypes().Contains(CcClass))
-			{
-				Result.FailReason = FString(TEXT("Cast restricted by crowd control."));
-				return Result;
-			}
-		}
 	}
 	
 	if (Result.Ability->GetHasGlobalCooldown())
 	{
-		AuthStartGlobal(Result.Ability, false);
+		AuthStartGlobal(Result.Ability);
 	}
 	
-	Result.Ability->CommitCharges(Result.PredictionID);
+	Result.Ability->CommitCharges();
 	
 	if (Costs.Num() > 0 && IsValid(ResourceHandler))
 	{
-		ResourceHandler->AuthCommitAbilityCosts(Result.Ability, Result.PredictionID, Costs);
+		ResourceHandler->CommitAbilityCosts(Result.Ability, Costs);
 	}
 
 	FCombatParameters BroadcastParams;
@@ -1123,7 +1064,7 @@ FCastEvent UAbilityHandler::AuthUseAbility(TSubclassOf<UCombatAbility> const Abi
 	switch (Result.Ability->GetCastType())
 	{
 	case EAbilityCastType::None :
-		Result.FailReason = FString(TEXT("No cast type was set."));
+		Result.FailReason = TEXT("No cast type was set.");
 		return Result;
 	case EAbilityCastType::Instant :
 		Result.ActionTaken = ECastAction::Success;
@@ -1142,11 +1083,84 @@ FCastEvent UAbilityHandler::AuthUseAbility(TSubclassOf<UCombatAbility> const Abi
 		}
 		break;
 	default :
-		Result.FailReason = FString(TEXT("Defaulted on cast type."));
+		Result.FailReason = TEXT("Defaulted on cast type.");
 		return Result;
 	}
 	
 	return Result;
+}
+
+bool UAbilityHandler::CheckCanCastAbility(UCombatAbility* Ability, TArray<FAbilityCost>& OutCosts, FString& OutFailReason)
+{
+	if (!IsValid(Ability))
+	{
+		OutFailReason = TEXT("Ability is null.");
+		return false;
+	}
+	if (!Ability->GetCastableWhileDead() && IsValid(DamageHandler) && DamageHandler->GetLifeStatus() != ELifeStatus::Alive)
+	{
+		OutFailReason = TEXT("Cannot activate while dead.");
+		return false;
+	}
+	
+	if (Ability->GetHasGlobalCooldown() && GlobalCooldownState.bGlobalCooldownActive)
+	{
+		OutFailReason = TEXT("Already on global cooldown.");
+		return false;
+	}
+	
+	if (GetCastingState().bIsCasting)
+	{
+		OutFailReason = TEXT("Already casting.");
+		return false;
+	}
+	
+	Ability->GetAbilityCosts(OutCosts);
+	if (OutCosts.Num() > 0)
+	{
+		if (!IsValid(ResourceHandler))
+		{
+			OutFailReason = TEXT("No valid resource handler found.");
+			return false;
+		}
+		if (!ResourceHandler->CheckAbilityCostsMet(Ability, OutCosts))
+		{
+			OutFailReason = TEXT("Ability costs not met.");
+			return false;
+		}
+	}
+
+	if (!Ability->CheckChargesMet())
+	{
+		OutFailReason = TEXT("Charges not met.");
+		return false;
+	}
+
+	if (!Ability->CheckCustomCastConditionsMet())
+	{
+		OutFailReason = TEXT("Custom cast conditions not met.");
+		return false;
+	}
+
+	if (CheckAbilityRestricted(Ability))
+	{
+		OutFailReason = TEXT("Cast restriction returned true.");
+		return false;
+	}
+
+	if (IsValid(CrowdControlHandler))
+	{
+		for (TSubclassOf<UCrowdControl> const CcClass : Ability->GetRestrictedCrowdControls())
+		{
+			if (CrowdControlHandler->GetActiveCcTypes().Contains(CcClass))
+			{
+				OutFailReason = TEXT("Cast restricted by crowd control.");
+				return false;
+			}
+		}
+	}
+
+	return true;
 }
 
 #pragma endregion
@@ -1277,7 +1291,7 @@ FCastEvent UAbilityHandler::PredictUseAbility(TSubclassOf<UCombatAbility> const 
 	
 	if (Costs.Num() > 0 && IsValid(ResourceHandler))
 	{
-		ResourceHandler->PredictCommitAbilityCosts(Result.Ability, Result.PredictionID, Costs);
+		ResourceHandler->CommitAbilityCosts(Result.Ability, Costs, Result.PredictionID);
 		for (FAbilityCost const& Cost : Costs)
 		{
 			AbilityPrediction.PredictedCostClasses.Add(Cost.ResourceClass);
@@ -1422,7 +1436,7 @@ void UAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest const&
 
 	if (Costs.Num() > 0 && IsValid(ResourceHandler))
 	{
-		ResourceHandler->AuthCommitAbilityCosts(Result.Ability, Result.PredictionID, Costs);
+		ResourceHandler->CommitAbilityCosts(Result.Ability, Costs, Result.PredictionID);
 		ServerResult.AbilityCosts = Costs;
 	}
 

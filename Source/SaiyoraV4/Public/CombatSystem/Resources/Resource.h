@@ -92,7 +92,7 @@ public:
 	void AuthDeactivateResource();
 
 	bool CalculateAndCheckAbilityCost(UCombatAbility* Ability, float& Cost, bool const bStaticCost);
-	void CommitAbilityCost(UCombatAbility* Ability, int32 const PredictionID, float const Cost);
+	void CommitAbilityCost(UCombatAbility* Ability, float const Cost, int32 const PredictionID = 0);
 	void PredictAbilityCost(UCombatAbility* Ability, int32 const PredictionID, float const Cost);
 	void RollbackFailedCost(int32 const PredictionID);
 	void UpdateCostPredictionFromServer(int32 const PredictionID, float const ServerCost);

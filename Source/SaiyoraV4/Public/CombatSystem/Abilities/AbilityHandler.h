@@ -174,7 +174,7 @@ private:
 
 	FGlobalCooldown GlobalCooldownState;
 	FTimerHandle GlobalCooldownHandle;
-	void AuthStartGlobal(UCombatAbility* Ability, bool const bPredicted);
+	void AuthStartGlobal(UCombatAbility* Ability, bool const bPredicted = false);
 	void PredictStartGlobal(int32 const PredictionID);
 	void UpdatePredictedGlobalFromServer(FServerAbilityResult const& ServerResult);
 	UFUNCTION()
@@ -220,6 +220,7 @@ private:
 	UFUNCTION()
 	void InterruptCastOnCrowdControl(FCrowdControlStatus const& PreviousStatus, FCrowdControlStatus const& NewStatus);
 
+	bool CheckCanCastAbility(UCombatAbility* Ability, TArray<FAbilityCost>& OutCosts, FString& OutFailReason);
 	bool CheckAbilityRestricted(UCombatAbility* Ability);
 	TArray<FAbilityRestriction> AbilityRestrictions;
 
