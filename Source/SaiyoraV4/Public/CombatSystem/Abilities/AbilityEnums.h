@@ -40,3 +40,22 @@ enum class EActionBarType : uint8
     Modern = 2,
     Hidden = 3,
 };
+
+UENUM()
+enum class ECastFailReason : uint8
+{
+    None = 0,
+    InvalidAbility = 1,
+    Dead = 2,
+    OnGlobalCooldown = 3,
+    AlreadyCasting = 4,
+    NoResourceHandler = 5,
+    CostsNotMet = 6,
+    ChargesNotMet = 7,
+    AbilityConditionsNotMet = 8,
+    CustomRestriction = 9,
+    CrowdControl = 10,
+    NetRole = 11,
+    InvalidCastType = 12,
+    Queued = 13,
+};

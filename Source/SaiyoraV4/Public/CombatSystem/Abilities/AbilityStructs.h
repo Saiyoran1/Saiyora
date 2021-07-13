@@ -90,7 +90,7 @@ struct FCastEvent
     UPROPERTY(BlueprintReadOnly)
     int32 Tick = 0;
     UPROPERTY(BlueprintReadOnly)
-    FString FailReason;
+    ECastFailReason FailReason;
     UPROPERTY()
     int32 PredictionID = 0;
 };

@@ -46,7 +46,7 @@ public:
 	void CleanupRemovedAbility(UCombatAbility* Ability);
 
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
-	FCastEvent UseAbility(TSubclassOf<UCombatAbility> const AbilityClass);
+	virtual FCastEvent UseAbility(TSubclassOf<UCombatAbility> const AbilityClass);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	FCancelEvent CancelCurrentCast();
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
@@ -148,7 +148,6 @@ public:
 private:
 
 	FCastEvent AuthUseAbility(TSubclassOf<UCombatAbility> const AbilityClass);
-	FCastEvent PredictUseAbility(TSubclassOf<UCombatAbility> const AbilityClass, bool const bFromQueue);
 	UFUNCTION(Server, Reliable, WithValidation)
 	void ServerPredictAbility(FAbilityRequest const& AbilityRequest);
 	bool ServerPredictAbility_Validate(FAbilityRequest const& AbilityRequest) { return true; }
@@ -175,28 +174,27 @@ private:
 	TArray<UCombatAbility*> ActiveAbilities;
 	UPROPERTY()
 	TArray<UCombatAbility*> RecentlyRemovedAbilities;
-
+protected:
 	FGlobalCooldown GlobalCooldownState;
 	FTimerHandle GlobalCooldownHandle;
 	void StartGlobal(UCombatAbility* Ability, bool const bPredicted = false);
-	void PredictStartGlobal(int32 const PredictionID);
-	void UpdatePredictedGlobalFromServer(FServerAbilityResult const& ServerResult);
 	UFUNCTION()
 	void EndGlobalCooldown();
 	float CalculateGlobalCooldownLength(UCombatAbility* Ability);
+private:
 	TArray<FAbilityModCondition> GlobalCooldownMods;
 	UFUNCTION()
 	FCombatModifier ModifyGlobalCooldownFromStat(UCombatAbility* Ability);
-
+protected:
 	UPROPERTY(ReplicatedUsing = OnRep_CastingState)
 	FCastingState CastingState;
 	FTimerHandle CastHandle;
 	FTimerHandle TickHandle;
+private:
 	UFUNCTION()
 	void OnRep_CastingState(FCastingState const& PreviousState);
 	void StartCast(UCombatAbility* Ability, bool const bPredicted = false, int32 const PredictionID = 0);
-	void PredictStartCast(UCombatAbility* Ability, int32 const PredictionID);
-	void UpdatePredictedCastFromServer(FServerAbilityResult const& ServerResult);
+protected:
 	UFUNCTION()
 	void CompleteCast();
 	UFUNCTION()
@@ -210,6 +208,7 @@ private:
 	TArray<FPredictedTick> TicksAwaitingParams;
 	TMap<FPredictedTick, FCombatParameters> ParamsAwaitingTicks;
 	void EndCast();
+private:
 	float CalculateCastLength(UCombatAbility* Ability);
 	TArray<FAbilityModCondition> CastLengthMods;
 	UFUNCTION()
@@ -223,16 +222,12 @@ private:
 	void InterruptCastOnDeath(ELifeStatus PreviousStatus, ELifeStatus NewStatus);
 	UFUNCTION()
 	void InterruptCastOnCrowdControl(FCrowdControlStatus const& PreviousStatus, FCrowdControlStatus const& NewStatus);
-
-	bool CheckCanCastAbility(UCombatAbility* Ability, TArray<FAbilityCost>& OutCosts, FString& OutFailReason);
+protected:
+	bool CheckCanCastAbility(UCombatAbility* Ability, TArray<FAbilityCost>& OutCosts, ECastFailReason& OutFailReason);
+private:
 	bool CheckAbilityRestricted(UCombatAbility* Ability);
 	TArray<FAbilityRestriction> AbilityRestrictions;
-
-	void GenerateNewPredictionID(FCastEvent& CastEvent);
-	void GenerateNewPredictionID(FCancelEvent& CancelEvent);
-	int32 ClientPredictionID = 0;
-	TMap<int32, FClientAbilityPrediction> UnackedAbilityPredictions;
-
+protected:
 	FAbilityInstanceNotification OnAbilityAdded;
 	FAbilityInstanceNotification OnAbilityRemoved;
 	FAbilityNotification OnAbilityTick;
@@ -251,17 +246,6 @@ private:
 	void BroadcastAbilityCancel(FCancelEvent const& CancelEvent, FCombatParameters const& BroadcastParams);
 	UFUNCTION(NetMulticast, Unreliable)
 	void BroadcastAbilityInterrupt(FInterruptEvent const& InterruptEvent);
-
-	bool TryQueueAbility(TSubclassOf<UCombatAbility> const Ability);
-	UFUNCTION()
-	void ClearQueue();
-	void SetQueueExpirationTimer();
-	UPROPERTY()
-	TSubclassOf<UCombatAbility> QueuedAbility;
-	EQueueStatus QueueStatus = EQueueStatus::Empty;
-	FTimerHandle QueueClearHandle;
-	void CheckForQueuedAbilityOnGlobalEnd();
-	void CheckForQueuedAbilityOnCastEnd();
 
 protected:
 	
