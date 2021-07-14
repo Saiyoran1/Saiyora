@@ -52,14 +52,23 @@ public:
 private:
 
 	FCastEvent PredictUseAbility(TSubclassOf<UCombatAbility> const AbilityClass, bool const bFromQueue = false);
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerPredictAbility(FAbilityRequest const& AbilityRequest);
+	bool ServerPredictAbility_Validate(FAbilityRequest const& AbilityRequest) { return true; }
+	UFUNCTION(Client, Reliable)
+	void ClientSucceedPredictedAbility(FServerAbilityResult const& ServerResult);
+	UFUNCTION(Client, Reliable)
+	void ClientFailPredictedAbility(int32 const PredictionID, ECastFailReason const FailReason);
 
 	int32 GenerateNewPredictionID();
 	static int32 ClientPredictionID = 0;
 	TMap<int32, FClientAbilityPrediction> UnackedAbilityPredictions;
 
+	void StartGlobal(UCombatAbility* Ability, bool const bPredicted = false);
 	void PredictStartGlobal(int32 const PredictionID);
 	void UpdatePredictedGlobalFromServer(FServerAbilityResult const& ServerResult);
 
+	void StartCast(UCombatAbility* Ability, int32 const PredictionID = 0);
 	void PredictStartCast(UCombatAbility* Ability, int32 const PredictionID);
 	void UpdatePredictedCastFromServer(FServerAbilityResult const& ServerResult);
 	

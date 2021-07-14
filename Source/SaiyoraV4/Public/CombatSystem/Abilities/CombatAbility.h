@@ -225,7 +225,7 @@ public:
     void ServerPredictedCancel(FCombatParameters const& PredictionParams, FCombatParameters& BroadcastParams);
     void ServerCancel(FCombatParameters& BroadcastParams);
     void SimulatedCancel(FCombatParameters const& BroadcastParams);
-    void AbilityMisprediction(int32 const PredictionID, FString const& FailReason);
+    void AbilityMisprediction(int32 const PredictionID, ECastFailReason const FailReason);
 
     UFUNCTION(BlueprintCallable, Category = "Abilities")
     void SubscribeToChargesChanged(FAbilityChargeCallback const& Callback);
@@ -274,7 +274,7 @@ protected:
     UFUNCTION(BlueprintNativeEvent)
     void OnSimulatedCancel(TArray<FCombatParameter> const& BroadcastParams);
     UFUNCTION(BlueprintNativeEvent)
-    void OnAbilityMispredicted(int32 const PredictionID, FString const& FailReason);
+    void OnAbilityMispredicted(int32 const PredictionID, ECastFailReason const FailReason);
 
     UFUNCTION(BlueprintCallable, Category = "Abilities")
     void ActivateCastRestriction(FName const& RestrictionName);

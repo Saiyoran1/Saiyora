@@ -148,13 +148,7 @@ public:
 private:
 
 	FCastEvent AuthUseAbility(TSubclassOf<UCombatAbility> const AbilityClass);
-	UFUNCTION(Server, Reliable, WithValidation)
-	void ServerPredictAbility(FAbilityRequest const& AbilityRequest);
-	bool ServerPredictAbility_Validate(FAbilityRequest const& AbilityRequest) { return true; }
-	UFUNCTION(Client, Reliable)
-    void ClientSucceedPredictedAbility(FServerAbilityResult const& ServerResult);
-	UFUNCTION(Client, Reliable)
-	void ClientFailPredictedAbility(int32 const PredictionID, FString const& FailReason);
+	
 	UFUNCTION(Server, Reliable, WithValidation)
 	void ServerHandlePredictedTick(FAbilityRequest const& TickRequest);
 	bool ServerHandlePredictedTick_Validate(FAbilityRequest const& TickRequest) { return true; }
@@ -177,7 +171,7 @@ private:
 protected:
 	FGlobalCooldown GlobalCooldownState;
 	FTimerHandle GlobalCooldownHandle;
-	void StartGlobal(UCombatAbility* Ability, bool const bPredicted = false);
+	void StartGlobal(UCombatAbility* Ability);
 	UFUNCTION()
 	void EndGlobalCooldown();
 	float CalculateGlobalCooldownLength(UCombatAbility* Ability);
@@ -193,8 +187,8 @@ protected:
 private:
 	UFUNCTION()
 	void OnRep_CastingState(FCastingState const& PreviousState);
-	void StartCast(UCombatAbility* Ability, bool const bPredicted = false, int32 const PredictionID = 0);
 protected:
+	void StartCast(UCombatAbility* Ability);
 	UFUNCTION()
 	void CompleteCast();
 	UFUNCTION()
@@ -208,8 +202,8 @@ protected:
 	TArray<FPredictedTick> TicksAwaitingParams;
 	TMap<FPredictedTick, FCombatParameters> ParamsAwaitingTicks;
 	void EndCast();
-private:
 	float CalculateCastLength(UCombatAbility* Ability);
+private:
 	TArray<FAbilityModCondition> CastLengthMods;
 	UFUNCTION()
 	FCombatModifier ModifyCastLengthFromStat(UCombatAbility* Ability);

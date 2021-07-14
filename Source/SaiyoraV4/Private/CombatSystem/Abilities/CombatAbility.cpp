@@ -390,7 +390,7 @@ void UCombatAbility::SimulatedCancel(FCombatParameters const& BroadcastParams)
     OnSimulatedCancel(BroadcastParams.Parameters);
 }
 
-void UCombatAbility::AbilityMisprediction(int32 const PredictionID, FString const& FailReason)
+void UCombatAbility::AbilityMisprediction(int32 const PredictionID, ECastFailReason const FailReason)
 {
     OnAbilityMispredicted(PredictionID, FailReason);
 }
@@ -569,7 +569,7 @@ void UCombatAbility::OnCastInterrupted_Implementation(FInterruptEvent const& Int
     return;
 }
 
-void UCombatAbility::OnAbilityMispredicted_Implementation(int32, FString const& FailReason)
+void UCombatAbility::OnAbilityMispredicted_Implementation(int32 const PredictionID, ECastFailReason const FailReason)
 {
     return;
 }

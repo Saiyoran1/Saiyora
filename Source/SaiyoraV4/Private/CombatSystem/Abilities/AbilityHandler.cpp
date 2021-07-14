@@ -566,32 +566,18 @@ float UAbilityHandler::CalculateCastLength(UCombatAbility* Ability)
 	return CastLength;
 }
 
-void UAbilityHandler::StartCast(UCombatAbility* Ability, bool const bPredicted, int32 const PredictionID)
+void UAbilityHandler::StartCast(UCombatAbility* Ability)
 {
 	FCastingState const PreviousState = CastingState;
 	CastingState.bIsCasting = true;
 	CastingState.CurrentCast = Ability;
 	CastingState.CastStartTime = GameStateRef->GetServerWorldTimeSeconds();
-	float CastLength = CalculateCastLength(Ability);
-	if (bPredicted && PredictionID != 0)
-	{
-		CastingState.PredictionID = PredictionID;
-		float const PingCompensation = FMath::Clamp(USaiyoraCombatLibrary::GetActorPing(GetOwner()), 0.0f, MaxPingCompensation);
-		CastLength = FMath::Max(MinimumCastLength, CastLength - PingCompensation);
-	}
+	float const CastLength = CalculateCastLength(Ability);
 	CastingState.CastEndTime = CastingState.CastStartTime + CastLength;
 	CastingState.bInterruptible = Ability->GetInterruptible();
 	GetWorld()->GetTimerManager().SetTimer(CastHandle, this, &UAbilityHandler::CompleteCast, CastLength, false);
-	if (bPredicted)
-	{
-		GetWorld()->GetTimerManager().SetTimer(TickHandle, this, &UAbilityHandler::AuthTickPredictedCast,
-			(CastLength / Ability->GetNumberOfTicks()), true);
-	}
-	else
-	{
-		GetWorld()->GetTimerManager().SetTimer(TickHandle, this, &UAbilityHandler::TickCurrentAbility,
-			(CastLength / Ability->GetNumberOfTicks()), true);
-	}
+	GetWorld()->GetTimerManager().SetTimer(TickHandle, this, &UAbilityHandler::TickCurrentAbility,
+		(CastLength / Ability->GetNumberOfTicks()), true);
 	OnCastStateChanged.Broadcast(PreviousState, CastingState);
 }
 
@@ -951,17 +937,12 @@ float UAbilityHandler::CalculateGlobalCooldownLength(UCombatAbility* Ability)
 	return GlobalLength;
 }
 
-void UAbilityHandler::StartGlobal(UCombatAbility* Ability, bool const bPredicted)
+void UAbilityHandler::StartGlobal(UCombatAbility* Ability)
 {
 	FGlobalCooldown const PreviousGlobal = GlobalCooldownState;
 	GlobalCooldownState.bGlobalCooldownActive = true;
 	GlobalCooldownState.StartTime = GameStateRef->GetServerWorldTimeSeconds();
-	float GlobalLength = CalculateGlobalCooldownLength(Ability);
-	if (bPredicted)
-	{
-		float const PingCompensation = FMath::Clamp(USaiyoraCombatLibrary::GetActorPing(GetOwner()), 0.0f, MaxPingCompensation);
-		GlobalLength = FMath::Max(MinimumGlobalCooldownLength, GlobalLength - PingCompensation);
-	}
+	float const GlobalLength = CalculateGlobalCooldownLength(Ability);
 	GlobalCooldownState.EndTime = GlobalCooldownState.StartTime + GlobalLength;
 	GetWorld()->GetTimerManager().SetTimer(GlobalCooldownHandle, this, &UAbilityHandler::EndGlobalCooldown, GlobalLength, false);
 	OnGlobalCooldownChanged.Broadcast(PreviousGlobal, GlobalCooldownState);
@@ -1147,224 +1128,7 @@ bool UAbilityHandler::CheckCanCastAbility(UCombatAbility* Ability, TArray<FAbili
 #pragma endregion
 #pragma region Prediction
 
-void UAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest const& AbilityRequest)
-{
-	FCastEvent Result;
-	Result.PredictionID = AbilityRequest.PredictionID;
-	
-	Result.Ability = FindActiveAbility(AbilityRequest.AbilityClass);
-	if (!IsValid(Result.Ability))
-	{
-		Result.FailReason = FString(TEXT("Did not find valid active ability."));
-		ClientFailPredictedAbility(AbilityRequest.PredictionID, Result.FailReason);
-		return;
-	}
 
-	if (!Result.Ability->GetCastableWhileDead() && IsValid(DamageHandler) && DamageHandler->GetLifeStatus() != ELifeStatus::Alive)
-	{
-		Result.FailReason = FString(TEXT("Cannot activate while dead."));
-		ClientFailPredictedAbility(AbilityRequest.PredictionID, Result.FailReason);
-		return;
-	}
-	
-	if (Result.Ability->GetHasGlobalCooldown() && GlobalCooldownState.bGlobalCooldownActive)
-	{
-		Result.FailReason = FString(TEXT("Already on global cooldown."));
-		ClientFailPredictedAbility(AbilityRequest.PredictionID, Result.FailReason);
-		return;
-	}
-
-	if (GetCastingState().bIsCasting)
-	{
-		Result.FailReason = FString(TEXT("Already casting."));
-		ClientFailPredictedAbility(AbilityRequest.PredictionID, Result.FailReason);
-		return;
-	}
-
-	TArray<FAbilityCost> Costs;
-	Result.Ability->GetAbilityCosts(Costs);
-	if (Costs.Num() > 0)
-	{
-		if (!IsValid(ResourceHandler))
-		{
-			Result.FailReason = FString(TEXT("No valid resource handler found."));
-			ClientFailPredictedAbility(AbilityRequest.PredictionID, Result.FailReason);
-			return;
-		}
-		if (!ResourceHandler->CheckAbilityCostsMet(Result.Ability, Costs))
-		{
-			Result.FailReason = FString(TEXT("Ability costs not met."));
-			ClientFailPredictedAbility(AbilityRequest.PredictionID, Result.FailReason);
-			return;
-		}
-	}
-
-	if (!Result.Ability->CheckChargesMet())
-	{
-		Result.FailReason = FString(TEXT("Charges not met."));
-		ClientFailPredictedAbility(AbilityRequest.PredictionID, Result.FailReason);
-		return;
-	}
-
-	if (!Result.Ability->CheckCustomCastConditionsMet())
-	{
-		Result.FailReason = FString(TEXT("Custom cast conditions not met."));
-		ClientFailPredictedAbility(AbilityRequest.PredictionID, Result.FailReason);
-		return;
-	}
-
-	if (CheckAbilityRestricted(Result.Ability))
-	{
-		Result.FailReason = FString(TEXT("Cast restriction returned true."));
-		ClientFailPredictedAbility(AbilityRequest.PredictionID, Result.FailReason);
-		return;
-	}
-
-	if (IsValid(CrowdControlHandler))
-	{
-		for (TSubclassOf<UCrowdControl> const CcClass : Result.Ability->GetRestrictedCrowdControls())
-		{
-			if (CrowdControlHandler->GetActiveCcTypes().Contains(CcClass))
-			{
-				Result.FailReason = FString(TEXT("Cast restricted by crowd control."));
-				ClientFailPredictedAbility(AbilityRequest.PredictionID, Result.FailReason);
-				return;
-			}
-		}
-	}
-
-	FServerAbilityResult ServerResult;
-	ServerResult.AbilityClass = AbilityRequest.AbilityClass;
-	ServerResult.PredictionID = AbilityRequest.PredictionID;
-	//TODO: This should REALLY be manually calculated using ping value and server time.
-	ServerResult.ClientStartTime = AbilityRequest.ClientStartTime;
-
-	if (Result.Ability->GetHasGlobalCooldown())
-	{
-		StartGlobal(Result.Ability, true);
-		ServerResult.bActivatedGlobal = true;
-		ServerResult.GlobalLength = CalculateGlobalCooldownLength(Result.Ability);
-	}
-
-	int32 const PreviousCharges = Result.Ability->GetCurrentCharges();
-	Result.Ability->CommitCharges(Result.PredictionID);
-	int32 const NewCharges = Result.Ability->GetCurrentCharges();
-	ServerResult.ChargesSpent = PreviousCharges - NewCharges;
-	ServerResult.bSpentCharges = (ServerResult.ChargesSpent != 0);
-
-	if (Costs.Num() > 0 && IsValid(ResourceHandler))
-	{
-		ResourceHandler->CommitAbilityCosts(Result.Ability, Costs, Result.PredictionID);
-		ServerResult.AbilityCosts = Costs;
-	}
-
-	FCombatParameters BroadcastParams;
-	
-	switch (Result.Ability->GetCastType())
-	{
-	case EAbilityCastType::None :
-		Result.FailReason = FString(TEXT("No cast type was set."));
-		ClientFailPredictedAbility(AbilityRequest.PredictionID, Result.FailReason);
-		return;
-	case EAbilityCastType::Instant :
-		Result.ActionTaken = ECastAction::Success;
-		Result.Ability->ServerPredictedTick(0, AbilityRequest.PredictionParams, BroadcastParams);
-		OnAbilityTick.Broadcast(Result);
-		BroadcastAbilityTick(Result, BroadcastParams);
-		break;
-	case EAbilityCastType::Channel :
-		Result.ActionTaken = ECastAction::Success;
-		ServerResult.CastLength = CalculateCastLength(Result.Ability);
-		StartCast(Result.Ability, true, Result.PredictionID);
-		ServerResult.bActivatedCastBar = true;
-		ServerResult.bInterruptible = CastingState.bInterruptible;
-		if (Result.Ability->GetHasInitialTick())
-		{
-			Result.Ability->ServerPredictedTick(0, AbilityRequest.PredictionParams, BroadcastParams);
-			OnAbilityTick.Broadcast(Result);
-			BroadcastAbilityTick(Result, BroadcastParams);
-		}
-		break;
-	default :
-		Result.FailReason = FString(TEXT("Defaulted on cast type."));
-		ClientFailPredictedAbility(AbilityRequest.PredictionID, Result.FailReason);
-		return;
-	}
-
-	ClientSucceedPredictedAbility(ServerResult);
-}
-
-void UAbilityHandler::ClientSucceedPredictedAbility_Implementation(FServerAbilityResult const& ServerResult)
-{
-	if (!IsValid(ServerResult.AbilityClass) || ServerResult.PredictionID == 0)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Server sent invalid ability confirmation."));
-		return;
-	}
-
-	UpdatePredictedCastFromServer(ServerResult);
-	UpdatePredictedGlobalFromServer(ServerResult);
-	TArray<TSubclassOf<UResource>> MispredictedCosts;
-	UCombatAbility* Ability;
-	
-	FClientAbilityPrediction* OriginalPrediction = UnackedAbilityPredictions.Find(ServerResult.PredictionID);
-	if (OriginalPrediction != nullptr)
-	{
-		MispredictedCosts = OriginalPrediction->PredictedCostClasses;
-		for (FAbilityCost const& Cost : ServerResult.AbilityCosts)
-		{
-			MispredictedCosts.Remove(Cost.ResourceClass);
-		}
-		Ability = OriginalPrediction->Ability;
-		UnackedAbilityPredictions.Remove(ServerResult.PredictionID);
-	}
-	else
-	{
-		Ability = FindActiveAbility(ServerResult.AbilityClass);
-	}
-	if (IsValid(Ability))
-	{
-		Ability->UpdatePredictedChargesFromServer(ServerResult);
-	}
-	if (IsValid(ResourceHandler))
-	{	
-		ResourceHandler->UpdatePredictedCostsFromServer(ServerResult, MispredictedCosts);
-	}
-}
-
-void UAbilityHandler::ClientFailPredictedAbility_Implementation(int32 const PredictionID, FString const& FailReason)
-{
-	if (GlobalCooldownState.bGlobalCooldownActive && GlobalCooldownState.PredictionID <= PredictionID)
-	{
-		EndGlobalCooldown();
-		GlobalCooldownState.PredictionID = PredictionID;
-	}
-	if (CastingState.bIsCasting && CastingState.PredictionID <= PredictionID)
-	{
-		EndCast();
-		CastingState.PredictionID = PredictionID;
-	}
-	FClientAbilityPrediction* OriginalPrediction = UnackedAbilityPredictions.Find(PredictionID);
-	if (OriginalPrediction == nullptr)
-	{
-		//Do nothing. Replication will eventually handle things.
-		return;
-	}
-	if (IsValid(ResourceHandler) && !OriginalPrediction->PredictedCostClasses.Num() == 0)
-	{
-		ResourceHandler->RollbackFailedCosts(OriginalPrediction->PredictedCostClasses, PredictionID);
-	}
-	if (OriginalPrediction->bPredictedCharges)
-	{
-		if (IsValid(OriginalPrediction->Ability))
-		{
-			OriginalPrediction->Ability->RollbackFailedCharges(PredictionID);
-			OriginalPrediction->Ability->AbilityMisprediction(PredictionID, FailReason);
-		}
-	}
-	UnackedAbilityPredictions.Remove(PredictionID);
-	OnAbilityMispredicted.Broadcast(PredictionID, FailReason);
-}
 #pragma endregion
 #pragma region PredictedTicks
 //Function called when the tick timer rolls over on clients that will predict the tick and send any tick parameters to the server.
