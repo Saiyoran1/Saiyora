@@ -114,11 +114,6 @@ public:
     void UnsubscribeFromGlobalCooldownChanged(FGlobalCooldownCallback const& Callback);
 
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
-	void SubscribeToAbilityMispredicted(FAbilityMispredictionCallback const& Callback);
-	UFUNCTION(BlueprintCallable, Category = "Abilities")
-	void UnsubscribeFromAbilityMispredicted(FAbilityMispredictionCallback const& Callback);
-
-	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void AddCastLengthModifier(FAbilityModCondition const& Modifier);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void RemoveCastLengthModifier(FAbilityModCondition const& Modifier);
@@ -188,7 +183,7 @@ private:
 protected:
 	void StartCast(UCombatAbility* Ability);
 	UFUNCTION()
-	void CompleteCast();
+	virtual void CompleteCast();
 	UFUNCTION()
 	void TickCurrentAbility();
 	UFUNCTION()

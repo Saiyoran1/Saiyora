@@ -27,29 +27,6 @@ void UPlayerAbilityHandler::InitializeComponent()
 	AddAbilityRestriction(PlaneAbilityRestriction);
 }
 
-bool UPlayerAbilityHandler::CheckForCorrectAbilityPlane(UCombatAbility* Ability)
-{
-	if (!IsValid(Ability))
-	{
-		return false;
-	}
-	switch (Ability->GetAbilityPlane())
-	{
-		case ESaiyoraPlane::None :
-			return false;
-		case ESaiyoraPlane::Neither :
-			return false;
-		case ESaiyoraPlane::Both :
-			return false;
-		case ESaiyoraPlane::Ancient :
-			return CurrentBar != EActionBarType::Ancient;
-		case ESaiyoraPlane::Modern :
-			return CurrentBar != EActionBarType::Modern;
-		default :
-			return false;
-	}
-}
-
 void UPlayerAbilityHandler::BeginPlay()
 {
 	Super::BeginPlay();
@@ -366,7 +343,7 @@ void UPlayerAbilityHandler::EndGlobalCooldown()
 	if (GlobalCooldownState.bGlobalCooldownActive)
 	{
 		Super::EndGlobalCooldown();
-		if (!GlobalCooldownState.bGlobalCooldownActive && HasAbilityPermission())
+		if (!GlobalCooldownState.bGlobalCooldownActive && AbilityPermission != EAbilityPermission::None)
 		{
 			CheckForQueuedAbilityOnGlobalEnd();
 		}
@@ -483,6 +460,30 @@ void UPlayerAbilityHandler::UpdatePredictedCastFromServer(FServerAbilityResult c
 	}
 	
 	OnCastStateChanged.Broadcast(PreviousState, CastingState);
+}
+
+void UPlayerAbilityHandler::CompleteCast()
+{
+	//TODO: Refactor this in the parent and child classes.
+	FCastEvent CompletionEvent;
+	CompletionEvent.Ability = CastingState.CurrentCast;
+	CompletionEvent.PredictionID = CastingState.PredictionID;
+	CompletionEvent.ActionTaken = ECastAction::Complete;
+	CompletionEvent.Tick = CastingState.ElapsedTicks;
+	if (IsValid(CompletionEvent.Ability))
+	{
+		CastingState.CurrentCast->CompleteCast();
+		OnAbilityComplete.Broadcast(CompletionEvent.Ability);
+		if (GetOwnerRole() == ROLE_Authority)
+		{
+			BroadcastAbilityComplete(CompletionEvent);
+		}
+	}
+	GetWorld()->GetTimerManager().ClearTimer(CastHandle);
+	if (!GetWorld()->GetTimerManager().IsTimerActive(TickHandle))
+	{
+		EndCast();
+	}
 }
 
 #pragma region Queueing
@@ -711,6 +712,24 @@ void UPlayerAbilityHandler::UpdateAbilityBind(TSubclassOf<UCombatAbility> const 
 	OnAbilityBindUpdated.Broadcast(Bind, Bar, FindActiveAbility(Ability));
 }
 
+void UPlayerAbilityHandler::SubscribeToAbilityMispredicted(FAbilityMispredictionCallback const& Callback)
+{
+	if (GetOwnerRole() != ROLE_AutonomousProxy || !Callback.IsBound())
+	{
+		return;
+	}
+	OnAbilityMispredicted.AddUnique(Callback);
+}
+
+void UPlayerAbilityHandler::UnsubscribeFromAbilityMispredicted(FAbilityMispredictionCallback const& Callback)
+{
+	if (GetOwnerRole() != ROLE_AutonomousProxy || !Callback.IsBound())
+	{
+		return;
+	}
+	OnAbilityMispredicted.Remove(Callback);
+}
+
 void UPlayerAbilityHandler::SubscribeToAbilityBindUpdated(FAbilityBindingCallback const& Callback)
 {
 	if (GetOwnerRole() != ROLE_AutonomousProxy || !Callback.IsBound())
@@ -763,4 +782,27 @@ void UPlayerAbilityHandler::UnsubscribeFromSpellbookUpdated(FSpellbookCallback c
 		return;
 	}
 	OnSpellbookUpdated.Remove(Callback);
+}
+
+bool UPlayerAbilityHandler::CheckForCorrectAbilityPlane(UCombatAbility* Ability)
+{
+	if (!IsValid(Ability))
+	{
+		return false;
+	}
+	switch (Ability->GetAbilityPlane())
+	{
+	case ESaiyoraPlane::None :
+		return false;
+	case ESaiyoraPlane::Neither :
+		return false;
+	case ESaiyoraPlane::Both :
+		return false;
+	case ESaiyoraPlane::Ancient :
+		return CurrentBar != EActionBarType::Ancient;
+	case ESaiyoraPlane::Modern :
+		return CurrentBar != EActionBarType::Modern;
+	default :
+		return false;
+	}
 }

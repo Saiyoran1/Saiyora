@@ -456,24 +456,6 @@ void UAbilityHandler::UnsubscribeFromGlobalCooldownChanged(FGlobalCooldownCallba
 	OnGlobalCooldownChanged.Remove(Callback);
 }
 
-void UAbilityHandler::SubscribeToAbilityMispredicted(FAbilityMispredictionCallback const& Callback)
-{
-	if (GetOwnerRole() != ROLE_AutonomousProxy || !Callback.IsBound())
-	{
-		return;
-	}
-	OnAbilityMispredicted.AddUnique(Callback);
-}
-
-void UAbilityHandler::UnsubscribeFromAbilityMispredicted(FAbilityMispredictionCallback const& Callback)
-{
-	if (GetOwnerRole() != ROLE_AutonomousProxy || !Callback.IsBound())
-	{
-		return;
-	}
-	OnAbilityMispredicted.Remove(Callback);
-}
-
 void UAbilityHandler::BroadcastAbilityComplete_Implementation(FCastEvent const& CastEvent)
 {
 	if (GetOwnerRole() == ROLE_SimulatedProxy)
@@ -581,7 +563,6 @@ void UAbilityHandler::StartCast(UCombatAbility* Ability)
 	OnCastStateChanged.Broadcast(PreviousState, CastingState);
 }
 
-//Server tick of a non-predicted cast.
 void UAbilityHandler::TickCurrentAbility()
 {
 	if (!CastingState.bIsCasting || !IsValid(CastingState.CurrentCast))
@@ -840,10 +821,6 @@ void UAbilityHandler::EndCast()
 	GetWorld()->GetTimerManager().ClearTimer(CastHandle);
 	GetWorld()->GetTimerManager().ClearTimer(TickHandle);
 	OnCastStateChanged.Broadcast(PreviousState, GetCastingState());
-	if (GetOwnerRole() == ROLE_AutonomousProxy)
-	{
-		CheckForQueuedAbilityOnCastEnd();
-	}
 }
 
 void UAbilityHandler::OnRep_CastingState(FCastingState const& PreviousState)
@@ -958,10 +935,6 @@ void UAbilityHandler::EndGlobalCooldown()
 		GlobalCooldownState.EndTime = 0.0f;
 		GetWorld()->GetTimerManager().ClearTimer(GlobalCooldownHandle);
 		OnGlobalCooldownChanged.Broadcast(PreviousGlobal, GlobalCooldownState);
-		if (GetOwnerRole() == ROLE_AutonomousProxy)
-		{
-			CheckForQueuedAbilityOnGlobalEnd();
-		}
 	}
 }
 #pragma endregion
@@ -1106,10 +1079,6 @@ bool UAbilityHandler::CheckCanCastAbility(UCombatAbility* Ability, TArray<FAbili
 
 	return true;
 }
-
-#pragma endregion
-#pragma region Prediction
-
 
 #pragma endregion
 #pragma region PredictedTicks

@@ -28,7 +28,11 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void UpdateAbilityBind(TSubclassOf<UCombatAbility> const Ability, int32 const Bind, EActionBarType const Bar);
-	
+
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	void SubscribeToAbilityMispredicted(FAbilityMispredictionCallback const& Callback);
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	void UnsubscribeFromAbilityMispredicted(FAbilityMispredictionCallback const& Callback);
 	UFUNCTION(BlueprintCallable)
 	void SubscribeToAbilityBindUpdated(FAbilityBindingCallback const& Callback);
 	UFUNCTION(BlueprintCallable)
@@ -72,6 +76,7 @@ private:
 	void StartCast(UCombatAbility* Ability, int32 const PredictionID = 0);
 	void PredictStartCast(UCombatAbility* Ability, int32 const PredictionID);
 	void UpdatePredictedCastFromServer(FServerAbilityResult const& ServerResult);
+	virtual void CompleteCast() override;
 	
 	bool TryQueueAbility(TSubclassOf<UCombatAbility> const AbilityClass);
 	UFUNCTION()
