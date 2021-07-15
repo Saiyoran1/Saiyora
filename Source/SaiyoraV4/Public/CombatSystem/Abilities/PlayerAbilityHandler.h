@@ -64,7 +64,8 @@ private:
 	static int32 ClientPredictionID = 0;
 	TMap<int32, FClientAbilityPrediction> UnackedAbilityPredictions;
 
-	void StartGlobal(UCombatAbility* Ability, bool const bPredicted = false);
+	void StartGlobal(UCombatAbility* Ability, bool const bPredicted = false);\
+	virtual void EndGlobalCooldown() override;
 	void PredictStartGlobal(int32 const PredictionID);
 	void UpdatePredictedGlobalFromServer(FServerAbilityResult const& ServerResult);
 
@@ -99,4 +100,5 @@ private:
 	UFUNCTION()
 	bool CheckForCorrectAbilityPlane(UCombatAbility* Ability);
 
+	EAbilityPermission AbilityPermission = EAbilityPermission::None;
 };

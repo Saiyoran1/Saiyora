@@ -45,7 +45,7 @@ bool UAbilityHandler::ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bun
 void UAbilityHandler::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
 	GameStateRef = GetWorld()->GetGameState<ASaiyoraGameState>();
 	if (!GameStateRef)
 	{
@@ -969,24 +969,6 @@ void UAbilityHandler::EndGlobalCooldown()
 //ABILITY USAGE
 
 FCastEvent UAbilityHandler::UseAbility(TSubclassOf<UCombatAbility> const AbilityClass)
-{
-	FCastEvent Result;
-	switch (GetOwnerRole())
-	{
-	case ROLE_Authority :
-		return AuthUseAbility(AbilityClass);
-	case ROLE_AutonomousProxy :
-		return PredictUseAbility(AbilityClass, false);
-	case ROLE_SimulatedProxy :
-		Result.FailReason = ECastFailReason::NetRole;
-		return Result;
-	default :
-		Result.FailReason = ECastFailReason::NetRole;
-		return Result;
-	}
-}
-
-FCastEvent UAbilityHandler::AuthUseAbility(TSubclassOf<UCombatAbility> const AbilityClass)
 {
 	FCastEvent Result;
 

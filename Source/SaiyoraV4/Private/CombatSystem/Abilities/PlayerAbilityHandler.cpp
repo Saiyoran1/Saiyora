@@ -53,6 +53,22 @@ bool UPlayerAbilityHandler::CheckForCorrectAbilityPlane(UCombatAbility* Ability)
 void UPlayerAbilityHandler::BeginPlay()
 {
 	Super::BeginPlay();
+
+	switch (GetOwnerRole())
+	{
+		case ROLE_Authority :
+			if (GetOwner()->GetRemoteRole() == ROLE_SimulatedProxy)
+			{
+				AbilityPermission = EAbilityPermission::ListenServer;
+			}
+			break;
+		case ROLE_AutonomousProxy :
+			AbilityPermission = EAbilityPermission::AutoProxy;
+			break;
+		default:
+			break;
+	}
+	
 	if (GetOwnerRole() == ROLE_AutonomousProxy)
 	{
 		USaiyoraPlaneComponent* PlaneComponent = ISaiyoraCombatInterface::Execute_GetPlaneComponent(GetOwner());
@@ -345,6 +361,18 @@ void UPlayerAbilityHandler::StartGlobal(UCombatAbility* Ability, bool const bPre
 	OnGlobalCooldownChanged.Broadcast(PreviousGlobal, GlobalCooldownState);
 }
 
+void UPlayerAbilityHandler::EndGlobalCooldown()
+{
+	if (GlobalCooldownState.bGlobalCooldownActive)
+	{
+		Super::EndGlobalCooldown();
+		if (!GlobalCooldownState.bGlobalCooldownActive && HasAbilityPermission())
+		{
+			CheckForQueuedAbilityOnGlobalEnd();
+		}
+	}
+}
+
 void UPlayerAbilityHandler::PredictStartGlobal(int32 const PredictionID)
 {
 	FGlobalCooldown const PreviousState = GlobalCooldownState;
@@ -629,13 +657,16 @@ void UPlayerAbilityHandler::AbilityInput(int32 const BindNumber, bool const bHid
 
 FCastEvent UPlayerAbilityHandler::UseAbility(TSubclassOf<UCombatAbility> const AbilityClass)
 {
-	if (GetOwnerRole() == ROLE_Authority && GetOwner()->GetRemoteRole() == ROLE_SimulatedProxy)
+	switch (AbilityPermission)
 	{
-		return Super::UseAbility(AbilityClass);
-	}
-	if (GetOwnerRole() == ROLE_AutonomousProxy)
-	{
-		return PredictUseAbility(AbilityClass);
+		case EAbilityPermission::None :
+			break;
+		case EAbilityPermission::ListenServer :
+			return Super::UseAbility(AbilityClass);
+		case EAbilityPermission::AutoProxy :
+			return PredictUseAbility(AbilityClass);
+		default:
+			break;
 	}
 	FCastEvent Failure;
 	Failure.FailReason = ECastFailReason::NetRole;

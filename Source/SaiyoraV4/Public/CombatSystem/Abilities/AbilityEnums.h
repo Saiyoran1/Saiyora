@@ -41,7 +41,7 @@ enum class EActionBarType : uint8
     Hidden = 3,
 };
 
-UENUM()
+UENUM(BlueprintType)
 enum class ECastFailReason : uint8
 {
     None = 0,
@@ -58,4 +58,12 @@ enum class ECastFailReason : uint8
     NetRole = 11,
     InvalidCastType = 12,
     Queued = 13,
+};
+
+UENUM()
+enum class EAbilityPermission : uint8
+{
+    None = 0,
+    ListenServer = 2,
+    AutoProxy = 3,
 };

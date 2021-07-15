@@ -146,8 +146,6 @@ public:
 	void RemoveInterruptRestriction(FInterruptRestriction const& Restriction);
 	
 private:
-
-	FCastEvent AuthUseAbility(TSubclassOf<UCombatAbility> const AbilityClass);
 	
 	UFUNCTION(Server, Reliable, WithValidation)
 	void ServerHandlePredictedTick(FAbilityRequest const& TickRequest);
@@ -173,7 +171,7 @@ protected:
 	FTimerHandle GlobalCooldownHandle;
 	void StartGlobal(UCombatAbility* Ability);
 	UFUNCTION()
-	void EndGlobalCooldown();
+	virtual void EndGlobalCooldown();
 	float CalculateGlobalCooldownLength(UCombatAbility* Ability);
 private:
 	TArray<FAbilityModCondition> GlobalCooldownMods;
