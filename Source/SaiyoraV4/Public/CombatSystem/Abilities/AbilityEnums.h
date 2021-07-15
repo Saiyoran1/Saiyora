@@ -60,10 +60,20 @@ enum class ECastFailReason : uint8
     Queued = 13,
 };
 
+UENUM(BlueprintType)
+enum class EInterruptFailReason : uint8
+{
+    None = 0,
+    NetRole = 1,
+    NotCasting = 2,
+    Restricted = 3,
+};
+
 UENUM()
 enum class EAbilityPermission : uint8
 {
-    None = 0,
-    ListenServer = 2,
-    AutoProxy = 3,
+    None = 0, //Simulated proxy.
+    Auth = 1, //Server with remote role of AutoProxy.
+    AuthPlayer = 2, //Listen server.
+    PredictPlayer = 3, //Auto proxy.
 };

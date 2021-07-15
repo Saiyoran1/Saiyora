@@ -22,6 +22,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void AbilityInput(int32 const BindNumber, bool const bHidden);
 	virtual FCastEvent UseAbility(TSubclassOf<UCombatAbility> const AbilityClass) override;
+	virtual FInterruptEvent InterruptCurrentCast(AActor* AppliedBy, UObject* InterruptSource, bool const bIgnoreRestrictions) override;
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
 	void LearnAbility(TSubclassOf<UCombatAbility> const NewAbility);
@@ -63,6 +64,9 @@ private:
 	void ClientSucceedPredictedAbility(FServerAbilityResult const& ServerResult);
 	UFUNCTION(Client, Reliable)
 	void ClientFailPredictedAbility(int32 const PredictionID, ECastFailReason const FailReason);
+
+	UFUNCTION(Client, Reliable)
+	void ClientInterruptCast(FInterruptEvent const& InterruptEvent);
 
 	int32 GenerateNewPredictionID();
 	static int32 ClientPredictionID = 0;

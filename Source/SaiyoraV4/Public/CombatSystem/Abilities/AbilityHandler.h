@@ -50,7 +50,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	FCancelEvent CancelCurrentCast();
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
-	FInterruptEvent InterruptCurrentCast(AActor* AppliedBy, UObject* InterruptSource, bool const bIgnoreRestrictions);
+	virtual FInterruptEvent InterruptCurrentCast(AActor* AppliedBy, UObject* InterruptSource, bool const bIgnoreRestrictions);
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
     UCombatAbility* FindActiveAbility(TSubclassOf<UCombatAbility> const AbilityClass);
@@ -146,8 +146,6 @@ private:
 	void ServerHandlePredictedTick(FAbilityRequest const& TickRequest);
 	bool ServerHandlePredictedTick_Validate(FAbilityRequest const& TickRequest) { return true; }
 	FCancelEvent CancelAbility();
-	UFUNCTION(Client, Reliable)
-	void ClientInterruptCast(FInterruptEvent const& InterruptEvent);
 	FCancelEvent PredictCancelAbility();
 	UFUNCTION(Server, WithValidation, Reliable)
 	void ServerPredictCancelAbility(FCancelRequest const& CancelRequest);

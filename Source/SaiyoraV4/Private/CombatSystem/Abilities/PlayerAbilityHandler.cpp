@@ -9,6 +9,8 @@
 
 const int32 UPlayerAbilityHandler::AbilitiesPerBar = 6;
 
+#pragma region SetupFunctions
+
 UPlayerAbilityHandler::UPlayerAbilityHandler()
 {
 	PrimaryComponentTick.bCanEverTick = false;
@@ -36,11 +38,15 @@ void UPlayerAbilityHandler::BeginPlay()
 		case ROLE_Authority :
 			if (GetOwner()->GetRemoteRole() == ROLE_SimulatedProxy)
 			{
-				AbilityPermission = EAbilityPermission::ListenServer;
+				AbilityPermission = EAbilityPermission::AuthPlayer;
+			}
+			else
+			{
+				AbilityPermission = EAbilityPermission::Auth;			
 			}
 			break;
 		case ROLE_AutonomousProxy :
-			AbilityPermission = EAbilityPermission::AutoProxy;
+			AbilityPermission = EAbilityPermission::PredictPlayer;
 			break;
 		default:
 			break;
@@ -73,6 +79,143 @@ void UPlayerAbilityHandler::BeginPlay()
 			PlaneComponent->SubscribeToPlaneSwap(PlaneSwapCallback);
 		}
 	}
+}
+
+#pragma endregion
+#pragma region SubscriptionsAndCallbacks
+
+void UPlayerAbilityHandler::SubscribeToAbilityMispredicted(FAbilityMispredictionCallback const& Callback)
+{
+	if (GetOwnerRole() != ROLE_AutonomousProxy || !Callback.IsBound())
+	{
+		return;
+	}
+	OnAbilityMispredicted.AddUnique(Callback);
+}
+
+void UPlayerAbilityHandler::UnsubscribeFromAbilityMispredicted(FAbilityMispredictionCallback const& Callback)
+{
+	if (GetOwnerRole() != ROLE_AutonomousProxy || !Callback.IsBound())
+	{
+		return;
+	}
+	OnAbilityMispredicted.Remove(Callback);
+}
+
+void UPlayerAbilityHandler::SubscribeToAbilityBindUpdated(FAbilityBindingCallback const& Callback)
+{
+	if (GetOwnerRole() != ROLE_AutonomousProxy || !Callback.IsBound())
+	{
+		return;
+	}
+	OnAbilityBindUpdated.AddUnique(Callback);
+}
+
+void UPlayerAbilityHandler::UnsubscribeFromAbilityBindUpdated(FAbilityBindingCallback const& Callback)
+{
+	if (GetOwnerRole() != ROLE_AutonomousProxy || !Callback.IsBound())
+	{
+		return;
+	}
+	OnAbilityBindUpdated.Remove(Callback);
+}
+
+void UPlayerAbilityHandler::SubscribeToBarSwap(FBarSwapCallback const& Callback)
+{
+	if (GetOwnerRole() != ROLE_AutonomousProxy || !Callback.IsBound())
+	{
+		return;
+	}
+	OnBarSwap.AddUnique(Callback);
+}
+
+void UPlayerAbilityHandler::UnsubscribeFromBarSwap(FBarSwapCallback const& Callback)
+{
+	if (GetOwnerRole() != ROLE_AutonomousProxy || !Callback.IsBound())
+	{
+		return;
+	}
+	OnBarSwap.Remove(Callback);
+}
+
+void UPlayerAbilityHandler::SubscribeToSpellbookUpdated(FSpellbookCallback const& Callback)
+{
+	if (!Callback.IsBound())
+	{
+		return;
+	}
+	OnSpellbookUpdated.AddUnique(Callback);
+}
+
+void UPlayerAbilityHandler::UnsubscribeFromSpellbookUpdated(FSpellbookCallback const& Callback)
+{
+	if (!Callback.IsBound())
+	{
+		return;
+	}
+	OnSpellbookUpdated.Remove(Callback);
+}
+
+#pragma endregion 
+#pragma region AbilityUsage
+
+void UPlayerAbilityHandler::AbilityInput(int32 const BindNumber, bool const bHidden)
+{
+	if (BindNumber > AbilitiesPerBar - 1)
+	{
+		return;
+	}
+	TSubclassOf<UCombatAbility> AbilityClass;
+	if (bHidden)
+	{
+		AbilityClass = Loadout.HiddenLoadout.FindRef(BindNumber);
+	}
+	else
+	{
+		switch (CurrentBar)
+		{
+		case EActionBarType::Ancient :
+			AbilityClass = Loadout.AncientLoadout.FindRef(BindNumber);
+			break;
+		case EActionBarType::Modern :
+			AbilityClass = Loadout.ModernLoadout.FindRef(BindNumber);
+			break;
+		default :
+			break;
+		}
+	}
+	if (IsValid(AbilityClass))
+	{
+		UseAbility(AbilityClass);
+	}
+}
+
+FCastEvent UPlayerAbilityHandler::UseAbility(TSubclassOf<UCombatAbility> const AbilityClass)
+{
+	switch (AbilityPermission)
+	{
+	case EAbilityPermission::AuthPlayer :
+		return Super::UseAbility(AbilityClass);
+	case EAbilityPermission::PredictPlayer :
+		return PredictUseAbility(AbilityClass);
+	default:
+		{
+			FCastEvent Failure;
+			Failure.FailReason = ECastFailReason::NetRole;
+			return Failure;
+		}
+	}
+	
+}
+
+int32 UPlayerAbilityHandler::GenerateNewPredictionID()
+{
+	ClientPredictionID++;
+	if (ClientPredictionID == 0)
+	{
+		ClientPredictionID++;
+	}
+	return ClientPredictionID;
 }
 
 FCastEvent UPlayerAbilityHandler::PredictUseAbility(TSubclassOf<UCombatAbility> const AbilityClass, bool const bFromQueue)
@@ -310,15 +453,8 @@ void UPlayerAbilityHandler::ClientFailPredictedAbility_Implementation(int32 cons
 	OnAbilityMispredicted.Broadcast(PredictionID, FailReason);
 }
 
-int32 UPlayerAbilityHandler::GenerateNewPredictionID()
-{
-	ClientPredictionID++;
-	if (ClientPredictionID == 0)
-	{
-		ClientPredictionID++;
-	}
-	return ClientPredictionID;
-}
+#pragma endregion 
+#pragma region GlobalCooldown
 
 void UPlayerAbilityHandler::StartGlobal(UCombatAbility* Ability, bool const bPredicted)
 {
@@ -381,6 +517,9 @@ void UPlayerAbilityHandler::UpdatePredictedGlobalFromServer(FServerAbilityResult
 	GetWorld()->GetTimerManager().SetTimer(GlobalCooldownHandle, this, &UPlayerAbilityHandler::EndGlobalCooldown, GlobalCooldownState.EndTime - GameStateRef->GetServerWorldTimeSeconds(), false);
 	OnGlobalCooldownChanged.Broadcast(PreviousState, GlobalCooldownState);
 }
+
+#pragma endregion 
+#pragma region Casting
 
 void UPlayerAbilityHandler::StartCast(UCombatAbility* Ability, int32 const PredictionID)
 {
@@ -464,7 +603,6 @@ void UPlayerAbilityHandler::UpdatePredictedCastFromServer(FServerAbilityResult c
 
 void UPlayerAbilityHandler::CompleteCast()
 {
-	//TODO: Refactor this in the parent and child classes.
 	FCastEvent CompletionEvent;
 	CompletionEvent.Ability = CastingState.CurrentCast;
 	CompletionEvent.PredictionID = CastingState.PredictionID;
@@ -486,6 +624,7 @@ void UPlayerAbilityHandler::CompleteCast()
 	}
 }
 
+#pragma endregion 
 #pragma region Queueing
 
 bool UPlayerAbilityHandler::TryQueueAbility(TSubclassOf<UCombatAbility> const AbilityClass)
@@ -609,6 +748,47 @@ void UPlayerAbilityHandler::CheckForQueuedAbilityOnCastEnd()
 }
 
 #pragma endregion
+#pragma region Interrupt
+
+FInterruptEvent UPlayerAbilityHandler::InterruptCurrentCast(AActor* AppliedBy, UObject* InterruptSource,
+	bool const bIgnoreRestrictions)
+{
+	switch (AbilityPermission)
+	{
+	case EAbilityPermission::AuthPlayer :
+		return Super::InterruptCurrentCast(AppliedBy, InterruptSource, bIgnoreRestrictions);
+	case EAbilityPermission::Auth :
+		{
+			int32 const CastID = CastingState.PredictionID;
+			FInterruptEvent Result = Super::InterruptCurrentCast(AppliedBy, InterruptSource, bIgnoreRestrictions);
+			if (!Result.bSuccess)
+			{
+				return Result;
+			}
+			Result.CancelledCastID = CastID;
+			ClientInterruptCast(Result);
+		}
+	default :
+		{
+			FInterruptEvent Failure;
+			Failure.FailReason = EInterruptFailReason::NetRole;
+			return Failure;
+		}
+	}
+}
+
+void UPlayerAbilityHandler::ClientInterruptCast_Implementation(FInterruptEvent const& InterruptEvent)
+{
+	if (!CastingState.bIsCasting || CastingState.PredictionID > InterruptEvent.CancelledCastID || !IsValid(CastingState.CurrentCast) || CastingState.CurrentCast != InterruptEvent.InterruptedAbility)
+	{
+		//We have already moved on.
+		return;
+	}
+	CastingState.CurrentCast->InterruptCast(InterruptEvent);
+	OnAbilityInterrupted.Broadcast(InterruptEvent);
+	EndCast();
+}
+#pragma endregion
 
 //Old Stuff
 
@@ -623,55 +803,6 @@ void UPlayerAbilityHandler::SwapBarOnPlaneSwap(ESaiyoraPlane const PreviousPlane
 			OnBarSwap.Broadcast(CurrentBar);
 		}
 	}
-}
-
-void UPlayerAbilityHandler::AbilityInput(int32 const BindNumber, bool const bHidden)
-{
-	if (BindNumber > AbilitiesPerBar - 1)
-	{
-		return;
-	}
-	TSubclassOf<UCombatAbility> AbilityClass;
-	if (bHidden)
-	{
-		AbilityClass = Loadout.HiddenLoadout.FindRef(BindNumber);
-	}
-	else
-	{
-		switch (CurrentBar)
-		{
-			case EActionBarType::Ancient :
-				AbilityClass = Loadout.AncientLoadout.FindRef(BindNumber);
-				break;
-			case EActionBarType::Modern :
-				AbilityClass = Loadout.ModernLoadout.FindRef(BindNumber);
-				break;
-			default :
-				break;
-		}
-	}
-	if (IsValid(AbilityClass))
-	{
-		UseAbility(AbilityClass);
-	}
-}
-
-FCastEvent UPlayerAbilityHandler::UseAbility(TSubclassOf<UCombatAbility> const AbilityClass)
-{
-	switch (AbilityPermission)
-	{
-		case EAbilityPermission::None :
-			break;
-		case EAbilityPermission::ListenServer :
-			return Super::UseAbility(AbilityClass);
-		case EAbilityPermission::AutoProxy :
-			return PredictUseAbility(AbilityClass);
-		default:
-			break;
-	}
-	FCastEvent Failure;
-	Failure.FailReason = ECastFailReason::NetRole;
-	return Failure;
 }
 
 void UPlayerAbilityHandler::LearnAbility(TSubclassOf<UCombatAbility> const NewAbility)
@@ -710,78 +841,6 @@ void UPlayerAbilityHandler::UpdateAbilityBind(TSubclassOf<UCombatAbility> const 
 			return;
 	}
 	OnAbilityBindUpdated.Broadcast(Bind, Bar, FindActiveAbility(Ability));
-}
-
-void UPlayerAbilityHandler::SubscribeToAbilityMispredicted(FAbilityMispredictionCallback const& Callback)
-{
-	if (GetOwnerRole() != ROLE_AutonomousProxy || !Callback.IsBound())
-	{
-		return;
-	}
-	OnAbilityMispredicted.AddUnique(Callback);
-}
-
-void UPlayerAbilityHandler::UnsubscribeFromAbilityMispredicted(FAbilityMispredictionCallback const& Callback)
-{
-	if (GetOwnerRole() != ROLE_AutonomousProxy || !Callback.IsBound())
-	{
-		return;
-	}
-	OnAbilityMispredicted.Remove(Callback);
-}
-
-void UPlayerAbilityHandler::SubscribeToAbilityBindUpdated(FAbilityBindingCallback const& Callback)
-{
-	if (GetOwnerRole() != ROLE_AutonomousProxy || !Callback.IsBound())
-	{
-		return;
-	}
-	OnAbilityBindUpdated.AddUnique(Callback);
-}
-
-void UPlayerAbilityHandler::UnsubscribeFromAbilityBindUpdated(FAbilityBindingCallback const& Callback)
-{
-	if (GetOwnerRole() != ROLE_AutonomousProxy || !Callback.IsBound())
-	{
-		return;
-	}
-	OnAbilityBindUpdated.Remove(Callback);
-}
-
-void UPlayerAbilityHandler::SubscribeToBarSwap(FBarSwapCallback const& Callback)
-{
-	if (GetOwnerRole() != ROLE_AutonomousProxy || !Callback.IsBound())
-	{
-		return;
-	}
-	OnBarSwap.AddUnique(Callback);
-}
-
-void UPlayerAbilityHandler::UnsubscribeFromBarSwap(FBarSwapCallback const& Callback)
-{
-	if (GetOwnerRole() != ROLE_AutonomousProxy || !Callback.IsBound())
-	{
-		return;
-	}
-	OnBarSwap.Remove(Callback);
-}
-
-void UPlayerAbilityHandler::SubscribeToSpellbookUpdated(FSpellbookCallback const& Callback)
-{
-	if (!Callback.IsBound())
-	{
-		return;
-	}
-	OnSpellbookUpdated.AddUnique(Callback);
-}
-
-void UPlayerAbilityHandler::UnsubscribeFromSpellbookUpdated(FSpellbookCallback const& Callback)
-{
-	if (!Callback.IsBound())
-	{
-		return;
-	}
-	OnSpellbookUpdated.Remove(Callback);
 }
 
 bool UPlayerAbilityHandler::CheckForCorrectAbilityPlane(UCombatAbility* Ability)

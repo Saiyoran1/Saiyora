@@ -592,17 +592,13 @@ void UAbilityHandler::CompleteCast()
 {
 	FCastEvent CompletionEvent;
 	CompletionEvent.Ability = CastingState.CurrentCast;
-	CompletionEvent.PredictionID = CastingState.PredictionID;
 	CompletionEvent.ActionTaken = ECastAction::Complete;
 	CompletionEvent.Tick = CastingState.ElapsedTicks;
 	if (IsValid(CompletionEvent.Ability))
 	{
 		CastingState.CurrentCast->CompleteCast();
 		OnAbilityComplete.Broadcast(CompletionEvent.Ability);
-		if (GetOwnerRole() == ROLE_Authority)
-		{
-			BroadcastAbilityComplete(CompletionEvent);
-		}
+		BroadcastAbilityComplete(CompletionEvent);
 	}
 	GetWorld()->GetTimerManager().ClearTimer(CastHandle);
 	if (!GetWorld()->GetTimerManager().IsTimerActive(TickHandle))
@@ -719,11 +715,12 @@ FInterruptEvent UAbilityHandler::InterruptCurrentCast(AActor* AppliedBy, UObject
 	FInterruptEvent Result;
 	if (GetOwnerRole() != ROLE_Authority)
 	{
+		Result.FailReason = EInterruptFailReason::NetRole;
 		return Result;
 	}
 	if (!GetCastingState().bIsCasting || !IsValid(Result.InterruptedAbility))
 	{
-		Result.FailReason = FString(TEXT("Not currently casting."));
+		Result.FailReason = EInterruptFailReason::NotCasting;
 		return Result;
 	}
 	
@@ -734,14 +731,13 @@ FInterruptEvent UAbilityHandler::InterruptCurrentCast(AActor* AppliedBy, UObject
 	Result.InterruptedCastStart = GetCastingState().CastStartTime;
 	Result.InterruptedCastEnd = GetCastingState().CastEndTime;
 	Result.ElapsedTicks = CastingState.ElapsedTicks;
-	Result.CancelledCastID = CastingState.PredictionID;
 	Result.InterruptTime = GetGameStateRef()->GetServerWorldTimeSeconds();
 	
 	if (!bIgnoreRestrictions)
 	{
 		if (!CastingState.CurrentCast->GetInterruptible() || CheckInterruptRestricted(Result))
 		{
-			Result.FailReason = FString(TEXT("Cast was not interruptible."));
+			Result.FailReason = EInterruptFailReason::Restricted;
 			return Result;
 		}
 	}
@@ -749,26 +745,10 @@ FInterruptEvent UAbilityHandler::InterruptCurrentCast(AActor* AppliedBy, UObject
 	Result.bSuccess = true;
 	Result.InterruptedAbility->InterruptCast(Result);
 	OnAbilityInterrupted.Broadcast(Result);
-	if (GetOwner()->GetRemoteRole() == ROLE_AutonomousProxy)
-	{
-		ClientInterruptCast(Result);
-	}
 	BroadcastAbilityInterrupt(Result);
 	EndCast();
 	
 	return Result;
-}
-
-void UAbilityHandler::ClientInterruptCast_Implementation(FInterruptEvent const& InterruptEvent)
-{
-	if (!CastingState.bIsCasting || CastingState.PredictionID > InterruptEvent.CancelledCastID || !IsValid(CastingState.CurrentCast) || CastingState.CurrentCast != InterruptEvent.InterruptedAbility)
-	{
-		//We have already moved on.
-		return;
-	}
-	CastingState.CurrentCast->InterruptCast(InterruptEvent);
-	OnAbilityInterrupted.Broadcast(InterruptEvent);
-	EndCast();
 }
 
 void UAbilityHandler::AddInterruptRestriction(FInterruptRestriction const& Restriction)

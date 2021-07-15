@@ -90,7 +90,7 @@ struct FCastEvent
     UPROPERTY(BlueprintReadOnly)
     int32 Tick = 0;
     UPROPERTY(BlueprintReadOnly)
-    ECastFailReason FailReason;
+    ECastFailReason FailReason = ECastFailReason::None;
     UPROPERTY()
     int32 PredictionID = 0;
 };
@@ -141,7 +141,7 @@ struct FInterruptEvent
     UPROPERTY(BlueprintReadOnly)
     bool bSuccess = false;
     UPROPERTY(BlueprintReadOnly)
-    FString FailReason;
+    EInterruptFailReason FailReason = EInterruptFailReason::None;
     UPROPERTY(BlueprintReadOnly)
     AActor* InterruptAppliedTo = nullptr;
     UPROPERTY(BlueprintReadOnly)
