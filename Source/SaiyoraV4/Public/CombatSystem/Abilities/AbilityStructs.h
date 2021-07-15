@@ -103,6 +103,8 @@ struct FCancelEvent
     UPROPERTY(BlueprintReadOnly)
     bool bSuccess = false;
     UPROPERTY(BlueprintReadOnly)
+    ECancelFailReason FailReason = ECancelFailReason::None;
+    UPROPERTY(BlueprintReadOnly)
     UCombatAbility* CancelledAbility = nullptr;
     UPROPERTY()
     int32 CancelID = 0;

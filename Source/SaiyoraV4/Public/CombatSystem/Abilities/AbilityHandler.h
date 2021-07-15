@@ -48,7 +48,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	virtual FCastEvent UseAbility(TSubclassOf<UCombatAbility> const AbilityClass);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
-	FCancelEvent CancelCurrentCast();
+	virtual FCancelEvent CancelCurrentCast();
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
 	virtual FInterruptEvent InterruptCurrentCast(AActor* AppliedBy, UObject* InterruptSource, bool const bIgnoreRestrictions);
 
@@ -145,11 +145,6 @@ private:
 	UFUNCTION(Server, Reliable, WithValidation)
 	void ServerHandlePredictedTick(FAbilityRequest const& TickRequest);
 	bool ServerHandlePredictedTick_Validate(FAbilityRequest const& TickRequest) { return true; }
-	FCancelEvent CancelAbility();
-	FCancelEvent PredictCancelAbility();
-	UFUNCTION(Server, WithValidation, Reliable)
-	void ServerPredictCancelAbility(FCancelRequest const& CancelRequest);
-	bool ServerPredictCancelAbility_Validate(FCancelRequest const& CancelRequest) { return true; }
 	bool CheckInterruptRestricted(FInterruptEvent const& InterruptEvent);
 	TArray<FInterruptRestriction> InterruptRestrictions;
 	

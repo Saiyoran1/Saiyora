@@ -609,31 +609,15 @@ void UAbilityHandler::CompleteCast()
 
 FCancelEvent UAbilityHandler::CancelCurrentCast()
 {
-	FCancelEvent const Fail;
-	switch (GetOwnerRole())
-	{
-		case ROLE_Authority :
-			return CancelAbility();
-		case ROLE_AutonomousProxy :
-			return PredictCancelAbility();
-		case ROLE_SimulatedProxy :
-			return Fail;
-		case ROLE_None :
-			return Fail;
-		default :
-			return Fail;
-	}
-}
-
-FCancelEvent UAbilityHandler::CancelAbility()
-{
 	FCancelEvent Result;
-	if (GetOwner()->GetRemoteRole() == ROLE_AutonomousProxy)
+	if (GetOwnerRole() != ROLE_Authority)
 	{
+		Result.FailReason = ECancelFailReason::NetRole;
 		return Result;
 	}
 	if (!CastingState.bIsCasting || !IsValid(CastingState.CurrentCast))
 	{
+		Result.FailReason = ECancelFailReason::NotCasting;
 		return Result;
 	}
 	Result.CancelledAbility = CastingState.CurrentCast;
@@ -641,73 +625,13 @@ FCancelEvent UAbilityHandler::CancelAbility()
 	Result.CancelledCastStart = CastingState.CastStartTime;
 	Result.CancelledCastEnd = CastingState.CastEndTime;
 	Result.ElapsedTicks = CastingState.ElapsedTicks;
+	Result.bSuccess = true;
 	FCombatParameters CancelParams;
 	Result.CancelledAbility->ServerCancel(CancelParams);
 	OnAbilityCancelled.Broadcast(Result);
 	BroadcastAbilityCancel(Result, CancelParams);
 	EndCast();
 	return Result;
-}
-
-FCancelEvent UAbilityHandler::PredictCancelAbility()
-{
-	FCancelEvent Result;
-	if (GetOwnerRole() != ROLE_AutonomousProxy)
-	{
-		return Result;
-	}
-	if (!CastingState.bIsCasting || !IsValid(CastingState.CurrentCast))
-	{
-		return Result;
-	}
-	Result.CancelledAbility = CastingState.CurrentCast;
-	Result.CancelTime = GameStateRef->GetServerWorldTimeSeconds();
-	GenerateNewPredictionID(Result);
-	Result.CancelledCastStart = CastingState.CastStartTime;
-	Result.CancelledCastEnd = CastingState.CastEndTime;
-	Result.CancelledCastID = CastingState.PredictionID;
-	Result.ElapsedTicks = CastingState.ElapsedTicks;
-	FCancelRequest CancelRequest;
-	CancelRequest.CancelTime = Result.CancelTime;
-	CancelRequest.CancelID = Result.CancelID;
-	CancelRequest.CancelledCastID = Result.CancelledCastID;
-	Result.CancelledAbility->PredictedCancel(CancelRequest.PredictionParams);
-	ServerPredictCancelAbility(CancelRequest);
-	OnAbilityCancelled.Broadcast(Result);
-	CastingState.PredictionID = Result.CancelID;
-	EndCast();
-	Result.bSuccess = true;
-	return Result;
-}
-
-void UAbilityHandler::ServerPredictCancelAbility_Implementation(FCancelRequest const& CancelRequest)
-{
-	
-	if (!CastingState.bIsCasting || !IsValid(CastingState.CurrentCast) || CastingState.PredictionID != CancelRequest.CancelledCastID)
-	{
-		if (CancelRequest.CancelID > CastingState.PredictionID)
-		{
-			CastingState.PredictionID = CancelRequest.CancelID;
-		}
-		return;
-	}
-	if (CancelRequest.CancelID > CastingState.PredictionID)
-	{
-		CastingState.PredictionID = CancelRequest.CancelID;
-	}
-	FCancelEvent Result;
-	Result.CancelledAbility = CastingState.CurrentCast;
-	Result.CancelTime = GameStateRef->GetServerWorldTimeSeconds();
-	Result.CancelID = CancelRequest.CancelID;
-	Result.CancelledCastStart = CastingState.CastStartTime;
-	Result.CancelledCastEnd = CastingState.CastEndTime;
-	Result.CancelledCastID = CastingState.PredictionID;
-	Result.ElapsedTicks = CastingState.ElapsedTicks;
-	FCombatParameters BroadcastParams;
-	Result.CancelledAbility->ServerPredictedCancel(CancelRequest.PredictionParams, BroadcastParams);
-	OnAbilityCancelled.Broadcast(Result);
-	BroadcastAbilityCancel(Result, BroadcastParams);
-	EndCast();
 }
 
 FInterruptEvent UAbilityHandler::InterruptCurrentCast(AActor* AppliedBy, UObject* InterruptSource, bool const bIgnoreRestrictions)

@@ -25,7 +25,7 @@ void UPlayerAbilityHandler::InitializeComponent()
 		return;
 	}
 	FAbilityRestriction PlaneAbilityRestriction;
-	PlaneAbilityRestriction.BindDynamic(this, &UPlayerAbilityHandler::CheckForCorrectAbilityPlane);
+	PlaneAbilityRestriction.BindDynamic(this, &UPlayerAbilityHandler::CheckForAbilityBarRestricted);
 	AddAbilityRestriction(PlaneAbilityRestriction);
 }
 
@@ -789,6 +789,80 @@ void UPlayerAbilityHandler::ClientInterruptCast_Implementation(FInterruptEvent c
 	EndCast();
 }
 #pragma endregion
+#pragma region Cancel
+
+FCancelEvent UPlayerAbilityHandler::CancelCurrentCast()
+{
+	switch (AbilityPermission)
+	{
+		case EAbilityPermission::AuthPlayer :
+			return Super::CancelCurrentCast();
+		case EAbilityPermission::PredictPlayer :
+			return PredictCancelAbility();
+		default :
+			{
+				FCancelEvent Fail;
+				Fail.FailReason = ECancelFailReason::NetRole;
+				return Fail;
+			}
+	}
+}
+
+FCancelEvent UPlayerAbilityHandler::PredictCancelAbility()
+{
+	FCancelEvent Result;
+	if (!CastingState.bIsCasting || !IsValid(CastingState.CurrentCast))
+	{
+		Result.FailReason = ECancelFailReason::NetRole;
+		return Result;
+	}
+	Result.CancelledAbility = CastingState.CurrentCast;
+	Result.CancelTime = GameStateRef->GetServerWorldTimeSeconds();
+	Result.CancelID = GenerateNewPredictionID();
+	Result.CancelledCastStart = CastingState.CastStartTime;
+	Result.CancelledCastEnd = CastingState.CastEndTime;
+	Result.CancelledCastID = CastingState.PredictionID;
+	Result.ElapsedTicks = CastingState.ElapsedTicks;
+	FCancelRequest CancelRequest;
+	CancelRequest.CancelTime = Result.CancelTime;
+	CancelRequest.CancelID = Result.CancelID;
+	CancelRequest.CancelledCastID = Result.CancelledCastID;
+	Result.bSuccess = true;
+	Result.CancelledAbility->PredictedCancel(CancelRequest.PredictionParams);
+	ServerPredictCancelAbility(CancelRequest);
+	OnAbilityCancelled.Broadcast(Result);
+	CastingState.PredictionID = Result.CancelID;
+	EndCast();
+	return Result;
+}
+
+void UPlayerAbilityHandler::ServerPredictCancelAbility_Implementation(FCancelRequest const& CancelRequest)
+{
+	int32 const CastID = CastingState.PredictionID;
+	if (CancelRequest.CancelID > CastingState.PredictionID)
+	{
+		CastingState.PredictionID = CancelRequest.CancelID;
+	}
+	if (!CastingState.bIsCasting || !IsValid(CastingState.CurrentCast) || CastID != CancelRequest.CancelledCastID)
+	{
+		return;
+	}
+	FCancelEvent Result;
+	Result.CancelledAbility = CastingState.CurrentCast;
+	Result.CancelTime = GameStateRef->GetServerWorldTimeSeconds();
+	Result.CancelID = CancelRequest.CancelID;
+	Result.CancelledCastStart = CastingState.CastStartTime;
+	Result.CancelledCastEnd = CastingState.CastEndTime;
+	Result.CancelledCastID = CastingState.PredictionID;
+	Result.ElapsedTicks = CastingState.ElapsedTicks;
+	FCombatParameters BroadcastParams;
+	Result.CancelledAbility->ServerPredictedCancel(CancelRequest.PredictionParams, BroadcastParams);
+	OnAbilityCancelled.Broadcast(Result);
+	BroadcastAbilityCancel(Result, BroadcastParams);
+	EndCast();
+}
+
+#pragma endregion 
 
 //Old Stuff
 
@@ -843,7 +917,7 @@ void UPlayerAbilityHandler::UpdateAbilityBind(TSubclassOf<UCombatAbility> const 
 	OnAbilityBindUpdated.Broadcast(Bind, Bar, FindActiveAbility(Ability));
 }
 
-bool UPlayerAbilityHandler::CheckForCorrectAbilityPlane(UCombatAbility* Ability)
+bool UPlayerAbilityHandler::CheckForAbilityBarRestricted(UCombatAbility* Ability)
 {
 	if (!IsValid(Ability))
 	{

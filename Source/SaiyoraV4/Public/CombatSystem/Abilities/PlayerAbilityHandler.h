@@ -23,6 +23,7 @@ public:
 	void AbilityInput(int32 const BindNumber, bool const bHidden);
 	virtual FCastEvent UseAbility(TSubclassOf<UCombatAbility> const AbilityClass) override;
 	virtual FInterruptEvent InterruptCurrentCast(AActor* AppliedBy, UObject* InterruptSource, bool const bIgnoreRestrictions) override;
+	virtual FCancelEvent CancelCurrentCast() override;
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
 	void LearnAbility(TSubclassOf<UCombatAbility> const NewAbility);
@@ -68,6 +69,11 @@ private:
 	UFUNCTION(Client, Reliable)
 	void ClientInterruptCast(FInterruptEvent const& InterruptEvent);
 
+	FCancelEvent PredictCancelAbility();
+	UFUNCTION(Server, WithValidation, Reliable)
+    void ServerPredictCancelAbility(FCancelRequest const& CancelRequest);
+	bool ServerPredictCancelAbility_Validate(FCancelRequest const& CancelRequest) { return true; }
+
 	int32 GenerateNewPredictionID();
 	static int32 ClientPredictionID = 0;
 	TMap<int32, FClientAbilityPrediction> UnackedAbilityPredictions;
@@ -107,7 +113,7 @@ private:
 	EActionBarType CurrentBar = EActionBarType::None;
 
 	UFUNCTION()
-	bool CheckForCorrectAbilityPlane(UCombatAbility* Ability);
+	bool CheckForAbilityBarRestricted(UCombatAbility* Ability);
 
 	EAbilityPermission AbilityPermission = EAbilityPermission::None;
 };
