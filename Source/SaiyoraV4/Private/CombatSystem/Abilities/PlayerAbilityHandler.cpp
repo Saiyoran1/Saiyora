@@ -357,7 +357,7 @@ void UPlayerAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest 
 		Result.ActionTaken = ECastAction::Success;
 		Result.Ability->ServerPredictedTick(0, AbilityRequest.PredictionParams, BroadcastParams);
 		OnAbilityTick.Broadcast(Result);
-		BroadcastAbilityTick(Result, BroadcastParams);
+		MulticastAbilityTick(Result, BroadcastParams);
 		break;
 	case EAbilityCastType::Channel :
 		Result.ActionTaken = ECastAction::Success;
@@ -369,7 +369,7 @@ void UPlayerAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest 
 		{
 			Result.Ability->ServerPredictedTick(0, AbilityRequest.PredictionParams, BroadcastParams);
 			OnAbilityTick.Broadcast(Result);
-			BroadcastAbilityTick(Result, BroadcastParams);
+			MulticastAbilityTick(Result, BroadcastParams);
 		}
 		break;
 	default :
@@ -538,8 +538,8 @@ void UPlayerAbilityHandler::StartCast(UCombatAbility* Ability, int32 const Predi
 	CastLength = FMath::Max(MinimumCastLength, CastLength - PingCompensation);
 	CastingState.CastEndTime = CastingState.CastStartTime + CastLength;
 	CastingState.bInterruptible = Ability->GetInterruptible();
-	GetWorld()->GetTimerManager().SetTimer(CastHandle, this, &UAbilityHandler::CompleteCast, CastLength, false);
-	GetWorld()->GetTimerManager().SetTimer(TickHandle, this, &UAbilityHandler::AuthTickPredictedCast,
+	GetWorld()->GetTimerManager().SetTimer(CastHandle, this, &UPlayerAbilityHandler::CompleteCast, CastLength, false);
+	GetWorld()->GetTimerManager().SetTimer(TickHandle, this, &UPlayerAbilityHandler::AuthTickPredictedCast,
 		(CastLength / Ability->GetNumberOfTicks()), true);
 	OnCastStateChanged.Broadcast(PreviousState, CastingState);
 }
@@ -614,13 +614,191 @@ void UPlayerAbilityHandler::CompleteCast()
 		OnAbilityComplete.Broadcast(CompletionEvent.Ability);
 		if (GetOwnerRole() == ROLE_Authority)
 		{
-			BroadcastAbilityComplete(CompletionEvent);
+			MulticastAbilityComplete(CompletionEvent);
 		}
 	}
 	GetWorld()->GetTimerManager().ClearTimer(CastHandle);
 	if (!GetWorld()->GetTimerManager().IsTimerActive(TickHandle))
 	{
 		EndCast();
+	}
+}
+
+//Predict a tick on the client and send tick parameters to the server.
+void UPlayerAbilityHandler::PredictAbilityTick()
+{
+	if (!CastingState.bIsCasting || !IsValid(CastingState.CurrentCast))
+	{
+		return;
+	}
+	CastingState.ElapsedTicks++;
+	FAbilityRequest TickRequest;
+	CastingState.CurrentCast->PredictedTick(CastingState.ElapsedTicks, TickRequest.PredictionParams);
+	if (CastingState.CurrentCast->GetTickNeedsPredictionParams(CastingState.ElapsedTicks))
+	{
+		TickRequest.Tick = CastingState.ElapsedTicks;
+		TickRequest.AbilityClass = CastingState.CurrentCast->GetClass();
+		TickRequest.PredictionID = CastingState.PredictionID;
+		ServerHandlePredictedTick(TickRequest);
+	}
+	FCastEvent TickEvent;
+	TickEvent.Ability = CastingState.CurrentCast;
+	TickEvent.Tick = CastingState.ElapsedTicks;
+	TickEvent.ActionTaken = ECastAction::Tick;
+	TickEvent.PredictionID = CastingState.PredictionID;
+	OnAbilityTick.Broadcast(TickEvent);
+	if (CastingState.ElapsedTicks >= CastingState.CurrentCast->GetNumberOfTicks())
+	{
+		GetWorld()->GetTimerManager().ClearTimer(TickHandle);
+		if (!GetWorld()->GetTimerManager().IsTimerActive(CastHandle))
+		{
+			EndCast();
+		}
+	}
+}
+
+//Execute a tick that was skipped on the client while waiting for the server to validate cast length and tick interval.
+void UPlayerAbilityHandler::HandleMissedPredictedTick(int32 const TickNumber)
+{
+	if (!CastingState.bIsCasting || IsValid(CastingState.CurrentCast))
+	{
+		return;
+	}
+	FAbilityRequest TickRequest;
+	CastingState.CurrentCast->PredictedTick(TickNumber, TickRequest.PredictionParams);
+	if (CastingState.CurrentCast->GetTickNeedsPredictionParams(TickNumber))
+	{
+		TickRequest.Tick = TickNumber;
+		TickRequest.AbilityClass = CastingState.CurrentCast->GetClass();
+		TickRequest.PredictionID = CastingState.PredictionID;
+		ServerHandlePredictedTick(TickRequest);
+	}
+	FCastEvent TickEvent;
+	TickEvent.Ability = CastingState.CurrentCast;
+	TickEvent.Tick = TickNumber;
+	TickEvent.ActionTaken = ECastAction::Tick;
+	TickEvent.PredictionID = CastingState.PredictionID;
+	OnAbilityTick.Broadcast(TickEvent);
+}
+
+//Receive parameters from the client and either store the parameters (if the tick has yet to happen) or check if the tick has already happened, pass the parameters, and execute the tick.
+void UPlayerAbilityHandler::ServerHandlePredictedTick_Implementation(FAbilityRequest const& TickRequest)
+{
+	if (CastingState.bIsCasting && IsValid(CastingState.CurrentCast) && CastingState.PredictionID == TickRequest.PredictionID && CastingState.CurrentCast->GetClass() == TickRequest.AbilityClass && CastingState.ElapsedTicks < TickRequest.Tick)
+	{
+		FPredictedTick Tick;
+		Tick.TickNumber = TickRequest.Tick;
+		Tick.PredictionID = TickRequest.PredictionID;
+		ParamsAwaitingTicks.Add(Tick, TickRequest.PredictionParams);
+		return;
+	}
+	for (FPredictedTick const& Tick : TicksAwaitingParams)
+	{
+		if (Tick.PredictionID == TickRequest.PredictionID && Tick.TickNumber == TickRequest.Tick)
+		{
+			UCombatAbility* Ability = FindActiveAbility(TickRequest.AbilityClass);
+			if (IsValid(Ability))
+			{
+				FCombatParameters BroadcastParams;
+				FCastEvent TickEvent;
+				TickEvent.Ability = Ability;
+				TickEvent.Tick = TickRequest.Tick;
+				TickEvent.ActionTaken = ECastAction::Tick;
+				TickEvent.PredictionID = TickRequest.PredictionID;
+				Ability->ServerPredictedTick(TickRequest.Tick, TickRequest.PredictionParams, BroadcastParams);
+				OnAbilityTick.Broadcast(TickEvent);
+				MulticastAbilityTick(TickEvent, BroadcastParams);
+			}
+			TicksAwaitingParams.RemoveSingleSwap(Tick);
+			return;
+		}
+	}
+}
+
+//Expire any ticks awaiting parameters once the following tick happens.
+void UPlayerAbilityHandler::PurgeExpiredPredictedTicks()
+{
+	TArray<FPredictedTick> ExpiredTicks;
+	for (FPredictedTick const& WaitingTick : TicksAwaitingParams)
+	{
+		if (WaitingTick.PredictionID == CastingState.PredictionID && WaitingTick.TickNumber < CastingState.ElapsedTicks - 1)
+		{
+			ExpiredTicks.Add(WaitingTick);
+		}
+		else if (WaitingTick.PredictionID < CastingState.PredictionID && CastingState.ElapsedTicks >= 1)
+		{
+			ExpiredTicks.Add(WaitingTick);
+		}
+	}
+	for (FPredictedTick const& ExpiredTick : ExpiredTicks)
+	{
+		TicksAwaitingParams.Remove(ExpiredTick);
+	}
+	ExpiredTicks.Empty();
+	for (TTuple<FPredictedTick, FCombatParameters> const& WaitingParams : ParamsAwaitingTicks)
+	{
+		if (WaitingParams.Key.PredictionID == CastingState.PredictionID && WaitingParams.Key.TickNumber < CastingState.ElapsedTicks - 1)
+		{
+			ExpiredTicks.Add(WaitingParams.Key);
+		}
+		else if (WaitingParams.Key.PredictionID < CastingState.PredictionID && CastingState.ElapsedTicks >= 1)
+		{
+			ExpiredTicks.Add(WaitingParams.Key);
+		}
+	}
+	for (FPredictedTick const& ExpiredTick : ExpiredTicks)
+	{
+		ParamsAwaitingTicks.Remove(ExpiredTick);
+	}
+}
+
+//Server function called on tick timer to determine whether the tick can happen or if we need to wait on client-sent parameters.
+void UPlayerAbilityHandler::AuthTickPredictedCast()
+{
+	if (!GetCastingState().bIsCasting || !IsValid(CastingState.CurrentCast))
+	{
+		return;
+	}
+	CastingState.ElapsedTicks++;
+	FPredictedTick Tick;
+	Tick.PredictionID = CastingState.PredictionID;
+	Tick.TickNumber = CastingState.ElapsedTicks;
+	FCombatParameters BroadcastParams;
+	if (!CastingState.CurrentCast->GetTickNeedsPredictionParams(CastingState.ElapsedTicks))
+	{
+		CastingState.CurrentCast->ServerTick(CastingState.ElapsedTicks, BroadcastParams);
+		FCastEvent TickEvent;
+		TickEvent.Ability = CastingState.CurrentCast;
+		TickEvent.Tick = CastingState.ElapsedTicks;
+		TickEvent.ActionTaken = ECastAction::Tick;
+		TickEvent.PredictionID = CastingState.PredictionID;
+		OnAbilityTick.Broadcast(TickEvent);
+		MulticastAbilityTick(TickEvent, BroadcastParams);
+	}
+	else if (ParamsAwaitingTicks.Contains(Tick))
+	{
+		CastingState.CurrentCast->ServerPredictedTick(CastingState.ElapsedTicks, ParamsAwaitingTicks.FindRef(Tick), BroadcastParams);
+		FCastEvent TickEvent;
+		TickEvent.Ability = CastingState.CurrentCast;
+		TickEvent.Tick = CastingState.ElapsedTicks;
+		TickEvent.ActionTaken = ECastAction::Tick;
+		TickEvent.PredictionID = CastingState.PredictionID;
+		OnAbilityTick.Broadcast(TickEvent);
+		MulticastAbilityTick(TickEvent, BroadcastParams);
+		ParamsAwaitingTicks.Remove(Tick);
+	}
+	else
+	{
+		TicksAwaitingParams.Add(Tick);
+	}
+	PurgeExpiredPredictedTicks();
+	if (CastingState.ElapsedTicks >= CastingState.CurrentCast->GetNumberOfTicks())
+	{
+		GetWorld()->GetTimerManager().ClearTimer(TickHandle);
+		if (!GetWorld()->GetTimerManager().IsTimerActive(CastHandle))
+		{
+			EndCast();
+		}
 	}
 }
 
@@ -858,7 +1036,7 @@ void UPlayerAbilityHandler::ServerPredictCancelAbility_Implementation(FCancelReq
 	FCombatParameters BroadcastParams;
 	Result.CancelledAbility->ServerPredictedCancel(CancelRequest.PredictionParams, BroadcastParams);
 	OnAbilityCancelled.Broadcast(Result);
-	BroadcastAbilityCancel(Result, BroadcastParams);
+	MulticastAbilityCancel(Result, BroadcastParams);
 	EndCast();
 }
 

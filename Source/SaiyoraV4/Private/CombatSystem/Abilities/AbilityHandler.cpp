@@ -58,19 +58,25 @@ void UAbilityHandler::BeginPlay()
 		CrowdControlHandler = ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(GetOwner());
 		DamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
 	}
+	if (IsValid(StatHandler))
+	{
+		FAbilityModCondition StatCooldownMod;
+		StatCooldownMod.BindDynamic(this, &UAbilityHandler::ModifyCooldownFromStat);
+		AddCooldownModifier(StatCooldownMod);
+		FAbilityModCondition StatGlobalCooldownMod;
+		StatGlobalCooldownMod.BindDynamic(this, &UAbilityHandler::ModifyGlobalCooldownFromStat);
+		AddGlobalCooldownModifier(StatGlobalCooldownMod);
+		FAbilityModCondition StatCastLengthMod;
+		StatCastLengthMod.BindDynamic(this, &UAbilityHandler::ModifyCastLengthFromStat);
+		AddCastLengthModifier(StatCastLengthMod);
+	}
 	if (GetOwnerRole() == ROLE_Authority)
 	{
-		if (IsValid(StatHandler))
+		if (IsValid(CrowdControlHandler))
 		{
-			FAbilityModCondition StatCooldownMod;
-			StatCooldownMod.BindDynamic(this, &UAbilityHandler::ModifyCooldownFromStat);
-			AddCooldownModifier(StatCooldownMod);
-			FAbilityModCondition StatGlobalCooldownMod;
-			StatGlobalCooldownMod.BindDynamic(this, &UAbilityHandler::ModifyGlobalCooldownFromStat);
-			AddGlobalCooldownModifier(StatGlobalCooldownMod);
-			FAbilityModCondition StatCastLengthMod;
-			StatCastLengthMod.BindDynamic(this, &UAbilityHandler::ModifyCastLengthFromStat);
-			AddCastLengthModifier(StatCastLengthMod);
+			FCrowdControlCallback CcCallback;
+			CcCallback.BindDynamic(this, &UAbilityHandler::InterruptCastOnCrowdControl);
+			CrowdControlHandler->SubscribeToCrowdControlChanged(CcCallback);
 		}
 		if (IsValid(DamageHandler))
 		{
@@ -78,17 +84,11 @@ void UAbilityHandler::BeginPlay()
 			DeathCallback.BindDynamic(this, &UAbilityHandler::InterruptCastOnDeath);
 			DamageHandler->SubscribeToLifeStatusChanged(DeathCallback);
 		}
-		if (IsValid(CrowdControlHandler))
-		{
-			FCrowdControlCallback CcCallback;
-			CcCallback.BindDynamic(this, &UAbilityHandler::InterruptCastOnCrowdControl);
-			CrowdControlHandler->SubscribeToCrowdControlChanged(CcCallback);
-		}
 		for (TSubclassOf<UCombatAbility> const AbilityClass : DefaultAbilities)
 		{
 			AddNewAbility(AbilityClass);
 		}
-	}
+	}	
 }
 #pragma endregion
 #pragma region IntercomponentDelegates
@@ -456,7 +456,7 @@ void UAbilityHandler::UnsubscribeFromGlobalCooldownChanged(FGlobalCooldownCallba
 	OnGlobalCooldownChanged.Remove(Callback);
 }
 
-void UAbilityHandler::BroadcastAbilityComplete_Implementation(FCastEvent const& CastEvent)
+void UAbilityHandler::MulticastAbilityComplete_Implementation(FCastEvent const& CastEvent)
 {
 	if (GetOwnerRole() == ROLE_SimulatedProxy)
 	{
@@ -468,7 +468,7 @@ void UAbilityHandler::BroadcastAbilityComplete_Implementation(FCastEvent const& 
 	}
 }
 
-void UAbilityHandler::BroadcastAbilityCancel_Implementation(FCancelEvent const& CancelEvent, FCombatParameters const& BroadcastParams)
+void UAbilityHandler::MulticastAbilityCancel_Implementation(FCancelEvent const& CancelEvent, FCombatParameters const& BroadcastParams)
 {
 	if (GetOwnerRole() == ROLE_SimulatedProxy)
 	{
@@ -480,7 +480,7 @@ void UAbilityHandler::BroadcastAbilityCancel_Implementation(FCancelEvent const& 
 	}
 }
 
-void UAbilityHandler::BroadcastAbilityInterrupt_Implementation(FInterruptEvent const& InterruptEvent)
+void UAbilityHandler::MulticastAbilityInterrupt_Implementation(FInterruptEvent const& InterruptEvent)
 {
 	if (GetOwnerRole() == ROLE_SimulatedProxy)
 	{
@@ -492,7 +492,7 @@ void UAbilityHandler::BroadcastAbilityInterrupt_Implementation(FInterruptEvent c
 	}
 }
 
-void UAbilityHandler::BroadcastAbilityTick_Implementation(FCastEvent const& CastEvent, FCombatParameters const& BroadcastParams)
+void UAbilityHandler::MulticastAbilityTick_Implementation(FCastEvent const& CastEvent, FCombatParameters const& BroadcastParams)
 {
 	if (GetOwnerRole() == ROLE_SimulatedProxy)
 	{
@@ -577,7 +577,7 @@ void UAbilityHandler::TickCurrentAbility()
 	TickEvent.Tick = CastingState.ElapsedTicks;
 	TickEvent.ActionTaken = ECastAction::Tick;
 	OnAbilityTick.Broadcast(TickEvent);
-	BroadcastAbilityTick(TickEvent, BroadcastParams);
+	MulticastAbilityTick(TickEvent, BroadcastParams);
 	if (CastingState.ElapsedTicks >= CastingState.CurrentCast->GetNumberOfTicks())
 	{
 		GetWorld()->GetTimerManager().ClearTimer(TickHandle);
@@ -598,7 +598,7 @@ void UAbilityHandler::CompleteCast()
 	{
 		CastingState.CurrentCast->CompleteCast();
 		OnAbilityComplete.Broadcast(CompletionEvent.Ability);
-		BroadcastAbilityComplete(CompletionEvent);
+		MulticastAbilityComplete(CompletionEvent);
 	}
 	GetWorld()->GetTimerManager().ClearTimer(CastHandle);
 	if (!GetWorld()->GetTimerManager().IsTimerActive(TickHandle))
@@ -629,7 +629,7 @@ FCancelEvent UAbilityHandler::CancelCurrentCast()
 	FCombatParameters CancelParams;
 	Result.CancelledAbility->ServerCancel(CancelParams);
 	OnAbilityCancelled.Broadcast(Result);
-	BroadcastAbilityCancel(Result, CancelParams);
+	MulticastAbilityCancel(Result, CancelParams);
 	EndCast();
 	return Result;
 }
@@ -669,7 +669,7 @@ FInterruptEvent UAbilityHandler::InterruptCurrentCast(AActor* AppliedBy, UObject
 	Result.bSuccess = true;
 	Result.InterruptedAbility->InterruptCast(Result);
 	OnAbilityInterrupted.Broadcast(Result);
-	BroadcastAbilityInterrupt(Result);
+	MulticastAbilityInterrupt(Result);
 	EndCast();
 	
 	return Result;
@@ -891,7 +891,7 @@ FCastEvent UAbilityHandler::UseAbility(TSubclassOf<UCombatAbility> const Ability
 		Result.ActionTaken = ECastAction::Success;
 		Result.Ability->ServerTick(0, BroadcastParams);
 		OnAbilityTick.Broadcast(Result);
-		BroadcastAbilityTick(Result, BroadcastParams);
+		MulticastAbilityTick(Result, BroadcastParams);
 		break;
 	case EAbilityCastType::Channel :
 		Result.ActionTaken = ECastAction::Success;
@@ -900,7 +900,7 @@ FCastEvent UAbilityHandler::UseAbility(TSubclassOf<UCombatAbility> const Ability
 		{
 			Result.Ability->ServerTick(0, BroadcastParams);
 			OnAbilityTick.Broadcast(Result);
-			BroadcastAbilityTick(Result, BroadcastParams);
+			MulticastAbilityTick(Result, BroadcastParams);
 		}
 		break;
 	default :
@@ -984,183 +984,4 @@ bool UAbilityHandler::CheckCanCastAbility(UCombatAbility* Ability, TArray<FAbili
 	return true;
 }
 
-#pragma endregion
-#pragma region PredictedTicks
-//Function called when the tick timer rolls over on clients that will predict the tick and send any tick parameters to the server.
-void UAbilityHandler::PredictAbilityTick()
-{
-	if (!CastingState.bIsCasting || !IsValid(CastingState.CurrentCast))
-	{
-		return;
-	}
-	CastingState.ElapsedTicks++;
-	FAbilityRequest TickRequest;
-	CastingState.CurrentCast->PredictedTick(CastingState.ElapsedTicks, TickRequest.PredictionParams);
-	if (CastingState.CurrentCast->GetTickNeedsPredictionParams(CastingState.ElapsedTicks))
-	{
-		TickRequest.Tick = CastingState.ElapsedTicks;
-		TickRequest.AbilityClass = CastingState.CurrentCast->GetClass();
-		TickRequest.PredictionID = CastingState.PredictionID;
-		ServerHandlePredictedTick(TickRequest);
-	}
-	FCastEvent TickEvent;
-	TickEvent.Ability = CastingState.CurrentCast;
-	TickEvent.Tick = CastingState.ElapsedTicks;
-	TickEvent.ActionTaken = ECastAction::Tick;
-	TickEvent.PredictionID = CastingState.PredictionID;
-	OnAbilityTick.Broadcast(TickEvent);
-	if (CastingState.ElapsedTicks >= CastingState.CurrentCast->GetNumberOfTicks())
-	{
-		GetWorld()->GetTimerManager().ClearTimer(TickHandle);
-		if (!GetWorld()->GetTimerManager().IsTimerActive(CastHandle))
-		{
-			EndCast();
-		}
-	}
-}
-
-//Execute a tick that was skipped on the client while waiting for the server to validate cast length and tick interval.
-void UAbilityHandler::HandleMissedPredictedTick(int32 const TickNumber)
-{
-	if (!CastingState.bIsCasting || IsValid(CastingState.CurrentCast))
-	{
-		return;
-	}
-	FAbilityRequest TickRequest;
-	CastingState.CurrentCast->PredictedTick(TickNumber, TickRequest.PredictionParams);
-	if (CastingState.CurrentCast->GetTickNeedsPredictionParams(TickNumber))
-	{
-		TickRequest.Tick = TickNumber;
-		TickRequest.AbilityClass = CastingState.CurrentCast->GetClass();
-		TickRequest.PredictionID = CastingState.PredictionID;
-		ServerHandlePredictedTick(TickRequest);
-	}
-	FCastEvent TickEvent;
-	TickEvent.Ability = CastingState.CurrentCast;
-	TickEvent.Tick = TickNumber;
-	TickEvent.ActionTaken = ECastAction::Tick;
-	TickEvent.PredictionID = CastingState.PredictionID;
-	OnAbilityTick.Broadcast(TickEvent);
-}
-
-//Receive parameters from the client and either store the parameters (if the tick has yet to happen) or check if the tick has already happened, pass the parameters, and execute the tick.
-void UAbilityHandler::ServerHandlePredictedTick_Implementation(FAbilityRequest const& TickRequest)
-{
-	if (CastingState.bIsCasting && IsValid(CastingState.CurrentCast) && CastingState.PredictionID == TickRequest.PredictionID && CastingState.CurrentCast->GetClass() == TickRequest.AbilityClass && CastingState.ElapsedTicks < TickRequest.Tick)
-	{
-		FPredictedTick Tick;
-		Tick.TickNumber = TickRequest.Tick;
-		Tick.PredictionID = TickRequest.PredictionID;
-		ParamsAwaitingTicks.Add(Tick, TickRequest.PredictionParams);
-		return;
-	}
-	for (FPredictedTick const& Tick : TicksAwaitingParams)
-	{
-		if (Tick.PredictionID == TickRequest.PredictionID && Tick.TickNumber == TickRequest.Tick)
-		{
-			UCombatAbility* Ability = FindActiveAbility(TickRequest.AbilityClass);
-			if (IsValid(Ability))
-			{
-				FCombatParameters BroadcastParams;
-				FCastEvent TickEvent;
-				TickEvent.Ability = Ability;
-				TickEvent.Tick = TickRequest.Tick;
-				TickEvent.ActionTaken = ECastAction::Tick;
-				TickEvent.PredictionID = TickRequest.PredictionID;
-				Ability->ServerPredictedTick(TickRequest.Tick, TickRequest.PredictionParams, BroadcastParams);
-				OnAbilityTick.Broadcast(TickEvent);
-				BroadcastAbilityTick(TickEvent, BroadcastParams);
-			}
-			TicksAwaitingParams.RemoveSingleSwap(Tick);
-			return;
-		}
-	}
-}
-
-//Expire any ticks awaiting parameters once the following tick happens.
-void UAbilityHandler::PurgeExpiredPredictedTicks()
-{
-	TArray<FPredictedTick> ExpiredTicks;
-	for (FPredictedTick const& WaitingTick : TicksAwaitingParams)
-	{
-		if (WaitingTick.PredictionID == CastingState.PredictionID && WaitingTick.TickNumber < CastingState.ElapsedTicks - 1)
-		{
-			ExpiredTicks.Add(WaitingTick);
-		}
-		else if (WaitingTick.PredictionID < CastingState.PredictionID && CastingState.ElapsedTicks >= 1)
-		{
-			ExpiredTicks.Add(WaitingTick);
-		}
-	}
-	for (FPredictedTick const& ExpiredTick : ExpiredTicks)
-	{
-		TicksAwaitingParams.Remove(ExpiredTick);
-	}
-	ExpiredTicks.Empty();
-	for (TTuple<FPredictedTick, FCombatParameters> const& WaitingParams : ParamsAwaitingTicks)
-	{
-		if (WaitingParams.Key.PredictionID == CastingState.PredictionID && WaitingParams.Key.TickNumber < CastingState.ElapsedTicks - 1)
-		{
-			ExpiredTicks.Add(WaitingParams.Key);
-		}
-		else if (WaitingParams.Key.PredictionID < CastingState.PredictionID && CastingState.ElapsedTicks >= 1)
-		{
-			ExpiredTicks.Add(WaitingParams.Key);
-		}
-	}
-	for (FPredictedTick const& ExpiredTick : ExpiredTicks)
-	{
-		ParamsAwaitingTicks.Remove(ExpiredTick);
-	}
-}
-
-//Server function called on tick timer to determine whether the tick can happen or if we need to wait on client-sent parameters.
-void UAbilityHandler::AuthTickPredictedCast()
-{
-	if (!GetCastingState().bIsCasting || !IsValid(CastingState.CurrentCast))
-	{
-		return;
-	}
-	CastingState.ElapsedTicks++;
-	FPredictedTick Tick;
-	Tick.PredictionID = CastingState.PredictionID;
-	Tick.TickNumber = CastingState.ElapsedTicks;
-	FCombatParameters BroadcastParams;
-	if (!CastingState.CurrentCast->GetTickNeedsPredictionParams(CastingState.ElapsedTicks))
-	{
-		CastingState.CurrentCast->ServerTick(CastingState.ElapsedTicks, BroadcastParams);
-		FCastEvent TickEvent;
-		TickEvent.Ability = CastingState.CurrentCast;
-		TickEvent.Tick = CastingState.ElapsedTicks;
-		TickEvent.ActionTaken = ECastAction::Tick;
-		TickEvent.PredictionID = CastingState.PredictionID;
-		OnAbilityTick.Broadcast(TickEvent);
-		BroadcastAbilityTick(TickEvent, BroadcastParams);
-	}
-	else if (ParamsAwaitingTicks.Contains(Tick))
-	{
-		CastingState.CurrentCast->ServerPredictedTick(CastingState.ElapsedTicks, ParamsAwaitingTicks.FindRef(Tick), BroadcastParams);
-		FCastEvent TickEvent;
-		TickEvent.Ability = CastingState.CurrentCast;
-		TickEvent.Tick = CastingState.ElapsedTicks;
-		TickEvent.ActionTaken = ECastAction::Tick;
-		TickEvent.PredictionID = CastingState.PredictionID;
-		OnAbilityTick.Broadcast(TickEvent);
-		BroadcastAbilityTick(TickEvent, BroadcastParams);
-		ParamsAwaitingTicks.Remove(Tick);
-	}
-	else
-	{
-		TicksAwaitingParams.Add(Tick);
-	}
-	PurgeExpiredPredictedTicks();
-	if (CastingState.ElapsedTicks >= CastingState.CurrentCast->GetNumberOfTicks())
-	{
-		GetWorld()->GetTimerManager().ClearTimer(TickHandle);
-		if (!GetWorld()->GetTimerManager().IsTimerActive(CastHandle))
-		{
-			EndCast();
-		}
-	}
-}
 #pragma endregion

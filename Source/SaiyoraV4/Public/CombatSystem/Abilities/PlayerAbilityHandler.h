@@ -48,12 +48,12 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void UnsubscribeFromSpellbookUpdated(FSpellbookCallback const& Callback);
 
-	static int32 GetAbilitiesPerBar() { return AbilitiesPerBar; }
-
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
 	FPlayerAbilityLoadout GetPlayerLoadout() const { return Loadout; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
 	TSet<TSubclassOf<UCombatAbility>> GetUnlockedAbilities() const { return Spellbook; }
+
+	static int32 GetAbilitiesPerBar() { return AbilitiesPerBar; }
 
 private:
 
@@ -78,7 +78,7 @@ private:
 	static int32 ClientPredictionID = 0;
 	TMap<int32, FClientAbilityPrediction> UnackedAbilityPredictions;
 
-	void StartGlobal(UCombatAbility* Ability, bool const bPredicted = false);\
+	void StartGlobal(UCombatAbility* Ability, bool const bPredicted = false);
 	virtual void EndGlobalCooldown() override;
 	void PredictStartGlobal(int32 const PredictionID);
 	void UpdatePredictedGlobalFromServer(FServerAbilityResult const& ServerResult);
@@ -87,6 +87,18 @@ private:
 	void PredictStartCast(UCombatAbility* Ability, int32 const PredictionID);
 	void UpdatePredictedCastFromServer(FServerAbilityResult const& ServerResult);
 	virtual void CompleteCast() override;
+	UFUNCTION()
+    void PredictAbilityTick();
+	void HandleMissedPredictedTick(int32 const TickNumber);
+	UFUNCTION(Server, Reliable, WithValidation)
+    void ServerHandlePredictedTick(FAbilityRequest const& TickRequest);
+	bool ServerHandlePredictedTick_Validate(FAbilityRequest const& TickRequest) { return true; }
+	void PurgeExpiredPredictedTicks();
+	UFUNCTION()
+    void AuthTickPredictedCast();
+	TArray<FPredictedTick> TicksAwaitingParams;
+	TMap<FPredictedTick, FCombatParameters> ParamsAwaitingTicks;
+	FAbilityMispredictionNotification OnAbilityMispredicted;
 	
 	bool TryQueueAbility(TSubclassOf<UCombatAbility> const AbilityClass);
 	UFUNCTION()

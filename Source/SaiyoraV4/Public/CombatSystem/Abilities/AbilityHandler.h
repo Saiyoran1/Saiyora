@@ -142,9 +142,6 @@ public:
 	
 private:
 	
-	UFUNCTION(Server, Reliable, WithValidation)
-	void ServerHandlePredictedTick(FAbilityRequest const& TickRequest);
-	bool ServerHandlePredictedTick_Validate(FAbilityRequest const& TickRequest) { return true; }
 	bool CheckInterruptRestricted(FInterruptEvent const& InterruptEvent);
 	TArray<FInterruptRestriction> InterruptRestrictions;
 	
@@ -179,14 +176,6 @@ protected:
 	virtual void CompleteCast();
 	UFUNCTION()
 	void TickCurrentAbility();
-	UFUNCTION()
-    void PredictAbilityTick();
-	void PurgeExpiredPredictedTicks();
-	UFUNCTION()
-	void AuthTickPredictedCast();
-	void HandleMissedPredictedTick(int32 const TickNumber);
-	TArray<FPredictedTick> TicksAwaitingParams;
-	TMap<FPredictedTick, FCombatParameters> ParamsAwaitingTicks;
 	void EndCast();
 	float CalculateCastLength(UCombatAbility* Ability);
 private:
@@ -216,18 +205,15 @@ protected:
 	FInterruptNotification OnAbilityInterrupted;
 	FCastingStateNotification OnCastStateChanged;
 	FGlobalCooldownNotification OnGlobalCooldownChanged;
-	FAbilityMispredictionNotification OnAbilityMispredicted;
 
 	UFUNCTION(NetMulticast, Unreliable)
-	void BroadcastAbilityTick(FCastEvent const& CastEvent, FCombatParameters const& BroadcastParams);
+	void MulticastAbilityTick(FCastEvent const& CastEvent, FCombatParameters const& BroadcastParams);
 	UFUNCTION(NetMulticast, Unreliable)
-	void BroadcastAbilityComplete(FCastEvent const& CastEvent);
+	void MulticastAbilityComplete(FCastEvent const& CastEvent);
 	UFUNCTION(NetMulticast, Unreliable)
-	void BroadcastAbilityCancel(FCancelEvent const& CancelEvent, FCombatParameters const& BroadcastParams);
+	void MulticastAbilityCancel(FCancelEvent const& CancelEvent, FCombatParameters const& BroadcastParams);
 	UFUNCTION(NetMulticast, Unreliable)
-	void BroadcastAbilityInterrupt(FInterruptEvent const& InterruptEvent);
-
-protected:
+	void MulticastAbilityInterrupt(FInterruptEvent const& InterruptEvent);
 	
 	UPROPERTY()
 	ASaiyoraGameState* GameStateRef;
