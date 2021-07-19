@@ -30,7 +30,7 @@ void UAbilityHandler::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME_CONDITION(UAbilityHandler, CastingState, COND_SkipOwner);
+	DOREPLIFETIME(UAbilityHandler, CastingState);
 }
 
 bool UAbilityHandler::ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags)
@@ -84,10 +84,7 @@ void UAbilityHandler::BeginPlay()
 			DeathCallback.BindDynamic(this, &UAbilityHandler::InterruptCastOnDeath);
 			DamageHandler->SubscribeToLifeStatusChanged(DeathCallback);
 		}
-		for (TSubclassOf<UCombatAbility> const AbilityClass : DefaultAbilities)
-		{
-			AddNewAbility(AbilityClass);
-		}
+		SetupInitialAbilities();
 	}	
 }
 #pragma endregion
@@ -170,6 +167,14 @@ void UAbilityHandler::InterruptCastOnCrowdControl(FCrowdControlStatus const& Pre
 #pragma endregion
 #pragma region AbilityManagement
 //ABILITY MANAGEMENT
+
+void UAbilityHandler::SetupInitialAbilities()
+{
+	for (TSubclassOf<UCombatAbility> const AbilityClass : DefaultAbilities)
+	{
+		AddNewAbility(AbilityClass);
+	}
+}
 
 UCombatAbility* UAbilityHandler::AddNewAbility(TSubclassOf<UCombatAbility> const AbilityClass)
 {

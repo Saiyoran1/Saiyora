@@ -17,6 +17,7 @@ class SAIYORAV4_API UPlayerAbilityHandler : public UAbilityHandler
 public:
 	static int32 GetAbilitiesPerBar() { return AbilitiesPerBar; }
 	UPlayerAbilityHandler();
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void InitializeComponent() override;
 	virtual void BeginPlay() override;
 private:
@@ -53,6 +54,7 @@ private:
 	FAbilityBindingNotification OnAbilityBindUpdated;
 	FBarSwapNotification OnBarSwap;
 	FSpellbookNotification OnSpellbookUpdated;
+	virtual void SetupInitialAbilities() override;
 	UFUNCTION()
 	void SwapBarOnPlaneSwap(ESaiyoraPlane const PreviousPlane, ESaiyoraPlane const NewPlane, UObject* Source);
 	UFUNCTION()
@@ -60,7 +62,7 @@ private:
 //Ability Usage
 public:
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
-	void AbilityInput(int32 const BindNumber, bool const bHidden);
+	FCastEvent AbilityInput(int32 const BindNumber, bool const bHidden);
 	virtual FCastEvent UseAbility(TSubclassOf<UCombatAbility> const AbilityClass) override;
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void SubscribeToAbilityMispredicted(FAbilityMispredictionCallback const& Callback);

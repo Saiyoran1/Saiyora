@@ -6,6 +6,7 @@
 #include "SaiyoraPlaneComponent.h"
 #include "ResourceHandler.h"
 #include "DamageHandler.h"
+#include "UnrealNetwork.h"
 
 int32 UPlayerAbilityHandler::ClientPredictionID = 0;
 
@@ -16,6 +17,13 @@ UPlayerAbilityHandler::UPlayerAbilityHandler()
 	PrimaryComponentTick.bCanEverTick = false;
 	SetIsReplicatedByDefault(true);
 	bWantsInitializeComponent = true;
+}
+
+void UPlayerAbilityHandler::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	ResetReplicatedLifetimeProperty(StaticClass(), UAbilityHandler::StaticClass(), FName(TEXT("CastingState")), COND_SkipOwner, OutLifetimeProps);
 }
 
 void UPlayerAbilityHandler::InitializeComponent()
@@ -107,11 +115,11 @@ void UPlayerAbilityHandler::LearnAbility(TSubclassOf<UCombatAbility> const NewAb
 void UPlayerAbilityHandler::UpdateAbilityBind(TSubclassOf<UCombatAbility> const Ability, int32 const Bind,
 	EActionBarType const Bar)
 {
-	if (GetOwnerRole() == ROLE_SimulatedProxy || (GetOwnerRole() == ROLE_Authority && GetOwner()->GetRemoteRole() == ROLE_AutonomousProxy))
+	if (GetOwnerRole() == ROLE_SimulatedProxy || GetNetMode() == NM_DedicatedServer)
 	{
 		return;
 	}
-	if (!IsValid(Ability) || !Spellbook.Contains(Ability))
+	if (!IsValid(Ability))
 	{
 		return;
 	}
@@ -186,6 +194,12 @@ void UPlayerAbilityHandler::UnsubscribeFromSpellbookUpdated(FSpellbookCallback c
 	OnSpellbookUpdated.Remove(Callback);
 }
 
+void UPlayerAbilityHandler::SetupInitialAbilities()
+{
+	//TODO: Check loadaout for open spots, fill them with abilities from spellbook?
+	return;
+}
+
 void UPlayerAbilityHandler::SwapBarOnPlaneSwap(ESaiyoraPlane const PreviousPlane, ESaiyoraPlane const NewPlane, UObject* Source)
 {
 	if (NewPlane == ESaiyoraPlane::Ancient || NewPlane == ESaiyoraPlane::Modern)
@@ -225,11 +239,13 @@ bool UPlayerAbilityHandler::CheckForAbilityBarRestricted(UCombatAbility* Ability
 #pragma endregion
 #pragma region AbilityUsage
 
-void UPlayerAbilityHandler::AbilityInput(int32 const BindNumber, bool const bHidden)
+FCastEvent UPlayerAbilityHandler::AbilityInput(int32 const BindNumber, bool const bHidden)
 {
+	FCastEvent Failure;
 	if (BindNumber > AbilitiesPerBar - 1)
 	{
-		return;
+		Failure.FailReason = ECastFailReason::InvalidAbility;
+		return Failure;
 	}
 	TSubclassOf<UCombatAbility> AbilityClass;
 	if (bHidden)
@@ -252,8 +268,10 @@ void UPlayerAbilityHandler::AbilityInput(int32 const BindNumber, bool const bHid
 	}
 	if (IsValid(AbilityClass))
 	{
-		UseAbility(AbilityClass);
+		return UseAbility(AbilityClass);
 	}
+	Failure.FailReason = ECastFailReason::InvalidAbility;
+	return Failure;
 }
 
 FCastEvent UPlayerAbilityHandler::UseAbility(TSubclassOf<UCombatAbility> const AbilityClass)

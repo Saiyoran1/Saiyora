@@ -79,6 +79,7 @@ private:
 	TArray<UCombatAbility*> ActiveAbilities;
 	UPROPERTY()
 	TArray<UCombatAbility*> RecentlyRemovedAbilities;
+	virtual void SetupInitialAbilities();
 protected:
 	FAbilityInstanceNotification OnAbilityAdded;
 	FAbilityInstanceNotification OnAbilityRemoved;
