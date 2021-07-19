@@ -46,8 +46,8 @@ void UAbilityHandler::BeginPlay()
 {
 	Super::BeginPlay();
 
-	GameStateRef = GetWorld()->GetGameState<ASaiyoraGameState>();
-	if (!GameStateRef)
+	GameStateRef = GetWorld()->GetGameState<AGameState>();
+	if (!IsValid(GameStateRef))
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Invalid Game State Ref in Ability Component."));
 	}
@@ -655,7 +655,7 @@ FInterruptEvent UAbilityHandler::InterruptCurrentCast(AActor* AppliedBy, UObject
 	Result.InterruptedCastStart = GetCastingState().CastStartTime;
 	Result.InterruptedCastEnd = GetCastingState().CastEndTime;
 	Result.ElapsedTicks = CastingState.ElapsedTicks;
-	Result.InterruptTime = GetGameStateRef()->GetServerWorldTimeSeconds();
+	Result.InterruptTime = GameStateRef->GetServerWorldTimeSeconds();
 	
 	if (!bIgnoreRestrictions)
 	{
@@ -863,7 +863,7 @@ FCastEvent UAbilityHandler::UseAbility(TSubclassOf<UCombatAbility> const Ability
 	}
 
 	TArray<FAbilityCost> Costs;
-	if (!CheckCanCastAbility(Result.Ability, Costs, Result.FailReason))
+	if (!CheckCanUseAbility(Result.Ability, Costs, Result.FailReason))
 	{
 		return Result;
 	}
@@ -911,7 +911,7 @@ FCastEvent UAbilityHandler::UseAbility(TSubclassOf<UCombatAbility> const Ability
 	return Result;
 }
 
-bool UAbilityHandler::CheckCanCastAbility(UCombatAbility* Ability, TArray<FAbilityCost>& OutCosts, ECastFailReason& OutFailReason)
+bool UAbilityHandler::CheckCanUseAbility(UCombatAbility* Ability, TArray<FAbilityCost>& OutCosts, ECastFailReason& OutFailReason)
 {
 	if (!IsValid(Ability))
 	{

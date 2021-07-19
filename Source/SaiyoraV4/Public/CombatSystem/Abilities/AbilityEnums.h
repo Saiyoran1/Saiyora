@@ -72,9 +72,9 @@ enum class EInterruptFailReason : uint8
 UENUM(BlueprintType)
 enum class ECancelFailReason : uint8
 {
-    None = 1,
-    NetRole = 2,
-    NotCasting = 3,
+    None = 0,
+    NetRole = 1,
+    NotCasting = 2,
 };
 
 UENUM()
