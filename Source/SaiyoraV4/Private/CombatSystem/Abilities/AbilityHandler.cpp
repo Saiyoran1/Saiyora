@@ -504,6 +504,149 @@ void UAbilityHandler::MulticastAbilityTick_Implementation(FCastEvent const& Cast
 	}
 }
 #pragma endregion
+#pragma region AbilityUsage
+//ABILITY USAGE
+
+FCastEvent UAbilityHandler::UseAbility(TSubclassOf<UCombatAbility> const AbilityClass)
+{
+	FCastEvent Result;
+
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		Result.FailReason = ECastFailReason::NetRole;
+		return Result;
+	}
+	
+	Result.Ability = FindActiveAbility(AbilityClass);
+	if (!IsValid(Result.Ability))
+	{
+		Result.FailReason = ECastFailReason::InvalidAbility;
+		return Result;
+	}
+
+	TArray<FAbilityCost> Costs;
+	if (!CheckCanUseAbility(Result.Ability, Costs, Result.FailReason))
+	{
+		return Result;
+	}
+	
+	if (Result.Ability->GetHasGlobalCooldown())
+	{
+		StartGlobal(Result.Ability);
+	}
+	
+	Result.Ability->CommitCharges();
+	
+	if (Costs.Num() > 0 && IsValid(ResourceHandler))
+	{
+		ResourceHandler->CommitAbilityCosts(Result.Ability, Costs);
+	}
+
+	FCombatParameters BroadcastParams;
+	
+	switch (Result.Ability->GetCastType())
+	{
+	case EAbilityCastType::None :
+		Result.FailReason = ECastFailReason::InvalidCastType;
+		return Result;
+	case EAbilityCastType::Instant :
+		Result.ActionTaken = ECastAction::Success;
+		Result.Ability->ServerTick(0, BroadcastParams);
+		OnAbilityTick.Broadcast(Result);
+		MulticastAbilityTick(Result, BroadcastParams);
+		break;
+	case EAbilityCastType::Channel :
+		Result.ActionTaken = ECastAction::Success;
+		StartCast(Result.Ability);
+		if (Result.Ability->GetHasInitialTick())
+		{
+			Result.Ability->ServerTick(0, BroadcastParams);
+			OnAbilityTick.Broadcast(Result);
+			MulticastAbilityTick(Result, BroadcastParams);
+		}
+		break;
+	default :
+		Result.FailReason = ECastFailReason::InvalidCastType;
+		return Result;
+	}
+	
+	return Result;
+}
+
+bool UAbilityHandler::CheckCanUseAbility(UCombatAbility* Ability, TArray<FAbilityCost>& OutCosts, ECastFailReason& OutFailReason)
+{
+	if (!IsValid(Ability))
+	{
+		OutFailReason = ECastFailReason::InvalidAbility;
+		return false;
+	}
+	if (!Ability->GetCastableWhileDead() && IsValid(DamageHandler) && DamageHandler->GetLifeStatus() != ELifeStatus::Alive)
+	{
+		OutFailReason = ECastFailReason::Dead;
+		return false;
+	}
+	
+	if (Ability->GetHasGlobalCooldown() && GlobalCooldownState.bGlobalCooldownActive)
+	{
+		OutFailReason = ECastFailReason::OnGlobalCooldown;
+		return false;
+	}
+	
+	if (CastingState.bIsCasting)
+	{
+		OutFailReason = ECastFailReason::AlreadyCasting;
+		return false;
+	}
+	
+	Ability->GetAbilityCosts(OutCosts);
+	if (OutCosts.Num() > 0)
+	{
+		if (!IsValid(ResourceHandler))
+		{
+			OutFailReason = ECastFailReason::NoResourceHandler;
+			return false;
+		}
+		if (!ResourceHandler->CheckAbilityCostsMet(Ability, OutCosts))
+		{
+			OutFailReason = ECastFailReason::CostsNotMet;
+			return false;
+		}
+	}
+
+	if (!Ability->CheckChargesMet())
+	{
+		OutFailReason = ECastFailReason::ChargesNotMet;
+		return false;
+	}
+
+	if (!Ability->CheckCustomCastConditionsMet())
+	{
+		OutFailReason = ECastFailReason::AbilityConditionsNotMet;
+		return false;
+	}
+
+	if (CheckAbilityRestricted(Ability))
+	{
+		OutFailReason = ECastFailReason::CustomRestriction;
+		return false;
+	}
+
+	if (IsValid(CrowdControlHandler))
+	{
+		for (TSubclassOf<UCrowdControl> const CcClass : Ability->GetRestrictedCrowdControls())
+		{
+			if (CrowdControlHandler->GetActiveCcTypes().Contains(CcClass))
+			{
+				OutFailReason = ECastFailReason::CrowdControl;
+				return false;
+			}
+		}
+	}
+
+	return true;
+}
+
+#pragma endregion
 #pragma region Casting
 //CASTING
 
@@ -841,147 +984,4 @@ void UAbilityHandler::EndGlobalCooldown()
 		OnGlobalCooldownChanged.Broadcast(PreviousGlobal, GlobalCooldownState);
 	}
 }
-#pragma endregion
-#pragma region AbilityUsage
-//ABILITY USAGE
-
-FCastEvent UAbilityHandler::UseAbility(TSubclassOf<UCombatAbility> const AbilityClass)
-{
-	FCastEvent Result;
-
-	if (GetOwnerRole() != ROLE_Authority || GetOwner()->GetRemoteRole() != ROLE_SimulatedProxy)
-	{
-		Result.FailReason = ECastFailReason::NetRole;
-		return Result;
-	}
-	
-	Result.Ability = FindActiveAbility(AbilityClass);
-	if (!IsValid(Result.Ability))
-	{
-		Result.FailReason = ECastFailReason::InvalidAbility;
-		return Result;
-	}
-
-	TArray<FAbilityCost> Costs;
-	if (!CheckCanUseAbility(Result.Ability, Costs, Result.FailReason))
-	{
-		return Result;
-	}
-	
-	if (Result.Ability->GetHasGlobalCooldown())
-	{
-		StartGlobal(Result.Ability);
-	}
-	
-	Result.Ability->CommitCharges();
-	
-	if (Costs.Num() > 0 && IsValid(ResourceHandler))
-	{
-		ResourceHandler->CommitAbilityCosts(Result.Ability, Costs);
-	}
-
-	FCombatParameters BroadcastParams;
-	
-	switch (Result.Ability->GetCastType())
-	{
-	case EAbilityCastType::None :
-		Result.FailReason = ECastFailReason::InvalidCastType;
-		return Result;
-	case EAbilityCastType::Instant :
-		Result.ActionTaken = ECastAction::Success;
-		Result.Ability->ServerTick(0, BroadcastParams);
-		OnAbilityTick.Broadcast(Result);
-		MulticastAbilityTick(Result, BroadcastParams);
-		break;
-	case EAbilityCastType::Channel :
-		Result.ActionTaken = ECastAction::Success;
-		StartCast(Result.Ability);
-		if (Result.Ability->GetHasInitialTick())
-		{
-			Result.Ability->ServerTick(0, BroadcastParams);
-			OnAbilityTick.Broadcast(Result);
-			MulticastAbilityTick(Result, BroadcastParams);
-		}
-		break;
-	default :
-		Result.FailReason = ECastFailReason::InvalidCastType;
-		return Result;
-	}
-	
-	return Result;
-}
-
-bool UAbilityHandler::CheckCanUseAbility(UCombatAbility* Ability, TArray<FAbilityCost>& OutCosts, ECastFailReason& OutFailReason)
-{
-	if (!IsValid(Ability))
-	{
-		OutFailReason = ECastFailReason::InvalidAbility;
-		return false;
-	}
-	if (!Ability->GetCastableWhileDead() && IsValid(DamageHandler) && DamageHandler->GetLifeStatus() != ELifeStatus::Alive)
-	{
-		OutFailReason = ECastFailReason::Dead;
-		return false;
-	}
-	
-	if (Ability->GetHasGlobalCooldown() && GlobalCooldownState.bGlobalCooldownActive)
-	{
-		OutFailReason = ECastFailReason::OnGlobalCooldown;
-		return false;
-	}
-	
-	if (CastingState.bIsCasting)
-	{
-		OutFailReason = ECastFailReason::AlreadyCasting;
-		return false;
-	}
-	
-	Ability->GetAbilityCosts(OutCosts);
-	if (OutCosts.Num() > 0)
-	{
-		if (!IsValid(ResourceHandler))
-		{
-			OutFailReason = ECastFailReason::NoResourceHandler;
-			return false;
-		}
-		if (!ResourceHandler->CheckAbilityCostsMet(Ability, OutCosts))
-		{
-			OutFailReason = ECastFailReason::CostsNotMet;
-			return false;
-		}
-	}
-
-	if (!Ability->CheckChargesMet())
-	{
-		OutFailReason = ECastFailReason::ChargesNotMet;
-		return false;
-	}
-
-	if (!Ability->CheckCustomCastConditionsMet())
-	{
-		OutFailReason = ECastFailReason::AbilityConditionsNotMet;
-		return false;
-	}
-
-	if (CheckAbilityRestricted(Ability))
-	{
-		OutFailReason = ECastFailReason::CustomRestriction;
-		return false;
-	}
-
-	if (IsValid(CrowdControlHandler))
-	{
-		for (TSubclassOf<UCrowdControl> const CcClass : Ability->GetRestrictedCrowdControls())
-		{
-			if (CrowdControlHandler->GetActiveCcTypes().Contains(CcClass))
-			{
-				OutFailReason = ECastFailReason::CrowdControl;
-				return false;
-			}
-		}
-	}
-
-	return true;
-}
-
 #pragma endregion
