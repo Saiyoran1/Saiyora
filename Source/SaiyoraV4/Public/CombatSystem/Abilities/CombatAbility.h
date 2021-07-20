@@ -238,10 +238,8 @@ public:
     void RemoveAbilityCostModifier(TSubclassOf<UResource> const ResourceClass, int32 const ModifierID);
     void NotifyOfReplicatedCost(FAbilityCost const& NewCost);
 
-    /*UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
-    void AddCastLengthModifier(FCombatModifier const& Modifier);
     UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
-    void RemoveCastLengthModifier(FCombatModifier const& Modifier);*/
+    void ModifyCurrentCharges(int32 const Charges, bool const bAdditive = true);
 
 protected:
     

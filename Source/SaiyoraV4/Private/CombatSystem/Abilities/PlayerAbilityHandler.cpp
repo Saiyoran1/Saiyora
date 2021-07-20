@@ -44,7 +44,7 @@ void UPlayerAbilityHandler::BeginPlay()
 	switch (GetOwnerRole())
 	{
 		case ROLE_Authority :
-			if (GetOwner()->GetRemoteRole() == ROLE_SimulatedProxy)
+			if (GetNetMode() == NM_ListenServer)
 			{
 				AbilityPermission = EAbilityPermission::AuthPlayer;
 			}
@@ -60,7 +60,7 @@ void UPlayerAbilityHandler::BeginPlay()
 			break;
 	}
 	
-	if (GetOwnerRole() == ROLE_AutonomousProxy)
+	if (GetOwnerRole() != ROLE_SimulatedProxy)
 	{
 		USaiyoraPlaneComponent* PlaneComponent = ISaiyoraCombatInterface::Execute_GetPlaneComponent(GetOwner());
 		if (IsValid(PlaneComponent))

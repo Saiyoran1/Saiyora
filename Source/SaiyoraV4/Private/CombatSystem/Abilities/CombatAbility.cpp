@@ -462,6 +462,37 @@ void UCombatAbility::NotifyOfReplicatedCost(FAbilityCost const& NewCost)
     }
 }
 
+void UCombatAbility::ModifyCurrentCharges(int32 const Charges, bool const bAdditive)
+{
+    if (OwningComponent->GetOwnerRole() != ROLE_Authority)
+    {
+        return;
+    }
+    int32 const PreviousCharges = AbilityCooldown.CurrentCharges;
+    if (bAdditive)
+    {
+        AbilityCooldown.CurrentCharges = FMath::Clamp(AbilityCooldown.CurrentCharges + Charges, 0, MaxCharges);
+    }
+    else
+    {
+        AbilityCooldown.CurrentCharges = FMath::Clamp(Charges, 0, MaxCharges);
+    }
+    if (PreviousCharges != AbilityCooldown.CurrentCharges)
+    {
+        OnChargesChanged.Broadcast(this, PreviousCharges, AbilityCooldown.CurrentCharges);
+        if (AbilityCooldown.CurrentCharges == MaxCharges && GetWorld()->GetTimerManager().IsTimerActive(CooldownHandle))
+        {
+            GetWorld()->GetTimerManager().ClearTimer(CooldownHandle);
+            AbilityCooldown.OnCooldown = false;
+            return;
+        }
+        if (AbilityCooldown.CurrentCharges < MaxCharges && !GetWorld()->GetTimerManager().IsTimerActive(CooldownHandle))
+        {
+            StartCooldown(false);
+        }
+    }
+}
+
 void UCombatAbility::ActivateCastRestriction(FName const& RestrictionName)
 {
     if (RestrictionName.IsValid())
