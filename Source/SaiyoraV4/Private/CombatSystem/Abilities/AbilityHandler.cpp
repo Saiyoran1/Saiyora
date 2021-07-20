@@ -36,7 +36,6 @@ void UAbilityHandler::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutL
 bool UAbilityHandler::ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags)
 {
 	bool bWroteSomething = Super::ReplicateSubobjects(Channel, Bunch, RepFlags);
-	
 	bWroteSomething |= Channel->ReplicateSubobjectList(ActiveAbilities, *Bunch, *RepFlags);
 	bWroteSomething |= Channel->ReplicateSubobjectList(RecentlyRemovedAbilities, *Bunch, *RepFlags);
 	return bWroteSomething;

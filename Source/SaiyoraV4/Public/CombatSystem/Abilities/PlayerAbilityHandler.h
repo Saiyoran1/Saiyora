@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "PlayerSpecialization.h"
 #include "CombatSystem/Abilities/AbilityHandler.h"
 #include "PlayerAbilityHandler.generated.h"
 
@@ -18,6 +19,7 @@ public:
 	static int32 GetAbilitiesPerBar() { return AbilitiesPerBar; }
 	UPlayerAbilityHandler();
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual bool ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags) override;
 	virtual void InitializeComponent() override;
 	virtual void BeginPlay() override;
 private:
@@ -128,4 +130,11 @@ private:
 	void SetQueueExpirationTimer();
 	void CheckForQueuedAbilityOnGlobalEnd();
 	void CheckForQueuedAbilityOnCastEnd();
+//Specialization
+public:
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+	void ChangeSpecialization(TSubclassOf<UPlayerSpecialization> const NewSpecialization);
+private:
+	UPROPERTY()
+	UPlayerSpecialization* CurrentSpec;
 };

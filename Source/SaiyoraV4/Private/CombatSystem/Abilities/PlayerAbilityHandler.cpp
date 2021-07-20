@@ -7,6 +7,7 @@
 #include "ResourceHandler.h"
 #include "DamageHandler.h"
 #include "UnrealNetwork.h"
+#include "Engine/ActorChannel.h"
 
 int32 UPlayerAbilityHandler::ClientPredictionID = 0;
 
@@ -22,8 +23,14 @@ UPlayerAbilityHandler::UPlayerAbilityHandler()
 void UPlayerAbilityHandler::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
 	ResetReplicatedLifetimeProperty(StaticClass(), UAbilityHandler::StaticClass(), FName(TEXT("CastingState")), COND_SkipOwner, OutLifetimeProps);
+}
+
+bool UPlayerAbilityHandler::ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags)
+{
+	bool bWroteSomething = Super::ReplicateSubobjects(Channel, Bunch, RepFlags);
+	bWroteSomething |= Channel->ReplicateSubobject(CurrentSpec, *Bunch, *RepFlags);
+	return bWroteSomething;
 }
 
 void UPlayerAbilityHandler::InitializeComponent()
