@@ -3,11 +3,11 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "PlayerSpecialization.h"
 #include "CombatSystem/Abilities/AbilityHandler.h"
 #include "PlayerAbilityHandler.generated.h"
 
 class UPlayerAbilitySave;
+class UPlayerSpecialization;
 
 UCLASS(meta = (BlueprintSpawnableComponent))
 class SAIYORAV4_API UPlayerAbilityHandler : public UAbilityHandler
@@ -134,7 +134,13 @@ private:
 public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
 	void ChangeSpecialization(TSubclassOf<UPlayerSpecialization> const NewSpecialization);
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	void SubscribeToSpecChanged(FSpecializationCallback const& Callback);
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	void UnsubscribeFromSpecChanged(FSpecializationCallback const& Callback);
+	void NotifyOfNewSpecObject(UPlayerSpecialization* NewSpecialization);
 private:
 	UPROPERTY()
 	UPlayerSpecialization* CurrentSpec;
+	FSpecializationNotification OnSpecChanged;
 };

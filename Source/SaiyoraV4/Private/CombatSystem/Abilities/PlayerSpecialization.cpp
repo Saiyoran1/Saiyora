@@ -17,10 +17,16 @@ void UPlayerSpecialization::InitializeSpecObject(UPlayerAbilityHandler* AbilityH
 	bInitialized = true;
 }
 
+void UPlayerSpecialization::UnlearnSpecObject()
+{
+	DeactivateSpecObject();
+	bInitialized = false;
+}
+
 void UPlayerSpecialization::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME_CONDITION(UPlayerSpecialization, OwningComponent, COND_OwnerOnly);
+	DOREPLIFETIME(UPlayerSpecialization, OwningComponent);
 }
 
 void UPlayerSpecialization::OnRep_OwningComponent()
@@ -31,6 +37,7 @@ void UPlayerSpecialization::OnRep_OwningComponent()
 	}
 	SetupSpecObject();
 	bInitialized = true;
+	OwningComponent->NotifyOfNewSpecObject(this);
 }
 
 EActionBarType UPlayerSpecialization::GetGrantedAbilities(TSet<TSubclassOf<UCombatAbility>>& OutAbilities) const

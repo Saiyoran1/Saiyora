@@ -8,6 +8,7 @@
 #include "DamageHandler.h"
 #include "UnrealNetwork.h"
 #include "Engine/ActorChannel.h"
+#include "PlayerSpecialization.h"
 
 int32 UPlayerAbilityHandler::ClientPredictionID = 0;
 
@@ -1136,6 +1137,103 @@ void UPlayerAbilityHandler::CheckForQueuedAbilityOnCastEnd()
 		return;
 	default :
 		return;
+	}
+}
+
+#pragma endregion
+#pragma region Specialization
+
+void UPlayerAbilityHandler::ChangeSpecialization(TSubclassOf<UPlayerSpecialization> const NewSpecialization)
+{
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
+	UPlayerSpecialization* const PreviousSpec = CurrentSpec;
+	if (IsValid(CurrentSpec))
+	{
+		TSet<TSubclassOf<UCombatAbility>> SpecAbilities;
+		CurrentSpec->GetGrantedAbilities(SpecAbilities);
+		for (TSubclassOf<UCombatAbility> const AbilityClass : SpecAbilities)
+		{
+			if (IsValid(AbilityClass))
+			{
+				RemoveAbility(AbilityClass);
+			}
+		}
+		CurrentSpec->UnlearnSpecObject();
+		CurrentSpec = nullptr;
+	}
+	if (IsValid(NewSpecialization))
+	{
+		CurrentSpec = NewObject<UPlayerSpecialization>(GetOwner(), NewSpecialization);
+		if (IsValid(CurrentSpec))
+		{
+			CurrentSpec->InitializeSpecObject(this);
+			TSet<TSubclassOf<UCombatAbility>> GrantedAbilities;
+			EActionBarType const SpecBar = CurrentSpec->GetGrantedAbilities(GrantedAbilities);
+			int32 BarSlot = 0;
+			for (TSubclassOf<UCombatAbility> const AbilityClass : GrantedAbilities)
+			{
+				LearnAbility(AbilityClass);
+				UpdateAbilityBind(AbilityClass, BarSlot, SpecBar);
+				BarSlot++;
+			}
+		}
+	}
+	if (CurrentSpec != PreviousSpec)
+	{
+		OnSpecChanged.Broadcast(CurrentSpec);
+	}
+}
+
+void UPlayerAbilityHandler::SubscribeToSpecChanged(FSpecializationCallback const& Callback)
+{
+	if (!Callback.IsBound())
+	{
+		return;
+	}
+	OnSpecChanged.AddUnique(Callback);
+}
+
+void UPlayerAbilityHandler::UnsubscribeFromSpecChanged(FSpecializationCallback const& Callback)
+{
+	if (!Callback.IsBound())
+	{
+		return;
+	}
+	OnSpecChanged.Remove(Callback);
+}
+
+void UPlayerAbilityHandler::NotifyOfNewSpecObject(UPlayerSpecialization* NewSpecialization)
+{
+	UPlayerSpecialization* const PreviousSpec = CurrentSpec;
+	if (IsValid(CurrentSpec))
+	{
+		CurrentSpec->UnlearnSpecObject();
+		CurrentSpec = nullptr;
+	}
+	if (IsValid(NewSpecialization))
+	{
+		if (IsValid(CurrentSpec))
+		{
+			CurrentSpec->InitializeSpecObject(this);
+			if (AbilityPermission == EAbilityPermission::PredictPlayer)
+			{
+				TSet<TSubclassOf<UCombatAbility>> GrantedAbilities;
+				EActionBarType const SpecBar = CurrentSpec->GetGrantedAbilities(GrantedAbilities);
+				int32 BarSlot = 0;
+				for (TSubclassOf<UCombatAbility> const AbilityClass : GrantedAbilities)
+				{
+					UpdateAbilityBind(AbilityClass, BarSlot, SpecBar);
+					BarSlot++;
+				}
+			}
+		}
+	}
+	if (CurrentSpec != PreviousSpec)
+	{
+		OnSpecChanged.Broadcast(CurrentSpec);
 	}
 }
 

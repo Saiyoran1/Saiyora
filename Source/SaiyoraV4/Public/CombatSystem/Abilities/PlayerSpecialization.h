@@ -26,7 +26,8 @@ class SAIYORAV4_API UPlayerSpecialization : public UObject
 	UPROPERTY(EditDefaultsOnly, Category = "Specialization")
 	TMap<TSubclassOf<UCombatAbility>, FAbilityTalentInfo> TalentInformation;
 
-	TMap<UCombatAbility, int32> SelectedTalents;
+	UPROPERTY()
+	TMap<UCombatAbility*, int32> SelectedTalents;
 	UPROPERTY(ReplicatedUsing = OnRep_OwningComponent)
 	UPlayerAbilityHandler* OwningComponent;
 	UFUNCTION()
@@ -43,6 +44,7 @@ protected:
 public:
 	
 	void InitializeSpecObject(UPlayerAbilityHandler* AbilityHandler);
+	void UnlearnSpecObject();
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Specialization")
 	EActionBarType GetGrantedAbilities(TSet<TSubclassOf<UCombatAbility>>& OutAbilities) const;
 	UFUNCTION(BlueprintCallable, Category = "Specialization")

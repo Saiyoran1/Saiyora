@@ -319,6 +319,7 @@ DECLARE_DYNAMIC_DELEGATE_ThreeParams(FAbilityBindingCallback, int32 const, Abili
 DECLARE_DYNAMIC_DELEGATE_OneParam(FBarSwapCallback, ESaiyoraPlane const, NewPlane);
 //Spellbook delegate has no params because TSubclassOf in dynamic delegate causes compile errors :(
 DECLARE_DYNAMIC_DELEGATE(FSpellbookCallback);
+DECLARE_DYNAMIC_DELEGATE_OneParam(FSpecializationCallback, class UPlayerSpecialization*, NewSpecialization);
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityNotification, FCastEvent const&, Event);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityCancelNotification, FCancelEvent const&, Event);
@@ -332,3 +333,4 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FAbilityBindingNotification, int3
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FBarSwapNotification, EActionBarType const, NewBar);
 //Spellbook delegate has no params because TSubclassOf in dynamic delegate causes compile errors :(
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FSpellbookNotification);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FSpecializationNotification, class UPlayerSpecialization*, NewSpecialization);
