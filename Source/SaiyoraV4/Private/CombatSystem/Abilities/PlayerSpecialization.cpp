@@ -1,9 +1,13 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-
 #include "CombatSystem/Abilities/PlayerSpecialization.h"
-
 #include "UnrealNetwork.h"
+
+void UPlayerSpecialization::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(UPlayerSpecialization, OwningComponent);
+}
 
 void UPlayerSpecialization::InitializeSpecObject(UPlayerAbilityHandler* AbilityHandler)
 {
@@ -13,6 +17,42 @@ void UPlayerSpecialization::InitializeSpecObject(UPlayerAbilityHandler* AbilityH
 		return;
 	}
 	OwningComponent = AbilityHandler;
+	for (TTuple<TSubclassOf<UCombatAbility>, FAbilityTalentInfo> const& SpecAbility : SpecAbilities)
+	{
+		//Use the baseline ability class, since no talents were passed.
+		SelectedTalents.Add(SpecAbility.Key, SpecAbility.Key);
+	}
+	SetupSpecObject();
+	bInitialized = true;
+}
+
+void UPlayerSpecialization::InitializeSpecObject(UPlayerAbilityHandler* AbilityHandler,
+	TMap<TSubclassOf<UCombatAbility>, TSubclassOf<UCombatAbility>> const& TalentSetup)
+{
+	if (bInitialized || !IsValid(AbilityHandler))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Bad initialization in PlayerSpec object."));
+		return;
+	}
+	//If passed empty talents, just use the default version of this function.
+	if (TalentSetup.Num() == 0)
+	{
+		InitializeSpecObject(AbilityHandler);
+		return;
+	}
+	OwningComponent = AbilityHandler;
+	for (TTuple<TSubclassOf<UCombatAbility>, FAbilityTalentInfo> const& SpecAbility : SpecAbilities)
+	{
+		TSubclassOf<UCombatAbility> const* SelectedTalent = TalentSetup.Find(SpecAbility.Key);
+		if (SelectedTalent)
+		{
+			SelectedTalents.Add(SpecAbility.Key, *SelectedTalent);
+		}
+		else
+		{
+			SelectedTalents.Add(SpecAbility.Key, SpecAbility.Key);
+		}
+	}
 	SetupSpecObject();
 	bInitialized = true;
 }
@@ -23,10 +63,23 @@ void UPlayerSpecialization::UnlearnSpecObject()
 	bInitialized = false;
 }
 
-void UPlayerSpecialization::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+void UPlayerSpecialization::CreateNewDefaultLoadout(FPlayerAbilityLoadout& OutLoadout)
 {
-	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME(UPlayerSpecialization, OwningComponent);
+	OutLoadout.EmptyLoadout();
+	for (int i = 0; i < GrantedAbilities.Num(); i++)
+	{
+		switch (PrimaryBar)
+		{
+			case EActionBarType::Ancient :
+				OutLoadout.AncientLoadout.Add(i, GrantedAbilities[i]);
+				break;
+			case EActionBarType::Modern :
+				OutLoadout.ModernLoadout.Add(i, GrantedAbilities[i]);
+				break;
+			default :
+				break;
+		}
+	}
 }
 
 void UPlayerSpecialization::OnRep_OwningComponent()
@@ -40,24 +93,9 @@ void UPlayerSpecialization::OnRep_OwningComponent()
 	OwningComponent->NotifyOfNewSpecObject(this);
 }
 
-EActionBarType UPlayerSpecialization::GetGrantedAbilities(TSet<TSubclassOf<UCombatAbility>>& OutAbilities) const
-{
-	OutAbilities = GrantedAbilities;
-	return PrimaryBar;
-}
-
 bool UPlayerSpecialization::GetTalentInfo(TSubclassOf<UCombatAbility> const AbilityClass,
 	FAbilityTalentInfo& OutInfo) const
 {
-	if (!IsValid(AbilityClass))
-	{
-		return false;
-	}
-	FAbilityTalentInfo const* FoundInfo = TalentInformation.Find(AbilityClass);
-	if (!FoundInfo)
-	{
-		return false;
-	}
-	OutInfo = *FoundInfo;
+	//TODO:Talent system and UI integration.
 	return true;
 }

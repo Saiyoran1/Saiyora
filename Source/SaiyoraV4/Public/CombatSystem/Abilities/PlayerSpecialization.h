@@ -3,7 +3,6 @@
 #pragma once
 
 #include "CoreMinimal.h"
-
 #include "AbilityEnums.h"
 #include "PlayerAbilityHandler.h"
 #include "UObject/NoExportTypes.h"
@@ -20,14 +19,10 @@ class SAIYORAV4_API UPlayerSpecialization : public UObject
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	
 	UPROPERTY(EditDefaultsOnly, Category = "Specialization")
-	EActionBarType PrimaryBar = EActionBarType::None;
-	UPROPERTY(EditDefaultsOnly, Category = "Specialization")
-	TSet<TSubclassOf<UCombatAbility>> GrantedAbilities;
-	UPROPERTY(EditDefaultsOnly, Category = "Specialization")
-	TMap<TSubclassOf<UCombatAbility>, FAbilityTalentInfo> TalentInformation;
+	TMap<TSubclassOf<UCombatAbility>, FAbilityTalentInfo> SpecAbilities;
 
 	UPROPERTY()
-	TMap<UCombatAbility*, int32> SelectedTalents;
+	TMap<TSubclassOf<UCombatAbility>, TSubclassOf<UCombatAbility>> SelectedTalents;
 	UPROPERTY(ReplicatedUsing = OnRep_OwningComponent)
 	UPlayerAbilityHandler* OwningComponent;
 	UFUNCTION()
@@ -44,9 +39,13 @@ protected:
 public:
 	
 	void InitializeSpecObject(UPlayerAbilityHandler* AbilityHandler);
+	void InitializeSpecObject(UPlayerAbilityHandler* AbilityHandler, TMap<TSubclassOf<UCombatAbility>, TSubclassOf<UCombatAbility>> const& TalentSetup);
 	void UnlearnSpecObject();
+	void CreateNewDefaultLoadout(FPlayerAbilityLoadout& OutLoadout);
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Specialization")
-	EActionBarType GetGrantedAbilities(TSet<TSubclassOf<UCombatAbility>>& OutAbilities) const;
+	void GetGrantedAbilities(TArray<TSubclassOf<UCombatAbility>>& GrantedAbilities) const { SelectedTalents.GenerateValueArray(GrantedAbilities); }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Specialization")
+	void GetSpecBaseAbilities(TArray<TSubclassOf<UCombatAbility>>& BaselineAbilities) const { SpecAbilities.GenerateKeyArray(BaselineAbilities); }
 	UFUNCTION(BlueprintCallable, Category = "Specialization")
 	bool GetTalentInfo(TSubclassOf<UCombatAbility> const AbilityClass, FAbilityTalentInfo& OutInfo) const;
 };

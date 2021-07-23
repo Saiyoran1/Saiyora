@@ -289,6 +289,13 @@ struct FPlayerAbilityLoadout
     TMap<int32, TSubclassOf<UCombatAbility>> ModernLoadout;
     UPROPERTY(BlueprintReadOnly, Category = "Abilities")
     TMap<int32, TSubclassOf<UCombatAbility>> HiddenLoadout;
+    UPROPERTY(BlueprintReadOnly, Category = "Abilities")
+    TMap<int32, int32> TalentSelections;
+    UPROPERTY(BlueprintReadOnly, Category = "Abilities")
+    TSet<TSubclassOf<UCombatAbility>> ModernSelections;
+
+    TArray<TSubclassOf<UCombatAbility>> GetAllAbilities() const;
+    void EmptyLoadout();
 };
 
 USTRUCT(BlueprintType)
@@ -297,11 +304,7 @@ struct FAbilityTalentInfo
     GENERATED_BODY()
 
     UPROPERTY(BlueprintReadOnly, Category = "Specialization")
-    TSubclassOf<UCombatAbility> Talent1;
-    UPROPERTY(BlueprintReadOnly, Category = "Specialization")
-    TSubclassOf<UCombatAbility> Talent2;
-    UPROPERTY(BlueprintReadOnly, Category = "Specialization")
-    TSubclassOf<UCombatAbility> Talent3;
+    TSet<TSubclassOf<UCombatAbility>> TalentOptions;
 };
 
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FAbilityModCondition, UCombatAbility*, Ability);

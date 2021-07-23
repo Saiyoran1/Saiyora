@@ -29,12 +29,15 @@ private:
 	EAbilityPermission AbilityPermission = EAbilityPermission::None;
 //Ability Management
 public:
+	virtual UCombatAbility* AddNewAbility(TSubclassOf<UCombatAbility> const AbilityClass) override;
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
-	void LearnAbility(TSubclassOf<UCombatAbility> const NewAbility);
+	void LearnAbility(TSubclassOf<UCombatAbility> const AbilityClass);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+	void UnlearnAbility(TSubclassOf<UCombatAbility> const AbilityClass);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void UpdateAbilityBind(TSubclassOf<UCombatAbility> const Ability, int32 const Bind, EActionBarType const Bar);
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-	FPlayerAbilityLoadout GetPlayerLoadout() const { return Loadout; }
+	FPlayerAbilityLoadout GetPlayerLoadout() const { return CurrentLoadout; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
 	TSet<TSubclassOf<UCombatAbility>> GetUnlockedAbilities() const { return Spellbook; }
 	UFUNCTION(BlueprintCallable)
@@ -50,7 +53,7 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void UnsubscribeFromSpellbookUpdated(FSpellbookCallback const& Callback);
 private:
-	FPlayerAbilityLoadout Loadout;
+	FPlayerAbilityLoadout CurrentLoadout;
 	TSet<TSubclassOf<UCombatAbility>> Spellbook;
 	EActionBarType CurrentBar = EActionBarType::None;
 	FAbilityBindingNotification OnAbilityBindUpdated;
@@ -61,6 +64,7 @@ private:
 	void SwapBarOnPlaneSwap(ESaiyoraPlane const PreviousPlane, ESaiyoraPlane const NewPlane, UObject* Source);
 	UFUNCTION()
 	bool CheckForAbilityBarRestricted(UCombatAbility* Ability);
+	void RemoveAllAbilities();
 //Ability Usage
 public:
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
@@ -143,4 +147,6 @@ private:
 	UPROPERTY()
 	UPlayerSpecialization* CurrentSpec;
 	FSpecializationNotification OnSpecChanged;
+	TMap<TSubclassOf<UPlayerSpecialization>, FPlayerAbilityLoadout> SpecLoadouts;
+	TMap<TSubclassOf<UPlayerSpecialization>, FPlayerTalentSetup> SpecTalents;
 };

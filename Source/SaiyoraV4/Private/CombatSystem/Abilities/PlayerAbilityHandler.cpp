@@ -110,18 +110,40 @@ int32 UPlayerAbilityHandler::GenerateNewPredictionID()
 #pragma endregion
 #pragma region Ability Management
 
-void UPlayerAbilityHandler::LearnAbility(TSubclassOf<UCombatAbility> const NewAbility)
+UCombatAbility* UPlayerAbilityHandler::AddNewAbility(TSubclassOf<UCombatAbility> const AbilityClass)
 {
-	if (!IsValid(NewAbility) || Spellbook.Contains(NewAbility))
+	if (!IsValid(AbilityClass) || !Spellbook.Contains(AbilityClass))
+	{
+		return nullptr;
+	}
+	return Super::AddNewAbility(AbilityClass);
+}
+
+void UPlayerAbilityHandler::LearnAbility(TSubclassOf<UCombatAbility> const AbilityClass)
+{
+	if (!IsValid(AbilityClass) || Spellbook.Contains(AbilityClass))
 	{
 		return;
 	}
-	Spellbook.Add(NewAbility);
+	Spellbook.Add(AbilityClass);
 	OnSpellbookUpdated.Broadcast();
 }
 
+void UPlayerAbilityHandler::UnlearnAbility(TSubclassOf<UCombatAbility> const AbilityClass)
+{
+	if (!IsValid(AbilityClass) || !Spellbook.Contains(AbilityClass))
+	{
+		return;
+	}
+	if (Spellbook.Remove(AbilityClass) != 0)
+	{
+		OnSpellbookUpdated.Broadcast();
+		RemoveAbility(AbilityClass);
+	}
+}
+
 void UPlayerAbilityHandler::UpdateAbilityBind(TSubclassOf<UCombatAbility> const Ability, int32 const Bind,
-	EActionBarType const Bar)
+                                              EActionBarType const Bar)
 {
 	if (GetOwnerRole() == ROLE_SimulatedProxy || GetNetMode() == NM_DedicatedServer)
 	{
@@ -134,13 +156,13 @@ void UPlayerAbilityHandler::UpdateAbilityBind(TSubclassOf<UCombatAbility> const 
 	switch (Bar)
 	{
 		case EActionBarType::Ancient :
-			Loadout.AncientLoadout.Add(Bind, Ability);
+			CurrentLoadout.AncientLoadout.Add(Bind, Ability);
 			break;
 		case EActionBarType::Modern :
-			Loadout.ModernLoadout.Add(Bind, Ability);
+			CurrentLoadout.ModernLoadout.Add(Bind, Ability);
 			break;
 		case EActionBarType::Hidden :
-			Loadout.HiddenLoadout.Add(Bind, Ability);
+			CurrentLoadout.HiddenLoadout.Add(Bind, Ability);
 			break;
 		default :
 			return;
@@ -244,6 +266,14 @@ bool UPlayerAbilityHandler::CheckForAbilityBarRestricted(UCombatAbility* Ability
 	}
 }
 
+void UPlayerAbilityHandler::RemoveAllAbilities()
+{
+	for (UCombatAbility* Ability : GetActiveAbilities())
+	{
+		RemoveAbility(Ability->GetClass());
+	}
+}
+
 #pragma endregion
 #pragma region AbilityUsage
 
@@ -258,17 +288,17 @@ FCastEvent UPlayerAbilityHandler::AbilityInput(int32 const BindNumber, bool cons
 	TSubclassOf<UCombatAbility> AbilityClass;
 	if (bHidden)
 	{
-		AbilityClass = Loadout.HiddenLoadout.FindRef(BindNumber);
+		AbilityClass = CurrentLoadout.HiddenLoadout.FindRef(BindNumber);
 	}
 	else
 	{
 		switch (CurrentBar)
 		{
 		case EActionBarType::Ancient :
-			AbilityClass = Loadout.AncientLoadout.FindRef(BindNumber);
+			AbilityClass = CurrentLoadout.AncientLoadout.FindRef(BindNumber);
 			break;
 		case EActionBarType::Modern :
-			AbilityClass = Loadout.ModernLoadout.FindRef(BindNumber);
+			AbilityClass = CurrentLoadout.ModernLoadout.FindRef(BindNumber);
 			break;
 		default :
 			break;
@@ -1152,32 +1182,40 @@ void UPlayerAbilityHandler::ChangeSpecialization(TSubclassOf<UPlayerSpecializati
 	UPlayerSpecialization* const PreviousSpec = CurrentSpec;
 	if (IsValid(CurrentSpec))
 	{
-		TSet<TSubclassOf<UCombatAbility>> SpecAbilities;
-		CurrentSpec->GetGrantedAbilities(SpecAbilities);
-		for (TSubclassOf<UCombatAbility> const AbilityClass : SpecAbilities)
+		for (TSubclassOf<UCombatAbility> const AbilityClass : CurrentSpec->GetGrantedAbilities())
 		{
 			if (IsValid(AbilityClass))
 			{
-				RemoveAbility(AbilityClass);
+				UnlearnAbility(AbilityClass);
 			}
 		}
 		CurrentSpec->UnlearnSpecObject();
 		CurrentSpec = nullptr;
 	}
+	RemoveAllAbilities();
 	if (IsValid(NewSpecialization))
 	{
 		CurrentSpec = NewObject<UPlayerSpecialization>(GetOwner(), NewSpecialization);
 		if (IsValid(CurrentSpec))
 		{
 			CurrentSpec->InitializeSpecObject(this);
-			TSet<TSubclassOf<UCombatAbility>> GrantedAbilities;
-			EActionBarType const SpecBar = CurrentSpec->GetGrantedAbilities(GrantedAbilities);
-			int32 BarSlot = 0;
-			for (TSubclassOf<UCombatAbility> const AbilityClass : GrantedAbilities)
+			for (TSubclassOf<UCombatAbility> const AbilityClass : CurrentSpec->GetGrantedAbilities())
 			{
-				LearnAbility(AbilityClass);
-				UpdateAbilityBind(AbilityClass, BarSlot, SpecBar);
-				BarSlot++;
+				if (IsValid(AbilityClass))
+				{
+					LearnAbility(AbilityClass);
+				}
+			}
+			if (!SpecLoadouts.Contains(NewSpecialization))
+			{
+				FPlayerAbilityLoadout NewLoadout;
+				CurrentSpec->CreateNewDefaultLoadout(NewLoadout);
+				SpecLoadouts.Add(NewSpecialization, NewLoadout);
+			}
+			CurrentLoadout = SpecLoadouts.FindRef(NewSpecialization);
+			for (TSubclassOf<UCombatAbility> const AbilityClass : CurrentLoadout.GetAllAbilities())
+			{
+				AddNewAbility(AbilityClass);
 			}
 		}
 	}
@@ -1217,18 +1255,13 @@ void UPlayerAbilityHandler::NotifyOfNewSpecObject(UPlayerSpecialization* NewSpec
 	{
 		if (IsValid(CurrentSpec))
 		{
-			CurrentSpec->InitializeSpecObject(this);
-			if (AbilityPermission == EAbilityPermission::PredictPlayer)
+			if (!SpecLoadouts.Contains(NewSpecialization->GetClass()))
 			{
-				TSet<TSubclassOf<UCombatAbility>> GrantedAbilities;
-				EActionBarType const SpecBar = CurrentSpec->GetGrantedAbilities(GrantedAbilities);
-				int32 BarSlot = 0;
-				for (TSubclassOf<UCombatAbility> const AbilityClass : GrantedAbilities)
-				{
-					UpdateAbilityBind(AbilityClass, BarSlot, SpecBar);
-					BarSlot++;
-				}
+				FPlayerAbilityLoadout NewLoadout;
+				CurrentSpec->CreateNewDefaultLoadout(NewLoadout);
+				SpecLoadouts.Add(NewSpecialization->GetClass(), NewLoadout);
 			}
+			CurrentLoadout = SpecLoadouts.FindRef(NewSpecialization->GetClass());
 		}
 	}
 	if (CurrentSpec != PreviousSpec)

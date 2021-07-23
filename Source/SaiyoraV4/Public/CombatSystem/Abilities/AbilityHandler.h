@@ -53,7 +53,7 @@ private:
 //Ability Management
 public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
-	UCombatAbility* AddNewAbility(TSubclassOf<UCombatAbility> const AbilityClass);
+	virtual UCombatAbility* AddNewAbility(TSubclassOf<UCombatAbility> const AbilityClass);
 	void NotifyOfReplicatedAddedAbility(UCombatAbility* NewAbility);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
 	void RemoveAbility(TSubclassOf<UCombatAbility> const AbilityClass);

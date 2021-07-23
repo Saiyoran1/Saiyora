@@ -35,3 +35,23 @@ void FReplicatedAbilityCostArray::UpdateAbilityCost(FAbilityCost const& NewCost)
 		}
 	}
 }
+
+TArray<TSubclassOf<UCombatAbility>> FPlayerAbilityLoadout::GetAllAbilities() const
+{
+	TArray<TSubclassOf<UCombatAbility>> Abilities;
+	ModernLoadout.GenerateValueArray(Abilities);
+	TArray<TSubclassOf<UCombatAbility>> Ancient;
+	AncientLoadout.GenerateValueArray(Ancient);
+	TArray<TSubclassOf<UCombatAbility>> Hidden;
+	HiddenLoadout.GenerateValueArray(Hidden);
+	Abilities.Append(Ancient);
+	Abilities.Append(Hidden);
+	return Abilities;
+}
+
+void FPlayerAbilityLoadout::EmptyLoadout()
+{
+	ModernLoadout.Empty();
+	AncientLoadout.Empty();
+	HiddenLoadout.Empty();
+}
