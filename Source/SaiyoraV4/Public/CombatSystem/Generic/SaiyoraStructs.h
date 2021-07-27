@@ -78,8 +78,9 @@ struct FCombatParameters
 {
     GENERATED_BODY()
 
-    UPROPERTY()
+    UPROPERTY(BlueprintReadWrite, Category = "Abilities")
     TArray<FCombatParameter> Parameters;
 
     bool HasParams() const { return Parameters.Num() > 0; }
+    void ClearParams() { Parameters.Empty(); }
 };

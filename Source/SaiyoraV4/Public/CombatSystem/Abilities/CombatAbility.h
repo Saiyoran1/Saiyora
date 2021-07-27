@@ -33,10 +33,6 @@ private:
     EDamageSchool AbilitySchool;
     UPROPERTY(EditDefaultsOnly, Category = "Display Info")
     ESaiyoraPlane AbilityPlane;
-    UPROPERTY(EditDefaultsOnly, Category = "Display Info")
-    bool bHiddenCastBar = false;
-    UPROPERTY(EditDefaultsOnly, Category = "Display Info")
-    bool bHiddenOnActionBar = false;
 
     UPROPERTY(EditDefaultsOnly, Category = "Cast Info")
     EAbilityCastType CastType = EAbilityCastType::None;
@@ -48,8 +44,6 @@ private:
     bool bInitialTick = true;
     UPROPERTY(EditDefaultsOnly, Category = "Cast Info")
     int32 NonInitialTicks = 0;
-    UPROPERTY(EditDefaultsOnly, Category = "Cast Info")
-    TSet<int32> TicksWithPredictionParams;
     
     UPROPERTY(EditDefaultsOnly, Category = "Crowd Control Info")
     bool bInterruptible = true;
@@ -84,50 +78,42 @@ private:
     UPROPERTY()
     TMap<TSubclassOf<UResource>, FAbilityCost> AbilityCosts;
     TMultiMap<TSubclassOf<UResource>, FCombatModifier> CostModifiers;
-    UPROPERTY(Replicated)
-    FReplicatedAbilityCostArray ReplicatedCosts;
     void RecalculateAbilityCost(TSubclassOf<UResource> const ResourceClass);
     
         //***Ability Cooldown***
 
     //Server authoritative cooldown progress and charge status that the client can extrapolate from.
-    UPROPERTY(ReplicatedUsing = OnRep_AbilityCooldown)
+protected:
     FAbilityCooldown AbilityCooldown;
-    FAbilityCooldown PredictedCooldown;
-    TMap<int32, int32> ChargePredictions;
-    void PurgeOldPredictions();
-    void RecalculatePredictedCooldown();
-    UPROPERTY(Replicated)
+    UPROPERTY()
     int32 MaxCharges = 1;
+    UPROPERTY()
     int32 ChargesPerCooldown = 1;
     FTimerHandle CooldownHandle;
-    UPROPERTY(Replicated)
+    UPROPERTY()
     int32 ChargesPerCast = 1;
     FAbilityChargeNotification OnChargesChanged;
-    void StartCooldown(bool const bFromPrediction);
+    void StartCooldown();
     UFUNCTION()
     void CompleteCooldown();
     TArray<FAbilityModCondition> CooldownMods;
-    
+private:
     bool bCustomCastConditionsMet = true;
     TArray<FName> CustomCastRestrictions;
 
     //References
+protected:
     UPROPERTY(ReplicatedUsing = OnRep_OwningComponent)
     class UAbilityHandler* OwningComponent;
     bool bInitialized = false;
     UPROPERTY(ReplicatedUsing = OnRep_Deactivated)
     bool bDeactivated = false;
-    
+private: 
     //OnReps
     UFUNCTION()
     void OnRep_OwningComponent();
     UFUNCTION()
-    void OnRep_AbilityCooldown();
-    UFUNCTION()
     void OnRep_Deactivated(bool const Previous);
-
-    TSet<int32> StoredTickPredictionParameters;
 
 public:
 
@@ -142,10 +128,6 @@ public:
     EDamageSchool GetAbilitySchool() const { return AbilitySchool; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
     ESaiyoraPlane GetAbilityPlane() const { return AbilityPlane; }
-    UFUNCTION(BlueprintCallable, BlueprintPure)
-    bool GetHiddenCastBar() const { return bHiddenCastBar; }
-    UFUNCTION(BlueprintCallable, BlueprintPure)
-    bool GetHiddenOnActionBar() const { return bHiddenOnActionBar; }
     
     UFUNCTION(BlueprintCallable, BlueprintPure)
     EAbilityCastType GetCastType() const { return CastType; }
@@ -182,50 +164,40 @@ public:
     UFUNCTION(BlueprintCallable, BlueprintPure)
     int32 GetMaxCharges() const { return MaxCharges; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
-    int32 GetCurrentCharges() const;
+    int32 GetCurrentCharges() const { return AbilityCooldown.CurrentCharges; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
-    float GetRemainingCooldown() const;
+    float GetRemainingCooldown() const { return AbilityCooldown.OnCooldown ? GetWorld()->GetTimerManager().GetTimerRemaining(CooldownHandle) : 0.0f; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
-    float GetCurrentCooldownLength() const;
+    float GetCurrentCooldownLength() const { return AbilityCooldown.OnCooldown ? AbilityCooldown.CooldownEndTime - AbilityCooldown.CooldownStartTime : 0.0f; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
-    bool GetCooldownActive() const;
+    bool GetCooldownActive() const { return AbilityCooldown.OnCooldown; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
     int32 GetChargeCost() const { return ChargesPerCast; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
-    bool CheckChargesMet() const;
-    void CommitCharges(int32 const PredictionID = 0);
-    void PredictCommitCharges(int32 const PredictionID);
-    void RollbackFailedCharges(int32 const PredictionID);
-    void UpdatePredictedChargesFromServer(FServerAbilityResult const& ServerResult);
+    bool CheckChargesMet() const { return AbilityCooldown.CurrentCharges >= ChargesPerCast; }
+    void CommitCharges();
     
     UFUNCTION(BlueprintCallable, BlueprintPure)
     float GetAbilityCost(TSubclassOf<UResource> const ResourceClass) const;
     UFUNCTION(BlueprintCallable, BlueprintPure)
-    void GetAbilityCosts(TArray<FAbilityCost>& OutCosts) const;
+    void GetAbilityCosts(TArray<FAbilityCost>& OutCosts) const { AbilityCosts.GenerateValueArray(OutCosts); }
 
     UFUNCTION(BlueprintCallable, BlueprintPure)
     UAbilityHandler* GetHandler() const { return OwningComponent; }
     
     bool GetInitialized() const { return bInitialized; }
     bool GetDeactivated() const { return bDeactivated; }
-
-    bool GetTickNeedsPredictionParams(int32 const TickNumber) const;
     
     //Internal ability functions, these adjust necessary properties then call the Blueprint implementations.
     
-    void InitializeAbility(UAbilityHandler* AbilityComponent);
+    virtual void InitializeAbility(UAbilityHandler* AbilityComponent);
     void DeactivateAbility();
-    void PredictedTick(int32 const TickNumber, FCombatParameters& PredictionParams);
-    void ServerPredictedTick(int32 const TickNumber, FCombatParameters const& PredictionParams, FCombatParameters& BroadcastParams);
     void ServerTick(int32 const TickNumber, FCombatParameters& BroadcastParams);
     void SimulatedTick(int32 const TickNumber, FCombatParameters const& BroadcastParams);
     void CompleteCast();
     void InterruptCast(FInterruptEvent const& InterruptEvent);
-    void PredictedCancel(FCombatParameters& PredictionParams);
-    void ServerPredictedCancel(FCombatParameters const& PredictionParams, FCombatParameters& BroadcastParams);
     void ServerCancel(FCombatParameters& BroadcastParams);
     void SimulatedCancel(FCombatParameters const& BroadcastParams);
-    void AbilityMisprediction(int32 const PredictionID, ECastFailReason const FailReason);
 
     UFUNCTION(BlueprintCallable, Category = "Abilities")
     void SubscribeToChargesChanged(FAbilityChargeCallback const& Callback);
@@ -236,12 +208,14 @@ public:
     void AddAbilityCostModifier(TSubclassOf<UResource> const ResourceClass, FCombatModifier const& Modifier);
     UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
     void RemoveAbilityCostModifier(TSubclassOf<UResource> const ResourceClass, int32 const ModifierID);
-    void NotifyOfReplicatedCost(FAbilityCost const& NewCost);
 
     UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
     void ModifyCurrentCharges(int32 const Charges, bool const bAdditive = true);
 
 protected:
+
+    UPROPERTY(BlueprintReadWrite, Transient, Category = "Abilities")
+    FCombatParameters BroadcastParameters;
     
     //Blueprint functions for defining the ability behavior.
 
@@ -251,28 +225,19 @@ protected:
     void SetupCustomCastRestrictions();
     UFUNCTION(BlueprintNativeEvent)
     void OnDeactivate();
+    
     UFUNCTION(BlueprintNativeEvent)
-    void OnPredictedTick(int32 const TickNumber, TArray<FCombatParameter>& PredictionParams);
+    void OnServerTick(int32 const TickNumber);
     UFUNCTION(BlueprintNativeEvent)
-    void OnServerPredictedTick(int32 const TickNumber, TArray<FCombatParameter> const& PredictionParams, TArray<FCombatParameter>& BroadcastParams);
-    UFUNCTION(BlueprintNativeEvent)
-    void OnServerTick(int32 const TickNumber, TArray<FCombatParameter>& BroadcastParams);
-    UFUNCTION(BlueprintNativeEvent)
-    bool OnSimulatedTick(int32 const TickNumber, TArray<FCombatParameter> const& BroadcastParams);
+    void OnSimulatedTick(int32 const TickNumber);
     UFUNCTION(BlueprintNativeEvent)
     void OnCastComplete();
     UFUNCTION(BlueprintNativeEvent)
     void OnCastInterrupted(FInterruptEvent const& InterruptEvent);
     UFUNCTION(BlueprintNativeEvent)
-    void OnPredictedCancel(TArray<FCombatParameter>& PredictionParams);
-    UFUNCTION(BlueprintNativeEvent)
-    void OnServerPredictedCancel(TArray<FCombatParameter> const& PredictionParams, TArray<FCombatParameter>& BroadcastParams);
-    UFUNCTION(BlueprintNativeEvent)
-    void OnServerCancel(TArray<FCombatParameter>& BroadcastParams);
+    void OnServerCancel();
     UFUNCTION(BlueprintNativeEvent)
     void OnSimulatedCancel(TArray<FCombatParameter> const& BroadcastParams);
-    UFUNCTION(BlueprintNativeEvent)
-    void OnAbilityMispredicted(int32 const PredictionID, ECastFailReason const FailReason);
 
     UFUNCTION(BlueprintCallable, Category = "Abilities")
     void ActivateCastRestriction(FName const& RestrictionName);

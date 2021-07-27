@@ -6,6 +6,7 @@
 #include "CombatSystem/Abilities/AbilityHandler.h"
 #include "PlayerAbilityHandler.generated.h"
 
+class UPlayerCombatAbility;
 class UPlayerAbilitySave;
 class UPlayerSpecialization;
 
@@ -16,21 +17,25 @@ class SAIYORAV4_API UPlayerAbilityHandler : public UAbilityHandler
 
 //Setup
 public:
+	static const float MaxPingCompensation;
 	static int32 GetAbilitiesPerBar() { return AbilitiesPerBar; }
 	UPlayerAbilityHandler();
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual bool ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags) override;
 	virtual void InitializeComponent() override;
 	virtual void BeginPlay() override;
+	EActorNetPermission GetAbilityPermission() const { return AbilityPermission; }
 private:
 	static const int32 AbilitiesPerBar = 6;
+	static const float AbilityQueWindowSec;
 	static int32 ClientPredictionID;
 	int32 GenerateNewPredictionID();
-	EAbilityPermission AbilityPermission = EAbilityPermission::None;
+	EActorNetPermission AbilityPermission = EActorNetPermission::None;
 //Ability Management
 public:
+	UPlayerCombatAbility* FindActiveAbility(TSubclassOf<UPlayerCombatAbility> const AbilityClass);
 	virtual UCombatAbility* AddNewAbility(TSubclassOf<UCombatAbility> const AbilityClass) override;
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+	/*UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
 	void LearnAbility(TSubclassOf<UCombatAbility> const AbilityClass);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
 	void UnlearnAbility(TSubclassOf<UCombatAbility> const AbilityClass);
@@ -39,7 +44,7 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
 	FPlayerAbilityLoadout GetPlayerLoadout() const { return CurrentLoadout; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-	TSet<TSubclassOf<UCombatAbility>> GetUnlockedAbilities() const { return Spellbook; }
+	TSet<TSubclassOf<UCombatAbility>> GetUnlockedAbilities() const { return Spellbook; }*/
 	UFUNCTION(BlueprintCallable)
 	void SubscribeToAbilityBindUpdated(FAbilityBindingCallback const& Callback);
 	UFUNCTION(BlueprintCallable)
@@ -53,7 +58,7 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void UnsubscribeFromSpellbookUpdated(FSpellbookCallback const& Callback);
 private:
-	FPlayerAbilityLoadout CurrentLoadout;
+	/*FPlayerAbilityLoadout CurrentLoadout;*/
 	TSet<TSubclassOf<UCombatAbility>> Spellbook;
 	EActionBarType CurrentBar = EActionBarType::None;
 	FAbilityBindingNotification OnAbilityBindUpdated;
@@ -67,8 +72,8 @@ private:
 	void RemoveAllAbilities();
 //Ability Usage
 public:
-	UFUNCTION(BlueprintCallable, Category = "Abilities")
-	FCastEvent AbilityInput(int32 const BindNumber, bool const bHidden);
+	/*UFUNCTION(BlueprintCallable, Category = "Abilities")
+	FCastEvent AbilityInput(int32 const BindNumber, bool const bHidden);*/
 	virtual FCastEvent UseAbility(TSubclassOf<UCombatAbility> const AbilityClass) override;
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void SubscribeToAbilityMispredicted(FAbilityMispredictionCallback const& Callback);
@@ -77,7 +82,7 @@ public:
 private:
 	TMap<int32, FClientAbilityPrediction> UnackedAbilityPredictions;
 	FAbilityMispredictionNotification OnAbilityMispredicted;
-	FCastEvent PredictUseAbility(TSubclassOf<UCombatAbility> const AbilityClass, bool const bFromQueue = false);
+	FCastEvent UsePlayerAbility(TSubclassOf<UPlayerCombatAbility> const AbilityClass, bool const bFromQueue = false);
 	UFUNCTION(Server, Reliable, WithValidation)
 	void ServerPredictAbility(FAbilityRequest const& AbilityRequest);
 	bool ServerPredictAbility_Validate(FAbilityRequest const& AbilityRequest) { return true; }
@@ -125,17 +130,17 @@ private:
 //Queueing
 private:
 	UPROPERTY()
-	TSubclassOf<UCombatAbility> QueuedAbility;
+	TSubclassOf<UPlayerCombatAbility> QueuedAbility;
 	EQueueStatus QueueStatus = EQueueStatus::Empty;
 	FTimerHandle QueueClearHandle;
-	bool TryQueueAbility(TSubclassOf<UCombatAbility> const AbilityClass);
+	bool TryQueueAbility(TSubclassOf<UPlayerCombatAbility> const AbilityClass);
 	UFUNCTION()
 	void ClearQueue();
 	void SetQueueExpirationTimer();
 	void CheckForQueuedAbilityOnGlobalEnd();
 	void CheckForQueuedAbilityOnCastEnd();
 //Specialization
-public:
+/*public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
 	void ChangeSpecialization(TSubclassOf<UPlayerSpecialization> const NewSpecialization);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
@@ -148,5 +153,5 @@ private:
 	UPlayerSpecialization* CurrentSpec;
 	FSpecializationNotification OnSpecChanged;
 	TMap<TSubclassOf<UPlayerSpecialization>, FPlayerAbilityLoadout> SpecLoadouts;
-	TMap<TSubclassOf<UPlayerSpecialization>, FPlayerTalentSetup> SpecTalents;
+	TMap<TSubclassOf<UPlayerSpecialization>, FPlayerTalentSetup> SpecTalents;*/
 };

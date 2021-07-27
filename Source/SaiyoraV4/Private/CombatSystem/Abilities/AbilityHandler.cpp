@@ -16,8 +16,6 @@
 const float UAbilityHandler::MinimumGlobalCooldownLength = 0.5f;
 const float UAbilityHandler::MinimumCastLength = 0.5f;
 const float UAbilityHandler::MinimumCooldownLength = 0.5f;
-const float UAbilityHandler::AbilityQueWindowSec = 0.2f;
-const float UAbilityHandler::MaxPingCompensation = 0.2f;
 
 #pragma region SetupFunctions
 UAbilityHandler::UAbilityHandler()

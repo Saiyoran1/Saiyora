@@ -9,6 +9,7 @@
 #include "Resource.h"
 #include "AbilityStructs.generated.h"
 
+class UPlayerCombatAbility;
 USTRUCT(BlueprintType)
 struct FAbilityCost
 {
@@ -206,7 +207,7 @@ struct FAbilityRequest
     GENERATED_BODY()
 
     UPROPERTY()
-    TSubclassOf<UCombatAbility> AbilityClass;
+    TSubclassOf<UPlayerCombatAbility> AbilityClass;
     UPROPERTY()
     int32 PredictionID = 0;
     UPROPERTY()
@@ -223,7 +224,7 @@ struct FClientAbilityPrediction
     GENERATED_BODY()
     
     UPROPERTY()
-    UCombatAbility* Ability = nullptr;
+    UPlayerCombatAbility* Ability = nullptr;
     int32 PredictionID = 0;
     float ClientTime = 0.0f;
     bool bPredictedGCD = false;
@@ -241,15 +242,13 @@ struct FServerAbilityResult
     UPROPERTY()
     int32 PredictionID = 0;
     UPROPERTY()
-    TSubclassOf<UCombatAbility> AbilityClass;
+    TSubclassOf<UPlayerCombatAbility> AbilityClass;
     UPROPERTY()
     float ClientStartTime = 0.0f;
     UPROPERTY()
     bool bActivatedGlobal = false;
     UPROPERTY()
     float GlobalLength = 0.0f;
-    UPROPERTY()
-    bool bSpentCharges = false;
     UPROPERTY()
     int32 ChargesSpent = 0;
     UPROPERTY()
@@ -277,35 +276,6 @@ FORCEINLINE uint32 GetTypeHash(const FPredictedTick& Tick)
 {
     return HashCombine(GetTypeHash(Tick.PredictionID), GetTypeHash(Tick.TickNumber));
 }
-
-USTRUCT(BlueprintType)
-struct FPlayerAbilityLoadout
-{
-    GENERATED_BODY()
-
-    UPROPERTY(BlueprintReadOnly, Category = "Abilities")
-    TMap<int32, TSubclassOf<UCombatAbility>> AncientLoadout;
-    UPROPERTY(BlueprintReadOnly, Category = "Abilities")
-    TMap<int32, TSubclassOf<UCombatAbility>> ModernLoadout;
-    UPROPERTY(BlueprintReadOnly, Category = "Abilities")
-    TMap<int32, TSubclassOf<UCombatAbility>> HiddenLoadout;
-    UPROPERTY(BlueprintReadOnly, Category = "Abilities")
-    TMap<int32, int32> TalentSelections;
-    UPROPERTY(BlueprintReadOnly, Category = "Abilities")
-    TSet<TSubclassOf<UCombatAbility>> ModernSelections;
-
-    TArray<TSubclassOf<UCombatAbility>> GetAllAbilities() const;
-    void EmptyLoadout();
-};
-
-USTRUCT(BlueprintType)
-struct FAbilityTalentInfo
-{
-    GENERATED_BODY()
-
-    UPROPERTY(BlueprintReadOnly, Category = "Specialization")
-    TSet<TSubclassOf<UCombatAbility>> TalentOptions;
-};
 
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FAbilityModCondition, UCombatAbility*, Ability);
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FAbilityRestriction, UCombatAbility*, Ability);

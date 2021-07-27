@@ -24,8 +24,6 @@ public:
 	static const float MinimumGlobalCooldownLength;
 	static const float MinimumCastLength;
 	static const float MinimumCooldownLength;
-	static const float AbilityQueWindowSec;
-	static const float MaxPingCompensation;
 	static FGameplayTag CastLengthStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.CastLength")), false); }
 	static FGameplayTag GlobalCooldownLengthStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.GlobalCooldownLength")), false); }
 	static FGameplayTag CooldownLengthStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.CooldownLength")), false); }
@@ -96,6 +94,9 @@ public:
 private:
 	TArray<FAbilityRestriction> AbilityRestrictions;
 	bool CheckAbilityRestricted(UCombatAbility* Ability);
+protected:
+	UPROPERTY(BlueprintReadWrite, Category = "Abilities")
+	FCombatParameters AbilityTickBroadcastParams;
 //Casting
 public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
