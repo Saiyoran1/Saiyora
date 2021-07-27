@@ -1,7 +1,6 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
-
 #include "CoreMinimal.h"
 #include "CombatSystem/Abilities/AbilityHandler.h"
 #include "PlayerAbilityHandler.generated.h"
@@ -35,11 +34,11 @@ private:
 public:
 	UPlayerCombatAbility* FindActiveAbility(TSubclassOf<UPlayerCombatAbility> const AbilityClass);
 	virtual UCombatAbility* AddNewAbility(TSubclassOf<UCombatAbility> const AbilityClass) override;
-	/*UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
-	void LearnAbility(TSubclassOf<UCombatAbility> const AbilityClass);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
-	void UnlearnAbility(TSubclassOf<UCombatAbility> const AbilityClass);
-	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	void LearnAbility(TSubclassOf<UPlayerCombatAbility> const AbilityClass);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+	void UnlearnAbility(TSubclassOf<UPlayerCombatAbility> const AbilityClass);
+	/*UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void UpdateAbilityBind(TSubclassOf<UCombatAbility> const Ability, int32 const Bind, EActionBarType const Bar);
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
 	FPlayerAbilityLoadout GetPlayerLoadout() const { return CurrentLoadout; }

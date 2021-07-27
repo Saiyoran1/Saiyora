@@ -104,15 +104,27 @@ UPlayerCombatAbility* UPlayerAbilityHandler::FindActiveAbility(
 
 UCombatAbility* UPlayerAbilityHandler::AddNewAbility(TSubclassOf<UCombatAbility> const AbilityClass)
 {
-	if (!IsValid(AbilityClass) || !Spellbook.Contains(AbilityClass))
+	if (!IsValid(AbilityClass))
+	{
+		return nullptr;
+	}
+	if (!AbilityClass->IsChildOf(UPlayerCombatAbility::StaticClass()))
+	{
+		return nullptr;
+	}
+	if (!Spellbook.Contains(AbilityClass))
 	{
 		return nullptr;
 	}
 	return Super::AddNewAbility(AbilityClass);
 }
 
-/*void UPlayerAbilityHandler::LearnAbility(TSubclassOf<UCombatAbility> const AbilityClass)
+void UPlayerAbilityHandler::LearnAbility(TSubclassOf<UPlayerCombatAbility> const AbilityClass)
 {
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
 	if (!IsValid(AbilityClass) || Spellbook.Contains(AbilityClass))
 	{
 		return;
@@ -121,8 +133,12 @@ UCombatAbility* UPlayerAbilityHandler::AddNewAbility(TSubclassOf<UCombatAbility>
 	OnSpellbookUpdated.Broadcast();
 }
 
-void UPlayerAbilityHandler::UnlearnAbility(TSubclassOf<UCombatAbility> const AbilityClass)
+void UPlayerAbilityHandler::UnlearnAbility(TSubclassOf<UPlayerCombatAbility> const AbilityClass)
 {
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
 	if (!IsValid(AbilityClass) || !Spellbook.Contains(AbilityClass))
 	{
 		return;
@@ -134,7 +150,7 @@ void UPlayerAbilityHandler::UnlearnAbility(TSubclassOf<UCombatAbility> const Abi
 	}
 }
 
-void UPlayerAbilityHandler::UpdateAbilityBind(TSubclassOf<UCombatAbility> const Ability, int32 const Bind,
+/*void UPlayerAbilityHandler::UpdateAbilityBind(TSubclassOf<UCombatAbility> const Ability, int32 const Bind,
                                               EActionBarType const Bar)
 {
 	if (GetOwnerRole() == ROLE_SimulatedProxy || GetNetMode() == NM_DedicatedServer)
@@ -160,7 +176,7 @@ void UPlayerAbilityHandler::UpdateAbilityBind(TSubclassOf<UCombatAbility> const 
 			return;
 	}
 	OnAbilityBindUpdated.Broadcast(Bind, Bar, FindActiveAbility(Ability));
-}*/
+}
 
 void UPlayerAbilityHandler::SubscribeToAbilityBindUpdated(FAbilityBindingCallback const& Callback)
 {
@@ -178,7 +194,7 @@ void UPlayerAbilityHandler::UnsubscribeFromAbilityBindUpdated(FAbilityBindingCal
 		return;
 	}
 	OnAbilityBindUpdated.Remove(Callback);
-}
+}*/
 
 void UPlayerAbilityHandler::SubscribeToBarSwap(FBarSwapCallback const& Callback)
 {
@@ -241,21 +257,16 @@ bool UPlayerAbilityHandler::CheckForAbilityBarRestricted(UCombatAbility* Ability
 	{
 		return false;
 	}
-	switch (Ability->GetAbilityPlane())
+	UPlayerCombatAbility* PlayerCombatAbility = Cast<UPlayerCombatAbility>(Ability);
+	if (!IsValid(PlayerCombatAbility))
 	{
-	case ESaiyoraPlane::None :
-		return false;
-	case ESaiyoraPlane::Neither :
-		return false;
-	case ESaiyoraPlane::Both :
-		return false;
-	case ESaiyoraPlane::Ancient :
-		return CurrentBar != EActionBarType::Ancient;
-	case ESaiyoraPlane::Modern :
-		return CurrentBar != EActionBarType::Modern;
-	default :
 		return false;
 	}
+	if (PlayerCombatAbility->GetActionBar() == CurrentBar || PlayerCombatAbility->GetActionBar() == EActionBarType::Hidden || PlayerCombatAbility->GetActionBar() == EActionBarType::None)
+	{
+		return false;
+	}
+	return true;
 }
 
 void UPlayerAbilityHandler::RemoveAllAbilities()
@@ -373,7 +384,7 @@ FCastEvent UPlayerAbilityHandler::UsePlayerAbility(TSubclassOf<UPlayerCombatAbil
 
 		if (Costs.Num() > 0 && IsValid(GetResourceHandlerRef()))
 		{
-			GetResourceHandlerRef()->CommitAbilityCosts(Result.Ability, Costs, Result.PredictionID);
+			GetResourceHandlerRef()->PredictAbilityCosts(Result.Ability, Costs, Result.PredictionID);
 			for (FAbilityCost const& Cost : Costs)
 			{
 				AbilityPrediction.PredictedCostClasses.Add(Cost.ResourceClass);
@@ -392,9 +403,9 @@ FCastEvent UPlayerAbilityHandler::UsePlayerAbility(TSubclassOf<UPlayerCombatAbil
 			break;
 		case EAbilityCastType::Channel :
 			Result.ActionTaken = ECastAction::Success;
-			PredictStartCast(Result.Ability, Result.PredictionID);
+			PredictStartCast(PlayerAbility, Result.PredictionID);
 			AbilityPrediction.bPredictedCastBar = true;
-			if (Result.Ability->GetHasInitialTick())
+			if (PlayerAbility->GetHasInitialTick())
 			{
 				PlayerAbility->PredictedTick(0, AbilityRequest.PredictionParams);
 				OnAbilityTick.Broadcast(Result);
@@ -418,7 +429,7 @@ FCastEvent UPlayerAbilityHandler::UsePlayerAbility(TSubclassOf<UPlayerCombatAbil
 	
 	if (Costs.Num() > 0 && IsValid(GetResourceHandlerRef()))
 	{
-		GetResourceHandlerRef()->CommitAbilityCosts(Result.Ability, Costs, Result.PredictionID);
+		GetResourceHandlerRef()->CommitAbilityCosts(Result.Ability, Costs);
 	}
 
 	FCombatParameters PredictionParams;
@@ -470,18 +481,24 @@ void UPlayerAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest 
 	}
 
 	TArray<FAbilityCost> Costs;
-	CheckCanUseAbility(PlayerAbility, Costs, Result.FailReason);
+	if (!CheckCanUseAbility(PlayerAbility, Costs, Result.FailReason))
+	{
+		ClientFailPredictedAbility(AbilityRequest.PredictionID, Result.FailReason);
+		return;
+	}
 
 	FServerAbilityResult ServerResult;
 	ServerResult.AbilityClass = AbilityRequest.AbilityClass;
 	ServerResult.PredictionID = AbilityRequest.PredictionID;
-	//TODO: This should probably be manually calculated using ping value and server time, instead of trusting the client.
+	//This should probably be manually calculated using ping value and server time, instead of trusting the client.
+	//TODO: Update this once I've got Ping worked out and am confident in it being accurate.
 	ServerResult.ClientStartTime = AbilityRequest.ClientStartTime;
 
 	if (PlayerAbility->GetHasGlobalCooldown())
 	{
 		StartGlobal(PlayerAbility, true);
 		ServerResult.bActivatedGlobal = true;
+		//Recalculate global length here because the server's ping compensation shouldn't be factored into the client's predicted GCD.
 		ServerResult.GlobalLength = CalculateGlobalCooldownLength(PlayerAbility);
 	}
 
@@ -500,10 +517,6 @@ void UPlayerAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest 
 	
 	switch (PlayerAbility->GetCastType())
 	{
-	case EAbilityCastType::None :
-		Result.FailReason = ECastFailReason::InvalidCastType;
-		ClientFailPredictedAbility(AbilityRequest.PredictionID, Result.FailReason);
-		return;
 	case EAbilityCastType::Instant :
 		Result.ActionTaken = ECastAction::Success;
 		PlayerAbility->ServerTick(0, AbilityRequest.PredictionParams, BroadcastParams);
@@ -512,8 +525,9 @@ void UPlayerAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest 
 		break;
 	case EAbilityCastType::Channel :
 		Result.ActionTaken = ECastAction::Success;
-		ServerResult.CastLength = CalculateCastLength(PlayerAbility);
 		StartCast(PlayerAbility, Result.PredictionID);
+		//Recalculate cast length here because the server's ping compensation shouldn't be factored into the client's predicted cast.
+		ServerResult.CastLength = CalculateCastLength(PlayerAbility);
 		ServerResult.bActivatedCastBar = true;
 		ServerResult.bInterruptible = CastingState.bInterruptible;
 		if (PlayerAbility->GetHasInitialTick())
@@ -542,12 +556,13 @@ void UPlayerAbilityHandler::ClientSucceedPredictedAbility_Implementation(FServer
 
 	UpdatePredictedCastFromServer(ServerResult);
 	UpdatePredictedGlobalFromServer(ServerResult);
-	TArray<TSubclassOf<UResource>> MispredictedCosts;
-	UPlayerCombatAbility* Ability;
 	
+	UPlayerCombatAbility* Ability;
+	TArray<TSubclassOf<UResource>> MispredictedCosts;
 	FClientAbilityPrediction* OriginalPrediction = UnackedAbilityPredictions.Find(ServerResult.PredictionID);
-	if (OriginalPrediction != nullptr)
+	if (OriginalPrediction)
 	{
+		//TODO: What the fuck is this code?
 		MispredictedCosts = OriginalPrediction->PredictedCostClasses;
 		for (FAbilityCost const& Cost : ServerResult.AbilityCosts)
 		{

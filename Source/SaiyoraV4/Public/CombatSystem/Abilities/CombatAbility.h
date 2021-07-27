@@ -204,9 +204,9 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Abilities")
     void UnsubscribeFromChargesChanged(FAbilityChargeCallback const& Callback);
 
-    UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+    UFUNCTION(BlueprintCallable, Category = "Abilities")
     void AddAbilityCostModifier(TSubclassOf<UResource> const ResourceClass, FCombatModifier const& Modifier);
-    UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+    UFUNCTION(BlueprintCallable, Category = "Abilities")
     void RemoveAbilityCostModifier(TSubclassOf<UResource> const ResourceClass, int32 const ModifierID);
 
     UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")

@@ -38,6 +38,7 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resource")
 	bool CheckAbilityCostsMet(UCombatAbility* Ability, TArray<FAbilityCost>& OutCosts) const;
 	void CommitAbilityCosts(UCombatAbility* Ability, TArray<FAbilityCost> const& Costs, int32 const PredictionID = 0);
+	void PredictAbilityCosts(UCombatAbility* Ability, TArray<FAbilityCost> const& Costs, int32 const PredictionID);
 	void UpdatePredictedCostsFromServer(FServerAbilityResult const& ServerResult, TArray<TSubclassOf<UResource>> const& MispredictedCosts);
 	void RollbackFailedCosts(TArray<TSubclassOf<UResource>> const& CostClasses, int32 const PredictionID);
 

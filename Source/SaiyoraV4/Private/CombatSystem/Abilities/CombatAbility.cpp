@@ -218,10 +218,6 @@ void UCombatAbility::UnsubscribeFromChargesChanged(FAbilityChargeCallback const&
 
 void UCombatAbility::AddAbilityCostModifier(TSubclassOf<UResource> const ResourceClass, FCombatModifier const& Modifier)
 {
-    if (GetHandler()->GetOwnerRole() != ROLE_Authority)
-    {
-        return;
-    }
     if (Modifier.ModType == EModifierType::Invalid)
     {
         return;
@@ -236,10 +232,6 @@ void UCombatAbility::AddAbilityCostModifier(TSubclassOf<UResource> const Resourc
 
 void UCombatAbility::RemoveAbilityCostModifier(TSubclassOf<UResource> const ResourceClass, int32 const ModifierID)
 {
-    if (GetHandler()->GetOwnerRole() != ROLE_Authority)
-    {
-        return;
-    }
     if (!IsValid(ResourceClass))
     {
         return;   
