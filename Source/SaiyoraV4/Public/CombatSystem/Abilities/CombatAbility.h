@@ -153,29 +153,52 @@ public:
     UFUNCTION(BlueprintCallable, BlueprintPure)
     bool GetHasStaticCooldown() const { return bStaticCooldown; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
-    int32 GetMaxCharges() const { return MaxCharges; }
-    UFUNCTION(BlueprintCallable, BlueprintPure)
-    int32 GetCurrentCharges() const { return AbilityCooldown.CurrentCharges; }
+    bool GetCooldownActive() const { return AbilityCooldown.OnCooldown; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
     float GetRemainingCooldown() const { return AbilityCooldown.OnCooldown ? GetWorld()->GetTimerManager().GetTimerRemaining(CooldownHandle) : 0.0f; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
     float GetCurrentCooldownLength() const { return AbilityCooldown.OnCooldown ? AbilityCooldown.CooldownEndTime - AbilityCooldown.CooldownStartTime : 0.0f; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
-    bool GetCooldownActive() const { return AbilityCooldown.OnCooldown; }
+    int32 GetDefaultMaxCharges() const { return DefaultMaxCharges; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
-    int32 GetChargeCost() const { return ChargesPerCast; }
+    bool GetHasStaticMaxCharges() const { return bStaticMaxCharges; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
-    bool CheckChargesMet() const { return AbilityCooldown.CurrentCharges >= ChargesPerCast; }
-    void CommitCharges();
+    int32 GetMaxCharges() const { return MaxCharges; }
+    UFUNCTION(BlueprintCallable, Category = "Abilities")
+    void SubscribeToMaxChargesChanged(FAbilityChargeCallback const& Callback);
+    UFUNCTION(BlueprintCallable, Category = "Abilities")
+    void UnsubscribeFromMaxChargesChanged(FAbilityChargeCallback const& Callback);
+    void UpdateMaxCharges(TArray<FCombatModifier> const& Modifiers);
+    UFUNCTION(BlueprintCallable, BlueprintPure)
+    int32 GetCurrentCharges() const { return AbilityCooldown.CurrentCharges; }
     UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
     void ModifyCurrentCharges(int32 const Charges, bool const bAdditive = true);
     UFUNCTION(BlueprintCallable, Category = "Abilities")
     void SubscribeToChargesChanged(FAbilityChargeCallback const& Callback);
     UFUNCTION(BlueprintCallable, Category = "Abilities")
     void UnsubscribeFromChargesChanged(FAbilityChargeCallback const& Callback);
+    void CommitCharges();
+    UFUNCTION(BlueprintCallable, BlueprintPure)
+    int32 GetDefaultChargeCost() const { return DefaultChargesPerCast; }
+    UFUNCTION(BlueprintCallable, BlueprintPure)
+    bool GetHasStaticChargeCost() const { return bStaticChargesPerCast; }
+    UFUNCTION(BlueprintCallable, BlueprintPure)
+    int32 GetChargesPerCast() const { return ChargesPerCast; }
+    void UpdateChargesPerCast(TArray<FCombatModifier> const& Modifiers);
+    UFUNCTION(BlueprintCallable, BlueprintPure)
+    bool CheckChargesMet() const { return AbilityCooldown.CurrentCharges >= ChargesPerCast; }
+    UFUNCTION(BlueprintCallable, BlueprintPure)
+    int32 GetDefaultChargesPerCooldown() const { return DefaultChargesPerCooldown; }
+    UFUNCTION(BlueprintCallable, BlueprintPure)
+    bool GetHasStaticChargesPerCooldown() const { return bStaticChargesPerCooldown; }
+    UFUNCTION(BlueprintCallable, BlueprintPure)
+    int32 GetChargesPerCooldown() const { return ChargesPerCooldown; }
+    void UpdateChargesPerCooldown(TArray<FCombatModifier> const& Modifiers);
 private:
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown Info")
     int32 DefaultMaxCharges = 1;
+    UPROPERTY(EditDefaultsOnly, Category = "Cooldown Info")
+    bool bStaticMaxCharges = true;
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown Info")
     float DefaultCooldown = 1.0f;
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown Info")
@@ -183,7 +206,11 @@ private:
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown Info")
     int32 DefaultChargesPerCooldown = 1;
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown Info")
+    bool bStaticChargesPerCooldown = true;
+    UPROPERTY(EditDefaultsOnly, Category = "Cooldown Info")
     int32 DefaultChargesPerCast = 1;
+    UPROPERTY(EditDefaultsOnly, Category = "Cooldown Info")
+    bool bStaticChargesPerCast = true;
 protected:
     FAbilityCooldown AbilityCooldown;
     UPROPERTY()
@@ -194,6 +221,7 @@ protected:
     UPROPERTY()
     int32 ChargesPerCast = 1;
     FAbilityChargeNotification OnChargesChanged;
+    FAbilityChargeNotification OnMaxChargesChanged;
     void StartCooldown();
     UFUNCTION()
     void CompleteCooldown();

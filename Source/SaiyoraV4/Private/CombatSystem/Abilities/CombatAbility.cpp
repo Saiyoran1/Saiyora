@@ -35,6 +35,24 @@ void UCombatAbility::CommitCharges()
     }
 }
 
+void UCombatAbility::UpdateChargesPerCast(TArray<FCombatModifier> const& Modifiers)
+{
+    if (bStaticChargesPerCast)
+    {
+        return;
+    }
+    ChargesPerCast = FCombatModifier::CombineModifiers(Modifiers, DefaultChargesPerCast);
+}
+
+void UCombatAbility::UpdateChargesPerCooldown(TArray<FCombatModifier> const& Modifiers)
+{
+    if (bStaticChargesPerCooldown)
+    {
+        return;
+    }
+    ChargesPerCooldown = FCombatModifier::CombineModifiers(Modifiers, DefaultChargesPerCooldown);
+}
+
 FAbilityCost UCombatAbility::GetDefaultAbilityCost(TSubclassOf<UResource> const ResourceClass) const
 {
     if (IsValid(ResourceClass))
@@ -49,6 +67,38 @@ FAbilityCost UCombatAbility::GetDefaultAbilityCost(TSubclassOf<UResource> const 
     }
     FAbilityCost const Invalid;
     return Invalid;
+}
+
+void UCombatAbility::UpdateMaxCharges(TArray<FCombatModifier> const& Modifiers)
+{
+    if (bStaticMaxCharges)
+    {
+        return;
+    }
+    int32 const Previous = MaxCharges;
+    MaxCharges = FCombatModifier::CombineModifiers(Modifiers, DefaultMaxCharges);
+    if (Previous != MaxCharges)
+    {
+        OnMaxChargesChanged.Broadcast(this, Previous, MaxCharges);
+    }
+}
+
+void UCombatAbility::SubscribeToMaxChargesChanged(FAbilityChargeCallback const& Callback)
+{
+    if (!Callback.IsBound())
+    {
+        return;
+    }
+    OnMaxChargesChanged.AddUnique(Callback);
+}
+
+void UCombatAbility::UnsubscribeFromMaxChargesChanged(FAbilityChargeCallback const& Callback)
+{
+    if (!Callback.IsBound())
+    {
+        return;
+    }
+    OnMaxChargesChanged.Remove(Callback);
 }
 
 void UCombatAbility::StartCooldown()
