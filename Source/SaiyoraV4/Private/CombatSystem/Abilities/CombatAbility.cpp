@@ -35,55 +35,25 @@ void UCombatAbility::CommitCharges()
     }
 }
 
-float UCombatAbility::GetAbilityCost(TSubclassOf<UResource> const ResourceClass) const
+FAbilityCost UCombatAbility::GetDefaultAbilityCost(TSubclassOf<UResource> const ResourceClass) const
 {
-    if (!IsValid(ResourceClass))
+    if (IsValid(ResourceClass))
     {
-        return -1.0f;
-    }
-    FAbilityCost const* Cost = AbilityCosts.Find(ResourceClass);
-    if (Cost)
-    {
-        return Cost->Cost;
-    }
-    return -1.0f;
-}
-
-void UCombatAbility::RecalculateAbilityCost(TSubclassOf<UResource> const ResourceClass)
-{
-    if (!IsValid(ResourceClass))
-    {
-        return;
-    }
-    FAbilityCost MutableCost;
-    bool bFoundCost = false;
-    for (FAbilityCost const& Cost : DefaultAbilityCosts)
-    {
-        if (Cost.ResourceClass == ResourceClass)
+        for (FAbilityCost const& Cost : DefaultAbilityCosts)
         {
-            MutableCost = Cost;
-            bFoundCost = true;
-            break;
+            if (Cost.ResourceClass == ResourceClass)
+            {
+                return Cost;
+            }
         }
     }
-    if (!bFoundCost)
-    {
-        return;
-    }
-    if (MutableCost.bStaticCost)
-    {
-        AbilityCosts.Add(ResourceClass, MutableCost);
-        return;
-    }
-    TArray<FCombatModifier> RelevantMods;
-    CostModifiers.MultiFind(ResourceClass, RelevantMods);
-    MutableCost.Cost = FMath::Max(0.0f, FCombatModifier::CombineModifiers(RelevantMods, MutableCost.Cost));
-    AbilityCosts.Add(ResourceClass, MutableCost);
+    FAbilityCost const Invalid;
+    return Invalid;
 }
 
 void UCombatAbility::StartCooldown()
 {
-    float const CooldownLength = GetHandler()->CalculateAbilityCooldown(this);
+    float const CooldownLength = GetHandler()->CalculateCooldownLength(this);
     GetWorld()->GetTimerManager().SetTimer(CooldownHandle, this, &UCombatAbility::CompleteCooldown, CooldownLength, false);
     AbilityCooldown.OnCooldown = true;
     AbilityCooldown.CooldownStartTime = OwningComponent->GetGameStateRef()->GetServerWorldTimeSeconds();
@@ -122,17 +92,6 @@ void UCombatAbility::InitializeAbility(UAbilityHandler* AbilityComponent)
     AbilityCooldown.CurrentCharges = GetMaxCharges();
     ChargesPerCast = DefaultChargesPerCast;
     ChargesPerCooldown = DefaultChargesPerCooldown;
-    //ReplicatedCosts.Ability = this;
-    for (FAbilityCost const& Cost : DefaultAbilityCosts)
-    {
-        AbilityCosts.Add(Cost.ResourceClass, Cost);
-        /*if (AbilityComponent->GetOwnerRole() == ROLE_Authority)
-        {
-            FReplicatedAbilityCost ReplicatedCost;
-            ReplicatedCost.AbilityCost = Cost;
-            ReplicatedCosts.MarkItemDirty(ReplicatedCosts.Items.Add_GetRef(ReplicatedCost));
-        }*/
-    }
     OnInitialize();
     SetupCustomCastRestrictions();
     bInitialized = true;
@@ -188,7 +147,10 @@ void UCombatAbility::ServerCancel(FCombatParameters& BroadcastParams)
     {
         return;
     }
-    OnServerCancel(BroadcastParams.Parameters);
+    BroadcastParameters.ClearParams();
+    OnServerCancel();
+    BroadcastParams = BroadcastParameters;
+    BroadcastParameters.ClearParams();
 }
 
 void UCombatAbility::SimulatedCancel(FCombatParameters const& BroadcastParams)
@@ -197,7 +159,10 @@ void UCombatAbility::SimulatedCancel(FCombatParameters const& BroadcastParams)
     {
         return;
     }
-    OnSimulatedCancel(BroadcastParams.Parameters);
+    BroadcastParameters.ClearParams();
+    BroadcastParameters = BroadcastParams;
+    OnSimulatedCancel();
+    BroadcastParameters.ClearParams();
 }
 
 void UCombatAbility::SubscribeToChargesChanged(FAbilityChargeCallback const& Callback)
@@ -213,41 +178,6 @@ void UCombatAbility::UnsubscribeFromChargesChanged(FAbilityChargeCallback const&
     if (Callback.IsBound())
     {
         OnChargesChanged.Remove(Callback);
-    }
-}
-
-void UCombatAbility::AddAbilityCostModifier(TSubclassOf<UResource> const ResourceClass, FCombatModifier const& Modifier)
-{
-    if (Modifier.ModType == EModifierType::Invalid)
-    {
-        return;
-    }
-    if (!IsValid(ResourceClass))
-    {
-        return;   
-    }
-    CostModifiers.Add(ResourceClass, Modifier);
-    RecalculateAbilityCost(ResourceClass);
-}
-
-void UCombatAbility::RemoveAbilityCostModifier(TSubclassOf<UResource> const ResourceClass, int32 const ModifierID)
-{
-    if (!IsValid(ResourceClass))
-    {
-        return;   
-    }
-    TArray<FCombatModifier*> RelevantMods;
-    CostModifiers.MultiFindPointer(ResourceClass, RelevantMods);
-    for (FCombatModifier* Mod : RelevantMods)
-    {
-        if (Mod && Mod->ID == ModifierID)
-        {
-            if (CostModifiers.RemoveSingle(ResourceClass, *Mod) != 0)
-            {
-                RecalculateAbilityCost(ResourceClass);
-            }
-            break;
-        }
     }
 }
 
@@ -353,7 +283,7 @@ void UCombatAbility::OnServerCancel_Implementation()
     return;
 }
 
-void UCombatAbility::OnSimulatedCancel_Implementation(TArray<FCombatParameter> const& BroadcastParams)
+void UCombatAbility::OnSimulatedCancel_Implementation()
 {
     return;
 }

@@ -104,8 +104,8 @@ void UPlayerCombatAbility::UpdatePredictedChargesFromServer(int32 const Predicti
 void UPlayerCombatAbility::StartCooldownFromPrediction()
 {
     float const PingCompensation = FMath::Clamp(USaiyoraCombatLibrary::GetActorPing(GetHandler()->GetOwner()), 0.0f, UPlayerAbilityHandler::MaxPingCompensation);
-    float const CooldownLength = FMath::Max(UAbilityHandler::MinimumCooldownLength, GetHandler()->CalculateAbilityCooldown(this) - PingCompensation);
-    GetWorld()->GetTimerManager().SetTimer(CooldownHandle, this, &UCombatAbility::CompleteCooldown, CooldownLength, false);
+    float const CooldownLength = FMath::Max(UAbilityHandler::MinimumCooldownLength, GetHandler()->CalculateCooldownLength(this) - PingCompensation);
+    GetWorld()->GetTimerManager().SetTimer(CooldownHandle, this, &UPlayerCombatAbility::CompleteCooldown, CooldownLength, false);
     AbilityCooldown.OnCooldown = true;
     AbilityCooldown.CooldownStartTime = GetHandler()->GetGameStateRef()->GetServerWorldTimeSeconds();
     AbilityCooldown.CooldownEndTime = AbilityCooldown.CooldownStartTime + CooldownLength;

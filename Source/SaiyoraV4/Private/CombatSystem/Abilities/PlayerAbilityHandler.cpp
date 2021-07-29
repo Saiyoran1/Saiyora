@@ -562,7 +562,7 @@ void UPlayerAbilityHandler::ClientSucceedPredictedAbility_Implementation(FServer
 	FClientAbilityPrediction* OriginalPrediction = UnackedAbilityPredictions.Find(ServerResult.PredictionID);
 	if (OriginalPrediction)
 	{
-		//TODO: What the fuck is this code?
+		//Mispredicted costs in this context are resources that the client predicted expenditure of that didn't actually get spent on the server.
 		MispredictedCosts = OriginalPrediction->PredictedCostClasses;
 		for (FAbilityCost const& Cost : ServerResult.AbilityCosts)
 		{

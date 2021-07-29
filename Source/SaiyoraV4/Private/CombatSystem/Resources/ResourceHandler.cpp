@@ -166,14 +166,7 @@ void UResourceHandler::UpdatePredictedCostsFromServer(FServerAbilityResult const
 			Resource->UpdateCostPredictionFromServer(ServerResult.PredictionID, Cost.Cost);
 		}
 	}
-	for (TSubclassOf<UResource> const ResourceClass : MispredictedCosts)
-	{
-		UResource* Resource = FindActiveResource(ResourceClass);
-		if (IsValid(Resource))
-		{
-			Resource->RollbackFailedCost(ServerResult.PredictionID);
-		}
-	}
+	RollbackFailedCosts(MispredictedCosts, ServerResult.PredictionID);
 }
 
 void UResourceHandler::SubscribeToResourceAdded(FResourceInstanceCallback const& Callback)

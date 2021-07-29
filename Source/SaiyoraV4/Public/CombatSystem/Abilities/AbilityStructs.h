@@ -10,6 +10,7 @@
 #include "AbilityStructs.generated.h"
 
 class UPlayerCombatAbility;
+
 USTRUCT(BlueprintType)
 struct FAbilityCost
 {
@@ -21,45 +22,6 @@ struct FAbilityCost
     float Cost = 0.0f;
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
     bool bStaticCost = false;
-};
-
-USTRUCT()
-struct FReplicatedAbilityCost : public FFastArraySerializerItem
-{
-    GENERATED_BODY()
-
-    void PostReplicatedChange(struct FReplicatedAbilityCostArray const& InArraySerializer);
-    void PostReplicatedAdd(struct FReplicatedAbilityCostArray const& InArraySerializer);
-
-    UPROPERTY()
-    FAbilityCost AbilityCost;
-};
-
-USTRUCT()
-struct FReplicatedAbilityCostArray : public FFastArraySerializer
-{
-    GENERATED_BODY()
-
-    void UpdateAbilityCost(FAbilityCost const& NewCost);
-
-    UPROPERTY()
-    TArray<FReplicatedAbilityCost> Items;
-    UPROPERTY()
-    class UCombatAbility* Ability;
-
-    bool NetDeltaSerialize(FNetDeltaSerializeInfo & DeltaParms)
-    {
-        return FFastArraySerializer::FastArrayDeltaSerialize<FReplicatedAbilityCost, FReplicatedAbilityCostArray>( Items, DeltaParms, *this );
-    }
-};
-
-template<>
-struct TStructOpsTypeTraits<FReplicatedAbilityCostArray> : public TStructOpsTypeTraitsBase2<FReplicatedAbilityCostArray>
-{
-    enum 
-    {
-        WithNetDeltaSerializer = true,
-   };
 };
 
 USTRUCT()
@@ -276,6 +238,20 @@ FORCEINLINE uint32 GetTypeHash(const FPredictedTick& Tick)
 {
     return HashCombine(GetTypeHash(Tick.PredictionID), GetTypeHash(Tick.TickNumber));
 }
+
+USTRUCT()
+struct FAbilityModCollection
+{
+    GENERATED_BODY()
+
+    TArray<FCombatModifier> GlobalCooldownModifiers;
+    TArray<FCombatModifier> CooldownModifiers;
+    TArray<FCombatModifier> MaxChargeModifiers;
+    TArray<FCombatModifier> ChargesPerCastModifiers;
+    TArray<FCombatModifier> ChargesPerCooldownModifiers;
+    TArray<FCombatModifier> CastLengthModifiers;
+    TMultiMap<TSubclassOf<UResource>, FCombatModifier> CostModifiers;
+};
 
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FAbilityModCondition, UCombatAbility*, Ability);
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FAbilityRestriction, UCombatAbility*, Ability);

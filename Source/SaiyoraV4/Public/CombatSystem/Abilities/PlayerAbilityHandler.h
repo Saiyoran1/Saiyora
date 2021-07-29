@@ -44,10 +44,10 @@ public:
 	FPlayerAbilityLoadout GetPlayerLoadout() const { return CurrentLoadout; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
 	TSet<TSubclassOf<UCombatAbility>> GetUnlockedAbilities() const { return Spellbook; }*/
-	UFUNCTION(BlueprintCallable)
+	/*UFUNCTION(BlueprintCallable)
 	void SubscribeToAbilityBindUpdated(FAbilityBindingCallback const& Callback);
 	UFUNCTION(BlueprintCallable)
-	void UnsubscribeFromAbilityBindUpdated(FAbilityBindingCallback const& Callback);
+	void UnsubscribeFromAbilityBindUpdated(FAbilityBindingCallback const& Callback);*/
 	UFUNCTION(BlueprintCallable)
 	void SubscribeToBarSwap(FBarSwapCallback const& Callback);
 	UFUNCTION(BlueprintCallable)

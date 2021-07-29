@@ -9,115 +9,41 @@
 #include "CombatAbility.generated.h"
 
 class UCrowdControl;
+class UAbilityHandler;
 
 UCLASS(Abstract, Blueprintable)
 class SAIYORAV4_API UCombatAbility : public UObject
 {
 	GENERATED_BODY()
 
+//Setup
 public:
-
     virtual bool IsSupportedForNetworking() const override { return true; }
     virtual void GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const override;
     virtual UWorld* GetWorld() const override;
-
-private:
-
-    UPROPERTY(EditDefaultsOnly, Category = "Display Info")
-    FName Name;
-    UPROPERTY(EditDefaultsOnly, Category = "Display Info")
-    FText Description;
-    UPROPERTY(EditDefaultsOnly, Category = "Display Info")
-    UTexture2D* Icon;
-    UPROPERTY(EditDefaultsOnly, Category = "Display Info")
-    EDamageSchool AbilitySchool;
-    UPROPERTY(EditDefaultsOnly, Category = "Display Info")
-    ESaiyoraPlane AbilityPlane;
-
-    UPROPERTY(EditDefaultsOnly, Category = "Cast Info")
-    EAbilityCastType CastType = EAbilityCastType::None;
-    UPROPERTY(EditDefaultsOnly, Category = "Cast Info")
-    float DefaultCastTime = 0.0f;
-    UPROPERTY(EditDefaultsOnly, Category = "Cast Info")
-    bool bStaticCastTime = true;
-    UPROPERTY(EditDefaultsOnly, Category = "Cast Info")
-    bool bInitialTick = true;
-    UPROPERTY(EditDefaultsOnly, Category = "Cast Info")
-    int32 NonInitialTicks = 0;
-    
-    UPROPERTY(EditDefaultsOnly, Category = "Crowd Control Info")
-    bool bInterruptible = true;
-    UPROPERTY(EditDefaultsOnly, Category = "Crowd Control Info")
-    TArray<TSubclassOf<UCrowdControl>> RestrictedCrowdControls;
-    UPROPERTY(EditDefaultsOnly, Category = "Crowd Control Info")
-    bool bCastableWhileDead = false;
-    
-    UPROPERTY(EditDefaultsOnly, Category = "Cooldown Info")
-    bool bOnGlobalCooldown = true;
-    UPROPERTY(EditDefaultsOnly, Category = "Cooldown Info")
-    float DefaultGlobalCooldownLength = 1.0f;
-    UPROPERTY(EditDefaultsOnly, Category = "Cooldown Info")
-    bool bStaticGlobalCooldown = true;
-    UPROPERTY(EditDefaultsOnly, Category = "Cooldown Info")
-    int32 DefaultMaxCharges = 1;
-    UPROPERTY(EditDefaultsOnly, Category = "Cooldown Info")
-    float DefaultCooldown = 1.0f;
-    UPROPERTY(EditDefaultsOnly, Category = "Cooldown Info")
-    bool bStaticCooldown = true;
-    UPROPERTY(EditDefaultsOnly, Category = "Cooldown Info")
-    int32 DefaultChargesPerCooldown = 1;
-    UPROPERTY(EditDefaultsOnly, Category = "Cooldown Info")
-    int32 DefaultChargesPerCast = 1;
-
-    UPROPERTY(EditDefaultsOnly, Category = "Cost Info")
-    TArray<FAbilityCost> DefaultAbilityCosts;
-
-        //***Ability Costs***
-
-    //Mutable cost values, these are what are actually checked at runtime and modified.
-    UPROPERTY()
-    TMap<TSubclassOf<UResource>, FAbilityCost> AbilityCosts;
-    TMultiMap<TSubclassOf<UResource>, FCombatModifier> CostModifiers;
-    void RecalculateAbilityCost(TSubclassOf<UResource> const ResourceClass);
-    
-        //***Ability Cooldown***
-
-    //Server authoritative cooldown progress and charge status that the client can extrapolate from.
-protected:
-    FAbilityCooldown AbilityCooldown;
-    UPROPERTY()
-    int32 MaxCharges = 1;
-    UPROPERTY()
-    int32 ChargesPerCooldown = 1;
-    FTimerHandle CooldownHandle;
-    UPROPERTY()
-    int32 ChargesPerCast = 1;
-    FAbilityChargeNotification OnChargesChanged;
-    void StartCooldown();
-    UFUNCTION()
-    void CompleteCooldown();
-    TArray<FAbilityModCondition> CooldownMods;
-private:
-    bool bCustomCastConditionsMet = true;
-    TArray<FName> CustomCastRestrictions;
-
-    //References
+    UFUNCTION(BlueprintCallable, BlueprintPure)
+    UAbilityHandler* GetHandler() const { return OwningComponent; }
+    bool GetInitialized() const { return bInitialized; }
+    bool GetDeactivated() const { return bDeactivated; }
+    virtual void InitializeAbility(UAbilityHandler* AbilityComponent);
+    void DeactivateAbility();
 protected:
     UPROPERTY(ReplicatedUsing = OnRep_OwningComponent)
-    class UAbilityHandler* OwningComponent;
+    UAbilityHandler* OwningComponent;
     bool bInitialized = false;
+    UFUNCTION(BlueprintNativeEvent)
+    void OnInitialize();
     UPROPERTY(ReplicatedUsing = OnRep_Deactivated)
-    bool bDeactivated = false;
+    bool bDeactivated = false;  
+    UFUNCTION(BlueprintNativeEvent)
+    void OnDeactivate();
 private: 
-    //OnReps
     UFUNCTION()
     void OnRep_OwningComponent();
     UFUNCTION()
     void OnRep_Deactivated(bool const Previous);
-
+//Basic Info
 public:
-
-    //Getters
     UFUNCTION(BlueprintCallable, BlueprintPure)
     FName GetAbilityName() const { return Name; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
@@ -128,7 +54,19 @@ public:
     EDamageSchool GetAbilitySchool() const { return AbilitySchool; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
     ESaiyoraPlane GetAbilityPlane() const { return AbilityPlane; }
-    
+private:
+    UPROPERTY(EditDefaultsOnly, Category = "Display Info")
+    FName Name;
+    UPROPERTY(EditDefaultsOnly, Category = "Display Info")
+    FText Description;
+    UPROPERTY(EditDefaultsOnly, Category = "Display Info")
+    UTexture2D* Icon;
+    UPROPERTY(EditDefaultsOnly, Category = "Display Info")
+    EDamageSchool AbilitySchool;
+    UPROPERTY(EditDefaultsOnly, Category = "Display Info")
+    ESaiyoraPlane AbilityPlane;
+//Casting
+public:
     UFUNCTION(BlueprintCallable, BlueprintPure)
     EAbilityCastType GetCastType() const { return CastType; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
@@ -143,20 +81,73 @@ public:
     bool GetInterruptible() const { return bInterruptible; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
     bool GetCastableWhileDead() const { return bCastableWhileDead; }
-    
     UFUNCTION(BlueprintCallable, BlueprintPure)
     TArray<TSubclassOf<UCrowdControl>> GetRestrictedCrowdControls() const { return RestrictedCrowdControls; }
-
     UFUNCTION(BlueprintCallable, BlueprintPure)
     bool CheckCustomCastConditionsMet() const { return bCustomCastConditionsMet; }
-    
+    void ServerTick(int32 const TickNumber, FCombatParameters& BroadcastParams);
+    void SimulatedTick(int32 const TickNumber, FCombatParameters const& BroadcastParams);
+    void CompleteCast();
+    void InterruptCast(FInterruptEvent const& InterruptEvent);
+    void ServerCancel(FCombatParameters& BroadcastParams); 
+    void SimulatedCancel(FCombatParameters const& BroadcastParams);
+protected:
+    UFUNCTION(BlueprintNativeEvent)
+    void SetupCustomCastRestrictions();
+    UFUNCTION(BlueprintCallable, Category = "Abilities")
+    void ActivateCastRestriction(FName const& RestrictionName);
+    UFUNCTION(BlueprintCallable, Category = "Abilities")
+    void DeactivateCastRestriction(FName const& RestrictionName);
+    UFUNCTION(BlueprintNativeEvent)
+    void OnServerTick(int32 const TickNumber);
+    UFUNCTION(BlueprintNativeEvent)
+    void OnSimulatedTick(int32 const TickNumber);
+    UFUNCTION(BlueprintNativeEvent)
+    void OnCastComplete();
+    UFUNCTION(BlueprintNativeEvent)
+    void OnCastInterrupted(FInterruptEvent const& InterruptEvent);
+    UFUNCTION(BlueprintNativeEvent)
+    void OnServerCancel();
+    UFUNCTION(BlueprintNativeEvent)
+    void OnSimulatedCancel();
+    UPROPERTY(BlueprintReadWrite, Transient, Category = "Abilities")
+    FCombatParameters BroadcastParameters;
+private:
+    UPROPERTY(EditDefaultsOnly, Category = "Cast Info")
+    EAbilityCastType CastType = EAbilityCastType::None;
+    UPROPERTY(EditDefaultsOnly, Category = "Cast Info")
+    float DefaultCastTime = 0.0f;
+    UPROPERTY(EditDefaultsOnly, Category = "Cast Info")
+    bool bStaticCastTime = true;
+    UPROPERTY(EditDefaultsOnly, Category = "Cast Info")
+    bool bInitialTick = true;
+    UPROPERTY(EditDefaultsOnly, Category = "Cast Info")
+    int32 NonInitialTicks = 0;
+    UPROPERTY(EditDefaultsOnly, Category = "Crowd Control Info")
+    bool bInterruptible = true;
+    UPROPERTY(EditDefaultsOnly, Category = "Crowd Control Info")
+    bool bCastableWhileDead = false;
+    UPROPERTY(EditDefaultsOnly, Category = "Crowd Control Info")
+    TArray<TSubclassOf<UCrowdControl>> RestrictedCrowdControls;
+    bool bCustomCastConditionsMet = true;
+    TArray<FName> CustomCastRestrictions;
+//Global Cooldown
+public:
     UFUNCTION(BlueprintCallable, BlueprintPure)
     bool GetHasGlobalCooldown() const { return bOnGlobalCooldown; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
     float GetDefaultGlobalCooldownLength() const { return DefaultGlobalCooldownLength; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
     bool HasStaticGlobalCooldown() const { return bStaticGlobalCooldown; }
-
+private:
+    UPROPERTY(EditDefaultsOnly, Category = "Cooldown Info")
+    bool bOnGlobalCooldown = true;
+    UPROPERTY(EditDefaultsOnly, Category = "Cooldown Info")
+    float DefaultGlobalCooldownLength = 1.0f;
+    UPROPERTY(EditDefaultsOnly, Category = "Cooldown Info")
+    bool bStaticGlobalCooldown = true;
+//Cooldown
+public:
     UFUNCTION(BlueprintCallable, BlueprintPure)
     float GetDefaultCooldown() const { return DefaultCooldown; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
@@ -176,71 +167,43 @@ public:
     UFUNCTION(BlueprintCallable, BlueprintPure)
     bool CheckChargesMet() const { return AbilityCooldown.CurrentCharges >= ChargesPerCast; }
     void CommitCharges();
-    
-    UFUNCTION(BlueprintCallable, BlueprintPure)
-    float GetAbilityCost(TSubclassOf<UResource> const ResourceClass) const;
-    UFUNCTION(BlueprintCallable, BlueprintPure)
-    void GetAbilityCosts(TArray<FAbilityCost>& OutCosts) const { AbilityCosts.GenerateValueArray(OutCosts); }
-
-    UFUNCTION(BlueprintCallable, BlueprintPure)
-    UAbilityHandler* GetHandler() const { return OwningComponent; }
-    
-    bool GetInitialized() const { return bInitialized; }
-    bool GetDeactivated() const { return bDeactivated; }
-    
-    //Internal ability functions, these adjust necessary properties then call the Blueprint implementations.
-    
-    virtual void InitializeAbility(UAbilityHandler* AbilityComponent);
-    void DeactivateAbility();
-    void ServerTick(int32 const TickNumber, FCombatParameters& BroadcastParams);
-    void SimulatedTick(int32 const TickNumber, FCombatParameters const& BroadcastParams);
-    void CompleteCast();
-    void InterruptCast(FInterruptEvent const& InterruptEvent);
-    void ServerCancel(FCombatParameters& BroadcastParams);
-    void SimulatedCancel(FCombatParameters const& BroadcastParams);
-
+    UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+    void ModifyCurrentCharges(int32 const Charges, bool const bAdditive = true);
     UFUNCTION(BlueprintCallable, Category = "Abilities")
     void SubscribeToChargesChanged(FAbilityChargeCallback const& Callback);
     UFUNCTION(BlueprintCallable, Category = "Abilities")
     void UnsubscribeFromChargesChanged(FAbilityChargeCallback const& Callback);
-
-    UFUNCTION(BlueprintCallable, Category = "Abilities")
-    void AddAbilityCostModifier(TSubclassOf<UResource> const ResourceClass, FCombatModifier const& Modifier);
-    UFUNCTION(BlueprintCallable, Category = "Abilities")
-    void RemoveAbilityCostModifier(TSubclassOf<UResource> const ResourceClass, int32 const ModifierID);
-
-    UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
-    void ModifyCurrentCharges(int32 const Charges, bool const bAdditive = true);
-
+private:
+    UPROPERTY(EditDefaultsOnly, Category = "Cooldown Info")
+    int32 DefaultMaxCharges = 1;
+    UPROPERTY(EditDefaultsOnly, Category = "Cooldown Info")
+    float DefaultCooldown = 1.0f;
+    UPROPERTY(EditDefaultsOnly, Category = "Cooldown Info")
+    bool bStaticCooldown = true;
+    UPROPERTY(EditDefaultsOnly, Category = "Cooldown Info")
+    int32 DefaultChargesPerCooldown = 1;
+    UPROPERTY(EditDefaultsOnly, Category = "Cooldown Info")
+    int32 DefaultChargesPerCast = 1;
 protected:
-
-    UPROPERTY(BlueprintReadWrite, Transient, Category = "Abilities")
-    FCombatParameters BroadcastParameters;
-    
-    //Blueprint functions for defining the ability behavior.
-
-    UFUNCTION(BlueprintNativeEvent)
-    void OnInitialize();
-    UFUNCTION(BlueprintNativeEvent)
-    void SetupCustomCastRestrictions();
-    UFUNCTION(BlueprintNativeEvent)
-    void OnDeactivate();
-    
-    UFUNCTION(BlueprintNativeEvent)
-    void OnServerTick(int32 const TickNumber);
-    UFUNCTION(BlueprintNativeEvent)
-    void OnSimulatedTick(int32 const TickNumber);
-    UFUNCTION(BlueprintNativeEvent)
-    void OnCastComplete();
-    UFUNCTION(BlueprintNativeEvent)
-    void OnCastInterrupted(FInterruptEvent const& InterruptEvent);
-    UFUNCTION(BlueprintNativeEvent)
-    void OnServerCancel();
-    UFUNCTION(BlueprintNativeEvent)
-    void OnSimulatedCancel(TArray<FCombatParameter> const& BroadcastParams);
-
-    UFUNCTION(BlueprintCallable, Category = "Abilities")
-    void ActivateCastRestriction(FName const& RestrictionName);
-    UFUNCTION(BlueprintCallable, Category = "Abilities")
-    void DeactivateCastRestriction(FName const& RestrictionName);
+    FAbilityCooldown AbilityCooldown;
+    UPROPERTY()
+    int32 MaxCharges = 1;
+    UPROPERTY()
+    int32 ChargesPerCooldown = 1;
+    FTimerHandle CooldownHandle;
+    UPROPERTY()
+    int32 ChargesPerCast = 1;
+    FAbilityChargeNotification OnChargesChanged;
+    void StartCooldown();
+    UFUNCTION()
+    void CompleteCooldown();
+//Costs
+public:
+    UFUNCTION(BlueprintCallable, BlueprintPure)
+    FAbilityCost GetDefaultAbilityCost(TSubclassOf<UResource> const ResourceClass) const;
+    UFUNCTION(BlueprintCallable, BlueprintPure)
+    void GetDefaultAbilityCosts(TArray<FAbilityCost>& OutCosts) const { OutCosts = DefaultAbilityCosts; }
+private:
+    UPROPERTY(EditDefaultsOnly, Category = "Cost Info")
+    TArray<FAbilityCost> DefaultAbilityCosts;
 };
