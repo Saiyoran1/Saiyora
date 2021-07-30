@@ -7,6 +7,7 @@
 #include "GameFramework/GameState.h"
 #include "SaiyoraPlaneComponent.h"
 #include "Buff.h"
+#include "BuffFunction.h"
 
 float USaiyoraCombatLibrary::GetActorPing(AActor const* Actor)
 {
@@ -104,6 +105,28 @@ FCombatModifier USaiyoraCombatLibrary::MakeCombatModifier(int32& ModifierID, UBu
     if (IsValid(Source))
     {
         OutMod.Source = Source;
+        OutMod.bFromBuff = true;
+    }
+    OutMod.ModType = ModifierType;
+    OutMod.ModValue = ModifierValue;
+    OutMod.bStackable = bStackable;
+    OutMod.ID = FCombatModifier::GetID();
+    ModifierID = OutMod.ID;
+    return OutMod;
+}
+
+FCombatModifier USaiyoraCombatLibrary::MakeBuffFunctionCombatModifier(int32& ModifierID, UBuffFunction* Source,
+    EModifierType const ModifierType, float const ModifierValue, bool const bStackable)
+{
+    FCombatModifier OutMod;
+    if (ModifierType == EModifierType::Invalid)
+    {
+        ModifierID = 0;
+        return OutMod;
+    }
+    if (IsValid(Source))
+    {
+        OutMod.Source = Source->GetOwningBuff();
         OutMod.bFromBuff = true;
     }
     OutMod.ModType = ModifierType;

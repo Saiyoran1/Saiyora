@@ -11,6 +11,7 @@ struct FCombatModifier
 {
     GENERATED_BODY()
 
+    UPROPERTY(BlueprintReadOnly)
     int32 ID = 0;
     UPROPERTY()
     class UBuff* Source = nullptr;

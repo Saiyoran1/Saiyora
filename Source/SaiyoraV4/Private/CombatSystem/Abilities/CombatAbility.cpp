@@ -81,6 +81,25 @@ void UCombatAbility::UpdateMaxCharges(TArray<FCombatModifier> const& Modifiers)
     {
         OnMaxChargesChanged.Broadcast(this, Previous, MaxCharges);
     }
+    //TODO: Does this need an authority guard? How will this interact with prediction?
+    if (GetHandler()->GetOwnerRole() == ROLE_Authority)
+    {
+        int32 const PreviousCharges = AbilityCooldown.CurrentCharges;
+        AbilityCooldown.CurrentCharges = FMath::Clamp(AbilityCooldown.CurrentCharges, 0, MaxCharges);
+        if (PreviousCharges != AbilityCooldown.CurrentCharges)
+        {
+            OnChargesChanged.Broadcast(this, PreviousCharges, AbilityCooldown.CurrentCharges);
+        }
+        if (AbilityCooldown.OnCooldown && AbilityCooldown.CurrentCharges == MaxCharges)
+        {
+            GetWorld()->GetTimerManager().ClearTimer(CooldownHandle);
+            AbilityCooldown.OnCooldown = false;
+        }
+        else if (!AbilityCooldown.OnCooldown && AbilityCooldown.CurrentCharges < MaxCharges)
+        {
+            StartCooldown();
+        }
+    }
 }
 
 void UCombatAbility::SubscribeToMaxChargesChanged(FAbilityChargeCallback const& Callback)

@@ -111,6 +111,7 @@ void UDamageHandler::BeginPlay()
 			}
 		}
 		LifeStatus = ELifeStatus::Alive;
+		OnLifeStatusChanged.Broadcast(ELifeStatus::Invalid, LifeStatus);
 	}
 }
 
