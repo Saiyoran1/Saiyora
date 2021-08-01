@@ -48,10 +48,10 @@ public:
 	static void SetupCustomBuffFunctions(UBuff* Buff, TArray<TSubclassOf<UCustomBuffFunction>> const& FunctionClasses);
 	
 	virtual void SetupBuffFunction() override { CustomSetup(); }
-	virtual void OnApply(FBuffApplyEvent const& ApplyEvent) override { CustomApply(); }
-	virtual void OnStack(FBuffApplyEvent const& ApplyEvent) override { CustomStack(); }
-	virtual void OnRefresh(FBuffApplyEvent const& ApplyEvent) override { CustomRefresh(); }
-	virtual void OnRemove(FBuffRemoveEvent const& RemoveEvent) override { CustomRemove(); }
+	virtual void OnApply(FBuffApplyEvent const& ApplyEvent) override { CustomApply(ApplyEvent); }
+	virtual void OnStack(FBuffApplyEvent const& ApplyEvent) override { CustomStack(ApplyEvent); }
+	virtual void OnRefresh(FBuffApplyEvent const& ApplyEvent) override { CustomRefresh(ApplyEvent); }
+	virtual void OnRemove(FBuffRemoveEvent const& RemoveEvent) override { CustomRemove(RemoveEvent); }
 	virtual void CleanupBuffFunction() override { CustomCleanup(); }
 
 protected:
@@ -59,13 +59,13 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "Setup"))
 	void CustomSetup();
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Apply"))
-	void CustomApply();
+	void CustomApply(FBuffApplyEvent const& ApplyEvent);
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Stack"))
-	void CustomStack();
+	void CustomStack(FBuffApplyEvent const& ApplyEvent);
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Refresh"))
-	void CustomRefresh();
+	void CustomRefresh(FBuffApplyEvent const& ApplyEvent);
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Remove"))
-	void CustomRemove();
+	void CustomRemove(FBuffRemoveEvent const& RemoveEvent);
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "Cleanup"))
 	void CustomCleanup();
 };

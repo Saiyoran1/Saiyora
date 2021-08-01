@@ -15,6 +15,7 @@ class SAIYORAV4_API UPlayerCombatAbility : public UCombatAbility
 	GENERATED_BODY()
 	
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual void InitializeAbility(UAbilityHandler* AbilityComponent) override;
 //Display Info
 	UPROPERTY(EditDefaultsOnly, Category = "Display Info")
 	bool bHiddenCastBar = false;
@@ -32,7 +33,8 @@ class SAIYORAV4_API UPlayerCombatAbility : public UCombatAbility
     void RecalculatePredictedCooldown();
 	UFUNCTION()
 	void OnRep_ReplicatedCooldown();
-    
+	UFUNCTION()
+    void StartClientCooldownOnMaxChargesChanged(UCombatAbility* Ability, int32 const OldCharges, int32 const NewCharges);
     TSet<int32> StoredTickPredictionParameters;
 
 public:

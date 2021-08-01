@@ -10,6 +10,17 @@ void UPlayerCombatAbility::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
     DOREPLIFETIME_CONDITION(UPlayerCombatAbility, ReplicatedCooldown, COND_OwnerOnly);
 }
 
+void UPlayerCombatAbility::InitializeAbility(UAbilityHandler* AbilityComponent)
+{
+    Super::InitializeAbility(AbilityComponent);
+    if (GetHandler()->GetOwnerRole() == ROLE_AutonomousProxy)
+    {
+        FAbilityChargeCallback ClientMaxChargeCallback;
+        ClientMaxChargeCallback.BindDynamic(this, &UPlayerCombatAbility::StartClientCooldownOnMaxChargesChanged);
+        SubscribeToMaxChargesChanged(ClientMaxChargeCallback);
+    }
+}
+
 void UPlayerCombatAbility::PurgeOldPredictions()
 {
 	TArray<int32> OldPredictionIDs;
@@ -52,6 +63,23 @@ void UPlayerCombatAbility::OnRep_ReplicatedCooldown()
 {
 	PurgeOldPredictions();
     RecalculatePredictedCooldown();
+}
+
+void UPlayerCombatAbility::StartClientCooldownOnMaxChargesChanged(UCombatAbility* Ability, int32 const OldCharges,
+    int32 const NewCharges)
+{
+    if (AbilityCooldown.OnCooldown && AbilityCooldown.CurrentCharges >= MaxCharges)
+    {
+        AbilityCooldown.OnCooldown = false;
+        AbilityCooldown.CooldownStartTime = 0.0f;
+        AbilityCooldown.CooldownEndTime = 0.0f;
+    }
+    else if (!AbilityCooldown.OnCooldown && AbilityCooldown.CurrentCharges < MaxCharges)
+    {
+        AbilityCooldown.OnCooldown = true;
+        AbilityCooldown.CooldownStartTime = 0.0f;
+        AbilityCooldown.CooldownEndTime = 0.0f;
+    }
 }
 
 void UPlayerCombatAbility::PredictCommitCharges(int32 const PredictionID)
