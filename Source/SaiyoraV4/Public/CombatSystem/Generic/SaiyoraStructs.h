@@ -11,8 +11,6 @@ struct FCombatModifier
 {
     GENERATED_BODY()
 
-    UPROPERTY(BlueprintReadOnly)
-    int32 ID = 0;
     UPROPERTY()
     class UBuff* Source = nullptr;
     bool bFromBuff = false;
@@ -22,9 +20,6 @@ struct FCombatModifier
     float ModValue = 0.0f;
     UPROPERTY(BlueprintReadOnly)
     bool bStackable = true;
-
-    FORCEINLINE bool operator==(FCombatModifier const& Other) const { return Other.ID == ID; }
-    FORCEINLINE bool operator==(int32 const Other) const { return ID == Other; }
 
     static float CombineModifiers(TArray<FCombatModifier> const& ModArray, float const BaseValue);
 

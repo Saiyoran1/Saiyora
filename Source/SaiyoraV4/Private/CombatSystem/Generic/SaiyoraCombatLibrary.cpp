@@ -93,13 +93,12 @@ bool USaiyoraCombatLibrary::CheckForXPlane(ESaiyoraPlane const FromPlane, ESaiyo
     return FromPlane != ToPlane;
 }
 
-FCombatModifier USaiyoraCombatLibrary::MakeCombatModifier(int32& ModifierID, UBuff* Source, EModifierType const ModifierType,
+FCombatModifier USaiyoraCombatLibrary::MakeCombatModifier(UBuff* Source, EModifierType const ModifierType,
     float const ModifierValue, bool const bStackable)
 {
     FCombatModifier OutMod;
     if (ModifierType == EModifierType::Invalid)
     {
-        ModifierID = 0;
         return OutMod;
     }
     if (IsValid(Source))
@@ -110,18 +109,15 @@ FCombatModifier USaiyoraCombatLibrary::MakeCombatModifier(int32& ModifierID, UBu
     OutMod.ModType = ModifierType;
     OutMod.ModValue = ModifierValue;
     OutMod.bStackable = bStackable;
-    OutMod.ID = FCombatModifier::GetID();
-    ModifierID = OutMod.ID;
     return OutMod;
 }
 
-FCombatModifier USaiyoraCombatLibrary::MakeBuffFunctionCombatModifier(int32& ModifierID, UBuffFunction* Source,
+FCombatModifier USaiyoraCombatLibrary::MakeBuffFunctionCombatModifier(UBuffFunction* Source,
     EModifierType const ModifierType, float const ModifierValue, bool const bStackable)
 {
     FCombatModifier OutMod;
     if (ModifierType == EModifierType::Invalid)
     {
-        ModifierID = 0;
         return OutMod;
     }
     if (IsValid(Source))
@@ -132,8 +128,6 @@ FCombatModifier USaiyoraCombatLibrary::MakeBuffFunctionCombatModifier(int32& Mod
     OutMod.ModType = ModifierType;
     OutMod.ModValue = ModifierValue;
     OutMod.bStackable = bStackable;
-    OutMod.ID = FCombatModifier::GetID();
-    ModifierID = OutMod.ID;
     return OutMod;
 }
 
@@ -146,6 +140,5 @@ FCombatModifier USaiyoraCombatLibrary::MakeCombatModifier(EModifierType const Mo
     }
     OutMod.ModType = ModifierType;
     OutMod.ModValue = ModifierValue;
-    OutMod.ID = FCombatModifier::GetID();
     return OutMod;
 }
