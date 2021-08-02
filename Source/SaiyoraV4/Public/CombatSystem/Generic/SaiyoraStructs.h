@@ -6,6 +6,34 @@
 #include "SaiyoraEnums.h"
 #include "SaiyoraStructs.generated.h"
 
+USTRUCT()
+struct FCombatFloatValue
+{
+    GENERATED_BODY()
+
+    float BaseValue = 0.0f;
+    bool bModifiable = false;
+    bool bCappedLow = false;
+    float Minimum = 0.0f;
+    bool bCappedHigh = false;
+    float Maximum = 0.0f;
+    float Value = 0.0f;
+};
+
+USTRUCT()
+struct FCombatIntValue
+{
+    GENERATED_BODY()
+
+    int32 BaseValue = 0;
+    bool bModifiable = false;
+    bool bCappedLow = false;
+    int32 Minimum = 0;
+    bool bCappedHigh = false;
+    int32 Maximum = 0;
+    int32 Value = 0;
+};
+
 USTRUCT(BlueprintType)
 struct FCombatModifier
 {
@@ -22,9 +50,43 @@ struct FCombatModifier
     bool bStackable = true;
 
     static float CombineModifiers(TArray<FCombatModifier> const& ModArray, float const BaseValue);
+    static FCombatModifier CombineAdditiveMods(TArray<FCombatModifier> const& Mods);
+    static FCombatModifier CombineMultiplicativeMods(TArray<FCombatModifier> const& Mods);
 
     static int32 GlobalID;
     static int32 GetID();
+};
+
+DECLARE_DELEGATE_TwoParams(FModifierCallback, FCombatModifier const&, FCombatModifier const&);
+DECLARE_MULTICAST_DELEGATE_TwoParams(FModifierNotification, FCombatModifier const&, FCombatModifier const&);
+
+USTRUCT()
+struct FModifierCollection
+{
+    GENERATED_BODY()
+private:
+    TMap<int32, FCombatModifier> Modifiers;
+    FModifierNotification OnModifiersChanged;
+public:
+    int32 AddModifier(FCombatModifier const& Modifier);
+    void RemoveModifier(int32 const ModifierID);
+    void GetModifiers(TArray<FCombatModifier>& OutMods);
+    FDelegateHandle BindToModsChanged(FModifierCallback const& Callback)
+    {
+        if (Callback.IsBound())
+        {
+            return OnModifiersChanged.Add(Callback);
+        }
+        FDelegateHandle const Invalid;
+        return Invalid;
+    }
+    void UnbindFromModsChanged(FDelegateHandle const& Handle)
+    {
+        if (Handle.IsValid())
+        {
+            OnModifiersChanged.Remove(Handle);
+        }
+    }
 };
 
 USTRUCT(BlueprintType)
