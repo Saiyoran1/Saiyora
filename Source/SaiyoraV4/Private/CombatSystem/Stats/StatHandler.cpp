@@ -168,117 +168,54 @@ float UStatHandler::GetStatValue(FGameplayTag const StatTag) const
 	return -1.0f;
 }
 
-int32 UStatHandler::AddStatModifier(FGameplayTag const StatTag, EModifierType const ModType, float const ModValue)
+int32 UStatHandler::AddStatModifier(FGameplayTag const StatTag, FCombatModifier const& Modifier)
 {
-	if (GetOwnerRole() != ROLE_Authority)
-	{
-		return -1;
-	}
-	if (ModType == EModifierType::Invalid || !StatTag.MatchesTag(GenericStatTag()))
+	if (GetOwnerRole() != ROLE_Authority || Modifier.ModType == EModifierType::Invalid || !StatTag.MatchesTag(GenericStatTag()))
 	{
 		return -1;
 	}
 	FStatInfo* Info = GetStatInfoPtr(StatTag);
-	if (Info && Info->bInitialized && Info->bModifiable)
+	if (!Info || !Info->bInitialized || !Info->bModifiable)
 	{
-		FCombatModifier const NewMod = USaiyoraCombatLibrary::MakeCombatModifier(ModType, ModValue);
-		int32 const PreviousMods = Info->StatModifiers.Num();
-		Info->StatModifiers.AddUnique(NewMod);
-		if (Info->StatModifiers.Num() != PreviousMods)
-		{
-			RecalculateStat(StatTag);
-		}
-		return NewMod.ID;
+		return -1;
 	}
-	return -1;
+	int32 const ModID = FCombatModifier::GetID();
+	Info->StatModifiers.Add(ModID, Modifier);
+	RecalculateStat(StatTag);
+	return ModID;
 }
 
-void UStatHandler::AddStatModifiers(TMultiMap<FGameplayTag, FCombatModifier> const& Modifiers)
+void UStatHandler::AddStatModifiers(TMap<FGameplayTag, FCombatModifier> const& Modifiers, TMap<FGameplayTag, int32>& OutIDs)
 {
-	TSet<FGameplayTag> ModifiedStats;
-	for (TTuple<FGameplayTag, FCombatModifier> const& ModPair : Modifiers)
+	OutIDs.Empty();
+	for (TTuple<FGameplayTag, FCombatModifier> const& Mod : Modifiers)
 	{
-		if (!IsValid(ModPair.Value.Source) || ModPair.Value.ModType == EModifierType::Invalid)
-		{
-			continue;
-		}
-		FStatInfo* Info = GetStatInfoPtr(ModPair.Key);
-		if (Info && Info->bInitialized && Info->bModifiable)
-		{
-			int32 const PreviousMods = Info->StatModifiers.Num();
-			Info->StatModifiers.AddUnique(ModPair.Value);
-			if (Info->StatModifiers.Num() != PreviousMods)
-			{
-				ModifiedStats.Add(ModPair.Key);
-			}
-		}
-	}
-	for (FGameplayTag const& StatTag : ModifiedStats)
-	{
-		RecalculateStat(StatTag);
+		OutIDs.Add(Mod.Key, AddStatModifier(Mod.Key, Mod.Value));
 	}
 }
 
 void UStatHandler::RemoveStatModifier(FGameplayTag const StatTag, int32 const ModifierID)
 {
-	if (GetOwnerRole() != ROLE_Authority)
-	{
-		return;
-	}
-	if (!StatTag.MatchesTag(GenericStatTag()) || ModifierID == -1)
+	if (GetOwnerRole() != ROLE_Authority || !StatTag.MatchesTag(GenericStatTag()) || ModifierID == -1)
 	{
 		return;
 	}
 	FStatInfo* Info = GetStatInfoPtr(StatTag);
-	if (Info && Info->bInitialized && Info->bModifiable)
+	if (!Info || !Info->bInitialized || !Info->bModifiable)
 	{
-		for (FCombatModifier const& Modifier : Info->StatModifiers)
-		{
-			if (Modifier == ModifierID)
-			{
-				if (Info->StatModifiers.RemoveSingleSwap(Modifier) != 0)
-				{
-					RecalculateStat(StatTag);
-				}
-				break;
-			}
-		}
+		return;
+	}
+	if (Info->StatModifiers.Remove(ModifierID) > 0)
+	{
+		RecalculateStat(StatTag);
 	}
 }
 
-void UStatHandler::RemoveStatModifiers(TSet<FGameplayTag> const& AffectedStats, UBuff* Source)
+void UStatHandler::RemoveStatModifiers(TMap<FGameplayTag, int32> const& ModifierIDs)
 {
-	TSet<FGameplayTag> ModifiedStats;
-	for (FGameplayTag const& StatTag : AffectedStats)
+	for (TTuple<FGameplayTag, int32> const& ModID : ModifierIDs)
 	{
-		if (StatTag.MatchesTag(GenericStatTag()))
-		{
-			FStatInfo* Info = GetStatInfoPtr(StatTag);
-			if (Info && Info->bInitialized && Info->bModifiable)
-			{
-				bool bSuccessfullyRemoved = false;
-				for (int32 Index = Info->StatModifiers.Num()-1; Index >= 0; --Index)
-				{
-					if (Info->StatModifiers[Index].Source == Source)
-					{
-						int32 const PreviousNum = Info->StatModifiers.Num();
-						Info->StatModifiers.RemoveAt(Index);
-						if (!bSuccessfullyRemoved && PreviousNum != Info->StatModifiers.Num())
-						{
-							bSuccessfullyRemoved = true;
-						}
-					}
-				}
-				if (bSuccessfullyRemoved)
-				{
-					ModifiedStats.Add(StatTag);
-				}
-			}
-		}
-	}
-	for (FGameplayTag const& StatTag : ModifiedStats)
-	{
-		RecalculateStat(StatTag);
+		RemoveStatModifier(ModID.Key, ModID.Value);
 	}
 }
 
@@ -356,7 +293,9 @@ void UStatHandler::RecalculateStat(FGameplayTag const& StatTag)
 	//Modify based on current modifiers, if applicable.
 	if (Info->bModifiable)
 	{
-		NewValue = FCombatModifier::CombineModifiers(Info->StatModifiers, NewValue);
+		TArray<FCombatModifier> StatMods;
+		Info->StatModifiers.GenerateValueArray(StatMods);
+		NewValue = FCombatModifier::CombineModifiers(StatMods, NewValue);
 	}
 	//Check to see if the stat value actually changed.
 	if (NewValue != OldValue)

@@ -66,7 +66,7 @@ class SAIYORAV4_API UResource : public UObject
 	UFUNCTION()
 	void UpdateMaximumFromStatBind(FGameplayTag const& StatTag, float const NewValue);
 
-	TArray<FResourceDeltaModifier> ResourceDeltaMods;
+	TMap<int32, FResourceDeltaModifier> ResourceDeltaMods;
 
 	FResourceValueNotification OnResourceChanged;
 	FResourceInstanceNotification OnResourceDeltaModsChanged;
@@ -101,9 +101,9 @@ public:
 	void ModifyResource(UObject* Source, float const Amount, bool const bIgnoreModifiers);
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Resource")
-	void AddResourceDeltaModifier(FResourceDeltaModifier const& Modifier);
+	int32 AddResourceDeltaModifier(FResourceDeltaModifier const& Modifier);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Resource")
-	void RemoveResourceDeltaModifier(FResourceDeltaModifier const& Modifier);
+	void RemoveResourceDeltaModifier(int32 const ModifierID);
 	UFUNCTION(BlueprintCallable, Category = "Resource")
 	void SubscribeToResourceChanged(FResourceValueCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Resource")

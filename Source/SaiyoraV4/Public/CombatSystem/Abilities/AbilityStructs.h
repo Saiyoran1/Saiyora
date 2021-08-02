@@ -240,17 +240,25 @@ FORCEINLINE uint32 GetTypeHash(const FPredictedTick& Tick)
 }
 
 USTRUCT()
+struct FResourceModifiers
+{
+    GENERATED_BODY()
+
+    TMap<int32, FCombatModifier> Modifiers;
+};
+
+USTRUCT()
 struct FAbilityModCollection
 {
     GENERATED_BODY()
 
-    TArray<FCombatModifier> GlobalCooldownModifiers;
-    TArray<FCombatModifier> CooldownModifiers;
-    TArray<FCombatModifier> MaxChargeModifiers;
-    TArray<FCombatModifier> ChargesPerCastModifiers;
-    TArray<FCombatModifier> ChargesPerCooldownModifiers;
-    TArray<FCombatModifier> CastLengthModifiers;
-    TMultiMap<TSubclassOf<UResource>, FCombatModifier> CostModifiers;
+    TMap<int32, FCombatModifier> GlobalCooldownModifiers;
+    TMap<int32, FCombatModifier> CooldownModifiers;
+    TMap<int32, FCombatModifier> MaxChargeModifiers;
+    TMap<int32, FCombatModifier> ChargesPerCastModifiers;
+    TMap<int32, FCombatModifier> ChargesPerCooldownModifiers;
+    TMap<int32, FCombatModifier> CastLengthModifiers;
+    TMap<TSubclassOf<UResource>, FResourceModifiers> CostModifiers;
 };
 
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FAbilityModCondition, UCombatAbility*, Ability);

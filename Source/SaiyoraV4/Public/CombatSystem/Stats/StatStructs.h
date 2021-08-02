@@ -54,7 +54,7 @@ struct FStatInfo : public FTableRowBase
     bool bInitialized = false;
     float CurrentValue = 0.0f;
     FStatNotification OnStatChanged;
-    TArray<FCombatModifier> StatModifiers;
+    TMap<int32, FCombatModifier> StatModifiers;
 };
 
 USTRUCT()

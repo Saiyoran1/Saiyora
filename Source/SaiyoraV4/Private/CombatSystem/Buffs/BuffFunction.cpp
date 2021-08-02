@@ -247,17 +247,15 @@ void UHealingOverTimeFunction::HealingOverTime(UBuff* Buff, float const Healing,
 
 //Stat Modifiers
 
-void UStatModifierFunction::SetModifierVars(TArray<FStatModifier> const& Modifiers)
+void UStatModifierFunction::SetModifierVars(TMap<FGameplayTag, FCombatModifier> const& Modifiers)
 {
-    for (FStatModifier const& StatMod : Modifiers)
+    StatMods.Empty();
+    for (TTuple<FGameplayTag, FCombatModifier> const& Modifier : Modifiers)
     {
-        if (!StatMod.StatTag.MatchesTag(UStatHandler::GenericStatTag()) || StatMod.ModType == EModifierType::Invalid)
+        if (Modifier.Key.MatchesTag(UStatHandler::GenericStatTag()) && Modifier.Value.ModType != EModifierType::Invalid)
         {
-            continue;
+            StatMods.Add(Modifier.Key, Modifier.Value);
         }
-        int32 ModID = 0;
-        FCombatModifier Mod = USaiyoraCombatLibrary::MakeCombatModifier(ModID, GetOwningBuff(), StatMod.ModType, StatMod.ModValue, StatMod.bStackable);
-        StatMods.Add(StatMod.StatTag, Mod);
     }
 }
 
@@ -272,7 +270,8 @@ void UStatModifierFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
     {
         return;
     }
-    TargetHandler->AddStatModifiers(StatMods);
+    ModIDs.Empty();
+    TargetHandler->AddStatModifiers(StatMods, ModIDs);
 }
 
 void UStatModifierFunction::OnStack(FBuffApplyEvent const& ApplyEvent)
@@ -296,19 +295,11 @@ void UStatModifierFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
 {
     if (IsValid(TargetHandler))
     {
-        TSet<FGameplayTag> StatTags;
-        for (TTuple<FGameplayTag, FCombatModifier> const& StatMod : StatMods)
-        {
-            if (StatMod.Key.MatchesTag(UStatHandler::GenericStatTag()) && StatMod.Value.ModType != EModifierType::Invalid)
-            {
-                StatTags.Add(StatMod.Key);
-            }
-        }
-        TargetHandler->RemoveStatModifiers(StatTags, GetOwningBuff());
+        TargetHandler->RemoveStatModifiers(ModIDs);
     }
 }
 
-void UStatModifierFunction::StatModifiers(UBuff* Buff, TArray<FStatModifier> const& Modifiers)
+void UStatModifierFunction::StatModifiers(UBuff* Buff, TMap<FGameplayTag, FCombatModifier> const& Modifiers)
 {
     if (!IsValid(Buff) || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
     {

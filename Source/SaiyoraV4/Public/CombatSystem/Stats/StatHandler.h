@@ -35,13 +35,13 @@ public:
 
 	//Individual Stat Mod functions.
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Stat", meta = (GameplayTagFilter = "Stat"))
-	int32 AddStatModifier(FGameplayTag const StatTag, EModifierType const ModType, float const ModValue);
+	int32 AddStatModifier(FGameplayTag const StatTag, FCombatModifier const& Modifier);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Stat", meta = (GameplayTagFilter = "Stat"))
 	void RemoveStatModifier(FGameplayTag const StatTag, int32 const ModifierID);
 
 	//Mass Stat Mod functions from buffs.
-	void AddStatModifiers(TMultiMap<FGameplayTag, FCombatModifier> const& Modifiers);
-	void RemoveStatModifiers(TSet<FGameplayTag> const& AffectedStats, UBuff* Source);
+	void AddStatModifiers(TMap<FGameplayTag, FCombatModifier> const& Modifiers, TMap<FGameplayTag, int32>& OutIDs);
+	void RemoveStatModifiers(TMap<FGameplayTag, int32> const& ModifierIDs);
     void UpdateStackingModifiers(TSet<FGameplayTag> const& AffectedStats);
 	
 	UFUNCTION(BlueprintCallable, Category = "Stat", meta = (GameplayTagFilter = "Stat"))

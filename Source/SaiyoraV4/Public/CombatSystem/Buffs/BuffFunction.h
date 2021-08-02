@@ -163,16 +163,17 @@ class UStatModifierFunction : public UBuffFunction
 {
 	GENERATED_BODY()
 	
-	TMultiMap<FGameplayTag, FCombatModifier> StatMods;
+	TMap<FGameplayTag, FCombatModifier> StatMods;
+	TMap<FGameplayTag, int32> ModIDs;
 	UPROPERTY()
 	UStatHandler* TargetHandler = nullptr;
 
-	void SetModifierVars(TArray<FStatModifier> const& Modifiers);
+	void SetModifierVars(TMap<FGameplayTag, FCombatModifier> const& Modifiers);
 
 	virtual void OnApply(FBuffApplyEvent const& ApplyEvent) override;
 	virtual void OnStack(FBuffApplyEvent const& ApplyEvent) override;
 	virtual void OnRemove(FBuffRemoveEvent const& RemoveEvent) override;
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Stat Modifiers", meta = (DefaultToSelf = "Buff", HidePin = "Buff", GameplayTagFilter = "Stat"))
-	static void StatModifiers(UBuff* Buff, TArray<FStatModifier> const& Modifiers);
+	static void StatModifiers(UBuff* Buff, TMap<FGameplayTag, FCombatModifier> const& Modifiers);
 };

@@ -100,11 +100,11 @@ bool UResource::CalculateAndCheckAbilityCost(UCombatAbility* Ability, float& Cos
     if (!bStaticCost)
     {
         TArray<FCombatModifier> Mods;
-        for (FResourceDeltaModifier const& Condition : ResourceDeltaMods)
+        for (TTuple<int32, FResourceDeltaModifier>& Mod : ResourceDeltaMods)
         {
-            if (Condition.IsBound())
+            if (Mod.Value.IsBound())
             {
-                Mods.Add(Condition.Execute(this, Ability, Cost));
+                Mods.Add(Mod.Value.Execute(this, Ability, Cost));
             }
         }
         Cost = FCombatModifier::CombineModifiers(Mods, Cost);
@@ -165,11 +165,11 @@ void UResource::ModifyResource(UObject* Source, float const Amount, bool const b
     if (!bIgnoreModifiers)
     {
         TArray<FCombatModifier> Mods;
-        for (FResourceDeltaModifier const& Condition : ResourceDeltaMods)
+        for (TTuple<int32, FResourceDeltaModifier>& Mod : ResourceDeltaMods)
         {
-            if (Condition.IsBound())
+            if (Mod.Value.IsBound())
             {
-                Mods.Add(Condition.Execute(this, Source, Amount));
+                Mods.Add(Mod.Value.Execute(this, Source, Amount));
             }
         }
         ModifiedCost = FCombatModifier::CombineModifiers(Mods, Amount);
@@ -354,35 +354,25 @@ void UResource::UpdateMaximumFromStatBind(FGameplayTag const& StatTag, float con
     SetNewMaximum(NewValue);
 }
 
-void UResource::AddResourceDeltaModifier(FResourceDeltaModifier const& Modifier)
+int32 UResource::AddResourceDeltaModifier(FResourceDeltaModifier const& Modifier)
 {
-    if (GetHandler()->GetOwnerRole() != ROLE_Authority)
-    {
-        return;
-    }
     if (!Modifier.IsBound())
     {
-        return;
+        return -1;
     }
-    int32 const PreviousLength = ResourceDeltaMods.Num();
-    ResourceDeltaMods.AddUnique(Modifier);
-    if (PreviousLength != ResourceDeltaMods.Num())
-    {
-        OnResourceDeltaModsChanged.Broadcast(this);
-    }
+    int32 const ModID = FCombatModifier::GetID();
+    ResourceDeltaMods.Add(ModID, Modifier);
+    OnResourceDeltaModsChanged.Broadcast(this);
+    return ModID;
 }
 
-void UResource::RemoveResourceDeltaModifier(FResourceDeltaModifier const& Modifier)
+void UResource::RemoveResourceDeltaModifier(int32 const ModifierID)
 {
-    if (GetHandler()->GetOwnerRole() != ROLE_Authority)
+    if (ModifierID == -1)
     {
         return;
     }
-    if (!Modifier.IsBound())
-    {
-        return;
-    }
-    if (ResourceDeltaMods.RemoveSingleSwap(Modifier) != 0)
+    if (ResourceDeltaMods.Remove(ModifierID) > 0)
     {
         OnResourceDeltaModsChanged.Broadcast(this);
     }

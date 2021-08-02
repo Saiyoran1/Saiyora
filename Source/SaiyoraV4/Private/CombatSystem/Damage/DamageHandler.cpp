@@ -8,14 +8,6 @@
 #include "SaiyoraCombatInterface.h"
 #include "UnrealNetwork.h"
 
-//FGameplayTag const UDamageHandler::MaxHealthTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.MaxHealth")), false);
-//FGameplayTag const UDamageHandler::DamageDoneTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.DamageDone")), false);
-//FGameplayTag const UDamageHandler::HealingDoneTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.HealingDone")), false);
-//FGameplayTag const UDamageHandler::DamageTakenTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.DamageTaken")), false);
-//FGameplayTag const UDamageHandler::HealingTakenTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.HealingTaken")), false);
-//FGameplayTag const UDamageHandler::BuffDamageTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Buff.Damage")), false);
-//FGameplayTag const UDamageHandler::BuffHealingTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Buff.Healing")), false);
-
 UDamageHandler::UDamageHandler()
 {
 	PrimaryComponentTick.bCanEverTick = false;
@@ -299,11 +291,11 @@ FCombatModifier UDamageHandler::ModifyDamageDoneFromStat(FDamageInfo const& Dama
 TArray<FCombatModifier> UDamageHandler::GetOutgoingDamageMods(FDamageInfo const& DamageInfo)
 {
 	TArray<FCombatModifier> RelevantMods;
-	for (FDamageModCondition const& Mod : OutgoingDamageModifiers)
+	for (TTuple<int32, FDamageModCondition>& Mod : OutgoingDamageModifiers)
 	{
-		if (Mod.IsBound())
+		if (Mod.Value.IsBound())
 		{
-			RelevantMods.Add(Mod.Execute(DamageInfo));
+			RelevantMods.Add(Mod.Value.Execute(DamageInfo));
 		}
 	}
 	return RelevantMods;
@@ -349,28 +341,24 @@ void UDamageHandler::RemoveOutgoingDamageRestriction(FDamageCondition const& Res
 	}
 }
 
-void UDamageHandler::AddOutgoingDamageModifier(FDamageModCondition const& Modifier)
+int32 UDamageHandler::AddOutgoingDamageModifier(FDamageModCondition const& Modifier)
 {
-	if (GetOwnerRole() != ROLE_Authority)
+	if (GetOwnerRole() != ROLE_Authority || !Modifier.IsBound())
 	{
-		return;
+		return -1;
 	}
-	if (Modifier.IsBound())
-	{
-		OutgoingDamageModifiers.AddUnique(Modifier);
-	}
+	int32 const ModID = FCombatModifier::GetID();
+	OutgoingDamageModifiers.Add(ModID, Modifier);
+	return ModID;
 }
 
-void UDamageHandler::RemoveOutgoingDamageModifier(FDamageModCondition const& Modifier)
+void UDamageHandler::RemoveOutgoingDamageModifier(int32 const ModifierID)
 {
-	if (GetOwnerRole() != ROLE_Authority)
+	if (GetOwnerRole() != ROLE_Authority || ModifierID == -1)
 	{
 		return;
 	}
-	if (Modifier.IsBound())
-	{
-		OutgoingDamageModifiers.RemoveSingleSwap(Modifier);
-	}
+	OutgoingDamageModifiers.Remove(ModifierID);
 }
 
 void UDamageHandler::MulticastNotifyOfOutgoingDamageSuccess_Implementation(FDamagingEvent DamageEvent)
@@ -431,11 +419,11 @@ FCombatModifier UDamageHandler::ModifyHealingDoneFromStat(FHealingInfo const& He
 TArray<FCombatModifier> UDamageHandler::GetOutgoingHealingMods(FHealingInfo const& HealingInfo)
 {
 	TArray<FCombatModifier> RelevantMods;
-	for (FHealingModCondition const& Mod : OutgoingHealingModifiers)
+	for (TTuple<int32, FHealingModCondition>& Mod : OutgoingHealingModifiers)
 	{
-		if (Mod.IsBound())
+		if (Mod.Value.IsBound())
 		{
-			RelevantMods.Add(Mod.Execute(HealingInfo));
+			RelevantMods.Add(Mod.Value.Execute(HealingInfo));
 		}
 	}
 	return RelevantMods;
@@ -481,28 +469,24 @@ void UDamageHandler::RemoveOutgoingHealingRestriction(FHealingCondition const& R
 	}
 }
 
-void UDamageHandler::AddOutgoingHealingModifier(FHealingModCondition const& Modifier)
+int32 UDamageHandler::AddOutgoingHealingModifier(FHealingModCondition const& Modifier)
 {
-	if (GetOwnerRole() != ROLE_Authority)
+	if (GetOwnerRole() != ROLE_Authority || !Modifier.IsBound())
 	{
-		return;
+		return -1;
 	}
-	if (Modifier.IsBound())
-	{
-		OutgoingHealingModifiers.AddUnique(Modifier);
-	}
+	int32 const ModID = FCombatModifier::GetID();
+	OutgoingHealingModifiers.Add(ModID, Modifier);
+	return ModID;
 }
 
-void UDamageHandler::RemoveOutgoingHealingModifier(FHealingModCondition const& Modifier)
+void UDamageHandler::RemoveOutgoingHealingModifier(int32 const ModifierID)
 {
-	if (GetOwnerRole() != ROLE_Authority)
+	if (GetOwnerRole() != ROLE_Authority || ModifierID == -1)
 	{
 		return;
 	}
-	if (Modifier.IsBound())
-	{
-		OutgoingHealingModifiers.RemoveSingleSwap(Modifier);
-	}
+	OutgoingHealingModifiers.Remove(ModifierID);
 }
 
 void UDamageHandler::MulticastNotifyOfOutgoingHealingSuccess_Implementation(FHealingEvent HealingEvent)
@@ -578,11 +562,11 @@ FCombatModifier UDamageHandler::ModifyDamageTakenFromStat(FDamageInfo const& Dam
 TArray<FCombatModifier> UDamageHandler::GetIncomingDamageMods(FDamageInfo const& DamageInfo)
 {
 	TArray<FCombatModifier> RelevantMods;
-	for (FDamageModCondition const& Mod : IncomingDamageModifiers)
+	for (TTuple<int32, FDamageModCondition>& Mod : IncomingDamageModifiers)
 	{
-		if (Mod.IsBound())
+		if (Mod.Value.IsBound())
 		{
-			RelevantMods.Add(Mod.Execute(DamageInfo));
+			RelevantMods.Add(Mod.Value.Execute(DamageInfo));
 		}
 	}
 	return RelevantMods;
@@ -628,28 +612,24 @@ void UDamageHandler::RemoveIncomingDamageRestriction(FDamageCondition const& Res
 	}
 }
 
-void UDamageHandler::AddIncomingDamageModifier(FDamageModCondition const& Modifier)
+int32 UDamageHandler::AddIncomingDamageModifier(FDamageModCondition const& Modifier)
 {
-	if (GetOwnerRole() != ROLE_Authority)
+	if (GetOwnerRole() != ROLE_Authority || !Modifier.IsBound())
 	{
-		return;
+		return -1;
 	}
-	if (Modifier.IsBound())
-	{
-		IncomingDamageModifiers.AddUnique(Modifier);
-	}
+	int32 const ModID = FCombatModifier::GetID();
+	IncomingDamageModifiers.Add(ModID, Modifier);
+	return ModID;
 }
 
-void UDamageHandler::RemoveIncomingDamageModifier(FDamageModCondition const& Modifier)
+void UDamageHandler::RemoveIncomingDamageModifier(int32 const ModifierID)
 {
-	if (GetOwnerRole() != ROLE_Authority)
+	if (GetOwnerRole() != ROLE_Authority || ModifierID == 0)
 	{
 		return;
 	}
-	if (Modifier.IsBound())
-	{
-		IncomingDamageModifiers.RemoveSingleSwap(Modifier);
-	}
+	IncomingDamageModifiers.Remove(ModifierID);
 }
 
 void UDamageHandler::MulticastNotifyOfIncomingDamageSuccess_Implementation(FDamagingEvent DamageEvent)
@@ -701,11 +681,11 @@ FCombatModifier UDamageHandler::ModifyHealingTakenFromStat(FHealingInfo const& H
 TArray<FCombatModifier> UDamageHandler::GetIncomingHealingMods(FHealingInfo const& HealingInfo)
 {
 	TArray<FCombatModifier> RelevantMods;
-	for (FHealingModCondition const& Mod : IncomingHealingModifiers)
+	for (TTuple<int32, FHealingModCondition>& Mod : IncomingHealingModifiers)
 	{
-		if (Mod.IsBound())
+		if (Mod.Value.IsBound())
 		{
-			RelevantMods.Add(Mod.Execute(HealingInfo));
+			RelevantMods.Add(Mod.Value.Execute(HealingInfo));
 		}
 	}
 	return RelevantMods;
@@ -751,28 +731,24 @@ void UDamageHandler::RemoveIncomingHealingRestriction(FHealingCondition const& R
 	}
 }
 
-void UDamageHandler::AddIncomingHealingModifier(FHealingModCondition const& Modifier)
+int32 UDamageHandler::AddIncomingHealingModifier(FHealingModCondition const& Modifier)
 {
-	if (GetOwnerRole() != ROLE_Authority)
+	if (GetOwnerRole() != ROLE_Authority || !Modifier.IsBound())
 	{
-		return;
+		return -1;
 	}
-	if (Modifier.IsBound())
-	{
-		IncomingHealingModifiers.AddUnique(Modifier);
-	}
+	int32 const ModID = FCombatModifier::GetID();
+	IncomingHealingModifiers.Add(ModID, Modifier);
+	return ModID;
 }
 
-void UDamageHandler::RemoveIncomingHealingModifier(FHealingModCondition const& Modifier)
+void UDamageHandler::RemoveIncomingHealingModifier(int32 const ModifierID)
 {
-	if (GetOwnerRole() != ROLE_Authority)
+	if (GetOwnerRole() != ROLE_Authority || ModifierID == -1)
 	{
 		return;
 	}
-	if (Modifier.IsBound())
-	{
-		IncomingHealingModifiers.RemoveSingleSwap(Modifier);
-	}
+	IncomingHealingModifiers.Remove(ModifierID);
 }
 
 void UDamageHandler::MulticastNotifyOfIncomingHealingSuccess_Implementation(FHealingEvent HealingEvent)
