@@ -295,7 +295,7 @@ void UStatHandler::RecalculateStat(FGameplayTag const& StatTag)
 	{
 		TArray<FCombatModifier> StatMods;
 		Info->StatModifiers.GenerateValueArray(StatMods);
-		NewValue = FCombatModifier::CombineModifiers(StatMods, NewValue);
+		NewValue = FCombatModifier::ApplyModifiers(StatMods, NewValue);
 	}
 	//Check to see if the stat value actually changed.
 	if (NewValue != OldValue)

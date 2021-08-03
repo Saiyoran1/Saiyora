@@ -107,7 +107,7 @@ bool UResource::CalculateAndCheckAbilityCost(UCombatAbility* Ability, float& Cos
                 Mods.Add(Mod.Value.Execute(this, Ability, Cost));
             }
         }
-        Cost = FCombatModifier::CombineModifiers(Mods, Cost);
+        Cost = FCombatModifier::ApplyModifiers(Mods, Cost);
     }
     if (Cost <= GetCurrentValue())
     {
@@ -172,7 +172,7 @@ void UResource::ModifyResource(UObject* Source, float const Amount, bool const b
                 Mods.Add(Mod.Value.Execute(this, Source, Amount));
             }
         }
-        ModifiedCost = FCombatModifier::CombineModifiers(Mods, Amount);
+        ModifiedCost = FCombatModifier::ApplyModifiers(Mods, Amount);
     }
     
     SetResourceValue(ResourceState.CurrentValue + ModifiedCost, Source);

@@ -34,6 +34,9 @@ struct FCombatIntValue
     int32 Value = 0;
 };
 
+DECLARE_DELEGATE(FModifierCallback);
+DECLARE_MULTICAST_DELEGATE(FModifierNotification);
+
 USTRUCT(BlueprintType)
 struct FCombatModifier
 {
@@ -49,28 +52,38 @@ struct FCombatModifier
     UPROPERTY(BlueprintReadOnly)
     bool bStackable = true;
 
-    static float CombineModifiers(TArray<FCombatModifier> const& ModArray, float const BaseValue);
-    static FCombatModifier CombineAdditiveMods(TArray<FCombatModifier> const& Mods);
-    static FCombatModifier CombineMultiplicativeMods(TArray<FCombatModifier> const& Mods);
+    void Reset();
+    void Activate();
+    static float ApplyModifiers(TArray<FCombatModifier> const& ModArray, float const BaseValue);
+    static void CombineModifiers(TArray<FCombatModifier> const& ModArray, FCombatModifier& OutAddMod, FCombatModifier& OutMultMod);
 
-    static int32 GlobalID;
-    static int32 GetID();
+    FModifierNotification OnStacksChanged;
+    FModifierNotification OnSourceRemoved;
+    void OnBuffStacked(struct FBuffApplyEvent const& Event);
+    void OnBuffRemoved(struct FBuffRemoveEvent const& Event);
+
+    
+    
 };
-
-DECLARE_DELEGATE_TwoParams(FModifierCallback, FCombatModifier const&, FCombatModifier const&);
-DECLARE_MULTICAST_DELEGATE_TwoParams(FModifierNotification, FCombatModifier const&, FCombatModifier const&);
 
 USTRUCT()
 struct FModifierCollection
 {
     GENERATED_BODY()
 private:
-    TMap<int32, FCombatModifier> Modifiers;
+    static int32 GlobalID;
+    TMap<int32, FCombatModifier> IndividualModifiers;
     FModifierNotification OnModifiersChanged;
+    FCombatModifier SummedAddMod;
+    FCombatModifier SummedMultMod;
+    void RecalculateMods();
+    void PurgeInvalidMods();
 public:
+    static int32 GetID();
     int32 AddModifier(FCombatModifier const& Modifier);
     void RemoveModifier(int32 const ModifierID);
-    void GetModifiers(TArray<FCombatModifier>& OutMods);
+    void GetSummedModifiers(TArray<FCombatModifier>& OutMods) const { OutMods.Add(SummedAddMod); OutMods.Add(SummedMultMod); }
+    void GetIndividualModifiers(TArray<FCombatModifier>& OutMods) const { IndividualModifiers.GenerateValueArray(OutMods); }
     FDelegateHandle BindToModsChanged(FModifierCallback const& Callback)
     {
         if (Callback.IsBound())

@@ -35,7 +35,7 @@ void FAbilityModCollection::Initialize(TSubclassOf<UCombatAbility> const Ability
 	TArray<FCombatModifier> SpecificMods;
 	MaxChargeModifiers.GetModifiers(SpecificMods);
 	Mods.Append(SpecificMods);
-	MaxCharges.Value = FCombatModifier::CombineModifiers(Mods, MaxCharges.BaseValue);
+	MaxCharges.Value = FCombatModifier::ApplyModifiers(Mods, MaxCharges.BaseValue);
 	Mods.Empty();
 	SpecificMods.Empty();
 	//TODO: Finish the rest of this initialization of modifiers.

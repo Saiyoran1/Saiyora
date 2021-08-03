@@ -197,7 +197,7 @@ float UAbilityHandler::CalculateAbilityCost(TSubclassOf<UCombatAbility> const Ab
 			Mods.Append(ClassMods);
 		}
 	}
-	return FCombatModifier::CombineModifiers(Mods, DefaultCost.Cost);
+	return FCombatModifier::ApplyModifiers(Mods, DefaultCost.Cost);
 }
 
 void UAbilityHandler::CalculateAbilityCosts(TSubclassOf<UCombatAbility> const AbilityClass,
@@ -231,7 +231,7 @@ void UAbilityHandler::CalculateAbilityCosts(TSubclassOf<UCombatAbility> const Ab
 				Mods.Append(ClassMods);
 			}
 		}
-		Cost.Cost = FCombatModifier::CombineModifiers(Mods, Cost.Cost);
+		Cost.Cost = FCombatModifier::ApplyModifiers(Mods, Cost.Cost);
 	}
 }
 
@@ -883,7 +883,7 @@ float UAbilityHandler::CalculateCastLength(UCombatAbility* Ability)
 			ModCollection->CastLengthModifiers.GenerateValueArray(SpecificMods);
 			Mods.Append(SpecificMods);
 		}
-		CastLength = FCombatModifier::CombineModifiers(Mods, CastLength);
+		CastLength = FCombatModifier::ApplyModifiers(Mods, CastLength);
 	}
 	CastLength = FMath::Max(MinimumCastLength, CastLength);
 	return CastLength;
@@ -1149,7 +1149,7 @@ float UAbilityHandler::CalculateCooldownLength(UCombatAbility* Ability)
 			ModCollection->CooldownModifiers.GenerateValueArray(SpecificMods);
 			ModArray.Append(SpecificMods);
 		}
-		CooldownLength = FCombatModifier::CombineModifiers(ModArray, CooldownLength);
+		CooldownLength = FCombatModifier::ApplyModifiers(ModArray, CooldownLength);
 	}
 	CooldownLength = FMath::Max(CooldownLength, MinimumCooldownLength);
 	return CooldownLength;
@@ -1352,7 +1352,7 @@ float UAbilityHandler::CalculateGlobalCooldownLength(UCombatAbility* Ability)
 			ModCollection->GlobalCooldownModifiers.GenerateValueArray(SpecificMods);
 			Mods.Append(SpecificMods);
 		}
-		GlobalLength = FCombatModifier::CombineModifiers(Mods, GlobalLength);
+		GlobalLength = FCombatModifier::ApplyModifiers(Mods, GlobalLength);
 	}
 	GlobalLength = FMath::Max(MinimumGlobalCooldownLength, GlobalLength);
 	return GlobalLength;

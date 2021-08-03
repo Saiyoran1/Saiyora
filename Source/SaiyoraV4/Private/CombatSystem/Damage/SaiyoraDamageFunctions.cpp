@@ -65,12 +65,12 @@ FDamagingEvent USaiyoraDamageFunctions::ApplyDamage(float const Amount, AActor* 
         if (!bFromSnapshot && IsValid(GeneratorComponent))
         {
             //Apply relevant outgoing mods, save off snapshot damage for use in DoTs.
-            DamageEvent.DamageInfo.Damage = FCombatModifier::CombineModifiers(
+            DamageEvent.DamageInfo.Damage = FCombatModifier::ApplyModifiers(
                 GeneratorComponent->GetOutgoingDamageMods(DamageEvent.DamageInfo), DamageEvent.DamageInfo.Damage);
             DamageEvent.DamageInfo.SnapshotDamage = DamageEvent.DamageInfo.Damage;
         }
         //Apply relevant incoming mods.
-        DamageEvent.DamageInfo.Damage = FCombatModifier::CombineModifiers(
+        DamageEvent.DamageInfo.Damage = FCombatModifier::ApplyModifiers(
             TargetComponent->GetIncomingDamageMods(DamageEvent.DamageInfo), DamageEvent.DamageInfo.Damage);
     }
 
@@ -160,12 +160,12 @@ FHealingEvent USaiyoraDamageFunctions::ApplyHealing(float const Amount, AActor* 
         //Apply relevant outgoing modifiers, save off snapshot healing for use in HoTs.
         if (!bFromSnapshot && IsValid(GeneratorComponent))
         {
-            HealingEvent.HealingInfo.Healing = FCombatModifier::CombineModifiers(
+            HealingEvent.HealingInfo.Healing = FCombatModifier::ApplyModifiers(
                 GeneratorComponent->GetOutgoingHealingMods(HealingEvent.HealingInfo), HealingEvent.HealingInfo.Healing);
             HealingEvent.HealingInfo.SnapshotHealing = HealingEvent.HealingInfo.Healing;
         }
         //Apply relevant incoming mods.
-        HealingEvent.HealingInfo.Healing = FCombatModifier::CombineModifiers(
+        HealingEvent.HealingInfo.Healing = FCombatModifier::ApplyModifiers(
             TargetComponent->GetIncomingHealingMods(HealingEvent.HealingInfo), HealingEvent.HealingInfo.Healing);
     }
 
@@ -245,7 +245,7 @@ float USaiyoraDamageFunctions::GetSnapshotDamage(float const Amount, AActor* App
         DamageEvent.DamageInfo.AppliedXPlane = USaiyoraCombatLibrary::CheckForXPlane(
             DamageEvent.DamageInfo.AppliedByPlane, DamageEvent.DamageInfo.AppliedToPlane);
         //Apply relevant outgoing mods.
-        return FCombatModifier::CombineModifiers(
+        return FCombatModifier::ApplyModifiers(
             GeneratorComponent->GetOutgoingDamageMods(DamageEvent.DamageInfo), DamageEvent.DamageInfo.Damage);
     }
     return Amount;
@@ -299,7 +299,7 @@ float USaiyoraDamageFunctions::GetSnapshotHealing(float const Amount, AActor* Ap
         HealingEvent.HealingInfo.AppliedXPlane = USaiyoraCombatLibrary::CheckForXPlane(
             HealingEvent.HealingInfo.AppliedByPlane, HealingEvent.HealingInfo.AppliedToPlane);
         //Apply relevant outgoing mods.
-        return FCombatModifier::CombineModifiers(
+        return FCombatModifier::ApplyModifiers(
             GeneratorComponent->GetOutgoingHealingMods(HealingEvent.HealingInfo), HealingEvent.HealingInfo.Healing);
     }
     return Amount;

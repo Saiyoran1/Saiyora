@@ -41,7 +41,7 @@ void UCombatAbility::UpdateChargesPerCast(TArray<FCombatModifier> const& Modifie
     {
         return;
     }
-    ChargesPerCast = FCombatModifier::CombineModifiers(Modifiers, DefaultChargesPerCast);
+    ChargesPerCast = FCombatModifier::ApplyModifiers(Modifiers, DefaultChargesPerCast);
 }
 
 void UCombatAbility::UpdateChargesPerCooldown(TArray<FCombatModifier> const& Modifiers)
@@ -50,7 +50,7 @@ void UCombatAbility::UpdateChargesPerCooldown(TArray<FCombatModifier> const& Mod
     {
         return;
     }
-    ChargesPerCooldown = FCombatModifier::CombineModifiers(Modifiers, DefaultChargesPerCooldown);
+    ChargesPerCooldown = FCombatModifier::ApplyModifiers(Modifiers, DefaultChargesPerCooldown);
 }
 
 FAbilityCost UCombatAbility::GetDefaultAbilityCost(TSubclassOf<UResource> const ResourceClass) const
@@ -76,7 +76,7 @@ void UCombatAbility::UpdateMaxCharges(TArray<FCombatModifier> const& Modifiers)
         return;
     }
     int32 const Previous = MaxCharges;
-    MaxCharges = FCombatModifier::CombineModifiers(Modifiers, DefaultMaxCharges);
+    MaxCharges = FCombatModifier::ApplyModifiers(Modifiers, DefaultMaxCharges);
     if (Previous != MaxCharges)
     {
         OnMaxChargesChanged.Broadcast(this, Previous, MaxCharges);
