@@ -6,34 +6,6 @@
 #include "SaiyoraEnums.h"
 #include "SaiyoraStructs.generated.h"
 
-USTRUCT()
-struct FCombatFloatValue
-{
-    GENERATED_BODY()
-
-    float BaseValue = 0.0f;
-    bool bModifiable = false;
-    bool bCappedLow = false;
-    float Minimum = 0.0f;
-    bool bCappedHigh = false;
-    float Maximum = 0.0f;
-    float Value = 0.0f;
-};
-
-USTRUCT()
-struct FCombatIntValue
-{
-    GENERATED_BODY()
-
-    int32 BaseValue = 0;
-    bool bModifiable = false;
-    bool bCappedLow = false;
-    int32 Minimum = 0;
-    bool bCappedHigh = false;
-    int32 Maximum = 0;
-    int32 Value = 0;
-};
-
 DECLARE_DELEGATE(FModifierCallback);
 DECLARE_MULTICAST_DELEGATE(FModifierNotification);
 
@@ -61,9 +33,6 @@ struct FCombatModifier
     FModifierNotification OnSourceRemoved;
     void OnBuffStacked(struct FBuffApplyEvent const& Event);
     void OnBuffRemoved(struct FBuffRemoveEvent const& Event);
-
-    
-    
 };
 
 USTRUCT()
@@ -100,6 +69,46 @@ public:
             OnModifiersChanged.Remove(Handle);
         }
     }
+};
+
+DECLARE_DELEGATE_RetVal_OneParam(float, FCombatValueRecalculation, TArray<FCombatModifier>const&)
+
+USTRUCT()
+struct FCombatFloatValue
+{
+    GENERATED_BODY()
+
+    float BaseValue = 0.0f;
+    bool bModifiable = false;
+    bool bCappedLow = false;
+    float Minimum = 0.0f;
+    bool bCappedHigh = false;
+    float Maximum = 0.0f;
+    float Value = 0.0f;
+
+    void AddDependency(FModifierCollection* NewDependency);
+    void RemoveDependency(FModifierCollection* NewDependency);
+    void GetDependencyModifiers(TArray<FCombatModifier>& OutMods);
+    void SetRecalculationFunction(FCombatValueRecalculation const& NewCalculation);
+private:
+    void RecalculateValue();
+    TArray<FModifierCollection*> Dependencies;
+    void DefaultRecalculation();
+    FCombatValueRecalculation CustomCalculation;
+};
+
+USTRUCT()
+struct FCombatIntValue
+{
+    GENERATED_BODY()
+
+    int32 BaseValue = 0;
+    bool bModifiable = false;
+    bool bCappedLow = false;
+    int32 Minimum = 0;
+    bool bCappedHigh = false;
+    int32 Maximum = 0;
+    int32 Value = 0;
 };
 
 USTRUCT(BlueprintType)

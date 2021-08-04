@@ -17,13 +17,18 @@ void UBuff::GetBuffTags(FGameplayTagContainer& OutContainer) const
     OutContainer.AppendTags(BuffTags);
 }
 
-void UBuff::InitializeBuff(FBuffApplyEvent& ApplicationEvent)
+void UBuff::InitializeBuff(FBuffApplyEvent& ApplicationEvent, UBuffHandler* Handler)
 {
     GameStateRef = GetWorld()->GetGameState();
     if (!IsValid(GameStateRef))
     {
         UE_LOG(LogTemp, Warning, TEXT("Invalid Game State Ref in New Buff!"));
     }
+    if (!IsValid(Handler))
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Invaid BuffHandler ref in New Buff!"));
+    }
+    this->Handler = Handler;
     
     SetInitialStacks(ApplicationEvent.StackOverrideType, ApplicationEvent.OverrideStacks);
     SetInitialDuration(ApplicationEvent.RefreshOverrideType, ApplicationEvent.OverrideDuration);
@@ -83,7 +88,26 @@ void UBuff::ApplyEvent(FBuffApplyEvent& ApplicationEvent)
     if (ApplicationEvent.Result.ActionTaken != EBuffApplyAction::Failed)
     {
         LastApplyEvent = ApplicationEvent;
+        OnUpdated.Broadcast(ApplicationEvent);
     }
+}
+
+void UBuff::SubscribeToBuffUpdated(FBuffEventCallback const& Callback)
+{
+    if (!Callback.IsBound())
+    {
+        return;
+    }
+    OnUpdated.AddUnique(Callback);
+}
+
+void UBuff::UnsubscribeFromBuffUpdated(FBuffEventCallback const& Callback)
+{
+    if (!Callback.IsBound())
+    {
+        return;
+    }
+    OnUpdated.Remove(Callback);
 }
 
 #pragma region StackingBuff
@@ -402,6 +426,7 @@ void UBuff::HandleBuffApplyEventReplication(FBuffApplyEvent const& ReplicatedEve
     {
         return;
     }
+    Handler = BuffContainer;
     BuffContainer->NotifyOfReplicatedIncomingBuffApply(ReplicatedEvent);
 
     if (!IsValid(ReplicatedEvent.AppliedBy) || !ReplicatedEvent.AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))

@@ -16,7 +16,7 @@ UBuffHandler::UBuffHandler()
 void UBuffHandler::ApplyBuff(FBuffApplyEvent& BuffEvent)
 {
 	UBuff* AffectedBuff = FindExistingBuff(BuffEvent.BuffClass, BuffEvent.AppliedBy);
-	if (AffectedBuff && ! (AffectedBuff->GetDuplicable() || BuffEvent.DuplicateOverride))
+	if (AffectedBuff && !(AffectedBuff->GetDuplicable() || BuffEvent.DuplicateOverride))
 	{
 		AffectedBuff->ApplyEvent(BuffEvent);
 	}
@@ -25,7 +25,7 @@ void UBuffHandler::ApplyBuff(FBuffApplyEvent& BuffEvent)
 		CreateNewBuff(BuffEvent);
 	}
 	
-	if (BuffEvent.Result.ActionTaken != EBuffApplyAction::Failed)
+	if (BuffEvent.Result.ActionTaken == EBuffApplyAction::NewBuff)
 	{
 		OnIncomingBuffApplied.Broadcast(BuffEvent);
 	}
@@ -206,7 +206,7 @@ bool UBuffHandler::CheckIncomingBuffRestricted(FBuffApplyEvent const& BuffEvent)
 void UBuffHandler::CreateNewBuff(FBuffApplyEvent& BuffEvent)
 {
 	UBuff* NewBuff = NewObject<UBuff>(GetOwner(), BuffEvent.BuffClass);
-	NewBuff->InitializeBuff(BuffEvent);
+	NewBuff->InitializeBuff(BuffEvent, this);
 	switch (NewBuff->GetBuffType())
 	{
 		case EBuffType::Buff :

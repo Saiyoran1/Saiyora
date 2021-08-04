@@ -90,7 +90,7 @@ FBuffApplyEvent USaiyoraBuffLibrary::ApplyBuff(
     BuffTarget->ApplyBuff(Event);
 
     //If the event was successful, and the actor applying the buff did have a buff generator, notify that component of the event.
-    if (Event.Result.ActionTaken != EBuffApplyAction::Failed && BuffGenerator)
+    if (Event.Result.ActionTaken == EBuffApplyAction::NewBuff && IsValid(BuffGenerator))
     {
         BuffGenerator->SuccessfulOutgoingBuffApplication(Event);
     }

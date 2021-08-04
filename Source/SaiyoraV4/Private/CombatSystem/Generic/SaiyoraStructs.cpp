@@ -1,6 +1,6 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 #include "SaiyoraStructs.h"
-
+#include "BuffHandler.h"
 #include "Buff.h"
 
 int32 FModifierCollection::GlobalID = 0;
@@ -18,9 +18,18 @@ void FCombatModifier::Activate()
 {
     if (bFromBuff && IsValid(Source))
     {
-        //TODO: Add per-buff callbacks in addition to handler callbacks.
-        //Subscribe to owning buff stacked, passing OnBuffStacked.
-        //Subscribe to owning buff removed, passing OnBuffRemoved.
+        if (bStackable)
+        {
+            FBuffEventCallback StackCallback;
+            StackCallback.BindDynamic(this, &FCombatModifier::OnBuffStacked);
+            Source->SubscribeToBuffUpdated(StackCallback);
+        }
+        if (IsValid(Source->GetHandler()))
+        {
+            FBuffRemoveCallback RemoveCallback;
+            RemoveCallback.BindDynamic(this, &FCombatModifier::OnBuffRemoved);
+            Source->GetHandler()->SubscribeToIncomingBuffRemove(RemoveCallback);
+        }
     }
 }
 
@@ -120,11 +129,76 @@ void FModifierCollection::RemoveModifier(int32 const ModifierID)
     if (ModifierID == -1)
     {
         return;
-    }
+    }    
     if (IndividualModifiers.Remove(ModifierID) > 0)
     {
         RecalculateMods();
     }
+}
+
+void FCombatFloatValue::AddDependency(FModifierCollection* NewDependency)
+{
+    if (NewDependency)
+    {
+        Dependencies.Add(NewDependency);
+    }
+}
+
+void FCombatFloatValue::RemoveDependency(FModifierCollection* NewDependency)
+{
+    if (NewDependency)
+    {
+        Dependencies.RemoveSingleSwap(NewDependency);
+    }
+}
+
+void FCombatFloatValue::GetDependencyModifiers(TArray<FCombatModifier>& OutMods)
+{
+    for (FModifierCollection* Dependency : Dependencies)
+    {
+        if (Dependency)
+        {
+            Dependency->GetSummedModifiers(OutMods);
+        }
+    }
+}
+
+void FCombatFloatValue::SetRecalculationFunction(FCombatValueRecalculation const& NewCalculation)
+{
+    if (NewCalculation.IsBound())
+    {
+        CustomCalculation = NewCalculation;
+    }
+}
+
+void FCombatFloatValue::RecalculateValue()
+{
+    if (CustomCalculation.IsBound())
+    {
+        TArray<FCombatModifier> DependencyMods;
+        GetDependencyModifiers(DependencyMods);
+        Value = CustomCalculation.Execute(DependencyMods);
+    }
+    else
+    {
+        DefaultRecalculation();
+    }
+}
+
+void FCombatFloatValue::DefaultRecalculation()
+{
+    TArray<FCombatModifier> DependencyMods;
+    GetDependencyModifiers(DependencyMods);
+    float NewValue = FCombatModifier::ApplyModifiers(DependencyMods, BaseValue);
+    if (bCappedLow)
+    {
+        NewValue = FMath::Max(Minimum, NewValue);
+    }
+    if (bCappedHigh)
+    {
+        NewValue = FMath::Min(Maximum, NewValue);
+    }
+    Value = NewValue;
 }
 
 void FModifierCollection::RecalculateMods()

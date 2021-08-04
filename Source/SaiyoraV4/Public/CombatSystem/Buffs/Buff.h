@@ -8,6 +8,7 @@
 #include "Buff.generated.h"
 
 class UBuffFunction;
+class UBuffHandler;
 
 UCLASS(Blueprintable, Abstract)
 class SAIYORAV4_API UBuff : public UObject
@@ -20,6 +21,8 @@ private:
 
 	UPROPERTY()
 	AGameStateBase* GameStateRef;
+	UPROPERTY()
+	UBuffHandler* Handler;
 	
 	//Display Info
 	//Basic information needed for UI display.
@@ -91,6 +94,9 @@ private:
 
 	UPROPERTY()
 	TArray<UBuffFunction*> Functions;
+
+	//Delegates
+	FBuffEventNotification OnUpdated;
 
 #pragma endregion
 	
@@ -164,6 +170,8 @@ public:
     AActor* GetAppliedTo() const { return CreationEvent.AppliedTo; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Getter")
     UObject* GetSource() const { return CreationEvent.Source; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Getter")
+	UBuffHandler* GetHandler() const { return Handler; }
 
 #pragma endregion
 
@@ -171,10 +179,14 @@ public:
 
 	//Application and Expiration Functions
 
-	void InitializeBuff(FBuffApplyEvent& ApplicationEvent);
+	void InitializeBuff(FBuffApplyEvent& ApplicationEvent, UBuffHandler* Handler);
 	void ApplyEvent(FBuffApplyEvent& ApplicationEvent);
 	void ExpireBuff(FBuffRemoveEvent const & RemoveEvent);
 	void RegisterBuffFunction(UBuffFunction* NewFunction);
+	UFUNCTION(BlueprintCallable, Category = "Buffs")
+	void SubscribeToBuffUpdated(FBuffEventCallback const& Callback);
+	UFUNCTION(BlueprintCallable, Category = "Buffs")
+	void UnsubscribeFromBuffUpdated(FBuffEventCallback const& Callback);
 	
 protected:
 	
@@ -192,7 +204,6 @@ private:
 	void NotifyFunctionsOfStack(FBuffApplyEvent const & ApplyEvent);
 
 	//Refreshing
-	
 	void SetInitialDuration(EBuffApplicationOverrideType const OverrideType, float const OverrideDuration);
 	bool RefreshBuff(EBuffApplicationOverrideType const OverrideType, float const OverrideDuration);
 	void UpdateDurationNoOverride();
