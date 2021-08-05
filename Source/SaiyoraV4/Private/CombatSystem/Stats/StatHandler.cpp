@@ -179,7 +179,7 @@ int32 UStatHandler::AddStatModifier(FGameplayTag const StatTag, FCombatModifier 
 	{
 		return -1;
 	}
-	int32 const ModID = FCombatModifier::GetID();
+	int32 const ModID = FModifierCollection::GetID();
 	Info->StatModifiers.Add(ModID, Modifier);
 	RecalculateStat(StatTag);
 	return ModID;

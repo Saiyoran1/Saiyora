@@ -52,49 +52,42 @@ public:
     int32 AddModifier(FCombatModifier const& Modifier);
     void RemoveModifier(int32 const ModifierID);
     void GetSummedModifiers(TArray<FCombatModifier>& OutMods) const { OutMods.Add(SummedAddMod); OutMods.Add(SummedMultMod); }
-    void GetIndividualModifiers(TArray<FCombatModifier>& OutMods) const { IndividualModifiers.GenerateValueArray(OutMods); }
-    FDelegateHandle BindToModsChanged(FModifierCallback const& Callback)
-    {
-        if (Callback.IsBound())
-        {
-            return OnModifiersChanged.Add(Callback);
-        }
-        FDelegateHandle const Invalid;
-        return Invalid;
-    }
-    void UnbindFromModsChanged(FDelegateHandle const& Handle)
-    {
-        if (Handle.IsValid())
-        {
-            OnModifiersChanged.Remove(Handle);
-        }
-    }
+    FDelegateHandle BindToModsChanged(FModifierCallback const& Callback);
+    void UnbindFromModsChanged(FDelegateHandle const& Handle);
 };
 
-DECLARE_DELEGATE_RetVal_OneParam(float, FCombatValueRecalculation, TArray<FCombatModifier>const&)
+DECLARE_DELEGATE_RetVal_TwoParams(float, FCombatValueRecalculation, TArray<FCombatModifier>const&, float const);
+DECLARE_DELEGATE_TwoParams(FFloatValueCallback, float const, float const);
+DECLARE_MULTICAST_DELEGATE_TwoParams(FFloatValueNotification, float const, float const);
 
 USTRUCT()
 struct FCombatFloatValue
 {
     GENERATED_BODY()
 
-    float BaseValue = 0.0f;
-    bool bModifiable = false;
-    bool bCappedLow = false;
-    float Minimum = 0.0f;
-    bool bCappedHigh = false;
-    float Maximum = 0.0f;
-    float Value = 0.0f;
-
+    FCombatFloatValue();
+    FCombatFloatValue(float const BaseValue, bool const bModifiable = false, bool const HasMin = false, float const Min = 0.0f, bool const bHasMax = false, float const Max = 0.0f);
+    float GetValue() const { return Value; }
     void AddDependency(FModifierCollection* NewDependency);
     void RemoveDependency(FModifierCollection* NewDependency);
     void GetDependencyModifiers(TArray<FCombatModifier>& OutMods);
     void SetRecalculationFunction(FCombatValueRecalculation const& NewCalculation);
+    float ForceRecalculation();
+    FDelegateHandle BindToValueChanged(FFloatValueCallback const& Callback);
+    void UnbindFromValueChanged(FDelegateHandle const& Handle);
 private:
+    bool bModifiable = false;
+    bool bHasMin = false;
+    float Minimum = 0.0f;
+    bool bHasMax = false;
+    float Maximum = 0.0f;
+    float BaseValue = 0.0f;
+    float Value = 0.0f;
     void RecalculateValue();
     TArray<FModifierCollection*> Dependencies;
     void DefaultRecalculation();
     FCombatValueRecalculation CustomCalculation;
+    FFloatValueNotification OnValueChanged;
 };
 
 USTRUCT()

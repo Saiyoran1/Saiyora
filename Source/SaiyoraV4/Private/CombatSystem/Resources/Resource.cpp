@@ -360,7 +360,7 @@ int32 UResource::AddResourceDeltaModifier(FResourceDeltaModifier const& Modifier
     {
         return -1;
     }
-    int32 const ModID = FCombatModifier::GetID();
+    int32 const ModID = FModifierCollection::GetID();
     ResourceDeltaMods.Add(ModID, Modifier);
     OnResourceDeltaModsChanged.Broadcast(this);
     return ModID;

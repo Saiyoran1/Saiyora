@@ -1,5 +1,5 @@
 ﻿#include "AbilityStructs.h"
-
+#include "SaiyoraStructs.h"
 #include "AbilityHandler.h"
 #include "CombatAbility.h"
 
@@ -22,7 +22,7 @@ void FAbilityModCollection::Initialize(TSubclassOf<UCombatAbility> const Ability
 	{
 		return;
 	}
-	MaxCharges.bModifiable = !DefaultAbility->GetHasStaticMaxCharges();
+	/*MaxCharges.bModifiable = !DefaultAbility->GetHasStaticMaxCharges();
 	MaxCharges.bCappedLow = true;
 	MaxCharges.Minimum = 1;
 	MaxCharges.BaseValue = DefaultAbility->GetDefaultMaxCharges();
@@ -31,19 +31,20 @@ void FAbilityModCollection::Initialize(TSubclassOf<UCombatAbility> const Ability
 	MaxChargeCallback.BindRaw(this, &FAbilityModCollection::RecalculateMaxCharges);
 	MaxChargeHandle = GenericMaxChargeMods.BindToModsChanged(MaxChargeCallback);
 	TArray<FCombatModifier> Mods;
-	GenericMaxChargeModifiers->GetModifiers(Mods);
+	GenericMaxChargeModifiers->GetSummedModifiers(Mods);
 	TArray<FCombatModifier> SpecificMods;
-	MaxChargeModifiers.GetModifiers(SpecificMods);
+	MaxChargeModifiers.GetSummedModifiers(SpecificMods);
 	Mods.Append(SpecificMods);
 	MaxCharges.Value = FCombatModifier::ApplyModifiers(Mods, MaxCharges.BaseValue);
 	Mods.Empty();
-	SpecificMods.Empty();
+	SpecificMods.Empty();*/
 	//TODO: Finish the rest of this initialization of modifiers.
 	//End goal is that each AbilityClass that the UAbilityHandler receives a Modifier for or instantiates will have one of these structs.
 	//The struct will hold a constantly updated set of values for all modifiable values concerning an ability class.
 	//PlayerAbilityHandler will likely need to recreate this on owning clients.
 	//The end goal is that it should be very easy to check if an ability is castable without having to calculate everything, since any time a modifier is added or removed, final values will be updated.
 	//Another goal is just to work out a more generic system for modifying values that can be used across other components.
+	/*
 	ChargesPerCast.bModifiable = !DefaultAbility->GetHasStaticChargeCost();
 	ChargesPerCast.bCappedLow = true;
 	ChargesPerCast.Minimum = 0;
@@ -61,33 +62,19 @@ void FAbilityModCollection::Initialize(TSubclassOf<UCombatAbility> const Ability
 	FModifierCallback ChargesPerCooldownCallback;
 	ChargesPerCooldownCallback.BindRaw(this, &FAbilityModCollection::RecalculateChargesPerCooldown);
 	ChargesPerCooldownHandle = GenericChargesPerCooldownMods.BindToModsChanged(ChargesPerCooldownCallback);
+	*/
+	//TODO: callbacks to update UI?
+	GlobalCooldownLength = FCombatFloatValue(DefaultAbility->GetDefaultGlobalCooldownLength(), !DefaultAbility->HasStaticGlobalCooldown(), true, UAbilityHandler::MinimumGlobalCooldownLength);
+	GlobalCooldownLength.AddDependency(&GenericGlobalCooldownLengthMods);
+	GlobalCooldownLength.AddDependency(&GlobalCooldownModifiers);
 
-	GlobalCooldownLength.bModifiable = !DefaultAbility->HasStaticGlobalCooldown();
-	GlobalCooldownLength.bCappedLow = true;
-	GlobalCooldownLength.Minimum = UAbilityHandler::MinimumGlobalCooldownLength;
-	GlobalCooldownLength.BaseValue = DefaultAbility->GetDefaultGlobalCooldownLength();
-	GenericGlobalCooldownModifiers = &GenericGlobalCooldownLengthMods;
-	FModifierCallback GlobalCooldownCallback;
-	GlobalCooldownCallback.BindRaw(this, &FAbilityModCollection::RecalculateGlobalCooldownLength);
-	GlobalCooldownHandle = GenericGlobalCooldownLengthMods.BindToModsChanged(GlobalCooldownCallback);
+	CooldownLength = FCombatFloatValue(DefaultAbility->GetDefaultCooldown(), !DefaultAbility->GetHasStaticCooldown(), true, UAbilityHandler::MinimumCooldownLength);
+	CooldownLength.AddDependency(&GenericCooldownLengthMods);
+	CooldownLength.AddDependency(&CooldownModifiers);
 
-	CooldownLength.bModifiable = !DefaultAbility->GetHasStaticCooldown();
-	CooldownLength.bCappedLow = true;
-	CooldownLength.Minimum = UAbilityHandler::MinimumCooldownLength;
-	CooldownLength.BaseValue = DefaultAbility->GetDefaultCooldown();
-	GenericCooldownModifiers = &GenericCooldownLengthMods;
-	FModifierCallback CooldownCallback;
-	CooldownCallback.BindRaw(this, &FAbilityModCollection::RecalculateCooldownLength);
-	CooldownHandle = GenericCooldownLengthMods.BindToModsChanged(CooldownCallback);
-
-	CastLength.bModifiable = !DefaultAbility->HasStaticCastLength();
-	CastLength.bCappedLow = true;
-	CastLength.Minimum = UAbilityHandler::MinimumCastLength;
-	CastLength.BaseValue = DefaultAbility->GetDefaultCastLength();
-	GenericCastLengthModifiers = &GenericCastLengthMods;
-	FModifierCallback CastLengthCallback;
-	CastLengthCallback.BindRaw(this, &FAbilityModCollection::RecalculateCastLength);
-	CastLengthHandle = GenericCastLengthMods.BindToModsChanged(CastLengthCallback);
+	CastLength = FCombatFloatValue(DefaultAbility->GetDefaultCastLength(), !DefaultAbility->HasStaticCastLength(), true, UAbilityHandler::MinimumCastLength);
+	CastLength.AddDependency(&GenericCastLengthMods);
+	CastLength.AddDependency(&CastLengthModifiers);
 
 	TArray<FAbilityCost> Costs;
 	DefaultAbility->GetDefaultAbilityCosts(Costs);
@@ -95,18 +82,25 @@ void FAbilityModCollection::Initialize(TSubclassOf<UCombatAbility> const Ability
 	{
 		if (IsValid(Cost.ResourceClass))
 		{
-			FCombatFloatValue NewCost;
-			NewCost.bModifiable = !Cost.bStaticCost;
-			NewCost.bCappedLow = true;
-			NewCost.Minimum = 0.0f;
-			NewCost.BaseValue = Cost.Cost;
-			AbilityCosts.Add(Cost.ResourceClass, NewCost);
+			FCombatFloatValue& CostValue = AbilityCosts.Add(Cost.ResourceClass, FCombatFloatValue(Cost.Cost, !Cost.bStaticCost, true, 0.0f));
+			FModifierCollection* CostModPtr = GenericCostMods.Find(Cost.ResourceClass);
+			if (CostModPtr)
+			{
+				CostValue.AddDependency(CostModPtr);
+			}
+			CostModPtr = CostModifiers.Find(Cost.ResourceClass);
+			if (CostModPtr)
+			{
+				CostValue.AddDependency(CostModPtr);
+			}
+			//TODO: Add dependency on resource delta mods? Maybe simplify the amount of things modifying resource cost?
+			//Right now its ability-specific resource-specific cost mods, resource-specific ability cost mods, resource-specific delta mods.
+			//(X Ability cost Y more Mana)	(Mana is spent Y more by all abilities)	(All changes in Mana are multipied by Y)
 		}
 	}
 }
 
-void FAbilityModCollection::RecalculateMaxCharges(FCombatModifier const& GenericAddMod,
-	FCombatModifier const& GenericMultMod)
+void FAbilityModCollection::RecalculateMaxCharges()
 {
 	
 }

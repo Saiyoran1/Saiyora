@@ -108,10 +108,8 @@ int32 UAbilityHandler::AddGenericAbilityCostModifier(TSubclassOf<UResource> cons
 	{
 		return -1;
 	}
-	int32 const ModID = FCombatModifier::GetID();
-	FResourceModifiers& Mods = GenericCostModifiers.FindOrAdd(ResourceClass);
-	Mods.Modifiers.Add(ModID, Modifier);
-	return ModID;
+	FModifierCollection& Mods = GenericCostModifiers.FindOrAdd(ResourceClass);
+	return Mods.AddModifier(Modifier);
 }
 
 void UAbilityHandler::RemoveGenericAbilityCostModifier(TSubclassOf<UResource> const ResourceClass,
@@ -121,10 +119,10 @@ void UAbilityHandler::RemoveGenericAbilityCostModifier(TSubclassOf<UResource> co
 	{
 		return;
 	}
-	FResourceModifiers* Mods = GenericCostModifiers.Find(ResourceClass);
+	FModifierCollection* Mods = GenericCostModifiers.Find(ResourceClass);
 	if (Mods)
 	{
-		Mods->Modifiers.Remove(ModifierID);
+		Mods->RemoveModifier(ModifierID);
 	}
 }
 

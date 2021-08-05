@@ -267,5 +267,5 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void CalculateAbilityCosts(TSubclassOf<UCombatAbility> const AbilityClass, TArray<FAbilityCost>& OutCosts);
 private:
-	TMap<TSubclassOf<UResource>, FResourceModifiers> GenericCostModifiers;
+	TMap<TSubclassOf<UResource>, FModifierCollection> GenericCostModifiers;
 };

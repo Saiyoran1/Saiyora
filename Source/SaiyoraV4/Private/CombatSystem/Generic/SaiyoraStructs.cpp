@@ -136,6 +136,55 @@ void FModifierCollection::RemoveModifier(int32 const ModifierID)
     }
 }
 
+FDelegateHandle FModifierCollection::BindToModsChanged(FModifierCallback const& Callback)
+{
+    if (Callback.IsBound())
+    {
+        return OnModifiersChanged.Add(Callback); 
+    }
+    FDelegateHandle const Fail;
+    return Fail;
+}
+
+void FModifierCollection::UnbindFromModsChanged(FDelegateHandle const& Handle)
+{
+    if (Handle.IsValid())
+    {
+        OnModifiersChanged.Remove(Handle);
+    }
+}
+
+FCombatFloatValue::FCombatFloatValue()
+{
+    bModifiable = false;
+    bHasMin = false;
+    Minimum = 0.0f;
+    bHasMax = false;
+    Maximum = 0.0f;
+    BaseValue = 0.0f;
+    Value = 0.0f;
+}
+
+FCombatFloatValue::FCombatFloatValue(float const BaseValue, bool const bModifiable, bool const HasMin, float const Min, bool const bHasMax,
+                                     float const Max)
+{
+    this->bModifiable = bModifiable;
+    this->bHasMin = HasMin;
+    Minimum = Min;
+    this->bHasMax = bHasMax;
+    Maximum = FMath::Max(Minimum, Max);
+    this->BaseValue = BaseValue;
+    if (this->bHasMin)
+    {
+        this->BaseValue = FMath::Max(Minimum, this->BaseValue);
+    }
+    if (this->bHasMax)
+    {
+        this->BaseValue = FMath::Min(Maximum, this->BaseValue);
+    }
+    Value = this->BaseValue;
+}
+
 void FCombatFloatValue::AddDependency(FModifierCollection* NewDependency)
 {
     if (NewDependency)
@@ -171,17 +220,64 @@ void FCombatFloatValue::SetRecalculationFunction(FCombatValueRecalculation const
     }
 }
 
+float FCombatFloatValue::ForceRecalculation()
+{
+    RecalculateValue();
+    return Value;
+}
+
+FDelegateHandle FCombatFloatValue::BindToValueChanged(FFloatValueCallback const& Callback)
+{
+    if (Callback.IsBound())
+    {
+        return OnValueChanged.Add(Callback);
+    }
+    FDelegateHandle const Fail;
+    return Fail;
+}
+
+void FCombatFloatValue::UnbindFromValueChanged(FDelegateHandle const& Handle)
+{
+    if (Handle.IsValid())
+    {
+        OnValueChanged.Remove(Handle);
+    }
+}
+
 void FCombatFloatValue::RecalculateValue()
 {
+    float const OldValue = Value;
+    if (!bModifiable)
+    {
+        Value = BaseValue;
+        if (Value != OldValue)
+        {
+            OnValueChanged.Broadcast(OldValue, Value);
+        }
+        return;
+    }
     if (CustomCalculation.IsBound())
     {
         TArray<FCombatModifier> DependencyMods;
         GetDependencyModifiers(DependencyMods);
-        Value = CustomCalculation.Execute(DependencyMods);
+        float CustomValue = CustomCalculation.Execute(DependencyMods, BaseValue);
+        if (bHasMin)
+        {
+            CustomValue = FMath::Max(Minimum, CustomValue);
+        }
+        if (bHasMax)
+        {
+            CustomValue = FMath::Min(Maximum, CustomValue);
+        }
+        Value = CustomValue;
     }
     else
     {
         DefaultRecalculation();
+    }
+    if (Value != OldValue)
+    {
+        OnValueChanged.Broadcast(OldValue, Value);
     }
 }
 
@@ -190,11 +286,11 @@ void FCombatFloatValue::DefaultRecalculation()
     TArray<FCombatModifier> DependencyMods;
     GetDependencyModifiers(DependencyMods);
     float NewValue = FCombatModifier::ApplyModifiers(DependencyMods, BaseValue);
-    if (bCappedLow)
+    if (bHasMin)
     {
         NewValue = FMath::Max(Minimum, NewValue);
     }
-    if (bCappedHigh)
+    if (bHasMax)
     {
         NewValue = FMath::Min(Maximum, NewValue);
     }
