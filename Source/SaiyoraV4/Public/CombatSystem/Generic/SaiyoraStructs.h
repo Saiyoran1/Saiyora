@@ -13,26 +13,29 @@ USTRUCT(BlueprintType)
 struct FCombatModifier
 {
     GENERATED_BODY()
-
-    UPROPERTY()
-    class UBuff* Source = nullptr;
-    bool bFromBuff = false;
-    UPROPERTY(BlueprintReadOnly)
-    EModifierType ModType = EModifierType::Invalid;
-    UPROPERTY(BlueprintReadOnly)
-    float ModValue = 0.0f;
-    UPROPERTY(BlueprintReadOnly)
-    bool bStackable = true;
-
+    
     void Reset();
-    void Activate();
-    static float ApplyModifiers(TArray<FCombatModifier> const& ModArray, float const BaseValue);
-    static void CombineModifiers(TArray<FCombatModifier> const& ModArray, FCombatModifier& OutAddMod, FCombatModifier& OutMultMod);
-
-    FModifierNotification OnStacksChanged;
-    FModifierNotification OnSourceRemoved;
+    void Activate(FModifierCallback const& OnChangedCallback);
+    void SetValue(float const NewValue);
+    void SetModType(EModifierType const NewModType);
+    void SetStackable(bool const NewStackable);
+    void SetSource(class UBuff* NewSource);
+    float GetValue() const { return ModValue; }
+    EModifierType GetModType() const { return ModType; }
+    bool GetStackable() const { return bStackable; }
+    UBuff* GetSource() const { return Source; }
+private:
+    UPROPERTY()
+    UBuff* Source = nullptr;
+    EModifierType ModType = EModifierType::Invalid;
+    float ModValue = 0.0f;
+    bool bStackable = true;
     void OnBuffStacked(struct FBuffApplyEvent const& Event);
     void OnBuffRemoved(struct FBuffRemoveEvent const& Event);
+    FModifierNotification OnModifierChanged;
+public:
+    static float ApplyModifiers(TArray<FCombatModifier> const& ModArray, float const BaseValue);
+    static void CombineModifiers(TArray<FCombatModifier> const& ModArray, FCombatModifier& OutAddMod, FCombatModifier& OutMultMod);
 };
 
 USTRUCT()

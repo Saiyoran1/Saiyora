@@ -138,10 +138,8 @@ int32 UAbilityHandler::AddClassAbilityCostModifier(TSubclassOf<UCombatAbility> c
 	{
 		return -1;
 	}
-	int32 const ModID = FCombatModifier::GetID();
-	FResourceModifiers& ResourceMods = Mods->CostModifiers.FindOrAdd(ResourceClass);
-	ResourceMods.Modifiers.Add(ModID, Modifier);
-	return ModID;
+	int32 const ID = Mods->AddCostModifier(ResourceClass, Modifier);
+	return ID;
 }
 
 void UAbilityHandler::RemoveClassAbilityCostModifier(TSubclassOf<UCombatAbility> const AbilityClass,
@@ -154,11 +152,7 @@ void UAbilityHandler::RemoveClassAbilityCostModifier(TSubclassOf<UCombatAbility>
 	FAbilityModCollection* ModCollection = ClassSpecificModifiers.Find(AbilityClass);
 	if (ModCollection)
 	{
-		FResourceModifiers* ResourceMods = ModCollection->CostModifiers.Find(ResourceClass);
-		if (ResourceMods)
-		{
-			ResourceMods->Modifiers.Remove(ModifierID);
-		}
+		ModCollection->RemoveCostModifier(ResourceClass, ModifierID);
 	}
 }
 
@@ -178,8 +172,16 @@ float UAbilityHandler::CalculateAbilityCost(TSubclassOf<UCombatAbility> const Ab
 	{
 		return DefaultCost.Cost;
 	}
+	FAbilityModCollection* AbilityInfo = ClassSpecificModifiers.Find(AbilityClass);
+	if (AbilityInfo)
+	{
+		//TODO: Is this even implemented???
+		return AbilityInfo->GetCost(ResourceClass);
+	}
+	return DefaultCost.Cost;
+	/*
 	TArray<FCombatModifier> Mods;
-	FResourceModifiers* GenericMods = GenericCostModifiers.Find(ResourceClass);
+	FModifierCollection* GenericMods = GenericCostModifiers.Find(ResourceClass);
 	if (GenericMods)
 	{
 		GenericMods->Modifiers.GenerateValueArray(Mods);
@@ -196,6 +198,7 @@ float UAbilityHandler::CalculateAbilityCost(TSubclassOf<UCombatAbility> const Ab
 		}
 	}
 	return FCombatModifier::ApplyModifiers(Mods, DefaultCost.Cost);
+	*/
 }
 
 void UAbilityHandler::CalculateAbilityCosts(TSubclassOf<UCombatAbility> const AbilityClass,

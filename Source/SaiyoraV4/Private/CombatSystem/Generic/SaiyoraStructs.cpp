@@ -7,16 +7,28 @@ int32 FModifierCollection::GlobalID = 0;
 
 void FCombatModifier::Reset()
 {
+    if (IsValid(Source))
+    {
+        FBuffEventCallback StackCallback;
+        StackCallback.BindDynamic(this, &FCombatModifier::OnBuffStacked);
+        Source->UnsubscribeFromBuffUpdated(StackCallback);
+        if (IsValid(Source->GetHandler()))
+        {
+            FBuffRemoveCallback RemoveCallback;
+            RemoveCallback.BindDynamic(this, &FCombatModifier::OnBuffRemoved);
+            Source->GetHandler()->UnsubscribeFromIncomingBuffRemove(RemoveCallback);
+        }
+    }
     Source = nullptr;
-    bFromBuff = false;
     ModType = EModifierType::Invalid;
     ModValue = 0.0f;
     bStackable = false;
+    OnModifierChanged.Clear();
 }
 
-void FCombatModifier::Activate()
+void FCombatModifier::Activate(FModifierCallback const& OnChangedCallback)
 {
-    if (bFromBuff && IsValid(Source))
+    if (IsValid(Source))
     {
         if (bStackable)
         {
@@ -30,6 +42,96 @@ void FCombatModifier::Activate()
             RemoveCallback.BindDynamic(this, &FCombatModifier::OnBuffRemoved);
             Source->GetHandler()->SubscribeToIncomingBuffRemove(RemoveCallback);
         }
+        OnModifierChanged.Add(OnChangedCallback);
+    }
+}
+
+void FCombatModifier::SetValue(float const NewValue)
+{
+    if (NewValue != ModValue)
+    {
+        ModValue = NewValue;
+        OnModifierChanged.Broadcast();
+    }
+}
+
+void FCombatModifier::SetModType(EModifierType const NewModType)
+{
+    if (NewModType != ModType)
+    {
+        ModType = NewModType;
+        OnModifierChanged.Broadcast();
+    }
+}
+
+void FCombatModifier::SetStackable(bool const NewStackable)
+{
+    if (NewStackable != bStackable)
+    {
+        bStackable = NewStackable;
+        if (IsValid(Source))
+        {
+            FBuffEventCallback StackCallback;
+            StackCallback.BindDynamic(this, &FCombatModifier::OnBuffStacked);
+            if (bStackable)
+            {
+                Source->SubscribeToBuffUpdated(StackCallback);
+            }
+            else
+            {
+                Source->UnsubscribeFromBuffUpdated(StackCallback);
+            }
+            if (Source->GetCurrentStacks() != 1)
+            {
+                OnModifierChanged.Broadcast();
+            }
+        }
+    }
+}
+
+void FCombatModifier::SetSource(UBuff* NewSource)
+{
+    int32 PreviousSourceStacks = 1;
+    if (IsValid(Source))
+    {
+        if (IsValid(NewSource) && NewSource == Source)
+        {
+            return;
+        }
+        if (bStackable)
+        {
+            PreviousSourceStacks = Source->GetCurrentStacks();
+            FBuffEventCallback StackCallback;
+            StackCallback.BindDynamic(this, &OnBuffStacked);
+            Source->UnsubscribeFromBuffUpdated(StackCallback);
+        }
+        if (IsValid(Source->GetHandler()))
+        {
+            FBuffRemoveCallback RemoveCallback;
+            RemoveCallback.BindDynamic(this, &OnBuffRemoved);
+            Source->GetHandler()->UnsubscribeFromIncomingBuffRemove(RemoveCallback);
+        }
+        Source = nullptr;
+    }
+    if (IsValid(NewSource))
+    {
+        Source = NewSource;
+        if (bStackable)
+        {
+            FBuffEventCallback StackCallback;
+            StackCallback.BindDynamic(this, &OnBuffStacked);
+            Source->SubscribeToBuffUpdated(StackCallback);
+        }
+        if (IsValid(Source->GetHandler()))
+        {
+            FBuffRemoveCallback RemoveCallback;
+            RemoveCallback.BindDynamic(this, &OnBuffRemoved);
+            Source->GetHandler()->SubscribeToIncomingBuffRemove(RemoveCallback);
+        }
+    }
+    if (bStackable && PreviousSourceStacks != (IsValid(Source) ? Source->GetCurrentStacks() : 1))
+    {
+        OnModifierChanged.Broadcast();
     }
 }
 
@@ -37,7 +139,7 @@ void FCombatModifier::OnBuffStacked(FBuffApplyEvent const& Event)
 {
     if (Event.Result.AffectedBuff == Source && Event.Result.PreviousStacks != Event.Result.NewStacks)
     {
-        OnStacksChanged.Broadcast();
+        OnModifierChanged.Broadcast();
     }
 }
 
@@ -46,7 +148,7 @@ void FCombatModifier::OnBuffRemoved(FBuffRemoveEvent const& Event)
     if (Event.RemovedBuff == Source)
     {
         ModType = EModifierType::Invalid;
-        OnSourceRemoved.Broadcast();
+        OnModifierChanged.Broadcast();
     }
 }
 
@@ -65,11 +167,7 @@ void FCombatModifier::CombineModifiers(TArray<FCombatModifier> const& ModArray, 
     float MultMod = 1.0f;
     for (FCombatModifier const& Mod : ModArray)
     {
-        if (Mod.bFromBuff && !IsValid(Mod.Source))
-        {
-            continue;
-        }
-        bool const bShouldStack = Mod.bFromBuff && Mod.bStackable && IsValid(Mod.Source);
+        bool const bShouldStack = Mod.bStackable && IsValid(Mod.Source);
         switch (Mod.ModType)
         {
         case EModifierType::Invalid :
@@ -107,19 +205,15 @@ int32 FModifierCollection::GetID()
 
 int32 FModifierCollection::AddModifier(FCombatModifier const& Modifier)
 {
-    if (Modifier.ModType == EModifierType::Invalid)
+    if (Modifier.GetModType() == EModifierType::Invalid)
     {
         return -1;
     }
     int32 const ModID = GetID();
     FCombatModifier& NewMod = IndividualModifiers.Add(ModID, Modifier);
-    NewMod.Activate();
-    FModifierCallback StackCallback;
-    StackCallback.BindRaw(this, &FModifierCollection::RecalculateMods);
-    NewMod.OnStacksChanged.Add(StackCallback);
-    FModifierCallback RemoveCallback;
-    RemoveCallback.BindRaw(this, &FModifierCollection::PurgeInvalidMods);
-    NewMod.OnSourceRemoved.Add(RemoveCallback);
+    FModifierCallback OnChangedCallback;
+    OnChangedCallback.BindRaw(this, &FModifierCollection::RecalculateMods);
+    NewMod.Activate(OnChangedCallback);
     RecalculateMods();
     return ModID;
 }
@@ -151,6 +245,36 @@ void FModifierCollection::UnbindFromModsChanged(FDelegateHandle const& Handle)
     if (Handle.IsValid())
     {
         OnModifiersChanged.Remove(Handle);
+    }
+}
+
+void FModifierCollection::RecalculateMods()
+{
+    float const PreviousAddMod = SummedAddMod.GetValue();
+    float const PreviousMultMod = SummedMultMod.GetValue();
+    PurgeInvalidMods();
+    TArray<FCombatModifier> Mods;
+    IndividualModifiers.GenerateValueArray(Mods);
+    FCombatModifier::CombineModifiers(Mods, SummedAddMod, SummedMultMod);
+    if (PreviousAddMod != SummedAddMod.GetValue() || PreviousMultMod != SummedMultMod.GetValue())
+    {
+        OnModifiersChanged.Broadcast();
+    }
+}
+
+void FModifierCollection::PurgeInvalidMods()
+{
+    TArray<int32> InvalidIDs;
+    for (TTuple<int32, FCombatModifier> const& Mod : IndividualModifiers)
+    {
+        if (Mod.Value.GetModType() == EModifierType::Invalid)
+        {
+            InvalidIDs.Add(Mod.Key);
+        }
+    }
+    for (int32 const ID : InvalidIDs)
+    {
+        IndividualModifiers.Remove(ID);
     }
 }
 
@@ -247,38 +371,37 @@ void FCombatFloatValue::UnbindFromValueChanged(FDelegateHandle const& Handle)
 void FCombatFloatValue::RecalculateValue()
 {
     float const OldValue = Value;
-    if (!bModifiable)
+    if (bModifiable)
     {
-        Value = BaseValue;
-        if (Value != OldValue)
+        if (CustomCalculation.IsBound())
         {
-            OnValueChanged.Broadcast(OldValue, Value);
+            TArray<FCombatModifier> DependencyMods;
+            GetDependencyModifiers(DependencyMods);
+            float CustomValue = CustomCalculation.Execute(DependencyMods, BaseValue);
+            if (bHasMin)
+            {
+                CustomValue = FMath::Max(Minimum, CustomValue);
+            }
+            if (bHasMax)
+            {
+                CustomValue = FMath::Min(Maximum, CustomValue);
+            }
+            Value = CustomValue;
         }
-        return;
-    }
-    if (CustomCalculation.IsBound())
-    {
-        TArray<FCombatModifier> DependencyMods;
-        GetDependencyModifiers(DependencyMods);
-        float CustomValue = CustomCalculation.Execute(DependencyMods, BaseValue);
-        if (bHasMin)
+        else
         {
-            CustomValue = FMath::Max(Minimum, CustomValue);
+            DefaultRecalculation();
         }
-        if (bHasMax)
-        {
-            CustomValue = FMath::Min(Maximum, CustomValue);
-        }
-        Value = CustomValue;
     }
     else
     {
-        DefaultRecalculation();
+        Value = BaseValue;
     }
     if (Value != OldValue)
     {
         OnValueChanged.Broadcast(OldValue, Value);
     }
+    
 }
 
 void FCombatFloatValue::DefaultRecalculation()
@@ -295,38 +418,4 @@ void FCombatFloatValue::DefaultRecalculation()
         NewValue = FMath::Min(Maximum, NewValue);
     }
     Value = NewValue;
-}
-
-void FModifierCollection::RecalculateMods()
-{
-    float const PreviousAddMod = SummedAddMod.ModValue;
-    float const PreviousMultMod = SummedMultMod.ModValue;
-    TArray<FCombatModifier> Mods;
-    IndividualModifiers.GenerateValueArray(Mods);
-    FCombatModifier::CombineModifiers(Mods, SummedAddMod, SummedMultMod);
-    if (PreviousAddMod != SummedAddMod.ModValue || PreviousMultMod != SummedMultMod.ModValue)
-    {
-        OnModifiersChanged.Broadcast();
-    }
-}
-
-void FModifierCollection::PurgeInvalidMods()
-{
-    TArray<int32> InvalidIDs;
-    for (TTuple<int32, FCombatModifier> const& Mod : IndividualModifiers)
-    {
-        if (Mod.Value.ModType == EModifierType::Invalid)
-        {
-            InvalidIDs.Add(Mod.Key);
-        }
-    }
-    int32 Removed = 0;
-    for (int32 const ID : InvalidIDs)
-    {
-        Removed += IndividualModifiers.Remove(ID);
-    }
-    if (Removed > 0)
-    {
-        RecalculateMods();
-    }
 }
