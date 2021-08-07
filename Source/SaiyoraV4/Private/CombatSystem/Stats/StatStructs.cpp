@@ -5,20 +5,16 @@
 #include "StatHandler.h"
 #include "Buff.h"
 
-void FReplicatedStat::PostReplicatedChange(FReplicatedStatArray const& InArraySerializer)
+void FCombatStat::Setup()
 {
-    if (IsValid(InArraySerializer.StatHandler))
-    {
-       InArraySerializer.StatHandler->NotifyOfReplicatedStat(StatTag, Value);
-    }
+    FFloatValueCallback OnChange;
+    OnChange.BindRaw(this, &FCombatStat::BroadcastValueChange);
+    StatValue.BindToValueChanged(OnChange);
 }
 
-void FReplicatedStat::PostReplicatedAdd(FReplicatedStatArray const& InArraySerializer)
+void FReplicatedStat::PostReplicatedChange(FReplicatedStatArray const& InArraySerializer)
 {
-    if (IsValid(InArraySerializer.StatHandler))
-    {
-        InArraySerializer.StatHandler->NotifyOfReplicatedStat(StatTag, Value);
-    }
+    ClientOnChanged.Broadcast(StatTag, Value);
 }
 
 void FReplicatedStatArray::UpdateStatValue(FGameplayTag const& StatTag, float const NewValue)

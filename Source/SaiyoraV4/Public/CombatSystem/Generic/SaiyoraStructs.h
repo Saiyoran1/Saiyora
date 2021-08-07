@@ -71,13 +71,13 @@ struct FCombatFloatValue
     FCombatFloatValue();
     FCombatFloatValue(float const BaseValue, bool const bModifiable = false, bool const HasMin = false, float const Min = 0.0f, bool const bHasMax = false, float const Max = 0.0f);
     float GetValue() const { return Value; }
-    void AddDependency(FModifierCollection* NewDependency);
-    void RemoveDependency(FModifierCollection* NewDependency);
-    void GetDependencyModifiers(TArray<FCombatModifier>& OutMods);
+    bool IsModifiable() const { return bModifiable; }
     void SetRecalculationFunction(FCombatValueRecalculation const& NewCalculation);
     float ForceRecalculation();
     FDelegateHandle BindToValueChanged(FFloatValueCallback const& Callback);
     void UnbindFromValueChanged(FDelegateHandle const& Handle);
+    int32 AddModifier(FCombatModifier const& Modifier);
+    void RemoveModifier(int32 const ModifierID);
 private:
     bool bModifiable = false;
     bool bHasMin = false;
@@ -86,8 +86,8 @@ private:
     float Maximum = 0.0f;
     float BaseValue = 0.0f;
     float Value = 0.0f;
+    FModifierCollection Modifiers;
     void RecalculateValue();
-    TArray<FModifierCollection*> Dependencies;
     void DefaultRecalculation();
     FCombatValueRecalculation CustomCalculation;
     FFloatValueNotification OnValueChanged;

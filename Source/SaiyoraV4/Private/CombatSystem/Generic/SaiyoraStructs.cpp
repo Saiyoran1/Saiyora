@@ -309,33 +309,6 @@ FCombatFloatValue::FCombatFloatValue(float const BaseValue, bool const bModifiab
     Value = this->BaseValue;
 }
 
-void FCombatFloatValue::AddDependency(FModifierCollection* NewDependency)
-{
-    if (NewDependency)
-    {
-        Dependencies.Add(NewDependency);
-    }
-}
-
-void FCombatFloatValue::RemoveDependency(FModifierCollection* NewDependency)
-{
-    if (NewDependency)
-    {
-        Dependencies.RemoveSingleSwap(NewDependency);
-    }
-}
-
-void FCombatFloatValue::GetDependencyModifiers(TArray<FCombatModifier>& OutMods)
-{
-    for (FModifierCollection* Dependency : Dependencies)
-    {
-        if (Dependency)
-        {
-            Dependency->GetSummedModifiers(OutMods);
-        }
-    }
-}
-
 void FCombatFloatValue::SetRecalculationFunction(FCombatValueRecalculation const& NewCalculation)
 {
     if (NewCalculation.IsBound())
@@ -368,6 +341,16 @@ void FCombatFloatValue::UnbindFromValueChanged(FDelegateHandle const& Handle)
     }
 }
 
+int32 FCombatFloatValue::AddModifier(FCombatModifier const& Modifier)
+{
+    return Modifiers.AddModifier(Modifier);
+}
+
+void FCombatFloatValue::RemoveModifier(int32 const ModifierID)
+{
+    Modifiers.RemoveModifier(ModifierID);
+}
+
 void FCombatFloatValue::RecalculateValue()
 {
     float const OldValue = Value;
@@ -376,7 +359,7 @@ void FCombatFloatValue::RecalculateValue()
         if (CustomCalculation.IsBound())
         {
             TArray<FCombatModifier> DependencyMods;
-            GetDependencyModifiers(DependencyMods);
+            Modifiers.GetSummedModifiers(DependencyMods);
             float CustomValue = CustomCalculation.Execute(DependencyMods, BaseValue);
             if (bHasMin)
             {
@@ -401,13 +384,12 @@ void FCombatFloatValue::RecalculateValue()
     {
         OnValueChanged.Broadcast(OldValue, Value);
     }
-    
 }
 
 void FCombatFloatValue::DefaultRecalculation()
 {
     TArray<FCombatModifier> DependencyMods;
-    GetDependencyModifiers(DependencyMods);
+    Modifiers.GetSummedModifiers(DependencyMods);
     float NewValue = FCombatModifier::ApplyModifiers(DependencyMods, BaseValue);
     if (bHasMin)
     {

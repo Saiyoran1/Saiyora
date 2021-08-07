@@ -88,7 +88,7 @@ void UAbilityHandler::BeginPlay()
 #pragma region IntercomponentDelegates
 //INTERCOMPONENT DELEGATES
 
-FCombatModifier UAbilityHandler::ModifyCooldownFromStat(UCombatAbility* Ability)
+FCombatModifier UAbilityHandler::ModifyCooldownFromStat(TSubclassOf<UCombatAbility> AbilityClass)
 {
 	FCombatModifier Mod;
 	if (IsValid(StatHandler))
@@ -236,7 +236,7 @@ void UAbilityHandler::CalculateAbilityCosts(TSubclassOf<UCombatAbility> const Ab
 	}
 }
 
-FCombatModifier UAbilityHandler::ModifyGlobalCooldownFromStat(UCombatAbility* Ability)
+FCombatModifier UAbilityHandler::ModifyGlobalCooldownFromStat(TSubclassOf<UCombatAbility> AbilityClass)
 {
 	FCombatModifier Mod;
 	if (IsValid(StatHandler))
@@ -249,7 +249,7 @@ FCombatModifier UAbilityHandler::ModifyGlobalCooldownFromStat(UCombatAbility* Ab
 	return Mod;
 }
 
-FCombatModifier UAbilityHandler::ModifyCastLengthFromStat(UCombatAbility* Ability)
+FCombatModifier UAbilityHandler::ModifyCastLengthFromStat(TSubclassOf<UCombatAbility> AbilityClass)
 {
 	FCombatModifier Mod;
 	if (IsValid(StatHandler))
@@ -874,7 +874,7 @@ float UAbilityHandler::CalculateCastLength(UCombatAbility* Ability)
 		{
 			if (Mod.Value.IsBound())
 			{
-				Mods.Add(Mod.Value.Execute(Ability));
+				Mods.Add(Mod.Value.Execute(Ability->GetClass()));
 			}
 		}
 		FAbilityModCollection* ModCollection = ClassSpecificModifiers.Find(Ability->GetClass());
@@ -1140,7 +1140,7 @@ float UAbilityHandler::CalculateCooldownLength(UCombatAbility* Ability)
 		{
 			if (ModPair.Value.IsBound())
 			{
-				ModArray.Add(ModPair.Value.Execute(Ability));
+				ModArray.Add(ModPair.Value.Execute(Ability->GetClass()));
 			}
 		}
 		FAbilityModCollection* ModCollection = ClassSpecificModifiers.Find(Ability->GetClass());
@@ -1343,7 +1343,7 @@ float UAbilityHandler::CalculateGlobalCooldownLength(UCombatAbility* Ability)
 		{
 			if (ModPair.Value.IsBound())
 			{
-				Mods.Add(ModPair.Value.Execute(Ability));
+				Mods.Add(ModPair.Value.Execute(Ability->GetClass()));
 			}
 		}
 		FAbilityModCollection* ModCollection = ClassSpecificModifiers.Find(Ability->GetClass());

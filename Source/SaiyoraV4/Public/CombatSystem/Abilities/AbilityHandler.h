@@ -20,6 +20,8 @@ class SAIYORAV4_API UAbilityHandler : public UActorComponent
 {
 	GENERATED_BODY()
 
+	friend struct FAbilityModCollection;
+
 public:
 	static const float MinimumGlobalCooldownLength;
 	static const float MinimumCastLength;
@@ -153,7 +155,7 @@ protected:
 private:
 	TMap<int32, FAbilityModCondition> GenericCastLengthModifiers;
 	UFUNCTION()
-	FCombatModifier ModifyCastLengthFromStat(UCombatAbility* Ability);
+	FCombatModifier ModifyCastLengthFromStat(TSubclassOf<UCombatAbility> AbilityClass);
 //Cancelling
 public:
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
@@ -223,7 +225,7 @@ protected:
 private:
 	TMap<int32, FAbilityModCondition> GenericGlobalCooldownModifiers;
 	UFUNCTION()
-	FCombatModifier ModifyGlobalCooldownFromStat(UCombatAbility* Ability);
+	FCombatModifier ModifyGlobalCooldownFromStat(TSubclassOf<UCombatAbility> AbilityClass);
 //Cooldown
 public:
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
@@ -251,7 +253,7 @@ public:
 private:
 	TMap<int32, FAbilityModCondition> GenericCooldownLengthModifiers;
 	UFUNCTION()
-	FCombatModifier ModifyCooldownFromStat(UCombatAbility* Ability);
+	FCombatModifier ModifyCooldownFromStat(TSubclassOf<UCombatAbility> AbilityClass);
 //Cost
 public:
 	UFUNCTION(BlueprintCallable, Category = "Abilities")

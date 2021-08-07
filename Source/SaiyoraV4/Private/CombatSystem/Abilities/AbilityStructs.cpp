@@ -3,11 +3,7 @@
 #include "AbilityHandler.h"
 #include "CombatAbility.h"
 
-void FAbilityModCollection::Initialize(TSubclassOf<UCombatAbility> const AbilityClass,
-                                       FModifierCollection& GenericMaxChargeMods, FModifierCollection& GenericChargesPerCastMods,
-                                       FModifierCollection& GenericChargesPerCooldownMods, FModifierCollection& GenericGlobalCooldownLengthMods,
-                                       FModifierCollection& GenericCooldownLengthMods, FModifierCollection& GenericCastLengthMods,
-                                       TMap<TSubclassOf<UResource>, FModifierCollection&> const& GenericCostMods)
+void FAbilityModCollection::Initialize(TSubclassOf<UCombatAbility> const AbilityClass, UAbilityHandler* Handler)
 {
 	if (bInitialized == true)
 	{

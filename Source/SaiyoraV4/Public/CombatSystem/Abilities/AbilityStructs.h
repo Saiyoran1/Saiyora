@@ -245,31 +245,8 @@ struct FAbilityModCollection
     GENERATED_BODY()
 private:
     bool bInitialized = false;
-//Class Specific Modifiers
-    FModifierCollection MaxChargeModifiers;
-    FModifierCollection* GenericMaxChargeModifiers = nullptr;
-    FDelegateHandle MaxChargeHandle;
-    void RecalculateMaxCharges();
-    FModifierCollection ChargesPerCastModifiers;
-    FModifierCollection* GenericChargesPerCastModifiers = nullptr;
-    FDelegateHandle ChargesPerCastHandle;
-    void RecalculateChargesPerCast();
-    FModifierCollection ChargesPerCooldownModifiers;
-    FModifierCollection* GenericChargesPerCooldownModifiers = nullptr;
-    FDelegateHandle ChargesPerCooldownHandle;
-    void RecalculateChargesPerCooldown();
-    FModifierCollection GlobalCooldownModifiers;
-    FDelegateHandle GlobalCooldownHandle;
-    void RecalculateGlobalCooldownLength();
-    FModifierCollection CooldownModifiers;
-    FModifierCollection* GenericCooldownModifiers = nullptr;
-    FDelegateHandle CooldownHandle;
-    void RecalculateCooldownLength();
-    FModifierCollection CastLengthModifiers;
-    FModifierCollection* GenericCastLengthModifiers = nullptr;
-    FDelegateHandle CastLengthHandle;
-    void RecalculateCastLength();
-    TMap<TSubclassOf<UResource>, FModifierCollection> CostModifiers;
+    UPROPERTY()
+    class UAbilityHandler* Handler = nullptr;
 //Calculated Values
     FCombatIntValue MaxCharges;
     FCombatIntValue ChargesPerCast;
@@ -278,11 +255,10 @@ private:
     FCombatFloatValue CooldownLength;
     FCombatFloatValue CastLength;
     TMap<TSubclassOf<UResource>, FCombatFloatValue> AbilityCosts;
+
+    //float Recalculate
 public:
-    void Initialize(TSubclassOf<UCombatAbility> const AbilityClass, FModifierCollection& GenericMaxChargeMods,
-        FModifierCollection& GenericChargesPerCastMods, FModifierCollection& GenericChargesPerCooldownMods,
-        FModifierCollection& GenericGlobalCooldownLengthMods, FModifierCollection& GenericCooldownLengthMods,
-        FModifierCollection& GenericCastLengthMods, TMap<TSubclassOf<UResource>, FModifierCollection&> const& GenericCostMods);
+    void Initialize(TSubclassOf<UCombatAbility> const AbilityClass, class UAbilityHandler* Handler);
 
     int32 AddMaxChargeModifier(FCombatModifier const& Modifier);
     void RemoveMaxChargeModifier(int32 const ModifierID);
@@ -309,7 +285,7 @@ public:
     void GetCosts(TMap<TSubclassOf<UResource>, float>& OutCosts);
 };
 
-DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FAbilityModCondition, UCombatAbility*, Ability);
+DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FAbilityModCondition, TSubclassOf<UCombatAbility>, AbilityClass);
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FAbilityRestriction, UCombatAbility*, Ability);
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FInterruptRestriction, FInterruptEvent const&, InterruptEvent);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityInstanceCallback, UCombatAbility*, NewAbility);

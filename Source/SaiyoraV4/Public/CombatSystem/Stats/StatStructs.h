@@ -49,12 +49,24 @@ struct FStatInfo : public FTableRowBase
     UPROPERTY(EditAnywhere, Category = "Stat", meta = (ClampMin = "0"))
     float MaxClamp = 0.0f;
     UPROPERTY(EditAnywhere, Category = "Stat")
-    EReplicationNeeds ReplicationNeeds = EReplicationNeeds::NotReplicated;
+    bool bShouldReplicate = false;
+};
 
-    bool bInitialized = false;
-    float CurrentValue = 0.0f;
+USTRUCT()
+struct FCombatStat
+{
+    GENERATED_BODY()
+
+    FGameplayTag StatTag;
+    bool bShouldReplicate = false;
+    FCombatFloatValue StatValue;
     FStatNotification OnStatChanged;
-    TMap<int32, FCombatModifier> StatModifiers;
+    void Setup();
+private:
+    void BroadcastValueChange(float const Previous, float const New)
+    {
+        OnStatChanged.Broadcast(StatTag, New);
+    }
 };
 
 USTRUCT()
@@ -63,12 +75,13 @@ struct FReplicatedStat : public FFastArraySerializerItem
     GENERATED_BODY()
 
     void PostReplicatedChange(struct FReplicatedStatArray const& InArraySerializer);
-    void PostReplicatedAdd(struct FReplicatedStatArray const& InArraySerializer);
 
     UPROPERTY(meta = (Categories = "Stat"))
     FGameplayTag StatTag;
     UPROPERTY()
     float Value = 0.0f;
+    UPROPERTY(NotReplicated)
+    FStatNotification ClientOnChanged;
 };
 
 USTRUCT()
