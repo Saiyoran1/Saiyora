@@ -240,13 +240,14 @@ FORCEINLINE uint32 GetTypeHash(const FPredictedTick& Tick)
 }
 
 USTRUCT()
-struct FAbilityModCollection
+struct FAbilityValues
 {
     GENERATED_BODY()
 private:
     bool bInitialized = false;
     UPROPERTY()
     class UAbilityHandler* Handler = nullptr;
+    TSubclassOf<UCombatAbility> AbilityClass;
 //Calculated Values
     FCombatIntValue MaxCharges;
     FCombatIntValue ChargesPerCast;
@@ -256,28 +257,33 @@ private:
     FCombatFloatValue CastLength;
     TMap<TSubclassOf<UResource>, FCombatFloatValue> AbilityCosts;
 
-    //float Recalculate
+    float RecalculateGcdLength(TArray<FCombatModifier> const& SpecificMods, float const BaseValue);
+    float RecalculateCooldownLength(TArray<FCombatModifier> const& SpecificMods, float const BaseValue);
+    float RecalculateCastLength(TArray<FCombatModifier> const& SpecificMods, float const BaseValue);
 public:
     void Initialize(TSubclassOf<UCombatAbility> const AbilityClass, class UAbilityHandler* Handler);
-
-    int32 AddMaxChargeModifier(FCombatModifier const& Modifier);
-    void RemoveMaxChargeModifier(int32 const ModifierID);
-    int32 AddChargesPerCastModifier(FCombatModifier const& Modifier);
-    void RemoveChargesPerCastModifier(int32 const ModifierID);
-    int32 AddChargesPerCooldownModifier(FCombatModifier const& Modifier);
-    void RemoveChargesPerCooldownModifier(int32 const ModifierID);
-    int32 AddGlobalCooldownModifier(FCombatModifier const& Modifier);
-    void RemoveGlobalCoolodownModifier(int32 const ModifierID);
-    int32 AddCooldownModifier(FCombatModifier const& Modifier);
-    void RemoveCooldownModifier(int32 const ModifierID);
-    int32 AddCastLengthModifier(FCombatModifier const& Modifier);
-    void RemoveCastLengthModifier(int32 const ModifierID);
+    int32 AddMaxChargeModifier(FCombatModifier const& Modifier) { return MaxCharges.AddModifier(Modifier); }
+    void RemoveMaxChargeModifier(int32 const ModifierID) { MaxCharges.RemoveModifier(ModifierID); }
+    int32 AddChargesPerCastModifier(FCombatModifier const& Modifier) { return ChargesPerCast.AddModifier(Modifier); }
+    void RemoveChargesPerCastModifier(int32 const ModifierID) { ChargesPerCast.RemoveModifier(ModifierID); }
+    int32 AddChargesPerCooldownModifier(FCombatModifier const& Modifier) { return ChargesPerCooldown.AddModifier(Modifier); }
+    void RemoveChargesPerCooldownModifier(int32 const ModifierID) { ChargesPerCooldown.RemoveModifier(ModifierID); }
+    int32 AddGlobalCooldownModifier(FCombatModifier const& Modifier) { return GlobalCooldownLength.AddModifier(Modifier); }
+    void RemoveGlobalCooldownModifier(int32 const ModifierID) { GlobalCooldownLength.RemoveModifier(ModifierID); }
+    float UpdateGlobalCooldown() { return GlobalCooldownLength.ForceRecalculation(); }
+    int32 AddCooldownModifier(FCombatModifier const& Modifier) { return CooldownLength.AddModifier(Modifier); }
+    void RemoveCooldownModifier(int32 const ModifierID) { CooldownLength.RemoveModifier(ModifierID); }
+    float UpdateCooldown() { return CooldownLength.ForceRecalculation(); }
+    int32 AddCastLengthModifier(FCombatModifier const& Modifier) { return CastLength.AddModifier(Modifier); }
+    void RemoveCastLengthModifier(int32 const ModifierID) { CastLength.RemoveModifier(ModifierID); }
+    float UpdateCastLength() { return CastLength.ForceRecalculation(); }
     int32 AddCostModifier(TSubclassOf<UResource> const ResourceClass, FCombatModifier const& Modifier);
     void RemoveCostModifier(TSubclassOf<UResource> const ResourceClass, int32 const ModifierID);
-
-    int32 GetMaxCharges() const { return MaxCharges.Value; }
-    int32 GetChargesPerCast() const { return ChargesPerCast.Value; }
-    int32 GetChargesPerCooldown() const { return ChargesPerCooldown.Value; }
+    float UpdateCost(TSubclassOf<UResource> const ResourceClass);
+    void UpdateAllCosts(TMap<TSubclassOf<UResource>, float>& OutCosts);
+    int32 GetMaxCharges() const { return MaxCharges.GetValue(); }
+    int32 GetChargesPerCast() const { return ChargesPerCast.GetValue(); }
+    int32 GetChargesPerCooldown() const { return ChargesPerCooldown.GetValue(); }
     float GetGlobalCooldownLength() const { return GlobalCooldownLength.GetValue(); }
     float GetCooldownLength() const { return CooldownLength.GetValue(); }
     float GetCastLength() const { return CastLength.GetValue(); }

@@ -35,6 +35,7 @@ private:
     FModifierNotification OnModifierChanged;
 public:
     static float ApplyModifiers(TArray<FCombatModifier> const& ModArray, float const BaseValue);
+    static int32 ApplyModifiers(TArray<FCombatModifier> const& ModArray, int32 const BaseValue);
     static void CombineModifiers(TArray<FCombatModifier> const& ModArray, FCombatModifier& OutAddMod, FCombatModifier& OutMultMod);
 };
 
@@ -69,7 +70,7 @@ struct FCombatFloatValue
     GENERATED_BODY()
 
     FCombatFloatValue();
-    FCombatFloatValue(float const BaseValue, bool const bModifiable = false, bool const HasMin = false, float const Min = 0.0f, bool const bHasMax = false, float const Max = 0.0f);
+    FCombatFloatValue(float const BaseValue, bool const bModifiable = false, bool const bHasMin = false, float const Min = 0.0f, bool const bHasMax = false, float const Max = 0.0f);
     float GetValue() const { return Value; }
     bool IsModifiable() const { return bModifiable; }
     void SetRecalculationFunction(FCombatValueRecalculation const& NewCalculation);
@@ -93,18 +94,38 @@ private:
     FFloatValueNotification OnValueChanged;
 };
 
+DECLARE_DELEGATE_RetVal_TwoParams(int32, FCombatIntValueRecalculation, TArray<FCombatModifier>const&, int32 const);
+DECLARE_DELEGATE_TwoParams(FIntValueCallback, int32 const, int32 const);
+DECLARE_MULTICAST_DELEGATE_TwoParams(FIntValueNotification, int32 const, int32 const);
+
 USTRUCT()
 struct FCombatIntValue
 {
     GENERATED_BODY()
 
-    int32 BaseValue = 0;
+    FCombatIntValue();
+    FCombatIntValue(int32 const BaseValue, bool const bModifiable = false, bool const bHasMin = false, int32 const Min = 0, bool const bHasMax = false, int32 const Max = 0);
+    int32 GetValue() const { return Value; }
+    bool IsModifiable() const { return bModifiable; }
+    void SetRecalculationFunction(FCombatIntValueRecalculation const& NewCalculation);
+    int32 ForceRecalculation();
+    FDelegateHandle BindToValueChanged(FIntValueCallback const& Callback);
+    void UnbindFromValueChanged(FDelegateHandle const& Handle);
+    int32 AddModifier(FCombatModifier const& Modifier);
+    void RemoveModifier(int32 const ModifierID);
+private:
     bool bModifiable = false;
-    bool bCappedLow = false;
+    bool bHasMin = false;
     int32 Minimum = 0;
-    bool bCappedHigh = false;
+    bool bHasMax = false;
     int32 Maximum = 0;
+    int32 BaseValue = 0;
     int32 Value = 0;
+    FModifierCollection Modifiers;
+    void RecalculateValue();
+    void DefaultRecalculation();
+    FCombatIntValueRecalculation CustomCalculation;
+    FIntValueNotification OnValueChanged;
 };
 
 USTRUCT(BlueprintType)

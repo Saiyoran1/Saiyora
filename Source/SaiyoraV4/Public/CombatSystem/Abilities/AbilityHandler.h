@@ -20,7 +20,7 @@ class SAIYORAV4_API UAbilityHandler : public UActorComponent
 {
 	GENERATED_BODY()
 
-	friend struct FAbilityModCollection;
+	friend struct FAbilityValues;
 
 public:
 	static const float MinimumGlobalCooldownLength;
@@ -80,7 +80,7 @@ private:
 	UPROPERTY()
 	TArray<UCombatAbility*> RecentlyRemovedAbilities;
 	virtual void SetupInitialAbilities();
-	TMap<TSubclassOf<UCombatAbility>, FAbilityModCollection> ClassSpecificModifiers;
+	TMap<TSubclassOf<UCombatAbility>, FAbilityValues> ClassSpecificModifiers;
 protected:
 	FAbilityInstanceNotification OnAbilityAdded;
 	FAbilityInstanceNotification OnAbilityRemoved;
@@ -130,8 +130,6 @@ public:
 	int32 AddClassCastLengthModifier(TSubclassOf<UCombatAbility> const AbilityClass, FCombatModifier const& Modifier);
 	UFUNCTION(BlueprintCallable, Category = "Abiltiies")
 	void RemoveClassCastLengthModifier(TSubclassOf<UCombatAbility> const AbilityClass, int32 const ModifierID);
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-	float CalculateCastLength(UCombatAbility* Ability);
 protected:
 	FCastingStateNotification OnCastStateChanged;
 	FAbilityNotification OnAbilityTick;
@@ -213,8 +211,6 @@ public:
 	int32 AddClassGlobalCooldownModifier(TSubclassOf<UCombatAbility> const AbilityClass, FCombatModifier const& Modifier);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void RemoveClassGlobalCooldownModifier(TSubclassOf<UCombatAbility> const AbilityClass, int32 const ModifierID);
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-	float CalculateGlobalCooldownLength(UCombatAbility* Ability);
 protected:
 	FGlobalCooldown GlobalCooldownState;
 	FTimerHandle GlobalCooldownHandle;
@@ -236,8 +232,6 @@ public:
 	int32 AddClassCooldownModifier(TSubclassOf<UCombatAbility> const AbilityClass, FCombatModifier const& Modifier);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void RemoveClassCooldownModifier(TSubclassOf<UCombatAbility> const AbilityClass, int32 const ModifierID);
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-	float CalculateCooldownLength(UCombatAbility* Ability);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	int32 AddClassMaxChargeModifier(TSubclassOf<UCombatAbility> const AbilityClass, FCombatModifier const& Modifier);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
@@ -264,10 +258,6 @@ public:
 	int32 AddClassAbilityCostModifier(TSubclassOf<UCombatAbility> const AbilityClass, TSubclassOf<UResource> const ResourceClass, FCombatModifier const& Modifier);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void RemoveClassAbilityCostModifier(TSubclassOf<UCombatAbility> const AbilityClass, TSubclassOf<UResource> const ResourceClass, int32 const ModifierID);
-	UFUNCTION(BlueprintCallable, Category = "Abilities")
-	float CalculateAbilityCost(TSubclassOf<UCombatAbility> const AbilityClass, TSubclassOf<UResource> const ResourceClass);
-	UFUNCTION(BlueprintCallable, Category = "Abilities")
-	void CalculateAbilityCosts(TSubclassOf<UCombatAbility> const AbilityClass, TArray<FAbilityCost>& OutCosts);
 private:
 	TMap<TSubclassOf<UResource>, FModifierCollection> GenericCostModifiers;
 };
