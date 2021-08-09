@@ -32,9 +32,11 @@ private:
     EModifierType ModType = EModifierType::Invalid;
     float ModValue = 0.0f;
     bool bStackable = true;
-    void OnBuffStacked(struct FBuffApplyEvent const& Event);
-    void OnBuffRemoved(struct FBuffRemoveEvent const& Event);
+    void OnBuffStacked();
+    void OnBuffRemoved();
     FModifierNotification OnModifierChanged;
+    FDelegateHandle StackHandle;
+    FDelegateHandle RemoveHandle;
 public:
     static float ApplyModifiers(TArray<FCombatModifier> const& ModArray, float const BaseValue);
     static int32 ApplyModifiers(TArray<FCombatModifier> const& ModArray, int32 const BaseValue);

@@ -35,7 +35,7 @@ struct FAbilityResourceCost
     class UAbilityHandler* Handler;
     FCombatFloatValue Cost;
 
-    void Initialize(TSubclassOf<UResource> const ResourceClass, TSubclassOf<UCombatAbility> const AbilityClass, UAbilityHandler* Handler);
+    void Initialize(TSubclassOf<UResource> const NewResourceClass, TSubclassOf<UCombatAbility> const NewAbilityClass, UAbilityHandler* NewHandler);
     float RecalculateCost(TArray<FCombatModifier> const& SpecificMods, float const BaseValue);
 };
 
@@ -276,7 +276,7 @@ private:
     float RecalculateCooldownLength(TArray<FCombatModifier> const& SpecificMods, float const BaseValue);
     float RecalculateCastLength(TArray<FCombatModifier> const& SpecificMods, float const BaseValue);
 public:
-    void Initialize(TSubclassOf<UCombatAbility> const AbilityClass, class UAbilityHandler* Handler);
+    void Initialize(TSubclassOf<UCombatAbility> const NewAbilityClass, class UAbilityHandler* NewHandler);
     int32 AddMaxChargeModifier(FCombatModifier const& Modifier) { return MaxCharges.AddModifier(Modifier); }
     void RemoveMaxChargeModifier(int32 const ModifierID) { MaxCharges.RemoveModifier(ModifierID); }
     int32 AddChargeCostModifier(FCombatModifier const& Modifier) { return ChargeCost.AddModifier(Modifier); }

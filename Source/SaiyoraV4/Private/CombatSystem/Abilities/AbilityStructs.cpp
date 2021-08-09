@@ -4,16 +4,16 @@
 #include "CombatAbility.h"
 #include "StatHandler.h"
 
-void FAbilityResourceCost::Initialize(TSubclassOf<UResource> const ResourceClass,
-	TSubclassOf<UCombatAbility> const AbilityClass, UAbilityHandler* Handler)
+void FAbilityResourceCost::Initialize(TSubclassOf<UResource> const NewResourceClass,
+	TSubclassOf<UCombatAbility> const NewAbilityClass, UAbilityHandler* NewHandler)
 {
-	if (!IsValid(ResourceClass) || !IsValid(AbilityClass) || !IsValid(Handler))
+	if (!IsValid(NewResourceClass) || !IsValid(NewAbilityClass) || !IsValid(NewHandler))
 	{
 		return;
 	}
-	this->Handler = Handler;
-	this->ResourceClass = ResourceClass;
-	this->AbilityClass = AbilityClass;
+	Handler = NewHandler;
+	ResourceClass = NewResourceClass;
+	AbilityClass = NewAbilityClass;
 	UCombatAbility const* DefaultAbility = AbilityClass->GetDefaultObject<UCombatAbility>();
 	if (!IsValid(DefaultAbility))
 	{
@@ -99,23 +99,23 @@ float FAbilityValues::RecalculateCastLength(TArray<FCombatModifier> const& Speci
 	return FCombatModifier::ApplyModifiers(Mods, BaseValue);
 }
 
-void FAbilityValues::Initialize(TSubclassOf<UCombatAbility> const AbilityClass, UAbilityHandler* Handler)
+void FAbilityValues::Initialize(TSubclassOf<UCombatAbility> const NewAbilityClass, UAbilityHandler* NewHandler)
 {
 	if (bInitialized == true)
 	{
 		return;
 	}
-	if (!IsValid(AbilityClass) || !IsValid(Handler))
+	if (!IsValid(NewAbilityClass) || !IsValid(NewHandler))
 	{
 		return;
 	}
-	UCombatAbility const* DefaultAbility = AbilityClass->GetDefaultObject<UCombatAbility>();
+	UCombatAbility const* DefaultAbility = NewAbilityClass->GetDefaultObject<UCombatAbility>();
 	if (!IsValid(DefaultAbility))
 	{
 		return;
 	}
-	this->AbilityClass = AbilityClass;
-	this->Handler = Handler;
+	AbilityClass = NewAbilityClass;
+	Handler = NewHandler;
 	GlobalCooldownLength = FCombatFloatValue(DefaultAbility->GetDefaultGlobalCooldownLength(), !DefaultAbility->HasStaticGlobalCooldown(), true, UAbilityHandler::MinimumGlobalCooldownLength);
 	if (!DefaultAbility->HasStaticGlobalCooldown())
 	{

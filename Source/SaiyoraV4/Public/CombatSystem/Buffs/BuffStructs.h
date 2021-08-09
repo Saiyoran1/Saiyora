@@ -105,4 +105,5 @@ DECLARE_DYNAMIC_DELEGATE_OneParam(FBuffEventCallback, FBuffApplyEvent const&, Bu
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FBuffEventNotification, FBuffApplyEvent const&, BuffEvent);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FBuffRemoveCallback, FBuffRemoveEvent const&, RemoveEvent);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FBuffRemoveNotification, FBuffRemoveEvent const&, RemoveEvent);
-
+DECLARE_DELEGATE(FModifierCallback);
+DECLARE_MULTICAST_DELEGATE(FModifierNotification);

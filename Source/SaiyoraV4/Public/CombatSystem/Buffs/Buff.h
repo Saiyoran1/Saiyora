@@ -97,6 +97,8 @@ private:
 
 	//Delegates
 	FBuffEventNotification OnUpdated;
+	FModifierNotification OnStacked;
+	FModifierNotification OnRemoved;
 
 #pragma endregion
 	
@@ -179,7 +181,7 @@ public:
 
 	//Application and Expiration Functions
 
-	void InitializeBuff(FBuffApplyEvent& ApplicationEvent, UBuffHandler* Handler);
+	void InitializeBuff(FBuffApplyEvent& ApplicationEvent, UBuffHandler* NewHandler);
 	void ApplyEvent(FBuffApplyEvent& ApplicationEvent);
 	void ExpireBuff(FBuffRemoveEvent const & RemoveEvent);
 	void RegisterBuffFunction(UBuffFunction* NewFunction);
@@ -187,6 +189,10 @@ public:
 	void SubscribeToBuffUpdated(FBuffEventCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Buffs")
 	void UnsubscribeFromBuffUpdated(FBuffEventCallback const& Callback);
+	void ModifierSubToStack(FModifierCallback const& StackCallback, FDelegateHandle& StackHandle);
+	void ModifierUnsubFromStack(FDelegateHandle const& StackHandle);
+	void ModifierSubToRemove(FModifierCallback const& RemoveCallback, FDelegateHandle& RemoveHandle);
+	void ModifierUnsubFromRemove(FDelegateHandle const& RemoveHandle);
 	
 protected:
 	

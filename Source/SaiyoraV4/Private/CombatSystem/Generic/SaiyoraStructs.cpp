@@ -1,6 +1,5 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 #include "SaiyoraStructs.h"
-#include "BuffHandler.h"
 #include "Buff.h"
 
 int32 FModifierCollection::GlobalID = 0;
@@ -33,14 +32,10 @@ void FCombatModifier::Reset()
 {
     if (IsValid(Source))
     {
-        FBuffEventCallback StackCallback;
-        StackCallback.BindDynamic(this, &FCombatModifier::OnBuffStacked);
-        Source->UnsubscribeFromBuffUpdated(StackCallback);
-        if (IsValid(Source->GetHandler()))
+        Source->ModifierUnsubFromRemove(RemoveHandle);
+        if (bStackable)
         {
-            FBuffRemoveCallback RemoveCallback;
-            RemoveCallback.BindDynamic(this, &FCombatModifier::OnBuffRemoved);
-            Source->GetHandler()->UnsubscribeFromIncomingBuffRemove(RemoveCallback);
+            Source->ModifierUnsubFromStack(StackHandle);
         }
     }
     Source = nullptr;
@@ -54,18 +49,15 @@ void FCombatModifier::Activate(FModifierCallback const& OnChangedCallback)
 {
     if (IsValid(Source))
     {
+        FModifierCallback RemoveCallback;
+        RemoveCallback.BindRaw(this, &FCombatModifier::OnBuffRemoved);
+        Source->ModifierSubToRemove(RemoveCallback, RemoveHandle);
         if (bStackable)
         {
-            FBuffEventCallback StackCallback;
-            StackCallback.BindDynamic(this, &FCombatModifier::OnBuffStacked);
-            Source->SubscribeToBuffUpdated(StackCallback);
-        }
-        if (IsValid(Source->GetHandler()))
-        {
-            FBuffRemoveCallback RemoveCallback;
-            RemoveCallback.BindDynamic(this, &FCombatModifier::OnBuffRemoved);
-            Source->GetHandler()->SubscribeToIncomingBuffRemove(RemoveCallback);
-        }
+            FModifierCallback StackCallback;
+            StackCallback.BindRaw(this, &FCombatModifier::OnBuffStacked);
+            Source->ModifierSubToStack(StackCallback, StackHandle);
+        }        
         OnModifierChanged.Add(OnChangedCallback);
     }
 }
@@ -95,20 +87,9 @@ void FCombatModifier::SetStackable(bool const NewStackable)
         bStackable = NewStackable;
         if (IsValid(Source))
         {
-            FBuffEventCallback StackCallback;
-            StackCallback.BindDynamic(this, &FCombatModifier::OnBuffStacked);
-            if (bStackable)
-            {
-                Source->SubscribeToBuffUpdated(StackCallback);
-            }
-            else
-            {
-                Source->UnsubscribeFromBuffUpdated(StackCallback);
-            }
-            if (Source->GetCurrentStacks() != 1)
-            {
-                OnModifierChanged.Broadcast();
-            }
+            FModifierCallback StackCallback;
+            StackCallback.BindRaw(this, &FCombatModifier::OnBuffStacked);
+            Source->ModifierSubToStack(StackCallback, StackHandle);
         }
     }
 }
@@ -122,35 +103,25 @@ void FCombatModifier::SetSource(UBuff* NewSource)
         {
             return;
         }
+        Source->ModifierUnsubFromRemove(RemoveHandle);
         if (bStackable)
         {
             PreviousSourceStacks = Source->GetCurrentStacks();
-            FBuffEventCallback StackCallback;
-            StackCallback.BindDynamic(this, &FCombatModifier::OnBuffStacked);
-            Source->UnsubscribeFromBuffUpdated(StackCallback);
-        }
-        if (IsValid(Source->GetHandler()))
-        {
-            FBuffRemoveCallback RemoveCallback;
-            RemoveCallback.BindDynamic(this, &FCombatModifier::OnBuffRemoved);
-            Source->GetHandler()->UnsubscribeFromIncomingBuffRemove(RemoveCallback);
+            Source->ModifierUnsubFromStack(StackHandle);
         }
         Source = nullptr;
     }
     if (IsValid(NewSource))
     {
         Source = NewSource;
+        FModifierCallback RemoveCallback;
+        RemoveCallback.BindRaw(this, &FCombatModifier::OnBuffRemoved);
+        Source->ModifierSubToRemove(RemoveCallback, RemoveHandle);
         if (bStackable)
         {
-            FBuffEventCallback StackCallback;
-            StackCallback.BindDynamic(this, &FCombatModifier::OnBuffStacked);
-            Source->SubscribeToBuffUpdated(StackCallback);
-        }
-        if (IsValid(Source->GetHandler()))
-        {
-            FBuffRemoveCallback RemoveCallback;
-            RemoveCallback.BindDynamic(this, &FCombatModifier::OnBuffRemoved);
-            Source->GetHandler()->SubscribeToIncomingBuffRemove(RemoveCallback);
+            FModifierCallback StackCallback;
+            StackCallback.BindRaw(this, &FCombatModifier::OnBuffStacked);
+            Source->ModifierSubToStack(StackCallback, StackHandle);
         }
     }
     if (bStackable && PreviousSourceStacks != (IsValid(Source) ? Source->GetCurrentStacks() : 1))
@@ -159,21 +130,18 @@ void FCombatModifier::SetSource(UBuff* NewSource)
     }
 }
 
-void FCombatModifier::OnBuffStacked(FBuffApplyEvent const& Event)
+void FCombatModifier::OnBuffStacked()
 {
-    if (Event.Result.AffectedBuff == Source && Event.Result.PreviousStacks != Event.Result.NewStacks)
+    if (bStackable)
     {
         OnModifierChanged.Broadcast();
     }
 }
 
-void FCombatModifier::OnBuffRemoved(FBuffRemoveEvent const& Event)
+void FCombatModifier::OnBuffRemoved()
 {
-    if (Event.RemovedBuff == Source)
-    {
-        ModType = EModifierType::Invalid;
-        OnModifierChanged.Broadcast();
-    }
+    ModType = EModifierType::Invalid;
+    OnModifierChanged.Broadcast();
 }
 
 float FCombatModifier::ApplyModifiers(TArray<FCombatModifier> const& ModArray, float const BaseValue)

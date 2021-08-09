@@ -3,7 +3,6 @@
 #include "Buff.h"
 #include "BuffFunction.h"
 #include "UnrealNetwork.h"
-#include "Engine/ActorChannel.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "BuffHandler.h"
 #include "SaiyoraBuffLibrary.h"
@@ -17,18 +16,18 @@ void UBuff::GetBuffTags(FGameplayTagContainer& OutContainer) const
     OutContainer.AppendTags(BuffTags);
 }
 
-void UBuff::InitializeBuff(FBuffApplyEvent& ApplicationEvent, UBuffHandler* Handler)
+void UBuff::InitializeBuff(FBuffApplyEvent& ApplicationEvent, UBuffHandler* NewHandler)
 {
     GameStateRef = GetWorld()->GetGameState();
     if (!IsValid(GameStateRef))
     {
         UE_LOG(LogTemp, Warning, TEXT("Invalid Game State Ref in New Buff!"));
     }
-    if (!IsValid(Handler))
+    if (!IsValid(NewHandler))
     {
         UE_LOG(LogTemp, Warning, TEXT("Invaid BuffHandler ref in New Buff!"));
     }
-    this->Handler = Handler;
+    Handler = NewHandler;
     
     SetInitialStacks(ApplicationEvent.StackOverrideType, ApplicationEvent.OverrideStacks);
     SetInitialDuration(ApplicationEvent.RefreshOverrideType, ApplicationEvent.OverrideDuration);
@@ -73,12 +72,14 @@ void UBuff::ApplyEvent(FBuffApplyEvent& ApplicationEvent)
             break;
         case EBuffApplyAction::Stacked:
             NotifyFunctionsOfStack(ApplicationEvent);
+            OnStacked.Broadcast();
             break;
         case EBuffApplyAction::Refreshed:
             NotifyFunctionsOfRefresh(ApplicationEvent);
             break;
         case EBuffApplyAction::StackedAndRefreshed:
             NotifyFunctionsOfStack(ApplicationEvent);
+            OnStacked.Broadcast();
             NotifyFunctionsOfRefresh(ApplicationEvent);
             break;
         default:
@@ -108,6 +109,38 @@ void UBuff::UnsubscribeFromBuffUpdated(FBuffEventCallback const& Callback)
         return;
     }
     OnUpdated.Remove(Callback);
+}
+
+void UBuff::ModifierSubToStack(FModifierCallback const& StackCallback, FDelegateHandle& StackHandle)
+{
+    if (StackCallback.IsBound())
+    {
+        StackHandle = OnStacked.Add(StackCallback);
+    }
+}
+
+void UBuff::ModifierSubToRemove(FModifierCallback const& RemoveCallback, FDelegateHandle& RemoveHandle)
+{
+    if (RemoveCallback.IsBound())
+    {
+        RemoveHandle = OnRemoved.Add(RemoveCallback);
+    }
+}
+
+void UBuff::ModifierUnsubFromStack(FDelegateHandle const& StackHandle)
+{
+    if (StackHandle.IsValid())
+    {
+        OnStacked.Remove(StackHandle);
+    }
+}
+
+void UBuff::ModifierUnsubFromRemove(FDelegateHandle const& RemoveHandle)
+{
+    if (RemoveHandle.IsValid())
+    {
+        OnRemoved.Remove(RemoveHandle);
+    }
 }
 
 #pragma region StackingBuff
@@ -269,7 +302,7 @@ void UBuff::ExpireBuff(FBuffRemoveEvent const & RemoveEvent)
         Function->OnRemove(RemoveEvent);
         Function->CleanupBuffFunction();
     }
-
+    OnRemoved.Broadcast();
     Status = EBuffStatus::Removed;
 
     RemovingEvent = RemoveEvent;
@@ -373,12 +406,14 @@ void UBuff::OnRep_LastApplyEvent()
         return;
     case EBuffApplyAction::Stacked:
         NotifyFunctionsOfStack(LastApplyEvent);
+        OnStacked.Broadcast();
         break;
     case EBuffApplyAction::Refreshed:
         NotifyFunctionsOfRefresh(LastApplyEvent);
         break;
     case EBuffApplyAction::StackedAndRefreshed:
         NotifyFunctionsOfStack(LastApplyEvent);
+        OnStacked.Broadcast();
         NotifyFunctionsOfRefresh(LastApplyEvent);
         break;
     default:
@@ -403,7 +438,7 @@ void UBuff::OnRep_RemovingEvent()
     }
 
     Status = EBuffStatus::Removed;
-
+    OnRemoved.Broadcast();
     HandleBuffRemoveEventReplication(RemovingEvent);
 }
 
