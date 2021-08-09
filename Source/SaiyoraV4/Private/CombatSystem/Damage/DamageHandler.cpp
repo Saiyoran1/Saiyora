@@ -282,7 +282,7 @@ FCombatModifier UDamageHandler::ModifyDamageDoneFromStat(FDamageInfo const& Dama
 	{
 		if (StatHandler->GetStatValid(DamageDoneStatTag()))
 		{
-			Mod = USaiyoraCombatLibrary::MakeCombatModifier(EModifierType::Multiplicative, StatHandler->GetStatValue(DamageDoneStatTag()));
+			Mod = FCombatModifier(StatHandler->GetStatValue(DamageDoneStatTag()), EModifierType::Multiplicative);
 		}
 	}
 	return Mod;
@@ -410,7 +410,7 @@ FCombatModifier UDamageHandler::ModifyHealingDoneFromStat(FHealingInfo const& He
 	{
 		if (StatHandler->GetStatValid(HealingDoneStatTag()))
 		{
-			Mod = USaiyoraCombatLibrary::MakeCombatModifier(EModifierType::Multiplicative, StatHandler->GetStatValue(HealingDoneStatTag()));
+			Mod = FCombatModifier(StatHandler->GetStatValue(HealingDoneStatTag()), EModifierType::Multiplicative);
 		}
 	}
 	return Mod;
@@ -553,7 +553,7 @@ FCombatModifier UDamageHandler::ModifyDamageTakenFromStat(FDamageInfo const& Dam
 	{
 		if (StatHandler->GetStatValid(DamageTakenStatTag()))
 		{
-			Mod = USaiyoraCombatLibrary::MakeCombatModifier(EModifierType::Multiplicative, StatHandler->GetStatValue(DamageTakenStatTag()));
+			Mod = FCombatModifier(StatHandler->GetStatValue(DamageTakenStatTag()), EModifierType::Multiplicative);
 		}
 	}
 	return Mod;
@@ -672,7 +672,7 @@ FCombatModifier UDamageHandler::ModifyHealingTakenFromStat(FHealingInfo const& H
 	{
 		if (StatHandler->GetStatValid(HealingTakenStatTag()))
 		{
-			Mod = USaiyoraCombatLibrary::MakeCombatModifier(EModifierType::Multiplicative, StatHandler->GetStatValue(HealingTakenStatTag()));
+			Mod = FCombatModifier(StatHandler->GetStatValue(HealingTakenStatTag()), EModifierType::Multiplicative);
 		}
 	}
 	return Mod;

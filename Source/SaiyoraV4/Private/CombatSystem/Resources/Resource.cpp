@@ -95,27 +95,6 @@ void UResource::AuthDeactivateResource()
     bDeactivated = true;
 }
 
-bool UResource::CalculateAndCheckAbilityCost(UCombatAbility* Ability, float& Cost, bool const bStaticCost)
-{
-    if (!bStaticCost)
-    {
-        TArray<FCombatModifier> Mods;
-        for (TTuple<int32, FResourceDeltaModifier>& Mod : ResourceDeltaMods)
-        {
-            if (Mod.Value.IsBound())
-            {
-                Mods.Add(Mod.Value.Execute(this, Ability, Cost));
-            }
-        }
-        Cost = FCombatModifier::ApplyModifiers(Mods, Cost);
-    }
-    if (Cost <= GetCurrentValue())
-    {
-        return true;
-    }
-    return false;
-}
-
 void UResource::CommitAbilityCost(UCombatAbility* Ability, float const Cost, int32 const PredictionID)
 {
     if (Handler->GetOwnerRole() != ROLE_Authority)
@@ -165,7 +144,7 @@ void UResource::ModifyResource(UObject* Source, float const Amount, bool const b
     if (!bIgnoreModifiers)
     {
         TArray<FCombatModifier> Mods;
-        for (TTuple<int32, FResourceDeltaModifier>& Mod : ResourceDeltaMods)
+        for (TTuple<int32, FResourceGainModifier>& Mod : ResourceGainMods)
         {
             if (Mod.Value.IsBound())
             {
@@ -354,28 +333,24 @@ void UResource::UpdateMaximumFromStatBind(FGameplayTag const& StatTag, float con
     SetNewMaximum(NewValue);
 }
 
-int32 UResource::AddResourceDeltaModifier(FResourceDeltaModifier const& Modifier)
+int32 UResource::AddResourceGainModifier(FResourceGainModifier const& Modifier)
 {
     if (!Modifier.IsBound())
     {
         return -1;
     }
     int32 const ModID = FModifierCollection::GetID();
-    ResourceDeltaMods.Add(ModID, Modifier);
-    OnResourceDeltaModsChanged.Broadcast(this);
+    ResourceGainMods.Add(ModID, Modifier);
     return ModID;
 }
 
-void UResource::RemoveResourceDeltaModifier(int32 const ModifierID)
+void UResource::RemoveResourceGainModifier(int32 const ModifierID)
 {
     if (ModifierID == -1)
     {
         return;
     }
-    if (ResourceDeltaMods.Remove(ModifierID) > 0)
-    {
-        OnResourceDeltaModsChanged.Broadcast(this);
-    }
+    ResourceGainMods.Remove(ModifierID);
 }
 
 void UResource::SubscribeToResourceChanged(FResourceValueCallback const& Callback)
@@ -394,24 +369,6 @@ void UResource::UnsubscribeFromResourceChanged(FResourceValueCallback const& Cal
         return;
     }
     OnResourceChanged.Remove(Callback);
-}
-
-void UResource::SubscribeToResourceModsChanged(FResourceInstanceCallback const& Callback)
-{
-    if (!Callback.IsBound())
-    {
-        return;
-    }
-    OnResourceDeltaModsChanged.AddUnique(Callback);
-}
-
-void UResource::UnsubscribeFromResourceModsChanged(FResourceInstanceCallback const& Callback)
-{
-    if (!Callback.IsBound())
-    {
-        return;
-    }
-    OnResourceDeltaModsChanged.Remove(Callback);
 }
 
 float UResource::GetCurrentValue() const

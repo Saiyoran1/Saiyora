@@ -15,9 +15,7 @@ void UPlayerCombatAbility::InitializeAbility(UAbilityHandler* AbilityComponent)
     Super::InitializeAbility(AbilityComponent);
     if (GetHandler()->GetOwnerRole() == ROLE_AutonomousProxy)
     {
-        FAbilityChargeCallback ClientMaxChargeCallback;
-        ClientMaxChargeCallback.BindDynamic(this, &UPlayerCombatAbility::StartClientCooldownOnMaxChargesChanged);
-        SubscribeToMaxChargesChanged(ClientMaxChargeCallback);
+        //TODO: Setup UI callbacks?
     }
 }
 
@@ -41,13 +39,14 @@ void UPlayerCombatAbility::RecalculatePredictedCooldown()
 {
     FAbilityCooldown const PreviousState = AbilityCooldown;
     AbilityCooldown = ReplicatedCooldown;
+    int32 const CurrentMaxCharges = OwningComponent->GetMaxCharges(GetClass());
     for (TTuple<int32, int32> const& Prediction : ChargePredictions)
     {
-        AbilityCooldown.CurrentCharges = FMath::Clamp(AbilityCooldown.CurrentCharges - Prediction.Value, 0, MaxCharges);
+        AbilityCooldown.CurrentCharges = FMath::Clamp(AbilityCooldown.CurrentCharges - Prediction.Value, 0, CurrentMaxCharges);
     }
     //We accept authority cooldown progress if server says we are on cd.
     //If server is not on CD, but predicted charges are less than max, we predict a CD has started but do not predict start/end time.
-    if (!AbilityCooldown.OnCooldown && AbilityCooldown.CurrentCharges < MaxCharges)
+    if (!AbilityCooldown.OnCooldown && AbilityCooldown.CurrentCharges < CurrentMaxCharges)
     {
         AbilityCooldown.OnCooldown = true;
         AbilityCooldown.CooldownStartTime = 0.0f;
@@ -68,13 +67,14 @@ void UPlayerCombatAbility::OnRep_ReplicatedCooldown()
 void UPlayerCombatAbility::StartClientCooldownOnMaxChargesChanged(UCombatAbility* Ability, int32 const OldCharges,
     int32 const NewCharges)
 {
-    if (AbilityCooldown.OnCooldown && AbilityCooldown.CurrentCharges >= MaxCharges)
+    //TODO: This function probably doesn't get called anymore?
+    if (AbilityCooldown.OnCooldown && AbilityCooldown.CurrentCharges >= NewCharges)
     {
         AbilityCooldown.OnCooldown = false;
         AbilityCooldown.CooldownStartTime = 0.0f;
         AbilityCooldown.CooldownEndTime = 0.0f;
     }
-    else if (!AbilityCooldown.OnCooldown && AbilityCooldown.CurrentCharges < MaxCharges)
+    else if (!AbilityCooldown.OnCooldown && AbilityCooldown.CurrentCharges < NewCharges)
     {
         AbilityCooldown.OnCooldown = true;
         AbilityCooldown.CooldownStartTime = 0.0f;
@@ -84,14 +84,15 @@ void UPlayerCombatAbility::StartClientCooldownOnMaxChargesChanged(UCombatAbility
 
 void UPlayerCombatAbility::PredictCommitCharges(int32 const PredictionID)
 {
-    ChargePredictions.Add(PredictionID, ChargesPerCast);
+    ChargePredictions.Add(PredictionID, OwningComponent->GetChargeCost(GetClass()));
     RecalculatePredictedCooldown();
 }
 
 void UPlayerCombatAbility::CommitCharges(int32 const PredictionID)
 {
     int32 const PreviousCharges = AbilityCooldown.CurrentCharges;
-    AbilityCooldown.CurrentCharges = FMath::Clamp((PreviousCharges - ChargesPerCast), 0, MaxCharges);
+    int32 const CurrentMaxCharges = OwningComponent->GetMaxCharges(GetClass());
+    AbilityCooldown.CurrentCharges = FMath::Clamp(PreviousCharges - OwningComponent->GetChargeCost(GetClass()), 0, CurrentMaxCharges);
     bool bFromPrediction = false;
     if (PredictionID != 0)
     {
@@ -102,7 +103,7 @@ void UPlayerCombatAbility::CommitCharges(int32 const PredictionID)
     {
         OnChargesChanged.Broadcast(this, PreviousCharges, AbilityCooldown.CurrentCharges);
     }
-    if (!GetWorld()->GetTimerManager().IsTimerActive(CooldownHandle) && GetCurrentCharges() < MaxCharges)
+    if (!GetWorld()->GetTimerManager().IsTimerActive(CooldownHandle) && GetCurrentCharges() < CurrentMaxCharges)
     {
         if (bFromPrediction)
         {
@@ -132,7 +133,7 @@ void UPlayerCombatAbility::UpdatePredictedChargesFromServer(int32 const Predicti
 void UPlayerCombatAbility::StartCooldownFromPrediction()
 {
     float const PingCompensation = FMath::Clamp(USaiyoraCombatLibrary::GetActorPing(GetHandler()->GetOwner()), 0.0f, UPlayerAbilityHandler::MaxPingCompensation);
-    float const CooldownLength = FMath::Max(UAbilityHandler::MinimumCooldownLength, GetHandler()->CalculateCooldownLength(this) - PingCompensation);
+    float const CooldownLength = FMath::Max(UAbilityHandler::MinimumCooldownLength, OwningComponent->GetCooldownLength(GetClass()) - PingCompensation);
     GetWorld()->GetTimerManager().SetTimer(CooldownHandle, this, &UPlayerCombatAbility::CompleteCooldown, CooldownLength, false);
     AbilityCooldown.OnCooldown = true;
     AbilityCooldown.CooldownStartTime = GetHandler()->GetGameStateRef()->GetServerWorldTimeSeconds();

@@ -42,8 +42,8 @@ struct FResourceInitInfo
 	float CustomInitialValue = 0.0f;
 };
 
-//For modifiers to resource expenditure and generation.
-DECLARE_DYNAMIC_DELEGATE_RetVal_ThreeParams(FCombatModifier, FResourceDeltaModifier, UResource*, Resource, UObject*, Source, float const, InitialDelta);
+//For modifiers to resource generation.
+DECLARE_DYNAMIC_DELEGATE_RetVal_ThreeParams(FCombatModifier, FResourceGainModifier, UResource*, Resource, UObject*, Source, float const, InitialDelta);
 
 //For notification of resource expenditure and generation.
 DECLARE_DYNAMIC_DELEGATE_FourParams(FResourceValueCallback, UResource*, Resource, UObject*, ChangeSource, FResourceState const&, PreviousState, FResourceState const&, NewState);

@@ -24,33 +24,16 @@ UWorld* UCombatAbility::GetWorld() const
 void UCombatAbility::CommitCharges()
 {
     int32 const PreviousCharges = AbilityCooldown.CurrentCharges;
-    AbilityCooldown.CurrentCharges = FMath::Clamp((PreviousCharges - ChargesPerCast), 0, MaxCharges);
+    int32 const CurrentMaxCharges = OwningComponent->GetMaxCharges(GetClass());
+    AbilityCooldown.CurrentCharges = FMath::Clamp(PreviousCharges - OwningComponent->GetChargeCost(GetClass()), 0, CurrentMaxCharges);
     if (PreviousCharges != AbilityCooldown.CurrentCharges)
     {
         OnChargesChanged.Broadcast(this, PreviousCharges, AbilityCooldown.CurrentCharges);
     }
-    if (!GetWorld()->GetTimerManager().IsTimerActive(CooldownHandle) && GetCurrentCharges() < MaxCharges)
+    if (!GetWorld()->GetTimerManager().IsTimerActive(CooldownHandle) && GetCurrentCharges() < CurrentMaxCharges)
     {
         StartCooldown();
     }
-}
-
-void UCombatAbility::UpdateChargesPerCast(TArray<FCombatModifier> const& Modifiers)
-{
-    if (bStaticChargesPerCast)
-    {
-        return;
-    }
-    ChargesPerCast = FCombatModifier::ApplyModifiers(Modifiers, DefaultChargesPerCast);
-}
-
-void UCombatAbility::UpdateChargesPerCooldown(TArray<FCombatModifier> const& Modifiers)
-{
-    if (bStaticChargesPerCooldown)
-    {
-        return;
-    }
-    ChargesPerCooldown = FCombatModifier::ApplyModifiers(Modifiers, DefaultChargesPerCooldown);
 }
 
 FAbilityCost UCombatAbility::GetDefaultAbilityCost(TSubclassOf<UResource> const ResourceClass) const
@@ -69,59 +52,9 @@ FAbilityCost UCombatAbility::GetDefaultAbilityCost(TSubclassOf<UResource> const 
     return Invalid;
 }
 
-void UCombatAbility::UpdateMaxCharges(TArray<FCombatModifier> const& Modifiers)
-{
-    if (bStaticMaxCharges)
-    {
-        return;
-    }
-    int32 const Previous = MaxCharges;
-    MaxCharges = FCombatModifier::ApplyModifiers(Modifiers, DefaultMaxCharges);
-    if (Previous != MaxCharges)
-    {
-        OnMaxChargesChanged.Broadcast(this, Previous, MaxCharges);
-    }
-    if (GetHandler()->GetOwnerRole() == ROLE_Authority)
-    {
-        int32 const PreviousCharges = AbilityCooldown.CurrentCharges;
-        AbilityCooldown.CurrentCharges = FMath::Clamp(AbilityCooldown.CurrentCharges, 0, MaxCharges);
-        if (PreviousCharges != AbilityCooldown.CurrentCharges)
-        {
-            OnChargesChanged.Broadcast(this, PreviousCharges, AbilityCooldown.CurrentCharges);
-        }
-        if (AbilityCooldown.OnCooldown && AbilityCooldown.CurrentCharges == MaxCharges)
-        {
-            GetWorld()->GetTimerManager().ClearTimer(CooldownHandle);
-            AbilityCooldown.OnCooldown = false;
-        }
-        else if (!AbilityCooldown.OnCooldown && AbilityCooldown.CurrentCharges < MaxCharges)
-        {
-            StartCooldown();
-        }
-    }
-}
-
-void UCombatAbility::SubscribeToMaxChargesChanged(FAbilityChargeCallback const& Callback)
-{
-    if (!Callback.IsBound())
-    {
-        return;
-    }
-    OnMaxChargesChanged.AddUnique(Callback);
-}
-
-void UCombatAbility::UnsubscribeFromMaxChargesChanged(FAbilityChargeCallback const& Callback)
-{
-    if (!Callback.IsBound())
-    {
-        return;
-    }
-    OnMaxChargesChanged.Remove(Callback);
-}
-
 void UCombatAbility::StartCooldown()
 {
-    float const CooldownLength = GetHandler()->CalculateCooldownLength(this);
+    float const CooldownLength = GetHandler()->GetCooldownLength(GetClass());
     GetWorld()->GetTimerManager().SetTimer(CooldownHandle, this, &UCombatAbility::CompleteCooldown, CooldownLength, false);
     AbilityCooldown.OnCooldown = true;
     AbilityCooldown.CooldownStartTime = OwningComponent->GetGameStateRef()->GetServerWorldTimeSeconds();
@@ -131,12 +64,13 @@ void UCombatAbility::StartCooldown()
 void UCombatAbility::CompleteCooldown()
 {
     int32 const PreviousCharges = AbilityCooldown.CurrentCharges;
-    AbilityCooldown.CurrentCharges = FMath::Clamp(GetCurrentCharges() + ChargesPerCooldown, 0, GetMaxCharges());
+    int32 const CurrentMaxCharges = OwningComponent->GetMaxCharges(GetClass());
+    AbilityCooldown.CurrentCharges = FMath::Clamp(GetCurrentCharges() + OwningComponent->GetChargesPerCooldown(GetClass()), 0, CurrentMaxCharges);
     if (PreviousCharges != AbilityCooldown.CurrentCharges)
     {
         OnChargesChanged.Broadcast(this, PreviousCharges, AbilityCooldown.CurrentCharges);
     }
-    if (AbilityCooldown.CurrentCharges < GetMaxCharges())
+    if (AbilityCooldown.CurrentCharges < CurrentMaxCharges)
     {
         StartCooldown();
     }
@@ -152,14 +86,12 @@ void UCombatAbility::InitializeAbility(UAbilityHandler* AbilityComponent)
     {
         return;
     }
-    if (IsValid(AbilityComponent))
+    if (!IsValid(AbilityComponent))
     {
-        OwningComponent = AbilityComponent;
+        return;
     }
-    MaxCharges = DefaultMaxCharges;
-    AbilityCooldown.CurrentCharges = GetMaxCharges();
-    ChargesPerCast = DefaultChargesPerCast;
-    ChargesPerCooldown = DefaultChargesPerCooldown;
+    OwningComponent = AbilityComponent;
+    AbilityCooldown.CurrentCharges = OwningComponent->GetMaxCharges(GetClass());
     OnInitialize();
     SetupCustomCastRestrictions();
     bInitialized = true;
@@ -256,24 +188,25 @@ void UCombatAbility::ModifyCurrentCharges(int32 const Charges, bool const bAddit
         return;
     }
     int32 const PreviousCharges = AbilityCooldown.CurrentCharges;
+    int32 const CurrentMaxCharges = OwningComponent->GetMaxCharges(GetClass());
     if (bAdditive)
     {
-        AbilityCooldown.CurrentCharges = FMath::Clamp(AbilityCooldown.CurrentCharges + Charges, 0, MaxCharges);
+        AbilityCooldown.CurrentCharges = FMath::Clamp(AbilityCooldown.CurrentCharges + Charges, 0, CurrentMaxCharges);
     }
     else
     {
-        AbilityCooldown.CurrentCharges = FMath::Clamp(Charges, 0, MaxCharges);
+        AbilityCooldown.CurrentCharges = FMath::Clamp(Charges, 0, CurrentMaxCharges);
     }
     if (PreviousCharges != AbilityCooldown.CurrentCharges)
     {
         OnChargesChanged.Broadcast(this, PreviousCharges, AbilityCooldown.CurrentCharges);
-        if (AbilityCooldown.CurrentCharges == MaxCharges && GetWorld()->GetTimerManager().IsTimerActive(CooldownHandle))
+        if (AbilityCooldown.CurrentCharges == CurrentMaxCharges && GetWorld()->GetTimerManager().IsTimerActive(CooldownHandle))
         {
             GetWorld()->GetTimerManager().ClearTimer(CooldownHandle);
             AbilityCooldown.OnCooldown = false;
             return;
         }
-        if (AbilityCooldown.CurrentCharges < MaxCharges && !GetWorld()->GetTimerManager().IsTimerActive(CooldownHandle))
+        if (AbilityCooldown.CurrentCharges < CurrentMaxCharges && !GetWorld()->GetTimerManager().IsTimerActive(CooldownHandle))
         {
             StartCooldown();
         }

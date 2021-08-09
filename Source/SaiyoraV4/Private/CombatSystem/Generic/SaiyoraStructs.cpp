@@ -5,6 +5,30 @@
 
 int32 FModifierCollection::GlobalID = 0;
 
+FCombatModifier::FCombatModifier()
+{
+    Source = nullptr;
+    ModType = EModifierType::Invalid;
+    ModValue = 0.0f;
+    bStackable = false;
+}
+
+FCombatModifier::FCombatModifier(float const Value, EModifierType const ModType, bool const bStackable, UBuff* Source)
+{
+    ModValue = Value;
+    this->ModType = ModType;
+    if (IsValid(Source))
+    {
+        this->Source = Source;
+        this->bStackable = bStackable;
+    }
+    else
+    {
+        this->Source = nullptr;
+        this->bStackable = false;
+    }
+}
+
 void FCombatModifier::Reset()
 {
     if (IsValid(Source))
@@ -102,13 +126,13 @@ void FCombatModifier::SetSource(UBuff* NewSource)
         {
             PreviousSourceStacks = Source->GetCurrentStacks();
             FBuffEventCallback StackCallback;
-            StackCallback.BindDynamic(this, &OnBuffStacked);
+            StackCallback.BindDynamic(this, &FCombatModifier::OnBuffStacked);
             Source->UnsubscribeFromBuffUpdated(StackCallback);
         }
         if (IsValid(Source->GetHandler()))
         {
             FBuffRemoveCallback RemoveCallback;
-            RemoveCallback.BindDynamic(this, &OnBuffRemoved);
+            RemoveCallback.BindDynamic(this, &FCombatModifier::OnBuffRemoved);
             Source->GetHandler()->UnsubscribeFromIncomingBuffRemove(RemoveCallback);
         }
         Source = nullptr;
@@ -119,13 +143,13 @@ void FCombatModifier::SetSource(UBuff* NewSource)
         if (bStackable)
         {
             FBuffEventCallback StackCallback;
-            StackCallback.BindDynamic(this, &OnBuffStacked);
+            StackCallback.BindDynamic(this, &FCombatModifier::OnBuffStacked);
             Source->SubscribeToBuffUpdated(StackCallback);
         }
         if (IsValid(Source->GetHandler()))
         {
             FBuffRemoveCallback RemoveCallback;
-            RemoveCallback.BindDynamic(this, &OnBuffRemoved);
+            RemoveCallback.BindDynamic(this, &FCombatModifier::OnBuffRemoved);
             Source->GetHandler()->SubscribeToIncomingBuffRemove(RemoveCallback);
         }
     }

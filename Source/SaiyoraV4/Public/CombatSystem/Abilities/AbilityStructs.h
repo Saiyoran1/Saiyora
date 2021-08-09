@@ -25,6 +25,21 @@ struct FAbilityCost
 };
 
 USTRUCT()
+struct FAbilityResourceCost
+{
+    GENERATED_BODY()
+
+    TSubclassOf<UResource> ResourceClass;
+    TSubclassOf<UCombatAbility> AbilityClass;
+    UPROPERTY()
+    class UAbilityHandler* Handler;
+    FCombatFloatValue Cost;
+
+    void Initialize(TSubclassOf<UResource> const ResourceClass, TSubclassOf<UCombatAbility> const AbilityClass, UAbilityHandler* Handler);
+    float RecalculateCost(TArray<FCombatModifier> const& SpecificMods, float const BaseValue);
+};
+
+USTRUCT()
 struct FAbilityCooldown
 {
     GENERATED_BODY()
@@ -250,12 +265,12 @@ private:
     TSubclassOf<UCombatAbility> AbilityClass;
 //Calculated Values
     FCombatIntValue MaxCharges;
-    FCombatIntValue ChargesPerCast;
+    FCombatIntValue ChargeCost;
     FCombatIntValue ChargesPerCooldown;
     FCombatFloatValue GlobalCooldownLength;
     FCombatFloatValue CooldownLength;
     FCombatFloatValue CastLength;
-    TMap<TSubclassOf<UResource>, FCombatFloatValue> AbilityCosts;
+    TMap<TSubclassOf<UResource>, FAbilityResourceCost> AbilityCosts;
 
     float RecalculateGcdLength(TArray<FCombatModifier> const& SpecificMods, float const BaseValue);
     float RecalculateCooldownLength(TArray<FCombatModifier> const& SpecificMods, float const BaseValue);
@@ -264,34 +279,35 @@ public:
     void Initialize(TSubclassOf<UCombatAbility> const AbilityClass, class UAbilityHandler* Handler);
     int32 AddMaxChargeModifier(FCombatModifier const& Modifier) { return MaxCharges.AddModifier(Modifier); }
     void RemoveMaxChargeModifier(int32 const ModifierID) { MaxCharges.RemoveModifier(ModifierID); }
-    int32 AddChargesPerCastModifier(FCombatModifier const& Modifier) { return ChargesPerCast.AddModifier(Modifier); }
-    void RemoveChargesPerCastModifier(int32 const ModifierID) { ChargesPerCast.RemoveModifier(ModifierID); }
+    int32 AddChargeCostModifier(FCombatModifier const& Modifier) { return ChargeCost.AddModifier(Modifier); }
+    void RemoveChargesPerCastModifier(int32 const ModifierID) { ChargeCost.RemoveModifier(ModifierID); }
     int32 AddChargesPerCooldownModifier(FCombatModifier const& Modifier) { return ChargesPerCooldown.AddModifier(Modifier); }
     void RemoveChargesPerCooldownModifier(int32 const ModifierID) { ChargesPerCooldown.RemoveModifier(ModifierID); }
     int32 AddGlobalCooldownModifier(FCombatModifier const& Modifier) { return GlobalCooldownLength.AddModifier(Modifier); }
     void RemoveGlobalCooldownModifier(int32 const ModifierID) { GlobalCooldownLength.RemoveModifier(ModifierID); }
-    float UpdateGlobalCooldown() { return GlobalCooldownLength.ForceRecalculation(); }
+    void UpdateGlobalCooldown() { GlobalCooldownLength.ForceRecalculation(); }
     int32 AddCooldownModifier(FCombatModifier const& Modifier) { return CooldownLength.AddModifier(Modifier); }
     void RemoveCooldownModifier(int32 const ModifierID) { CooldownLength.RemoveModifier(ModifierID); }
-    float UpdateCooldown() { return CooldownLength.ForceRecalculation(); }
+    void UpdateCooldown() { CooldownLength.ForceRecalculation(); }
     int32 AddCastLengthModifier(FCombatModifier const& Modifier) { return CastLength.AddModifier(Modifier); }
     void RemoveCastLengthModifier(int32 const ModifierID) { CastLength.RemoveModifier(ModifierID); }
-    float UpdateCastLength() { return CastLength.ForceRecalculation(); }
+    void UpdateCastLength() { CastLength.ForceRecalculation(); }
     int32 AddCostModifier(TSubclassOf<UResource> const ResourceClass, FCombatModifier const& Modifier);
     void RemoveCostModifier(TSubclassOf<UResource> const ResourceClass, int32 const ModifierID);
-    float UpdateCost(TSubclassOf<UResource> const ResourceClass);
-    void UpdateAllCosts(TMap<TSubclassOf<UResource>, float>& OutCosts);
+    void UpdateCost(TSubclassOf<UResource> const ResourceClass);
+    void UpdateAllCosts();
     int32 GetMaxCharges() const { return MaxCharges.GetValue(); }
-    int32 GetChargesPerCast() const { return ChargesPerCast.GetValue(); }
+    int32 GetChargeCost() const { return ChargeCost.GetValue(); }
     int32 GetChargesPerCooldown() const { return ChargesPerCooldown.GetValue(); }
     float GetGlobalCooldownLength() const { return GlobalCooldownLength.GetValue(); }
     float GetCooldownLength() const { return CooldownLength.GetValue(); }
     float GetCastLength() const { return CastLength.GetValue(); }
-    float GetCost(TSubclassOf<UResource> const ResourceClass) const { return AbilityCosts.FindRef(ResourceClass).GetValue(); }
+    float GetCost(TSubclassOf<UResource> const ResourceClass) const { return AbilityCosts.FindRef(ResourceClass).Cost.GetValue(); }
     void GetCosts(TMap<TSubclassOf<UResource>, float>& OutCosts);
 };
 
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FAbilityModCondition, TSubclassOf<UCombatAbility>, AbilityClass);
+DECLARE_DYNAMIC_DELEGATE_RetVal_TwoParams(FCombatModifier, FAbilityResourceModCondition, TSubclassOf<UCombatAbility>, AbilityClass, TSubclassOf<UResource>, ResourceClass);
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FAbilityRestriction, UCombatAbility*, Ability);
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FInterruptRestriction, FInterruptEvent const&, InterruptEvent);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityInstanceCallback, UCombatAbility*, NewAbility);

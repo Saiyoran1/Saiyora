@@ -346,7 +346,7 @@ FCastEvent UPlayerAbilityHandler::UsePlayerAbility(TSubclassOf<UPlayerCombatAbil
 		return Result;
 	}
 
-	TArray<FAbilityCost> Costs;
+	TMap<TSubclassOf<UResource>, float> Costs;
 	if (!CheckCanUseAbility(Result.Ability, Costs, Result.FailReason))
 	{
 		if (!bFromQueue && Result.FailReason == ECastFailReason::AlreadyCasting || Result.FailReason == ECastFailReason::OnGlobalCooldown)
@@ -385,9 +385,9 @@ FCastEvent UPlayerAbilityHandler::UsePlayerAbility(TSubclassOf<UPlayerCombatAbil
 		if (Costs.Num() > 0 && IsValid(GetResourceHandlerRef()))
 		{
 			GetResourceHandlerRef()->PredictAbilityCosts(Result.Ability, Costs, Result.PredictionID);
-			for (FAbilityCost const& Cost : Costs)
+			for (TTuple<TSubclassOf<UResource>, float> const& Cost : Costs)
 			{
-				AbilityPrediction.PredictedCostClasses.Add(Cost.ResourceClass);
+				AbilityPrediction.PredictedCostClasses.Add(Cost.Key);
 			}
 		}
 		
@@ -480,7 +480,7 @@ void UPlayerAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest 
 		return;
 	}
 
-	TArray<FAbilityCost> Costs;
+	TMap<TSubclassOf<UResource>, float> Costs;
 	if (!CheckCanUseAbility(PlayerAbility, Costs, Result.FailReason))
 	{
 		ClientFailPredictedAbility(AbilityRequest.PredictionID, Result.FailReason);
@@ -499,7 +499,7 @@ void UPlayerAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest 
 		StartGlobal(PlayerAbility, true);
 		ServerResult.bActivatedGlobal = true;
 		//Recalculate global length here because the server's ping compensation shouldn't be factored into the client's predicted GCD.
-		ServerResult.GlobalLength = CalculateGlobalCooldownLength(PlayerAbility);
+		ServerResult.GlobalLength = GetGlobalCooldownLength(PlayerAbility->GetClass());
 	}
 
 	int32 const PreviousCharges = PlayerAbility->GetCurrentCharges();
@@ -510,7 +510,15 @@ void UPlayerAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest 
 	if (Costs.Num() > 0 && IsValid(GetResourceHandlerRef()))
 	{
 		GetResourceHandlerRef()->CommitAbilityCosts(PlayerAbility, Costs, Result.PredictionID);
-		ServerResult.AbilityCosts = Costs;
+		for (TTuple<TSubclassOf<UResource>, float> const& Cost : Costs)
+		{
+			//TODO: Something other than this, can't replicate the map itself though.
+			FAbilityCost RepCost;
+			RepCost.Cost = Cost.Value;
+			RepCost.ResourceClass = Cost.Key;
+			RepCost.bStaticCost = true;
+			ServerResult.AbilityCosts.Add(RepCost);
+		}
 	}
 
 	FCombatParameters BroadcastParams;
@@ -527,7 +535,7 @@ void UPlayerAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest 
 		Result.ActionTaken = ECastAction::Success;
 		StartCast(PlayerAbility, Result.PredictionID);
 		//Recalculate cast length here because the server's ping compensation shouldn't be factored into the client's predicted cast.
-		ServerResult.CastLength = CalculateCastLength(PlayerAbility);
+		ServerResult.CastLength = GetCastLength(PlayerAbility->GetClass());
 		ServerResult.bActivatedCastBar = true;
 		ServerResult.bInterruptible = CastingState.bInterruptible;
 		if (PlayerAbility->GetHasInitialTick())
@@ -651,7 +659,7 @@ void UPlayerAbilityHandler::StartCast(UCombatAbility* Ability, int32 const Predi
 	CastingState.bIsCasting = true;
 	CastingState.CurrentCast = Ability;
 	CastingState.CastStartTime = GetGameStateRef()->GetServerWorldTimeSeconds();
-	float CastLength = CalculateCastLength(Ability);
+	float CastLength = GetCastLength(Ability->GetClass());
 	CastingState.PredictionID = PredictionID;
 	float const PingCompensation = FMath::Clamp(USaiyoraCombatLibrary::GetActorPing(GetOwner()), 0.0f, MaxPingCompensation);
 	CastLength = FMath::Max(MinimumCastLength, CastLength - PingCompensation);
@@ -1076,13 +1084,13 @@ void UPlayerAbilityHandler::StartGlobal(UCombatAbility* Ability, bool const bPre
 {
 	if (!bPredicted)
 	{
-		Super::StartGlobal(Ability);
+		Super::StartGlobal(Ability->GetClass());
 		return;
 	}
 	FGlobalCooldown const PreviousGlobal = GlobalCooldownState;
 	GlobalCooldownState.bGlobalCooldownActive = true;
 	GlobalCooldownState.StartTime = GetGameStateRef()->GetServerWorldTimeSeconds();
-	float GlobalLength = CalculateGlobalCooldownLength(Ability);
+	float GlobalLength = GetGlobalCooldownLength(Ability->GetClass());
 	float const PingCompensation = FMath::Clamp(USaiyoraCombatLibrary::GetActorPing(GetOwner()), 0.0f, MaxPingCompensation);
 	GlobalLength = FMath::Max(MinimumGlobalCooldownLength, GlobalLength - PingCompensation);
 	GlobalCooldownState.EndTime = GlobalCooldownState.StartTime + GlobalLength;

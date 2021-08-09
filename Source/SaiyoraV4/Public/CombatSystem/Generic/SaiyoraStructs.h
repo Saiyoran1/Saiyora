@@ -13,7 +13,9 @@ USTRUCT(BlueprintType)
 struct FCombatModifier
 {
     GENERATED_BODY()
-    
+
+    FCombatModifier();
+    FCombatModifier(float const Value, EModifierType const ModType, bool const bStackable = false, class UBuff* Source = nullptr);
     void Reset();
     void Activate(FModifierCallback const& OnChangedCallback);
     void SetValue(float const NewValue);

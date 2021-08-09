@@ -44,26 +44,26 @@ private:
     void OnRep_Deactivated(bool const Previous);
 //Basic Info
 public:
-    UFUNCTION(BlueprintCallable, BlueprintPure)
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Info")
     FName GetAbilityName() const { return Name; }
-    UFUNCTION(BlueprintCallable, BlueprintPure)
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Info")
     FText GetAbilityDescription() const { return Description; }
-    UFUNCTION(BlueprintCallable, BlueprintPure)
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Info")
     UTexture2D* GetAbilityIcon() const { return Icon; }
-    UFUNCTION(BlueprintCallable, BlueprintPure)
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Info")
     EDamageSchool GetAbilitySchool() const { return AbilitySchool; }
-    UFUNCTION(BlueprintCallable, BlueprintPure)
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Info")
     ESaiyoraPlane GetAbilityPlane() const { return AbilityPlane; }
 private:
-    UPROPERTY(EditDefaultsOnly, Category = "Display Info")
+    UPROPERTY(EditDefaultsOnly, Category = "Info")
     FName Name;
-    UPROPERTY(EditDefaultsOnly, Category = "Display Info")
+    UPROPERTY(EditDefaultsOnly, Category = "Info")
     FText Description;
-    UPROPERTY(EditDefaultsOnly, Category = "Display Info")
+    UPROPERTY(EditDefaultsOnly, Category = "Info")
     UTexture2D* Icon;
-    UPROPERTY(EditDefaultsOnly, Category = "Display Info")
+    UPROPERTY(EditDefaultsOnly, Category = "Info")
     EDamageSchool AbilitySchool;
-    UPROPERTY(EditDefaultsOnly, Category = "Display Info")
+    UPROPERTY(EditDefaultsOnly, Category = "Info")
     ESaiyoraPlane AbilityPlane;
 //Casting
 public:
@@ -94,9 +94,9 @@ public:
 protected:
     UFUNCTION(BlueprintNativeEvent)
     void SetupCustomCastRestrictions();
-    UFUNCTION(BlueprintCallable, Category = "Abilities")
+    UFUNCTION(BlueprintCallable, Category = "Cast")
     void ActivateCastRestriction(FName const& RestrictionName);
-    UFUNCTION(BlueprintCallable, Category = "Abilities")
+    UFUNCTION(BlueprintCallable, Category = "Cast")
     void DeactivateCastRestriction(FName const& RestrictionName);
     UFUNCTION(BlueprintNativeEvent)
     void OnServerTick(int32 const TickNumber);
@@ -113,21 +113,21 @@ protected:
     UPROPERTY(BlueprintReadWrite, Transient, Category = "Abilities")
     FCombatParameters BroadcastParameters;
 private:
-    UPROPERTY(EditDefaultsOnly, Category = "Cast Info")
+    UPROPERTY(EditDefaultsOnly, Category = "Cast")
     EAbilityCastType CastType = EAbilityCastType::None;
-    UPROPERTY(EditDefaultsOnly, Category = "Cast Info")
+    UPROPERTY(EditDefaultsOnly, Category = "Cast")
     float DefaultCastTime = 0.0f;
-    UPROPERTY(EditDefaultsOnly, Category = "Cast Info")
+    UPROPERTY(EditDefaultsOnly, Category = "Cast")
     bool bStaticCastTime = true;
-    UPROPERTY(EditDefaultsOnly, Category = "Cast Info")
+    UPROPERTY(EditDefaultsOnly, Category = "Cast")
     bool bInitialTick = true;
-    UPROPERTY(EditDefaultsOnly, Category = "Cast Info")
+    UPROPERTY(EditDefaultsOnly, Category = "Cast")
     int32 NonInitialTicks = 0;
-    UPROPERTY(EditDefaultsOnly, Category = "Crowd Control Info")
+    UPROPERTY(EditDefaultsOnly, Category = "Crowd Control")
     bool bInterruptible = true;
-    UPROPERTY(EditDefaultsOnly, Category = "Crowd Control Info")
+    UPROPERTY(EditDefaultsOnly, Category = "Crowd Control")
     bool bCastableWhileDead = false;
-    UPROPERTY(EditDefaultsOnly, Category = "Crowd Control Info")
+    UPROPERTY(EditDefaultsOnly, Category = "Crowd Control")
     TArray<TSubclassOf<UCrowdControl>> RestrictedCrowdControls;
     bool bCustomCastConditionsMet = true;
     TArray<FName> CustomCastRestrictions;
@@ -140,98 +140,76 @@ public:
     UFUNCTION(BlueprintCallable, BlueprintPure)
     bool HasStaticGlobalCooldown() const { return bStaticGlobalCooldown; }
 private:
-    UPROPERTY(EditDefaultsOnly, Category = "Cooldown Info")
+    UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
     bool bOnGlobalCooldown = true;
-    UPROPERTY(EditDefaultsOnly, Category = "Cooldown Info")
+    UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
     float DefaultGlobalCooldownLength = 1.0f;
-    UPROPERTY(EditDefaultsOnly, Category = "Cooldown Info")
+    UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
     bool bStaticGlobalCooldown = true;
 //Cooldown
 public:
-    UFUNCTION(BlueprintCallable, BlueprintPure)
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
     float GetDefaultCooldown() const { return DefaultCooldown; }
-    UFUNCTION(BlueprintCallable, BlueprintPure)
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
     bool GetHasStaticCooldown() const { return bStaticCooldown; }
-    UFUNCTION(BlueprintCallable, BlueprintPure)
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
     bool GetCooldownActive() const { return AbilityCooldown.OnCooldown; }
-    UFUNCTION(BlueprintCallable, BlueprintPure)
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
     float GetRemainingCooldown() const { return AbilityCooldown.OnCooldown ? GetWorld()->GetTimerManager().GetTimerRemaining(CooldownHandle) : 0.0f; }
-    UFUNCTION(BlueprintCallable, BlueprintPure)
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
     float GetCurrentCooldownLength() const { return AbilityCooldown.OnCooldown ? AbilityCooldown.CooldownEndTime - AbilityCooldown.CooldownStartTime : 0.0f; }
-    UFUNCTION(BlueprintCallable, BlueprintPure)
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
     int32 GetDefaultMaxCharges() const { return DefaultMaxCharges; }
-    UFUNCTION(BlueprintCallable, BlueprintPure)
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
     bool GetHasStaticMaxCharges() const { return bStaticMaxCharges; }
-    UFUNCTION(BlueprintCallable, BlueprintPure)
-    int32 GetMaxCharges() const { return MaxCharges; }
-    UFUNCTION(BlueprintCallable, Category = "Abilities")
-    void SubscribeToMaxChargesChanged(FAbilityChargeCallback const& Callback);
-    UFUNCTION(BlueprintCallable, Category = "Abilities")
-    void UnsubscribeFromMaxChargesChanged(FAbilityChargeCallback const& Callback);
-    void UpdateMaxCharges(TArray<FCombatModifier> const& Modifiers);
-    UFUNCTION(BlueprintCallable, BlueprintPure)
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
     int32 GetCurrentCharges() const { return AbilityCooldown.CurrentCharges; }
-    UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+    UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Cooldown")
     void ModifyCurrentCharges(int32 const Charges, bool const bAdditive = true);
-    UFUNCTION(BlueprintCallable, Category = "Abilities")
+    UFUNCTION(BlueprintCallable, Category = "Cooldown")
     void SubscribeToChargesChanged(FAbilityChargeCallback const& Callback);
-    UFUNCTION(BlueprintCallable, Category = "Abilities")
+    UFUNCTION(BlueprintCallable, Category = "Cooldown")
     void UnsubscribeFromChargesChanged(FAbilityChargeCallback const& Callback);
     void CommitCharges();
-    UFUNCTION(BlueprintCallable, BlueprintPure)
-    int32 GetDefaultChargeCost() const { return DefaultChargesPerCast; }
-    UFUNCTION(BlueprintCallable, BlueprintPure)
-    bool GetHasStaticChargeCost() const { return bStaticChargesPerCast; }
-    UFUNCTION(BlueprintCallable, BlueprintPure)
-    int32 GetChargesPerCast() const { return ChargesPerCast; }
-    void UpdateChargesPerCast(TArray<FCombatModifier> const& Modifiers);
-    UFUNCTION(BlueprintCallable, BlueprintPure)
-    bool CheckChargesMet() const { return AbilityCooldown.CurrentCharges >= ChargesPerCast; }
-    UFUNCTION(BlueprintCallable, BlueprintPure)
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+    int32 GetDefaultChargeCost() const { return DefaultChargeCost; }
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+    bool HasStaticChargeCost() const { return bStaticChargeCost; }
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
     int32 GetDefaultChargesPerCooldown() const { return DefaultChargesPerCooldown; }
-    UFUNCTION(BlueprintCallable, BlueprintPure)
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
     bool GetHasStaticChargesPerCooldown() const { return bStaticChargesPerCooldown; }
-    UFUNCTION(BlueprintCallable, BlueprintPure)
-    int32 GetChargesPerCooldown() const { return ChargesPerCooldown; }
-    void UpdateChargesPerCooldown(TArray<FCombatModifier> const& Modifiers);
 private:
-    UPROPERTY(EditDefaultsOnly, Category = "Cooldown Info")
+    UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
     int32 DefaultMaxCharges = 1;
-    UPROPERTY(EditDefaultsOnly, Category = "Cooldown Info")
+    UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
     bool bStaticMaxCharges = true;
-    UPROPERTY(EditDefaultsOnly, Category = "Cooldown Info")
+    UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
     float DefaultCooldown = 1.0f;
-    UPROPERTY(EditDefaultsOnly, Category = "Cooldown Info")
+    UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
     bool bStaticCooldown = true;
-    UPROPERTY(EditDefaultsOnly, Category = "Cooldown Info")
+    UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
     int32 DefaultChargesPerCooldown = 1;
-    UPROPERTY(EditDefaultsOnly, Category = "Cooldown Info")
+    UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
     bool bStaticChargesPerCooldown = true;
-    UPROPERTY(EditDefaultsOnly, Category = "Cooldown Info")
-    int32 DefaultChargesPerCast = 1;
-    UPROPERTY(EditDefaultsOnly, Category = "Cooldown Info")
-    bool bStaticChargesPerCast = true;
+    UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
+    int32 DefaultChargeCost = 1;
+    UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
+    bool bStaticChargeCost = true;
 protected:
     FAbilityCooldown AbilityCooldown;
-    UPROPERTY()
-    int32 MaxCharges = 1;
-    UPROPERTY()
-    int32 ChargesPerCooldown = 1;
     FTimerHandle CooldownHandle;
-    UPROPERTY()
-    int32 ChargesPerCast = 1;
     FAbilityChargeNotification OnChargesChanged;
-    FAbilityChargeNotification OnMaxChargesChanged;
     void StartCooldown();
     UFUNCTION()
     void CompleteCooldown();
 //Costs
 public:
-    UFUNCTION(BlueprintCallable, BlueprintPure)
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cost")
     FAbilityCost GetDefaultAbilityCost(TSubclassOf<UResource> const ResourceClass) const;
-    UFUNCTION(BlueprintCallable, BlueprintPure)
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cost")
     void GetDefaultAbilityCosts(TArray<FAbilityCost>& OutCosts) const { OutCosts = DefaultAbilityCosts; }
 private:
-    UPROPERTY(EditDefaultsOnly, Category = "Cost Info")
+    UPROPERTY(EditDefaultsOnly, Category = "Cost")
     TArray<FAbilityCost> DefaultAbilityCosts;
 };

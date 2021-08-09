@@ -59,13 +59,13 @@ void UAbilityHandler::BeginPlay()
 	{
 		FAbilityModCondition StatCooldownMod;
 		StatCooldownMod.BindDynamic(this, &UAbilityHandler::ModifyCooldownFromStat);
-		AddGenericCooldownModifier(StatCooldownMod);
+		AddConditionalCooldownModifier(StatCooldownMod);
 		FAbilityModCondition StatGlobalCooldownMod;
 		StatGlobalCooldownMod.BindDynamic(this, &UAbilityHandler::ModifyGlobalCooldownFromStat);
-		AddGenericGlobalCooldownModifier(StatGlobalCooldownMod);
+		AddConditionalGlobalCooldownModifier(StatGlobalCooldownMod);
 		FAbilityModCondition StatCastLengthMod;
 		StatCastLengthMod.BindDynamic(this, &UAbilityHandler::ModifyCastLengthFromStat);
-		AddGenericCastLengthModifier(StatCastLengthMod);
+		AddConditionalCastLengthModifier(StatCastLengthMod);
 	}
 	if (GetOwnerRole() == ROLE_Authority)
 	{
@@ -95,64 +95,10 @@ FCombatModifier UAbilityHandler::ModifyCooldownFromStat(TSubclassOf<UCombatAbili
 	{
 		if (StatHandler->GetStatValid(CooldownLengthStatTag()))
 		{
-			Mod = USaiyoraCombatLibrary::MakeCombatModifier(EModifierType::Multiplicative, StatHandler->GetStatValue(CooldownLengthStatTag()));
+			Mod = FCombatModifier(StatHandler->GetStatValue(CooldownLengthStatTag()), EModifierType::Multiplicative);
 		}
 	}
 	return Mod;
-}
-
-int32 UAbilityHandler::AddGenericAbilityCostModifier(TSubclassOf<UResource> const ResourceClass,
-	FCombatModifier const& Modifier)
-{
-	if (!IsValid(ResourceClass) || Modifier.GetModType() == EModifierType::Invalid)
-	{
-		return -1;
-	}
-	FModifierCollection& Mods = GenericCostModifiers.FindOrAdd(ResourceClass);
-	return Mods.AddModifier(Modifier);
-}
-
-void UAbilityHandler::RemoveGenericAbilityCostModifier(TSubclassOf<UResource> const ResourceClass,
-	int32 const ModifierID)
-{
-	if (!IsValid(ResourceClass) || ModifierID == -1)
-	{
-		return;
-	}
-	FModifierCollection* Mods = GenericCostModifiers.Find(ResourceClass);
-	if (Mods)
-	{
-		Mods->RemoveModifier(ModifierID);
-	}
-}
-
-int32 UAbilityHandler::AddClassAbilityCostModifier(TSubclassOf<UCombatAbility> const AbilityClass,
-	TSubclassOf<UResource> const ResourceClass, FCombatModifier const& Modifier)
-{
-	if (!IsValid(AbilityClass) || !IsValid(ResourceClass) || Modifier.GetModType() == EModifierType::Invalid)
-	{
-		return -1;
-	}
-	FAbilityValues* Mods = ClassSpecificModifiers.Find(AbilityClass);
-	if (!Mods)
-	{
-		return -1;
-	}
-	return Mods->AddCostModifier(ResourceClass, Modifier);
-}
-
-void UAbilityHandler::RemoveClassAbilityCostModifier(TSubclassOf<UCombatAbility> const AbilityClass,
-	TSubclassOf<UResource> const ResourceClass, int32 const ModifierID)
-{
-	if (!IsValid(AbilityClass) || !IsValid(ResourceClass) || ModifierID == -1)
-	{
-		return;
-	}
-	FAbilityValues* ModCollection = ClassSpecificModifiers.Find(AbilityClass);
-	if (ModCollection)
-	{
-		ModCollection->RemoveCostModifier(ResourceClass, ModifierID);
-	}
 }
 
 FCombatModifier UAbilityHandler::ModifyGlobalCooldownFromStat(TSubclassOf<UCombatAbility> AbilityClass)
@@ -162,7 +108,7 @@ FCombatModifier UAbilityHandler::ModifyGlobalCooldownFromStat(TSubclassOf<UComba
 	{
 		if (StatHandler->GetStatValid(GlobalCooldownLengthStatTag()))
 		{
-			Mod = USaiyoraCombatLibrary::MakeCombatModifier(EModifierType::Multiplicative, StatHandler->GetStatValue(GlobalCooldownLengthStatTag()));
+			Mod = FCombatModifier(StatHandler->GetStatValue(GlobalCooldownLengthStatTag()), EModifierType::Multiplicative);
 		}
 	}
 	return Mod;
@@ -175,7 +121,7 @@ FCombatModifier UAbilityHandler::ModifyCastLengthFromStat(TSubclassOf<UCombatAbi
 	{
 		if (StatHandler->GetStatValid(CastLengthStatTag()))
 		{
-			Mod = USaiyoraCombatLibrary::MakeCombatModifier(EModifierType::Multiplicative, StatHandler->GetStatValue(CastLengthStatTag()));
+			Mod = FCombatModifier(StatHandler->GetStatValue(CastLengthStatTag()), EModifierType::Multiplicative);
 		}
 	}
 	return Mod;
@@ -585,7 +531,7 @@ FCastEvent UAbilityHandler::UseAbility(TSubclassOf<UCombatAbility> const Ability
 		return Result;
 	}
 
-	TArray<FAbilityCost> Costs;
+	TMap<TSubclassOf<UResource>, float> Costs;
 	if (!CheckCanUseAbility(Result.Ability, Costs, Result.FailReason))
 	{
 		return Result;
@@ -593,7 +539,7 @@ FCastEvent UAbilityHandler::UseAbility(TSubclassOf<UCombatAbility> const Ability
 	
 	if (Result.Ability->GetHasGlobalCooldown())
 	{
-		StartGlobal(Result.Ability);
+		StartGlobal(AbilityClass);
 	}
 	
 	Result.Ability->CommitCharges();
@@ -634,7 +580,7 @@ FCastEvent UAbilityHandler::UseAbility(TSubclassOf<UCombatAbility> const Ability
 	return Result;
 }
 
-bool UAbilityHandler::CheckCanUseAbility(UCombatAbility* Ability, TArray<FAbilityCost>& OutCosts, ECastFailReason& OutFailReason)
+bool UAbilityHandler::CheckCanUseAbility(UCombatAbility* Ability, TMap<TSubclassOf<UResource>, float>& OutCosts, ECastFailReason& OutFailReason)
 {
 	if (!IsValid(Ability))
 	{
@@ -660,15 +606,13 @@ bool UAbilityHandler::CheckCanUseAbility(UCombatAbility* Ability, TArray<FAbilit
 	}
 
 	FAbilityValues* Values = ClassSpecificModifiers.Find(Ability->GetClass());
-	if (Values)
+	if (!Values)
 	{
-		Values->GetCosts(OutCosts);
+		OutFailReason = ECastFailReason::InvalidAbility;
+		return false;
 	}
-	else
-	{
-		
-	}
-	CalculateAbilityCosts(Ability->GetClass(), OutCosts);
+	
+	Values->GetCosts(OutCosts);
 	if (OutCosts.Num() > 0)
 	{
 		if (!IsValid(ResourceHandler))
@@ -676,14 +620,14 @@ bool UAbilityHandler::CheckCanUseAbility(UCombatAbility* Ability, TArray<FAbilit
 			OutFailReason = ECastFailReason::NoResourceHandler;
 			return false;
 		}
-		if (!ResourceHandler->CheckAbilityCostsMet(Ability, OutCosts))
+		if (!ResourceHandler->CheckAbilityCostsMet(OutCosts))
 		{
 			OutFailReason = ECastFailReason::CostsNotMet;
 			return false;
 		}
 	}
 
-	if (!Ability->CheckChargesMet())
+	if (Ability->GetCurrentCharges() < GetChargeCost(Ability->GetClass()))
 	{
 		OutFailReason = ECastFailReason::ChargesNotMet;
 		return false;
@@ -720,24 +664,43 @@ bool UAbilityHandler::CheckCanUseAbility(UCombatAbility* Ability, TArray<FAbilit
 #pragma region Casting
 //CASTING
 
-int32 UAbilityHandler::AddGenericCastLengthModifier(FAbilityModCondition const& Modifier)
+float UAbilityHandler::GetCastLength(TSubclassOf<UCombatAbility> const AbilityClass)
+{
+	if (!IsValid(AbilityClass))
+	{
+		return 0.0f;
+	}
+	FAbilityValues* Values = ClassSpecificModifiers.Find(AbilityClass);
+	if (!Values)
+	{
+		UCombatAbility const* DefaultAbility = AbilityClass->GetDefaultObject<UCombatAbility>();
+		if (!IsValid(DefaultAbility) || DefaultAbility->GetCastType() != EAbilityCastType::Channel)
+		{
+			return 0.0f;
+		}
+		return DefaultAbility->GetDefaultCastLength();
+	}
+	return Values->GetCastLength();
+}
+
+int32 UAbilityHandler::AddConditionalCastLengthModifier(FAbilityModCondition const& Modifier)
 {
 	if (!Modifier.IsBound())
 	{
 		return -1;
 	}
 	int32 const ModID = FModifierCollection::GetID();
-	GenericCastLengthModifiers.Add(ModID, Modifier);
+	ConditionalCastLengthModifiers.Add(ModID, Modifier);
 	return ModID;
 }
 
-void UAbilityHandler::RemoveGenericCastLengthModifier(int32 const ModifierID)
+void UAbilityHandler::RemoveConditionalCastLengthModifier(int32 const ModifierID)
 {
 	if (ModifierID == -1)
 	{
 		return;
 	}
-	GenericCastLengthModifiers.Remove(ModifierID);
+	ConditionalCastLengthModifiers.Remove(ModifierID);
 }
 
 int32 UAbilityHandler::AddClassCastLengthModifier(TSubclassOf<UCombatAbility> const AbilityClass,
@@ -765,43 +728,13 @@ void UAbilityHandler::RemoveClassCastLengthModifier(TSubclassOf<UCombatAbility> 
 	}
 }
 
-float UAbilityHandler::CalculateCastLength(UCombatAbility* Ability)
-{
-	if (Ability->GetCastType() != EAbilityCastType::Channel)
-	{
-		return 0.0f;
-	}
-	float CastLength = Ability->GetDefaultCastLength();
-	if (!Ability->HasStaticCastLength())
-	{
-		TArray<FCombatModifier> Mods;
-		for (TTuple<int32, FAbilityModCondition>& Mod : GenericCastLengthModifiers)
-		{
-			if (Mod.Value.IsBound())
-			{
-				Mods.Add(Mod.Value.Execute(Ability->GetClass()));
-			}
-		}
-		FAbilityValues* ModCollection = ClassSpecificModifiers.Find(Ability->GetClass());
-		if (ModCollection)
-		{
-			TArray<FCombatModifier> SpecificMods;
-			ModCollection->CastLengthModifiers.GenerateValueArray(SpecificMods);
-			Mods.Append(SpecificMods);
-		}
-		CastLength = FCombatModifier::ApplyModifiers(Mods, CastLength);
-	}
-	CastLength = FMath::Max(MinimumCastLength, CastLength);
-	return CastLength;
-}
-
 void UAbilityHandler::StartCast(UCombatAbility* Ability)
 {
 	FCastingState const PreviousState = CastingState;
 	CastingState.bIsCasting = true;
 	CastingState.CurrentCast = Ability;
 	CastingState.CastStartTime = GameStateRef->GetServerWorldTimeSeconds();
-	float const CastLength = CalculateCastLength(Ability);
+	float const CastLength = GetCastLength(Ability->GetClass());
 	CastingState.CastEndTime = CastingState.CastStartTime + CastLength;
 	CastingState.bInterruptible = Ability->GetInterruptible();
 	GetWorld()->GetTimerManager().SetTimer(CastHandle, this, &UAbilityHandler::CompleteCast, CastLength, false);
@@ -988,24 +921,24 @@ void UAbilityHandler::OnRep_CastingState(FCastingState const& PreviousState)
 #pragma region AbilityCooldown
 //ABILITY COOLDOWN
 
-int32 UAbilityHandler::AddGenericCooldownModifier(FAbilityModCondition const& Modifier)
+int32 UAbilityHandler::AddConditionalCooldownModifier(FAbilityModCondition const& Modifier)
 {
 	if (!Modifier.IsBound())
 	{
 		return -1;
 	}
 	int32 const ModID = FModifierCollection::GetID();
-	GenericCooldownLengthModifiers.Add(ModID, Modifier);
+	ConditionalCooldownModifiers.Add(ModID, Modifier);
 	return ModID;
 }
 
-void UAbilityHandler::RemoveGenericCooldownModifier(int32 const ModifierID)
+void UAbilityHandler::RemoveConditionalCooldownModifier(int32 const ModifierID)
 {
 	if (ModifierID == -1)
 	{
 		return;
 	}
-	GenericCooldownLengthModifiers.Remove(ModifierID);
+	ConditionalCooldownModifiers.Remove(ModifierID);
 }
 
 int32 UAbilityHandler::AddClassCooldownModifier(TSubclassOf<UCombatAbility> const AbilityClass,
@@ -1033,30 +966,38 @@ void UAbilityHandler::RemoveClassCooldownModifier(TSubclassOf<UCombatAbility> co
 	}
 }
 
-float UAbilityHandler::CalculateCooldownLength(UCombatAbility* Ability)
+int32 UAbilityHandler::GetMaxCharges(TSubclassOf<UCombatAbility> const AbilityClass)
 {
-	float CooldownLength = Ability->GetDefaultCooldown();
-	if (!Ability->GetHasStaticCooldown())
+	if (!IsValid(AbilityClass))
 	{
-		TArray<FCombatModifier> ModArray;
-		for (TTuple<int32, FAbilityModCondition>& ModPair : GenericCooldownLengthModifiers)
-		{
-			if (ModPair.Value.IsBound())
-			{
-				ModArray.Add(ModPair.Value.Execute(Ability->GetClass()));
-			}
-		}
-		FAbilityValues* ModCollection = ClassSpecificModifiers.Find(Ability->GetClass());
-		if (ModCollection)
-		{
-			TArray<FCombatModifier> SpecificMods;
-			ModCollection->CooldownModifiers.GenerateValueArray(SpecificMods);
-			ModArray.Append(SpecificMods);
-		}
-		CooldownLength = FCombatModifier::ApplyModifiers(ModArray, CooldownLength);
+		return 0;
 	}
-	CooldownLength = FMath::Max(CooldownLength, MinimumCooldownLength);
-	return CooldownLength;
+	FAbilityValues* Values = ClassSpecificModifiers.Find(AbilityClass);
+	if (!Values)
+	{
+		UCombatAbility const* DefaultAbility = AbilityClass->GetDefaultObject<UCombatAbility>();
+		if (!IsValid(DefaultAbility))
+		{
+			return 0;
+		}
+		return DefaultAbility->GetDefaultMaxCharges();
+	}
+	return Values->GetMaxCharges();
+}
+
+float UAbilityHandler::GetCooldownLength(TSubclassOf<UCombatAbility> const AbilityClass)
+{
+	FAbilityValues* Values = ClassSpecificModifiers.Find(AbilityClass);
+	if (!Values)
+	{
+		UCombatAbility const* DefaultAbility = AbilityClass->GetDefaultObject<UCombatAbility>();
+		if (!IsValid(DefaultAbility))
+		{
+			return 0.0f;
+		}
+		return DefaultAbility->GetDefaultCooldown();
+	}
+	return Values->GetCooldownLength();
 }
 
 int32 UAbilityHandler::AddClassMaxChargeModifier(TSubclassOf<UCombatAbility> const AbilityClass,
@@ -1084,17 +1025,36 @@ void UAbilityHandler::RemoveClassMaxChargeModifier(TSubclassOf<UCombatAbility> c
 	}
 }
 
-int32 UAbilityHandler::AddClassChargesPerCastModifier(TSubclassOf<UCombatAbility> const AbilityClass, FCombatModifier const& Modifier)
+int32 UAbilityHandler::GetChargeCost(TSubclassOf<UCombatAbility> const AbilityClass)
+{
+	if (!IsValid(AbilityClass))
+	{
+		return 0;
+	}
+	FAbilityValues* Values = ClassSpecificModifiers.Find(AbilityClass);
+	if (!Values)
+	{
+		UCombatAbility const* DefaultAbility = AbilityClass->GetDefaultObject<UCombatAbility>();
+		if (!IsValid(DefaultAbility))
+		{
+			return 0;
+		}
+		return DefaultAbility->GetDefaultChargeCost();
+	}
+	return Values->GetChargeCost();
+}
+
+int32 UAbilityHandler::AddClassChargeCostModifier(TSubclassOf<UCombatAbility> const AbilityClass, FCombatModifier const& Modifier)
 {
 	if (!IsValid(AbilityClass) || Modifier.GetModType() == EModifierType::Invalid)
 	{
 		return -1;
 	}
 	FAbilityValues& ModCollection = ClassSpecificModifiers.FindOrAdd(AbilityClass);
-	return ModCollection.AddChargesPerCastModifier(Modifier);
+	return ModCollection.AddChargeCostModifier(Modifier);
 }
 
-void UAbilityHandler::RemoveClassChargesPerCastModifier(TSubclassOf<UCombatAbility> const AbilityClass, int32 const ModifierID)
+void UAbilityHandler::RemoveClassChargeCostModifier(TSubclassOf<UCombatAbility> const AbilityClass, int32 const ModifierID)
 {
 	if (!IsValid(AbilityClass) || ModifierID == -1)
 	{
@@ -1106,6 +1066,26 @@ void UAbilityHandler::RemoveClassChargesPerCastModifier(TSubclassOf<UCombatAbili
 		ModCollection->RemoveChargesPerCastModifier(ModifierID);
 	}
 }
+
+int32 UAbilityHandler::GetChargesPerCooldown(TSubclassOf<UCombatAbility> const AbilityClass)
+{
+	if (!IsValid(AbilityClass))
+	{
+		return 0;
+	}
+	FAbilityValues* AbilityValues = ClassSpecificModifiers.Find(AbilityClass);
+	if (!AbilityValues)
+	{
+		UCombatAbility const* DefaultAbility = AbilityClass->GetDefaultObject<UCombatAbility>();
+		if (!IsValid(DefaultAbility))
+		{
+			return 0;
+		}
+		return DefaultAbility->GetDefaultChargesPerCooldown();
+	}
+	return AbilityValues->GetChargesPerCooldown();
+}
+
 
 int32 UAbilityHandler::AddClassChargesPerCooldownModifier(TSubclassOf<UCombatAbility> const AbilityClass,
 	FCombatModifier const& Modifier)
@@ -1135,24 +1115,24 @@ void UAbilityHandler::RemoveClassChargesPerCooldownModifier(TSubclassOf<UCombatA
 #pragma region GlobalCooldown
 //GLOBAL COOLDOWN
 
-int32 UAbilityHandler::AddGenericGlobalCooldownModifier(FAbilityModCondition const& Modifier)
+int32 UAbilityHandler::AddConditionalGlobalCooldownModifier(FAbilityModCondition const& Modifier)
 {
 	if (!Modifier.IsBound())
 	{
 		return -1;
 	}
 	int32 const ModID = FModifierCollection::GetID();
-	GenericGlobalCooldownModifiers.Add(ModID, Modifier);
+	ConditionalGlobalCooldownModifiers.Add(ModID, Modifier);
 	return ModID;
 }
 
-void UAbilityHandler::RemoveGenericGlobalCooldownModifier(int32 const ModifierID)
+void UAbilityHandler::RemoveConditionalGlobalCooldownModifier(int32 const ModifierID)
 {
 	if (ModifierID == -1)
 	{
 		return;
 	}
-	GenericGlobalCooldownModifiers.Remove(ModifierID);
+	ConditionalGlobalCooldownModifiers.Remove(ModifierID);
 }
 
 int32 UAbilityHandler::AddClassGlobalCooldownModifier(TSubclassOf<UCombatAbility> const AbilityClass,
@@ -1180,38 +1160,28 @@ void UAbilityHandler::RemoveClassGlobalCooldownModifier(TSubclassOf<UCombatAbili
 	}
 }
 
-float UAbilityHandler::CalculateGlobalCooldownLength(UCombatAbility* Ability)
+float UAbilityHandler::GetGlobalCooldownLength(TSubclassOf<UCombatAbility> const AbilityClass)
 {
-	float GlobalLength = Ability->GetDefaultGlobalCooldownLength();
-	if (!Ability->HasStaticGlobalCooldown())
+	FAbilityValues* Values = ClassSpecificModifiers.Find(AbilityClass);
+	if (!Values)
 	{
-		TArray<FCombatModifier> Mods;
-		for (TTuple<int32, FAbilityModCondition>& ModPair : GenericGlobalCooldownModifiers)
+		UE_LOG(LogTemp, Warning, TEXT("Did not find values struct for AbilityClass."));
+		UCombatAbility const* DefaultAbility = AbilityClass->GetDefaultObject<UCombatAbility>();
+		if (IsValid(DefaultAbility))
 		{
-			if (ModPair.Value.IsBound())
-			{
-				Mods.Add(ModPair.Value.Execute(Ability->GetClass()));
-			}
+			return DefaultAbility->GetDefaultGlobalCooldownLength();
 		}
-		FAbilityValues* ModCollection = ClassSpecificModifiers.Find(Ability->GetClass());
-		if (ModCollection)
-		{
-			TArray<FCombatModifier> SpecificMods;
-			ModCollection->GlobalCooldownModifiers.GenerateValueArray(SpecificMods);
-			Mods.Append(SpecificMods);
-		}
-		GlobalLength = FCombatModifier::ApplyModifiers(Mods, GlobalLength);
+		return 0.0f;
 	}
-	GlobalLength = FMath::Max(MinimumGlobalCooldownLength, GlobalLength);
-	return GlobalLength;
+	return Values->GetGlobalCooldownLength();
 }
 
-void UAbilityHandler::StartGlobal(UCombatAbility* Ability)
+void UAbilityHandler::StartGlobal(TSubclassOf<UCombatAbility> const AbilityClass)
 {
 	FGlobalCooldown const PreviousGlobal = GlobalCooldownState;
 	GlobalCooldownState.bGlobalCooldownActive = true;
 	GlobalCooldownState.StartTime = GameStateRef->GetServerWorldTimeSeconds();
-	float const GlobalLength = CalculateGlobalCooldownLength(Ability);
+	float const GlobalLength = GetGlobalCooldownLength(AbilityClass);
 	GlobalCooldownState.EndTime = GlobalCooldownState.StartTime + GlobalLength;
 	GetWorld()->GetTimerManager().SetTimer(GlobalCooldownHandle, this, &UAbilityHandler::EndGlobalCooldown, GlobalLength, false);
 	OnGlobalCooldownChanged.Broadcast(PreviousGlobal, GlobalCooldownState);
@@ -1229,4 +1199,56 @@ void UAbilityHandler::EndGlobalCooldown()
 		OnGlobalCooldownChanged.Broadcast(PreviousGlobal, GlobalCooldownState);
 	}
 }
+#pragma endregion
+#pragma region AbilityCost
+
+int32 UAbilityHandler::AddClassAbilityCostModifier(TSubclassOf<UCombatAbility> const AbilityClass,
+	TSubclassOf<UResource> const ResourceClass, FCombatModifier const& Modifier)
+{
+	if (!IsValid(AbilityClass) || !IsValid(ResourceClass) || Modifier.GetModType() == EModifierType::Invalid)
+	{
+		return -1;
+	}
+	FAbilityValues* Mods = ClassSpecificModifiers.Find(AbilityClass);
+	if (!Mods)
+	{
+		return -1;
+	}
+	return Mods->AddCostModifier(ResourceClass, Modifier);
+}
+
+void UAbilityHandler::RemoveClassAbilityCostModifier(TSubclassOf<UCombatAbility> const AbilityClass,
+	TSubclassOf<UResource> const ResourceClass, int32 const ModifierID)
+{
+	if (!IsValid(AbilityClass) || !IsValid(ResourceClass) || ModifierID == -1)
+	{
+		return;
+	}
+	FAbilityValues* ModCollection = ClassSpecificModifiers.Find(AbilityClass);
+	if (ModCollection)
+	{
+		ModCollection->RemoveCostModifier(ResourceClass, ModifierID);
+	}
+}
+
+int32 UAbilityHandler::AddConditionalCostModifier(FAbilityResourceModCondition const& Modifier)
+{
+	if (!Modifier.IsBound())
+	{
+		return -1;
+	}
+	int32 const ModID = FModifierCollection::GetID();
+	ConditionalCostModifiers.Add(ModID, Modifier);
+	return ModID;
+}
+
+void UAbilityHandler::RemoveConditionalCostModifier(int32 const ModifierID)
+{
+	if (ModifierID == -1)
+	{
+		return;
+	}
+	ConditionalCostModifiers.Remove(ModifierID);
+}
+
 #pragma endregion

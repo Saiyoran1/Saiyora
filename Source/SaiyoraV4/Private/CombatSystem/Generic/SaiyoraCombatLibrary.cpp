@@ -96,49 +96,11 @@ bool USaiyoraCombatLibrary::CheckForXPlane(ESaiyoraPlane const FromPlane, ESaiyo
 FCombatModifier USaiyoraCombatLibrary::MakeCombatModifier(UBuff* Source, EModifierType const ModifierType,
     float const ModifierValue, bool const bStackable)
 {
-    FCombatModifier OutMod;
-    if (ModifierType == EModifierType::Invalid)
-    {
-        return OutMod;
-    }
-    if (IsValid(Source))
-    {
-        OutMod.Source = Source;
-        OutMod.bFromBuff = true;
-    }
-    OutMod.ModType = ModifierType;
-    OutMod.ModValue = ModifierValue;
-    OutMod.bStackable = bStackable;
-    return OutMod;
+    return FCombatModifier(ModifierValue, ModifierType, bStackable, Source);
 }
 
 FCombatModifier USaiyoraCombatLibrary::MakeBuffFunctionCombatModifier(UBuffFunction* Source,
     EModifierType const ModifierType, float const ModifierValue, bool const bStackable)
 {
-    FCombatModifier OutMod;
-    if (ModifierType == EModifierType::Invalid)
-    {
-        return OutMod;
-    }
-    if (IsValid(Source))
-    {
-        OutMod.Source = Source->GetOwningBuff();
-        OutMod.bFromBuff = true;
-    }
-    OutMod.ModType = ModifierType;
-    OutMod.ModValue = ModifierValue;
-    OutMod.bStackable = bStackable;
-    return OutMod;
-}
-
-FCombatModifier USaiyoraCombatLibrary::MakeCombatModifier(EModifierType const ModifierType, float const ModifierValue)
-{
-    FCombatModifier OutMod;
-    if (ModifierType == EModifierType::Invalid)
-    {
-        return OutMod;
-    }
-    OutMod.ModType = ModifierType;
-    OutMod.ModValue = ModifierValue;
-    return OutMod;
+    return FCombatModifier(ModifierValue, ModifierType, bStackable, Source->GetOwningBuff());
 }

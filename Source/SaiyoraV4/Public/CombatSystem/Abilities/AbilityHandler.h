@@ -21,6 +21,7 @@ class SAIYORAV4_API UAbilityHandler : public UActorComponent
 	GENERATED_BODY()
 
 	friend struct FAbilityValues;
+	friend struct FAbilityResourceCost;
 
 public:
 	static const float MinimumGlobalCooldownLength;
@@ -93,7 +94,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void RemoveAbilityRestriction(FAbilityRestriction const& Restriction);
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-	bool CheckCanUseAbility(UCombatAbility* Ability, TArray<FAbilityCost>& OutCosts, ECastFailReason& OutFailReason);
+	bool CheckCanUseAbility(UCombatAbility* Ability, TMap<TSubclassOf<UResource>, float>& OutCosts, ECastFailReason& OutFailReason);
 private:
 	TArray<FAbilityRestriction> AbilityRestrictions;
 	bool CheckAbilityRestricted(UCombatAbility* Ability);
@@ -102,6 +103,8 @@ protected:
 	FCombatParameters AbilityTickBroadcastParams;
 //Casting
 public:
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+	float GetCastLength(TSubclassOf<UCombatAbility> const AbilityClass);
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
 	FCastingState GetCastingState() const { return CastingState; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
@@ -123,9 +126,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void UnsubscribeFromAbilityCompleted(FAbilityInstanceCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
-	int32 AddGenericCastLengthModifier(FAbilityModCondition const& Modifier);
+	int32 AddConditionalCastLengthModifier(FAbilityModCondition const& Modifier);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
-	void RemoveGenericCastLengthModifier(int32 const ModifierID);
+	void RemoveConditionalCastLengthModifier(int32 const ModifierID);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	int32 AddClassCastLengthModifier(TSubclassOf<UCombatAbility> const AbilityClass, FCombatModifier const& Modifier);
 	UFUNCTION(BlueprintCallable, Category = "Abiltiies")
@@ -151,7 +154,7 @@ protected:
 	void MulticastAbilityComplete(FCastEvent const& CastEvent);
 	void EndCast();
 private:
-	TMap<int32, FAbilityModCondition> GenericCastLengthModifiers;
+	TMap<int32, FAbilityModCondition> ConditionalCastLengthModifiers;
 	UFUNCTION()
 	FCombatModifier ModifyCastLengthFromStat(TSubclassOf<UCombatAbility> AbilityClass);
 //Cancelling
@@ -192,6 +195,8 @@ private:
 //Global Cooldown
 public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+	float GetGlobalCooldownLength(TSubclassOf<UCombatAbility> const AbilityClass);
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
     FGlobalCooldown GetGlobalCooldownState() const { return GlobalCooldownState; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
 	bool GetIsGlobalCooldownActive() const { return GlobalCooldownState.bGlobalCooldownActive; }
@@ -204,9 +209,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
     void UnsubscribeFromGlobalCooldownChanged(FGlobalCooldownCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
-	int32 AddGenericGlobalCooldownModifier(FAbilityModCondition const& Modifier);
+	int32 AddConditionalGlobalCooldownModifier(FAbilityModCondition const& Modifier);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
-	void RemoveGenericGlobalCooldownModifier(int32 const ModifierID);
+	void RemoveConditionalGlobalCooldownModifier(int32 const ModifierID);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	int32 AddClassGlobalCooldownModifier(TSubclassOf<UCombatAbility> const AbilityClass, FCombatModifier const& Modifier);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
@@ -215,49 +220,57 @@ protected:
 	FGlobalCooldown GlobalCooldownState;
 	FTimerHandle GlobalCooldownHandle;
 	FGlobalCooldownNotification OnGlobalCooldownChanged;
-	void StartGlobal(UCombatAbility* Ability);
+	void StartGlobal(TSubclassOf<UCombatAbility> const AbilityClass);
 	UFUNCTION()
 	virtual void EndGlobalCooldown();
 private:
-	TMap<int32, FAbilityModCondition> GenericGlobalCooldownModifiers;
+	TMap<int32, FAbilityModCondition> ConditionalGlobalCooldownModifiers;
 	UFUNCTION()
 	FCombatModifier ModifyGlobalCooldownFromStat(TSubclassOf<UCombatAbility> AbilityClass);
 //Cooldown
 public:
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+	float GetCooldownLength(TSubclassOf<UCombatAbility> const AbilityClass);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
-	int32 AddGenericCooldownModifier(FAbilityModCondition const& Modifier);
+	int32 AddConditionalCooldownModifier(FAbilityModCondition const& Modifier);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
-	void RemoveGenericCooldownModifier(int32 const ModifierID);
+	void RemoveConditionalCooldownModifier(int32 const ModifierID);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	int32 AddClassCooldownModifier(TSubclassOf<UCombatAbility> const AbilityClass, FCombatModifier const& Modifier);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void RemoveClassCooldownModifier(TSubclassOf<UCombatAbility> const AbilityClass, int32 const ModifierID);
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+	int32 GetMaxCharges(TSubclassOf<UCombatAbility> const AbilityClass);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	int32 AddClassMaxChargeModifier(TSubclassOf<UCombatAbility> const AbilityClass, FCombatModifier const& Modifier);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void RemoveClassMaxChargeModifier(TSubclassOf<UCombatAbility> const AbilityClass, int32 const ModifierID);
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+	int32 GetChargeCost(TSubclassOf<UCombatAbility> const AbilityClass);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
-	int32 AddClassChargesPerCastModifier(TSubclassOf<UCombatAbility> const AbilityClass, FCombatModifier const& Modifier);
+	int32 AddClassChargeCostModifier(TSubclassOf<UCombatAbility> const AbilityClass, FCombatModifier const& Modifier);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
-	void RemoveClassChargesPerCastModifier(TSubclassOf<UCombatAbility> const AbilityClass, int32 const ModifierID);
+	void RemoveClassChargeCostModifier(TSubclassOf<UCombatAbility> const AbilityClass, int32 const ModifierID);
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+	int32 GetChargesPerCooldown(TSubclassOf<UCombatAbility> const AbilityClass);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	int32 AddClassChargesPerCooldownModifier(TSubclassOf<UCombatAbility> const AbilityClass, FCombatModifier const& Modifier);
 	UFUNCTION(BlueprintCallable, Category = "Abiltiies")
 	void RemoveClassChargesPerCooldownModifier(TSubclassOf<UCombatAbility> const AbilityClass, int32 const ModifierID);
 private:
-	TMap<int32, FAbilityModCondition> GenericCooldownLengthModifiers;
+	TMap<int32, FAbilityModCondition> ConditionalCooldownModifiers;
 	UFUNCTION()
 	FCombatModifier ModifyCooldownFromStat(TSubclassOf<UCombatAbility> AbilityClass);
 //Cost
 public:
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
-	int32 AddGenericAbilityCostModifier(TSubclassOf<UResource> const ResourceClass, FCombatModifier const& Modifier);
+	int32 AddConditionalCostModifier(FAbilityResourceModCondition const& Modifier);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
-	void RemoveGenericAbilityCostModifier(TSubclassOf<UResource> const ResourceClass, int32 const ModifierID);
+	void RemoveConditionalCostModifier(int32 const ModifierID);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	int32 AddClassAbilityCostModifier(TSubclassOf<UCombatAbility> const AbilityClass, TSubclassOf<UResource> const ResourceClass, FCombatModifier const& Modifier);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void RemoveClassAbilityCostModifier(TSubclassOf<UCombatAbility> const AbilityClass, TSubclassOf<UResource> const ResourceClass, int32 const ModifierID);
 private:
-	TMap<TSubclassOf<UResource>, FModifierCollection> GenericCostModifiers;
+	TMap<int32, FAbilityResourceModCondition> ConditionalCostModifiers;
 };

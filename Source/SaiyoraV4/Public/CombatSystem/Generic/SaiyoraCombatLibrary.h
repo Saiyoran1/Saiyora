@@ -33,7 +33,6 @@ public:
 	static FCombatModifier MakeCombatModifier(class UBuff* Source, enum EModifierType const ModifierType, float const ModifierValue, bool const bStackable);
 	UFUNCTION(BlueprintCallable, Category = "Modifier", meta = (DefaultToSelf = "Source", HidePin = "Source", NativeMakeFunc))
 	static FCombatModifier MakeBuffFunctionCombatModifier(class UBuffFunction* Source, enum EModifierType const ModifierType, float const ModifierValue, bool const bStackable);
-	static FCombatModifier MakeCombatModifier(enum EModifierType const ModifierType, float const ModifierValue);
 };
 
 

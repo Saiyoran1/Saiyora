@@ -66,10 +66,9 @@ class SAIYORAV4_API UResource : public UObject
 	UFUNCTION()
 	void UpdateMaximumFromStatBind(FGameplayTag const& StatTag, float const NewValue);
 
-	TMap<int32, FResourceDeltaModifier> ResourceDeltaMods;
+	TMap<int32, FResourceGainModifier> ResourceGainMods;
 
 	FResourceValueNotification OnResourceChanged;
-	FResourceInstanceNotification OnResourceDeltaModsChanged;
 
 protected:
 
@@ -91,7 +90,6 @@ public:
 	void AuthInitializeResource(UResourceHandler* NewHandler, UStatHandler* StatHandler, FResourceInitInfo const& InitInfo);
 	void AuthDeactivateResource();
 
-	bool CalculateAndCheckAbilityCost(UCombatAbility* Ability, float& Cost, bool const bStaticCost);
 	void CommitAbilityCost(UCombatAbility* Ability, float const Cost, int32 const PredictionID = 0);
 	void PredictAbilityCost(UCombatAbility* Ability, int32 const PredictionID, float const Cost);
 	void RollbackFailedCost(int32 const PredictionID);
@@ -101,17 +99,13 @@ public:
 	void ModifyResource(UObject* Source, float const Amount, bool const bIgnoreModifiers);
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Resource")
-	int32 AddResourceDeltaModifier(FResourceDeltaModifier const& Modifier);
+	int32 AddResourceGainModifier(FResourceGainModifier const& Modifier);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Resource")
-	void RemoveResourceDeltaModifier(int32 const ModifierID);
+	void RemoveResourceGainModifier(int32 const ModifierID);
 	UFUNCTION(BlueprintCallable, Category = "Resource")
 	void SubscribeToResourceChanged(FResourceValueCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Resource")
 	void UnsubscribeFromResourceChanged(FResourceValueCallback const& Callback);
-	UFUNCTION(BlueprintCallable, Category = "Resource")
-	void SubscribeToResourceModsChanged(FResourceInstanceCallback const& Callback);
-	UFUNCTION(BlueprintCallable, Category = "Resource")
-	void UnsubscribeFromResourceModsChanged(FResourceInstanceCallback const& Callback);
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resource")
 	float GetCurrentValue() const;

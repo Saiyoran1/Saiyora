@@ -92,16 +92,16 @@ void UResourceHandler::NotifyOfRemovedReplicatedResource(UResource* Resource)
 	}
 }
 
-bool UResourceHandler::CheckAbilityCostsMet(UCombatAbility* Ability, TArray<FAbilityCost>& OutCosts) const
+bool UResourceHandler::CheckAbilityCostsMet(TMap<TSubclassOf<UResource>, float> const& Costs) const
 {
-	for (FAbilityCost& Cost : OutCosts)
+	for (TTuple<TSubclassOf<UResource>, float> const& Cost : Costs)
 	{
-		UResource* Resource = FindActiveResource(Cost.ResourceClass);
+		UResource* Resource = FindActiveResource(Cost.Key);
 		if (!IsValid(Resource))
 		{
 			return false;
 		}
-		if (!Resource->CalculateAndCheckAbilityCost(Ability, Cost.Cost, Cost.bStaticCost))
+		if (Resource->GetCurrentValue() < Cost.Value)
 		{
 			return false;
 		}
@@ -109,38 +109,38 @@ bool UResourceHandler::CheckAbilityCostsMet(UCombatAbility* Ability, TArray<FAbi
 	return true;
 }
 
-void UResourceHandler::CommitAbilityCosts(UCombatAbility* Ability, TArray<FAbilityCost> const& Costs, int32 const PredictionID)
+void UResourceHandler::CommitAbilityCosts(UCombatAbility* Ability, TMap<TSubclassOf<UResource>, float> const& Costs, int32 const PredictionID)
 {
 	if (GetOwnerRole() != ROLE_Authority)
 	{
 		return;
 	}
-	for (FAbilityCost const& Cost : Costs)
+	for (TTuple<TSubclassOf<UResource>, float> const& Cost : Costs)
 	{
-		UResource* Resource = FindActiveResource(Cost.ResourceClass);
+		UResource* Resource = FindActiveResource(Cost.Key);
 		if (!IsValid(Resource))
 		{
 			continue;
 		}
-		Resource->CommitAbilityCost(Ability, Cost.Cost, PredictionID);
+		Resource->CommitAbilityCost(Ability, Cost.Value, PredictionID);
 	}
 }
 
-void UResourceHandler::PredictAbilityCosts(UCombatAbility* Ability, TArray<FAbilityCost> const& Costs,
+void UResourceHandler::PredictAbilityCosts(UCombatAbility* Ability, TMap<TSubclassOf<UResource>, float> const& Costs,
 	int32 const PredictionID)
 {
 	if (GetOwnerRole() != ROLE_AutonomousProxy)
 	{
 		return;
 	}
-	for (FAbilityCost const& Cost : Costs)
+	for (TTuple<TSubclassOf<UResource>, float> const& Cost : Costs)
 	{
-		UResource* Resource = FindActiveResource(Cost.ResourceClass);
+		UResource* Resource = FindActiveResource(Cost.Key);
 		if (!IsValid(Resource))
 		{
 			continue;
 		}
-		Resource->PredictAbilityCost(Ability, Cost.Cost, PredictionID);
+		Resource->PredictAbilityCost(Ability, Cost.Value, PredictionID);
 	}
 }
 

@@ -249,14 +249,7 @@ void UHealingOverTimeFunction::HealingOverTime(UBuff* Buff, float const Healing,
 
 void UStatModifierFunction::SetModifierVars(TMap<FGameplayTag, FCombatModifier> const& Modifiers)
 {
-    StatMods.Empty();
-    for (TTuple<FGameplayTag, FCombatModifier> const& Modifier : Modifiers)
-    {
-        if (Modifier.Key.MatchesTag(UStatHandler::GenericStatTag()) && Modifier.Value.ModType != EModifierType::Invalid)
-        {
-            StatMods.Add(Modifier.Key, Modifier.Value);
-        }
-    }
+    StatMods = Modifiers;
 }
 
 void UStatModifierFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
@@ -271,31 +264,23 @@ void UStatModifierFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
         return;
     }
     ModIDs.Empty();
-    TargetHandler->AddStatModifiers(StatMods, ModIDs);
-}
-
-void UStatModifierFunction::OnStack(FBuffApplyEvent const& ApplyEvent)
-{
-    if (!IsValid(TargetHandler))
+    for (TTuple<FGameplayTag, FCombatModifier> const& Mod : StatMods)
     {
-        return;
-    }
-    TSet<FGameplayTag> StatTags;
-    for (TTuple<FGameplayTag, FCombatModifier> const& ModPair : StatMods)
-    {
-        if (ModPair.Value.bStackable && ModPair.Key.MatchesTag(UStatHandler::GenericStatTag()) && ModPair.Value.ModType != EModifierType::Invalid)
+        int32 const NewID = TargetHandler->AddStatModifier(Mod.Key, Mod.Value);
+        if (NewID != -1)
         {
-            StatTags.Add(ModPair.Key);
+            ModIDs.Add(Mod.Key, TargetHandler->AddStatModifier(Mod.Key, Mod.Value));
         }
     }
-    TargetHandler->UpdateStackingModifiers(StatTags);
 }
-
 void UStatModifierFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
 {
     if (IsValid(TargetHandler))
     {
-        TargetHandler->RemoveStatModifiers(ModIDs);
+        for (TTuple<FGameplayTag, int32> const& ModID : ModIDs)
+        {
+            TargetHandler->RemoveStatModifier(ModID.Key, ModID.Value);
+        }
     }
 }
 
