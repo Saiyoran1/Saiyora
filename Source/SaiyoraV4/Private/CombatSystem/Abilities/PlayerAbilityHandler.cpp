@@ -498,7 +498,6 @@ void UPlayerAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest 
 	{
 		StartGlobal(PlayerAbility, true);
 		ServerResult.bActivatedGlobal = true;
-		//Recalculate global length here because the server's ping compensation shouldn't be factored into the client's predicted GCD.
 		ServerResult.GlobalLength = GetGlobalCooldownLength(PlayerAbility->GetClass());
 	}
 
@@ -512,12 +511,7 @@ void UPlayerAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest 
 		GetResourceHandlerRef()->CommitAbilityCosts(PlayerAbility, Costs, Result.PredictionID);
 		for (TTuple<TSubclassOf<UResource>, float> const& Cost : Costs)
 		{
-			//TODO: Something other than this, can't replicate the map itself though.
-			FAbilityCost RepCost;
-			RepCost.Cost = Cost.Value;
-			RepCost.ResourceClass = Cost.Key;
-			RepCost.bStaticCost = true;
-			ServerResult.AbilityCosts.Add(RepCost);
+			ServerResult.AbilityCosts.Add(FReplicableAbilityCost(Cost.Key, Cost.Value));
 		}
 	}
 
@@ -534,7 +528,6 @@ void UPlayerAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest 
 	case EAbilityCastType::Channel :
 		Result.ActionTaken = ECastAction::Success;
 		StartCast(PlayerAbility, Result.PredictionID);
-		//Recalculate cast length here because the server's ping compensation shouldn't be factored into the client's predicted cast.
 		ServerResult.CastLength = GetCastLength(PlayerAbility->GetClass());
 		ServerResult.bActivatedCastBar = true;
 		ServerResult.bInterruptible = CastingState.bInterruptible;
@@ -572,7 +565,7 @@ void UPlayerAbilityHandler::ClientSucceedPredictedAbility_Implementation(FServer
 	{
 		//Mispredicted costs in this context are resources that the client predicted expenditure of that didn't actually get spent on the server.
 		MispredictedCosts = OriginalPrediction->PredictedCostClasses;
-		for (FAbilityCost const& Cost : ServerResult.AbilityCosts)
+		for (FReplicableAbilityCost const& Cost : ServerResult.AbilityCosts)
 		{
 			MispredictedCosts.Remove(Cost.ResourceClass);
 		}

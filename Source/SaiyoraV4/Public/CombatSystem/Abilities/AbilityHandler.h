@@ -81,7 +81,7 @@ private:
 	UPROPERTY()
 	TArray<UCombatAbility*> RecentlyRemovedAbilities;
 	virtual void SetupInitialAbilities();
-	TMap<TSubclassOf<UCombatAbility>, FAbilityValues> ClassSpecificModifiers;
+	TMap<TSubclassOf<UCombatAbility>, FAbilityValues> AbilityValues;
 protected:
 	FAbilityInstanceNotification OnAbilityAdded;
 	FAbilityInstanceNotification OnAbilityRemoved;

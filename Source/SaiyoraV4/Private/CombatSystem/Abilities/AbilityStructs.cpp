@@ -4,8 +4,20 @@
 #include "CombatAbility.h"
 #include "StatHandler.h"
 
+FReplicableAbilityCost::FReplicableAbilityCost()
+{
+	Cost = 0.0f;
+	ResourceClass = nullptr;
+}
+
+FReplicableAbilityCost::FReplicableAbilityCost(TSubclassOf<UResource> const NewResourceClass, float const NewCost)
+{
+	ResourceClass = NewResourceClass;
+	Cost = NewCost;
+}
+
 void FAbilityResourceCost::Initialize(TSubclassOf<UResource> const NewResourceClass,
-	TSubclassOf<UCombatAbility> const NewAbilityClass, UAbilityHandler* NewHandler)
+                                      TSubclassOf<UCombatAbility> const NewAbilityClass, UAbilityHandler* NewHandler)
 {
 	if (!IsValid(NewResourceClass) || !IsValid(NewAbilityClass) || !IsValid(NewHandler))
 	{
@@ -150,11 +162,6 @@ void FAbilityValues::Initialize(TSubclassOf<UCombatAbility> const NewAbilityClas
 		FAbilityResourceCost& ResourceCost = AbilityCosts.Add(Cost.ResourceClass);
 		ResourceCost.Initialize(Cost.ResourceClass, AbilityClass, Handler);
 	}
-	//TODO: Finish the rest of this initialization of modifiers.
-	//End goal is that each AbilityClass that the UAbilityHandler receives a Modifier for or instantiates will have one of these structs.
-	//The struct will hold a constantly updated set of all modifiable values concerning an ability class.
-	//PlayerAbilityHandler will likely need to recreate this on owning clients.
-	//The end goal is that it should be very easy to check if an ability is castable without having to calculate everything, since any time a modifier is added or removed, final values will be updated.
 	//TODO: callbacks to update UI?
 }
 

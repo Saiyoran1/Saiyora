@@ -158,7 +158,7 @@ void UResourceHandler::RollbackFailedCosts(TArray<TSubclassOf<UResource>> const&
 
 void UResourceHandler::UpdatePredictedCostsFromServer(FServerAbilityResult const& ServerResult, TArray<TSubclassOf<UResource>> const& MispredictedCosts)
 {
-	for (FAbilityCost const& Cost : ServerResult.AbilityCosts)
+	for (FReplicableAbilityCost const& Cost : ServerResult.AbilityCosts)
 	{
 		UResource* Resource = FindActiveResource(Cost.ResourceClass);
 		if (IsValid(Resource))

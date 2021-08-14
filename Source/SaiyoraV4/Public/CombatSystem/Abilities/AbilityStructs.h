@@ -25,6 +25,20 @@ struct FAbilityCost
 };
 
 USTRUCT()
+struct FReplicableAbilityCost
+{
+    GENERATED_BODY()
+
+    FReplicableAbilityCost();
+    FReplicableAbilityCost(TSubclassOf<UResource> const NewResourceClass, float const NewCost);
+
+    UPROPERTY()
+    TSubclassOf<UResource> ResourceClass;
+    UPROPERTY()
+    float Cost = 0.0f;
+};
+
+USTRUCT()
 struct FAbilityResourceCost
 {
     GENERATED_BODY()
@@ -235,7 +249,7 @@ struct FServerAbilityResult
     UPROPERTY()
     bool bInterruptible = false;
     UPROPERTY()
-    TArray<FAbilityCost> AbilityCosts;
+    TArray<FReplicableAbilityCost> AbilityCosts;
 };
 
 USTRUCT()
