@@ -515,6 +515,7 @@ FCastEvent UAbilityHandler::UseAbility(TSubclassOf<UCombatAbility> const Ability
 	if (GetOwnerRole() != ROLE_Authority)
 	{
 		Result.FailReason = ECastFailReason::NetRole;
+		Result.Ability = nullptr;
 		return Result;
 	}
 	
@@ -586,31 +587,26 @@ bool UAbilityHandler::CheckCanUseAbility(UCombatAbility* Ability, TMap<TSubclass
 		OutFailReason = ECastFailReason::Dead;
 		return false;
 	}
-	
 	if (Ability->HasGlobalCooldown() && GlobalCooldownState.bGlobalCooldownActive)
 	{
 		OutFailReason = ECastFailReason::OnGlobalCooldown;
 		return false;
 	}
-	
 	if (CastingState.bIsCasting)
 	{
 		OutFailReason = ECastFailReason::AlreadyCasting;
 		return false;
 	}
-
 	OutFailReason = Ability->IsCastable(OutCosts);
 	if (OutFailReason != ECastFailReason::None)
 	{
 		return false;
 	}
-
 	if (CheckAbilityRestricted(Ability))
 	{
 		OutFailReason = ECastFailReason::CustomRestriction;
 		return false;
 	}
-
 	return true;
 }
 

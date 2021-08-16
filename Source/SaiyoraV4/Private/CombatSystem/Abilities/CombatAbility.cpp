@@ -495,9 +495,9 @@ void UCombatAbility::InitializeAbility(UAbilityHandler* AbilityComponent)
         }
     }
     SetupCustomCastRestrictions();
+    bInitialized = true;
     InitialCastableChecks();
     OnInitialize();
-    bInitialized = true;
 }
 
 void UCombatAbility::DeactivateAbility()

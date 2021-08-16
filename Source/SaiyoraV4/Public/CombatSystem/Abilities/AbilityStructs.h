@@ -78,7 +78,7 @@ struct FCastEvent
     UPROPERTY(BlueprintReadOnly)
     ECastAction ActionTaken = ECastAction::Fail;
     UPROPERTY(BlueprintReadOnly)
-    class UCombatAbility* Ability = nullptr;
+    class UCombatAbility* Ability;
     UPROPERTY(BlueprintReadOnly)
     int32 Tick = 0;
     UPROPERTY(BlueprintReadOnly)
