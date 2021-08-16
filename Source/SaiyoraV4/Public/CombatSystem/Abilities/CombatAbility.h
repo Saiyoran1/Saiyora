@@ -149,6 +149,7 @@ private:
     bool bCustomCastConditionsMet = true;
     TArray<FName> CustomCastRestrictions;
     void UpdateCastable();
+    void InitialCastableChecks();
     ECastFailReason Castable = ECastFailReason::InvalidAbility;
     FCastableNotification OnCastableChanged;
 //Global Cooldown
@@ -258,7 +259,9 @@ private:
     UFUNCTION()
     float RecalculateCooldownLength(TArray<FCombatModifier> const& SpecificMods, float const BaseValue);
     UFUNCTION()
-    void ForceCooldownLengthRecalculation(); 
+    void ForceCooldownLengthRecalculation();
+    UFUNCTION()
+    void CheckChargeCostOnCostUpdated(int32 const Previous, int32 const New);
     bool ChargeCostMet = false;
 protected:
     FAbilityCooldown AbilityCooldown;
@@ -290,7 +293,8 @@ private:
     void ForceResourceCostRecalculations();
     UFUNCTION()
     void CheckResourceCostsOnResourceChanged(UResource* Resource, UObject* ChangeSource, FResourceState const& PreviousState, FResourceState const& NewState);
-    bool ResourceCostsMet = false;
-protected:
+    UFUNCTION()
+    void CheckResourceCostsOnCostUpdated(float const Previous, float const New);
     void CheckResourceCostsMet();
+    bool ResourceCostsMet = false;
 };

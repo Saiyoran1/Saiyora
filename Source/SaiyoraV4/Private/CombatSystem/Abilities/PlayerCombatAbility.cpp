@@ -135,11 +135,11 @@ void UPlayerCombatAbility::UpdatePredictedChargesFromServer(int32 const Predicti
 void UPlayerCombatAbility::StartCooldownFromPrediction()
 {
     float const PingCompensation = FMath::Clamp(USaiyoraCombatLibrary::GetActorPing(GetHandler()->GetOwner()), 0.0f, UPlayerAbilityHandler::MaxPingCompensation);
-    float const CooldownLength = FMath::Max(UAbilityHandler::MinimumCooldownLength, GetCooldownLength() - PingCompensation);
-    GetWorld()->GetTimerManager().SetTimer(CooldownHandle, this, &UPlayerCombatAbility::CompleteCooldown, CooldownLength, false);
+    float const Cooldown = FMath::Max(UAbilityHandler::MinimumCooldownLength, GetCooldownLength() - PingCompensation);
+    GetWorld()->GetTimerManager().SetTimer(CooldownHandle, this, &UPlayerCombatAbility::CompleteCooldown, Cooldown, false);
     AbilityCooldown.OnCooldown = true;
     AbilityCooldown.CooldownStartTime = GetHandler()->GetGameStateRef()->GetServerWorldTimeSeconds();
-    AbilityCooldown.CooldownEndTime = AbilityCooldown.CooldownStartTime + CooldownLength;
+    AbilityCooldown.CooldownEndTime = AbilityCooldown.CooldownStartTime + Cooldown;
 }
 
 void UPlayerCombatAbility::PredictedTick(int32 const TickNumber, FCombatParameters& PredictionParams)
