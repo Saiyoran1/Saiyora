@@ -39,7 +39,7 @@ void UPlayerCombatAbility::RecalculatePredictedCooldown()
 {
     FAbilityCooldown const PreviousState = AbilityCooldown;
     AbilityCooldown = ReplicatedCooldown;
-    int32 const CurrentMaxCharges = OwningComponent->GetMaxCharges(GetClass());
+    int32 const CurrentMaxCharges = GetMaxCharges();
     for (TTuple<int32, int32> const& Prediction : ChargePredictions)
     {
         AbilityCooldown.CurrentCharges = FMath::Clamp(AbilityCooldown.CurrentCharges - Prediction.Value, 0, CurrentMaxCharges);
@@ -54,6 +54,7 @@ void UPlayerCombatAbility::RecalculatePredictedCooldown()
     }
     if (PreviousState.CurrentCharges != AbilityCooldown.CurrentCharges)
     {
+        CheckChargeCostMet();
         OnChargesChanged.Broadcast(this, PreviousState.CurrentCharges, AbilityCooldown.CurrentCharges);
     }
 }
@@ -84,15 +85,15 @@ void UPlayerCombatAbility::StartClientCooldownOnMaxChargesChanged(UCombatAbility
 
 void UPlayerCombatAbility::PredictCommitCharges(int32 const PredictionID)
 {
-    ChargePredictions.Add(PredictionID, OwningComponent->GetChargeCost(GetClass()));
+    ChargePredictions.Add(PredictionID, GetChargeCost());
     RecalculatePredictedCooldown();
 }
 
 void UPlayerCombatAbility::CommitCharges(int32 const PredictionID)
 {
     int32 const PreviousCharges = AbilityCooldown.CurrentCharges;
-    int32 const CurrentMaxCharges = OwningComponent->GetMaxCharges(GetClass());
-    AbilityCooldown.CurrentCharges = FMath::Clamp(PreviousCharges - OwningComponent->GetChargeCost(GetClass()), 0, CurrentMaxCharges);
+    int32 const CurrentMaxCharges = GetMaxCharges();
+    AbilityCooldown.CurrentCharges = FMath::Clamp(PreviousCharges - GetChargeCost(), 0, CurrentMaxCharges);
     bool bFromPrediction = false;
     if (PredictionID != 0)
     {
@@ -101,6 +102,7 @@ void UPlayerCombatAbility::CommitCharges(int32 const PredictionID)
     }
     if (PreviousCharges != AbilityCooldown.CurrentCharges)
     {
+        CheckChargeCostMet();
         OnChargesChanged.Broadcast(this, PreviousCharges, AbilityCooldown.CurrentCharges);
     }
     if (!GetWorld()->GetTimerManager().IsTimerActive(CooldownHandle) && GetCurrentCharges() < CurrentMaxCharges)
@@ -133,7 +135,7 @@ void UPlayerCombatAbility::UpdatePredictedChargesFromServer(int32 const Predicti
 void UPlayerCombatAbility::StartCooldownFromPrediction()
 {
     float const PingCompensation = FMath::Clamp(USaiyoraCombatLibrary::GetActorPing(GetHandler()->GetOwner()), 0.0f, UPlayerAbilityHandler::MaxPingCompensation);
-    float const CooldownLength = FMath::Max(UAbilityHandler::MinimumCooldownLength, OwningComponent->GetCooldownLength(GetClass()) - PingCompensation);
+    float const CooldownLength = FMath::Max(UAbilityHandler::MinimumCooldownLength, GetCooldownLength() - PingCompensation);
     GetWorld()->GetTimerManager().SetTimer(CooldownHandle, this, &UPlayerCombatAbility::CompleteCooldown, CooldownLength, false);
     AbilityCooldown.OnCooldown = true;
     AbilityCooldown.CooldownStartTime = GetHandler()->GetGameStateRef()->GetServerWorldTimeSeconds();

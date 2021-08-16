@@ -72,7 +72,13 @@ public:
     UFUNCTION(BlueprintCallable, BlueprintPure)
     float GetDefaultCastLength() const { return DefaultCastTime; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
+    float GetCastLength() const { return CastLength.GetValue(); }
+    UFUNCTION(BlueprintCallable, BlueprintPure)
     bool HasStaticCastLength() const { return bStaticCastTime; }
+    UFUNCTION(BlueprintCallable)
+    int32 AddCastLengthModifier(FCombatModifier const& Modifier);
+    UFUNCTION(BlueprintCallable)
+    void RemoveCastLengthModifier(int32 const ModifierID);
     UFUNCTION(BlueprintCallable, BlueprintPure)
     bool GetHasInitialTick() const { return bInitialTick; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
@@ -85,6 +91,12 @@ public:
     TArray<TSubclassOf<UCrowdControl>> GetRestrictedCrowdControls() const { return RestrictedCrowdControls; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
     bool CheckCustomCastConditionsMet() const { return bCustomCastConditionsMet; }
+    UFUNCTION(BlueprintCallable, BlueprintPure)
+    ECastFailReason IsCastable(TMap<TSubclassOf<UResource>, float>& OutCosts) const;
+    UFUNCTION(BlueprintCallable)
+    void SubscribeToCastableChanged(FCastableCallback const& Callback);
+    UFUNCTION(BlueprintCallable)
+    void UnsubscribeFromCastableChanged(FCastableCallback const& Callback);
     void ServerTick(int32 const TickNumber, FCombatParameters& BroadcastParams);
     void SimulatedTick(int32 const TickNumber, FCombatParameters const& BroadcastParams);
     void CompleteCast();
@@ -117,8 +129,13 @@ private:
     EAbilityCastType CastType = EAbilityCastType::None;
     UPROPERTY(EditDefaultsOnly, Category = "Cast")
     float DefaultCastTime = 0.0f;
+    FCombatFloatValue CastLength;
     UPROPERTY(EditDefaultsOnly, Category = "Cast")
     bool bStaticCastTime = true;
+    UFUNCTION()
+    float RecalculateCastLength(TArray<FCombatModifier> const& SpecificMods, float const BaseValue);
+    UFUNCTION()
+    void ForceCastLengthRecalculation();
     UPROPERTY(EditDefaultsOnly, Category = "Cast")
     bool bInitialTick = true;
     UPROPERTY(EditDefaultsOnly, Category = "Cast")
@@ -131,27 +148,47 @@ private:
     TArray<TSubclassOf<UCrowdControl>> RestrictedCrowdControls;
     bool bCustomCastConditionsMet = true;
     TArray<FName> CustomCastRestrictions;
+    void UpdateCastable();
+    ECastFailReason Castable = ECastFailReason::InvalidAbility;
+    FCastableNotification OnCastableChanged;
 //Global Cooldown
 public:
     UFUNCTION(BlueprintCallable, BlueprintPure)
-    bool GetHasGlobalCooldown() const { return bOnGlobalCooldown; }
+    bool HasGlobalCooldown() const { return bOnGlobalCooldown; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
     float GetDefaultGlobalCooldownLength() const { return DefaultGlobalCooldownLength; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
+    float GetGlobalCooldownLength() const { return GlobalCooldownLength.GetValue(); }
+    UFUNCTION(BlueprintCallable, BlueprintPure)
     bool HasStaticGlobalCooldown() const { return bStaticGlobalCooldown; }
+    UFUNCTION(BlueprintCallable)
+    int32 AddGlobalCooldownModifier(FCombatModifier const& Modifier);
+    UFUNCTION(BlueprintCallable)
+    void RemoveGlobalCooldownModifier(int32 const ModifierID);
 private:
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
     bool bOnGlobalCooldown = true;
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
     float DefaultGlobalCooldownLength = 1.0f;
+    FCombatFloatValue GlobalCooldownLength;
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
     bool bStaticGlobalCooldown = true;
+    UFUNCTION()
+    float RecalculateGcdLength(TArray<FCombatModifier> const& SpecificMods, float const BaseValue);
+    UFUNCTION()
+    void ForceGlobalCooldownRecalculation();
 //Cooldown
 public:
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
     float GetDefaultCooldown() const { return DefaultCooldown; }
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
+    float GetCooldownLength() const { return CooldownLength.GetValue(); }
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
     bool GetHasStaticCooldown() const { return bStaticCooldown; }
+    UFUNCTION(BlueprintCallable)
+    int32 AddCooldownModifier(FCombatModifier const& Modifier);
+    UFUNCTION(BlueprintCallable)
+    void RemoveCooldownModifier(int32 const ModifierID);
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
     bool GetCooldownActive() const { return AbilityCooldown.OnCooldown; }
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
@@ -161,7 +198,13 @@ public:
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
     int32 GetDefaultMaxCharges() const { return DefaultMaxCharges; }
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
+    int32 GetMaxCharges() const { return MaxCharges.GetValue(); }
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
     bool GetHasStaticMaxCharges() const { return bStaticMaxCharges; }
+    UFUNCTION(BlueprintCallable)
+    int32 AddMaxChargeModifier(FCombatModifier const& Modifier);
+    UFUNCTION(BlueprintCallable)
+    void RemoveMaxChargeModifier(int32 const ModifierID);
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
     int32 GetCurrentCharges() const { return AbilityCooldown.CurrentCharges; }
     UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Cooldown")
@@ -171,31 +214,52 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Cooldown")
     void UnsubscribeFromChargesChanged(FAbilityChargeCallback const& Callback);
     void CommitCharges();
-    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
     int32 GetDefaultChargeCost() const { return DefaultChargeCost; }
-    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
+    int32 GetChargeCost() const { return ChargeCost.GetValue(); }
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
     bool HasStaticChargeCost() const { return bStaticChargeCost; }
-    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+    UFUNCTION(BlueprintCallable)
+    int32 AddChargeCostModifier(FCombatModifier const& Modifier);
+    UFUNCTION(BlueprintCallable)
+    void RemoveChargeCostModifier(int32 const ModifierID);
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
     int32 GetDefaultChargesPerCooldown() const { return DefaultChargesPerCooldown; }
-    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
+    int32 GetChargesPerCooldown() const { return ChargesPerCooldown.GetValue(); }
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
     bool GetHasStaticChargesPerCooldown() const { return bStaticChargesPerCooldown; }
+    UFUNCTION(BlueprintCallable)
+    int32 AddChargesPerCooldownModifier(FCombatModifier const& Modifier);
+    UFUNCTION(BlueprintCallable)
+    void RemoveChargesPerCooldownModifier(int32 const ModifierID);
 private:
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
     int32 DefaultMaxCharges = 1;
+    FCombatIntValue MaxCharges;
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
     bool bStaticMaxCharges = true;
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
-    float DefaultCooldown = 1.0f;
-    UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
-    bool bStaticCooldown = true;
-    UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
     int32 DefaultChargesPerCooldown = 1;
+    FCombatIntValue ChargesPerCooldown;
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
     bool bStaticChargesPerCooldown = true;
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
     int32 DefaultChargeCost = 1;
+    FCombatIntValue ChargeCost;
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
     bool bStaticChargeCost = true;
+    UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
+    float DefaultCooldown = 1.0f;
+    FCombatFloatValue CooldownLength;
+    UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
+    bool bStaticCooldown = true;
+    UFUNCTION()
+    float RecalculateCooldownLength(TArray<FCombatModifier> const& SpecificMods, float const BaseValue);
+    UFUNCTION()
+    void ForceCooldownLengthRecalculation(); 
+    bool ChargeCostMet = false;
 protected:
     FAbilityCooldown AbilityCooldown;
     FTimerHandle CooldownHandle;
@@ -203,13 +267,30 @@ protected:
     void StartCooldown();
     UFUNCTION()
     void CompleteCooldown();
+    void CheckChargeCostMet();
 //Costs
 public:
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cost")
     FAbilityCost GetDefaultAbilityCost(TSubclassOf<UResource> const ResourceClass) const;
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cost")
+    float GetAbilityCost(TSubclassOf<UResource> const ResourceClass) const;
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cost")
     void GetDefaultAbilityCosts(TArray<FAbilityCost>& OutCosts) const { OutCosts = DefaultAbilityCosts; }
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cost")
+    void GetAbilityCosts(TMap<TSubclassOf<UResource>, float>& OutCosts) const;
+    UFUNCTION(BlueprintCallable)
+    int32 AddCostModifier(TSubclassOf<UResource> const ResourceClass, FCombatModifier const& Modifier);
+    UFUNCTION(BlueprintCallable)
+    void RemoveCostModifier(TSubclassOf<UResource> const ResourceClass, int32 const ModifierID);
 private:
     UPROPERTY(EditDefaultsOnly, Category = "Cost")
     TArray<FAbilityCost> DefaultAbilityCosts;
+    TMap<TSubclassOf<UResource>, FAbilityResourceCost> AbilityCosts;
+    UFUNCTION()
+    void ForceResourceCostRecalculations();
+    UFUNCTION()
+    void CheckResourceCostsOnResourceChanged(UResource* Resource, UObject* ChangeSource, FResourceState const& PreviousState, FResourceState const& NewState);
+    bool ResourceCostsMet = false;
+protected:
+    void CheckResourceCostsMet();
 };

@@ -8,6 +8,8 @@
 
 DECLARE_DELEGATE(FModifierCallback);
 DECLARE_MULTICAST_DELEGATE(FModifierNotification);
+DECLARE_DYNAMIC_DELEGATE(FGenericCallback);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FGenericNotification);
 
 USTRUCT(BlueprintType)
 struct FCombatModifier

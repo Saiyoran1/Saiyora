@@ -373,7 +373,7 @@ FCastEvent UPlayerAbilityHandler::UsePlayerAbility(TSubclassOf<UPlayerCombatAbil
 		AbilityPrediction.PredictionID = Result.PredictionID;
 		AbilityPrediction.ClientTime = GetGameStateRef()->GetServerWorldTimeSeconds();
 
-		if (PlayerAbility->GetHasGlobalCooldown())
+		if (PlayerAbility->HasGlobalCooldown())
 		{
 			PredictStartGlobal(Result.PredictionID);
 			AbilityPrediction.bPredictedGCD = true;
@@ -422,7 +422,7 @@ FCastEvent UPlayerAbilityHandler::UsePlayerAbility(TSubclassOf<UPlayerCombatAbil
 		return Result;
 	}
 	
-	if (PlayerAbility->GetHasGlobalCooldown())
+	if (PlayerAbility->HasGlobalCooldown())
 	{
 		StartGlobal(PlayerAbility);
 	}
@@ -494,11 +494,11 @@ void UPlayerAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest 
 	//TODO: Update this once I've got Ping worked out and am confident in it being accurate.
 	ServerResult.ClientStartTime = AbilityRequest.ClientStartTime;
 
-	if (PlayerAbility->GetHasGlobalCooldown())
+	if (PlayerAbility->HasGlobalCooldown())
 	{
 		StartGlobal(PlayerAbility, true);
 		ServerResult.bActivatedGlobal = true;
-		ServerResult.GlobalLength = GetGlobalCooldownLength(PlayerAbility->GetClass());
+		ServerResult.GlobalLength = PlayerAbility->GetGlobalCooldownLength();
 	}
 
 	int32 const PreviousCharges = PlayerAbility->GetCurrentCharges();
@@ -528,7 +528,7 @@ void UPlayerAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest 
 	case EAbilityCastType::Channel :
 		Result.ActionTaken = ECastAction::Success;
 		StartCast(PlayerAbility, Result.PredictionID);
-		ServerResult.CastLength = GetCastLength(PlayerAbility->GetClass());
+		ServerResult.CastLength = PlayerAbility->GetCastLength();
 		ServerResult.bActivatedCastBar = true;
 		ServerResult.bInterruptible = CastingState.bInterruptible;
 		if (PlayerAbility->GetHasInitialTick())
@@ -652,7 +652,7 @@ void UPlayerAbilityHandler::StartCast(UCombatAbility* Ability, int32 const Predi
 	CastingState.bIsCasting = true;
 	CastingState.CurrentCast = Ability;
 	CastingState.CastStartTime = GetGameStateRef()->GetServerWorldTimeSeconds();
-	float CastLength = GetCastLength(Ability->GetClass());
+	float CastLength = Ability->GetCastLength();
 	CastingState.PredictionID = PredictionID;
 	float const PingCompensation = FMath::Clamp(USaiyoraCombatLibrary::GetActorPing(GetOwner()), 0.0f, MaxPingCompensation);
 	CastLength = FMath::Max(MinimumCastLength, CastLength - PingCompensation);
@@ -1077,13 +1077,13 @@ void UPlayerAbilityHandler::StartGlobal(UCombatAbility* Ability, bool const bPre
 {
 	if (!bPredicted)
 	{
-		Super::StartGlobal(Ability->GetClass());
+		Super::StartGlobal(Ability);
 		return;
 	}
 	FGlobalCooldown const PreviousGlobal = GlobalCooldownState;
 	GlobalCooldownState.bGlobalCooldownActive = true;
 	GlobalCooldownState.StartTime = GetGameStateRef()->GetServerWorldTimeSeconds();
-	float GlobalLength = GetGlobalCooldownLength(Ability->GetClass());
+	float GlobalLength = Ability->GetGlobalCooldownLength();
 	float const PingCompensation = FMath::Clamp(USaiyoraCombatLibrary::GetActorPing(GetOwner()), 0.0f, MaxPingCompensation);
 	GlobalLength = FMath::Max(MinimumGlobalCooldownLength, GlobalLength - PingCompensation);
 	GlobalCooldownState.EndTime = GlobalCooldownState.StartTime + GlobalLength;
@@ -1155,12 +1155,12 @@ bool UPlayerAbilityHandler::TryQueueAbility(TSubclassOf<UPlayerCombatAbility> co
 		//Don't queue an ability if the cast time hasn't been acked yet.
 		return false;
 	}
-	if (AbilityClass->GetDefaultObject<UPlayerCombatAbility>()->GetHasGlobalCooldown() && GlobalCooldownState.bGlobalCooldownActive && GlobalCooldownState.EndTime == 0.0f)
+	if (AbilityClass->GetDefaultObject<UPlayerCombatAbility>()->HasGlobalCooldown() && GlobalCooldownState.bGlobalCooldownActive && GlobalCooldownState.EndTime == 0.0f)
 	{
 		//Don't queue an ability if the gcd time hasn't been acked yet.
 		return false;
 	}
-	float const GlobalTimeRemaining = AbilityClass->GetDefaultObject<UPlayerCombatAbility>()->GetHasGlobalCooldown() && GlobalCooldownState.bGlobalCooldownActive ? GetGlobalCooldownTimeRemaining() : 0.0f;
+	float const GlobalTimeRemaining = AbilityClass->GetDefaultObject<UPlayerCombatAbility>()->HasGlobalCooldown() && GlobalCooldownState.bGlobalCooldownActive ? GetGlobalCooldownTimeRemaining() : 0.0f;
 	float const CastTimeRemaining = CastingState.bIsCasting ? GetCastTimeRemaining() : 0.0f;
 	if (GlobalTimeRemaining > AbilityQueWindowSec || CastTimeRemaining > AbilityQueWindowSec)
 	{

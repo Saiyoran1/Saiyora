@@ -285,10 +285,6 @@ private:
     FCombatFloatValue CooldownLength;
     FCombatFloatValue CastLength;
     TMap<TSubclassOf<UResource>, FAbilityResourceCost> AbilityCosts;
-
-    float RecalculateGcdLength(TArray<FCombatModifier> const& SpecificMods, float const BaseValue);
-    float RecalculateCooldownLength(TArray<FCombatModifier> const& SpecificMods, float const BaseValue);
-    float RecalculateCastLength(TArray<FCombatModifier> const& SpecificMods, float const BaseValue);
 public:
     void Initialize(TSubclassOf<UCombatAbility> const NewAbilityClass, class UAbilityHandler* NewHandler);
     int32 AddMaxChargeModifier(FCombatModifier const& Modifier) { return MaxCharges.AddModifier(Modifier); }
@@ -337,6 +333,7 @@ DECLARE_DYNAMIC_DELEGATE_OneParam(FBarSwapCallback, ESaiyoraPlane const, NewPlan
 //Spellbook delegate has no params because TSubclassOf in dynamic delegate causes compile errors :(
 DECLARE_DYNAMIC_DELEGATE(FSpellbookCallback);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FSpecializationCallback, class UPlayerSpecialization*, NewSpecialization);
+DECLARE_DYNAMIC_DELEGATE_OneParam(FCastableCallback, ECastFailReason const, Castable);
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityNotification, FCastEvent const&, Event);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityCancelNotification, FCancelEvent const&, Event);
@@ -351,3 +348,4 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FBarSwapNotification, EActionBarType
 //Spellbook delegate has no params because TSubclassOf in dynamic delegate causes compile errors :(
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FSpellbookNotification);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FSpecializationNotification, class UPlayerSpecialization*, NewSpecialization);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FCastableNotification, ECastFailReason const, Castable);
