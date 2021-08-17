@@ -18,6 +18,7 @@ struct FCombatModifier
 
     FCombatModifier();
     FCombatModifier(float const Value, EModifierType const ModType, bool const bStackable = false, class UBuff* Source = nullptr);
+    ~FCombatModifier();
     void Reset();
     void Activate(FModifierCallback const& OnChangedCallback);
     void SetValue(float const NewValue);
@@ -50,6 +51,7 @@ struct FModifierCollection
 {
     GENERATED_BODY()
 private:
+    
     static int32 GlobalID;
     TMap<int32, FCombatModifier> IndividualModifiers;
     FModifierNotification OnModifiersChanged;
@@ -58,6 +60,7 @@ private:
     void RecalculateMods();
     void PurgeInvalidMods();
 public:
+    ~FModifierCollection();
     static int32 GetID();
     int32 AddModifier(FCombatModifier const& Modifier);
     void RemoveModifier(int32 const ModifierID);

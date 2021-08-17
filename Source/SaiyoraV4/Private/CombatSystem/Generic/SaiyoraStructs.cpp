@@ -28,6 +28,11 @@ FCombatModifier::FCombatModifier(float const Value, EModifierType const ModType,
     }
 }
 
+FCombatModifier::~FCombatModifier()
+{
+    OnModifierChanged.Clear();
+}
+
 void FCombatModifier::Reset()
 {
     if (IsValid(Source))
@@ -191,6 +196,11 @@ void FCombatModifier::CombineModifiers(TArray<FCombatModifier> const& ModArray, 
     OutMultMod.ModValue = MultMod;
 }
 
+FModifierCollection::~FModifierCollection()
+{
+    OnModifiersChanged.Clear();
+}
+
 int32 FModifierCollection::GetID()
 {
     GlobalID++;
@@ -305,6 +315,9 @@ FCombatFloatValue::FCombatFloatValue(float const BaseValue, bool const bModifiab
         this->BaseValue = FMath::Min(Maximum, this->BaseValue);
     }
     Value = this->BaseValue;
+    FModifierCallback RecalculationCallback;
+    RecalculationCallback.BindRaw(this, &FCombatFloatValue::RecalculateValue);
+    Modifiers.BindToModsChanged(RecalculationCallback);
 }
 
 void FCombatFloatValue::SetRecalculationFunction(FCombatValueRecalculation const& NewCalculation)
@@ -429,6 +442,9 @@ FCombatIntValue::FCombatIntValue(int32 const BaseValue, bool const bModifiable, 
         this->BaseValue = FMath::Min(Maximum, this->BaseValue);
     }
     Value = this->BaseValue;
+    FModifierCallback RecalculationCallback;
+    RecalculationCallback.BindRaw(this, &FCombatIntValue::RecalculateValue);
+    Modifiers.BindToModsChanged(RecalculationCallback);
 }
 
 void FCombatIntValue::SetRecalculationFunction(FCombatIntValueRecalculation const& NewCalculation)
