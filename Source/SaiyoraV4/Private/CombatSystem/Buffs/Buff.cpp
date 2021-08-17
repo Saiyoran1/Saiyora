@@ -111,38 +111,6 @@ void UBuff::UnsubscribeFromBuffUpdated(FBuffEventCallback const& Callback)
     OnUpdated.Remove(Callback);
 }
 
-void UBuff::ModifierSubToStack(FModifierCallback const& StackCallback, FDelegateHandle& StackHandle)
-{
-    if (StackCallback.IsBound())
-    {
-        StackHandle = OnStacked.Add(StackCallback);
-    }
-}
-
-void UBuff::ModifierSubToRemove(FModifierCallback const& RemoveCallback, FDelegateHandle& RemoveHandle)
-{
-    if (RemoveCallback.IsBound())
-    {
-        RemoveHandle = OnRemoved.Add(RemoveCallback);
-    }
-}
-
-void UBuff::ModifierUnsubFromStack(FDelegateHandle const& StackHandle)
-{
-    if (StackHandle.IsValid())
-    {
-        OnStacked.Remove(StackHandle);
-    }
-}
-
-void UBuff::ModifierUnsubFromRemove(FDelegateHandle const& RemoveHandle)
-{
-    if (RemoveHandle.IsValid())
-    {
-        OnRemoved.Remove(RemoveHandle);
-    }
-}
-
 #pragma region StackingBuff
 
 //Stacking

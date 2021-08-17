@@ -40,38 +40,17 @@ private:
     FModifierNotification OnModifierChanged;
     FDelegateHandle StackHandle;
     FDelegateHandle RemoveHandle;
+    static int32 GlobalID;
 public:
     static float ApplyModifiers(TArray<FCombatModifier> const& ModArray, float const BaseValue);
     static int32 ApplyModifiers(TArray<FCombatModifier> const& ModArray, int32 const BaseValue);
     static void CombineModifiers(TArray<FCombatModifier> const& ModArray, FCombatModifier& OutAddMod, FCombatModifier& OutMultMod);
-};
-
-USTRUCT()
-struct FModifierCollection
-{
-    GENERATED_BODY()
-private:
-    
-    static int32 GlobalID;
-    TMap<int32, FCombatModifier> IndividualModifiers;
-    FModifierNotification OnModifiersChanged;
-    FCombatModifier SummedAddMod;
-    FCombatModifier SummedMultMod;
-    void RecalculateMods();
-    void PurgeInvalidMods();
-public:
-    ~FModifierCollection();
     static int32 GetID();
-    int32 AddModifier(FCombatModifier const& Modifier);
-    void RemoveModifier(int32 const ModifierID);
-    void GetSummedModifiers(TArray<FCombatModifier>& OutMods) const { OutMods.Add(SummedAddMod); OutMods.Add(SummedMultMod); }
-    FDelegateHandle BindToModsChanged(FModifierCallback const& Callback);
-    void UnbindFromModsChanged(FDelegateHandle const& Handle);
 };
 
-DECLARE_DELEGATE_RetVal_TwoParams(float, FCombatValueRecalculation, TArray<FCombatModifier>const&, float const);
-DECLARE_DELEGATE_TwoParams(FFloatValueCallback, float const, float const);
-DECLARE_MULTICAST_DELEGATE_TwoParams(FFloatValueNotification, float const, float const);
+DECLARE_DYNAMIC_DELEGATE_RetVal_TwoParams(float, FFloatValueRecalculation, TArray<FCombatModifier>const&, Modifiers, float const, BaseValue);
+DECLARE_DYNAMIC_DELEGATE_TwoParams(FFloatValueCallback, float const, Previous, float const, New);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FFloatValueNotification, float const, Previous, float const, New);
 
 USTRUCT()
 struct FCombatFloatValue
@@ -135,6 +114,36 @@ private:
     void DefaultRecalculation();
     FCombatIntValueRecalculation CustomCalculation;
     FIntValueNotification OnValueChanged;
+};
+
+UCLASS()
+class UModifiableFloatValue : public UObject
+{
+    GENERATED_BODY()
+public:
+    void Init(float const BaseValue, bool const bModifiable = false, bool const bHasMin = false, float const Minimum = 0.0f, bool const bHasMax, float const Maximum = 0.0f);
+    void SetRecalculationFunction(FFloatValueRecalculation const& NewCalculation);
+    void RecalculateValue();
+    void SubscribeToValueChanged(FFloatValueCallback const& Callback);
+    void UnsubscribeFromValueChanged(FFloatValueCallback const& Callback);
+    int32 AddModifier(FCombatModifier const& Modifier);
+    void RemoveModifier(int32 const ModifierID);
+    float GetValue() const { return Value; }
+    bool IsModifiable() const { return bModifiable; }
+private:
+    float Value = 0.0f;
+    float BaseValue = 0.0f;
+    bool bModifiable = false;
+    bool bHasMin = false;
+    float Minimum = 0.0f;
+    bool bHasMax = false;
+    float Maximum = 0.0f;
+    TMap<int32, FCombatModifier> Modifiers;
+    FFloatValueRecalculation CustomRecalculation;
+    FFloatValueNotification OnValueChanged;
+    struct FBuffEventCallback BuffStackCallback;
+    UFUNCTION()
+    void CheckForModifierSourceStack(struct FBuffApplyEvent const& Event);
 };
 
 USTRUCT(BlueprintType)

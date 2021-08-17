@@ -2,7 +2,7 @@
 #include "SaiyoraStructs.h"
 #include "Buff.h"
 
-int32 FModifierCollection::GlobalID = 0;
+int32 FCombatModifier::GlobalID = 0;
 
 FCombatModifier::FCombatModifier()
 {
@@ -28,143 +28,7 @@ FCombatModifier::FCombatModifier(float const Value, EModifierType const ModType,
     }
 }
 
-FCombatModifier::~FCombatModifier()
-{
-    OnModifierChanged.Clear();
-}
-
-void FCombatModifier::Reset()
-{
-    if (IsValid(Source))
-    {
-        Source->ModifierUnsubFromRemove(RemoveHandle);
-        if (bStackable)
-        {
-            Source->ModifierUnsubFromStack(StackHandle);
-        }
-    }
-    Source = nullptr;
-    ModType = EModifierType::Invalid;
-    ModValue = 0.0f;
-    bStackable = false;
-    OnModifierChanged.Clear();
-}
-
-void FCombatModifier::Activate(FModifierCallback const& OnChangedCallback)
-{
-    if (IsValid(Source))
-    {
-        FModifierCallback RemoveCallback;
-        RemoveCallback.BindRaw(this, &FCombatModifier::OnBuffRemoved);
-        Source->ModifierSubToRemove(RemoveCallback, RemoveHandle);
-        if (bStackable)
-        {
-            FModifierCallback StackCallback;
-            StackCallback.BindRaw(this, &FCombatModifier::OnBuffStacked);
-            Source->ModifierSubToStack(StackCallback, StackHandle);
-        }        
-        OnModifierChanged.Add(OnChangedCallback);
-    }
-}
-
-void FCombatModifier::SetValue(float const NewValue)
-{
-    if (NewValue != ModValue)
-    {
-        ModValue = NewValue;
-        OnModifierChanged.Broadcast();
-    }
-}
-
-void FCombatModifier::SetModType(EModifierType const NewModType)
-{
-    if (NewModType != ModType)
-    {
-        ModType = NewModType;
-        OnModifierChanged.Broadcast();
-    }
-}
-
-void FCombatModifier::SetStackable(bool const NewStackable)
-{
-    if (NewStackable != bStackable)
-    {
-        bStackable = NewStackable;
-        if (IsValid(Source))
-        {
-            FModifierCallback StackCallback;
-            StackCallback.BindRaw(this, &FCombatModifier::OnBuffStacked);
-            Source->ModifierSubToStack(StackCallback, StackHandle);
-        }
-    }
-}
-
-void FCombatModifier::SetSource(UBuff* NewSource)
-{
-    int32 PreviousSourceStacks = 1;
-    if (IsValid(Source))
-    {
-        if (IsValid(NewSource) && NewSource == Source)
-        {
-            return;
-        }
-        Source->ModifierUnsubFromRemove(RemoveHandle);
-        if (bStackable)
-        {
-            PreviousSourceStacks = Source->GetCurrentStacks();
-            Source->ModifierUnsubFromStack(StackHandle);
-        }
-        Source = nullptr;
-    }
-    if (IsValid(NewSource))
-    {
-        Source = NewSource;
-        FModifierCallback RemoveCallback;
-        RemoveCallback.BindRaw(this, &FCombatModifier::OnBuffRemoved);
-        Source->ModifierSubToRemove(RemoveCallback, RemoveHandle);
-        if (bStackable)
-        {
-            FModifierCallback StackCallback;
-            StackCallback.BindRaw(this, &FCombatModifier::OnBuffStacked);
-            Source->ModifierSubToStack(StackCallback, StackHandle);
-        }
-    }
-    if (bStackable && PreviousSourceStacks != (IsValid(Source) ? Source->GetCurrentStacks() : 1))
-    {
-        OnModifierChanged.Broadcast();
-    }
-}
-
-void FCombatModifier::OnBuffStacked()
-{
-    if (bStackable)
-    {
-        OnModifierChanged.Broadcast();
-    }
-}
-
-void FCombatModifier::OnBuffRemoved()
-{
-    ModType = EModifierType::Invalid;
-    OnModifierChanged.Broadcast();
-}
-
 float FCombatModifier::ApplyModifiers(TArray<FCombatModifier> const& ModArray, float const BaseValue)
-{
-    FCombatModifier AddMod;
-    FCombatModifier MultMod;
-    CombineModifiers(ModArray, AddMod, MultMod);
-    return FMath::Max(0.0f, FMath::Max(0.0f, BaseValue + AddMod.ModValue) * MultMod.ModValue);
-}
-
-int32 FCombatModifier::ApplyModifiers(TArray<FCombatModifier> const& ModArray, int32 const BaseValue)
-{
-    float const ValueAsFloat = static_cast<float>(BaseValue);
-    return static_cast<int32>(ApplyModifiers(ModArray, ValueAsFloat));
-}
-
-void FCombatModifier::CombineModifiers(TArray<FCombatModifier> const& ModArray, FCombatModifier& OutAddMod,
-                                       FCombatModifier& OutMultMod)
 {
     float AddMod = 0.0f;
     float MultMod = 1.0f;
@@ -188,20 +52,16 @@ void FCombatModifier::CombineModifiers(TArray<FCombatModifier> const& ModArray, 
             break;
         }
     }
-    OutAddMod.Reset();
-    OutAddMod.ModType = EModifierType::Additive;
-    OutAddMod.ModValue = AddMod;
-    OutMultMod.Reset();
-    OutMultMod.ModType = EModifierType::Multiplicative;
-    OutMultMod.ModValue = MultMod;
+    return FMath::Max(0.0f, FMath::Max(0.0f, BaseValue + AddMod) * MultMod);
 }
 
-FModifierCollection::~FModifierCollection()
+int32 FCombatModifier::ApplyModifiers(TArray<FCombatModifier> const& ModArray, int32 const BaseValue)
 {
-    OnModifiersChanged.Clear();
+    float const ValueAsFloat = static_cast<float>(BaseValue);
+    return static_cast<int32>(ApplyModifiers(ModArray, ValueAsFloat));
 }
 
-int32 FModifierCollection::GetID()
+int32 FCombatModifier::GetID()
 {
     GlobalID++;
     if (GlobalID == -1)
@@ -209,81 +69,6 @@ int32 FModifierCollection::GetID()
         GlobalID++;
     }
     return GlobalID;
-}
-
-int32 FModifierCollection::AddModifier(FCombatModifier const& Modifier)
-{
-    if (Modifier.GetModType() == EModifierType::Invalid)
-    {
-        return -1;
-    }
-    int32 const ModID = GetID();
-    FCombatModifier& NewMod = IndividualModifiers.Add(ModID, Modifier);
-    FModifierCallback OnChangedCallback;
-    OnChangedCallback.BindRaw(this, &FModifierCollection::RecalculateMods);
-    NewMod.Activate(OnChangedCallback);
-    RecalculateMods();
-    return ModID;
-}
-
-void FModifierCollection::RemoveModifier(int32 const ModifierID)
-{
-    if (ModifierID == -1)
-    {
-        return;
-    }    
-    if (IndividualModifiers.Remove(ModifierID) > 0)
-    {
-        RecalculateMods();
-    }
-}
-
-FDelegateHandle FModifierCollection::BindToModsChanged(FModifierCallback const& Callback)
-{
-    if (Callback.IsBound())
-    {
-        return OnModifiersChanged.Add(Callback); 
-    }
-    FDelegateHandle const Fail;
-    return Fail;
-}
-
-void FModifierCollection::UnbindFromModsChanged(FDelegateHandle const& Handle)
-{
-    if (Handle.IsValid())
-    {
-        OnModifiersChanged.Remove(Handle);
-    }
-}
-
-void FModifierCollection::RecalculateMods()
-{
-    float const PreviousAddMod = SummedAddMod.GetValue();
-    float const PreviousMultMod = SummedMultMod.GetValue();
-    PurgeInvalidMods();
-    TArray<FCombatModifier> Mods;
-    IndividualModifiers.GenerateValueArray(Mods);
-    FCombatModifier::CombineModifiers(Mods, SummedAddMod, SummedMultMod);
-    if (PreviousAddMod != SummedAddMod.GetValue() || PreviousMultMod != SummedMultMod.GetValue())
-    {
-        OnModifiersChanged.Broadcast();
-    }
-}
-
-void FModifierCollection::PurgeInvalidMods()
-{
-    TArray<int32> InvalidIDs;
-    for (TTuple<int32, FCombatModifier> const& Mod : IndividualModifiers)
-    {
-        if (Mod.Value.GetModType() == EModifierType::Invalid)
-        {
-            InvalidIDs.Add(Mod.Key);
-        }
-    }
-    for (int32 const ID : InvalidIDs)
-    {
-        IndividualModifiers.Remove(ID);
-    }
 }
 
 FCombatFloatValue::FCombatFloatValue()
@@ -539,3 +324,126 @@ void FCombatIntValue::DefaultRecalculation()
     }
     Value = NewValue;
 }
+
+void UModifiableFloatValue::Init(float const BaseValue, bool const bModifiable, bool const bHasMin, float const Minimum,
+    bool const bHasMax, float const Maximum)
+{
+    this->bModifiable = bModifiable;
+    this->bHasMin = bHasMin;
+    this->Minimum = Minimum;
+    this->bHasMax = bHasMax;
+    this->Maximum = FMath::Max(Minimum, Maximum);
+    this->BaseValue = BaseValue;
+    if (this->bHasMin)
+    {
+        this->BaseValue = FMath::Max(Minimum, this->BaseValue);
+    }
+    if (this->bHasMax)
+    {
+        this->BaseValue = FMath::Min(Maximum, this->BaseValue);
+    }
+    Value = this->BaseValue;
+    BuffStackCallback.BindDynamic(this, &UModifiableFloatValue::CheckForModifierSourceStack);
+}
+
+void UModifiableFloatValue::SetRecalculationFunction(FFloatValueRecalculation const& NewCalculation)
+{
+    if (NewCalculation.IsBound())
+    {
+        CustomRecalculation.Clear();
+        CustomRecalculation = NewCalculation;
+        RecalculateValue();
+    }
+}
+
+void UModifiableFloatValue::RecalculateValue()
+{
+    float const Previous = Value;
+    if (bModifiable)
+    {
+        TArray<FCombatModifier> Mods;
+        Modifiers.GenerateValueArray(Mods);
+        if (CustomRecalculation.IsBound())
+        {
+            Value = CustomRecalculation.Execute(Mods, BaseValue);
+        }
+        else
+        {
+            Value = FCombatModifier::ApplyModifiers(Mods, BaseValue);
+        }
+        if (bHasMin)
+        {
+            Value = FMath::Max(Minimum, Value);
+        }
+        if (bHasMax)
+        {
+            Value = FMath::Min(Maximum, Value);
+        }
+    }
+    else
+    {
+        Value = BaseValue;   
+    }
+    if (Value != Previous)
+    {
+        OnValueChanged.Broadcast(Previous, Value);
+    }
+}
+
+void UModifiableFloatValue::SubscribeToValueChanged(FFloatValueCallback const& Callback)
+{
+    if (Callback.IsBound())
+    {
+        OnValueChanged.AddUnique(Callback);
+    }
+}
+
+void UModifiableFloatValue::UnsubscribeFromValueChanged(FFloatValueCallback const& Callback)
+{
+    if (Callback.IsBound())
+    {
+        OnValueChanged.Remove(Callback);
+    }
+}
+
+int32 UModifiableFloatValue::AddModifier(FCombatModifier const& Modifier)
+{
+    if (Modifier.GetModType() == EModifierType::Invalid)
+    {
+        return -1;
+    }
+    int32 const ModID = FCombatModifier::GetID();
+    Modifiers.Add(ModID, Modifier);
+    if (Modifier.GetStackable() && IsValid(Modifier.GetSource()))
+    {
+        Modifier.GetSource()->SubscribeToBuffUpdated(BuffStackCallback);
+    }
+    RecalculateValue();
+    return ModID;
+}
+
+void UModifiableFloatValue::RemoveModifier(int32 const ModifierID)
+{
+    if (ModifierID == -1)
+    {
+        return;
+    }
+    FCombatModifier* Mod = Modifiers.Find(ModifierID);
+    if (Mod && Mod->GetStackable() && IsValid(Mod->GetSource()))
+    {
+        Mod->GetSource()->UnsubscribeFromBuffUpdated(BuffStackCallback);
+    }
+    if (Modifiers.Remove(ModifierID) > 0)
+    {
+        RecalculateValue();
+    }
+}
+
+void UModifiableFloatValue::CheckForModifierSourceStack(FBuffApplyEvent const& Event)
+{
+    if (Event.Result.PreviousStacks != Event.Result.NewStacks && IsValid(Event.Result.AffectedBuff))
+    {
+        RecalculateValue();
+    }
+}
+
