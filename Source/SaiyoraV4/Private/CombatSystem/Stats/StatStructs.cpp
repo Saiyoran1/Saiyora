@@ -4,12 +4,14 @@
 #include "StatStructs.h"
 #include "StatHandler.h"
 #include "Buff.h"
+#include "SaiyoraObjects.h"
 
-void FCombatStat::Setup()
+void FCombatStat::Setup(AActor* Owner)
 {
+    StatValue = NewObject<UModifiableFloatValue>(Owner);
     FFloatValueCallback OnChange;
-    OnChange.BindRaw(this, &FCombatStat::BroadcastValueChange);
-    StatValue.BindToValueChanged(OnChange);
+    OnChange.BindDynamic(this, &FCombatStat::BroadcastValueChange);
+    StatValue->SubscribeToValueChanged(OnChange);
 }
 
 void FReplicatedStat::PostReplicatedChange(FReplicatedStatArray const& InArraySerializer)

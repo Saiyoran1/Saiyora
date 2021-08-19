@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "SaiyoraStructs.h"
 #include "SaiyoraEnums.h"
+#include "SaiyoraObjects.h"
 #include "GameplayTagContainer.h"
 #include "Engine/DataTable.h"
 #include "StatStructs.generated.h"
@@ -59,9 +60,11 @@ struct FCombatStat
 
     FGameplayTag StatTag;
     bool bShouldReplicate = false;
-    FCombatFloatValue StatValue;
+    UPROPERTY()
+    UModifiableFloatValue* StatValue;
     FStatNotification OnStatChanged;
-    void Setup();
+    //TODO: Init function so we can set up the actual stat value object, or maybe just rework this whole section.
+    void Setup(AActor* Owner);
 private:
     void BroadcastValueChange(float const Previous, float const New)
     {

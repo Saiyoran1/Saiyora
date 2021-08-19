@@ -47,7 +47,8 @@ struct FAbilityResourceCost
     TSubclassOf<UCombatAbility> AbilityClass;
     UPROPERTY()
     class UAbilityHandler* Handler;
-    FCombatFloatValue Cost;
+    UPROPERTY()
+    class UModifiableFloatValue* Cost;
 
     void Initialize(TSubclassOf<UResource> const NewResourceClass, TSubclassOf<UCombatAbility> const NewAbilityClass, UAbilityHandler* NewHandler);
     float RecalculateCost(TArray<FCombatModifier> const& SpecificMods, float const BaseValue);
@@ -267,54 +268,6 @@ FORCEINLINE uint32 GetTypeHash(const FPredictedTick& Tick)
 {
     return HashCombine(GetTypeHash(Tick.PredictionID), GetTypeHash(Tick.TickNumber));
 }
-
-USTRUCT()
-struct FAbilityValues
-{
-    GENERATED_BODY()
-private:
-    bool bInitialized = false;
-    UPROPERTY()
-    class UAbilityHandler* Handler = nullptr;
-    TSubclassOf<UCombatAbility> AbilityClass;
-//Calculated Values
-    FCombatIntValue MaxCharges;
-    FCombatIntValue ChargeCost;
-    FCombatIntValue ChargesPerCooldown;
-    FCombatFloatValue GlobalCooldownLength;
-    FCombatFloatValue CooldownLength;
-    FCombatFloatValue CastLength;
-    TMap<TSubclassOf<UResource>, FAbilityResourceCost> AbilityCosts;
-public:
-    void Initialize(TSubclassOf<UCombatAbility> const NewAbilityClass, class UAbilityHandler* NewHandler);
-    int32 AddMaxChargeModifier(FCombatModifier const& Modifier) { return MaxCharges.AddModifier(Modifier); }
-    void RemoveMaxChargeModifier(int32 const ModifierID) { MaxCharges.RemoveModifier(ModifierID); }
-    int32 AddChargeCostModifier(FCombatModifier const& Modifier) { return ChargeCost.AddModifier(Modifier); }
-    void RemoveChargesPerCastModifier(int32 const ModifierID) { ChargeCost.RemoveModifier(ModifierID); }
-    int32 AddChargesPerCooldownModifier(FCombatModifier const& Modifier) { return ChargesPerCooldown.AddModifier(Modifier); }
-    void RemoveChargesPerCooldownModifier(int32 const ModifierID) { ChargesPerCooldown.RemoveModifier(ModifierID); }
-    int32 AddGlobalCooldownModifier(FCombatModifier const& Modifier) { return GlobalCooldownLength.AddModifier(Modifier); }
-    void RemoveGlobalCooldownModifier(int32 const ModifierID) { GlobalCooldownLength.RemoveModifier(ModifierID); }
-    void UpdateGlobalCooldown() { GlobalCooldownLength.ForceRecalculation(); }
-    int32 AddCooldownModifier(FCombatModifier const& Modifier) { return CooldownLength.AddModifier(Modifier); }
-    void RemoveCooldownModifier(int32 const ModifierID) { CooldownLength.RemoveModifier(ModifierID); }
-    void UpdateCooldown() { CooldownLength.ForceRecalculation(); }
-    int32 AddCastLengthModifier(FCombatModifier const& Modifier) { return CastLength.AddModifier(Modifier); }
-    void RemoveCastLengthModifier(int32 const ModifierID) { CastLength.RemoveModifier(ModifierID); }
-    void UpdateCastLength() { CastLength.ForceRecalculation(); }
-    int32 AddCostModifier(TSubclassOf<UResource> const ResourceClass, FCombatModifier const& Modifier);
-    void RemoveCostModifier(TSubclassOf<UResource> const ResourceClass, int32 const ModifierID);
-    void UpdateCost(TSubclassOf<UResource> const ResourceClass);
-    void UpdateAllCosts();
-    int32 GetMaxCharges() const { return MaxCharges.GetValue(); }
-    int32 GetChargeCost() const { return ChargeCost.GetValue(); }
-    int32 GetChargesPerCooldown() const { return ChargesPerCooldown.GetValue(); }
-    float GetGlobalCooldownLength() const { return GlobalCooldownLength.GetValue(); }
-    float GetCooldownLength() const { return CooldownLength.GetValue(); }
-    float GetCastLength() const { return CastLength.GetValue(); }
-    float GetCost(TSubclassOf<UResource> const ResourceClass) const { return AbilityCosts.FindRef(ResourceClass).Cost.GetValue(); }
-    void GetCosts(TMap<TSubclassOf<UResource>, float>& OutCosts);
-};
 
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FAbilityModCondition, TSubclassOf<UCombatAbility>, AbilityClass);
 DECLARE_DYNAMIC_DELEGATE_RetVal_TwoParams(FCombatModifier, FAbilityResourceModCondition, TSubclassOf<UCombatAbility>, AbilityClass, TSubclassOf<UResource>, ResourceClass);

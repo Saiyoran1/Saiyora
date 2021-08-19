@@ -24,8 +24,8 @@ UWorld* UCombatAbility::GetWorld() const
 void UCombatAbility::CommitCharges()
 {
     int32 const PreviousCharges = AbilityCooldown.CurrentCharges;
-    int32 const CurrentMaxCharges = MaxCharges.GetValue();
-    AbilityCooldown.CurrentCharges = FMath::Clamp(PreviousCharges - ChargeCost.GetValue(), 0, CurrentMaxCharges);
+    int32 const CurrentMaxCharges = GetMaxCharges();
+    AbilityCooldown.CurrentCharges = FMath::Clamp(PreviousCharges - GetChargeCost(), 0, CurrentMaxCharges);
     if (PreviousCharges != AbilityCooldown.CurrentCharges)
     {
         CheckChargeCostMet();
@@ -39,38 +39,38 @@ void UCombatAbility::CommitCharges()
 
 int32 UCombatAbility::AddChargeCostModifier(FCombatModifier const& Modifier)
 {
-    if (Modifier.GetModType() == EModifierType::Invalid || !ChargeCost.IsModifiable())
+    if (Modifier.GetModType() == EModifierType::Invalid || !IsValid(ChargeCost) || !ChargeCost->IsModifiable())
     {
         return -1;
     }
-    return ChargeCost.AddModifier(Modifier);
+    return ChargeCost->AddModifier(Modifier);
 }
 
 void UCombatAbility::RemoveChargeCostModifier(int32 const ModifierID)
 {
-    if (ModifierID == -1)
+    if (ModifierID == -1 || !IsValid(ChargeCost))
     {
         return;
     }
-    ChargeCost.RemoveModifier(ModifierID);
+    ChargeCost->RemoveModifier(ModifierID);
 }
 
 int32 UCombatAbility::AddChargesPerCooldownModifier(FCombatModifier const& Modifier)
 {
-    if (Modifier.GetModType() == EModifierType::Invalid || !ChargesPerCooldown.IsModifiable())
+    if (Modifier.GetModType() == EModifierType::Invalid || !IsValid(ChargesPerCooldown) || !ChargesPerCooldown->IsModifiable())
     {
         return -1;
     }
-    return ChargesPerCooldown.AddModifier(Modifier);
+    return ChargesPerCooldown->AddModifier(Modifier);
 }
 
 void UCombatAbility::RemoveChargesPerCooldownModifier(int32 const ModifierID)
 {
-    if (ModifierID == -1)
+    if (ModifierID == -1 || !IsValid(ChargesPerCooldown))
     {
         return;
     }
-    ChargesPerCooldown.RemoveModifier(ModifierID);
+    ChargesPerCooldown->RemoveModifier(ModifierID);
 }
 
 FAbilityCost UCombatAbility::GetDefaultAbilityCost(TSubclassOf<UResource> const ResourceClass) const
@@ -94,9 +94,9 @@ float UCombatAbility::GetAbilityCost(TSubclassOf<UResource> const ResourceClass)
     if (IsValid(ResourceClass))
     {
         FAbilityResourceCost const* Cost = AbilityCosts.Find(ResourceClass);
-        if (Cost)
+        if (Cost && IsValid(Cost->Cost))
         {
-            return Cost->Cost.GetValue();
+            return Cost->Cost->GetValue();
         }
     }
     return 0.0f;
@@ -106,9 +106,9 @@ void UCombatAbility::GetAbilityCosts(TMap<TSubclassOf<UResource>, float>& OutCos
 {
     for (TTuple<TSubclassOf<UResource>, FAbilityResourceCost> const& Cost : AbilityCosts)
     {
-        if (IsValid(Cost.Key))
+        if (IsValid(Cost.Key) && IsValid(Cost.Value.Cost))
         {
-            OutCosts.Add(Cost.Key, Cost.Value.Cost.GetValue());
+            OutCosts.Add(Cost.Key, Cost.Value.Cost->GetValue());
         }
     }
 }
@@ -117,7 +117,10 @@ void UCombatAbility::ForceResourceCostRecalculations()
 {
     for (TTuple<TSubclassOf<UResource>, FAbilityResourceCost>& Cost : AbilityCosts)
     {
-        Cost.Value.Cost.ForceRecalculation();
+        if (IsValid(Cost.Value.Cost))
+        {
+            Cost.Value.Cost->RecalculateValue();
+        }
     }
 }
 
@@ -178,7 +181,10 @@ float UCombatAbility::RecalculateCastLength(TArray<FCombatModifier> const& Speci
 
 void UCombatAbility::ForceCastLengthRecalculation()
 {
-    CastLength.ForceRecalculation();
+    if (IsValid(CastLength))
+    {
+        CastLength->RecalculateValue();
+    }
 }
 
 void UCombatAbility::UpdateCastable()
@@ -226,7 +232,7 @@ void UCombatAbility::InitialCastableChecks()
         GetAbilityCosts(Costs);
         ResourceCostsMet = OwningComponent->GetResourceHandlerRef()->CheckAbilityCostsMet(Costs);
     }
-    ChargeCostMet = AbilityCooldown.CurrentCharges >= ChargeCost.GetValue();
+    ChargeCostMet = AbilityCooldown.CurrentCharges >= GetChargeCost();
     UpdateCastable();
 }
 
@@ -248,20 +254,20 @@ void UCombatAbility::UnsubscribeFromCastableChanged(FCastableCallback const& Cal
 
 int32 UCombatAbility::AddGlobalCooldownModifier(FCombatModifier const& Modifier)
 {
-    if (Modifier.GetModType() == EModifierType::Invalid || !GlobalCooldownLength.IsModifiable())
+    if (Modifier.GetModType() == EModifierType::Invalid || !IsValid(GlobalCooldownLength) || !GlobalCooldownLength->IsModifiable())
     {
         return -1;
     }
-    return GlobalCooldownLength.AddModifier(Modifier);
+    return GlobalCooldownLength->AddModifier(Modifier);
 }
 
 void UCombatAbility::RemoveGlobalCooldownModifier(int32 const ModifierID)
 {
-    if (ModifierID == -1)
+    if (ModifierID == -1 || !IsValid(GlobalCooldownLength))
     {
         return;
     }
-    GlobalCooldownLength.RemoveModifier(ModifierID);
+    GlobalCooldownLength->RemoveModifier(ModifierID);
 }
 
 float UCombatAbility::RecalculateGcdLength(TArray<FCombatModifier> const& SpecificMods, float const BaseValue)
@@ -271,49 +277,52 @@ float UCombatAbility::RecalculateGcdLength(TArray<FCombatModifier> const& Specif
         return FCombatModifier::ApplyModifiers(SpecificMods, BaseValue);
     }
     TArray<FCombatModifier> Mods = SpecificMods;
-    OwningComponent->GetGlobalCooldownModifiers(this->GetClass(), Mods);
+    OwningComponent->GetGlobalCooldownModifiers(GetClass(), Mods);
     return FCombatModifier::ApplyModifiers(Mods, BaseValue);
 }
 
 void UCombatAbility::ForceGlobalCooldownRecalculation()
 {
-    GlobalCooldownLength.ForceRecalculation();
+    if (IsValid(GlobalCooldownLength))
+    {
+        GlobalCooldownLength->RecalculateValue();
+    }
 }
 
 int32 UCombatAbility::AddCooldownModifier(FCombatModifier const& Modifier)
 {
-    if (Modifier.GetModType() == EModifierType::Invalid || !CooldownLength.IsModifiable())
+    if (Modifier.GetModType() == EModifierType::Invalid || !IsValid(CooldownLength) || !CooldownLength->IsModifiable())
     {
         return -1;
     }
-    return CooldownLength.AddModifier(Modifier);
+    return CooldownLength->AddModifier(Modifier);
 }
 
 void UCombatAbility::RemoveCooldownModifier(int32 const ModifierID)
 {
-    if (ModifierID == -1)
+    if (ModifierID == -1 || !IsValid(CooldownLength))
     {
         return;
     }
-    CooldownLength.RemoveModifier(ModifierID);
+    CooldownLength->RemoveModifier(ModifierID);
 }
 
 int32 UCombatAbility::AddMaxChargeModifier(FCombatModifier const& Modifier)
 {
-    if (Modifier.GetModType() == EModifierType::Invalid || !MaxCharges.IsModifiable())
+    if (Modifier.GetModType() == EModifierType::Invalid || !IsValid(MaxCharges) || !MaxCharges->IsModifiable())
     {
         return -1;
     }
-    return MaxCharges.AddModifier(Modifier);
+    return MaxCharges->AddModifier(Modifier);
 }
 
 void UCombatAbility::RemoveMaxChargeModifier(int32 const ModifierID)
 {
-    if (ModifierID == -1)
+    if (ModifierID == -1 || !IsValid(MaxCharges))
     {
         return;
     }
-    MaxCharges.RemoveModifier(ModifierID);
+    MaxCharges->RemoveModifier(ModifierID);
 }
 
 float UCombatAbility::RecalculateCooldownLength(TArray<FCombatModifier> const& SpecificMods, float const BaseValue)
@@ -329,13 +338,16 @@ float UCombatAbility::RecalculateCooldownLength(TArray<FCombatModifier> const& S
 
 void UCombatAbility::ForceCooldownLengthRecalculation()
 {
-    CooldownLength.ForceRecalculation();
+    if (IsValid(CooldownLength))
+    {
+        CooldownLength->RecalculateValue();
+    }
 }
 
 void UCombatAbility::CheckChargeCostMet()
 {
     bool const PreviouslyMet = ChargeCostMet;
-    ChargeCostMet = AbilityCooldown.CurrentCharges >= ChargeCost.GetValue();
+    ChargeCostMet = AbilityCooldown.CurrentCharges >= GetChargeCost();
     if (PreviouslyMet != ChargeCostMet)
     {
         UpdateCastable();
@@ -349,11 +361,11 @@ int32 UCombatAbility::AddCostModifier(TSubclassOf<UResource> const ResourceClass
         return -1;
     }
     FAbilityResourceCost* Cost = AbilityCosts.Find(ResourceClass);
-    if (!Cost || !Cost->Cost.IsModifiable())
+    if (!Cost || !IsValid(Cost->Cost) || !Cost->Cost->IsModifiable())
     {
         return -1;
     }
-    return Cost->Cost.AddModifier(Modifier);
+    return Cost->Cost->AddModifier(Modifier);
 }
 
 void UCombatAbility::RemoveCostModifier(TSubclassOf<UResource> const ResourceClass, int32 const ModifierID)
@@ -363,16 +375,16 @@ void UCombatAbility::RemoveCostModifier(TSubclassOf<UResource> const ResourceCla
         return;
     }
     FAbilityResourceCost* Cost = AbilityCosts.Find(ResourceClass);
-    if (!Cost || !Cost->Cost.IsModifiable())
+    if (!Cost || !IsValid(Cost->Cost) || !Cost->Cost->IsModifiable())
     {
         return;
     }
-    Cost->Cost.RemoveModifier(ModifierID);
+    Cost->Cost->RemoveModifier(ModifierID);
 }
 
 void UCombatAbility::StartCooldown()
 {
-    float const Cooldown = CooldownLength.GetValue();
+    float const Cooldown = GetCooldownLength();
     GetWorld()->GetTimerManager().SetTimer(CooldownHandle, this, &UCombatAbility::CompleteCooldown, Cooldown, false);
     AbilityCooldown.OnCooldown = true;
     AbilityCooldown.CooldownStartTime = OwningComponent->GetGameStateRef()->GetServerWorldTimeSeconds();
@@ -382,8 +394,8 @@ void UCombatAbility::StartCooldown()
 void UCombatAbility::CompleteCooldown()
 {
     int32 const PreviousCharges = AbilityCooldown.CurrentCharges;
-    int32 const CurrentMaxCharges = MaxCharges.GetValue();
-    AbilityCooldown.CurrentCharges = FMath::Clamp(GetCurrentCharges() + ChargesPerCooldown.GetValue(), 0, CurrentMaxCharges);
+    int32 const CurrentMaxCharges = GetMaxCharges();
+    AbilityCooldown.CurrentCharges = FMath::Clamp(GetCurrentCharges() + GetChargesPerCooldown(), 0, CurrentMaxCharges);
     if (PreviousCharges != AbilityCooldown.CurrentCharges)
     {
         CheckChargeCostMet();
@@ -419,46 +431,69 @@ void UCombatAbility::InitializeAbility(UAbilityHandler* AbilityComponent)
     }
     OwningComponent = AbilityComponent;
     
-    MaxCharges = FCombatIntValue(DefaultMaxCharges, !bStaticMaxCharges, true, 1);
-    AbilityCooldown.CurrentCharges = MaxCharges.GetValue();
-    ChargesPerCooldown = FCombatIntValue(DefaultChargesPerCooldown, !bStaticChargesPerCooldown, true, 0);
-    ChargeCost = FCombatIntValue(DefaultChargeCost, !bStaticChargeCost, true, 0);
-    FIntValueCallback ChargeCostCallback;
-    ChargeCostCallback.BindUObject(this, &UCombatAbility::CheckChargeCostOnCostUpdated);
-    ChargeCost.BindToValueChanged(ChargeCostCallback);
-    CooldownLength = FCombatFloatValue(DefaultCooldown, !bStaticCooldown, true, UAbilityHandler::MinimumCooldownLength);
-    if (!bStaticCooldown)
+    MaxCharges = NewObject<UModifiableIntValue>(OwningComponent->GetOwner());
+    if (IsValid(MaxCharges))
     {
-        FCombatValueRecalculation CooldownRecalculation;
-        CooldownRecalculation.BindUObject(this, &UCombatAbility::RecalculateCooldownLength);
-        CooldownLength.SetRecalculationFunction(CooldownRecalculation);
-        FGenericCallback CooldownModsCallback;
-        CooldownModsCallback.BindDynamic(this, &UCombatAbility::ForceCooldownLengthRecalculation);
-        OwningComponent->SubscribeToCooldownModsChanged(CooldownModsCallback);
+        MaxCharges->Init(DefaultMaxCharges, !bStaticMaxCharges, true, 1);
     }
-    GlobalCooldownLength = FCombatFloatValue(DefaultGlobalCooldownLength, !bStaticGlobalCooldown, true, UAbilityHandler::MinimumGlobalCooldownLength);
-    if (!bStaticGlobalCooldown)
+    AbilityCooldown.CurrentCharges = GetMaxCharges();
+    
+    ChargesPerCooldown = NewObject<UModifiableIntValue>(OwningComponent->GetOwner());
+    if (IsValid(ChargesPerCooldown))
     {
-        FCombatValueRecalculation GcdRecalculation;
-        GcdRecalculation.BindUObject(this, &UCombatAbility::RecalculateGcdLength);
-        GlobalCooldownLength.SetRecalculationFunction(GcdRecalculation);
-        FGenericCallback GcdModsCallback;
-        GcdModsCallback.BindDynamic(this, &UCombatAbility::ForceGlobalCooldownRecalculation);
-        OwningComponent->SubscribeToGlobalCooldownModsChanged(GcdModsCallback);
+        ChargesPerCooldown->Init(DefaultChargesPerCooldown, !bStaticChargesPerCooldown, true, 0);
     }
-    if (CastType == EAbilityCastType::Channel)
+    
+    ChargeCost = NewObject<UModifiableIntValue>(OwningComponent->GetOwner());
+    if (IsValid(ChargeCost))
     {
-        CastLength = FCombatFloatValue(DefaultCastTime, !bStaticCastTime, true, UAbilityHandler::MinimumCastLength);
-        if (!bStaticCastTime)
+        ChargeCost->Init(DefaultChargeCost, !bStaticChargeCost, true, 0);
+    }
+    ChargeCostCallback.BindDynamic(this, &UCombatAbility::CheckChargeCostOnCostUpdated);
+    ChargeCost->SubscribeToValueChanged(ChargeCostCallback);
+    
+    CooldownLength = NewObject<UModifiableFloatValue>(OwningComponent->GetOwner());
+    if (IsValid(CooldownLength))
+    {
+        CooldownLength->Init(DefaultCooldown, !bStaticCooldown, true, UAbilityHandler::MinimumCooldownLength);
+        if (!bStaticCooldown)
         {
-            FCombatValueRecalculation CastRecalculation;
-            CastRecalculation.BindUObject(this, &UCombatAbility::RecalculateCastLength);
-            CastLength.SetRecalculationFunction(CastRecalculation);
-            FGenericCallback CastModsCallback;
-            CastModsCallback.BindDynamic(this, &UCombatAbility::ForceCastLengthRecalculation);
-            OwningComponent->SubscribeToCastModsChanged(CastModsCallback);
+            CooldownRecalculation.BindDynamic(this, &UCombatAbility::RecalculateCooldownLength);
+            CooldownLength->SetRecalculationFunction(CooldownRecalculation);
+            CooldownModsCallback.BindDynamic(this, &UCombatAbility::ForceCooldownLengthRecalculation);
+            OwningComponent->SubscribeToCooldownModsChanged(CooldownModsCallback);
         }
     }
+
+    GlobalCooldownLength = NewObject<UModifiableFloatValue>(OwningComponent->GetOwner());
+    if (IsValid(GlobalCooldownLength))
+    {
+        GlobalCooldownLength->Init(DefaultGlobalCooldownLength, !bStaticGlobalCooldown, true, UAbilityHandler::MinimumGlobalCooldownLength);
+        if (!bStaticGlobalCooldown)
+        {
+            GcdRecalculation.BindDynamic(this, &UCombatAbility::RecalculateGcdLength);
+            GlobalCooldownLength->SetRecalculationFunction(GcdRecalculation);
+            GcdModsCallback.BindDynamic(this, &UCombatAbility::ForceGlobalCooldownRecalculation);
+            OwningComponent->SubscribeToGlobalCooldownModsChanged(GcdModsCallback);
+        }
+    }
+    
+    if (CastType == EAbilityCastType::Channel)
+    {
+        CastLength = NewObject<UModifiableFloatValue>(OwningComponent->GetOwner());
+        if (IsValid(CastLength))
+        {
+            CastLength->Init(DefaultCastTime, !bStaticCastTime, true, UAbilityHandler::MinimumCastLength);
+            if (!bStaticCastTime)
+            {
+                CastLengthRecalculation.BindDynamic(this, &UCombatAbility::RecalculateCastLength);
+                CastLength->SetRecalculationFunction(CastLengthRecalculation);
+                CastModsCallback.BindDynamic(this, &UCombatAbility::ForceCastLengthRecalculation);
+                OwningComponent->SubscribeToCastModsChanged(CastModsCallback);
+            }
+        }
+    }
+    
     bool bAllStaticCosts = true;
     for (FAbilityCost const& DefaultCost : DefaultAbilityCosts)
     {
@@ -466,18 +501,17 @@ void UCombatAbility::InitializeAbility(UAbilityHandler* AbilityComponent)
         {
             FAbilityResourceCost& NewCost = AbilityCosts.Add(DefaultCost.ResourceClass);
             NewCost.Initialize(DefaultCost.ResourceClass, GetClass(), OwningComponent);
-            if (NewCost.Cost.IsModifiable())
+            if (IsValid(NewCost.Cost) && NewCost.Cost->IsModifiable())
             {
                 bAllStaticCosts = false;
                 FFloatValueCallback CostCallback;
-                CostCallback.BindUObject(this, &UCombatAbility::CheckResourceCostsOnCostUpdated);
-                NewCost.Cost.BindToValueChanged(CostCallback);
+                CostCallback.BindDynamic(this, &UCombatAbility::CheckResourceCostsOnCostUpdated);
+                NewCost.Cost->SubscribeToValueChanged(CostCallback);
             }
         }
     }
     if (!bAllStaticCosts)
     {
-        FGenericCallback CostModsCallback;
         CostModsCallback.BindDynamic(this, &UCombatAbility::ForceResourceCostRecalculations);
         OwningComponent->SubscribeToCostModsChanged(CostModsCallback);
     }
@@ -494,6 +528,7 @@ void UCombatAbility::InitializeAbility(UAbilityHandler* AbilityComponent)
             }
         }
     }
+    
     SetupCustomCastRestrictions();
     bInitialized = true;
     InitialCastableChecks();
@@ -512,20 +547,20 @@ void UCombatAbility::DeactivateAbility()
 
 int32 UCombatAbility::AddCastLengthModifier(FCombatModifier const& Modifier)
 {
-    if (Modifier.GetModType() == EModifierType::Invalid || !CastLength.IsModifiable())
+    if (Modifier.GetModType() == EModifierType::Invalid || CastType != EAbilityCastType::Channel || !IsValid(CastLength) || !CastLength->IsModifiable())
     {
         return -1;
     }
-    return CastLength.AddModifier(Modifier);
+    return CastLength->AddModifier(Modifier);
 }
 
 void UCombatAbility::RemoveCastLengthModifier(int32 const ModifierID)
 {
-    if (ModifierID == -1)
+    if (ModifierID == -1 || !IsValid(CastLength))
     {
         return;
     }
-    CastLength.RemoveModifier(ModifierID);
+    CastLength->RemoveModifier(ModifierID);
 }
 
 ECastFailReason UCombatAbility::IsCastable(TMap<TSubclassOf<UResource>, float>& OutCosts) const
@@ -615,7 +650,7 @@ void UCombatAbility::ModifyCurrentCharges(int32 const Charges, bool const bAddit
         return;
     }
     int32 const PreviousCharges = AbilityCooldown.CurrentCharges;
-    int32 const CurrentMaxCharges = MaxCharges.GetValue();
+    int32 const CurrentMaxCharges = GetMaxCharges();
     if (bAdditive)
     {
         AbilityCooldown.CurrentCharges = FMath::Clamp(AbilityCooldown.CurrentCharges + Charges, 0, CurrentMaxCharges);

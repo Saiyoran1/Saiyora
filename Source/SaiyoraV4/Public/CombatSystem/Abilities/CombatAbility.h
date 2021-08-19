@@ -6,6 +6,7 @@
 #include "UObject/NoExportTypes.h"
 #include "AbilityStructs.h"
 #include "DamageEnums.h"
+#include "SaiyoraObjects.h"
 #include "CombatAbility.generated.h"
 
 class UCrowdControl;
@@ -72,7 +73,7 @@ public:
     UFUNCTION(BlueprintCallable, BlueprintPure)
     float GetDefaultCastLength() const { return DefaultCastTime; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
-    float GetCastLength() const { return CastLength.GetValue(); }
+    float GetCastLength() const { return IsValid(CastLength) ? CastLength->GetValue() : DefaultCastTime; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
     bool HasStaticCastLength() const { return bStaticCastTime; }
     UFUNCTION(BlueprintCallable)
@@ -129,9 +130,12 @@ private:
     EAbilityCastType CastType = EAbilityCastType::None;
     UPROPERTY(EditDefaultsOnly, Category = "Cast")
     float DefaultCastTime = 0.0f;
-    FCombatFloatValue CastLength;
     UPROPERTY(EditDefaultsOnly, Category = "Cast")
     bool bStaticCastTime = true;
+    UPROPERTY()
+    UModifiableFloatValue* CastLength;
+    FFloatValueRecalculation CastLengthRecalculation;
+    FGenericCallback CastModsCallback;
     UFUNCTION()
     float RecalculateCastLength(TArray<FCombatModifier> const& SpecificMods, float const BaseValue);
     UFUNCTION()
@@ -159,7 +163,7 @@ public:
     UFUNCTION(BlueprintCallable, BlueprintPure)
     float GetDefaultGlobalCooldownLength() const { return DefaultGlobalCooldownLength; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
-    float GetGlobalCooldownLength() const { return GlobalCooldownLength.GetValue(); }
+    float GetGlobalCooldownLength() const { return IsValid(GlobalCooldownLength) ? GlobalCooldownLength->GetValue() : DefaultGlobalCooldownLength; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
     bool HasStaticGlobalCooldown() const { return bStaticGlobalCooldown; }
     UFUNCTION(BlueprintCallable)
@@ -171,9 +175,12 @@ private:
     bool bOnGlobalCooldown = true;
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
     float DefaultGlobalCooldownLength = 1.0f;
-    FCombatFloatValue GlobalCooldownLength;
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
     bool bStaticGlobalCooldown = true;
+    UPROPERTY()
+    UModifiableFloatValue* GlobalCooldownLength;
+    FFloatValueRecalculation GcdRecalculation;
+    FGenericCallback GcdModsCallback;
     UFUNCTION()
     float RecalculateGcdLength(TArray<FCombatModifier> const& SpecificMods, float const BaseValue);
     UFUNCTION()
@@ -183,7 +190,7 @@ public:
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
     float GetDefaultCooldown() const { return DefaultCooldown; }
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
-    float GetCooldownLength() const { return CooldownLength.GetValue(); }
+    float GetCooldownLength() const { return IsValid(CooldownLength) ? CooldownLength->GetValue() : DefaultCooldown; }
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
     bool GetHasStaticCooldown() const { return bStaticCooldown; }
     UFUNCTION(BlueprintCallable)
@@ -199,7 +206,7 @@ public:
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
     int32 GetDefaultMaxCharges() const { return DefaultMaxCharges; }
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
-    int32 GetMaxCharges() const { return MaxCharges.GetValue(); }
+    int32 GetMaxCharges() const { return IsValid(MaxCharges) ? MaxCharges->GetValue() : DefaultMaxCharges; }
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
     bool GetHasStaticMaxCharges() const { return bStaticMaxCharges; }
     UFUNCTION(BlueprintCallable)
@@ -218,7 +225,7 @@ public:
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
     int32 GetDefaultChargeCost() const { return DefaultChargeCost; }
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
-    int32 GetChargeCost() const { return ChargeCost.GetValue(); }
+    int32 GetChargeCost() const { return IsValid(ChargeCost) ? ChargeCost->GetValue() : DefaultChargeCost; }
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
     bool HasStaticChargeCost() const { return bStaticChargeCost; }
     UFUNCTION(BlueprintCallable)
@@ -228,7 +235,7 @@ public:
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
     int32 GetDefaultChargesPerCooldown() const { return DefaultChargesPerCooldown; }
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
-    int32 GetChargesPerCooldown() const { return ChargesPerCooldown.GetValue(); }
+    int32 GetChargesPerCooldown() const { return IsValid(ChargesPerCooldown) ? ChargesPerCooldown->GetValue() : ChargesPerCooldown; }
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
     bool GetHasStaticChargesPerCooldown() const { return bStaticChargesPerCooldown; }
     UFUNCTION(BlueprintCallable)
@@ -238,24 +245,31 @@ public:
 private:
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
     int32 DefaultMaxCharges = 1;
-    FCombatIntValue MaxCharges;
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
     bool bStaticMaxCharges = true;
+    UPROPERTY()
+    UModifiableIntValue* MaxCharges;
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
     int32 DefaultChargesPerCooldown = 1;
-    FCombatIntValue ChargesPerCooldown;
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
     bool bStaticChargesPerCooldown = true;
+    UPROPERTY()
+    UModifiableIntValue* ChargesPerCooldown;
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
     int32 DefaultChargeCost = 1;
-    FCombatIntValue ChargeCost;
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
     bool bStaticChargeCost = true;
+    UPROPERTY()
+    UModifiableIntValue* ChargeCost;
+    FIntValueCallback ChargeCostCallback;
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
     float DefaultCooldown = 1.0f;
-    FCombatFloatValue CooldownLength;
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
     bool bStaticCooldown = true;
+    UPROPERTY()
+    UModifiableFloatValue* CooldownLength;
+    FFloatValueRecalculation CooldownRecalculation;
+    FGenericCallback CooldownModsCallback;
     UFUNCTION()
     float RecalculateCooldownLength(TArray<FCombatModifier> const& SpecificMods, float const BaseValue);
     UFUNCTION()
@@ -289,6 +303,7 @@ private:
     UPROPERTY(EditDefaultsOnly, Category = "Cost")
     TArray<FAbilityCost> DefaultAbilityCosts;
     TMap<TSubclassOf<UResource>, FAbilityResourceCost> AbilityCosts;
+    FGenericCallback CostModsCallback;
     UFUNCTION()
     void ForceResourceCostRecalculations();
     UFUNCTION()

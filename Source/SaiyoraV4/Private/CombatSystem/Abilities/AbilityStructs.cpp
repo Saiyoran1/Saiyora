@@ -32,10 +32,14 @@ void FAbilityResourceCost::Initialize(TSubclassOf<UResource> const NewResourceCl
 		return;
 	}
 	FAbilityCost const DefaultCost = DefaultAbility->GetDefaultAbilityCost(ResourceClass);
-	Cost = FCombatFloatValue(DefaultCost.Cost, !DefaultCost.bStaticCost, true, 0.0f);
-	FCombatValueRecalculation CostCalculation;
-	CostCalculation.BindRaw(this, &FAbilityResourceCost::RecalculateCost);
-	Cost.SetRecalculationFunction(CostCalculation);
+	Cost = NewObject<UModifiableFloatValue>(NewHandler->GetOwner());
+	if (IsValid(Cost))
+	{
+		Cost->Init(DefaultCost.Cost, !DefaultCost.bStaticCost, true, 0.0f);
+		FFloatValueRecalculation CostCalculation;
+		CostCalculation.BindDynamic(this, &FAbilityResourceCost::RecalculateCost);
+		Cost->SetRecalculationFunction(CostCalculation);
+	}
 }
 
 float FAbilityResourceCost::RecalculateCost(TArray<FCombatModifier> const& SpecificMods, float const BaseValue)
