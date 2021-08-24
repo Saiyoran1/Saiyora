@@ -7,6 +7,7 @@
 #include "Engine/ActorChannel.h"
 #include "Buff.h"
 #include "BuffHandler.h"
+#include "CombatStat.h"
 #include "SaiyoraCombatInterface.h"
 
 void UStatHandler::BeginPlay()
@@ -50,6 +51,16 @@ void UStatHandler::InitializeComponent()
 			{
 				continue;
 			}
+			UCombatStat* NewStat = Stats.Add(InitInfo->StatTag, NewObject<UCombatStat>(GetOwner()));
+			if(IsValid(NewStat))
+			{
+				NewStat->Init(*InitInfo, this);
+				if (InitInfo->bShouldReplicate)
+				{
+					
+				}
+			}
+			/*
 			FCombatStat& NewStat = Stats.Add(InitInfo->StatTag);
 			NewStat.StatTag = InitInfo->StatTag;
 			NewStat.bShouldReplicate = InitInfo->bShouldReplicate;
@@ -65,7 +76,7 @@ void UStatHandler::InitializeComponent()
 			if (!NewStat.StatValue.IsModifiable())
 			{
 				UnmodifiableStats.AddTag(NewStat.StatTag);
-			}
+			}*/
 		}
 	}
 }

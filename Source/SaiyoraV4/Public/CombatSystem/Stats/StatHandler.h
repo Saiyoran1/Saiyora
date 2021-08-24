@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "StatStructs.h"
+#include "CombatStat.h"
 #include "BuffStructs.h"
 #include "StatHandler.generated.h"
 
@@ -37,7 +38,8 @@ public:
 private:
 	UPROPERTY(EditAnywhere, Category = "Stat")
 	UDataTable* InitialStats;
-	TMap<FGameplayTag, FCombatStat> Stats;
+	UPROPERTY()
+	TMap<FGameplayTag, UCombatStat*> Stats;
 	UPROPERTY(Replicated)
 	FReplicatedStatArray ReplicatedStats;
 	FGameplayTagContainer UnmodifiableStats;
