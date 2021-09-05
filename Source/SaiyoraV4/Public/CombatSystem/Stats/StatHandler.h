@@ -9,8 +9,6 @@
 #include "BuffStructs.h"
 #include "StatHandler.generated.h"
 
-class UBuffHandler;
-
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class SAIYORAV4_API UStatHandler : public UActorComponent
 {
@@ -40,11 +38,9 @@ private:
 	UDataTable* InitialStats;
 	UPROPERTY()
 	TMap<FGameplayTag, UCombatStat*> Stats;
-	UPROPERTY(Replicated)
-	FReplicatedStatArray ReplicatedStats;
 	FGameplayTagContainer UnmodifiableStats;
 	UPROPERTY()
-	UBuffHandler* BuffHandler;
+	class UBuffHandler* BuffHandler;
 	UFUNCTION()
 	bool CheckBuffStatMods(FBuffApplyEvent const& BuffEvent);
 };

@@ -12,7 +12,7 @@ class SAIYORAV4_API UModifiableIntValue : public UObject
 {
 	GENERATED_BODY()
 public:
-	void Init(int32 const BaseValue, bool const bModifiable = false, bool const bHasMin = false, int32 const Minimum = 0, bool const bHasMax = false, int32 const Maximum = 0);
+	void Init(int32 const Base, bool const bModdable = false, bool const bLowCapped = false, int32 const Min = 0, bool const bHighCapped = false, int32 const Max = 0);
 	void SetRecalculationFunction(FIntValueRecalculation const& NewCalculation);
 	void RecalculateValue();
 	void SubscribeToValueChanged(FIntValueCallback const& Callback);
@@ -42,7 +42,7 @@ class UModifiableFloatValue : public UObject
 {
 	GENERATED_BODY()
 public:
-	void Init(float const BaseValue, bool const bModifiable = false, bool const bHasMin = false, float const Minimum = 0.0f, bool const bHasMax, float const Maximum = 0.0f);
+	void Init(float const Base, bool const bModdable = false, bool const bLowCapped = false, float const Min = 0.0f, bool const bHighCapped = false, float const Max = 0.0f);
 	void SetRecalculationFunction(FFloatValueRecalculation const& NewCalculation);
 	void RecalculateValue();
 	void SubscribeToValueChanged(FFloatValueCallback const& Callback);

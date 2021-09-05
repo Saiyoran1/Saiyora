@@ -3,24 +3,24 @@
 #include "SaiyoraObjects.h"
 #include "Buff.h"
 
-void UModifiableIntValue::Init(int32 const BaseValue, bool const bModifiable, bool const bHasMin, int32 const Minimum,
-    bool const bHasMax, int32 const Maximum)
+void UModifiableIntValue::Init(int32 const Base, bool const bModdable, bool const bLowCapped, int32 const Min,
+    bool const bHighCapped, int32 const Max)
 {
-    this->bModifiable = bModifiable;
-    this->bHasMin = bHasMin;
-    this->Minimum = Minimum;
-    this->bHasMax = bHasMax;
-    this->Maximum = FMath::Max(Minimum, Maximum);
-    this->BaseValue = BaseValue;
-    if (this->bHasMin)
+    bModifiable = bModdable;
+    bHasMin = bLowCapped;
+    Minimum = Min;
+    bHasMax = bHighCapped;
+    Maximum = FMath::Max(Min, Max);
+    BaseValue = Base;
+    if (bHasMin)
     {
-        this->BaseValue = FMath::Max(Minimum, this->BaseValue);
+        BaseValue = FMath::Max(Min, BaseValue);
     }
-    if (this->bHasMax)
+    if (bHasMax)
     {
-        this->BaseValue = FMath::Min(Maximum, this->BaseValue);
+        BaseValue = FMath::Min(Max, BaseValue);
     }
-    Value = this->BaseValue;
+    Value = BaseValue;
     BuffStackCallback.BindDynamic(this, &UModifiableIntValue::CheckForModifierSourceStack);
 }
 
@@ -125,24 +125,24 @@ void UModifiableIntValue::CheckForModifierSourceStack(FBuffApplyEvent const& Eve
     }
 }
 
-void UModifiableFloatValue::Init(float const BaseValue, bool const bModifiable, bool const bHasMin, float const Minimum,
-                                 bool const bHasMax, float const Maximum)
+void UModifiableFloatValue::Init(float const Base, bool const bModdable, bool const bLowCapped, float const Min,
+                                 bool const bHighCapped, float const Max)
 {
-    this->bModifiable = bModifiable;
-    this->bHasMin = bHasMin;
-    this->Minimum = Minimum;
-    this->bHasMax = bHasMax;
-    this->Maximum = FMath::Max(Minimum, Maximum);
-    this->BaseValue = BaseValue;
-    if (this->bHasMin)
+    bModifiable = bModdable;
+    bHasMin = bLowCapped;
+    Minimum = Min;
+    bHasMax = bHighCapped;
+    Maximum = FMath::Max(Min, Max);
+    BaseValue = Base;
+    if (bHasMin)
     {
-        this->BaseValue = FMath::Max(Minimum, this->BaseValue);
+        BaseValue = FMath::Max(Min, BaseValue);
     }
-    if (this->bHasMax)
+    if (bHasMax)
     {
-        this->BaseValue = FMath::Min(Maximum, this->BaseValue);
+        BaseValue = FMath::Min(Max, BaseValue);
     }
-    Value = this->BaseValue;
+    Value = BaseValue;
     BuffStackCallback.BindDynamic(this, &UModifiableFloatValue::CheckForModifierSourceStack);
 }
 

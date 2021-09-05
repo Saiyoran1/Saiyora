@@ -286,11 +286,11 @@ void UStatModifierFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
 
 void UStatModifierFunction::StatModifiers(UBuff* Buff, TMap<FGameplayTag, FCombatModifier> const& Modifiers)
 {
-    if (!IsValid(Buff) || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
+    if (!IsValid(Buff))
     {
         return;
     }
-    UStatModifierFunction* NewStatModFunction = Cast<UStatModifierFunction>(InstantiateBuffFunction(Buff, UStatModifierFunction::StaticClass()));
+    UStatModifierFunction* NewStatModFunction = Cast<UStatModifierFunction>(InstantiateBuffFunction(Buff, StaticClass()));
     if (!IsValid(NewStatModFunction))
     {
         return;

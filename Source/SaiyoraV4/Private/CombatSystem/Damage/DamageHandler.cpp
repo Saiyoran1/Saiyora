@@ -347,7 +347,7 @@ int32 UDamageHandler::AddOutgoingDamageModifier(FDamageModCondition const& Modif
 	{
 		return -1;
 	}
-	int32 const ModID = FModifierCollection::GetID();
+	int32 const ModID = FCombatModifier::GetID();
 	OutgoingDamageModifiers.Add(ModID, Modifier);
 	return ModID;
 }
@@ -475,7 +475,7 @@ int32 UDamageHandler::AddOutgoingHealingModifier(FHealingModCondition const& Mod
 	{
 		return -1;
 	}
-	int32 const ModID = FModifierCollection::GetID();
+	int32 const ModID = FCombatModifier::GetID();
 	OutgoingHealingModifiers.Add(ModID, Modifier);
 	return ModID;
 }
@@ -618,7 +618,7 @@ int32 UDamageHandler::AddIncomingDamageModifier(FDamageModCondition const& Modif
 	{
 		return -1;
 	}
-	int32 const ModID = FModifierCollection::GetID();
+	int32 const ModID = FCombatModifier::GetID();
 	IncomingDamageModifiers.Add(ModID, Modifier);
 	return ModID;
 }
@@ -737,7 +737,7 @@ int32 UDamageHandler::AddIncomingHealingModifier(FHealingModCondition const& Mod
 	{
 		return -1;
 	}
-	int32 const ModID = FModifierCollection::GetID();
+	int32 const ModID = FCombatModifier::GetID();
 	IncomingHealingModifiers.Add(ModID, Modifier);
 	return ModID;
 }

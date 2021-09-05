@@ -151,7 +151,7 @@ private:
     UPROPERTY(EditDefaultsOnly, Category = "Crowd Control")
     TArray<TSubclassOf<UCrowdControl>> RestrictedCrowdControls;
     bool bCustomCastConditionsMet = true;
-    TArray<FName> CustomCastRestrictions;
+    TSet<FName> CustomCastRestrictions;
     void UpdateCastable();
     void InitialCastableChecks();
     ECastFailReason Castable = ECastFailReason::InvalidAbility;
@@ -235,7 +235,7 @@ public:
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
     int32 GetDefaultChargesPerCooldown() const { return DefaultChargesPerCooldown; }
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
-    int32 GetChargesPerCooldown() const { return IsValid(ChargesPerCooldown) ? ChargesPerCooldown->GetValue() : ChargesPerCooldown; }
+    int32 GetChargesPerCooldown() const { return IsValid(ChargesPerCooldown) ? ChargesPerCooldown->GetValue() : DefaultChargesPerCooldown; }
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
     bool GetHasStaticChargesPerCooldown() const { return bStaticChargesPerCooldown; }
     UFUNCTION(BlueprintCallable)
@@ -302,14 +302,17 @@ public:
 private:
     UPROPERTY(EditDefaultsOnly, Category = "Cost")
     TArray<FAbilityCost> DefaultAbilityCosts;
-    TMap<TSubclassOf<UResource>, FAbilityResourceCost> AbilityCosts;
+    UPROPERTY()
+    TMap<TSubclassOf<UResource>, class UAbilityResourceCost*> AbilityCosts;
     FGenericCallback CostModsCallback;
     UFUNCTION()
     void ForceResourceCostRecalculations();
     UFUNCTION()
-    void CheckResourceCostsOnResourceChanged(UResource* Resource, UObject* ChangeSource, FResourceState const& PreviousState, FResourceState const& NewState);
+    void CheckResourceCostOnResourceChanged(UResource* Resource, UObject* ChangeSource, FResourceState const& PreviousState, FResourceState const& NewState);
     UFUNCTION()
-    void CheckResourceCostsOnCostUpdated(float const Previous, float const New);
-    void CheckResourceCostsMet();
+    void CheckResourceCostOnCostUpdated(TSubclassOf<UResource> ResourceClass, float const NewCost);
+    void CostUnmet(TSubclassOf<UResource> ResourceClass);
+    void CostMet(TSubclassOf<UResource> ResourceClass);
+    TSet<TSubclassOf<UResource>> UnmetCosts;
     bool ResourceCostsMet = false;
 };

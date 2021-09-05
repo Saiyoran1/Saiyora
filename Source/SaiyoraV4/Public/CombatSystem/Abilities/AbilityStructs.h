@@ -24,6 +24,7 @@ struct FAbilityCost
     bool bStaticCost = false;
 };
 
+//This struct is exclusively used for ClientSucceed/ClientFail prediction RPCs from the server.
 USTRUCT()
 struct FReplicableAbilityCost
 {
@@ -36,22 +37,6 @@ struct FReplicableAbilityCost
     TSubclassOf<UResource> ResourceClass;
     UPROPERTY()
     float Cost = 0.0f;
-};
-
-USTRUCT()
-struct FAbilityResourceCost
-{
-    GENERATED_BODY()
-
-    TSubclassOf<UResource> ResourceClass;
-    TSubclassOf<UCombatAbility> AbilityClass;
-    UPROPERTY()
-    class UAbilityHandler* Handler;
-    UPROPERTY()
-    class UModifiableFloatValue* Cost;
-
-    void Initialize(TSubclassOf<UResource> const NewResourceClass, TSubclassOf<UCombatAbility> const NewAbilityClass, UAbilityHandler* NewHandler);
-    float RecalculateCost(TArray<FCombatModifier> const& SpecificMods, float const BaseValue);
 };
 
 USTRUCT()

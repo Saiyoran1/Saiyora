@@ -339,7 +339,7 @@ int32 UResource::AddResourceGainModifier(FResourceGainModifier const& Modifier)
     {
         return -1;
     }
-    int32 const ModID = FModifierCollection::GetID();
+    int32 const ModID = FCombatModifier::GetID();
     ResourceGainMods.Add(ModID, Modifier);
     return ModID;
 }

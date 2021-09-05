@@ -52,3 +52,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_FourParams(FResourceValueNotification, UResou
 //For notification of a resource being instantiated.
 DECLARE_DYNAMIC_DELEGATE_OneParam(FResourceInstanceCallback, UResource*, Resource);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FResourceInstanceNotification, UResource*, Resource);
+
+//Currently just used by UAbilityCost to broadcast changes to an ability's resource costs.
+DECLARE_DYNAMIC_DELEGATE_TwoParams(FResourceCostCallback, TSubclassOf<UResource>, ResourceClass, float const, NewCost);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FResourceCostNotification, TSubclassOf<UResource>, ResourceClass, float const, NewCost);

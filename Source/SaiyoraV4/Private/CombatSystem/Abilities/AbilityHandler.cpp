@@ -309,9 +309,6 @@ bool UAbilityHandler::CheckAbilityRestricted(UCombatAbility* Ability)
 	}
 	return false;
 }
-#pragma endregion
-#pragma region SubscriptionsAndCallbacks
-//SUBSCRIPTION AND CALLBACKS
 
 void UAbilityHandler::SubscribeToAbilityAdded(FAbilityInstanceCallback const& Callback)
 {
@@ -347,162 +344,6 @@ void UAbilityHandler::UnsubscribeFromAbilityRemoved(FAbilityInstanceCallback con
 		return;
 	}
 	OnAbilityRemoved.Remove(Callback);
-}
-
-void UAbilityHandler::SubscribeToAbilityTicked(FAbilityCallback const& Callback)
-{
-	if (!Callback.IsBound())
-	{
-		return;
-	}
-	OnAbilityTick.AddUnique(Callback);
-}
-
-void UAbilityHandler::UnsubscribeFromAbilityTicked(FAbilityCallback const& Callback)
-{
-	if (!Callback.IsBound())
-	{
-		return;
-	}
-	OnAbilityTick.Remove(Callback);
-}
-
-void UAbilityHandler::SubscribeToAbilityCompleted(FAbilityInstanceCallback const& Callback)
-{
-	if (!Callback.IsBound())
-	{
-		return;
-	}
-	OnAbilityComplete.AddUnique(Callback);
-}
-
-void UAbilityHandler::UnsubscribeFromAbilityCompleted(FAbilityInstanceCallback const& Callback)
-{
-	if (!Callback.IsBound())
-	{
-		return;
-	}
-	OnAbilityComplete.Remove(Callback);
-}
-
-void UAbilityHandler::SubscribeToAbilityCancelled(FAbilityCallback const& Callback)
-{
-	if (!Callback.IsBound())
-	{
-		return;
-	}
-	OnAbilityCancelled.AddUnique(Callback);
-}
-
-void UAbilityHandler::UnsubscribeFromAbilityCancelled(FAbilityCallback const& Callback)
-{
-	if (!Callback.IsBound())
-	{
-		return;
-	}
-	OnAbilityCancelled.Remove(Callback);
-}
-
-void UAbilityHandler::SubscribeToAbilityInterrupted(FInterruptCallback const& Callback)
-{
-	if (!Callback.IsBound())
-	{
-		return;
-	}
-	OnAbilityInterrupted.AddUnique(Callback);
-}
-
-void UAbilityHandler::UnsubscribeFromAbilityInterrupted(FInterruptCallback const& Callback)
-{
-	if (!Callback.IsBound())
-	{
-		return;
-	}
-	OnAbilityInterrupted.Remove(Callback);
-}
-
-void UAbilityHandler::SubscribeToCastStateChanged(FCastingStateCallback const& Callback)
-{
-	if (!Callback.IsBound())
-	{
-		return;
-	}
-	OnCastStateChanged.AddUnique(Callback);
-}
-
-void UAbilityHandler::UnsubscribeFromCastStateChanged(FCastingStateCallback const& Callback)
-{
-	if (!Callback.IsBound())
-	{
-		return;
-	}
-	OnCastStateChanged.Remove(Callback);
-}
-
-void UAbilityHandler::SubscribeToGlobalCooldownChanged(FGlobalCooldownCallback const& Callback)
-{
-	if (!Callback.IsBound())
-	{
-		return;
-	}
-	OnGlobalCooldownChanged.AddUnique(Callback);
-}
-
-void UAbilityHandler::UnsubscribeFromGlobalCooldownChanged(FGlobalCooldownCallback const& Callback)
-{
-	if (!Callback.IsBound())
-	{
-		return;
-	}
-	OnGlobalCooldownChanged.Remove(Callback);
-}
-
-void UAbilityHandler::MulticastAbilityComplete_Implementation(FCastEvent const& CastEvent)
-{
-	if (GetOwnerRole() == ROLE_SimulatedProxy)
-	{
-		if (IsValid(CastEvent.Ability))
-		{
-			CastEvent.Ability->CompleteCast();
-			OnAbilityComplete.Broadcast(CastEvent.Ability);
-		}
-	}
-}
-
-void UAbilityHandler::MulticastAbilityCancel_Implementation(FCancelEvent const& CancelEvent, FCombatParameters const& BroadcastParams)
-{
-	if (GetOwnerRole() == ROLE_SimulatedProxy)
-	{
-		if (IsValid(CancelEvent.CancelledAbility))
-		{
-			CancelEvent.CancelledAbility->SimulatedCancel(BroadcastParams);
-			OnAbilityCancelled.Broadcast(CancelEvent);
-		}
-	}
-}
-
-void UAbilityHandler::MulticastAbilityInterrupt_Implementation(FInterruptEvent const& InterruptEvent)
-{
-	if (GetOwnerRole() == ROLE_SimulatedProxy)
-	{
-		if (IsValid(InterruptEvent.InterruptedAbility))
-		{
-			InterruptEvent.InterruptedAbility->InterruptCast(InterruptEvent);
-			OnAbilityInterrupted.Broadcast(InterruptEvent);
-		}
-	}
-}
-
-void UAbilityHandler::MulticastAbilityTick_Implementation(FCastEvent const& CastEvent, FCombatParameters const& BroadcastParams)
-{
-	if (GetOwnerRole() == ROLE_SimulatedProxy)
-	{
-		if (IsValid(CastEvent.Ability))
-		{
-			CastEvent.Ability->SimulatedTick(CastEvent.Tick, BroadcastParams);
-			OnAbilityTick.Broadcast(CastEvent);
-		}
-	}
 }
 #pragma endregion
 #pragma region AbilityUsage
@@ -620,7 +461,7 @@ int32 UAbilityHandler::AddConditionalCastLengthModifier(FAbilityModCondition con
 	{
 		return -1;
 	}
-	int32 const ModID = FModifierCollection::GetID();
+	int32 const ModID = FCombatModifier::GetID();
 	ConditionalCastLengthModifiers.Add(ModID, Modifier);
 	OnCastModsChanged.Broadcast();
 	return ModID;
@@ -859,6 +700,144 @@ void UAbilityHandler::OnRep_CastingState(FCastingState const& PreviousState)
 		OnCastStateChanged.Broadcast(PreviousState, CastingState);
 	}
 }
+
+void UAbilityHandler::MulticastAbilityComplete_Implementation(FCastEvent const& CastEvent)
+{
+	if (GetOwnerRole() == ROLE_SimulatedProxy)
+	{
+		if (IsValid(CastEvent.Ability))
+		{
+			CastEvent.Ability->CompleteCast();
+			OnAbilityComplete.Broadcast(CastEvent.Ability);
+		}
+	}
+}
+
+void UAbilityHandler::MulticastAbilityCancel_Implementation(FCancelEvent const& CancelEvent, FCombatParameters const& BroadcastParams)
+{
+	if (GetOwnerRole() == ROLE_SimulatedProxy)
+	{
+		if (IsValid(CancelEvent.CancelledAbility))
+		{
+			CancelEvent.CancelledAbility->SimulatedCancel(BroadcastParams);
+			OnAbilityCancelled.Broadcast(CancelEvent);
+		}
+	}
+}
+
+void UAbilityHandler::MulticastAbilityInterrupt_Implementation(FInterruptEvent const& InterruptEvent)
+{
+	if (GetOwnerRole() == ROLE_SimulatedProxy)
+	{
+		if (IsValid(InterruptEvent.InterruptedAbility))
+		{
+			InterruptEvent.InterruptedAbility->InterruptCast(InterruptEvent);
+			OnAbilityInterrupted.Broadcast(InterruptEvent);
+		}
+	}
+}
+
+void UAbilityHandler::MulticastAbilityTick_Implementation(FCastEvent const& CastEvent, FCombatParameters const& BroadcastParams)
+{
+	if (GetOwnerRole() == ROLE_SimulatedProxy)
+	{
+		if (IsValid(CastEvent.Ability))
+		{
+			CastEvent.Ability->SimulatedTick(CastEvent.Tick, BroadcastParams);
+			OnAbilityTick.Broadcast(CastEvent);
+		}
+	}
+}
+
+void UAbilityHandler::SubscribeToAbilityTicked(FAbilityCallback const& Callback)
+{
+	if (!Callback.IsBound())
+	{
+		return;
+	}
+	OnAbilityTick.AddUnique(Callback);
+}
+
+void UAbilityHandler::UnsubscribeFromAbilityTicked(FAbilityCallback const& Callback)
+{
+	if (!Callback.IsBound())
+	{
+		return;
+	}
+	OnAbilityTick.Remove(Callback);
+}
+
+void UAbilityHandler::SubscribeToAbilityCompleted(FAbilityInstanceCallback const& Callback)
+{
+	if (!Callback.IsBound())
+	{
+		return;
+	}
+	OnAbilityComplete.AddUnique(Callback);
+}
+
+void UAbilityHandler::UnsubscribeFromAbilityCompleted(FAbilityInstanceCallback const& Callback)
+{
+	if (!Callback.IsBound())
+	{
+		return;
+	}
+	OnAbilityComplete.Remove(Callback);
+}
+
+void UAbilityHandler::SubscribeToAbilityCancelled(FAbilityCallback const& Callback)
+{
+	if (!Callback.IsBound())
+	{
+		return;
+	}
+	OnAbilityCancelled.AddUnique(Callback);
+}
+
+void UAbilityHandler::UnsubscribeFromAbilityCancelled(FAbilityCallback const& Callback)
+{
+	if (!Callback.IsBound())
+	{
+		return;
+	}
+	OnAbilityCancelled.Remove(Callback);
+}
+
+void UAbilityHandler::SubscribeToAbilityInterrupted(FInterruptCallback const& Callback)
+{
+	if (!Callback.IsBound())
+	{
+		return;
+	}
+	OnAbilityInterrupted.AddUnique(Callback);
+}
+
+void UAbilityHandler::UnsubscribeFromAbilityInterrupted(FInterruptCallback const& Callback)
+{
+	if (!Callback.IsBound())
+	{
+		return;
+	}
+	OnAbilityInterrupted.Remove(Callback);
+}
+
+void UAbilityHandler::SubscribeToCastStateChanged(FCastingStateCallback const& Callback)
+{
+	if (!Callback.IsBound())
+	{
+		return;
+	}
+	OnCastStateChanged.AddUnique(Callback);
+}
+
+void UAbilityHandler::UnsubscribeFromCastStateChanged(FCastingStateCallback const& Callback)
+{
+	if (!Callback.IsBound())
+	{
+		return;
+	}
+	OnCastStateChanged.Remove(Callback);
+}
 #pragma endregion
 #pragma region AbilityCooldown
 //ABILITY COOLDOWN
@@ -869,7 +848,7 @@ int32 UAbilityHandler::AddConditionalCooldownModifier(FAbilityModCondition const
 	{
 		return -1;
 	}
-	int32 const ModID = FModifierCollection::GetID();
+	int32 const ModID = FCombatModifier::GetID();
 	ConditionalCooldownModifiers.Add(ModID, Modifier);
 	OnCooldownModsChanged.Broadcast();
 	return ModID;
@@ -929,7 +908,7 @@ int32 UAbilityHandler::AddConditionalGlobalCooldownModifier(FAbilityModCondition
 	{
 		return -1;
 	}
-	int32 const ModID = FModifierCollection::GetID();
+	int32 const ModID = FCombatModifier::GetID();
 	ConditionalGlobalCooldownModifiers.Add(ModID, Modifier);
 	OnGlobalCooldownModsChanged.Broadcast();
 	return ModID;
@@ -1002,6 +981,23 @@ void UAbilityHandler::EndGlobalCooldown()
 	}
 }
 
+void UAbilityHandler::SubscribeToGlobalCooldownChanged(FGlobalCooldownCallback const& Callback)
+{
+	if (!Callback.IsBound())
+	{
+		return;
+	}
+	OnGlobalCooldownChanged.AddUnique(Callback);
+}
+
+void UAbilityHandler::UnsubscribeFromGlobalCooldownChanged(FGlobalCooldownCallback const& Callback)
+{
+	if (!Callback.IsBound())
+	{
+		return;
+	}
+	OnGlobalCooldownChanged.Remove(Callback);
+}
 #pragma endregion
 #pragma region AbilityCost
 
@@ -1011,7 +1007,7 @@ int32 UAbilityHandler::AddConditionalCostModifier(FAbilityResourceModCondition c
 	{
 		return -1;
 	}
-	int32 const ModID = FModifierCollection::GetID();
+	int32 const ModID = FCombatModifier::GetID();
 	ConditionalCostModifiers.Add(ModID, Modifier);
 	OnCostModsChanged.Broadcast();
 	return ModID;
@@ -1031,18 +1027,20 @@ void UAbilityHandler::RemoveConditionalCostModifier(int32 const ModifierID)
 
 void UAbilityHandler::SubscribeToCostModsChanged(FGenericCallback const& Callback)
 {
-	if (Callback.IsBound())
+	if (!Callback.IsBound())
 	{
-		OnCostModsChanged.AddUnique(Callback);
-	}	
+		return;
+	}
+	OnCostModsChanged.AddUnique(Callback);
 }
 
 void UAbilityHandler::UnsubscribeFromCostModsChanged(FGenericCallback const& Callback)
 {
-	if (Callback.IsBound())
+	if (!Callback.IsBound())
 	{
-		OnCostModsChanged.Remove(Callback);
+		return;
 	}
+	OnCostModsChanged.Remove(Callback);
 }
 
 void UAbilityHandler::GetCostModifiers(TSubclassOf<UResource> const ResourceClass,
@@ -1060,5 +1058,4 @@ void UAbilityHandler::GetCostModifiers(TSubclassOf<UResource> const ResourceClas
 		}
 	}
 }
-
 #pragma endregion
