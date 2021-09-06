@@ -17,9 +17,11 @@ private:
 	UPROPERTY()
 	class UAbilityHandler* Handler;
 	FFloatValueCallback BroadcastCallback;
+	UFUNCTION()
 	void BroadcastCostChanged(float const Previous, float const New);
 	FResourceCostNotification OnCostChanged;
 	FFloatValueRecalculation CustomRecalculation;
+	UFUNCTION()
 	float RecalculateCost(TArray<FCombatModifier> const& SpecificMods, float const Base);
 public:
 	void Init(FAbilityCost const& InitInfo, TSubclassOf<UCombatAbility> const NewAbilityClass, UAbilityHandler* NewHandler);

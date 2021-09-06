@@ -18,6 +18,7 @@ class SAIYORAV4_API UCombatStat : public UModifiableFloatValue
 	bool bInitialized = false;
 	bool bShouldReplicate = false;
 	FFloatValueCallback BroadcastCallback;
+	UFUNCTION()
 	void BroadcastStatChanged(float const Previous, float const New);
 public:
 	bool IsInitialized() const { return bInitialized; }
