@@ -277,6 +277,7 @@ private:
     UFUNCTION()
     void CheckChargeCostOnCostUpdated(int32 const Previous, int32 const New);
     bool ChargeCostMet = false;
+    
 protected:
     FAbilityCooldown AbilityCooldown;
     FTimerHandle CooldownHandle;
@@ -284,7 +285,9 @@ protected:
     void StartCooldown();
     UFUNCTION()
     void CompleteCooldown();
+    void CancelCooldown();
     void CheckChargeCostMet();
+    virtual void AdjustCooldownFromMaxChargesChanged();
 //Costs
 public:
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cost")

@@ -337,7 +337,13 @@ int32 UCombatAbility::AddMaxChargeModifier(FCombatModifier const& Modifier)
     {
         return -1;
     }
-    return MaxCharges->AddModifier(Modifier);
+    int32 const Previous = MaxCharges->GetValue();
+    int32 const ModID = MaxCharges->AddModifier(Modifier);
+    if (Previous != MaxCharges->GetValue())
+    {
+        AdjustCooldownFromMaxChargesChanged();
+    }
+    return ModID;
 }
 
 void UCombatAbility::RemoveMaxChargeModifier(int32 const ModifierID)
@@ -346,7 +352,34 @@ void UCombatAbility::RemoveMaxChargeModifier(int32 const ModifierID)
     {
         return;
     }
+    int32 const Previous = MaxCharges->GetValue();
     MaxCharges->RemoveModifier(ModifierID);
+    if (Previous != MaxCharges->GetValue())
+    {
+        AdjustCooldownFromMaxChargesChanged();
+    }
+}
+
+void UCombatAbility::AdjustCooldownFromMaxChargesChanged()
+{
+    if (OwningComponent->GetOwnerRole() == ROLE_Authority)
+    {
+        if (MaxCharges->GetValue() > AbilityCooldown.CurrentCharges && !AbilityCooldown.OnCooldown)
+        {
+            StartCooldown();
+        }
+        else if (MaxCharges->GetValue() <= AbilityCooldown.CurrentCharges && AbilityCooldown.OnCooldown)
+        {
+            AbilityCooldown.CurrentCharges = MaxCharges->GetValue();
+            CancelCooldown();
+        }
+    }
+}
+
+void UCombatAbility::CancelCooldown()
+{
+    AbilityCooldown.OnCooldown = false;
+    GetWorld()->GetTimerManager().ClearTimer(CooldownHandle);
 }
 
 float UCombatAbility::RecalculateCooldownLength(TArray<FCombatModifier> const& SpecificMods, float const BaseValue)

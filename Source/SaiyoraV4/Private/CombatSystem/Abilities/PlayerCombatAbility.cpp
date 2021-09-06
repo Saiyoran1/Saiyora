@@ -10,15 +10,6 @@ void UPlayerCombatAbility::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
     DOREPLIFETIME_CONDITION(UPlayerCombatAbility, ReplicatedCooldown, COND_OwnerOnly);
 }
 
-void UPlayerCombatAbility::InitializeAbility(UAbilityHandler* AbilityComponent)
-{
-    Super::InitializeAbility(AbilityComponent);
-    if (GetHandler()->GetOwnerRole() == ROLE_AutonomousProxy)
-    {
-        //TODO: Setup UI callbacks?
-    }
-}
-
 void UPlayerCombatAbility::PurgeOldPredictions()
 {
 	TArray<int32> OldPredictionIDs;
@@ -65,21 +56,15 @@ void UPlayerCombatAbility::OnRep_ReplicatedCooldown()
     RecalculatePredictedCooldown();
 }
 
-void UPlayerCombatAbility::StartClientCooldownOnMaxChargesChanged(UCombatAbility* Ability, int32 const OldCharges,
-    int32 const NewCharges)
+void UPlayerCombatAbility::AdjustCooldownFromMaxChargesChanged()
 {
-    //TODO: This function probably doesn't get called anymore?
-    if (AbilityCooldown.OnCooldown && AbilityCooldown.CurrentCharges >= NewCharges)
+    if (GetHandler()->GetOwnerRole() == ROLE_Authority)
     {
-        AbilityCooldown.OnCooldown = false;
-        AbilityCooldown.CooldownStartTime = 0.0f;
-        AbilityCooldown.CooldownEndTime = 0.0f;
+        Super::AdjustCooldownFromMaxChargesChanged();
     }
-    else if (!AbilityCooldown.OnCooldown && AbilityCooldown.CurrentCharges < NewCharges)
+    else if (GetHandler()->GetOwnerRole() == ROLE_AutonomousProxy)
     {
-        AbilityCooldown.OnCooldown = true;
-        AbilityCooldown.CooldownStartTime = 0.0f;
-        AbilityCooldown.CooldownEndTime = 0.0f;
+        RecalculatePredictedCooldown();
     }
 }
 
