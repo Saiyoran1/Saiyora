@@ -20,7 +20,6 @@ public:
 	static int32 GetAbilitiesPerBar() { return AbilitiesPerBar; }
 	UPlayerAbilityHandler();
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
-	virtual bool ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags) override;
 	virtual void InitializeComponent() override;
 	virtual void BeginPlay() override;
 	EActorNetPermission GetAbilityPermission() const { return AbilityPermission; }
@@ -57,7 +56,6 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void UnsubscribeFromSpellbookUpdated(FSpellbookCallback const& Callback);
 private:
-	/*FPlayerAbilityLoadout CurrentLoadout;*/
 	TSet<TSubclassOf<UCombatAbility>> Spellbook;
 	EActionBarType CurrentBar = EActionBarType::None;
 	FAbilityBindingNotification OnAbilityBindUpdated;
@@ -71,8 +69,6 @@ private:
 	void RemoveAllAbilities();
 //Ability Usage
 public:
-	/*UFUNCTION(BlueprintCallable, Category = "Abilities")
-	FCastEvent AbilityInput(int32 const BindNumber, bool const bHidden);*/
 	virtual FCastEvent UseAbility(TSubclassOf<UCombatAbility> const AbilityClass) override;
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void SubscribeToAbilityMispredicted(FAbilityMispredictionCallback const& Callback);
@@ -139,18 +135,25 @@ private:
 	void CheckForQueuedAbilityOnGlobalEnd();
 	void CheckForQueuedAbilityOnCastEnd();
 //Specialization
-/*public:
+public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
 	void ChangeSpecialization(TSubclassOf<UPlayerSpecialization> const NewSpecialization);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void SubscribeToSpecChanged(FSpecializationCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void UnsubscribeFromSpecChanged(FSpecializationCallback const& Callback);
-	void NotifyOfNewSpecObject(UPlayerSpecialization* NewSpecialization);
 private:
 	UPROPERTY()
-	UPlayerSpecialization* CurrentSpec;
+	UPlayerSpecialization* AncientSpec;
+	UPROPERTY(ReplicatedUsing=OnRep_AncientSpecClass)
+	TSubclassOf<UPlayerSpecialization> AncientSpecClass;
+	UFUNCTION()
+	void OnRep_AncientSpecClass(TSubclassOf<UPlayerSpecialization> const OldSpecClass);
+	UPROPERTY()
+	UPlayerSpecialization* ModernSpec;
+	UPROPERTY(ReplicatedUsing=OnRep_ModernSpecClass)
+	TSubclassOf<UPlayerSpecialization> ModernSpecClass;
+	UFUNCTION()
+	void OnRep_ModernSpecClass(TSubclassOf<UPlayerSpecialization> const OldSpecClass);
 	FSpecializationNotification OnSpecChanged;
-	TMap<TSubclassOf<UPlayerSpecialization>, FPlayerAbilityLoadout> SpecLoadouts;
-	TMap<TSubclassOf<UPlayerSpecialization>, FPlayerTalentSetup> SpecTalents;*/
 };

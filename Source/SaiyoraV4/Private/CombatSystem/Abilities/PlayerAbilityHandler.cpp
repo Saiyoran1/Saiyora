@@ -5,7 +5,6 @@
 #include "SaiyoraCombatLibrary.h"
 #include "SaiyoraPlaneComponent.h"
 #include "ResourceHandler.h"
-#include "DamageHandler.h"
 #include "PlayerCombatAbility.h"
 #include "UnrealNetwork.h"
 #include "Engine/ActorChannel.h"
@@ -28,13 +27,8 @@ void UPlayerAbilityHandler::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	ResetReplicatedLifetimeProperty(StaticClass(), UAbilityHandler::StaticClass(), FName(TEXT("CastingState")), COND_SkipOwner, OutLifetimeProps);
-}
-
-bool UPlayerAbilityHandler::ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags)
-{
-	bool bWroteSomething = Super::ReplicateSubobjects(Channel, Bunch, RepFlags);
-	/*bWroteSomething |= Channel->ReplicateSubobject(CurrentSpec, *Bunch, *RepFlags);*/
-	return bWroteSomething;
+	DOREPLIFETIME(UPlayerAbilityHandler, AncientSpecClass);
+	DOREPLIFETIME(UPlayerAbilityHandler, ModernSpecClass);
 }
 
 void UPlayerAbilityHandler::InitializeComponent()
@@ -279,41 +273,6 @@ void UPlayerAbilityHandler::RemoveAllAbilities()
 
 #pragma endregion
 #pragma region AbilityUsage
-
-/*FCastEvent UPlayerAbilityHandler::AbilityInput(int32 const BindNumber, bool const bHidden)
-{
-	FCastEvent Failure;
-	if (BindNumber > AbilitiesPerBar - 1)
-	{
-		Failure.FailReason = ECastFailReason::InvalidAbility;
-		return Failure;
-	}
-	TSubclassOf<UCombatAbility> AbilityClass;
-	if (bHidden)
-	{
-		AbilityClass = CurrentLoadout.HiddenLoadout.FindRef(BindNumber);
-	}
-	else
-	{
-		switch (CurrentBar)
-		{
-		case EActionBarType::Ancient :
-			AbilityClass = CurrentLoadout.AncientLoadout.FindRef(BindNumber);
-			break;
-		case EActionBarType::Modern :
-			AbilityClass = CurrentLoadout.ModernLoadout.FindRef(BindNumber);
-			break;
-		default :
-			break;
-		}
-	}
-	if (IsValid(AbilityClass))
-	{
-		return UseAbility(AbilityClass);
-	}
-	Failure.FailReason = ECastFailReason::InvalidAbility;
-	return Failure;
-}*/
 
 FCastEvent UPlayerAbilityHandler::UseAbility(TSubclassOf<UCombatAbility> const AbilityClass)
 {
@@ -1260,56 +1219,77 @@ void UPlayerAbilityHandler::CheckForQueuedAbilityOnCastEnd()
 
 #pragma endregion
 #pragma region Specialization
-/*
+
 void UPlayerAbilityHandler::ChangeSpecialization(TSubclassOf<UPlayerSpecialization> const NewSpecialization)
 {
-	if (GetOwnerRole() != ROLE_Authority)
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(NewSpecialization))
 	{
 		return;
 	}
-	UPlayerSpecialization* const PreviousSpec = CurrentSpec;
-	if (IsValid(CurrentSpec))
+	UPlayerSpecialization* DefaultObject = NewSpecialization->GetDefaultObject<UPlayerSpecialization>();
+	if (!IsValid(DefaultObject) || (DefaultObject->GetSpecBar() != EActionBarType::Ancient && DefaultObject->GetSpecBar() != EActionBarType::Modern))
 	{
-		for (TSubclassOf<UCombatAbility> const AbilityClass : CurrentSpec->GetGrantedAbilities())
+		return;
+	}
+	UPlayerSpecialization* PreviousSpec;
+	switch (DefaultObject->GetSpecBar())
+	{
+		case EActionBarType::Ancient :
+			PreviousSpec = AncientSpec;
+			break;
+		case EActionBarType::Modern :
+			PreviousSpec = ModernSpec;
+			break;
+		default :
+			return;
+	}
+	if (IsValid(PreviousSpec))
+	{
+		if (PreviousSpec->GetClass() == NewSpecialization)
+		{
+			return;
+		}
+		TSet<TSubclassOf<UPlayerCombatAbility>> GrantedAbilities;
+		PreviousSpec->GetDefaultAbilities(GrantedAbilities);
+		for (TSubclassOf<UPlayerCombatAbility> const AbilityClass : GrantedAbilities)
 		{
 			if (IsValid(AbilityClass))
 			{
 				UnlearnAbility(AbilityClass);
 			}
 		}
-		CurrentSpec->UnlearnSpecObject();
-		CurrentSpec = nullptr;
+		PreviousSpec->UnlearnSpecObject();
 	}
-	RemoveAllAbilities();
-	if (IsValid(NewSpecialization))
+	UPlayerSpecialization* NewSpec;
+	switch (DefaultObject->GetSpecBar())
 	{
-		CurrentSpec = NewObject<UPlayerSpecialization>(GetOwner(), NewSpecialization);
-		if (IsValid(CurrentSpec))
+		case EActionBarType::Ancient :
+			AncientSpec = NewObject<UPlayerSpecialization>(GetOwner(), NewSpecialization);
+			NewSpec = AncientSpec;
+			AncientSpecClass = AncientSpec->GetClass();
+			break;
+		case EActionBarType::Modern :
+			ModernSpec = NewObject<UPlayerSpecialization>(GetOwner(), NewSpecialization);
+			NewSpec = ModernSpec;
+			ModernSpecClass = ModernSpec->GetClass();
+			break;
+		default :
+			return;
+	}
+	if (IsValid(NewSpec))
+	{
+		NewSpec->InitializeSpecObject(this);
+		TSet<TSubclassOf<UPlayerCombatAbility>> GrantedAbilities;
+		NewSpec->GetDefaultAbilities(GrantedAbilities);
+		for (TSubclassOf<UPlayerCombatAbility> const AbilityClass : GrantedAbilities)
 		{
-			CurrentSpec->InitializeSpecObject(this);
-			for (TSubclassOf<UCombatAbility> const AbilityClass : CurrentSpec->GetGrantedAbilities())
+			if (IsValid(AbilityClass))
 			{
-				if (IsValid(AbilityClass))
-				{
-					LearnAbility(AbilityClass);
-				}
-			}
-			if (!SpecLoadouts.Contains(NewSpecialization))
-			{
-				FPlayerAbilityLoadout NewLoadout;
-				CurrentSpec->CreateNewDefaultLoadout(NewLoadout);
-				SpecLoadouts.Add(NewSpecialization, NewLoadout);
-			}
-			CurrentLoadout = SpecLoadouts.FindRef(NewSpecialization);
-			for (TSubclassOf<UCombatAbility> const AbilityClass : CurrentLoadout.GetAllAbilities())
-			{
+				LearnAbility(AbilityClass);
 				AddNewAbility(AbilityClass);
 			}
 		}
-	}
-	if (CurrentSpec != PreviousSpec)
-	{
-		OnSpecChanged.Broadcast(CurrentSpec);
+		OnSpecChanged.Broadcast(NewSpec->GetClass());
 	}
 }
 
@@ -1331,31 +1311,45 @@ void UPlayerAbilityHandler::UnsubscribeFromSpecChanged(FSpecializationCallback c
 	OnSpecChanged.Remove(Callback);
 }
 
-void UPlayerAbilityHandler::NotifyOfNewSpecObject(UPlayerSpecialization* NewSpecialization)
+void UPlayerAbilityHandler::OnRep_AncientSpecClass(TSubclassOf<UPlayerSpecialization> const OldSpecClass)
 {
-	UPlayerSpecialization* const PreviousSpec = CurrentSpec;
-	if (IsValid(CurrentSpec))
+	if (OldSpecClass == AncientSpecClass)
 	{
-		CurrentSpec->UnlearnSpecObject();
-		CurrentSpec = nullptr;
+		return;
 	}
-	if (IsValid(NewSpecialization))
+	if (GetOwnerRole() == ROLE_AutonomousProxy)
 	{
-		if (IsValid(CurrentSpec))
+		if (IsValid(AncientSpec))
 		{
-			if (!SpecLoadouts.Contains(NewSpecialization->GetClass()))
-			{
-				FPlayerAbilityLoadout NewLoadout;
-				CurrentSpec->CreateNewDefaultLoadout(NewLoadout);
-				SpecLoadouts.Add(NewSpecialization->GetClass(), NewLoadout);
-			}
-			CurrentLoadout = SpecLoadouts.FindRef(NewSpecialization->GetClass());
+			AncientSpec->UnlearnSpecObject();
+		}
+		AncientSpec = NewObject<UPlayerSpecialization>(GetOwner(), AncientSpecClass);
+		if (IsValid(AncientSpec))
+		{
+			AncientSpec->InitializeSpecObject(this);
 		}
 	}
-	if (CurrentSpec != PreviousSpec)
-	{
-		OnSpecChanged.Broadcast(CurrentSpec);
-	}
+	OnSpecChanged.Broadcast(AncientSpecClass);
 }
-*/
+
+void UPlayerAbilityHandler::OnRep_ModernSpecClass(TSubclassOf<UPlayerSpecialization> const OldSpecClass)
+{
+	if (OldSpecClass == ModernSpecClass)
+	{
+		return;
+	}
+	if (GetOwnerRole() == ROLE_AutonomousProxy)
+	{
+		if (IsValid(ModernSpec))
+		{
+			ModernSpec->UnlearnSpecObject();
+		}
+		ModernSpec = NewObject<UPlayerSpecialization>(GetOwner(), ModernSpecClass);
+		if (IsValid(ModernSpec))
+		{
+			ModernSpec->InitializeSpecObject(this);
+		}
+	}
+	OnSpecChanged.Broadcast(ModernSpecClass);
+}
 #pragma endregion

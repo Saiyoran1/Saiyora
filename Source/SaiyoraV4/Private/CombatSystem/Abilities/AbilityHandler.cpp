@@ -26,7 +26,6 @@ UAbilityHandler::UAbilityHandler()
 void UAbilityHandler::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
 	DOREPLIFETIME(UAbilityHandler, CastingState);
 }
 

@@ -64,7 +64,7 @@ struct FCastEvent
     UPROPERTY(BlueprintReadOnly)
     ECastAction ActionTaken = ECastAction::Fail;
     UPROPERTY(BlueprintReadOnly)
-    class UCombatAbility* Ability;
+    class UCombatAbility* Ability = nullptr;
     UPROPERTY(BlueprintReadOnly)
     int32 Tick = 0;
     UPROPERTY(BlueprintReadOnly)
@@ -270,7 +270,7 @@ DECLARE_DYNAMIC_DELEGATE_ThreeParams(FAbilityBindingCallback, int32 const, Abili
 DECLARE_DYNAMIC_DELEGATE_OneParam(FBarSwapCallback, ESaiyoraPlane const, NewPlane);
 //Spellbook delegate has no params because TSubclassOf in dynamic delegate causes compile errors :(
 DECLARE_DYNAMIC_DELEGATE(FSpellbookCallback);
-DECLARE_DYNAMIC_DELEGATE_OneParam(FSpecializationCallback, class UPlayerSpecialization*, NewSpecialization);
+DECLARE_DYNAMIC_DELEGATE_OneParam(FSpecializationCallback, TSubclassOf<class UPlayerSpecialization>, NewSpecialization);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FCastableCallback, ECastFailReason const, Castable);
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityNotification, FCastEvent const&, Event);
@@ -285,5 +285,5 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FAbilityBindingNotification, int3
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FBarSwapNotification, EActionBarType const, NewBar);
 //Spellbook delegate has no params because TSubclassOf in dynamic delegate causes compile errors :(
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FSpellbookNotification);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FSpecializationNotification, class UPlayerSpecialization*, NewSpecialization);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FSpecializationNotification, TSubclassOf<class UPlayerSpecialization>, NewSpecialization);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FCastableNotification, ECastFailReason const, Castable);
