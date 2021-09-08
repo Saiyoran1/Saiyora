@@ -17,7 +17,6 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Time")
 	static float GetActorPing(AActor const* Actor);
-	static EActorNetPermission GetActorNetPermission(AActor const* Actor);
 	
 	//Plane
 	

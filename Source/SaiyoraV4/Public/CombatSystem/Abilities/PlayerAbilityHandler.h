@@ -22,13 +22,13 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void InitializeComponent() override;
 	virtual void BeginPlay() override;
-	EActorNetPermission GetAbilityPermission() const { return AbilityPermission; }
 private:
 	static const int32 AbilitiesPerBar = 6;
 	static const float AbilityQueWindowSec;
 	static int32 ClientPredictionID;
 	int32 GenerateNewPredictionID();
-	EActorNetPermission AbilityPermission = EActorNetPermission::None;
+	UPROPERTY()
+	APawn* OwnerAsPawn;
 //Ability Management
 public:
 	UPlayerCombatAbility* FindActiveAbility(TSubclassOf<UPlayerCombatAbility> const AbilityClass);

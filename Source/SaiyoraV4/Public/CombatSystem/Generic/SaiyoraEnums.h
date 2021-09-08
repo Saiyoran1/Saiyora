@@ -40,13 +40,3 @@ enum class ECombatParamType : uint8
  Target,
  ClassDefault,
 };
-
-UENUM()
-enum class EActorNetPermission : uint8
-{
- None = 0, //Simulated proxy. No authority over anything.
- PredictPlayer = 1, //Auto proxy. Can do client prediction.
- ListenServer = 2, //Authority, remote auto proxy, locally controlled. Acts as a server, but can call owning client code as well.
- ServerPlayer = 3, //Authority, remote auto proxy, not locally controlled. Server representation of a non-local player.
- Server = 4, //Authority, remote simulated proxy. Server representation of a non-player-controlled object.
-};

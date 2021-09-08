@@ -24,36 +24,6 @@ float USaiyoraCombatLibrary::GetActorPing(AActor const* Actor)
     return Controller->GetPlayerPing();
 }
 
-EActorNetPermission USaiyoraCombatLibrary::GetActorNetPermission(AActor const* Actor)
-{
-    if (!IsValid(Actor))
-    {
-        return EActorNetPermission::None;
-    }
-    switch (Actor->GetLocalRole())
-    {
-        case ROLE_SimulatedProxy :
-            return EActorNetPermission::None;
-        case ROLE_AutonomousProxy :
-            return EActorNetPermission::PredictPlayer;
-        case ROLE_Authority :
-            {
-                if (Actor->GetNetMode() == NM_DedicatedServer)
-                {
-                    return Actor->GetRemoteRole() == ROLE_AutonomousProxy ? EActorNetPermission::ServerPlayer : EActorNetPermission::Server;
-                }
-                if (Actor->GetRemoteRole() == ROLE_SimulatedProxy)
-                {
-                    return EActorNetPermission::Server;
-                }
-                //TODO: check if this works lol.
-                return Actor->HasLocalNetOwner() ? EActorNetPermission::ListenServer : EActorNetPermission::ServerPlayer;
-            }
-        default :
-            return EActorNetPermission::None;
-    }
-}
-
 ESaiyoraPlane USaiyoraCombatLibrary::GetActorPlane(AActor* Actor)
 {
     if (!IsValid(Actor))

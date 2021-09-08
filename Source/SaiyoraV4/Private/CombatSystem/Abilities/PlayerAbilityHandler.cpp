@@ -46,7 +46,12 @@ void UPlayerAbilityHandler::BeginPlay()
 {
 	Super::BeginPlay();
 
-	AbilityPermission = USaiyoraCombatLibrary::GetActorNetPermission(GetOwner());
+	OwnerAsPawn = Cast<APawn>(GetOwner());
+	if (!IsValid(OwnerAsPawn))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("PlayerAbilityHandler put on non-Pawn class!"));
+		return;
+	}
 	
 	if (GetOwnerRole() != ROLE_SimulatedProxy)
 	{
@@ -229,6 +234,7 @@ void UPlayerAbilityHandler::UnsubscribeFromSpellbookUpdated(FSpellbookCallback c
 void UPlayerAbilityHandler::SetupInitialAbilities()
 {
 	//TODO: Check loadaout for open spots, fill them with abilities from spellbook?
+	//TODO: Check default specs (if any), call ChangeSpecialization to automatically learn all the associated abilities.
 	return;
 }
 
@@ -276,7 +282,7 @@ void UPlayerAbilityHandler::RemoveAllAbilities()
 
 FCastEvent UPlayerAbilityHandler::UseAbility(TSubclassOf<UCombatAbility> const AbilityClass)
 {
-	if (AbilityPermission != EActorNetPermission::ListenServer && AbilityPermission != EActorNetPermission::PredictPlayer)
+	if (!OwnerAsPawn->IsLocallyControlled())
 	{
 		FCastEvent Failure;
 		Failure.FailReason = ECastFailReason::NetRole;
@@ -318,7 +324,7 @@ FCastEvent UPlayerAbilityHandler::UsePlayerAbility(TSubclassOf<UPlayerCombatAbil
 		return Result;
 	}
 	//Prediction of ability usage from an autonomous proxy.
-	if (AbilityPermission == EActorNetPermission::PredictPlayer)
+	if (GetOwnerRole() == ROLE_AutonomousProxy)
 	{
 		Result.PredictionID = GenerateNewPredictionID();
 
@@ -905,7 +911,7 @@ void UPlayerAbilityHandler::AuthTickPredictedCast()
 
 FCancelEvent UPlayerAbilityHandler::CancelCurrentCast()
 {
-	if (AbilityPermission != EActorNetPermission::ListenServer && AbilityPermission != EActorNetPermission::PredictPlayer)
+	if (!OwnerAsPawn->IsLocallyControlled())
 	{
 		FCancelEvent Fail;
 		Fail.FailReason = ECancelFailReason::NetRole;
@@ -935,7 +941,7 @@ FCancelEvent UPlayerAbilityHandler::PredictCancelAbility()
 	Result.CancelledCastID = CastingState.PredictionID;
 	Result.ElapsedTicks = CastingState.ElapsedTicks;
 	Result.bSuccess = true;
-	if (AbilityPermission == EActorNetPermission::PredictPlayer)
+	if (GetOwnerRole() == ROLE_AutonomousProxy)
 	{
 		Result.CancelID = GenerateNewPredictionID();
 		FCancelRequest CancelRequest;
@@ -994,28 +1000,25 @@ void UPlayerAbilityHandler::ServerPredictCancelAbility_Implementation(FCancelReq
 FInterruptEvent UPlayerAbilityHandler::InterruptCurrentCast(AActor* AppliedBy, UObject* InterruptSource,
 	bool const bIgnoreRestrictions)
 {
-	switch (AbilityPermission)
+	if (GetOwnerRole() != ROLE_Authority)
 	{
-	case EActorNetPermission::ListenServer :
-		return Super::InterruptCurrentCast(AppliedBy, InterruptSource, bIgnoreRestrictions);
-	case EActorNetPermission::Server :
-		{
-			int32 const CastID = CastingState.PredictionID;
-			FInterruptEvent Result = Super::InterruptCurrentCast(AppliedBy, InterruptSource, bIgnoreRestrictions);
-			if (!Result.bSuccess)
-			{
-				return Result;
-			}
-			Result.CancelledCastID = CastID;
-			ClientInterruptCast(Result);
-		}
-	default :
-		{
-			FInterruptEvent Failure;
-			Failure.FailReason = EInterruptFailReason::NetRole;
-			return Failure;
-		}
+		FInterruptEvent Fail;
+		Fail.FailReason = EInterruptFailReason::NetRole;
+		return Fail;
 	}
+	if (OwnerAsPawn->IsLocallyControlled())
+	{
+		return Super::InterruptCurrentCast(AppliedBy, InterruptSource, bIgnoreRestrictions);
+	}
+	int32 const CastID = CastingState.PredictionID;
+	FInterruptEvent Result = Super::InterruptCurrentCast(AppliedBy, InterruptSource, bIgnoreRestrictions);
+	if (!Result.bSuccess)
+	{
+		return Result;
+	}
+	Result.CancelledCastID = CastID;
+	ClientInterruptCast(Result);
+	return Result;
 }
 
 void UPlayerAbilityHandler::ClientInterruptCast_Implementation(FInterruptEvent const& InterruptEvent)
@@ -1055,7 +1058,7 @@ void UPlayerAbilityHandler::EndGlobalCooldown()
 	if (GlobalCooldownState.bGlobalCooldownActive)
 	{
 		Super::EndGlobalCooldown();
-		if (!GlobalCooldownState.bGlobalCooldownActive && (AbilityPermission == EActorNetPermission::ListenServer || AbilityPermission == EActorNetPermission::PredictPlayer))
+		if (!GlobalCooldownState.bGlobalCooldownActive && OwnerAsPawn->IsLocallyControlled())
 		{
 			CheckForQueuedAbilityOnGlobalEnd();
 		}
