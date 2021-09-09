@@ -11,6 +11,7 @@ void UCombatAbility::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& Out
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
     DOREPLIFETIME(UCombatAbility, OwningComponent);
     DOREPLIFETIME(UCombatAbility, bDeactivated);
+    DOREPLIFETIME_CONDITION(UCombatAbility, AbilityCooldown, COND_Never);
 }
 
 UWorld* UCombatAbility::GetWorld() const
@@ -27,14 +28,14 @@ void UCombatAbility::CommitCharges()
     int32 const PreviousCharges = AbilityCooldown.CurrentCharges;
     int32 const CurrentMaxCharges = GetMaxCharges();
     AbilityCooldown.CurrentCharges = FMath::Clamp(PreviousCharges - GetChargeCost(), 0, CurrentMaxCharges);
+    if (!GetWorld()->GetTimerManager().IsTimerActive(CooldownHandle) && GetCurrentCharges() < CurrentMaxCharges)
+    {
+        StartCooldown();
+    }
     if (PreviousCharges != AbilityCooldown.CurrentCharges)
     {
         CheckChargeCostMet();
         OnChargesChanged.Broadcast(this, PreviousCharges, AbilityCooldown.CurrentCharges);
-    }
-    if (!GetWorld()->GetTimerManager().IsTimerActive(CooldownHandle) && GetCurrentCharges() < CurrentMaxCharges)
-    {
-        StartCooldown();
     }
 }
 
@@ -253,7 +254,9 @@ void UCombatAbility::InitialCastableChecks()
         GetAbilityCosts(Costs);
         ResourceCostsMet = OwningComponent->GetResourceHandlerRef()->CheckAbilityCostsMet(Costs);
     }
-    ChargeCostMet = AbilityCooldown.CurrentCharges >= GetChargeCost();
+    //TODO: This triggers UpdateCastable multiple times, but I need the ChargeCost check to be a functions so I can override it in the child class.
+    //Need a better system.
+    CheckChargeCostMet();
     bCustomCastConditionsMet = CustomCastRestrictions.Num() == 0;
     UpdateCastable();
 }

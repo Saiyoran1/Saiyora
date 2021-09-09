@@ -125,6 +125,8 @@ protected:
     void OnSimulatedCancel();
     UPROPERTY(BlueprintReadWrite, Transient, Category = "Abilities")
     FCombatParameters BroadcastParameters;
+    void UpdateCastable();
+    virtual void InitialCastableChecks();
 private:
     UPROPERTY(EditDefaultsOnly, Category = "Cast")
     EAbilityCastType CastType = EAbilityCastType::None;
@@ -152,8 +154,6 @@ private:
     TArray<TSubclassOf<UCrowdControl>> RestrictedCrowdControls;
     bool bCustomCastConditionsMet = true;
     TSet<FName> CustomCastRestrictions;
-    void UpdateCastable();
-    void InitialCastableChecks();
     ECastFailReason Castable = ECastFailReason::InvalidAbility;
     FCastableNotification OnCastableChanged;
 //Global Cooldown
@@ -198,11 +198,11 @@ public:
     UFUNCTION(BlueprintCallable)
     void RemoveCooldownModifier(int32 const ModifierID);
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
-    bool GetCooldownActive() const { return AbilityCooldown.OnCooldown; }
+    virtual bool GetCooldownActive() const { return AbilityCooldown.OnCooldown; }
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
-    float GetRemainingCooldown() const { return AbilityCooldown.OnCooldown ? GetWorld()->GetTimerManager().GetTimerRemaining(CooldownHandle) : 0.0f; }
+    virtual float GetRemainingCooldown() const { return AbilityCooldown.OnCooldown ? GetWorld()->GetTimerManager().GetTimerRemaining(CooldownHandle) : 0.0f; }
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
-    float GetCurrentCooldownLength() const { return AbilityCooldown.OnCooldown ? AbilityCooldown.CooldownEndTime - AbilityCooldown.CooldownStartTime : 0.0f; }
+    virtual float GetCurrentCooldownLength() const { return AbilityCooldown.OnCooldown ? AbilityCooldown.CooldownEndTime - AbilityCooldown.CooldownStartTime : 0.0f; }
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
     int32 GetDefaultMaxCharges() const { return DefaultMaxCharges; }
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
@@ -276,17 +276,19 @@ private:
     void ForceCooldownLengthRecalculation();
     UFUNCTION()
     void CheckChargeCostOnCostUpdated(int32 const Previous, int32 const New);
-    bool ChargeCostMet = false;
-    
 protected:
+    UPROPERTY(ReplicatedUsing=OnRep_AbilityCooldown)
     FAbilityCooldown AbilityCooldown;
+    UFUNCTION()
+    virtual void OnRep_AbilityCooldown() { return; }
     FTimerHandle CooldownHandle;
     FAbilityChargeNotification OnChargesChanged;
     void StartCooldown();
     UFUNCTION()
     void CompleteCooldown();
     void CancelCooldown();
-    void CheckChargeCostMet();
+    bool ChargeCostMet = false;
+    virtual void CheckChargeCostMet();
     virtual void AdjustCooldownFromMaxChargesChanged();
 //Costs
 public:

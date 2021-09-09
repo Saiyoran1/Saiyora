@@ -387,6 +387,8 @@ FCastEvent UPlayerAbilityHandler::UsePlayerAbility(TSubclassOf<UPlayerCombatAbil
 		return Result;
 	}
 	
+	PlayerAbility->CommitCharges();
+	
 	if (PlayerAbility->HasGlobalCooldown())
 	{
 		StartGlobal(PlayerAbility);

@@ -57,7 +57,7 @@ public:
 	void UnsubscribeFromSpellbookUpdated(FSpellbookCallback const& Callback);
 private:
 	TSet<TSubclassOf<UCombatAbility>> Spellbook;
-	EActionBarType CurrentBar = EActionBarType::None;
+	EActionBarType CurrentBar = EActionBarType::Ancient;
 	FAbilityBindingNotification OnAbilityBindUpdated;
 	FBarSwapNotification OnBarSwap;
 	FSpellbookNotification OnSpellbookUpdated;

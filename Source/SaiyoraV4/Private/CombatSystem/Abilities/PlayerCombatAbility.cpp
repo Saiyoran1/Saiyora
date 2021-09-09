@@ -7,7 +7,7 @@
 void UPlayerCombatAbility::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-    DOREPLIFETIME_CONDITION(UPlayerCombatAbility, ReplicatedCooldown, COND_OwnerOnly);
+    ResetReplicatedLifetimeProperty(StaticClass(), UCombatAbility::StaticClass(), FName(TEXT("AbilityCooldown")), COND_OwnerOnly, OutLifetimeProps);
 }
 
 void UPlayerCombatAbility::PurgeOldPredictions()
@@ -15,7 +15,7 @@ void UPlayerCombatAbility::PurgeOldPredictions()
 	TArray<int32> OldPredictionIDs;
     for (TTuple <int32, int32> const& Prediction : ChargePredictions)
     {
-        if (Prediction.Key <= ReplicatedCooldown.PredictionID)
+        if (Prediction.Key <= AbilityCooldown.PredictionID)
         {
             OldPredictionIDs.AddUnique(Prediction.Key);
         }
@@ -28,29 +28,29 @@ void UPlayerCombatAbility::PurgeOldPredictions()
 
 void UPlayerCombatAbility::RecalculatePredictedCooldown()
 {
-    FAbilityCooldown const PreviousState = AbilityCooldown;
-    AbilityCooldown = ReplicatedCooldown;
+    FAbilityCooldown const PreviousState = ClientCooldown;
+    ClientCooldown =  AbilityCooldown;
     int32 const CurrentMaxCharges = GetMaxCharges();
     for (TTuple<int32, int32> const& Prediction : ChargePredictions)
     {
-        AbilityCooldown.CurrentCharges = FMath::Clamp(AbilityCooldown.CurrentCharges - Prediction.Value, 0, CurrentMaxCharges);
+        ClientCooldown.CurrentCharges = FMath::Clamp(ClientCooldown.CurrentCharges - Prediction.Value, 0, CurrentMaxCharges);
     }
     //We accept authority cooldown progress if server says we are on cd.
     //If server is not on CD, but predicted charges are less than max, we predict a CD has started but do not predict start/end time.
-    if (!AbilityCooldown.OnCooldown && AbilityCooldown.CurrentCharges < CurrentMaxCharges)
+    if (!ClientCooldown.OnCooldown && ClientCooldown.CurrentCharges < CurrentMaxCharges)
     {
-        AbilityCooldown.OnCooldown = true;
-        AbilityCooldown.CooldownStartTime = 0.0f;
-        AbilityCooldown.CooldownEndTime = 0.0f;
+        ClientCooldown.OnCooldown = true;
+        ClientCooldown.CooldownStartTime = 0.0f;
+        ClientCooldown.CooldownEndTime = 0.0f;
     }
-    if (PreviousState.CurrentCharges != AbilityCooldown.CurrentCharges)
+    if (PreviousState.CurrentCharges != ClientCooldown.CurrentCharges)
     {
         CheckChargeCostMet();
-        OnChargesChanged.Broadcast(this, PreviousState.CurrentCharges, AbilityCooldown.CurrentCharges);
+        OnChargesChanged.Broadcast(this, PreviousState.CurrentCharges, ClientCooldown.CurrentCharges);
     }
 }
 
-void UPlayerCombatAbility::OnRep_ReplicatedCooldown()
+void UPlayerCombatAbility::OnRep_AbilityCooldown()
 {
 	PurgeOldPredictions();
     RecalculatePredictedCooldown();
@@ -65,6 +65,69 @@ void UPlayerCombatAbility::AdjustCooldownFromMaxChargesChanged()
     else if (GetHandler()->GetOwnerRole() == ROLE_AutonomousProxy)
     {
         RecalculatePredictedCooldown();
+    }
+}
+
+bool UPlayerCombatAbility::GetCooldownActive() const
+{
+    if (GetHandler()->GetOwnerRole() == ROLE_Authority)
+    {
+        return AbilityCooldown.OnCooldown;
+    }
+    if (GetHandler()->GetOwnerRole() == ROLE_AutonomousProxy)
+    {
+        return ClientCooldown.OnCooldown;
+    }
+    return false;
+}
+
+float UPlayerCombatAbility::GetRemainingCooldown() const
+{
+    if (GetHandler()->GetOwnerRole() == ROLE_Authority)
+    {
+        return AbilityCooldown.OnCooldown ?
+            FMath::Max(0.0f, AbilityCooldown.CooldownEndTime - GetHandler()->GetGameStateRef()->GetServerWorldTimeSeconds()) : 0.0f;
+    }
+    if (GetHandler()->GetOwnerRole() == ROLE_AutonomousProxy)
+    {
+        return ClientCooldown.OnCooldown ?
+            ClientCooldown.CooldownEndTime == 0.0f ?
+                GetCooldownLength() : FMath::Max(0.0f, ClientCooldown.CooldownEndTime - GetHandler()->GetGameStateRef()->GetServerWorldTimeSeconds()) : 0.0f;
+    }
+    return 0.0f;
+}
+
+float UPlayerCombatAbility::GetCurrentCooldownLength() const
+{
+    if (GetHandler()->GetOwnerRole() == ROLE_Authority)
+    {
+        return AbilityCooldown.OnCooldown ?
+            FMath::Max(0.0f, AbilityCooldown.CooldownEndTime - AbilityCooldown.CooldownStartTime) : 0.0f;
+    }
+    if (GetHandler()->GetOwnerRole() == ROLE_AutonomousProxy)
+    {
+        return ClientCooldown.OnCooldown ?
+            ClientCooldown.CooldownEndTime == 0.0f ?
+                GetCooldownLength() : FMath::Max(0.0f, ClientCooldown.CooldownEndTime - ClientCooldown.CooldownStartTime) : 0.0f;
+    }
+    return 0.0f;
+}
+
+void UPlayerCombatAbility::CheckChargeCostMet()
+{
+    if (GetHandler()->GetOwnerRole() == ROLE_Authority)
+    {
+        Super::CheckChargeCostMet();
+        return;
+    }
+    if (GetHandler()->GetOwnerRole() == ROLE_AutonomousProxy)
+    {
+        bool const PreviouslyMet = ChargeCostMet;
+        ChargeCostMet = ClientCooldown.CurrentCharges >= GetChargeCost();
+        if (PreviouslyMet != ChargeCostMet)
+        {
+            UpdateCastable();
+        }
     }
 }
 
@@ -105,7 +168,7 @@ void UPlayerCombatAbility::CommitCharges(int32 const PredictionID)
 
 void UPlayerCombatAbility::UpdatePredictedChargesFromServer(int32 const PredictionID, int32 const ChargesSpent)
 {
-    if (ReplicatedCooldown.PredictionID >= PredictionID)
+    if (AbilityCooldown.PredictionID >= PredictionID)
     {
         return;
     }
