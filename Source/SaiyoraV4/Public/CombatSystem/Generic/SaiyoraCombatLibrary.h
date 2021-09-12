@@ -32,6 +32,11 @@ public:
 	static FCombatModifier MakeCombatModifier(class UBuff* Source, enum EModifierType const ModifierType, float const ModifierValue, bool const bStackable);
 	UFUNCTION(BlueprintCallable, Category = "Modifier", meta = (DefaultToSelf = "Source", HidePin = "Source", NativeMakeFunc))
 	static FCombatModifier MakeBuffFunctionCombatModifier(class UBuffFunction* Source, enum EModifierType const ModifierType, float const ModifierValue, bool const bStackable);
+
+	//Validation
+
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Validation")
+	static bool ValidatePredictedLineTrace(TArray<FCombatParameter> const& PredictionParams);
 };
 
 

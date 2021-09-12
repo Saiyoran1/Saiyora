@@ -74,3 +74,9 @@ FCombatModifier USaiyoraCombatLibrary::MakeBuffFunctionCombatModifier(UBuffFunct
 {
     return FCombatModifier(ModifierValue, ModifierType, bStackable, Source->GetOwningBuff());
 }
+
+bool USaiyoraCombatLibrary::ValidatePredictedLineTrace(TArray<FCombatParameter> const& PredictionParams)
+{
+    //TODO: Line trace sanity checking.
+    return true;
+}
