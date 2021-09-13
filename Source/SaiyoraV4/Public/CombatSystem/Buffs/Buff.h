@@ -189,10 +189,6 @@ public:
 	void SubscribeToBuffUpdated(FBuffEventCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Buffs")
 	void UnsubscribeFromBuffUpdated(FBuffEventCallback const& Callback);
-	void ModifierSubToStack(FModifierCallback const& StackCallback, FDelegateHandle& StackHandle);
-	void ModifierUnsubFromStack(FDelegateHandle const& StackHandle);
-	void ModifierSubToRemove(FModifierCallback const& RemoveCallback, FDelegateHandle& RemoveHandle);
-	void ModifierUnsubFromRemove(FDelegateHandle const& RemoveHandle);
 	
 protected:
 	
