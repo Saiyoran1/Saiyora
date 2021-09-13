@@ -50,39 +50,6 @@ struct FThreatTarget
 	bool LessThan(FThreatTarget const& Other) const;
 };
 
-USTRUCT()
-struct FFixate
-{
-	GENERATED_BODY()
-
-	UPROPERTY()
-	UBuff* Source = nullptr;
-	UPROPERTY()
-	AActor* FixateTarget = nullptr;
-};
-
-USTRUCT()
-struct FMisdirect
-{
-	GENERATED_BODY()
-
-	UPROPERTY()
-	UBuff* Source = nullptr;
-	UPROPERTY()
-	AActor* ThreatTarget = nullptr;
-};
-
-USTRUCT()
-struct FBlind
-{
-	GENERATED_BODY()
-
-	UPROPERTY()
-	UBuff* Source = nullptr;
-	UPROPERTY()
-	AActor* IgnoredTarget = nullptr;
-};
-
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FThreatCondition, FThreatEvent const&, ThreatEvent);
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FThreatModCondition, FThreatEvent const&, ThreatEvent);
 
@@ -91,3 +58,6 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FCombatStatusNotification, bool cons
 
 DECLARE_DYNAMIC_DELEGATE_TwoParams(FTargetCallback, AActor*, PreviousTarget, AActor*, NewTarget);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FTargetNotification, AActor*, PreviousTarget, AActor*, NewTarget);
+
+DECLARE_DYNAMIC_DELEGATE_TwoParams(FFadeCallback, AActor*, Actor, bool const, Faded);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FFadeNotification, AActor*, Actor, bool const, Faded);

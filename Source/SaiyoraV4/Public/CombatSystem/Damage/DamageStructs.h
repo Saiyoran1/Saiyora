@@ -135,5 +135,5 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FHealingEventNotification, FHealingE
 
 DECLARE_DYNAMIC_DELEGATE_TwoParams(FHealthChangeCallback, float, PreviousHealth, float, NewHealth);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FHealthChangeNotification, float, PreviousHealth, float, NewHealth);
-DECLARE_DYNAMIC_DELEGATE_TwoParams(FLifeStatusCallback, ELifeStatus, PreviousStatus, ELifeStatus, NewStatus);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FLifeStatusNotification, ELifeStatus, PreviousStatus, ELifeStatus, NewStatus);
+DECLARE_DYNAMIC_DELEGATE_ThreeParams(FLifeStatusCallback, AActor*, Actor, ELifeStatus, PreviousStatus, ELifeStatus, NewStatus);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FLifeStatusNotification, AActor*, Actor, ELifeStatus, PreviousStatus, ELifeStatus, NewStatus);

@@ -42,8 +42,17 @@ public:
 	void AddThreat(FThreatEvent& Event);
 
 	void AddFixate(AActor* Target, UBuff* Source);
-	//void AddBlind(AActor* Target, UBuff* Source);
+	void RemoveFixate(UBuff* Source);
+	void AddBlind(AActor* Target, UBuff* Source);
+	void RemoveBlind(UBuff* Source);
+	void AddFade(UBuff* Source);
+	void RemoveFade(UBuff* Source);
+	void SubscribeToFadeStatusChanged(FFadeCallback const& Callback);
+	void UnsubscribeFromFadeStatusChanged(FFadeCallback const& Callback);
 	//void AddMisdirect(AActor* ThreatFrom, AActor* ThreatTo, UBuff* Source);
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Threat")
+	bool IsInCombat() const { return bInCombat; }
 
 private:
 	UPROPERTY()
@@ -54,7 +63,11 @@ private:
 	UPROPERTY(ReplicatedUsing=OnRep_bInCombat)
 	bool bInCombat = false;
 	UFUNCTION()
-	void OnRep_CombatStatus();
+	void OnRep_bInCombat();
+	void AddToThreatTable(AActor* Actor, float const InitialThreat = 0.0f, int32 const InitialFixates = 0, int32 const InitialBlinds = 0);
+	void RemoveFromThreatTable(AActor* Actor);
+	UFUNCTION()
+	void OnTargetDied(AActor* Actor, ELifeStatus Previous, ELifeStatus New);
 	
 	UPROPERTY(EditAnywhere, Category = "Threat")
 	bool bCanEverReceiveThreat = false;
@@ -70,12 +83,12 @@ private:
 	void OnRep_CurrentTarget(AActor* PreviousTarget);
 	UPROPERTY()
 	TMap<UBuff*, AActor*> Fixates;
-	UFUNCTION()
-	void RemoveThreatControlsOnBuffRemoved(FBuffRemoveEvent const& RemoveEvent);
 	UPROPERTY()
 	TMap<UBuff*, AActor*> Blinds;
 	UPROPERTY()
 	TArray<UBuff*> Fades;
+	UFUNCTION()
+	void OnTargetFadeStatusChanged(AActor* Actor, bool const FadeStatus);
 	UPROPERTY()
 	TMap<UBuff*, AActor*> Misdirects;
 	
@@ -85,7 +98,7 @@ private:
 	TArray<FThreatCondition> IncomingThreatRestrictions;
 	FTargetNotification OnTargetChanged;
 	FCombatStatusNotification OnCombatChanged;
-	FCombatStatusNotification OnFadeStatusChanged;
+	FFadeNotification OnFadeStatusChanged;
 
 	FBuffRemoveCallback BuffRemovalCallback;
 };
