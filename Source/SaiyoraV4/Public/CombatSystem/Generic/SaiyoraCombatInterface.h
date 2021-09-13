@@ -6,6 +6,7 @@
 #include "UObject/Interface.h"
 #include "SaiyoraCombatInterface.generated.h"
 
+class UThreatHandler;
 class UDamageHandler;
 class UBuffHandler;
 class UAbilityHandler;
@@ -48,4 +49,7 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Plane")
 	USaiyoraPlaneComponent* GetPlaneComponent() const;
 	virtual USaiyoraPlaneComponent* GetPlaneComponent_Implementation() const { return nullptr; }
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Threat")
+	UThreatHandler* GetThreatHandler() const;
+	virtual UThreatHandler* GetThreatHandler_Implementation() const { return nullptr; }
 };
