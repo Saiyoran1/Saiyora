@@ -103,7 +103,7 @@ void UDamageHandler::BeginPlay()
 			}
 		}
 		LifeStatus = ELifeStatus::Alive;
-		OnLifeStatusChanged.Broadcast(ELifeStatus::Invalid, LifeStatus);
+		OnLifeStatusChanged.Broadcast(GetOwner(), ELifeStatus::Invalid, LifeStatus);
 	}
 }
 
@@ -163,7 +163,7 @@ void UDamageHandler::Die()
 {
 	ELifeStatus const PreviousStatus = LifeStatus;
 	LifeStatus = ELifeStatus::Dead;
-	OnLifeStatusChanged.Broadcast(PreviousStatus, LifeStatus);
+	OnLifeStatusChanged.Broadcast(GetOwner(), PreviousStatus, LifeStatus);
 }
 
 void UDamageHandler::OnRep_CurrentHealth(float PreviousValue)
@@ -178,7 +178,7 @@ void UDamageHandler::OnRep_MaxHealth(float PreviousValue)
 
 void UDamageHandler::OnRep_LifeStatus(ELifeStatus PreviousValue)
 {
-	OnLifeStatusChanged.Broadcast(PreviousValue, LifeStatus);
+	OnLifeStatusChanged.Broadcast(GetOwner(), PreviousValue, LifeStatus);
 }
 
 void UDamageHandler::SubscribeToHealthChanged(FHealthChangeCallback const& Callback)

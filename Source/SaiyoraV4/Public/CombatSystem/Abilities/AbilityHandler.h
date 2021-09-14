@@ -183,7 +183,7 @@ private:
 	TArray<FInterruptRestriction> InterruptRestrictions;
 	bool CheckInterruptRestricted(FInterruptEvent const& InterruptEvent);
 	UFUNCTION()
-	void InterruptCastOnDeath(ELifeStatus PreviousStatus, ELifeStatus NewStatus);
+	void InterruptCastOnDeath(AActor* Actor, ELifeStatus PreviousStatus, ELifeStatus NewStatus);
 	UFUNCTION()
 	void InterruptCastOnCrowdControl(FCrowdControlStatus const& PreviousStatus, FCrowdControlStatus const& NewStatus);
 //Global Cooldown

@@ -39,6 +39,9 @@ public:
 	bool CheckIncomingThreatRestricted(FThreatEvent const& Event);
 	bool CheckOutgoingThreatRestricted(FThreatEvent const& Event);
 
+	void NotifyAddedToThreatTable(AActor* Actor);
+	void NotifyRemovedFromThreatTable(AActor* Actor);
+
 	void AddThreat(FThreatEvent& Event);
 
 	void AddFixate(AActor* Target, UBuff* Source);
@@ -55,11 +58,8 @@ public:
 	bool IsInCombat() const { return bInCombat; }
 
 private:
-	UPROPERTY()
-	class UBuffHandler* BuffHandlerRef;
 
-	void EnterCombat();
-	void LeaveCombat();
+	void UpdateCombatStatus();
 	UPROPERTY(ReplicatedUsing=OnRep_bInCombat)
 	bool bInCombat = false;
 	UFUNCTION()
@@ -68,6 +68,8 @@ private:
 	void RemoveFromThreatTable(AActor* Actor);
 	UFUNCTION()
 	void OnTargetDied(AActor* Actor, ELifeStatus Previous, ELifeStatus New);
+	UFUNCTION()
+	void OnOwnerDied(AActor* Actor, ELifeStatus Previous, ELifeStatus New);
 	
 	UPROPERTY(EditAnywhere, Category = "Threat")
 	bool bCanEverReceiveThreat = false;
@@ -91,6 +93,9 @@ private:
 	void OnTargetFadeStatusChanged(AActor* Actor, bool const FadeStatus);
 	UPROPERTY()
 	TMap<UBuff*, AActor*> Misdirects;
+
+	UPROPERTY()
+	TArray<AActor*> TargetedBy;
 	
 	TArray<FThreatModCondition> OutgoingThreatMods;
 	TArray<FThreatModCondition> IncomingThreatMods;
@@ -98,7 +103,10 @@ private:
 	TArray<FThreatCondition> IncomingThreatRestrictions;
 	FTargetNotification OnTargetChanged;
 	FCombatStatusNotification OnCombatChanged;
+	FFadeCallback FadeCallback;
 	FFadeNotification OnFadeStatusChanged;
+	FLifeStatusCallback DeathCallback;
+	FLifeStatusCallback OwnerDeathCallback;
 
 	FBuffRemoveCallback BuffRemovalCallback;
 };

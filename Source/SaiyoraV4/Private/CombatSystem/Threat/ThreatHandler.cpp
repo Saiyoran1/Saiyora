@@ -20,24 +20,45 @@ void UThreatHandler::BeginPlay()
 
 	if (GetOwnerRole() == ROLE_Authority)
 	{
-		BuffHandlerRef = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwner());
+		UBuffHandler* BuffHandlerRef = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwner());
 		if (IsValid(BuffHandlerRef))
 		{
 			//TODO: Add restriction on buffs with immune threat controls.
 		}
-		//TODO: Bind to own damage handler to clear threat table and leave combat on death.
+		UDamageHandler* DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
+		if (IsValid(DamageHandlerRef))
+		{
+			DamageHandlerRef->SubscribeToLifeStatusChanged(OwnerDeathCallback);
+		}
 	}
 }
 
 void UThreatHandler::InitializeComponent()
 {
-	//TODO: Threat Handler initialization.
+	FadeCallback.BindDynamic(this, &UThreatHandler::OnTargetFadeStatusChanged);
+	DeathCallback.BindDynamic(this, &UThreatHandler::OnTargetDied);
+	OwnerDeathCallback.BindDynamic(this, &UThreatHandler::OnOwnerDied);
 }
 
 void UThreatHandler::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	DOREPLIFETIME(UThreatHandler, CurrentTarget);
 	DOREPLIFETIME(UThreatHandler, bInCombat);
+}
+
+void UThreatHandler::OnOwnerDied(AActor* Actor, ELifeStatus Previous, ELifeStatus New)
+{
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(Actor) || Actor != GetOwner() || New != ELifeStatus::Dead)
+	{
+		return;
+	}
+	for (int i = ThreatTable.Num() - 1; i > 0; i--)
+	{
+		if (IsValid(ThreatTable[i].Target))
+		{
+			RemoveFromThreatTable(ThreatTable[i].Target);
+		}
+	}
 }
 
 void UThreatHandler::GetIncomingThreatMods(TArray<FCombatModifier>& OutMods, FThreatEvent const& Event)
@@ -86,6 +107,31 @@ bool UThreatHandler::CheckOutgoingThreatRestricted(FThreatEvent const& Event)
 	return false;
 }
 
+void UThreatHandler::NotifyAddedToThreatTable(AActor* Actor)
+{
+	if (TargetedBy.Contains(Actor))
+	{
+		return;
+	}
+	TargetedBy.Add(Actor);
+	if (TargetedBy.Num() == 1)
+	{
+		UpdateCombatStatus();
+	}
+}
+
+void UThreatHandler::NotifyRemovedFromThreatTable(AActor* Actor)
+{
+	if (!IsValid(Actor))
+	{
+		return;
+	}
+	if (TargetedBy.Remove(Actor) > 0 && TargetedBy.Num() == 0)
+	{
+		UpdateCombatStatus();
+	}
+}
+
 void UThreatHandler::AddThreat(FThreatEvent& Event)
 {
 	if (Event.Threat <= 0.0f)
@@ -121,34 +167,28 @@ void UThreatHandler::AddThreat(FThreatEvent& Event)
 	Event.bSuccess = true;
 }
 
-void UThreatHandler::EnterCombat()
+void UThreatHandler::UpdateCombatStatus()
 {
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
 	if (bInCombat)
 	{
-		return;
+		if (ThreatTable.Num() == 0 && TargetedBy.Num() == 0)
+		{
+			bInCombat = false;
+			OnCombatChanged.Broadcast(false);
+		}
 	}
-	if (ThreatTable.Num() == 0)
+	else
 	{
-		LeaveCombat();
-		return;
+		if (ThreatTable.Num() > 0 || TargetedBy.Num() > 0)
+		{
+			bInCombat = true;
+			OnCombatChanged.Broadcast(true);
+		}
 	}
-	bInCombat = true;
-	OnCombatChanged.Broadcast(true);
-}
-
-void UThreatHandler::LeaveCombat()
-{
-	if (!bInCombat)
-	{
-		return;
-	}
-	if (ThreatTable.Num() != 0)
-	{
-		EnterCombat();
-		return;
-	}
-	bInCombat = false;
-	OnCombatChanged.Broadcast(false);
 }
 
 void UThreatHandler::OnRep_bInCombat()
@@ -159,7 +199,7 @@ void UThreatHandler::OnRep_bInCombat()
 void UThreatHandler::AddToThreatTable(AActor* Actor, float const InitialThreat, int32 const InitialFixates,
 	int32 const InitialBlinds)
 {
-	if (!IsValid(Actor))
+	if (!IsValid(Actor) || GetOwnerRole() != ROLE_Authority)
 	{
 		return;
 	}
@@ -167,47 +207,88 @@ void UThreatHandler::AddToThreatTable(AActor* Actor, float const InitialThreat, 
 	{
 		ThreatTable.Add(FThreatTarget(Actor, InitialThreat, InitialFixates, InitialBlinds));
 		UpdateTarget();
-		EnterCombat();
-		return;
+		UpdateCombatStatus();
 	}
-	FThreatTarget const NewTarget = FThreatTarget(Actor, InitialThreat, InitialFixates, InitialBlinds);
-	int32 InsertIndex = 0;
-	for (; InsertIndex < ThreatTable.Num(); InsertIndex++)
+	else
 	{
-		if (!(ThreatTable[InsertIndex] < NewTarget))
+		for (FThreatTarget const& Target : ThreatTable)
 		{
-			break;
+			if (Target.Target == Actor)
+			{
+				return;
+			}
 		}
-	}
-	ThreatTable.Insert(NewTarget, InsertIndex);
-	if (InsertIndex == ThreatTable.Num() - 1)
-	{
-		UpdateTarget();
+		FThreatTarget const NewTarget = FThreatTarget(Actor, InitialThreat, InitialFixates, InitialBlinds);
+		int32 InsertIndex = 0;
+		for (; InsertIndex < ThreatTable.Num(); InsertIndex++)
+		{
+			if (!(ThreatTable[InsertIndex] < NewTarget))
+			{
+				break;
+			}
+		}
+		ThreatTable.Insert(NewTarget, InsertIndex);
+		if (InsertIndex == ThreatTable.Num() - 1)
+		{
+			UpdateTarget();
+		}
 	}
 	UThreatHandler* TargetThreatHandler = ISaiyoraCombatInterface::Execute_GetThreatHandler(Actor);
 	if (IsValid(TargetThreatHandler))
 	{
-		FFadeCallback FadeCallback;
-		FadeCallback.BindDynamic(this, &UThreatHandler::OnTargetFadeStatusChanged);
 		TargetThreatHandler->SubscribeToFadeStatusChanged(FadeCallback);
+		TargetThreatHandler->NotifyAddedToThreatTable(GetOwner());
 	}
 	UDamageHandler* TargetDamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(Actor);
 	if (IsValid(TargetDamageHandler))
-	{
-		FLifeStatusCallback DeathCallback;
-		DeathCallback.BindDynamic(this, &UThreatHandler::OnTargetDied);
+	{	
 		TargetDamageHandler->SubscribeToLifeStatusChanged(DeathCallback);
 	}
 }
 
 void UThreatHandler::RemoveFromThreatTable(AActor* Actor)
 {
-	//TODO: Remove from table, unbind delegates.	
+	if (!IsValid(Actor) || GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
+	bool bAffectedTarget = false;
+	for (int i = 0; i < ThreatTable.Num(); i++)
+	{
+		if (ThreatTable[i].Target == Actor)
+		{
+			UThreatHandler* TargetThreatHandler = ISaiyoraCombatInterface::Execute_GetThreatHandler(Actor);
+			if (IsValid(TargetThreatHandler))
+			{
+				TargetThreatHandler->UnsubscribeFromFadeStatusChanged(FadeCallback);
+				TargetThreatHandler->NotifyRemovedFromThreatTable(GetOwner());
+			}
+			UDamageHandler* TargetDamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(Actor);
+			if (IsValid(TargetDamageHandler))
+			{	
+				TargetDamageHandler->UnsubscribeFromLifeStatusChanged(DeathCallback);
+			}
+			if (i == ThreatTable.Num() - 1)
+			{
+				bAffectedTarget = true;
+			}
+			ThreatTable.RemoveAt(i);
+			break;
+		}
+	}
+	if (bAffectedTarget)
+	{
+		UpdateTarget();
+	}
+	if (ThreatTable.Num() == 0)
+	{
+		UpdateCombatStatus();
+	}
 }
 
 void UThreatHandler::OnTargetDied(AActor* Actor, ELifeStatus Previous, ELifeStatus New)
 {
-	if (!IsValid(Actor) || New != ELifeStatus::Dead)
+	if (!IsValid(Actor) || New != ELifeStatus::Dead || GetOwnerRole() != ROLE_Authority)
 	{
 		return;
 	}
@@ -308,7 +389,7 @@ void UThreatHandler::OnRep_CurrentTarget(AActor* PreviousTarget)
 
 void UThreatHandler::AddFixate(AActor* Target, UBuff* Source)
 {
-	if (GetOwnerRole() != ROLE_Authority || !IsValid(Target) || !IsValid(Source) || !IsValid(BuffHandlerRef) || Source->GetAppliedTo() != GetOwner())
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(Target) || !IsValid(Source) || Source->GetAppliedTo() != GetOwner())
 	{
 		return;
 	}
@@ -410,7 +491,7 @@ void UThreatHandler::RemoveFixate(UBuff* Source)
 
 void UThreatHandler::AddBlind(AActor* Target, UBuff* Source)
 {
-	if (GetOwnerRole() != ROLE_Authority || !IsValid(Target) || !IsValid(Source) || !IsValid(BuffHandlerRef) || Source->GetAppliedTo() != GetOwner())
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(Target) || !IsValid(Source) || Source->GetAppliedTo() != GetOwner())
 	{
 		return;
 	}
@@ -512,7 +593,7 @@ void UThreatHandler::RemoveBlind(UBuff* Source)
 
 void UThreatHandler::AddFade(UBuff* Source)
 {
-	if (GetOwnerRole() != ROLE_Authority || !bCanEverReceiveThreat || !IsValid(Source) || !IsValid(BuffHandlerRef))
+	if (GetOwnerRole() != ROLE_Authority || !bCanEverReceiveThreat || !IsValid(Source))
 	{
 		return;
 	}
