@@ -5,6 +5,8 @@
 #include "DamageEnums.h"
 #include "GameplayTagContainer.h"
 #include "StatStructs.h"
+#include "ThreatStructs.h"
+
 #include "BuffFunction.generated.h"
 
 UCLASS(Abstract)
@@ -90,6 +92,8 @@ class UDamageOverTimeFunction : public UBuffFunction
 	bool bUsesSeparateInitialDamage = false;
 	float InitialDamageAmount = 0.0f;
 	EDamageSchool InitialDamageSchool = EDamageSchool::None;
+
+	FThreatFromDamage ThreatInfo;
 	
 	FTimerHandle TickHandle;
 
@@ -101,7 +105,7 @@ class UDamageOverTimeFunction : public UBuffFunction
 		float const Interval, bool const bIgnoreRestrictions, bool const bIgnoreModifiers,
 		bool const bSnapshot, bool const bScaleWithStacks, bool const bPartialTickOnExpire,
 		bool const bInitialTick, bool const bUseSeparateInitialDamage, float const InitialDamage,
-		EDamageSchool const InitialSchool);
+		EDamageSchool const InitialSchool, FThreatFromDamage const& ThreatParams);
 	
 	virtual void OnApply(FBuffApplyEvent const& ApplyEvent) override;
 	virtual void OnRemove(FBuffRemoveEvent const& RemoveEvent) override;
@@ -112,7 +116,7 @@ class UDamageOverTimeFunction : public UBuffFunction
 		float const Interval, bool const bIgnoreRestrictions, bool const bIgnoreModifiers,
 		bool const bSnapshots, bool const bScalesWithStacks, bool const bPartialTickOnExpire,
 		bool const bHasInitialTick, bool const bUseSeparateInitialDamage, float const InitialDamage,
-		EDamageSchool const InitialSchool);
+		EDamageSchool const InitialSchool, FThreatFromDamage const& ThreatParams);
 };
 
 UCLASS()
@@ -134,6 +138,8 @@ class UHealingOverTimeFunction : public UBuffFunction
 	float InitialHealingAmount = 0.0f;
 	EDamageSchool InitialHealingSchool = EDamageSchool::None;
 
+	FThreatFromDamage ThreatInfo;
+
 	FTimerHandle TickHandle;
 
 	void InitialTick();
@@ -144,7 +150,7 @@ class UHealingOverTimeFunction : public UBuffFunction
 		float const Interval, bool const bIgnoreRestrictions, bool const bIgnoreModifiers,
 		bool const bSnapshot, bool const bScaleWithStacks, bool const bPartialTickOnExpire,
 		bool const bInitialTick, bool const bUseSeparateInitialHealing, float const InitialHealing,
-		EDamageSchool const InitialSchool);
+		EDamageSchool const InitialSchool, FThreatFromDamage const& ThreatParams);
 
 	virtual void OnApply(FBuffApplyEvent const& ApplyEvent) override;
 	virtual void OnRemove(FBuffRemoveEvent const& RemoveEvent) override;
@@ -155,7 +161,7 @@ class UHealingOverTimeFunction : public UBuffFunction
 		float const Interval, bool const bIgnoreRestrictions, bool const bIgnoreModifiers,
 		bool const bSnapshots, bool const bScalesWithStacks, bool const bPartialTickOnExpire,
 		bool const bHasInitialTick, bool const bUseSeparateInitialHealing, float const InitialHealing,
-		EDamageSchool const InitialSchool);
+		EDamageSchool const InitialSchool, FThreatFromDamage const& ThreatParams);
 };
 
 UCLASS()

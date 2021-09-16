@@ -1,11 +1,11 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
-
 #include "CoreMinimal.h"
 #include "BuffStructs.h"
 #include "GameplayTagContainer.h"
 #include "ThreatStructs.h"
+#include "DamageStructs.h"
 #include "Components/ActorComponent.h"
 #include "ThreatHandler.generated.h"
 
@@ -21,6 +21,7 @@ public:
 	static FGameplayTag BlindTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Threat.Blind")), false); }
 	static FGameplayTag FadeTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Threat.Fade")), false); }
 	static FGameplayTag MisdirectTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Threat.Misdirect")), false); }
+	static float GlobalHealingThreatModifier;
 	
 	UThreatHandler();
 	virtual void BeginPlay() override;
@@ -42,7 +43,8 @@ public:
 	void NotifyAddedToThreatTable(AActor* Actor);
 	void NotifyRemovedFromThreatTable(AActor* Actor);
 
-	void AddThreat(FThreatEvent& Event);
+	FThreatEvent AddThreat(EThreatType const ThreatType, float const BaseThreat, AActor* AppliedBy,
+		UObject* Source, bool const bIgnoreRestrictions, bool const bIgnoreModifiers, FThreatModCondition const& SourceModifier);
 
 	void AddFixate(AActor* Target, UBuff* Source);
 	void RemoveFixate(UBuff* Source);
@@ -70,6 +72,10 @@ private:
 	void OnTargetDied(AActor* Actor, ELifeStatus Previous, ELifeStatus New);
 	UFUNCTION()
 	void OnOwnerDied(AActor* Actor, ELifeStatus Previous, ELifeStatus New);
+	UFUNCTION()
+	void OnOwnerDamageTaken(FDamagingEvent const& DamageEvent);
+	UFUNCTION()
+	void OnTargetHealingTaken(FHealingEvent const& HealingEvent);
 	
 	UPROPERTY(EditAnywhere, Category = "Threat")
 	bool bCanEverReceiveThreat = false;
@@ -96,6 +102,9 @@ private:
 
 	UPROPERTY()
 	TArray<AActor*> TargetedBy;
+
+	UPROPERTY()
+	class UDamageHandler* DamageHandlerRef;
 	
 	TArray<FThreatModCondition> OutgoingThreatMods;
 	TArray<FThreatModCondition> IncomingThreatMods;
@@ -107,6 +116,7 @@ private:
 	FFadeNotification OnFadeStatusChanged;
 	FLifeStatusCallback DeathCallback;
 	FLifeStatusCallback OwnerDeathCallback;
-
+	FDamageEventCallback ThreatFromDamageCallback;
+	FHealingEventCallback ThreatFromHealingCallback;
 	FBuffRemoveCallback BuffRemovalCallback;
 };

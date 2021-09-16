@@ -7,6 +7,8 @@
 #include "SaiyoraCombatInterface.h"
 #include "DamageHandler.h"
 
+float UThreatHandler::GlobalHealingThreatModifier = .3f;
+
 UThreatHandler::UThreatHandler()
 {
 	PrimaryComponentTick.bCanEverTick = false;
@@ -25,10 +27,11 @@ void UThreatHandler::BeginPlay()
 		{
 			//TODO: Add restriction on buffs with immune threat controls.
 		}
-		UDamageHandler* DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
+		DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
 		if (IsValid(DamageHandlerRef))
 		{
 			DamageHandlerRef->SubscribeToLifeStatusChanged(OwnerDeathCallback);
+			DamageHandlerRef->SubscribeToIncomingDamageSuccess(ThreatFromDamageCallback);
 		}
 	}
 }
@@ -38,6 +41,8 @@ void UThreatHandler::InitializeComponent()
 	FadeCallback.BindDynamic(this, &UThreatHandler::OnTargetFadeStatusChanged);
 	DeathCallback.BindDynamic(this, &UThreatHandler::OnTargetDied);
 	OwnerDeathCallback.BindDynamic(this, &UThreatHandler::OnOwnerDied);
+	ThreatFromDamageCallback.BindDynamic(this, &UThreatHandler::OnOwnerDamageTaken);
+	ThreatFromHealingCallback.BindDynamic(this, &UThreatHandler::OnTargetHealingTaken);
 }
 
 void UThreatHandler::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -59,6 +64,28 @@ void UThreatHandler::OnOwnerDied(AActor* Actor, ELifeStatus Previous, ELifeStatu
 			RemoveFromThreatTable(ThreatTable[i].Target);
 		}
 	}
+}
+
+void UThreatHandler::OnOwnerDamageTaken(FDamagingEvent const& DamageEvent)
+{
+	if (!DamageEvent.Result.Success || !DamageEvent.ThreatInfo.GeneratesThreat)
+	{
+		return;
+	}
+	AddThreat(EThreatType::Damage, DamageEvent.ThreatInfo.BaseThreat, DamageEvent.DamageInfo.AppliedBy,
+		DamageEvent.DamageInfo.Source, DamageEvent.ThreatInfo.IgnoreRestrictions, DamageEvent.ThreatInfo.IgnoreModifiers,
+		DamageEvent.ThreatInfo.SourceModifier);
+}
+
+void UThreatHandler::OnTargetHealingTaken(FHealingEvent const& HealingEvent)
+{
+	if (!HealingEvent.Result.Success || !HealingEvent.ThreatInfo.GeneratesThreat)
+	{
+		return;
+	}
+	AddThreat(EThreatType::Healing, (HealingEvent.ThreatInfo.BaseThreat * GlobalHealingThreatModifier), HealingEvent.HealingInfo.AppliedBy,
+		HealingEvent.HealingInfo.Source, HealingEvent.ThreatInfo.IgnoreRestrictions, HealingEvent.ThreatInfo.IgnoreModifiers,
+		HealingEvent.ThreatInfo.SourceModifier);
 }
 
 void UThreatHandler::GetIncomingThreatMods(TArray<FCombatModifier>& OutMods, FThreatEvent const& Event)
@@ -132,21 +159,97 @@ void UThreatHandler::NotifyRemovedFromThreatTable(AActor* Actor)
 	}
 }
 
-void UThreatHandler::AddThreat(FThreatEvent& Event)
+FThreatEvent UThreatHandler::AddThreat(EThreatType const ThreatType, float const BaseThreat, AActor* AppliedBy,
+		UObject* Source, bool const bIgnoreRestrictions, bool const bIgnoreModifiers, FThreatModCondition const& SourceModifier)
 {
-	if (Event.Threat <= 0.0f)
+	FThreatEvent Result;
+	
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(AppliedBy) || BaseThreat <= 0.0f || !bCanEverReceiveThreat)
 	{
-		return;
+		return Result;
+	}
+	
+	//Target must either be alive, or not have a health component.
+	if (IsValid(DamageHandlerRef) && DamageHandlerRef->GetLifeStatus() != ELifeStatus::Alive)
+	{
+		return Result;
+	}
+	
+	if (!AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	{
+		return Result;
+	}
+	UThreatHandler* GeneratorComponent = ISaiyoraCombatInterface::Execute_GetThreatHandler(AppliedBy);
+	if (!IsValid(GeneratorComponent) || !GeneratorComponent->CanEverGenerateThreat())
+	{
+		return Result;
+	}
+	//Generator must either be alive, or not have a health component.
+	UDamageHandler* GeneratorHealth = ISaiyoraCombatInterface::Execute_GetDamageHandler(AppliedBy);
+	if (IsValid(GeneratorHealth) && GeneratorHealth->GetLifeStatus() != ELifeStatus::Alive)
+	{
+		return Result;
+	}
+
+	if (IsValid(GeneratorComponent->GetMisdirectTarget()))
+	{
+		//If we are misdirected to a different actor, that actor must also be alive or not have a health component.
+		UDamageHandler* MisdirectHealth = ISaiyoraCombatInterface::Execute_GetDamageHandler(GeneratorComponent->GetMisdirectTarget());
+		if (IsValid(MisdirectHealth) && MisdirectHealth->GetLifeStatus() != ELifeStatus::Alive)
+		{
+			//If the misdirected actor is dead, threat will come from the original generator.
+			Result.AppliedBy = AppliedBy;
+		}
+		else
+		{
+			Result.AppliedBy = GeneratorComponent->GetMisdirectTarget();
+		}
+	}
+	else
+	{
+		Result.AppliedBy = AppliedBy;
+	}
+
+	Result.AppliedTo = GetOwner();
+	Result.Source = Source;
+	Result.ThreatType = ThreatType;
+	Result.AppliedByPlane = USaiyoraCombatLibrary::GetActorPlane(Result.AppliedBy);
+	Result.AppliedToPlane = USaiyoraCombatLibrary::GetActorPlane(Result.AppliedTo);
+	Result.AppliedXPlane = USaiyoraCombatLibrary::CheckForXPlane(Result.AppliedByPlane, Result.AppliedToPlane);
+	Result.Threat = BaseThreat;
+
+	if (!bIgnoreModifiers)
+	{
+		TArray<FCombatModifier> Mods;
+		GeneratorComponent->GetOutgoingThreatMods(Mods, Result);
+		GetIncomingThreatMods(Mods, Result);
+		if (SourceModifier.IsBound())
+		{
+			Mods.Add(SourceModifier.Execute(Result));
+		}
+		Result.Threat = FCombatModifier::ApplyModifiers(Mods, Result.Threat);
+		if (Result.Threat <= 0.0f)
+		{
+			return Result;
+		}
+	}
+
+	if (!bIgnoreRestrictions)
+	{
+		if (GeneratorComponent->CheckOutgoingThreatRestricted(Result) || CheckIncomingThreatRestricted(Result))
+		{
+			return Result;
+		}
 	}
 
 	int32 FoundIndex = ThreatTable.Num();
 	bool bFound = false;
 	for (; FoundIndex > 0; FoundIndex--)
 	{
-		if (ThreatTable[FoundIndex - 1].Target == Event.AppliedBy)
+		if (ThreatTable[FoundIndex - 1].Target == Result.AppliedBy)
 		{
 			bFound = true;
-			ThreatTable[FoundIndex - 1].Threat += Event.Threat;
+			ThreatTable[FoundIndex - 1].Threat += Result.Threat;
 			while (FoundIndex < ThreatTable.Num() && ThreatTable[FoundIndex] < ThreatTable[FoundIndex - 1])
 			{
 				ThreatTable.Swap(FoundIndex, FoundIndex - 1);
@@ -161,10 +264,12 @@ void UThreatHandler::AddThreat(FThreatEvent& Event)
 	}
 	if (!bFound)
 	{
-		Event.bInitialThreat = true;
-		AddToThreatTable(Event.AppliedBy, Event.Threat);
+		Result.bInitialThreat = true;
+		AddToThreatTable(Result.AppliedBy, Result.Threat);
 	}
-	Event.bSuccess = true;
+	Result.bSuccess = true;
+
+	return Result;
 }
 
 void UThreatHandler::UpdateCombatStatus()
@@ -243,6 +348,7 @@ void UThreatHandler::AddToThreatTable(AActor* Actor, float const InitialThreat, 
 	if (IsValid(TargetDamageHandler))
 	{	
 		TargetDamageHandler->SubscribeToLifeStatusChanged(DeathCallback);
+		TargetDamageHandler->SubscribeToIncomingHealingSuccess(ThreatFromHealingCallback);
 	}
 }
 
@@ -267,6 +373,7 @@ void UThreatHandler::RemoveFromThreatTable(AActor* Actor)
 			if (IsValid(TargetDamageHandler))
 			{	
 				TargetDamageHandler->UnsubscribeFromLifeStatusChanged(DeathCallback);
+				TargetDamageHandler->UnsubscribeFromIncomingHealingSuccess(ThreatFromHealingCallback);
 			}
 			if (i == ThreatTable.Num() - 1)
 			{

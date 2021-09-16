@@ -1,11 +1,11 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
-
 #include "CoreMinimal.h"
 #include "DamageEnums.h"
 #include "SaiyoraEnums.h"
 #include "SaiyoraStructs.h"
+#include "ThreatStructs.h"
 #include "DamageStructs.generated.h"
 
 //Damage
@@ -15,15 +15,15 @@ struct FDamageResult
 {
  GENERATED_BODY()
 
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Damage")
+ UPROPERTY(BlueprintReadOnly, Category = "Damage")
  bool Success = false;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Damage")
+ UPROPERTY(BlueprintReadOnly, Category = "Damage")
  float AmountDealt = 0.0f;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Damage")
+ UPROPERTY(BlueprintReadOnly, Category = "Damage")
  float PreviousHealth = 0.0f;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Damage")
+ UPROPERTY(BlueprintReadOnly, Category = "Damage")
  float NewHealth = 0.0f;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Damage")
+ UPROPERTY(BlueprintReadOnly, Category = "Damage")
  bool KillingBlow = false;
 };
 
@@ -32,23 +32,23 @@ struct FDamageInfo
 {
  GENERATED_BODY()
 
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Damage")
+ UPROPERTY(BlueprintReadOnly, Category = "Damage")
  AActor* AppliedTo = nullptr;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Damage")
+ UPROPERTY(BlueprintReadOnly, Category = "Damage")
  AActor* AppliedBy = nullptr;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Damage")
+ UPROPERTY(BlueprintReadOnly, Category = "Damage")
  UObject* Source = nullptr;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Damage")
+ UPROPERTY(BlueprintReadOnly, Category = "Damage")
  bool AppliedXPlane = false;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Damage")
+ UPROPERTY(BlueprintReadOnly, Category = "Damage")
  ESaiyoraPlane AppliedByPlane = ESaiyoraPlane::None;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Damage")
+ UPROPERTY(BlueprintReadOnly, Category = "Damage")
  ESaiyoraPlane AppliedToPlane = ESaiyoraPlane::None;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Damage")
+ UPROPERTY(BlueprintReadOnly, Category = "Damage")
  EDamageHitStyle HitStyle = EDamageHitStyle::None;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Damage")
+ UPROPERTY(BlueprintReadOnly, Category = "Damage")
  EDamageSchool School = EDamageSchool::None;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Damage")
+ UPROPERTY(BlueprintReadOnly, Category = "Damage")
  float Damage = 0.0f;
  UPROPERTY(BlueprintReadOnly, Category = "Damage")
  float SnapshotDamage = 0.0f;
@@ -60,12 +60,14 @@ DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FDamageModCondition, F
 USTRUCT(BlueprintType)
 struct FDamagingEvent
 {
- GENERATED_BODY()
+    GENERATED_BODY()
  
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Damage")
- FDamageInfo DamageInfo;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Damage")
- FDamageResult Result;
+    UPROPERTY(BlueprintReadOnly, Category = "Damage")
+    FDamageInfo DamageInfo;
+    UPROPERTY(BlueprintReadOnly, Category = "Damage")
+    FDamageResult Result;
+    UPROPERTY(BlueprintReadOnly, Category = "Threat")
+    FThreatFromDamage ThreatInfo;
 };
 
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FDeathCondition, FDamagingEvent const&, DamageEvent);
@@ -79,13 +81,13 @@ struct FHealingResult
 {
  GENERATED_BODY()
  
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Healing")
+ UPROPERTY(BlueprintReadOnly, Category = "Healing")
  bool Success = false;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Healing")
+ UPROPERTY(BlueprintReadOnly, Category = "Healing")
  float AmountDealt = 0.0f;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Healing")
+ UPROPERTY(BlueprintReadOnly, Category = "Healing")
  float PreviousHealth = 0.0f;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Healing")
+ UPROPERTY(BlueprintReadOnly, Category = "Healing")
  float NewHealth = 0.0f;
 };
 
@@ -94,23 +96,23 @@ struct FHealingInfo
 {
  GENERATED_BODY()
 
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Healing")
+ UPROPERTY(BlueprintReadOnly, Category = "Healing")
  AActor* AppliedTo = nullptr;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Healing")
+ UPROPERTY(BlueprintReadOnly, Category = "Healing")
  AActor* AppliedBy = nullptr;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Healing")
+ UPROPERTY(BlueprintReadOnly, Category = "Healing")
  UObject* Source = nullptr;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Healing")
+ UPROPERTY(BlueprintReadOnly, Category = "Healing")
  bool AppliedXPlane = false;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Healing")
+ UPROPERTY(BlueprintReadOnly, Category = "Healing")
  ESaiyoraPlane AppliedByPlane = ESaiyoraPlane::None;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Healing")
+ UPROPERTY(BlueprintReadOnly, Category = "Healing")
  ESaiyoraPlane AppliedToPlane = ESaiyoraPlane::None;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Healing")
+ UPROPERTY(BlueprintReadOnly, Category = "Healing")
  EDamageHitStyle HitStyle = EDamageHitStyle::None;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Healing")
+ UPROPERTY(BlueprintReadOnly, Category = "Healing")
  EDamageSchool School = EDamageSchool::None;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Healing")
+ UPROPERTY(BlueprintReadOnly, Category = "Healing")
  float Healing = 0.0f;
  UPROPERTY(BlueprintReadOnly, Category = "Healing")
  float SnapshotHealing = 0.0f;
@@ -124,10 +126,12 @@ struct FHealingEvent
 {
  GENERATED_BODY()
 
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Healing")
+ UPROPERTY(BlueprintReadOnly, Category = "Healing")
  FHealingInfo HealingInfo;
- UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Healing")
+ UPROPERTY(BlueprintReadOnly, Category = "Healing")
  FHealingResult Result;
+ UPROPERTY(BlueprintReadOnly, Category = "Healing")
+ FThreatFromDamage ThreatInfo;
 };
 
 DECLARE_DYNAMIC_DELEGATE_OneParam(FHealingEventCallback, FHealingEvent const&, HealingEvent);

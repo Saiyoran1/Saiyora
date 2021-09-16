@@ -8,7 +8,7 @@
 
 FDamagingEvent USaiyoraDamageFunctions::ApplyDamage(float const Amount, AActor* AppliedBy, AActor* AppliedTo, UObject* Source,
     EDamageHitStyle const HitStyle, EDamageSchool const School, bool const bIgnoreRestrictions, bool const bIgnoreModifiers,
-    bool const bFromSnapshot)
+    bool const bFromSnapshot, FThreatFromDamage const& ThreatParams)
 {
      //Initialize the event.
     FDamagingEvent DamageEvent;
@@ -47,6 +47,12 @@ FDamagingEvent USaiyoraDamageFunctions::ApplyDamage(float const Amount, AActor* 
     DamageEvent.DamageInfo.AppliedToPlane = USaiyoraCombatLibrary::GetActorPlane(AppliedTo);
     DamageEvent.DamageInfo.AppliedXPlane = USaiyoraCombatLibrary::CheckForXPlane(
         DamageEvent.DamageInfo.AppliedByPlane, DamageEvent.DamageInfo.AppliedToPlane);
+
+    DamageEvent.ThreatInfo = ThreatParams;
+     if (!ThreatParams.SeparateBaseThreat)
+     {
+         DamageEvent.ThreatInfo.BaseThreat = DamageEvent.DamageInfo.Damage;
+     }
     
     //Check for generator. Not required.
     UDamageHandler* GeneratorComponent = nullptr;
@@ -103,7 +109,7 @@ FDamagingEvent USaiyoraDamageFunctions::ApplyDamage(float const Amount, AActor* 
 
 FHealingEvent USaiyoraDamageFunctions::ApplyHealing(float const Amount, AActor* AppliedBy, AActor* AppliedTo, UObject* Source,
     EDamageHitStyle const HitStyle, EDamageSchool const School, bool const bIgnoreRestrictions, bool const bIgnoreModifiers,
-    bool const bFromSnapshot)
+    bool const bFromSnapshot, FThreatFromDamage const& ThreatParams)
 {
     //Initialize the event.
     FHealingEvent HealingEvent;
@@ -142,6 +148,12 @@ FHealingEvent USaiyoraDamageFunctions::ApplyHealing(float const Amount, AActor* 
     HealingEvent.HealingInfo.AppliedToPlane = USaiyoraCombatLibrary::GetActorPlane(AppliedTo);
     HealingEvent.HealingInfo.AppliedXPlane = USaiyoraCombatLibrary::CheckForXPlane(
         HealingEvent.HealingInfo.AppliedByPlane, HealingEvent.HealingInfo.AppliedToPlane);
+
+    HealingEvent.ThreatInfo = ThreatParams;
+    if (!ThreatParams.SeparateBaseThreat)
+    {
+        HealingEvent.ThreatInfo.BaseThreat = HealingEvent.HealingInfo.Healing;
+    }
     
     //Check for generator. Not required.
     UDamageHandler* GeneratorComponent = nullptr;

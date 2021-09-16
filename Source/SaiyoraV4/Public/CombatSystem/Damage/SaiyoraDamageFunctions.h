@@ -27,7 +27,8 @@ public:
 		EDamageSchool const School,
 		bool const bIgnoreRestrictions,
 		bool const bIgnoreModifiers,
-		bool const bFromSnapshot);
+		bool const bFromSnapshot,
+		FThreatFromDamage const& ThreatParams);
 
 	//Apply healing to an actor.
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Healing")
@@ -40,7 +41,8 @@ public:
 		EDamageSchool const School,
 		bool const bIgnoreRestrictions,
 		bool const bIgnoreModifiers,
-		bool const bFromSnapshot);
+		bool const bFromSnapshot,
+		FThreatFromDamage const& ThreatParams);
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Damage")
 	static float GetSnapshotDamage(

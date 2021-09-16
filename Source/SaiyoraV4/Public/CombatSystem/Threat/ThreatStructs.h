@@ -1,7 +1,6 @@
 ﻿#pragma once
 #include "CoreMinimal.h"
 #include "SaiyoraStructs.h"
-#include "DamageStructs.h"
 #include "ThreatEnums.h"
 #include "ThreatStructs.generated.h"
 
@@ -61,3 +60,23 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FTargetNotification, AActor*, Previ
 
 DECLARE_DYNAMIC_DELEGATE_TwoParams(FFadeCallback, AActor*, Actor, bool const, Faded);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FFadeNotification, AActor*, Actor, bool const, Faded);
+
+//Threat caused by damage and healing can have a separate base threat value, an optional modifier from the source, and the option to ignore modifiers and restrictions.
+USTRUCT(BlueprintType)
+struct FThreatFromDamage
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadWrite, Category = "Threat")
+	bool GeneratesThreat = false;
+	UPROPERTY(BlueprintReadWrite, Category = "Threat")
+	bool SeparateBaseThreat = false;
+	UPROPERTY(BlueprintReadWrite, Category = "Threat")
+	float BaseThreat = 0.0f;
+	UPROPERTY(BlueprintReadWrite, Category = "Threat")
+	bool IgnoreModifiers = false;
+	UPROPERTY(BlueprintReadWrite, Category = "Threat")
+	bool IgnoreRestrictions = false;
+	UPROPERTY(BlueprintReadWrite, Category = "Threat")
+	FThreatModCondition SourceModifier;
+};

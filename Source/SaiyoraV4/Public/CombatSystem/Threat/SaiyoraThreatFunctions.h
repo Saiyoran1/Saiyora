@@ -16,7 +16,7 @@ class SAIYORAV4_API USaiyoraThreatFunctions : public UBlueprintFunctionLibrary
 		AActor* AppliedBy,
 		AActor* AppliedTo,
 		UObject* Source,
-		bool bIgnoreRestrictions,
-		bool bIgnoreModifiers,
+		bool const bIgnoreRestrictions,
+		bool const bIgnoreModifiers,
 		FThreatModCondition const& SourceModifier);
 };
