@@ -8,6 +8,7 @@
 #include "DamageHandler.h"
 
 float UThreatHandler::GlobalHealingThreatModifier = .3f;
+float UThreatHandler::GlobalTauntThreatPercentage = 1.2f;
 
 UThreatHandler::UThreatHandler()
 {
@@ -39,6 +40,7 @@ void UThreatHandler::BeginPlay()
 void UThreatHandler::InitializeComponent()
 {
 	FadeCallback.BindDynamic(this, &UThreatHandler::OnTargetFadeStatusChanged);
+	VanishCallback.BindDynamic(this, &UThreatHandler::OnTargetVanished);
 	DeathCallback.BindDynamic(this, &UThreatHandler::OnTargetDied);
 	OwnerDeathCallback.BindDynamic(this, &UThreatHandler::OnOwnerDied);
 	ThreatFromDamageCallback.BindDynamic(this, &UThreatHandler::OnOwnerDamageTaken);
@@ -86,6 +88,14 @@ void UThreatHandler::OnTargetHealingTaken(FHealingEvent const& HealingEvent)
 	AddThreat(EThreatType::Healing, (HealingEvent.ThreatInfo.BaseThreat * GlobalHealingThreatModifier), HealingEvent.HealingInfo.AppliedBy,
 		HealingEvent.HealingInfo.Source, HealingEvent.ThreatInfo.IgnoreRestrictions, HealingEvent.ThreatInfo.IgnoreModifiers,
 		HealingEvent.ThreatInfo.SourceModifier);
+}
+
+void UThreatHandler::OnTargetVanished(AActor* Actor)
+{
+	if (IsValid(Actor))
+	{
+		RemoveFromThreatTable(Actor);
+	}
 }
 
 void UThreatHandler::GetIncomingThreatMods(TArray<FCombatModifier>& OutMods, FThreatEvent const& Event)
@@ -159,8 +169,24 @@ void UThreatHandler::NotifyRemovedFromThreatTable(AActor* Actor)
 	}
 }
 
+float UThreatHandler::GetThreatLevel(AActor* Target) const
+{
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(Target))
+	{
+		return 0.0f;
+	}
+	for (FThreatTarget const& ThreatEntry : ThreatTable)
+	{
+		if (IsValid(ThreatEntry.Target) && ThreatEntry.Target == Target)
+		{
+			return ThreatEntry.Threat;
+		}
+	}
+	return 0.0f;
+}
+
 FThreatEvent UThreatHandler::AddThreat(EThreatType const ThreatType, float const BaseThreat, AActor* AppliedBy,
-		UObject* Source, bool const bIgnoreRestrictions, bool const bIgnoreModifiers, FThreatModCondition const& SourceModifier)
+                                       UObject* Source, bool const bIgnoreRestrictions, bool const bIgnoreModifiers, FThreatModCondition const& SourceModifier)
 {
 	FThreatEvent Result;
 	
@@ -272,6 +298,38 @@ FThreatEvent UThreatHandler::AddThreat(EThreatType const ThreatType, float const
 	return Result;
 }
 
+void UThreatHandler::RemoveThreat(float const Amount, AActor* AppliedBy)
+{
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(AppliedBy) || !bCanEverReceiveThreat)
+	{
+		return;
+	}
+	bool bAffectedTarget = false;
+	bool bFound = false;
+	for (int i = 0; i < ThreatTable.Num(); i++)
+	{
+		if (ThreatTable[i].Target == AppliedBy)
+		{
+			bFound = true;
+			ThreatTable[i].Threat = FMath::Max(0.0f, ThreatTable[i].Threat - Amount);
+			while (i > 0 && ThreatTable[i] < ThreatTable[i - 1])
+			{
+				ThreatTable.Swap(i, i - 1);
+				if (!bAffectedTarget && i == ThreatTable.Num() - 1)
+				{
+					bAffectedTarget = true;
+				}
+				i--;
+			}
+			break;
+		}
+	}
+	if (bFound && bAffectedTarget)
+	{
+		UpdateTarget();
+	}
+}
+
 void UThreatHandler::UpdateCombatStatus()
 {
 	if (GetOwnerRole() != ROLE_Authority)
@@ -342,6 +400,7 @@ void UThreatHandler::AddToThreatTable(AActor* Actor, float const InitialThreat, 
 	if (IsValid(TargetThreatHandler))
 	{
 		TargetThreatHandler->SubscribeToFadeStatusChanged(FadeCallback);
+		TargetThreatHandler->SubscribeToVanished(VanishCallback);
 		TargetThreatHandler->NotifyAddedToThreatTable(GetOwner());
 	}
 	UDamageHandler* TargetDamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(Actor);
@@ -367,6 +426,7 @@ void UThreatHandler::RemoveFromThreatTable(AActor* Actor)
 			if (IsValid(TargetThreatHandler))
 			{
 				TargetThreatHandler->UnsubscribeFromFadeStatusChanged(FadeCallback);
+				TargetThreatHandler->UnsubscribeFromVanished(VanishCallback);
 				TargetThreatHandler->NotifyRemovedFromThreatTable(GetOwner());
 			}
 			UDamageHandler* TargetDamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(Actor);
@@ -418,6 +478,64 @@ void UThreatHandler::UnsubscribeFromFadeStatusChanged(FFadeCallback const& Callb
 		return;
 	}
 	OnFadeStatusChanged.Remove(Callback);
+}
+
+void UThreatHandler::SubscribeToVanished(FVanishCallback const& Callback)
+{
+	if (!Callback.IsBound())
+	{
+		return;
+	}
+	OnVanished.AddUnique(Callback);
+}
+
+void UThreatHandler::UnsubscribeFromVanished(FVanishCallback const& Callback)
+{
+	if (!Callback.IsBound())
+	{
+		return;
+	}
+	OnVanished.Remove(Callback);
+}
+
+void UThreatHandler::Taunt(AActor* AppliedBy, bool const bIgnoreRestrictions)
+{
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(AppliedBy) || !bCanEverReceiveThreat)
+	{
+		return;
+	}
+	UThreatHandler* GeneratorComponent = ISaiyoraCombatInterface::Execute_GetThreatHandler(AppliedBy);
+	if (!IsValid(GeneratorComponent) || !GeneratorComponent->CanEverGenerateThreat())
+	{
+		return;
+	}
+	//TODO: Check for taunt immunity.
+	float const InitialThreat = GetThreatLevel(AppliedBy);
+	float HighestThreat = 0.0f;
+	for (FThreatTarget const& Target : ThreatTable)
+	{
+		if (Target.Threat > HighestThreat)
+		{
+			HighestThreat = Target.Threat;
+		}
+	}
+	HighestThreat *= GlobalTauntThreatPercentage;
+	AddThreat(EThreatType::Absolute, FMath::Max(0.0f, HighestThreat - InitialThreat), AppliedBy, nullptr, true, true, FThreatModCondition());
+}
+
+void UThreatHandler::DropThreat(AActor* Target, float const Percentage, bool const bIgnoreRestrictions)
+{
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(Target) || !bCanEverReceiveThreat)
+	{
+		return;
+	}
+	//TODO: Check for drop immunity.
+	float const DropThreat = GetThreatLevel(Target) * FMath::Clamp(Percentage, 0.0f, 1.0f);
+	if (DropThreat <= 0.0f)
+	{
+		return;
+	}
+	RemoveThreat(DropThreat, Target);
 }
 
 void UThreatHandler::OnTargetFadeStatusChanged(AActor* Actor, bool const FadeStatus)
@@ -726,4 +844,33 @@ void UThreatHandler::RemoveFade(UBuff* Source)
 	{
 		OnFadeStatusChanged.Broadcast(GetOwner(), true);
 	}
+}
+
+void UThreatHandler::Vanish(bool const bIgnoreRestrictions)
+{
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
+	//TODO: Check if vanish restricted.
+	OnVanished.Broadcast(GetOwner());
+	//This only clears us from actors that have us in their threat table. This does NOT clear our threat table. This shouldn't matter, as if an NPC vanishes its unlikely the player will care.
+	//This only has ramifications if NPCs can possibly attack each other.
+}
+
+void UThreatHandler::TransferThreat(AActor* FromActor, AActor* ToActor, float const Percentage,
+	bool const bIgnoreRestrictions)
+{
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(FromActor) || !IsValid(ToActor))
+	{
+		return;
+	}
+	//TODO: Check if transfer restricted.
+	float const TransferThreat = GetThreatLevel(FromActor) * FMath::Clamp(Percentage, 0.0f, 1.0f);
+	if (TransferThreat <= 0.0f)
+	{
+		return;
+	}
+	RemoveThreat(TransferThreat, FromActor);
+	AddThreat(EThreatType::Absolute, TransferThreat, ToActor, nullptr, true, true, FThreatModCondition());
 }

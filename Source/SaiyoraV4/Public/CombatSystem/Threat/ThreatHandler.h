@@ -9,7 +9,6 @@
 #include "Components/ActorComponent.h"
 #include "ThreatHandler.generated.h"
 
-
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class SAIYORAV4_API UThreatHandler : public UActorComponent
 {
@@ -22,6 +21,7 @@ public:
 	static FGameplayTag FadeTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Threat.Fade")), false); }
 	static FGameplayTag MisdirectTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Threat.Misdirect")), false); }
 	static float GlobalHealingThreatModifier;
+	static float GlobalTauntThreatPercentage;
 	
 	UThreatHandler();
 	virtual void BeginPlay() override;
@@ -43,8 +43,10 @@ public:
 	void NotifyAddedToThreatTable(AActor* Actor);
 	void NotifyRemovedFromThreatTable(AActor* Actor);
 
+	float GetThreatLevel(AActor* Target) const;
 	FThreatEvent AddThreat(EThreatType const ThreatType, float const BaseThreat, AActor* AppliedBy,
 		UObject* Source, bool const bIgnoreRestrictions, bool const bIgnoreModifiers, FThreatModCondition const& SourceModifier);
+	void RemoveThreat(float const Amount, AActor* AppliedBy);
 
 	void AddFixate(AActor* Target, UBuff* Source);
 	void RemoveFixate(UBuff* Source);
@@ -54,7 +56,17 @@ public:
 	void RemoveFade(UBuff* Source);
 	void SubscribeToFadeStatusChanged(FFadeCallback const& Callback);
 	void UnsubscribeFromFadeStatusChanged(FFadeCallback const& Callback);
+	void SubscribeToVanished(FVanishCallback const& Callback);
+	void UnsubscribeFromVanished(FVanishCallback const& Callback);
 	//void AddMisdirect(AActor* ThreatFrom, AActor* ThreatTo, UBuff* Source);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
+	void Taunt(AActor* AppliedBy, bool const bIgnoreRestrictions);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
+	void DropThreat(AActor* Target, float const Percentage, bool const bIgnoreRestrictions);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
+	void Vanish(bool const bIgnoreRestrictions);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
+	void TransferThreat(AActor* FromActor, AActor* ToActor, float const Percentage, bool const bIgnoreRestrictions);
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Threat")
 	bool IsInCombat() const { return bInCombat; }
@@ -76,6 +88,8 @@ private:
 	void OnOwnerDamageTaken(FDamagingEvent const& DamageEvent);
 	UFUNCTION()
 	void OnTargetHealingTaken(FHealingEvent const& HealingEvent);
+	UFUNCTION()
+	void OnTargetVanished(AActor* Actor);
 	
 	UPROPERTY(EditAnywhere, Category = "Threat")
 	bool bCanEverReceiveThreat = false;
@@ -114,6 +128,8 @@ private:
 	FCombatStatusNotification OnCombatChanged;
 	FFadeCallback FadeCallback;
 	FFadeNotification OnFadeStatusChanged;
+	FVanishCallback VanishCallback;
+	FVanishNotification OnVanished;
 	FLifeStatusCallback DeathCallback;
 	FLifeStatusCallback OwnerDeathCallback;
 	FDamageEventCallback ThreatFromDamageCallback;

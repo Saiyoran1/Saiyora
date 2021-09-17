@@ -61,6 +61,9 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FTargetNotification, AActor*, Previ
 DECLARE_DYNAMIC_DELEGATE_TwoParams(FFadeCallback, AActor*, Actor, bool const, Faded);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FFadeNotification, AActor*, Actor, bool const, Faded);
 
+DECLARE_DYNAMIC_DELEGATE_OneParam(FVanishCallback, AActor*, Actor);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FVanishNotification, AActor*, Actor);
+
 //Threat caused by damage and healing can have a separate base threat value, an optional modifier from the source, and the option to ignore modifiers and restrictions.
 USTRUCT(BlueprintType)
 struct FThreatFromDamage
