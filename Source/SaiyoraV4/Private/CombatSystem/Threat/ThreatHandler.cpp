@@ -6,6 +6,7 @@
 #include "BuffHandler.h"
 #include "SaiyoraCombatInterface.h"
 #include "DamageHandler.h"
+#include "SaiyoraBuffLibrary.h"
 
 float UThreatHandler::GlobalHealingThreatModifier = .3f;
 float UThreatHandler::GlobalTauntThreatPercentage = 1.2f;
@@ -23,7 +24,7 @@ void UThreatHandler::BeginPlay()
 
 	if (GetOwnerRole() == ROLE_Authority)
 	{
-		UBuffHandler* BuffHandlerRef = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwner());
+		BuffHandlerRef = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwner());
 		if (IsValid(BuffHandlerRef))
 		{
 			//TODO: Add restriction on buffs with immune threat controls.
@@ -455,7 +456,7 @@ void UThreatHandler::RemoveFromThreatTable(AActor* Actor)
 
 void UThreatHandler::OnTargetDied(AActor* Actor, ELifeStatus Previous, ELifeStatus New)
 {
-	if (!IsValid(Actor) || New != ELifeStatus::Dead || GetOwnerRole() != ROLE_Authority)
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(Actor) || New != ELifeStatus::Dead)
 	{
 		return;
 	}
@@ -498,7 +499,7 @@ void UThreatHandler::UnsubscribeFromVanished(FVanishCallback const& Callback)
 	OnVanished.Remove(Callback);
 }
 
-void UThreatHandler::Taunt(AActor* AppliedBy, bool const bIgnoreRestrictions)
+void UThreatHandler::Taunt(AActor* AppliedBy)
 {
 	if (GetOwnerRole() != ROLE_Authority || !IsValid(AppliedBy) || !bCanEverReceiveThreat)
 	{
@@ -509,7 +510,6 @@ void UThreatHandler::Taunt(AActor* AppliedBy, bool const bIgnoreRestrictions)
 	{
 		return;
 	}
-	//TODO: Check for taunt immunity.
 	float const InitialThreat = GetThreatLevel(AppliedBy);
 	float HighestThreat = 0.0f;
 	for (FThreatTarget const& Target : ThreatTable)
@@ -523,13 +523,12 @@ void UThreatHandler::Taunt(AActor* AppliedBy, bool const bIgnoreRestrictions)
 	AddThreat(EThreatType::Absolute, FMath::Max(0.0f, HighestThreat - InitialThreat), AppliedBy, nullptr, true, true, FThreatModCondition());
 }
 
-void UThreatHandler::DropThreat(AActor* Target, float const Percentage, bool const bIgnoreRestrictions)
+void UThreatHandler::DropThreat(AActor* Target, float const Percentage)
 {
 	if (GetOwnerRole() != ROLE_Authority || !IsValid(Target) || !bCanEverReceiveThreat)
 	{
 		return;
 	}
-	//TODO: Check for drop immunity.
 	float const DropThreat = GetThreatLevel(Target) * FMath::Clamp(Percentage, 0.0f, 1.0f);
 	if (DropThreat <= 0.0f)
 	{
@@ -846,26 +845,23 @@ void UThreatHandler::RemoveFade(UBuff* Source)
 	}
 }
 
-void UThreatHandler::Vanish(bool const bIgnoreRestrictions)
+void UThreatHandler::Vanish()
 {
 	if (GetOwnerRole() != ROLE_Authority)
 	{
 		return;
 	}
-	//TODO: Check if vanish restricted.
 	OnVanished.Broadcast(GetOwner());
 	//This only clears us from actors that have us in their threat table. This does NOT clear our threat table. This shouldn't matter, as if an NPC vanishes its unlikely the player will care.
 	//This only has ramifications if NPCs can possibly attack each other.
 }
 
-void UThreatHandler::TransferThreat(AActor* FromActor, AActor* ToActor, float const Percentage,
-	bool const bIgnoreRestrictions)
+void UThreatHandler::TransferThreat(AActor* FromActor, AActor* ToActor, float const Percentage)
 {
 	if (GetOwnerRole() != ROLE_Authority || !IsValid(FromActor) || !IsValid(ToActor))
 	{
 		return;
 	}
-	//TODO: Check if transfer restricted.
 	float const TransferThreat = GetThreatLevel(FromActor) * FMath::Clamp(Percentage, 0.0f, 1.0f);
 	if (TransferThreat <= 0.0f)
 	{

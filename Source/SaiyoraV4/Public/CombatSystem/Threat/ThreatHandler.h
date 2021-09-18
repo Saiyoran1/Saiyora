@@ -56,17 +56,18 @@ public:
 	void RemoveFade(UBuff* Source);
 	void SubscribeToFadeStatusChanged(FFadeCallback const& Callback);
 	void UnsubscribeFromFadeStatusChanged(FFadeCallback const& Callback);
-	void SubscribeToVanished(FVanishCallback const& Callback);
-	void UnsubscribeFromVanished(FVanishCallback const& Callback);
+	//TODO: Misdirection.
 	//void AddMisdirect(AActor* ThreatFrom, AActor* ThreatTo, UBuff* Source);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
-	void Taunt(AActor* AppliedBy, bool const bIgnoreRestrictions);
+	void Taunt(AActor* AppliedBy);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
-	void DropThreat(AActor* Target, float const Percentage, bool const bIgnoreRestrictions);
+	void DropThreat(AActor* Target, float const Percentage);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
-	void Vanish(bool const bIgnoreRestrictions);
+	void Vanish();
+	void SubscribeToVanished(FVanishCallback const& Callback);
+	void UnsubscribeFromVanished(FVanishCallback const& Callback);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
-	void TransferThreat(AActor* FromActor, AActor* ToActor, float const Percentage, bool const bIgnoreRestrictions);
+	void TransferThreat(AActor* FromActor, AActor* ToActor, float const Percentage);
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Threat")
 	bool IsInCombat() const { return bInCombat; }
@@ -119,6 +120,8 @@ private:
 
 	UPROPERTY()
 	class UDamageHandler* DamageHandlerRef;
+	UPROPERTY()
+	class UBuffHandler* BuffHandlerRef;
 	
 	TArray<FThreatModCondition> OutgoingThreatMods;
 	TArray<FThreatModCondition> IncomingThreatMods;
