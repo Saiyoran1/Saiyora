@@ -49,9 +49,9 @@ public:
 	void RemoveThreat(float const Amount, AActor* AppliedBy);
 
 	void AddFixate(AActor* Target, UBuff* Source);
-	void RemoveFixate(UBuff* Source);
+	void RemoveFixate(AActor* Target, UBuff* Source);
 	void AddBlind(AActor* Target, UBuff* Source);
-	void RemoveBlind(UBuff* Source);
+	void RemoveBlind(AActor* Target, UBuff* Source);
 	void AddFade(UBuff* Source);
 	void RemoveFade(UBuff* Source);
 	void SubscribeToFadeStatusChanged(FFadeCallback const& Callback);
@@ -79,7 +79,7 @@ private:
 	bool bInCombat = false;
 	UFUNCTION()
 	void OnRep_bInCombat();
-	void AddToThreatTable(AActor* Actor, float const InitialThreat = 0.0f, int32 const InitialFixates = 0, int32 const InitialBlinds = 0);
+	void AddToThreatTable(AActor* Actor, float const InitialThreat = 0.0f, bool const Faded = false, UBuff* InitialFixate = nullptr, UBuff* InitialBlind = nullptr);
 	void RemoveFromThreatTable(AActor* Actor);
 	UFUNCTION()
 	void OnTargetDied(AActor* Actor, ELifeStatus Previous, ELifeStatus New);

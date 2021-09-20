@@ -292,7 +292,7 @@ FThreatEvent UThreatHandler::AddThreat(EThreatType const ThreatType, float const
 	if (!bFound)
 	{
 		Result.bInitialThreat = true;
-		AddToThreatTable(Result.AppliedBy, Result.Threat);
+		AddToThreatTable(Result.AppliedBy, Result.Threat, GeneratorComponent->HasActiveFade());
 	}
 	Result.bSuccess = true;
 
@@ -360,8 +360,8 @@ void UThreatHandler::OnRep_bInCombat()
 	OnCombatChanged.Broadcast(bInCombat);
 }
 
-void UThreatHandler::AddToThreatTable(AActor* Actor, float const InitialThreat, int32 const InitialFixates,
-	int32 const InitialBlinds)
+void UThreatHandler::AddToThreatTable(AActor* Actor, float const InitialThreat, bool const Faded, UBuff* InitialFixate,
+	UBuff* InitialBlind)
 {
 	if (!IsValid(Actor) || GetOwnerRole() != ROLE_Authority)
 	{
@@ -369,7 +369,7 @@ void UThreatHandler::AddToThreatTable(AActor* Actor, float const InitialThreat, 
 	}
 	if (ThreatTable.Num() == 0)
 	{
-		ThreatTable.Add(FThreatTarget(Actor, InitialThreat, InitialFixates, InitialBlinds));
+		ThreatTable.Add(FThreatTarget(Actor, InitialThreat, Faded, InitialFixate, InitialBlind));
 		UpdateTarget();
 		UpdateCombatStatus();
 	}
@@ -382,7 +382,7 @@ void UThreatHandler::AddToThreatTable(AActor* Actor, float const InitialThreat, 
 				return;
 			}
 		}
-		FThreatTarget const NewTarget = FThreatTarget(Actor, InitialThreat, InitialFixates, InitialBlinds);
+		FThreatTarget const NewTarget = FThreatTarget(Actor, InitialThreat, Faded, InitialFixate, InitialBlind);
 		int32 InsertIndex = 0;
 		for (; InsertIndex < ThreatTable.Num(); InsertIndex++)
 		{
@@ -548,9 +548,10 @@ void UThreatHandler::OnTargetFadeStatusChanged(AActor* Actor, bool const FadeSta
 		if (ThreatTable[i].Target == Actor)
 		{
 			bool AffectedTarget = false;
+			ThreatTable[i].Faded = FadeStatus;
 			if (FadeStatus)
 			{
-				if (ThreatTable[i].Blinds == 0)
+				if (ThreatTable[i].Blinds.Num() == 0)
 				{
 					while (i > 0 && ThreatTable[i] < ThreatTable[i - 1])
 					{
@@ -565,7 +566,7 @@ void UThreatHandler::OnTargetFadeStatusChanged(AActor* Actor, bool const FadeSta
 			}
 			else
 			{
-				if (ThreatTable[i].Blinds == 0)
+				if (ThreatTable[i].Blinds.Num() == 0)
 				{
 					while (i < ThreatTable.Num() - 1 && ThreatTable[i + 1] < ThreatTable[i])
 					{
@@ -641,9 +642,10 @@ void UThreatHandler::AddFixate(AActor* Target, UBuff* Source)
 		if (ThreatTable[i].Target == Target)
 		{
 			bFound = true;
-			ThreatTable[i].Fixates++;
+			int32 const PreviousFixates = ThreatTable[i].Fixates.Num();
+			ThreatTable[i].Fixates.AddUnique(Source);
 			//If this was the first fixate for this target, possible reorder on threat.
-			if (ThreatTable[i].Fixates == 1)
+			if (PreviousFixates == 0 && ThreatTable[i].Fixates.Num() == 1)
 			{
 				while (i < ThreatTable.Num() - 1 && ThreatTable[i + 1] < ThreatTable[i])
 				{
@@ -665,32 +667,26 @@ void UThreatHandler::AddFixate(AActor* Target, UBuff* Source)
 	//If this unit was not in the threat table, need to add them.
 	if (!bFound)
 	{
-		AddToThreatTable(Target, 0.0f, 1);
+		AddToThreatTable(Target, 0.0f, GeneratorComponent->HasActiveFade(), Source);
 	}
 }
 
-void UThreatHandler::RemoveFixate(UBuff* Source)
+void UThreatHandler::RemoveFixate(AActor* Target, UBuff* Source)
 {
-	if (GetOwnerRole() != ROLE_Authority || !IsValid(Source))
-	{
-		return;
-	}
-	AActor* AffectedActor = nullptr;
-	bool const Removed = Fixates.RemoveAndCopyValue(Source, AffectedActor);
-	if (!Removed || !IsValid(AffectedActor))
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(Target) || !IsValid(Source))
 	{
 		return;
 	}
 	bool bAffectedTarget = false;
 	for (int i = 0; i < ThreatTable.Num(); i++)
 	{
-		if (ThreatTable[i].Target == AffectedActor)
+		if (ThreatTable[i].Target == Target)
 		{
-			if (ThreatTable[i].Fixates > 0)
+			if (ThreatTable[i].Fixates.Num() > 0)
 			{
-				ThreatTable[i].Fixates--;
+				ThreatTable[i].Fixates.Remove(Source);
 				//If we removed the last fixate for this target, possibly reorder on threat.
-				if (ThreatTable[i].Fixates == 0)
+				if (ThreatTable[i].Fixates.Num() == 0)
 				{
 					while (i > 0 && ThreatTable[i] < ThreatTable[i - 1])
 					{
@@ -743,9 +739,10 @@ void UThreatHandler::AddBlind(AActor* Target, UBuff* Source)
 		if (ThreatTable[i].Target == Target)
 		{
 			bFound = true;
-			ThreatTable[i].Blinds++;
+			int32 const PreviousBlinds = ThreatTable[i].Blinds.Num();
+			ThreatTable[i].Blinds.AddUnique(Source);
 			//If this is the first Blind for the unit, possibly reorder on threat.
-			if (ThreatTable[i].Blinds == 1)
+			if (PreviousBlinds == 0 && ThreatTable[i].Blinds.Num() == 1)
 			{
 				while (i > 0 && ThreatTable[i] < ThreatTable[i - 1])
 				{
@@ -767,32 +764,26 @@ void UThreatHandler::AddBlind(AActor* Target, UBuff* Source)
 	}
 	if (!bFound)
 	{
-		AddToThreatTable(Target, 0.0f, 0, 1);
+		AddToThreatTable(Target, 0.0f, GeneratorComponent->HasActiveFade(), nullptr, Source);
 	}
 }
 
-void UThreatHandler::RemoveBlind(UBuff* Source)
+void UThreatHandler::RemoveBlind(AActor* Target, UBuff* Source)
 {
-	if (GetOwnerRole() != ROLE_Authority || !IsValid(Source))
-	{
-		return;
-	}
-	AActor* AffectedActor = nullptr;
-	bool const Removed = Blinds.RemoveAndCopyValue(Source, AffectedActor);
-	if (!Removed || !IsValid(AffectedActor))
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(Target) || !IsValid(Source))
 	{
 		return;
 	}
 	bool bAffectedTarget = false;
 	for (int i = 0; i < ThreatTable.Num(); i++)
 	{
-		if (ThreatTable[i].Target == AffectedActor)
+		if (ThreatTable[i].Target == Target)
 		{
-			if (ThreatTable[i].Blinds > 0)
+			if (ThreatTable[i].Blinds.Num() > 0)
 			{
-				ThreatTable[i].Blinds--;
+				ThreatTable[i].Blinds.Remove(Source);
 				//If we went from non-zero Blinds to zero Blinds, possibly have to reorder on threat.
-				if (ThreatTable[i].Blinds == 0)
+				if (ThreatTable[i].Blinds.Num() == 0)
 				{
 					while (i < ThreatTable.Num() - 1 && ThreatTable[i + 1] < ThreatTable[i])
 					{

@@ -39,11 +39,14 @@ struct FThreatTarget
 	UPROPERTY()
 	AActor* Target = nullptr;
 	float Threat = 0.0f;
-	int32 Fixates = 0;
-	int32 Blinds = 0;
+	UPROPERTY()
+	TArray<UBuff*> Fixates;
+	UPROPERTY()
+	TArray<UBuff*> Blinds;
+	bool Faded = false;
 
 	FThreatTarget();
-	FThreatTarget(AActor* ThreatTarget, float const InitialThreat, int32 const InitialFixates = 0, int32 const InitialBlinds = 0);
+	FThreatTarget(AActor* ThreatTarget, float const InitialThreat, bool const bFaded = false, UBuff* InitialFixate = nullptr, UBuff* InitialBlind = nullptr);
 
 	FORCEINLINE bool operator<(FThreatTarget const& Other) const { return LessThan(Other); }
 	bool LessThan(FThreatTarget const& Other) const;

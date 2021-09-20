@@ -1,6 +1,7 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 #include "Threat/ThreatStructs.h"
+#include "Buff.h"
 #include "SaiyoraCombatInterface.h"
 #include "ThreatHandler.h"
 
@@ -8,26 +9,31 @@ FThreatTarget::FThreatTarget()
 {
 	Target = nullptr;
 	Threat = 0.0f;
-	Fixates = 0;
-	Blinds = 0;
 }
 
-FThreatTarget::FThreatTarget(AActor* ThreatTarget, float const InitialThreat, int32 const InitialFixates,
-	int32 const InitialBlinds)
+FThreatTarget::FThreatTarget(AActor* ThreatTarget, float const InitialThreat, bool const bFaded, UBuff* InitialFixate,
+	UBuff* InitialBlind)
 {
 	Target = ThreatTarget;
 	Threat = InitialThreat;
-	Fixates = InitialFixates;
-	Blinds = InitialBlinds;
+	Faded = bFaded;
+	if (IsValid(InitialFixate))
+	{
+		Fixates.Add(InitialFixate);
+	}
+	if (IsValid(InitialBlind))
+	{
+		Blinds.Add(InitialBlind);
+	}
 }
 
 bool FThreatTarget::LessThan(FThreatTarget const& Other) const
 {
 	//Check if we are blinded or faded.
-	if (Blinds > 0 || ISaiyoraCombatInterface::Execute_GetThreatHandler(Target)->HasActiveFade())
+	if (Blinds.Num() > 0 || Faded)
 	{
 		//If the other is also blinded or faded, order on threat.
-		if (Other.Blinds > 0 || ISaiyoraCombatInterface::Execute_GetThreatHandler(Other.Target)->HasActiveFade())
+		if (Other.Blinds.Num() > 0 || Other.Faded)
 		{
 			return Threat < Other.Threat;
 		}
@@ -35,13 +41,13 @@ bool FThreatTarget::LessThan(FThreatTarget const& Other) const
 		return true;
 	}
 	//We are not blinded or faded, check if we have a fixate.
-	if (Fixates > 0)
+	if (Fixates.Num() > 0)
 	{
 		//Check if other has a fixate as well.
-		if (Other.Fixates > 0)
+		if (Other.Fixates.Num() > 0)
 		{
 			//If other has a blind/fade overriding their fixate, so we have higher target priority.
-			if (Other.Blinds > 0 || ISaiyoraCombatInterface::Execute_GetThreatHandler(Other.Target)->HasActiveFade())
+			if (Other.Blinds.Num() > 0 || Other.Faded)
 			{
 				return false;
 			}
@@ -52,13 +58,13 @@ bool FThreatTarget::LessThan(FThreatTarget const& Other) const
 		return false;
 	}
 	//We do not have blinds, fades, or fixates.
-	if (Other.Blinds > 0 || ISaiyoraCombatInterface::Execute_GetThreatHandler(Other.Target)->HasActiveFade())
+	if (Other.Blinds.Num() > 0 || Other.Faded)
 	{
 		//Other has blind or fade, so we have higher target priority.
 		return false;
 	}
 	//Neither has blind or fade, and we don't have a fixate.
-	if (Other.Fixates > 0)
+	if (Other.Fixates.Num() > 0)
 	{
 		//Other has a fixate, and we don't, so they have higher target priority.
 		return true;
