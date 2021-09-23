@@ -52,6 +52,22 @@ struct FThreatTarget
 	bool LessThan(FThreatTarget const& Other) const;
 };
 
+USTRUCT()
+struct FMisdirect
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	UBuff* SourceBuff;
+	UPROPERTY()
+	AActor* TargetActor;
+
+	FMisdirect();
+	FMisdirect(UBuff* Source, AActor* Target);
+
+	FORCEINLINE bool operator==(FMisdirect const& Other) const { return Other.SourceBuff == SourceBuff; }
+};
+
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FThreatCondition, FThreatEvent const&, ThreatEvent);
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FThreatModCondition, FThreatEvent const&, ThreatEvent);
 

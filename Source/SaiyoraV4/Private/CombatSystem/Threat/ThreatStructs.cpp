@@ -73,3 +73,14 @@ bool FThreatTarget::LessThan(FThreatTarget const& Other) const
 	return Threat < Other.Threat;
 }
 
+FMisdirect::FMisdirect()
+{
+	SourceBuff = nullptr;
+	TargetActor = nullptr;
+}
+
+FMisdirect::FMisdirect(UBuff* Source, AActor* Target)
+{
+	SourceBuff = Source;
+	TargetActor = Target;
+}

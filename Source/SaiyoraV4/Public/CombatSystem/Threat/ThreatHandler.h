@@ -16,12 +16,10 @@ class SAIYORAV4_API UThreatHandler : public UActorComponent
 
 public:
 	static FGameplayTag GenericThreatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Threat")), false); }
-	static FGameplayTag FixateTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Threat.Fixate")), false); }
-	static FGameplayTag BlindTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Threat.Blind")), false); }
-	static FGameplayTag FadeTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Threat.Fade")), false); }
-	static FGameplayTag MisdirectTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Threat.Misdirect")), false); }
 	static float GlobalHealingThreatModifier;
 	static float GlobalTauntThreatPercentage;
+	static float GlobalThreatDecayPercentage;
+	static float GlobalThreatDecayInterval;
 	
 	UThreatHandler();
 	virtual void BeginPlay() override;
@@ -30,8 +28,7 @@ public:
 
 	bool CanEverReceiveThreat() const { return bCanEverReceiveThreat; }
 	bool CanEverGenerateThreat() const { return bCanEverGenerateThreat; }
-	//TODO: Get current misdirect target.
-	AActor* GetMisdirectTarget() const { return nullptr; }
+	AActor* GetMisdirectTarget() const { return Misdirects.Num() == 0 ? nullptr : Misdirects[Misdirects.Num() - 1].TargetActor; }
 	bool HasActiveFade() const { return Fades.Num() != 0; }
 
 	void GetIncomingThreatMods(TArray<FCombatModifier>& OutMods, FThreatEvent const& Event);
@@ -56,8 +53,8 @@ public:
 	void RemoveFade(UBuff* Source);
 	void SubscribeToFadeStatusChanged(FFadeCallback const& Callback);
 	void UnsubscribeFromFadeStatusChanged(FFadeCallback const& Callback);
-	//TODO: Misdirection.
-	//void AddMisdirect(AActor* ThreatFrom, AActor* ThreatTo, UBuff* Source);
+	void AddMisdirect(UBuff* Source, AActor* Target);
+	void RemoveMisdirect(UBuff* Source);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
 	void Taunt(AActor* AppliedBy);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
@@ -91,6 +88,10 @@ private:
 	void OnTargetHealingTaken(FHealingEvent const& HealingEvent);
 	UFUNCTION()
 	void OnTargetVanished(AActor* Actor);
+	UFUNCTION()
+	void DecayThreat();
+	FTimerHandle DecayHandle;
+	FTimerDelegate DecayDelegate;
 	
 	UPROPERTY(EditAnywhere, Category = "Threat")
 	bool bCanEverReceiveThreat = false;
@@ -105,15 +106,11 @@ private:
 	UFUNCTION()
 	void OnRep_CurrentTarget(AActor* PreviousTarget);
 	UPROPERTY()
-	TMap<UBuff*, AActor*> Fixates;
-	UPROPERTY()
-	TMap<UBuff*, AActor*> Blinds;
-	UPROPERTY()
 	TArray<UBuff*> Fades;
 	UFUNCTION()
 	void OnTargetFadeStatusChanged(AActor* Actor, bool const FadeStatus);
 	UPROPERTY()
-	TMap<UBuff*, AActor*> Misdirects;
+	TArray<FMisdirect> Misdirects;
 
 	UPROPERTY()
 	TArray<AActor*> TargetedBy;
@@ -122,6 +119,9 @@ private:
 	class UDamageHandler* DamageHandlerRef;
 	UPROPERTY()
 	class UBuffHandler* BuffHandlerRef;
+	UFUNCTION()
+	bool CheckBuffForThreat(FBuffApplyEvent const& BuffEvent);
+	FBuffEventCondition ThreatBuffRestriction;
 	
 	TArray<FThreatModCondition> OutgoingThreatMods;
 	TArray<FThreatModCondition> IncomingThreatMods;

@@ -8,8 +8,10 @@
 #include "DamageHandler.h"
 #include "SaiyoraBuffLibrary.h"
 
-float UThreatHandler::GlobalHealingThreatModifier = .3f;
+float UThreatHandler::GlobalHealingThreatModifier = 0.3f;
 float UThreatHandler::GlobalTauntThreatPercentage = 1.2f;
+float UThreatHandler::GlobalThreatDecayPercentage = 0.9f;
+float UThreatHandler::GlobalThreatDecayInterval = 3.0f;
 
 UThreatHandler::UThreatHandler()
 {
@@ -27,7 +29,14 @@ void UThreatHandler::BeginPlay()
 		BuffHandlerRef = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwner());
 		if (IsValid(BuffHandlerRef))
 		{
-			//TODO: Add restriction on buffs with immune threat controls.
+			if (!bCanEverGenerateThreat)
+			{
+				BuffHandlerRef->AddOutgoingBuffRestriction(ThreatBuffRestriction);
+			}
+			if (!bCanEverReceiveThreat)
+			{
+				BuffHandlerRef->AddIncomingBuffRestriction(ThreatBuffRestriction);
+			}
 		}
 		DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
 		if (IsValid(DamageHandlerRef))
@@ -40,12 +49,17 @@ void UThreatHandler::BeginPlay()
 
 void UThreatHandler::InitializeComponent()
 {
-	FadeCallback.BindDynamic(this, &UThreatHandler::OnTargetFadeStatusChanged);
-	VanishCallback.BindDynamic(this, &UThreatHandler::OnTargetVanished);
-	DeathCallback.BindDynamic(this, &UThreatHandler::OnTargetDied);
-	OwnerDeathCallback.BindDynamic(this, &UThreatHandler::OnOwnerDied);
-	ThreatFromDamageCallback.BindDynamic(this, &UThreatHandler::OnOwnerDamageTaken);
-	ThreatFromHealingCallback.BindDynamic(this, &UThreatHandler::OnTargetHealingTaken);
+	if (GetOwnerRole() == ROLE_Authority)
+	{
+		FadeCallback.BindDynamic(this, &UThreatHandler::OnTargetFadeStatusChanged);
+		VanishCallback.BindDynamic(this, &UThreatHandler::OnTargetVanished);
+		DeathCallback.BindDynamic(this, &UThreatHandler::OnTargetDied);
+		OwnerDeathCallback.BindDynamic(this, &UThreatHandler::OnOwnerDied);
+		ThreatFromDamageCallback.BindDynamic(this, &UThreatHandler::OnOwnerDamageTaken);
+		ThreatFromHealingCallback.BindDynamic(this, &UThreatHandler::OnTargetHealingTaken);
+		ThreatBuffRestriction.BindDynamic(this, &UThreatHandler::CheckBuffForThreat);
+		DecayDelegate.BindUObject(this, &UThreatHandler::DecayThreat);
+	}
 }
 
 void UThreatHandler::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -96,6 +110,17 @@ void UThreatHandler::OnTargetVanished(AActor* Actor)
 	if (IsValid(Actor))
 	{
 		RemoveFromThreatTable(Actor);
+	}
+}
+
+void UThreatHandler::DecayThreat()
+{
+	if (GetOwnerRole() == ROLE_Authority)
+	{
+		for (FThreatTarget& Target : ThreatTable)
+		{
+			Target.Threat *= GlobalThreatDecayPercentage;
+		}
 	}
 }
 
@@ -343,6 +368,7 @@ void UThreatHandler::UpdateCombatStatus()
 		{
 			bInCombat = false;
 			OnCombatChanged.Broadcast(false);
+			GetWorld()->GetTimerManager().ClearTimer(DecayHandle);
 		}
 	}
 	else
@@ -351,6 +377,7 @@ void UThreatHandler::UpdateCombatStatus()
 		{
 			bInCombat = true;
 			OnCombatChanged.Broadcast(true);
+			GetWorld()->GetTimerManager().SetTimer(DecayHandle, DecayDelegate, GlobalThreatDecayInterval, true);
 		}
 	}
 }
@@ -481,6 +508,38 @@ void UThreatHandler::UnsubscribeFromFadeStatusChanged(FFadeCallback const& Callb
 	OnFadeStatusChanged.Remove(Callback);
 }
 
+void UThreatHandler::AddMisdirect(UBuff* Source, AActor* Target)
+{
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(Source) || !IsValid(Target))
+	{
+		return;
+	}
+	for (FMisdirect const& Misdirect : Misdirects)
+	{
+		if (Misdirect.SourceBuff == Source)
+		{
+			return;
+		}
+	}
+	Misdirects.Add(FMisdirect(Source, Target));
+}
+
+void UThreatHandler::RemoveMisdirect(UBuff* Source)
+{
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(Source))
+	{
+		return;
+	}
+	for (FMisdirect& Misdirect : Misdirects)
+	{
+		if (Misdirect.SourceBuff == Source)
+		{
+			Misdirects.Remove(Misdirect);
+			return;
+		}
+	}
+}
+
 void UThreatHandler::SubscribeToVanished(FVanishCallback const& Callback)
 {
 	if (!Callback.IsBound())
@@ -588,6 +647,22 @@ void UThreatHandler::OnTargetFadeStatusChanged(AActor* Actor, bool const FadeSta
 	}
 }
 
+bool UThreatHandler::CheckBuffForThreat(FBuffApplyEvent const& BuffEvent)
+{
+	if (!IsValid(BuffEvent.BuffClass))
+	{
+		return false;
+	}
+	UBuff* DefaultBuff = BuffEvent.BuffClass.GetDefaultObject();
+	if (!IsValid(DefaultBuff))
+	{
+		return false;
+	}
+	FGameplayTagContainer BuffTags;	
+	DefaultBuff->GetBuffTags(BuffTags);
+	return BuffTags.HasTag(GenericThreatTag());
+}
+
 void UThreatHandler::UpdateTarget()
 {
 	AActor* Previous = CurrentTarget;
@@ -628,12 +703,6 @@ void UThreatHandler::AddFixate(AActor* Target, UBuff* Source)
 	{
 		return;
 	}
-	//Can not have multiple fixates per buff.
-	if (Fixates.Contains(Source))
-	{
-		return;
-	}
-	Fixates.Add(Source, Target);
 	
 	bool bFound = false;
 	bool bAffectedTarget = false;
@@ -725,12 +794,6 @@ void UThreatHandler::AddBlind(AActor* Target, UBuff* Source)
 	{
 		return;
 	}
-	//Can not have multiple blinds from the same buff.
-	if (Blinds.Contains(Source))
-	{
-		return;
-	}
-	Blinds.Add(Source, Target);
 	
 	bool bFound = false;
 	bool bAffectedTarget = false;
