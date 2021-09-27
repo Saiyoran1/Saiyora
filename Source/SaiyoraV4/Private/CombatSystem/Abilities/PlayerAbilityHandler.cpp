@@ -610,11 +610,6 @@ void UPlayerAbilityHandler::UnsubscribeFromAbilityMispredicted(FAbilityMispredic
 
 void UPlayerAbilityHandler::StartCast(UCombatAbility* Ability, int32 const PredictionID)
 {
-	if (PredictionID == 0)
-	{
-		Super::StartCast(Ability);
-		return;
-	}
 	FCastingState const PreviousState = CastingState;
 	CastingState.bIsCasting = true;
 	CastingState.CurrentCast = Ability;
@@ -643,6 +638,7 @@ void UPlayerAbilityHandler::PredictStartCast(UCombatAbility* Ability, int32 cons
 	CastingState.bInterruptible = Ability->GetInterruptible();
 	CastingState.ElapsedTicks = 0;
 	OnCastStateChanged.Broadcast(PreviousState, CastingState);
+	//Notably, don't set the tick or end cast timer. The server's response will set these timers.
 }
 
 void UPlayerAbilityHandler::UpdatePredictedCastFromServer(FServerAbilityResult const& ServerResult)
@@ -870,7 +866,20 @@ void UPlayerAbilityHandler::AuthTickPredictedCast()
 	Tick.PredictionID = CastingState.PredictionID;
 	Tick.TickNumber = CastingState.ElapsedTicks;
 	FCombatParameters BroadcastParams;
-	if (!CurrentPlayerCast->GetTickNeedsPredictionParams(CastingState.ElapsedTicks))
+	if (OwnerAsPawn->IsLocallyControlled())
+	{
+		FCombatParameters PredictionParams;
+		CurrentPlayerCast->PredictedTick(CastingState.ElapsedTicks, PredictionParams);
+		CurrentPlayerCast->ServerTick(CastingState.ElapsedTicks, PredictionParams, BroadcastParams);
+		FCastEvent TickEvent;
+		TickEvent.Ability = CurrentPlayerCast;
+		TickEvent.Tick = CastingState.ElapsedTicks;
+		TickEvent.ActionTaken = ECastAction::Tick;
+		TickEvent.PredictionID = CastingState.PredictionID;
+		OnAbilityTick.Broadcast(TickEvent);
+		MulticastAbilityTick(TickEvent, BroadcastParams);
+	}
+	else if (!CurrentPlayerCast->GetTickNeedsPredictionParams(CastingState.ElapsedTicks))
 	{
 		CurrentPlayerCast->UCombatAbility::ServerTick(CastingState.ElapsedTicks, BroadcastParams);
 		FCastEvent TickEvent;
