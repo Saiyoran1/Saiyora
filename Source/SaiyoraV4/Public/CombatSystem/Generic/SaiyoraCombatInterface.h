@@ -3,6 +3,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
+
+#include "SaiyoraEnums.h"
 #include "UObject/Interface.h"
 #include "SaiyoraCombatInterface.generated.h"
 

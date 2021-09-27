@@ -40,3 +40,11 @@ enum class ECombatParamType : uint8
  Target,
  ClassDefault,
 };
+
+UENUM(BlueprintType)
+enum class EFaction : uint8
+{
+ Enemy = 0,
+ Neutral = 1,
+ Player = 2,
+};
