@@ -3,7 +3,6 @@
 #pragma once
 
 #include "CoreMinimal.h"
-
 #include "SaiyoraEnums.h"
 #include "UObject/Interface.h"
 #include "SaiyoraCombatInterface.generated.h"
@@ -54,4 +53,7 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Threat")
 	UThreatHandler* GetThreatHandler() const;
 	virtual UThreatHandler* GetThreatHandler_Implementation() const { return nullptr; }
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Faction")
+	EFaction GetFaction() const;
+	virtual EFaction GetFaction_Implementation() const { return EFaction::Enemy; }
 };
