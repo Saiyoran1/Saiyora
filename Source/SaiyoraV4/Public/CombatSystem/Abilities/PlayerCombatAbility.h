@@ -3,7 +3,6 @@
 #pragma once
 
 #include "CoreMinimal.h"
-
 #include "AbilityHandler.h"
 #include "CombatSystem/Abilities/CombatAbility.h"
 #include "PlayerCombatAbility.generated.h"
@@ -64,4 +63,10 @@ protected:
 	void OnPredictedCancel();
 	UFUNCTION(BlueprintNativeEvent)
 	void OnAbilityMispredicted(int32 const PredictionID, ECastFailReason const FailReason);
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	void AddPredictionParameter(FCombatParameter const& Parameter);
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+	FCombatParameter GetPredictionParamByID(int32 const ID);
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+	FCombatParameter GetPredictionParamByType(ECombatParamType const Type);
 };

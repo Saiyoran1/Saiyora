@@ -209,6 +209,39 @@ void UCombatAbility::ForceCastLengthRecalculation()
     }
 }
 
+void UCombatAbility::AddBroadcastParameter(FCombatParameter const& Parameter)
+{
+    if (Parameter.ParamType == ECombatParamType::None)
+    {
+        return;
+    }
+    BroadcastParameters.Parameters.Add(Parameter);
+}
+
+FCombatParameter UCombatAbility::GetBroadcastParamById(int32 const ID)
+{
+    for (FCombatParameter const& Param : BroadcastParameters.Parameters)
+    {
+        if (Param.ID == ID)
+        {
+            return Param;
+        }
+    }
+    return FCombatParameter();
+}
+
+FCombatParameter UCombatAbility::GetBroadcastParamByType(ECombatParamType const Type)
+{
+    for (FCombatParameter const& Param : BroadcastParameters.Parameters)
+    {
+        if (Param.ParamType == Type)
+        {
+            return Param;
+        }
+    }
+    return FCombatParameter();
+}
+
 void UCombatAbility::UpdateCastable()
 {
     ECastFailReason const PreviousCastable = Castable;

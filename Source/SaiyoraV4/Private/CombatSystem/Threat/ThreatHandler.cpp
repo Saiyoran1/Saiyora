@@ -356,6 +356,22 @@ void UThreatHandler::RemoveThreat(float const Amount, AActor* AppliedBy)
 	}
 }
 
+float UThreatHandler::GetActorThreatValue(AActor* Actor) const
+{
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(Actor))
+	{
+		return 0.0f;
+	}
+	for (FThreatTarget const& Target : ThreatTable)
+	{
+		if (Target.Target == Actor)
+		{
+			return Target.Threat;
+		}
+	}
+	return 0.0f;
+}
+
 void UThreatHandler::UpdateCombatStatus()
 {
 	if (GetOwnerRole() != ROLE_Authority)

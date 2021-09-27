@@ -244,6 +244,39 @@ void UPlayerCombatAbility::AbilityMisprediction(int32 const PredictionID, ECastF
     OnAbilityMispredicted(PredictionID, FailReason);
 }
 
+void UPlayerCombatAbility::AddPredictionParameter(FCombatParameter const& Parameter)
+{
+    if (Parameter.ParamType == ECombatParamType::None)
+    {
+        return;
+    }
+    PredictionParameters.Parameters.Add(Parameter);
+}
+
+FCombatParameter UPlayerCombatAbility::GetPredictionParamByID(int32 const ID)
+{
+    for (FCombatParameter const& Param : PredictionParameters.Parameters)
+    {
+        if (Param.ID == ID)
+        {
+            return Param;
+        }
+    }
+    return FCombatParameter();
+}
+
+FCombatParameter UPlayerCombatAbility::GetPredictionParamByType(ECombatParamType const Type)
+{
+    for (FCombatParameter const& Param : PredictionParameters.Parameters)
+    {
+        if (Param.ParamType == Type)
+        {
+            return Param;
+        }
+    }
+    return FCombatParameter();
+}
+
 void UPlayerCombatAbility::OnAbilityMispredicted_Implementation(int32, ECastFailReason)
 {
     return;

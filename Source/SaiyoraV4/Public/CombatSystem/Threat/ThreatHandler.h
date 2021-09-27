@@ -68,6 +68,10 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Threat")
 	bool IsInCombat() const { return bInCombat; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Threat")
+	AActor* GetCurrentTarget() const { return CurrentTarget; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Threat")
+	float GetActorThreatValue(AActor* Actor) const;
 
 private:
 

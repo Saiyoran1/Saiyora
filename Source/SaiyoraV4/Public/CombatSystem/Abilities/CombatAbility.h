@@ -123,8 +123,13 @@ protected:
     void OnServerCancel();
     UFUNCTION(BlueprintNativeEvent)
     void OnSimulatedCancel();
-    UPROPERTY(BlueprintReadWrite, Transient, Category = "Abilities")
     FCombatParameters BroadcastParameters;
+    UFUNCTION(BlueprintCallable, Category = "Abilities")
+    void AddBroadcastParameter(FCombatParameter const& Parameter);
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+    FCombatParameter GetBroadcastParamById(int32 const ID);
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+    FCombatParameter GetBroadcastParamByType(ECombatParamType const Type);
     void UpdateCastable();
     virtual void InitialCastableChecks();
 private:
