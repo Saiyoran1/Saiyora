@@ -1,31 +1,35 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
-
-#include "SaiyoraPlaneComponent.h"
+#include "CombatReactionComponent.h"
 #include "UnrealNetwork.h"
 
-USaiyoraPlaneComponent::USaiyoraPlaneComponent()
+UCombatReactionComponent::UCombatReactionComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
 	SetIsReplicatedByDefault(true);
 	bWantsInitializeComponent = true;
 }
 
-void USaiyoraPlaneComponent::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const
+void UCombatReactionComponent::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
-	DOREPLIFETIME(USaiyoraPlaneComponent, PlaneStatus);
+	DOREPLIFETIME(UCombatReactionComponent, PlaneStatus);
 }
 
-void USaiyoraPlaneComponent::InitializeComponent()
+void UCombatReactionComponent::InitializeComponent()
 {
 	PlaneStatus.CurrentPlane = DefaultPlane;
 	PlaneStatus.LastSwapSource = nullptr;
 }
 
-ESaiyoraPlane USaiyoraPlaneComponent::PlaneSwap(bool const bIgnoreRestrictions, UObject* Source,
-	bool const bToSpecificPlane, ESaiyoraPlane const TargetPlane)
+void UCombatReactionComponent::BeginPlay()
+{
+	Super::BeginPlay();
+	//TODO: Set owner's mesh components to render custom depth, set custom stencil value to (10 * XPlane from local player + 1 * Faction).
+}
+
+ESaiyoraPlane UCombatReactionComponent::PlaneSwap(bool const bIgnoreRestrictions, UObject* Source,
+                                                  bool const bToSpecificPlane, ESaiyoraPlane const TargetPlane)
 {
 	if (GetOwnerRole() != ROLE_Authority)
 	{
@@ -86,7 +90,7 @@ ESaiyoraPlane USaiyoraPlaneComponent::PlaneSwap(bool const bIgnoreRestrictions, 
 	return PlaneStatus.CurrentPlane;
 }
 
-void USaiyoraPlaneComponent::AddPlaneSwapRestriction(FPlaneSwapCondition const& Condition)
+void UCombatReactionComponent::AddPlaneSwapRestriction(FPlaneSwapCondition const& Condition)
 {
 	if (GetOwnerRole() != ROLE_Authority)
 	{
@@ -98,7 +102,7 @@ void USaiyoraPlaneComponent::AddPlaneSwapRestriction(FPlaneSwapCondition const& 
 	}
 }
 
-void USaiyoraPlaneComponent::RemovePlaneSwapRestriction(FPlaneSwapCondition const& Condition)
+void UCombatReactionComponent::RemovePlaneSwapRestriction(FPlaneSwapCondition const& Condition)
 {
 	if (GetOwnerRole() != ROLE_Authority)
 	{
@@ -110,7 +114,7 @@ void USaiyoraPlaneComponent::RemovePlaneSwapRestriction(FPlaneSwapCondition cons
 	}
 }
 
-void USaiyoraPlaneComponent::SubscribeToPlaneSwap(FPlaneSwapCallback const& Callback)
+void UCombatReactionComponent::SubscribeToPlaneSwap(FPlaneSwapCallback const& Callback)
 {
 	if (bCanEverPlaneSwap && Callback.IsBound())
 	{
@@ -118,7 +122,7 @@ void USaiyoraPlaneComponent::SubscribeToPlaneSwap(FPlaneSwapCallback const& Call
 	}
 }
 
-void USaiyoraPlaneComponent::UnsubscribeFromPlaneSwap(FPlaneSwapCallback const& Callback)
+void UCombatReactionComponent::UnsubscribeFromPlaneSwap(FPlaneSwapCallback const& Callback)
 {
 	if (bCanEverPlaneSwap && Callback.IsBound())
 	{
@@ -126,7 +130,7 @@ void USaiyoraPlaneComponent::UnsubscribeFromPlaneSwap(FPlaneSwapCallback const& 
 	}
 }
 
-void USaiyoraPlaneComponent::OnRep_PlaneStatus(FPlaneStatus const PreviousStatus)
+void UCombatReactionComponent::OnRep_PlaneStatus(FPlaneStatus const PreviousStatus)
 {
 	if (PreviousStatus.CurrentPlane != PlaneStatus.CurrentPlane)
 	{

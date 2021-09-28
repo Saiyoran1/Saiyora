@@ -5,7 +5,7 @@
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraPlayerController.h"
 #include "GameFramework/GameState.h"
-#include "SaiyoraPlaneComponent.h"
+#include "CombatReactionComponent.h"
 #include "Buff.h"
 #include "BuffFunction.h"
 
@@ -34,12 +34,12 @@ ESaiyoraPlane USaiyoraCombatLibrary::GetActorPlane(AActor* Actor)
     {
         return ESaiyoraPlane::None;
     }
-    USaiyoraPlaneComponent* PlaneComponent = ISaiyoraCombatInterface::Execute_GetPlaneComponent(Actor);
-    if (!IsValid(PlaneComponent))
+    UCombatReactionComponent* ReactionComponent = ISaiyoraCombatInterface::Execute_GetReactionComponent(Actor);
+    if (!IsValid(ReactionComponent))
     {
         return ESaiyoraPlane::None;
     }
-    return PlaneComponent->GetCurrentPlane();
+    return ReactionComponent->GetCurrentPlane();
 }
 
 bool USaiyoraCombatLibrary::CheckForXPlane(ESaiyoraPlane const FromPlane, ESaiyoraPlane const ToPlane)

@@ -22,6 +22,5 @@ float ASaiyoraGameState::GetServerWorldTimeSeconds() const
 void ASaiyoraGameState::Tick(float DeltaSeconds)
 {
     Super::Tick(DeltaSeconds);
-
     WorldTime += DeltaSeconds;
 }

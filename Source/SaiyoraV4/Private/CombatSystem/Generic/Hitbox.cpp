@@ -2,7 +2,7 @@
 
 
 #include "CombatSystem/Generic/Hitbox.h"
-
+#include "CombatReactionComponent.h"
 #include "SaiyoraCombatInterface.h"
 
 UHitbox::UHitbox()
@@ -20,7 +20,11 @@ void UHitbox::BeginPlay()
 	Super::BeginPlay();
 	if (GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 	{
-		UpdateFactionCollision(ISaiyoraCombatInterface::Execute_GetFaction(GetOwner()));
+		UCombatReactionComponent* ReactionComponent = ISaiyoraCombatInterface::Execute_GetReactionComponent(GetOwner());
+		if (IsValid(ReactionComponent))
+		{
+			UpdateFactionCollision(ReactionComponent->GetCurrentFaction());
+		}
 	}
 }
 

@@ -14,7 +14,7 @@ class UAbilityHandler;
 class UCrowdControlHandler;
 class UResourceHandler;
 class UStatHandler;
-class USaiyoraPlaneComponent;
+class UCombatReactionComponent;
 
 UINTERFACE(Blueprintable)
 class USaiyoraCombatInterface : public UInterface
@@ -25,10 +25,8 @@ class USaiyoraCombatInterface : public UInterface
 class SAIYORAV4_API ISaiyoraCombatInterface
 {
 	GENERATED_BODY()
-
-	// Add interface functions to this class. This is the class that will be inherited to implement this interface.
+	
 public:
-
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Damage")
 	UDamageHandler* GetDamageHandler() const;
 	virtual UDamageHandler* GetDamageHandler_Implementation() const { return nullptr; }
@@ -47,13 +45,10 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Stats")
 	UStatHandler* GetStatHandler() const;
 	virtual UStatHandler* GetStatHandler_Implementation() const { return nullptr; }
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Plane")
-	USaiyoraPlaneComponent* GetPlaneComponent() const;
-	virtual USaiyoraPlaneComponent* GetPlaneComponent_Implementation() const { return nullptr; }
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Reaction")
+	UCombatReactionComponent* GetReactionComponent() const;
+	virtual UCombatReactionComponent* GetReactionComponent_Implementation() const { return nullptr; }
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Threat")
 	UThreatHandler* GetThreatHandler() const;
 	virtual UThreatHandler* GetThreatHandler_Implementation() const { return nullptr; }
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Faction")
-	EFaction GetFaction() const;
-	virtual EFaction GetFaction_Implementation() const { return EFaction::Enemy; }
 };

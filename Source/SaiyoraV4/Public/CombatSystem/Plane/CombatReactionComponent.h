@@ -6,7 +6,7 @@
 
 #include "SaiyoraEnums.h"
 #include "Components/ActorComponent.h"
-#include "SaiyoraPlaneComponent.generated.h"
+#include "CombatReactionComponent.generated.h"
 
 USTRUCT()
 struct FPlaneStatus
@@ -19,21 +19,21 @@ struct FPlaneStatus
 	UObject* LastSwapSource = nullptr;
 };
 
-DECLARE_DYNAMIC_DELEGATE_RetVal_FourParams(bool, FPlaneSwapCondition, class USaiyoraPlaneComponent*, Target, UObject*, Source, bool const, bToSpecificPlane, ESaiyoraPlane const, TargetPlane);
-
+DECLARE_DYNAMIC_DELEGATE_RetVal_FourParams(bool, FPlaneSwapCondition, class UCombatReactionComponent*, Target, UObject*, Source, bool const, bToSpecificPlane, ESaiyoraPlane const, TargetPlane);
 DECLARE_DYNAMIC_DELEGATE_ThreeParams(FPlaneSwapCallback, ESaiyoraPlane const, PreviousPlane, ESaiyoraPlane const, NewPlane, UObject*, Source);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FPlaneSwapNotification, ESaiyoraPlane const, PreviousPlane, ESaiyoraPlane const, NewPlane, UObject*, Source);
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
-class SAIYORAV4_API USaiyoraPlaneComponent : public UActorComponent
+class SAIYORAV4_API UCombatReactionComponent : public UActorComponent
 {
 	GENERATED_BODY()
 
 public:	
 	
-	USaiyoraPlaneComponent();
+	UCombatReactionComponent();
 	virtual void GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void InitializeComponent() override;
+	virtual void BeginPlay() override;
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Plane")
 	ESaiyoraPlane GetCurrentPlane() const { return PlaneStatus.CurrentPlane; }
@@ -48,19 +48,22 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Plane")
 	void UnsubscribeFromPlaneSwap(FPlaneSwapCallback const& Callback);
 
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Faction")
+	EFaction GetCurrentFaction() const { return DefaultFaction; }
+
 private:
 
-	UPROPERTY(EditDefaultsOnly, Category = "Plane")
+	UPROPERTY(EditAnywhere, Category = "Plane")
 	ESaiyoraPlane DefaultPlane = ESaiyoraPlane::None;
-	UPROPERTY(EditDefaultsOnly, Category = "Plane")
+	UPROPERTY(EditAnywhere, Category = "Plane")
 	bool bCanEverPlaneSwap = false;
-
 	UPROPERTY(ReplicatedUsing = OnRep_PlaneStatus)
 	FPlaneStatus PlaneStatus;
-
 	UFUNCTION()
 	void OnRep_PlaneStatus(FPlaneStatus const PreviousStatus);
-
 	FPlaneSwapNotification OnPlaneSwapped;
 	TArray<FPlaneSwapCondition> PlaneSwapRestrictions;
+
+	UPROPERTY(EditAnywhere, Category = "Faction")
+	EFaction DefaultFaction = EFaction::Enemy;
 };

@@ -3,7 +3,7 @@
 #include "CombatSystem/Abilities/PlayerAbilityHandler.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraCombatLibrary.h"
-#include "SaiyoraPlaneComponent.h"
+#include "CombatReactionComponent.h"
 #include "ResourceHandler.h"
 #include "PlayerCombatAbility.h"
 #include "UnrealNetwork.h"
@@ -55,10 +55,10 @@ void UPlayerAbilityHandler::BeginPlay()
 	
 	if (GetOwnerRole() != ROLE_SimulatedProxy)
 	{
-		USaiyoraPlaneComponent* PlaneComponent = ISaiyoraCombatInterface::Execute_GetPlaneComponent(GetOwner());
-		if (IsValid(PlaneComponent))
+		UCombatReactionComponent* ReactionComponent = ISaiyoraCombatInterface::Execute_GetReactionComponent(GetOwner());
+		if (IsValid(ReactionComponent))
 		{
-			switch (PlaneComponent->GetCurrentPlane())
+			switch (ReactionComponent->GetCurrentPlane())
 			{
 				case ESaiyoraPlane::None :
 					break;
@@ -77,7 +77,7 @@ void UPlayerAbilityHandler::BeginPlay()
 			}
 			FPlaneSwapCallback PlaneSwapCallback;
 			PlaneSwapCallback.BindDynamic(this, &UPlayerAbilityHandler::SwapBarOnPlaneSwap);
-			PlaneComponent->SubscribeToPlaneSwap(PlaneSwapCallback);
+			ReactionComponent->SubscribeToPlaneSwap(PlaneSwapCallback);
 		}
 	}
 }
