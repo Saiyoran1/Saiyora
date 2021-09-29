@@ -17,7 +17,6 @@ public:
 	ASaiyoraGameState();
 	virtual float GetServerWorldTimeSeconds() const override;
 	friend void ASaiyoraPlayerController::ClientHandleWorldTimeReturn_Implementation(float const ClientTime, float const ServerTime);
-	//TODO: Add a place to track local player's plane, so that objects can check for xplane during rendering.
 protected:
 	virtual void Tick(float DeltaSeconds) override;
 };

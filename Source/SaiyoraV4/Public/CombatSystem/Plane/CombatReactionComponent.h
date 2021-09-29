@@ -66,4 +66,7 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Faction")
 	EFaction DefaultFaction = EFaction::Enemy;
+
+	UPROPERTY()
+	UCombatReactionComponent* LocalPlayerReaction;
 };
