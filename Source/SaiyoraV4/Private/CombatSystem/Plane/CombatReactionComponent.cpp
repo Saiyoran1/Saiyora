@@ -1,7 +1,11 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "CombatReactionComponent.h"
+
+#include "SaiyoraCombatInterface.h"
+#include "SaiyoraCombatLibrary.h"
 #include "UnrealNetwork.h"
+#include "Kismet/GameplayStatics.h"
 
 UCombatReactionComponent::UCombatReactionComponent()
 {
@@ -20,13 +24,28 @@ void UCombatReactionComponent::InitializeComponent()
 {
 	PlaneStatus.CurrentPlane = DefaultPlane;
 	PlaneStatus.LastSwapSource = nullptr;
+	LocalPlayerSwapCallback.BindDynamic(this, &UCombatReactionComponent::OnLocalPlayerPlaneSwap);
 }
 
 void UCombatReactionComponent::BeginPlay()
 {
 	Super::BeginPlay();
 	//TODO: Set owner's mesh components to render custom depth, set custom stencil value to (10 * XPlane from local player + 1 * Faction).
-	
+	APlayerController* LocalPC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+	if (IsValid(LocalPC))
+	{
+		APawn* LocalPawn = LocalPC->GetPawn();
+		if (IsValid(LocalPawn))
+		{
+			LocalPlayerReaction = ISaiyoraCombatInterface::Execute_GetReactionComponent(LocalPawn);
+			if (IsValid(LocalPlayerReaction))
+			{
+				LocalPlayerReaction->SubscribeToPlaneSwap(LocalPlayerSwapCallback);
+			}
+		}
+	}
+	GetOwner()->GetComponents(OwnerMeshes);
+	UpdateOwnerCustomRendering();
 }
 
 ESaiyoraPlane UCombatReactionComponent::PlaneSwap(bool const bIgnoreRestrictions, UObject* Source,
@@ -86,6 +105,7 @@ ESaiyoraPlane UCombatReactionComponent::PlaneSwap(bool const bIgnoreRestrictions
 	if (PreviousPlane != PlaneStatus.CurrentPlane)
 	{
 		OnPlaneSwapped.Broadcast(PreviousPlane, PlaneStatus.CurrentPlane, Source);
+		UpdateOwnerCustomRendering();
 	}
 
 	return PlaneStatus.CurrentPlane;
@@ -136,7 +156,31 @@ void UCombatReactionComponent::OnRep_PlaneStatus(FPlaneStatus const PreviousStat
 	if (PreviousStatus.CurrentPlane != PlaneStatus.CurrentPlane)
 	{
 		OnPlaneSwapped.Broadcast(PreviousStatus.CurrentPlane, PlaneStatus.CurrentPlane, PlaneStatus.LastSwapSource);
+		UpdateOwnerCustomRendering();
 	}
+}
+
+void UCombatReactionComponent::UpdateOwnerCustomRendering()
+{
+	if (IsValid(LocalPlayerReaction) && LocalPlayerReaction != this)
+	{
+		int32 StencilIndex = 0;
+		StencilIndex += USaiyoraCombatLibrary::CheckForXPlane(PlaneStatus.CurrentPlane, LocalPlayerReaction->GetCurrentPlane()) ? 10 : 0;
+		StencilIndex += static_cast<int>(DefaultFaction) + 1;
+		for (UMeshComponent* Mesh : OwnerMeshes)
+		{
+			if (IsValid(Mesh))
+			{
+				Mesh->SetRenderCustomDepth(true);
+				Mesh->SetCustomDepthStencilValue(StencilIndex);
+			}
+		}
+	}
+}
+
+void UCombatReactionComponent::OnLocalPlayerPlaneSwap(ESaiyoraPlane const Previous, ESaiyoraPlane const New, UObject* Source)
+{
+	UpdateOwnerCustomRendering();
 }
 
 

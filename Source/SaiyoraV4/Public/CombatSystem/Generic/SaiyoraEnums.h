@@ -44,7 +44,8 @@ enum class ECombatParamType : uint8
 UENUM(BlueprintType)
 enum class EFaction : uint8
 {
- Enemy = 0,
- Neutral = 1,
- Player = 2,
+ None = 0,
+ Enemy = 1,
+ Neutral = 2,
+ Player = 3,
 };

@@ -1,9 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
-
 #include "CoreMinimal.h"
-
 #include "SaiyoraEnums.h"
 #include "Components/ActorComponent.h"
 #include "CombatReactionComponent.generated.h"
@@ -29,7 +27,6 @@ class SAIYORAV4_API UCombatReactionComponent : public UActorComponent
 	GENERATED_BODY()
 
 public:	
-	
 	UCombatReactionComponent();
 	virtual void GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void InitializeComponent() override;
@@ -50,9 +47,8 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Faction")
 	EFaction GetCurrentFaction() const { return DefaultFaction; }
-
+	
 private:
-
 	UPROPERTY(EditAnywhere, Category = "Plane")
 	ESaiyoraPlane DefaultPlane = ESaiyoraPlane::None;
 	UPROPERTY(EditAnywhere, Category = "Plane")
@@ -65,8 +61,15 @@ private:
 	TArray<FPlaneSwapCondition> PlaneSwapRestrictions;
 
 	UPROPERTY(EditAnywhere, Category = "Faction")
-	EFaction DefaultFaction = EFaction::Enemy;
+	EFaction DefaultFaction = EFaction::None;
 
 	UPROPERTY()
 	UCombatReactionComponent* LocalPlayerReaction;
+	UPROPERTY()
+	TArray<UMeshComponent*> OwnerMeshes;
+	UFUNCTION()
+	void UpdateOwnerCustomRendering();
+	FPlaneSwapCallback LocalPlayerSwapCallback;
+	UFUNCTION()
+	void OnLocalPlayerPlaneSwap(ESaiyoraPlane const Previous, ESaiyoraPlane const New, UObject* Source);
 };
