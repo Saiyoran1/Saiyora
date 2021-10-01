@@ -30,7 +30,6 @@ void UCombatReactionComponent::InitializeComponent()
 void UCombatReactionComponent::BeginPlay()
 {
 	Super::BeginPlay();
-	//TODO: Set owner's mesh components to render custom depth, set custom stencil value to (10 * XPlane from local player + 1 * Faction).
 	APlayerController* LocalPC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
 	if (IsValid(LocalPC))
 	{
