@@ -7,7 +7,6 @@
 #include "SaiyoraEnums.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SphereComponent.h"
-
 #include "Hitbox.generated.h"
 
 UCLASS(meta = (BlueprintSpawnableComponent))

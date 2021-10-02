@@ -10,7 +10,6 @@
 #include "Engine/ActorChannel.h"
 #include "PlayerSpecialization.h"
 
-int32 UPlayerAbilityHandler::ClientPredictionID = 0;
 const float UPlayerAbilityHandler::MaxPingCompensation = 0.2f;
 const float UPlayerAbilityHandler::AbilityQueWindowSec = 0.2f;
 
