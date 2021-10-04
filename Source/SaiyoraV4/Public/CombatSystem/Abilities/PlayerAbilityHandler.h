@@ -72,6 +72,7 @@ private:
 //Ability Usage
 public:
 	virtual FCastEvent UseAbility(TSubclassOf<UCombatAbility> const AbilityClass) override;
+	bool UseAbilityFromPredictedMovement(FAbilityRequest const& Request);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void SubscribeToAbilityMispredicted(FAbilityMispredictionCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
@@ -79,6 +80,7 @@ public:
 private:
 	TMap<int32, FClientAbilityPrediction> UnackedAbilityPredictions;
 	FAbilityMispredictionNotification OnAbilityMispredicted;
+	TMap<int32, FCastEvent> PredictedCastRecord;
 	FCastEvent UsePlayerAbility(TSubclassOf<UPlayerCombatAbility> const AbilityClass, bool const bFromQueue = false);
 	UFUNCTION(Server, Reliable, WithValidation)
 	void ServerPredictAbility(FAbilityRequest const& AbilityRequest);

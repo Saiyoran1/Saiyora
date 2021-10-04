@@ -297,6 +297,31 @@ FCastEvent UPlayerAbilityHandler::UseAbility(TSubclassOf<UCombatAbility> const A
 	return UsePlayerAbility(PlayerAbilityClass);
 }
 
+bool UPlayerAbilityHandler::UseAbilityFromPredictedMovement(FAbilityRequest const& Request)
+{
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(Request.AbilityClass) || Request.PredictionID == 0 || Request.Tick != 0)
+	{
+		//One note is that predictive movement DOES NOT WORK on non-initial ticks, because I am too incompetent to figure that out.
+		return false;
+	}
+	//Check to see if the ability handler has processed this cast already.
+	FCastEvent* PreviousResult = PredictedCastRecord.Find(Request.PredictionID);
+	if (PreviousResult)
+	{
+		return PreviousResult->ActionTaken == ECastAction::Success;
+	}
+	//Process the cast as normal.
+	ServerPredictAbility_Implementation(Request);
+	//Recheck for the newly created cast record.
+	PreviousResult = PredictedCastRecord.Find(Request.PredictionID);
+	if (!PreviousResult)
+	{
+		//Somehow the processing failed to create a record of the cast.
+		return false;
+	}
+	return PreviousResult->ActionTaken == ECastAction::Success;
+}
+
 FCastEvent UPlayerAbilityHandler::UsePlayerAbility(TSubclassOf<UPlayerCombatAbility> const AbilityClass, bool const bFromQueue)
 {
 	ClearQueue();
@@ -434,6 +459,13 @@ FCastEvent UPlayerAbilityHandler::UsePlayerAbility(TSubclassOf<UPlayerCombatAbil
 
 void UPlayerAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest const& AbilityRequest)
 {
+	if (PredictedCastRecord.Find(AbilityRequest.PredictionID))
+	{
+		//We already have a valid cast for this ID from predictive movement.
+		UE_LOG(LogTemp, Warning, TEXT("Predictive movement beat the ability handler RPC for cast %i."), AbilityRequest.PredictionID);
+		return;
+	}
+	
 	FCastEvent Result;
 	Result.PredictionID = AbilityRequest.PredictionID;
 
@@ -443,6 +475,7 @@ void UPlayerAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest 
 	{
 		Result.FailReason = ECastFailReason::InvalidAbility;
 		ClientFailPredictedAbility(AbilityRequest.PredictionID, Result.FailReason);
+		PredictedCastRecord.Add(AbilityRequest.PredictionID, Result);
 		return;
 	}
 
@@ -450,6 +483,7 @@ void UPlayerAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest 
 	if (!CheckCanUseAbility(PlayerAbility, Costs, Result.FailReason))
 	{
 		ClientFailPredictedAbility(AbilityRequest.PredictionID, Result.FailReason);
+		PredictedCastRecord.Add(AbilityRequest.PredictionID, Result);
 		return;
 	}
 
@@ -507,10 +541,12 @@ void UPlayerAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest 
 	default :
 		Result.FailReason = ECastFailReason::InvalidCastType;
 		ClientFailPredictedAbility(AbilityRequest.PredictionID, Result.FailReason);
+		PredictedCastRecord.Add(AbilityRequest.PredictionID, Result);
 		return;
 	}
 
 	ClientSucceedPredictedAbility(ServerResult);
+	PredictedCastRecord.Add(AbilityRequest.PredictionID, Result);
 }
 
 void UPlayerAbilityHandler::ClientSucceedPredictedAbility_Implementation(FServerAbilityResult const& ServerResult)
@@ -779,7 +815,7 @@ void UPlayerAbilityHandler::HandleMissedPredictedTick(int32 const TickNumber)
 
 //Receive parameters from the client and either store the parameters (if the tick has yet to happen) or check if the tick has already happened, pass the parameters, and execute the tick.
 void UPlayerAbilityHandler::ServerHandlePredictedTick_Implementation(FAbilityRequest const& TickRequest)
-{
+{	
 	if (CastingState.bIsCasting && IsValid(CastingState.CurrentCast) && CastingState.PredictionID == TickRequest.PredictionID && CastingState.CurrentCast->GetClass() == TickRequest.AbilityClass && CastingState.ElapsedTicks < TickRequest.Tick)
 	{
 		FPredictedTick Tick;

@@ -63,26 +63,17 @@ struct FCombatParameter
     UPROPERTY(BlueprintReadWrite)
     FVector Scale = FVector::ZeroVector;
 
-    bool NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess)
+    friend FArchive& operator<<(FArchive& Ar, FCombatParameter& Parameter)
     {
-        SerializeOptionalValue(Ar.IsSaving(), Ar, ParamType, ECombatParamType::None);
-        SerializeOptionalValue(Ar.IsSaving(), Ar, ID, 0);
-        SerializeOptionalValue(Ar.IsSaving(), Ar, Object, static_cast<UObject*>(nullptr));
-        SerializeOptionalValue(Ar.IsSaving(), Ar, Class, static_cast<TSubclassOf<UObject>>(nullptr));
-        NetSerializeOptionalValue(Ar.IsSaving(), Ar, Location, FVector::ZeroVector, Map);
-        NetSerializeOptionalValue(Ar.IsSaving(), Ar, Rotation, FRotator::ZeroRotator, Map);
-        NetSerializeOptionalValue(Ar.IsSaving(), Ar, Scale, FVector::ZeroVector, Map);
-        return true;
+        Ar << Parameter.ParamType;
+        Ar << Parameter.ID;
+        Ar << Parameter.Object;
+        Ar << Parameter.Class;
+        SerializeOptionalValue(Ar.IsSaving(), Ar, Parameter.Location, FVector::ZeroVector);
+        SerializeOptionalValue(Ar.IsSaving(), Ar, Parameter.Rotation, FRotator::ZeroRotator);
+        SerializeOptionalValue(Ar.IsSaving(), Ar, Parameter.Scale, FVector::ZeroVector);
+        return Ar;
     }
-};
-
-template<>
-struct TStructOpsTypeTraits<FCombatParameter> : public TStructOpsTypeTraitsBase2<FCombatParameter>
-{
-    enum
-    {
-        WithNetSerializer = true
-    };
 };
 
 USTRUCT(BlueprintType)
@@ -95,4 +86,10 @@ struct FCombatParameters
 
     bool HasParams() const { return Parameters.Num() > 0; }
     void ClearParams() { Parameters.Empty(); }
+
+    friend FArchive& operator<<(FArchive& Ar, FCombatParameters& Parameters)
+    {
+        Ar << Parameters.Parameters;
+        return Ar;
+    }
 };

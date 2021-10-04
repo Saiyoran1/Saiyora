@@ -193,6 +193,16 @@ struct FAbilityRequest
     float ClientStartTime = 0.0f;
     UPROPERTY()
     FCombatParameters PredictionParams;
+
+    friend FArchive& operator<<(FArchive& Ar, FAbilityRequest& Request)
+    {
+        Ar << Request.AbilityClass;
+        Ar << Request.PredictionID;
+        Ar << Request.Tick;
+        Ar << Request.ClientStartTime;
+        Ar << Request.PredictionParams;
+        return Ar;
+    }
 };
 
 USTRUCT()
@@ -253,6 +263,14 @@ FORCEINLINE uint32 GetTypeHash(const FPredictedTick& Tick)
 {
     return HashCombine(GetTypeHash(Tick.PredictionID), GetTypeHash(Tick.TickNumber));
 }
+
+USTRUCT()
+struct FTickResults
+{
+    GENERATED_BODY()
+
+    TMap<int32, FCastEvent> Results;
+};
 
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FAbilityModCondition, TSubclassOf<UCombatAbility>, AbilityClass);
 DECLARE_DYNAMIC_DELEGATE_RetVal_TwoParams(FCombatModifier, FAbilityResourceModCondition, TSubclassOf<UCombatAbility>, AbilityClass, TSubclassOf<UResource>, ResourceClass);

@@ -33,8 +33,7 @@ private:
 
 		uint8 bSavedWantsCustomMove : 1;
 		ESaiyoraCustomMove SavedMoveType = ESaiyoraCustomMove::None;
-		FCombatParameters SavedMoveParams;
-		int32 SavedMoveAbilityID = 0;
+		FAbilityRequest SavedAbilityRequest;
 	};
 
 	class FNetworkPredictionData_Client_Saiyora : public FNetworkPredictionData_Client_Character
@@ -45,23 +44,52 @@ private:
 		virtual FSavedMovePtr AllocateNewMove() override;
 	};
 
+	struct FSaiyoraNetworkMoveData : public FCharacterNetworkMoveData
+	{
+		typedef FCharacterNetworkMoveData Super;
+		ESaiyoraCustomMove CustomMoveType = ESaiyoraCustomMove::None;
+		FAbilityRequest CustomMoveAbilityRequest;
+		virtual void ClientFillNetworkMoveData(const FSavedMove_Character& ClientMove, ENetworkMoveType MoveType) override;
+		virtual bool Serialize(UCharacterMovementComponent& CharacterMovement, FArchive& Ar, UPackageMap* PackageMap, ENetworkMoveType MoveType) override;
+	};
+
+	struct FSaiyoraNetworkMoveDataContainer : public FCharacterNetworkMoveDataContainer
+	{
+		typedef FCharacterNetworkMoveDataContainer Super;
+		FSaiyoraNetworkMoveDataContainer();
+		FSaiyoraNetworkMoveData CustomDefaultMoveData[3];
+	};
+	
+public:
+	USaiyoraMovementComponent(const FObjectInitializer& ObjectInitializer);
+private:
 	virtual void UpdateFromCompressedFlags(uint8 Flags) override;
 	virtual FNetworkPredictionData_Client* GetPredictionData_Client() const override;
 	virtual void OnMovementUpdated(float DeltaSeconds, const FVector& OldLocation, const FVector& OldVelocity) override;
 	virtual void BeginPlay() override;
+	virtual void MoveAutonomous(float ClientTimeStamp, float DeltaTime, uint8 CompressedFlags, const FVector& NewAccel) override;
 
 	uint8 bWantsCustomMove : 1;
 	ESaiyoraCustomMove CustomMoveType = ESaiyoraCustomMove::None;
-	FCombatParameters CustomMoveParams;
-	int32 CustomMoveAbilityID = 0;
+	FAbilityRequest CustomMoveAbilityRequest;
+
+	FSaiyoraNetworkMoveDataContainer CustomNetworkMoveDataContainer;
 
 	UPROPERTY()
 	UPlayerAbilityHandler* OwnerAbilityHandler = nullptr;
+	UPROPERTY()
+	ASaiyoraGameState* GameStateRef = nullptr;
 public:
 	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf="Source", HidePin="Source"))
-	void CustomMovement(UPlayerCombatAbility* Source, ESaiyoraCustomMove const MoveType, FCombatParameters const& Params);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Movement", meta = (DefaultToSelf="Source", HidePin="Source"))
-	void ConfirmCustomMovement(UPlayerCombatAbility* Source, ESaiyoraCustomMove const MoveType, FCombatParameters const& Params);
+	void CustomMovement(UPlayerCombatAbility* Source, ESaiyoraCustomMove const MoveType, FCombatParameters const& PredictionParams);
 private:
 	void ExecuteCustomMove();
+	FAbilityMispredictionCallback OnMispredict;
+	UFUNCTION()
+	void AbilityMispredicted(int32 const PredictionID, ECastFailReason const FailReason);
+	TMap<int32, bool> CompletedCastStatus;
+	TSet<int32> ServerCompletedMovementIDs;
+
+	//Movement Functions
+	void Teleport();
 };
