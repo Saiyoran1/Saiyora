@@ -66,7 +66,7 @@ protected:
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void AddPredictionParameter(FCombatParameter const& Parameter);
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-	FCombatParameter GetPredictionParamByID(int32 const ID);
+	FCombatParameter GetPredictionParamByName(FString const& Name);
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
 	FCombatParameter GetPredictionParamByType(ECombatParamType const Type);
 };

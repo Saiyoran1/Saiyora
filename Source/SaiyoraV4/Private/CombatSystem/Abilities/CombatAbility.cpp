@@ -218,11 +218,11 @@ void UCombatAbility::AddBroadcastParameter(FCombatParameter const& Parameter)
     BroadcastParameters.Parameters.Add(Parameter);
 }
 
-FCombatParameter UCombatAbility::GetBroadcastParamById(int32 const ID)
+FCombatParameter UCombatAbility::GetBroadcastParamByName(FString const& Name)
 {
     for (FCombatParameter const& Param : BroadcastParameters.Parameters)
     {
-        if (Param.ID == ID)
+        if (Param.ParamName == Name)
         {
             return Param;
         }

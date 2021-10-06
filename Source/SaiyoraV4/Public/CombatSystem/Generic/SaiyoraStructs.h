@@ -51,27 +51,56 @@ struct FCombatParameter
     UPROPERTY(BlueprintReadWrite)
     ECombatParamType ParamType = ECombatParamType::None;
     UPROPERTY(BlueprintReadWrite)
-    int32 ID = 0;
+    FString ParamName;
     UPROPERTY(BlueprintReadWrite)
-    UObject* Object = nullptr;
+    bool BoolParam = false;
     UPROPERTY(BlueprintReadWrite)
-    TSubclassOf<UObject> Class;
+    int32 IntParam = 0;
     UPROPERTY(BlueprintReadWrite)
-    FVector Location = FVector::ZeroVector;
+    float FloatParam = 0.0f;
     UPROPERTY(BlueprintReadWrite)
-    FRotator Rotation = FRotator::ZeroRotator;
+    UObject* ObjectParam = nullptr;
     UPROPERTY(BlueprintReadWrite)
-    FVector Scale = FVector::ZeroVector;
+    TSubclassOf<UObject> ClassParam;
+    UPROPERTY(BlueprintReadWrite)
+    FVector VectorParam = FVector::ZeroVector;
+    UPROPERTY(BlueprintReadWrite)
+    FRotator RotatorParam = FRotator::ZeroRotator;
 
     friend FArchive& operator<<(FArchive& Ar, FCombatParameter& Parameter)
     {
         Ar << Parameter.ParamType;
-        Ar << Parameter.ID;
-        Ar << Parameter.Object;
-        Ar << Parameter.Class;
-        SerializeOptionalValue(Ar.IsSaving(), Ar, Parameter.Location, FVector::ZeroVector);
-        SerializeOptionalValue(Ar.IsSaving(), Ar, Parameter.Rotation, FRotator::ZeroRotator);
-        SerializeOptionalValue(Ar.IsSaving(), Ar, Parameter.Scale, FVector::ZeroVector);
+        Ar << Parameter.ParamName;
+        switch (Parameter.ParamType)
+        {
+            case ECombatParamType::None :
+                break;
+            case ECombatParamType::String :
+                break;
+            case ECombatParamType::Bool :
+                Ar << Parameter.BoolParam;
+                break;
+            case ECombatParamType::Int :
+                Ar << Parameter.IntParam;
+                break;
+            case ECombatParamType::Float :
+                Ar << Parameter.FloatParam;
+                break;
+            case ECombatParamType::Object :
+                Ar << Parameter.ObjectParam;
+                break;
+            case ECombatParamType::Class :
+                Ar << Parameter.ClassParam;
+                break;
+            case ECombatParamType::Vector :
+                Ar << Parameter.VectorParam;
+                break;
+            case ECombatParamType::Rotator :
+                Ar << Parameter.RotatorParam;
+                break;
+            default :
+                break;
+        }
         return Ar;
     }
 };

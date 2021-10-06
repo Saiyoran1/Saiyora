@@ -253,11 +253,11 @@ void UPlayerCombatAbility::AddPredictionParameter(FCombatParameter const& Parame
     PredictionParameters.Parameters.Add(Parameter);
 }
 
-FCombatParameter UPlayerCombatAbility::GetPredictionParamByID(int32 const ID)
+FCombatParameter UPlayerCombatAbility::GetPredictionParamByName(FString const& Name)
 {
     for (FCombatParameter const& Param : PredictionParameters.Parameters)
     {
-        if (Param.ID == ID)
+        if (Param.ParamName == Name)
         {
             return Param;
         }

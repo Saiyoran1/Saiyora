@@ -35,10 +35,14 @@ UENUM(BlueprintType)
 enum class ECombatParamType : uint8
 {
  None,
- Custom,
- Origin,
- Target,
- ClassDefault,
+ Bool,
+ Int,
+ Float,
+ Object,
+ Class,
+ Vector,
+ Rotator,
+ String,
 };
 
 UENUM(BlueprintType)

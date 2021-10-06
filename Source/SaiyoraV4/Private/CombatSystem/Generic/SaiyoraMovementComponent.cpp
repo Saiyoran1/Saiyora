@@ -238,24 +238,14 @@ void USaiyoraMovementComponent::AbilityMispredicted(int32 const PredictionID, EC
 
 void USaiyoraMovementComponent::Teleport()
 {
-	FVector Target = FVector::ZeroVector;
-	bool bSweep = true;
-	for (FCombatParameter const& Param : CustomMoveAbilityRequest.PredictionParams.Parameters)
+	float  FloatParam = 0.0f;
+	for (FCombatParameter& Param : CustomMoveAbilityRequest.PredictionParams.Parameters)
 	{
-		if (Param.ParamType == ECombatParamType::Target)
+		if (Param.ParamType == ECombatParamType::Float)
 		{
-			Target = Param.Location;
-		}
-		if (Param.ParamType == ECombatParamType::Custom)
-		{
-			if (Param.ID == 1)
-			{
-				bSweep = false;
-			}
+			FloatParam = Param.VectorParam.X;
+			break;
 		}
 	}
-	if (Target != FVector::ZeroVector)
-	{
-		GetOwner()->SetActorLocation(Target, bSweep);
-	}
+	UE_LOG(LogTemp, Warning, TEXT("Teleport! %f"), FloatParam);
 }

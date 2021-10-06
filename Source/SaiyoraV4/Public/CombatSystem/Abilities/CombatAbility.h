@@ -46,7 +46,7 @@ private:
 //Basic Info
 public:
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Info")
-    FName GetAbilityName() const { return Name; }
+    FName GetAbilityName() const { return AbilityName; }
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Info")
     FText GetAbilityDescription() const { return Description; }
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Info")
@@ -57,7 +57,7 @@ public:
     ESaiyoraPlane GetAbilityPlane() const { return AbilityPlane; }
 private:
     UPROPERTY(EditDefaultsOnly, Category = "Info")
-    FName Name;
+    FName AbilityName;
     UPROPERTY(EditDefaultsOnly, Category = "Info")
     FText Description;
     UPROPERTY(EditDefaultsOnly, Category = "Info")
@@ -127,7 +127,7 @@ protected:
     UFUNCTION(BlueprintCallable, Category = "Abilities")
     void AddBroadcastParameter(FCombatParameter const& Parameter);
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-    FCombatParameter GetBroadcastParamById(int32 const ID);
+    FCombatParameter GetBroadcastParamByName(FString const& Name);
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
     FCombatParameter GetBroadcastParamByType(ECombatParamType const Type);
     void UpdateCastable();
