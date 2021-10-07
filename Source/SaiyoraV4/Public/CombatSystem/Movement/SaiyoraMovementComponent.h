@@ -3,6 +3,9 @@
 #pragma once
 
 #include "CoreMinimal.h"
+
+#include "MovementEnums.h"
+#include "MovementStructs.h"
 #include "PlayerAbilityHandler.h"
 #include "PlayerCombatAbility.h"
 #include "SaiyoraStructs.h"
@@ -34,6 +37,7 @@ private:
 		uint8 bSavedWantsCustomMove : 1;
 		ESaiyoraCustomMove SavedMoveType = ESaiyoraCustomMove::None;
 		FAbilityRequest SavedAbilityRequest;
+		FDirectionTeleportInfo SavedDirectionTeleportInfo;
 	};
 
 	class FNetworkPredictionData_Client_Saiyora : public FNetworkPredictionData_Client_Character
@@ -72,17 +76,15 @@ private:
 	uint8 bWantsCustomMove : 1;
 	ESaiyoraCustomMove CustomMoveType = ESaiyoraCustomMove::None;
 	FAbilityRequest CustomMoveAbilityRequest;
-
+	FDirectionTeleportInfo DirectionTeleportInfo;
+	
 	FSaiyoraNetworkMoveDataContainer CustomNetworkMoveDataContainer;
 
 	UPROPERTY()
 	UPlayerAbilityHandler* OwnerAbilityHandler = nullptr;
 	UPROPERTY()
 	ASaiyoraGameState* GameStateRef = nullptr;
-public:
-	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf="Source", HidePin="Source"))
-	void CustomMovement(UPlayerCombatAbility* Source, ESaiyoraCustomMove const MoveType, FCombatParameters const& PredictionParams);
-private:
+
 	void ExecuteCustomMove();
 	FAbilityMispredictionCallback OnMispredict;
 	UFUNCTION()
@@ -91,5 +93,9 @@ private:
 	TSet<int32> ServerCompletedMovementIDs;
 
 	//Movement Functions
-	void Teleport();
+public:
+	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf="Source", HidePin="Source"))
+	void TeleportInDirection(UPlayerCombatAbility* Source, float const Length, bool const bShouldSweep, bool const bIgnoreZ, FCombatParameters const& PredictionParams);
+private:
+	void ExecuteTeleportInDirection(FDirectionTeleportInfo const& TeleportInfo);
 };
