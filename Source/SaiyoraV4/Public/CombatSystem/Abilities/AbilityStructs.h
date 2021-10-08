@@ -71,6 +71,10 @@ struct FCastEvent
     ECastFailReason FailReason = ECastFailReason::None;
     UPROPERTY()
     int32 PredictionID = 0;
+    UPROPERTY(BlueprintReadOnly)
+    FCombatParameters PredictionParams;
+    UPROPERTY(BlueprintReadOnly)
+    FCombatParameters BroadcastParams;
 };
 
 USTRUCT(BlueprintType)
@@ -96,6 +100,10 @@ struct FCancelEvent
     float CancelTime = 0.0f;
     UPROPERTY(BlueprintReadOnly)
     int32 ElapsedTicks = 0;
+    UPROPERTY(BlueprintReadOnly)
+    FCombatParameters PredictionParams;
+    UPROPERTY(BlueprintReadOnly)
+    FCombatParameters BroadcastParams;
 };
 
 USTRUCT()
@@ -203,6 +211,8 @@ struct FAbilityRequest
         Ar << Request.PredictionParams;
         return Ar;
     }
+
+    void Clear() { AbilityClass = nullptr; PredictionID = 0; Tick = 0; ClientStartTime = 0.0f; PredictionParams = FCombatParameters(); }
 };
 
 USTRUCT()

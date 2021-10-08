@@ -3,7 +3,6 @@
 #pragma once
 
 #include "CoreMinimal.h"
-
 #include "MovementEnums.h"
 #include "MovementStructs.h"
 #include "PlayerAbilityHandler.h"
@@ -11,13 +10,6 @@
 #include "SaiyoraStructs.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "SaiyoraMovementComponent.generated.h"
-
-UENUM(BlueprintType)
-enum class ESaiyoraCustomMove : uint8
-{
-	None = 0,
-	Teleport = 1,
-};
 
 UCLASS(BlueprintType)
 class SAIYORAV4_API USaiyoraMovementComponent : public UCharacterMovementComponent
@@ -35,9 +27,7 @@ private:
 		virtual void SetMoveFor(ACharacter* C, float InDeltaTime, FVector const& NewAccel, FNetworkPredictionData_Client_Character& ClientData) override;
 
 		uint8 bSavedWantsCustomMove : 1;
-		ESaiyoraCustomMove SavedMoveType = ESaiyoraCustomMove::None;
-		FAbilityRequest SavedAbilityRequest;
-		FDirectionTeleportInfo SavedDirectionTeleportInfo;
+		FClientPendingCustomMove SavedPendingCustomMove;
 	};
 
 	class FNetworkPredictionData_Client_Saiyora : public FNetworkPredictionData_Client_Character
@@ -51,7 +41,6 @@ private:
 	struct FSaiyoraNetworkMoveData : public FCharacterNetworkMoveData
 	{
 		typedef FCharacterNetworkMoveData Super;
-		ESaiyoraCustomMove CustomMoveType = ESaiyoraCustomMove::None;
 		FAbilityRequest CustomMoveAbilityRequest;
 		virtual void ClientFillNetworkMoveData(const FSavedMove_Character& ClientMove, ENetworkMoveType MoveType) override;
 		virtual bool Serialize(UCharacterMovementComponent& CharacterMovement, FArchive& Ar, UPackageMap* PackageMap, ENetworkMoveType MoveType) override;
@@ -74,9 +63,10 @@ private:
 	virtual void MoveAutonomous(float ClientTimeStamp, float DeltaTime, uint8 CompressedFlags, const FVector& NewAccel) override;
 
 	uint8 bWantsCustomMove : 1;
-	ESaiyoraCustomMove CustomMoveType = ESaiyoraCustomMove::None;
+	//Client-side move struct, used for replaying the move without access to the original ability.
+	FClientPendingCustomMove PendingCustomMove;
+	//Ability request received by the server, used to activate an ability resulting in a custom move.
 	FAbilityRequest CustomMoveAbilityRequest;
-	FDirectionTeleportInfo DirectionTeleportInfo;
 	
 	FSaiyoraNetworkMoveDataContainer CustomNetworkMoveDataContainer;
 
@@ -93,9 +83,30 @@ private:
 	TSet<int32> ServerCompletedMovementIDs;
 
 	//Movement Functions
+private:
+	void SetupCustomMovement(UPlayerCombatAbility* Source, ESaiyoraCustomMove const MoveType, FCustomMoveParams const& Params);
+	FAbilityCallback OnPredictedAbility;
+	UFUNCTION()
+	void OnCustomMoveCastPredicted(FCastEvent const& Event);
 public:
 	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf="Source", HidePin="Source"))
-	void TeleportInDirection(UPlayerCombatAbility* Source, float const Length, bool const bShouldSweep, bool const bIgnoreZ, FCombatParameters const& PredictionParams);
+	void PredictTeleportInDirection(UPlayerCombatAbility* Source, FVector const& Direction, float const Length, bool const bSweep, bool const bIgnoreZ);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Movement", meta = (DefaultToSelf="Source", HidePin="Source"))
+	void TeleportInDirection(UPlayerCombatAbility* Source, FVector const& Direction, float const Length, bool const bSweep, bool const bIgnoreZ);
 private:
-	void ExecuteTeleportInDirection(FDirectionTeleportInfo const& TeleportInfo);
+	void ExecuteTeleportInDirection(FVector const& Direction, float const Length, bool const bSweep, bool const bIgnoreZ);
+public:
+	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf="Source", HidePin="Source"))
+	void PredictTeleportToLocation(UPlayerCombatAbility* Source, FVector const& Target, FRotator const& DesiredRotation, bool const bSweep);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Movement", meta = (DefaultToSelf="Source", HidePin="Source"))
+	void TeleportToLocation(UPlayerCombatAbility* Source, FVector const& Target, FRotator const& DesiredRotation, bool const bSweep);
+private:
+	void ExecuteTeleportToLocation(FVector const& Target, FRotator const& DesiredRotation, bool const bSweep);
+public:
+	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf="Source", HidePin="Source"))
+	void PredictLaunchPlayer(UPlayerCombatAbility* Source, FVector const& Direction, float const Force);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Movement", meta = (DefaultToSelf="Source", HidePin="Source"))
+	void LaunchPlayer(UPlayerCombatAbility* Source, FVector const& Direction, float const Force);
+private:
+	void ExecuteLaunchPlayer(FVector const& Direction, float const Force);
 };

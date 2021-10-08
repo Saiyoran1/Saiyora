@@ -162,7 +162,7 @@ public:
 protected:
 	FAbilityCancelNotification OnAbilityCancelled;
 	UFUNCTION(NetMulticast, Unreliable)
-	void MulticastAbilityCancel(FCancelEvent const& CancelEvent, FCombatParameters const& BroadcastParams);
+	void MulticastAbilityCancel(FCancelEvent const& CancelEvent);
 //Interrupting
 public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")

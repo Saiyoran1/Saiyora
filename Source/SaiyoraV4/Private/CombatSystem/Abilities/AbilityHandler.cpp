@@ -588,10 +588,9 @@ FCancelEvent UAbilityHandler::CancelCurrentCast()
 	Result.CancelledCastEnd = CastingState.CastEndTime;
 	Result.ElapsedTicks = CastingState.ElapsedTicks;
 	Result.bSuccess = true;
-	FCombatParameters CancelParams;
-	Result.CancelledAbility->ServerCancel(CancelParams);
+	Result.CancelledAbility->ServerCancel(Result.BroadcastParams);
 	OnAbilityCancelled.Broadcast(Result);
-	MulticastAbilityCancel(Result, CancelParams);
+	MulticastAbilityCancel(Result);
 	EndCast();
 	return Result;
 }
@@ -712,13 +711,13 @@ void UAbilityHandler::MulticastAbilityComplete_Implementation(FCastEvent const& 
 	}
 }
 
-void UAbilityHandler::MulticastAbilityCancel_Implementation(FCancelEvent const& CancelEvent, FCombatParameters const& BroadcastParams)
+void UAbilityHandler::MulticastAbilityCancel_Implementation(FCancelEvent const& CancelEvent)
 {
 	if (GetOwnerRole() == ROLE_SimulatedProxy)
 	{
 		if (IsValid(CancelEvent.CancelledAbility))
 		{
-			CancelEvent.CancelledAbility->SimulatedCancel(BroadcastParams);
+			CancelEvent.CancelledAbility->SimulatedCancel(CancelEvent.BroadcastParams);
 			OnAbilityCancelled.Broadcast(CancelEvent);
 		}
 	}

@@ -2,6 +2,7 @@
 
 #include "Movement/SaiyoraMovementComponent.h"
 #include "SaiyoraCombatInterface.h"
+#include "Camera/CameraComponent.h"
 #include "GameFramework/Character.h"
 #include "Movement/MovementStructs.h"
 
@@ -11,7 +12,7 @@ bool USaiyoraMovementComponent::FSavedMove_Saiyora::CanCombineWith(const FSavedM
 	FSavedMove_Saiyora* CastMove = (FSavedMove_Saiyora*)&NewMove;
 	if (CastMove)
 	{
-		if (bSavedWantsCustomMove != CastMove->bSavedWantsCustomMove || SavedMoveType != CastMove->SavedMoveType)
+		if (bSavedWantsCustomMove != CastMove->bSavedWantsCustomMove || SavedPendingCustomMove.MoveType != CastMove->SavedPendingCustomMove.MoveType)
 		{
 			return false;
 		}
@@ -23,6 +24,7 @@ void USaiyoraMovementComponent::FSavedMove_Saiyora::Clear()
 {
 	Super::Clear();
 	bSavedWantsCustomMove = false;
+	SavedPendingCustomMove.Clear();
 }
 
 uint8 USaiyoraMovementComponent::FSavedMove_Saiyora::GetCompressedFlags() const
@@ -42,9 +44,7 @@ void USaiyoraMovementComponent::FSavedMove_Saiyora::PrepMoveFor(ACharacter* C)
 	USaiyoraMovementComponent* Movement = Cast<USaiyoraMovementComponent>(C->GetCharacterMovement());
 	if (Movement)
 	{
-		Movement->CustomMoveType = SavedMoveType;
-		Movement->CustomMoveAbilityRequest = SavedAbilityRequest;
-		Movement->DirectionTeleportInfo = SavedDirectionTeleportInfo;
+		Movement->PendingCustomMove = SavedPendingCustomMove;
 	}
 }
 
@@ -57,9 +57,7 @@ void USaiyoraMovementComponent::FSavedMove_Saiyora::SetMoveFor(ACharacter* C, fl
 	if (Movement)
 	{
 		bSavedWantsCustomMove = Movement->bWantsCustomMove;
-		SavedMoveType = Movement->CustomMoveType;
-		SavedAbilityRequest = Movement->CustomMoveAbilityRequest;
-		SavedDirectionTeleportInfo = Movement->DirectionTeleportInfo;
+		SavedPendingCustomMove = Movement->PendingCustomMove;
 	}
 }
 
@@ -82,8 +80,11 @@ void USaiyoraMovementComponent::FSaiyoraNetworkMoveData::ClientFillNetworkMoveDa
 	FSavedMove_Saiyora const* CastMove = (FSavedMove_Saiyora*)&ClientMove;
 	if (CastMove)
 	{
-		CustomMoveType = CastMove->SavedMoveType;
-		CustomMoveAbilityRequest = CastMove->SavedAbilityRequest;
+		CustomMoveAbilityRequest.AbilityClass = CastMove->SavedPendingCustomMove.AbilityClass;
+		CustomMoveAbilityRequest.PredictionID = CastMove->SavedPendingCustomMove.PredictionID;
+		CustomMoveAbilityRequest.Tick = 0;
+		CustomMoveAbilityRequest.PredictionParams = CastMove->SavedPendingCustomMove.PredictionParams;
+		CustomMoveAbilityRequest.ClientStartTime = CastMove->SavedPendingCustomMove.OriginalTimestamp;
 	}
 }
 
@@ -91,7 +92,6 @@ bool USaiyoraMovementComponent::FSaiyoraNetworkMoveData::Serialize(UCharacterMov
 	FArchive& Ar, UPackageMap* PackageMap, ENetworkMoveType MoveType)
 {
 	Super::Serialize(CharacterMovement, Ar, PackageMap, MoveType);
-	Ar << CustomMoveType;
 	Ar << CustomMoveAbilityRequest;
 	return !Ar.IsError();
 }
@@ -137,11 +137,8 @@ void USaiyoraMovementComponent::OnMovementUpdated(float DeltaSeconds, const FVec
 	{
 		ExecuteCustomMove();
 		bWantsCustomMove = false;
-		CustomMoveType = ESaiyoraCustomMove::None;
-		CustomMoveAbilityRequest.AbilityClass = nullptr;
-		CustomMoveAbilityRequest.PredictionID = 0;
-		CustomMoveAbilityRequest.Tick = 0;
-		CustomMoveAbilityRequest.PredictionParams.Parameters.Empty();
+		CustomMoveAbilityRequest.Clear();
+		PendingCustomMove.Clear();
 	}
 }
 
@@ -157,6 +154,8 @@ void USaiyoraMovementComponent::BeginPlay()
 	OwnerAbilityHandler = Cast<UPlayerAbilityHandler>(ISaiyoraCombatInterface::Execute_GetAbilityHandler(GetOwner()));
 	if (GetOwnerRole() == ROLE_AutonomousProxy && IsValid(OwnerAbilityHandler))
 	{
+		OnPredictedAbility.BindDynamic(this, &USaiyoraMovementComponent::OnCustomMoveCastPredicted);
+		//Do not bind OnPredictedAbility, this will be bound and unbound only when custom moves are predicted.
 		OnMispredict.BindDynamic(this, &USaiyoraMovementComponent::AbilityMispredicted);
 		OwnerAbilityHandler->SubscribeToAbilityMispredicted(OnMispredict);
 	}
@@ -169,53 +168,60 @@ void USaiyoraMovementComponent::MoveAutonomous(float ClientTimeStamp, float Delt
 	FSaiyoraNetworkMoveData* MoveData = static_cast<FSaiyoraNetworkMoveData*>(GetCurrentNetworkMoveData());
 	if (MoveData)
 	{
-		CustomMoveType = MoveData->CustomMoveType;
-		if (CustomMoveType != ESaiyoraCustomMove::None)
-		{
-			//UE_LOG(LogTemp, Warning, TEXT("What the fuck unreal?"));
-			CustomMoveAbilityRequest = MoveData->CustomMoveAbilityRequest;
-		}
+		CustomMoveAbilityRequest = MoveData->CustomMoveAbilityRequest;
 	}
 	Super::MoveAutonomous(ClientTimeStamp, DeltaTime, CompressedFlags, NewAccel);
 }
 
 void USaiyoraMovementComponent::ExecuteCustomMove()
 {
-	//Check against invalid move type.
-	if (CustomMoveType == ESaiyoraCustomMove::None)
+	if (GetOwnerRole() == ROLE_SimulatedProxy)
 	{
+		return;
+	}
+	if (GetOwnerRole() == ROLE_Authority && PawnOwner->IsLocallyControlled())
+	{
+		//If we are a listen server, bypass the need for flags. The movement itself is just manually called by ability.
 		return;
 	}
 	if (GetOwnerRole() == ROLE_Authority && !PawnOwner->IsLocallyControlled())
 	{
 		//If we are the server, and have an auto proxy, check that this move hasn't already been sent (duplicating cast IDs), and can actually be performed.
-		if (ServerCompletedMovementIDs.Contains(CustomMoveAbilityRequest.PredictionID) || !IsValid(OwnerAbilityHandler) || !OwnerAbilityHandler->UseAbilityFromPredictedMovement(CustomMoveAbilityRequest))
+		if (ServerCompletedMovementIDs.Contains(CustomMoveAbilityRequest.PredictionID) || !IsValid(OwnerAbilityHandler))
 		{
 			return;
 		}
-	}
-	//Check that this move succeeded on clients. If a misprediction occurs, this prevents the move from being replayed over and over.
-	if (GetOwnerRole() == ROLE_AutonomousProxy && !CompletedCastStatus.FindRef(CustomMoveAbilityRequest.PredictionID))
-	{
+		bool const bCompleted = OwnerAbilityHandler->UseAbilityFromPredictedMovement(CustomMoveAbilityRequest);
+		if (bCompleted)
+		{
+			//Document that this prediction ID has already been used, so duplicate moves with this ID do not get re-used.
+			ServerCompletedMovementIDs.Add(CustomMoveAbilityRequest.PredictionID);
+		}
 		return;
 	}
-	
-	//Perform move!
-	switch(CustomMoveType)
+	if (GetOwnerRole() == ROLE_AutonomousProxy)
 	{
-		case ESaiyoraCustomMove::None :
-			break;
-		case ESaiyoraCustomMove::Teleport :
-			ExecuteTeleportInDirection(DirectionTeleportInfo);
-			DirectionTeleportInfo = FDirectionTeleportInfo();
-			break;
-		return;
-	}
-
-	//For the server, if we have an auto proxy, document that this prediction ID has been used already.
-	if (GetOwnerRole() == ROLE_Authority && !PawnOwner->IsLocallyControlled())
-	{
-		ServerCompletedMovementIDs.Add(CustomMoveAbilityRequest.PredictionID);
+		//Check to see if the pending move has been marked as a misprediction, to prevent it from being replayed.
+		if (!CompletedCastStatus.FindRef(PendingCustomMove.PredictionID))
+		{
+			return;
+		}
+		switch (PendingCustomMove.MoveType)
+		{
+			case ESaiyoraCustomMove::None :
+				break;
+			case ESaiyoraCustomMove::TeleportDirection :
+				ExecuteTeleportInDirection(PendingCustomMove.MoveParams.Direction, PendingCustomMove.MoveParams.Scale, PendingCustomMove.MoveParams.bSweep, PendingCustomMove.MoveParams.bIgnoreZ);
+				break;
+			case ESaiyoraCustomMove::TeleportLocation :
+				ExecuteTeleportToLocation(PendingCustomMove.MoveParams.Target, PendingCustomMove.MoveParams.Rotation, PendingCustomMove.MoveParams.bSweep);
+				break;
+			case ESaiyoraCustomMove::Launch :
+				ExecuteLaunchPlayer(PendingCustomMove.MoveParams.Direction, PendingCustomMove.MoveParams.Scale);
+				break;
+			default :
+				break;
+		}
 	}
 }
 
@@ -224,65 +230,122 @@ void USaiyoraMovementComponent::AbilityMispredicted(int32 const PredictionID, EC
 	CompletedCastStatus.Add(PredictionID, false);
 }
 
-void USaiyoraMovementComponent::TeleportInDirection(UPlayerCombatAbility* Source, float const Length, bool const bShouldSweep, bool const bIgnoreZ, FCombatParameters const& PredictionParams)
+void USaiyoraMovementComponent::SetupCustomMovement(UPlayerCombatAbility* Source, ESaiyoraCustomMove const MoveType, FCustomMoveParams const& Params)
 {
-	if (!IsValid(Source) || GetOwnerRole() == ROLE_SimulatedProxy || !IsValid(OwnerAbilityHandler) || OwnerAbilityHandler->GetCastingState().ElapsedTicks != 0)
+	if (GetOwnerRole() != ROLE_AutonomousProxy || !IsValid(Source) || !IsValid(OwnerAbilityHandler))
 	{
 		return;
 	}
-	
-	if (GetOwnerRole() == ROLE_Authority)
-	{
-		FDirectionTeleportInfo TeleInfo;
-		for (FCombatParameter const& Param : PredictionParams.Parameters)
-		{
-			if (Param.ParamName == "Direction")
-			{
-				TeleInfo.Direction = Param.VectorParam;
-			}
-		}
-		TeleInfo.Length = Length;
-		TeleInfo.bShouldSweep = bShouldSweep;
-		TeleInfo.bIgnoreZ = bIgnoreZ;
-		ExecuteTeleportInDirection(TeleInfo);
-	}
-	if (GetOwnerRole() == ROLE_AutonomousProxy)
-	{
-		int32 const PredictionID = OwnerAbilityHandler->GetLastPredictionID();
-		if (CompletedCastStatus.Contains(PredictionID))
-		{
-			return;
-		}
-		CompletedCastStatus.Add(PredictionID, true);
-		bWantsCustomMove = true;
-		CustomMoveType = ESaiyoraCustomMove::Teleport;
-		CustomMoveAbilityRequest.PredictionID = OwnerAbilityHandler->GetLastPredictionID();
-		CustomMoveAbilityRequest.PredictionParams = PredictionParams;
-		CustomMoveAbilityRequest.Tick = 0;
-		CustomMoveAbilityRequest.AbilityClass = Source->GetClass();
-		CustomMoveAbilityRequest.ClientStartTime = GameStateRef->GetServerWorldTimeSeconds();
-		for (FCombatParameter const& Param : PredictionParams.Parameters)
-		{
-			if (Param.ParamName == "Direction")
-			{
-				DirectionTeleportInfo.Direction = Param.VectorParam;
-			}
-		}
-		DirectionTeleportInfo.Length = Length;
-		DirectionTeleportInfo.bShouldSweep = bShouldSweep;
-		DirectionTeleportInfo.bIgnoreZ = bIgnoreZ;
-	}
+	OwnerAbilityHandler->SubscribeToAbilityTicked(OnPredictedAbility);
+	PendingCustomMove.MoveType = MoveType;
+	PendingCustomMove.AbilityClass = Source->GetClass();
+	PendingCustomMove.MoveParams = Params;
+	PendingCustomMove.PredictionID = OwnerAbilityHandler->GetLastPredictionID();
+	PendingCustomMove.OriginalTimestamp = GameStateRef->GetServerWorldTimeSeconds();
 }
 
-void USaiyoraMovementComponent::ExecuteTeleportInDirection(FDirectionTeleportInfo const& TeleportInfo)
+void USaiyoraMovementComponent::OnCustomMoveCastPredicted(FCastEvent const& Event)
 {
-	FVector const OriginalLocation = GetOwner()->GetActorLocation();
-	FVector Travel = TeleportInfo.Direction;
-	if (TeleportInfo.bIgnoreZ)
+	OwnerAbilityHandler->UnsubscribeFromAbilityTicked(OnPredictedAbility);
+	CompletedCastStatus.Add(Event.PredictionID, true);
+	if (!IsValid(PendingCustomMove.AbilityClass) || PendingCustomMove.AbilityClass != Event.Ability->GetClass()
+		|| PendingCustomMove.PredictionID != Event.PredictionID || PendingCustomMove.MoveType == ESaiyoraCustomMove::None
+			|| Event.Tick != 0)
+	{
+		PendingCustomMove.Clear();
+		return;
+	}
+	PendingCustomMove.PredictionParams = Event.PredictionParams;
+	bWantsCustomMove = true;
+}
+
+void USaiyoraMovementComponent::PredictTeleportInDirection(UPlayerCombatAbility* Source, FVector const& Direction, float const Length, bool const bSweep, bool const bIgnoreZ)
+{
+	if (GetOwnerRole() != ROLE_AutonomousProxy || !IsValid(Source))
+	{
+		return;
+	}
+	FCustomMoveParams TeleParams;
+	TeleParams.Direction = Direction;
+	TeleParams.Scale = Length;
+	TeleParams.bSweep = bSweep;
+	TeleParams.bIgnoreZ = bIgnoreZ;
+	SetupCustomMovement(Source, ESaiyoraCustomMove::TeleportDirection, TeleParams);
+}
+
+void USaiyoraMovementComponent::TeleportInDirection(UPlayerCombatAbility* Source, FVector const& Direction,
+	float const Length, bool const bSweep, bool const bIgnoreZ)
+{
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(Source))
+	{
+		return;
+	}
+	ExecuteTeleportInDirection(Direction, Length, bSweep, bIgnoreZ);
+}
+
+void USaiyoraMovementComponent::ExecuteTeleportInDirection(FVector const& Direction, float const Length, bool const bSweep, bool const bIgnoreZ)
+{
+	FVector Travel = Direction;
+	if (bIgnoreZ)
 	{
 		Travel.Z = 0.0f;
 	}
-	Travel.Normalize();
-	FVector const TargetLocation = OriginalLocation + (Travel * TeleportInfo.Length);
-	GetOwner()->SetActorLocation(TargetLocation, TeleportInfo.bShouldSweep);
+	Travel = Travel.GetSafeNormal();
+	GetOwner()->SetActorLocation(GetOwner()->GetActorLocation() + (Length * Travel), bSweep);
+}
+
+void USaiyoraMovementComponent::PredictTeleportToLocation(UPlayerCombatAbility* Source, FVector const& Target,
+	FRotator const& DesiredRotation, bool const bSweep)
+{
+	if (GetOwnerRole() != ROLE_AutonomousProxy || !IsValid(Source))
+	{
+		return;
+	}
+	FCustomMoveParams TeleParams;
+	TeleParams.Target = Target;
+	TeleParams.Rotation = DesiredRotation;
+	TeleParams.bSweep = bSweep;
+	SetupCustomMovement(Source, ESaiyoraCustomMove::TeleportLocation, TeleParams);
+}
+
+void USaiyoraMovementComponent::TeleportToLocation(UPlayerCombatAbility* Source, FVector const& Target, FRotator const& DesiredRotation, bool const bSweep)
+{
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(Source))
+	{
+		return;
+	}
+	ExecuteTeleportToLocation(Target, DesiredRotation, bSweep);
+}
+
+void USaiyoraMovementComponent::ExecuteTeleportToLocation(FVector const& Target, FRotator const& DesiredRotation, bool const bSweep)
+{
+	GetOwner()->SetActorLocation(Target, bSweep);
+	GetOwner()->SetActorRotation(DesiredRotation);
+}
+
+void USaiyoraMovementComponent::PredictLaunchPlayer(UPlayerCombatAbility* Source, FVector const& Direction,
+	float const Force)
+{
+	if (GetOwnerRole() != ROLE_AutonomousProxy || !IsValid(Source))
+	{
+		return;
+	}
+	FCustomMoveParams LaunchParams;
+	LaunchParams.Direction = Direction;
+	LaunchParams.Scale = Force;
+	SetupCustomMovement(Source, ESaiyoraCustomMove::Launch, LaunchParams);
+}
+
+void USaiyoraMovementComponent::LaunchPlayer(UPlayerCombatAbility* Source, FVector const& Direction, float const Force)
+{
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(Source))
+	{
+		return;
+	}
+	ExecuteLaunchPlayer(Direction, Force);
+}
+
+void USaiyoraMovementComponent::ExecuteLaunchPlayer(FVector const& Direction, float const Force)
+{
+	Launch(Direction.GetSafeNormal() * Force);
 }

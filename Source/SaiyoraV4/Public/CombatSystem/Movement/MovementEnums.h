@@ -17,3 +17,12 @@ enum class EMovementDirection2D : uint8
 	BackwardLeft = 7,
 	BackwardRight = 8,
 };
+
+UENUM(BlueprintType)
+enum class ESaiyoraCustomMove : uint8
+{
+	None = 0,
+	TeleportDirection = 1,
+	TeleportLocation = 2,
+	Launch = 3,
+};
