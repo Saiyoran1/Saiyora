@@ -527,6 +527,7 @@ void UPlayerAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest 
 	{
 	case EAbilityCastType::Instant :
 		Result.ActionTaken = ECastAction::Success;
+		LastAckedClientID = AbilityRequest.PredictionID;
 		PlayerAbility->ServerTick(0, AbilityRequest.PredictionParams, BroadcastParams);
 		Result.BroadcastParams = BroadcastParams;
 		OnAbilityTick.Broadcast(Result);
@@ -538,6 +539,7 @@ void UPlayerAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest 
 		ServerResult.CastLength = PlayerAbility->GetCastLength();
 		ServerResult.bActivatedCastBar = true;
 		ServerResult.bInterruptible = CastingState.bInterruptible;
+		LastAckedClientID = AbilityRequest.PredictionID;
 		if (PlayerAbility->GetHasInitialTick())
 		{
 			PlayerAbility->ServerTick(0, AbilityRequest.PredictionParams, BroadcastParams);
@@ -832,6 +834,8 @@ void UPlayerAbilityHandler::ServerHandlePredictedTick_Implementation(FAbilityReq
 		Tick.TickNumber = TickRequest.Tick;
 		Tick.PredictionID = TickRequest.PredictionID;
 		ParamsAwaitingTicks.Add(Tick, TickRequest.PredictionParams);
+		//TODO: If within a certain tolerance, maybe just perform the ability and increase next tick timer by the remaining time?
+		//This would help with race conditions between PlayerAbilityHandler and CMC.
 		return;
 	}
 	for (FPredictedTick const& Tick : TicksAwaitingParams)

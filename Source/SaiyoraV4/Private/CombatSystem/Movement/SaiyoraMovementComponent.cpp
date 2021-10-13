@@ -276,11 +276,31 @@ void USaiyoraMovementComponent::PredictTeleportInDirection(UPlayerCombatAbility*
 void USaiyoraMovementComponent::TeleportInDirection(UPlayerCombatAbility* Source, FVector const& Direction,
 	float const Length, bool const bSweep, bool const bIgnoreZ)
 {
-	if (GetOwnerRole() != ROLE_Authority || !IsValid(Source))
+	/*if (GetOwnerRole() != ROLE_Authority || !IsValid(Source))
 	{
 		return;
 	}
-	ExecuteTeleportInDirection(Direction, Length, bSweep, bIgnoreZ);
+	ExecuteTeleportInDirection(Direction, Length, bSweep, bIgnoreZ);*/
+	if (!IsValid(Source) || GetOwnerRole() == ROLE_SimulatedProxy)
+	{
+		return;
+	}
+	if (GetOwnerRole() == ROLE_Authority)
+	{
+		if (!PawnOwner->IsLocallyControlled() && (OwnerAbilityHandler->GetLastPredictionID() == 0 || ServerCompletedMovementIDs.Contains(OwnerAbilityHandler->GetLastPredictionID())))
+		{
+			return;
+		}
+		ExecuteTeleportInDirection(Direction, Length, bSweep, bIgnoreZ);
+		if (!PawnOwner->IsLocallyControlled())
+		{
+			ServerCompletedMovementIDs.Add(OwnerAbilityHandler->GetLastPredictionID());
+		}
+	}
+	if (GetOwnerRole() == ROLE_AutonomousProxy)
+	{
+		PredictTeleportInDirection(Source, Direction, Length, bSweep, bIgnoreZ);
+	}
 }
 
 void USaiyoraMovementComponent::ExecuteTeleportInDirection(FVector const& Direction, float const Length, bool const bSweep, bool const bIgnoreZ)
@@ -348,4 +368,105 @@ void USaiyoraMovementComponent::LaunchPlayer(UPlayerCombatAbility* Source, FVect
 void USaiyoraMovementComponent::ExecuteLaunchPlayer(FVector const& Direction, float const Force)
 {
 	Launch(Direction.GetSafeNormal() * Force);
+}
+
+/*
+ Root Motion Testing
+ */
+
+void USaiyoraMovementComponent::TestRootMotion(UPlayerCombatAbility* Source)
+{
+	if (!IsValid(Source))
+	{
+		return;
+	}
+	TSharedPtr<FCustomRootMotionSource> CustomRootMotion = MakeShared<FCustomRootMotionSource>();
+	CustomRootMotion->Force = 4000.f;
+	CustomRootMotion->PredictionID = OwnerAbilityHandler->GetLastPredictionID();
+	uint16 ID = ApplyRootMotionSource(CustomRootMotion);
+	//TODO: Handle cleanup of source.
+	FTimerHandle CleanupHandle;
+	FTimerDelegate CleanupDel;
+	CleanupDel.BindUObject(this, &USaiyoraMovementComponent::CleanupRootMotion, ID);
+	GetWorld()->GetTimerManager().SetTimer(CleanupHandle, CleanupDel, 0.2f, false);
+	return;
+}
+
+void USaiyoraMovementComponent::CleanupRootMotion(uint16 const ID)
+{
+	RemoveRootMotionSourceByID(ID);
+}
+
+FCustomRootMotionSource::FCustomRootMotionSource()
+{
+	Force = 0.0f;
+	PredictionID = 0;
+	AccumulateMode = ERootMotionAccumulateMode::Override;
+	FinishVelocityParams.Mode = ERootMotionFinishVelocityMode::SetVelocity;
+	FinishVelocityParams.SetVelocity = FVector(0.0f);
+	Settings.SetFlag(ERootMotionSourceSettingsFlags::DisablePartialEndTick);
+}
+
+FRootMotionSource* FCustomRootMotionSource::Clone() const
+{
+	FCustomRootMotionSource* CopyPtr = new FCustomRootMotionSource(*this);
+    return CopyPtr;
+}
+
+bool FCustomRootMotionSource::Matches(const FRootMotionSource* Other) const
+{
+	if (!Super::Matches(Other))
+	{
+		return false;
+	}
+	FCustomRootMotionSource const* CastOther = static_cast<FCustomRootMotionSource const*>(Other);
+	if (CastOther)
+	{
+		return PredictionID == CastOther->PredictionID;
+	}
+	return false;
+}
+
+bool FCustomRootMotionSource::MatchesAndHasSameState(const FRootMotionSource* Other) const
+{
+	return Super::MatchesAndHasSameState(Other);
+}
+
+bool FCustomRootMotionSource::UpdateStateFrom(const FRootMotionSource* SourceToTakeStateFrom,
+	bool bMarkForSimulatedCatchup)
+{
+	return Super::UpdateStateFrom(SourceToTakeStateFrom, bMarkForSimulatedCatchup);
+}
+
+void FCustomRootMotionSource::PrepareRootMotion(float SimulationTime, float MovementTickTime,
+	const ACharacter& Character, const UCharacterMovementComponent& MoveComponent)
+{
+	RootMotionParams.Clear();
+	FTransform NewTransform(FVector(0.f, 0.f, Force));
+	const float Multiplier = (MovementTickTime > SMALL_NUMBER) ? (SimulationTime / MovementTickTime) : 1.f;
+	NewTransform.ScaleTranslation(Multiplier);
+	RootMotionParams.Set(NewTransform);
+	SetTime(GetTime() + SimulationTime);
+}
+
+bool FCustomRootMotionSource::NetSerialize(FArchive& Ar, UPackageMap* Map, bool& bOutSuccess)
+{
+	if (!Super::NetSerialize(Ar, Map, bOutSuccess))
+	{
+		return false;
+	}
+	Ar << Force;
+	Ar << PredictionID;
+	bOutSuccess = true;
+	return true;
+}
+
+UScriptStruct* FCustomRootMotionSource::GetScriptStruct() const
+{
+	return FCustomRootMotionSource::StaticStruct();
+}
+
+void FCustomRootMotionSource::AddReferencedObjects(FReferenceCollector& Collector)
+{
+	Super::AddReferencedObjects(Collector);
 }

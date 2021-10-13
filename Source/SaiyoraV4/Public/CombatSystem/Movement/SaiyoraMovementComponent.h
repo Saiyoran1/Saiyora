@@ -91,7 +91,7 @@ private:
 public:
 	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf="Source", HidePin="Source"))
 	void PredictTeleportInDirection(UPlayerCombatAbility* Source, FVector const& Direction, float const Length, bool const bSweep, bool const bIgnoreZ);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Movement", meta = (DefaultToSelf="Source", HidePin="Source"))
+	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf="Source", HidePin="Source"))
 	void TeleportInDirection(UPlayerCombatAbility* Source, FVector const& Direction, float const Length, bool const bSweep, bool const bIgnoreZ);
 private:
 	void ExecuteTeleportInDirection(FVector const& Direction, float const Length, bool const bSweep, bool const bIgnoreZ);
@@ -109,4 +109,43 @@ public:
 	void LaunchPlayer(UPlayerCombatAbility* Source, FVector const& Direction, float const Force);
 private:
 	void ExecuteLaunchPlayer(FVector const& Direction, float const Force);
+
+	//Root Motion Sources?
+public:
+	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf="Source", HidePin="Source"))
+	void TestRootMotion(UPlayerCombatAbility* Source);
+private:
+	UFUNCTION()
+	void CleanupRootMotion(uint16 const ID);
+};
+
+USTRUCT()
+struct FCustomRootMotionSource : public FRootMotionSource
+{
+	GENERATED_BODY()
+
+	FCustomRootMotionSource();
+	virtual FRootMotionSource* Clone() const override;
+	virtual bool Matches(const FRootMotionSource* Other) const override;
+	virtual bool MatchesAndHasSameState(const FRootMotionSource* Other) const override;
+	virtual bool UpdateStateFrom(const FRootMotionSource* SourceToTakeStateFrom, bool bMarkForSimulatedCatchup) override;
+	virtual void PrepareRootMotion(float SimulationTime, float MovementTickTime, const ACharacter& Character, const UCharacterMovementComponent& MoveComponent) override;
+	virtual bool NetSerialize(FArchive& Ar, UPackageMap* Map, bool& bOutSuccess) override;
+	virtual UScriptStruct* GetScriptStruct() const override;
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
+
+	UPROPERTY()
+	float Force = 0.0f;
+	UPROPERTY()
+	int32 PredictionID = 0;
+};
+
+template<>
+struct TStructOpsTypeTraits<FCustomRootMotionSource> : public TStructOpsTypeTraitsBase2<FCustomRootMotionSource>
+{
+	enum
+	{
+		WithNetSerializer = true,
+		WithCopy = true
+	};
 };

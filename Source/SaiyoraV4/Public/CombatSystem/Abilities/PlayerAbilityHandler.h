@@ -26,11 +26,12 @@ private:
 	static const int32 AbilitiesPerBar = 6;
 	static const float AbilityQueWindowSec;
 	int32 ClientPredictionID = 0;
+	int32 LastAckedClientID = 0;
 	int32 GenerateNewPredictionID();
 	UPROPERTY()
 	APawn* OwnerAsPawn;
 public:
-	int32 GetLastPredictionID() const { return ClientPredictionID; }
+	int32 GetLastPredictionID() const { return GetOwnerRole() == ROLE_Authority ? LastAckedClientID : ClientPredictionID; }
 //Ability Management
 public:
 	UPlayerCombatAbility* FindActiveAbility(TSubclassOf<UPlayerCombatAbility> const AbilityClass);
