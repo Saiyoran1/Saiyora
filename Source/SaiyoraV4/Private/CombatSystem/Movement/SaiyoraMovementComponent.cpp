@@ -5,6 +5,8 @@
 #include "Camera/CameraComponent.h"
 #include "GameFramework/Character.h"
 #include "Movement/MovementStructs.h"
+#include "Curves/CurveVector.h"
+#include "Curves/CurveFloat.h"
 
 bool USaiyoraMovementComponent::FSavedMove_Saiyora::CanCombineWith(const FSavedMovePtr& NewMove,
                                                                    ACharacter* InCharacter, float MaxDelta) const
@@ -312,6 +314,7 @@ void USaiyoraMovementComponent::ExecuteTeleportInDirection(FVector const& Direct
 	}
 	Travel = Travel.GetSafeNormal();
 	GetOwner()->SetActorLocation(GetOwner()->GetActorLocation() + (Length * Travel), bSweep);
+	//TODO: Figure out how to make it so remote clients don't auto smooth small teleports?
 }
 
 void USaiyoraMovementComponent::PredictTeleportToLocation(UPlayerCombatAbility* Source, FVector const& Target,
@@ -381,7 +384,6 @@ void USaiyoraMovementComponent::TestRootMotion(UPlayerCombatAbility* Source)
 		return;
 	}
 	TSharedPtr<FCustomRootMotionSource> CustomRootMotion = MakeShared<FCustomRootMotionSource>();
-	CustomRootMotion->Force = 4000.f;
 	CustomRootMotion->PredictionID = OwnerAbilityHandler->GetLastPredictionID();
 	uint16 ID = ApplyRootMotionSource(CustomRootMotion);
 	//TODO: Handle cleanup of source.
@@ -389,7 +391,6 @@ void USaiyoraMovementComponent::TestRootMotion(UPlayerCombatAbility* Source)
 	FTimerDelegate CleanupDel;
 	CleanupDel.BindUObject(this, &USaiyoraMovementComponent::CleanupRootMotion, ID);
 	GetWorld()->GetTimerManager().SetTimer(CleanupHandle, CleanupDel, 0.2f, false);
-	return;
 }
 
 void USaiyoraMovementComponent::CleanupRootMotion(uint16 const ID)
@@ -397,14 +398,17 @@ void USaiyoraMovementComponent::CleanupRootMotion(uint16 const ID)
 	RemoveRootMotionSourceByID(ID);
 }
 
+void USaiyoraMovementComponent::JumpForce(UPlayerCombatAbility* Source, FRotator Rotation, float Distance, float Height,
+	float Duration, float MinimumLandedTriggerTime, bool bFinishOnLanded,
+	ERootMotionFinishVelocityMode VelocityOnFinishMode, FVector SetVelocityOnFinish, float ClampVelocityOnFinish,
+	UCurveVector* PathOffsetCurve, UCurveFloat* TimeMappingCurve)
+{
+	//TODO: Handling for creating, applying, and removing the jump force.
+}
+
 FCustomRootMotionSource::FCustomRootMotionSource()
 {
-	Force = 0.0f;
 	PredictionID = 0;
-	AccumulateMode = ERootMotionAccumulateMode::Override;
-	FinishVelocityParams.Mode = ERootMotionFinishVelocityMode::SetVelocity;
-	FinishVelocityParams.SetVelocity = FVector(0.0f);
-	Settings.SetFlag(ERootMotionSourceSettingsFlags::DisablePartialEndTick);
 }
 
 FRootMotionSource* FCustomRootMotionSource::Clone() const
@@ -427,35 +431,12 @@ bool FCustomRootMotionSource::Matches(const FRootMotionSource* Other) const
 	return false;
 }
 
-bool FCustomRootMotionSource::MatchesAndHasSameState(const FRootMotionSource* Other) const
-{
-	return Super::MatchesAndHasSameState(Other);
-}
-
-bool FCustomRootMotionSource::UpdateStateFrom(const FRootMotionSource* SourceToTakeStateFrom,
-	bool bMarkForSimulatedCatchup)
-{
-	return Super::UpdateStateFrom(SourceToTakeStateFrom, bMarkForSimulatedCatchup);
-}
-
-void FCustomRootMotionSource::PrepareRootMotion(float SimulationTime, float MovementTickTime,
-	const ACharacter& Character, const UCharacterMovementComponent& MoveComponent)
-{
-	RootMotionParams.Clear();
-	FTransform NewTransform(FVector(0.f, 0.f, Force));
-	const float Multiplier = (MovementTickTime > SMALL_NUMBER) ? (SimulationTime / MovementTickTime) : 1.f;
-	NewTransform.ScaleTranslation(Multiplier);
-	RootMotionParams.Set(NewTransform);
-	SetTime(GetTime() + SimulationTime);
-}
-
 bool FCustomRootMotionSource::NetSerialize(FArchive& Ar, UPackageMap* Map, bool& bOutSuccess)
 {
 	if (!Super::NetSerialize(Ar, Map, bOutSuccess))
 	{
 		return false;
 	}
-	Ar << Force;
 	Ar << PredictionID;
 	bOutSuccess = true;
 	return true;
@@ -466,7 +447,176 @@ UScriptStruct* FCustomRootMotionSource::GetScriptStruct() const
 	return FCustomRootMotionSource::StaticStruct();
 }
 
-void FCustomRootMotionSource::AddReferencedObjects(FReferenceCollector& Collector)
+//Jump Force
+
+FCustomJumpForce::FCustomJumpForce()
+	: Rotation(ForceInitToZero)
+	, Distance(-1.0f)
+	, Height(-1.0f)
+	, bDisableTimeout(false)
+	, PathOffsetCurve(nullptr)
+	, TimeMappingCurve(nullptr)
+	, SavedHalfwayLocation(FVector::ZeroVector)
 {
+	// Don't allow partial end ticks. Jump forces are meant to provide velocity that
+	// carries through to the end of the jump, and if we do partial ticks at the very end,
+	// it means the provided velocity can be significantly reduced on the very last tick,
+	// resulting in lost momentum. This is not desirable for jumps.
+	Settings.SetFlag(ERootMotionSourceSettingsFlags::DisablePartialEndTick);
+}
+
+bool FCustomJumpForce::IsTimeOutEnabled() const
+{
+	if (bDisableTimeout)
+	{
+		return false;
+	}
+	return FRootMotionSource::IsTimeOutEnabled();
+}
+
+FRootMotionSource* FCustomJumpForce::Clone() const
+{
+	FCustomJumpForce* CopyPtr = new FCustomJumpForce(*this);
+	return CopyPtr;
+}
+
+bool FCustomJumpForce::Matches(const FRootMotionSource* Other) const
+{
+	if (!Super::Matches(Other))
+	{
+		return false;
+	}
+
+	// We can cast safely here since in FRootMotionSource::Matches() we ensured ScriptStruct equality
+	const FCustomJumpForce* OtherCast = static_cast<const FCustomJumpForce*>(Other);
+
+	return bDisableTimeout == OtherCast->bDisableTimeout &&
+		PathOffsetCurve == OtherCast->PathOffsetCurve &&
+		TimeMappingCurve == OtherCast->TimeMappingCurve &&
+		FMath::IsNearlyEqual(Distance, OtherCast->Distance, SMALL_NUMBER) &&
+		FMath::IsNearlyEqual(Height, OtherCast->Height, SMALL_NUMBER) &&
+		Rotation.Equals(OtherCast->Rotation, 1.0f);
+}
+
+FVector FCustomJumpForce::GetPathOffset(float MoveFraction) const
+{
+	FVector PathOffset(FVector::ZeroVector);
+	if (PathOffsetCurve)
+	{
+		// Calculate path offset
+		PathOffset = PathOffsetCurve->GetVectorValue(MoveFraction);
+	}
+	else
+	{
+		// Default to "jump parabola", a simple x^2 shifted to be upside-down and shifted
+		// to get [0,1] X (MoveFraction/Distance) mapping to [0,1] Y (height)
+		// Height = -(2x-1)^2 + 1
+		const float Phi = 2.f*MoveFraction - 1;
+		const float Z = -(Phi*Phi) + 1;
+		PathOffset.Z = Z;
+	}
+
+	// Scale Z offset to height. If Height < 0, we use direct path offset values
+	if (Height >= 0.f)
+	{
+		PathOffset.Z *= Height;
+	}
+
+	return PathOffset;
+}
+
+FVector FCustomJumpForce::GetRelativeLocation(float MoveFraction) const
+{
+	// Given MoveFraction, what relative location should a character be at?
+	FRotator FacingRotation(Rotation);
+	FacingRotation.Pitch = 0.f; // By default we don't include pitch, but an option could be added if necessary
+
+	FVector RelativeLocationFacingSpace = FVector(MoveFraction * Distance, 0.f, 0.f) + GetPathOffset(MoveFraction);
+
+	return FacingRotation.RotateVector(RelativeLocationFacingSpace);
+}
+
+void FCustomJumpForce::PrepareRootMotion
+	(
+		float SimulationTime, 
+		float MovementTickTime,
+		const ACharacter& Character, 
+		const UCharacterMovementComponent& MoveComponent
+	)
+{
+	RootMotionParams.Clear();
+
+	if (Duration > SMALL_NUMBER && MovementTickTime > SMALL_NUMBER && SimulationTime > SMALL_NUMBER)
+	{
+		float CurrentTimeFraction = GetTime() / Duration;
+		float TargetTimeFraction = (GetTime() + SimulationTime) / Duration;
+
+		// If we're beyond specified duration, we need to re-map times so that
+		// we continue our desired ending velocity
+		if (TargetTimeFraction > 1.f)
+		{
+			float TimeFractionPastAllowable = TargetTimeFraction - 1.0f;
+			TargetTimeFraction -= TimeFractionPastAllowable;
+			CurrentTimeFraction -= TimeFractionPastAllowable;
+		}
+
+		float CurrentMoveFraction = CurrentTimeFraction;
+		float TargetMoveFraction = TargetTimeFraction;
+
+		if (TimeMappingCurve)
+		{
+			CurrentMoveFraction = TimeMappingCurve->GetFloatValue(CurrentTimeFraction);
+			TargetMoveFraction = TimeMappingCurve->GetFloatValue(TargetTimeFraction);
+		}
+
+		const FVector CurrentRelativeLocation = GetRelativeLocation(CurrentMoveFraction);
+		const FVector TargetRelativeLocation = GetRelativeLocation(TargetMoveFraction);
+
+		const FVector Force = (TargetRelativeLocation - CurrentRelativeLocation) / MovementTickTime;
+
+		const FTransform NewTransform(Force);
+		RootMotionParams.Set(NewTransform);
+	}
+	else
+	{
+		checkf(Duration > SMALL_NUMBER, TEXT("FCustomJumpForce prepared with invalid duration."));
+	}
+
+	SetTime(GetTime() + SimulationTime);
+}
+
+bool FCustomJumpForce::NetSerialize(FArchive& Ar, UPackageMap* Map, bool& bOutSuccess)
+{
+	if (!Super::NetSerialize(Ar, Map, bOutSuccess))
+	{
+		return false;
+	}
+
+	Ar << Rotation;
+	Ar << Distance;
+	Ar << Height;
+	Ar << bDisableTimeout;
+	Ar << PathOffsetCurve;
+	Ar << TimeMappingCurve;
+
+	bOutSuccess = true;
+	return true;
+}
+
+UScriptStruct* FCustomJumpForce::GetScriptStruct() const
+{
+	return FCustomJumpForce::StaticStruct();
+}
+
+FString FCustomJumpForce::ToSimpleString() const
+{
+	return FString::Printf(TEXT("[ID:%u]FCustomJumpForce %s"), LocalID, *InstanceName.GetPlainNameString());
+}
+
+void FCustomJumpForce::AddReferencedObjects(class FReferenceCollector& Collector)
+{
+	Collector.AddReferencedObject(PathOffsetCurve);
+	Collector.AddReferencedObject(TimeMappingCurve);
+
 	Super::AddReferencedObjects(Collector);
 }

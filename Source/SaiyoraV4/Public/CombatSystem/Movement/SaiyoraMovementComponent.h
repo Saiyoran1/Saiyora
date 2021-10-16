@@ -117,6 +117,10 @@ public:
 private:
 	UFUNCTION()
 	void CleanupRootMotion(uint16 const ID);
+public:
+	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf="Source", HidePin="Source"))
+	void JumpForce(UPlayerCombatAbility* Source, FRotator Rotation, float Distance, float Height, float Duration, float MinimumLandedTriggerTime,
+	bool bFinishOnLanded, ERootMotionFinishVelocityMode VelocityOnFinishMode, FVector SetVelocityOnFinish, float ClampVelocityOnFinish, UCurveVector* PathOffsetCurve, UCurveFloat* TimeMappingCurve);
 };
 
 USTRUCT()
@@ -127,15 +131,9 @@ struct FCustomRootMotionSource : public FRootMotionSource
 	FCustomRootMotionSource();
 	virtual FRootMotionSource* Clone() const override;
 	virtual bool Matches(const FRootMotionSource* Other) const override;
-	virtual bool MatchesAndHasSameState(const FRootMotionSource* Other) const override;
-	virtual bool UpdateStateFrom(const FRootMotionSource* SourceToTakeStateFrom, bool bMarkForSimulatedCatchup) override;
-	virtual void PrepareRootMotion(float SimulationTime, float MovementTickTime, const ACharacter& Character, const UCharacterMovementComponent& MoveComponent) override;
 	virtual bool NetSerialize(FArchive& Ar, UPackageMap* Map, bool& bOutSuccess) override;
 	virtual UScriptStruct* GetScriptStruct() const override;
-	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
 
-	UPROPERTY()
-	float Force = 0.0f;
 	UPROPERTY()
 	int32 PredictionID = 0;
 };
@@ -148,4 +146,43 @@ struct TStructOpsTypeTraits<FCustomRootMotionSource> : public TStructOpsTypeTrai
 		WithNetSerializer = true,
 		WithCopy = true
 	};
+};
+
+USTRUCT()
+struct FCustomJumpForce : public FCustomRootMotionSource
+{
+	GENERATED_USTRUCT_BODY()
+
+	FCustomJumpForce();
+	virtual ~FCustomJumpForce() {}
+
+	UPROPERTY()
+	FRotator Rotation;
+	UPROPERTY()
+	float Distance;
+	UPROPERTY()
+	float Height;
+	UPROPERTY()
+	bool bDisableTimeout;
+	UPROPERTY()
+	UCurveVector* PathOffsetCurve;
+	UPROPERTY()
+	UCurveFloat* TimeMappingCurve;
+	FVector SavedHalfwayLocation;
+
+	FVector GetPathOffset(float MoveFraction) const;
+	FVector GetRelativeLocation(float MoveFraction) const;
+	virtual bool IsTimeOutEnabled() const override;
+	virtual FRootMotionSource* Clone() const override;
+	virtual bool Matches(const FRootMotionSource* Other) const override;
+	virtual void PrepareRootMotion(
+		float SimulationTime, 
+		float MovementTickTime,
+		const ACharacter& Character, 
+		const UCharacterMovementComponent& MoveComponent
+		) override;
+	virtual bool NetSerialize(FArchive& Ar, UPackageMap* Map, bool& bOutSuccess) override;
+	virtual UScriptStruct* GetScriptStruct() const override;
+	virtual FString ToSimpleString() const override;
+	virtual void AddReferencedObjects(class FReferenceCollector& Collector) override;
 };
