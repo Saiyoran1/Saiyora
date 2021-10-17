@@ -2,7 +2,6 @@
 
 #include "Movement/SaiyoraMovementComponent.h"
 #include "SaiyoraCombatInterface.h"
-#include "Camera/CameraComponent.h"
 #include "GameFramework/Character.h"
 #include "Movement/MovementStructs.h"
 #include "Curves/CurveVector.h"
