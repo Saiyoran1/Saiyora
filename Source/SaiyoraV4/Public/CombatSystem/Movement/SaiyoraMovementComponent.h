@@ -1,13 +1,12 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
-
 #include "CoreMinimal.h"
 #include "MovementEnums.h"
 #include "MovementStructs.h"
 #include "PlayerAbilityHandler.h"
 #include "PlayerCombatAbility.h"
-#include "SaiyoraStructs.h"
+#include "RootMotionHandler.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "SaiyoraMovementComponent.generated.h"
 
@@ -111,12 +110,15 @@ private:
 	void ExecuteLaunchPlayer(FVector const& Direction, float const Force);
 
 	//Root Motion Sources?
+	
 public:
 	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf="Source", HidePin="Source"))
 	void TestRootMotion(UPlayerCombatAbility* Source);
-private:
 	UFUNCTION()
-	void CleanupRootMotion(uint16 const ID);
+	void ExpireHandledRootMotion(URootMotionHandler* Handler);
+private:
+	UPROPERTY()
+	TArray<URootMotionHandler*> ActiveRootMotionHandlers;
 public:
 	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf="Source", HidePin="Source"))
 	void JumpForce(UPlayerCombatAbility* Source, FRotator Rotation, float Distance, float Height, float Duration, float MinimumLandedTriggerTime,
@@ -185,4 +187,14 @@ struct FCustomJumpForce : public FCustomRootMotionSource
 	virtual UScriptStruct* GetScriptStruct() const override;
 	virtual FString ToSimpleString() const override;
 	virtual void AddReferencedObjects(class FReferenceCollector& Collector) override;
+};
+
+template<>
+struct TStructOpsTypeTraits<FCustomJumpForce> : public TStructOpsTypeTraitsBase2<FCustomJumpForce>
+{
+	enum
+	{
+		WithNetSerializer = true,
+		WithCopy = true
+	};
 };

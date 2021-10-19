@@ -382,19 +382,30 @@ void USaiyoraMovementComponent::TestRootMotion(UPlayerCombatAbility* Source)
 	{
 		return;
 	}
-	TSharedPtr<FCustomRootMotionSource> CustomRootMotion = MakeShared<FCustomRootMotionSource>();
+	TSharedPtr<FCustomJumpForce> CustomRootMotion = MakeShared<FCustomJumpForce>();
 	CustomRootMotion->PredictionID = OwnerAbilityHandler->GetLastPredictionID();
+	CustomRootMotion->Distance = 500.f;
+	CustomRootMotion->Height = 500.f;
+	CustomRootMotion->Duration = 0.5f;
 	uint16 ID = ApplyRootMotionSource(CustomRootMotion);
 	//TODO: Handle cleanup of source.
-	FTimerHandle CleanupHandle;
-	FTimerDelegate CleanupDel;
-	CleanupDel.BindUObject(this, &USaiyoraMovementComponent::CleanupRootMotion, ID);
-	GetWorld()->GetTimerManager().SetTimer(CleanupHandle, CleanupDel, 0.2f, false);
+	URootMotionHandler* NewHandler = NewObject<URootMotionHandler>(GetOwner());
+	if (IsValid(NewHandler))
+	{
+		NewHandler->Init(this, Cast<UPlayerAbilityHandler>(Source->GetHandler()), ID, true, 0.5f, CustomRootMotion->PredictionID);
+		ActiveRootMotionHandlers.Add(NewHandler);
+	}
 }
 
-void USaiyoraMovementComponent::CleanupRootMotion(uint16 const ID)
+void USaiyoraMovementComponent::ExpireHandledRootMotion(URootMotionHandler* Handler)
 {
-	RemoveRootMotionSourceByID(ID);
+	if (IsValid(Handler))
+	{
+		if (ActiveRootMotionHandlers.Remove(Handler) > 0)
+		{
+			RemoveRootMotionSourceByID(Handler->GetHandledID());
+		}
+	}
 }
 
 void USaiyoraMovementComponent::JumpForce(UPlayerCombatAbility* Source, FRotator Rotation, float Distance, float Height,

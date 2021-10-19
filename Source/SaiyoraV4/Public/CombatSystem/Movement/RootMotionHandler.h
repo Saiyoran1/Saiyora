@@ -1,50 +1,36 @@
 ﻿#pragma once
 #include "CoreMinimal.h"
+#include "AbilityStructs.h"
 #include "PlayerAbilityHandler.h"
 #include "GameFramework/RootMotionSource.h"
 #include "RootMotionHandler.generated.h"
+
+class USaiyoraMovementComponent;
 
 UCLASS()
 class SAIYORAV4_API URootMotionHandler : public UObject
 {
 	GENERATED_BODY()
+private:
+	FAbilityMispredictionCallback MispredictionCallback;
+	UFUNCTION()
+	void OnMispredicted(int32 const PredictionID, ECastFailReason const FailReason);
+	UFUNCTION()
+	void OnTimeout();
+	//Use this function for things like "stop applying root motion on landing," and other non-prediction and non-duration-based endings.
+	virtual void SetupExpirationConditions() {}
 protected:
+	FTimerHandle DurationHandle;
 	bool bHasDuration = true;
 	float Duration = 0.0f;
-	ERootMotionFinishVelocityMode FinishVelocityMode = ERootMotionFinishVelocityMode::MaintainLastRootMotionVelocity;
-	FVector FinishSetVelocity = FVector::ZeroVector;
-	float FinishClampVelocity = 0.0f;
 	UPROPERTY()
-	UCharacterMovementComponent* TargetMovement = nullptr;
+	USaiyoraMovementComponent* TargetMovement = nullptr;
+	UPROPERTY()
+	UPlayerAbilityHandler* SourceHandler = nullptr;
 	uint16 RootMotionSourceID = (uint16)ERootMotionSourceID::Invalid;
 	int32 PredictionID = 0;
-
-	float StartTime = 0.0f;
-	float EndTime = 0.0f;
-
-	bool HasTimedOut() const;
-	virtual void Apply();
-};
-
-UCLASS()
-class SAIYORAV4_API URootMotionJumpForceHandler : public URootMotionHandler
-{
-	GENERATED_BODY()
-
-	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (HidePin = "Source", DefaultToSelf = "Source"))
-	static URootMotionJumpForceHandler* RootMotionJumpForce(UPlayerCombatAbility* Source, UCharacterMovementComponent* Movement, FRotator Rotation, float Distance, float Height, float Duration, float MinimumLandedTriggerTime,
-		bool bFinishOnLanded, ERootMotionFinishVelocityMode VelocityOnFinishMode, FVector SetVelocityOnFinish, float ClampVelocityOnFinish, UCurveVector* PathOffsetCurve, UCurveFloat* TimeMappingCurve);
-
-	FRotator Rotation = FRotator::ZeroRotator;
-	float Distance = 0.0f;
-	float Height = 0.0f;
-	float Duration = 0.0f;
-	float MinimumLandedTriggerTime = 0.0f;
-	bool bFinishOnLanded = true;
-	UPROPERTY()
-	UCurveVector* PathOffsetCurve = nullptr;
-	UPROPERTY()
-	UCurveFloat* TimeMappingCurve = nullptr;
-
-	bool bHasLanded = false;
+	void Expire();
+public:
+	void Init(USaiyoraMovementComponent* Movement, UPlayerAbilityHandler* AbilityHandler, uint16 SourceID, bool const bDurationBased, float const ExpireDuration = 0.0f, int32 const AbilityPredictionID = 0);
+	uint16 GetHandledID() const { return RootMotionSourceID; }
 };

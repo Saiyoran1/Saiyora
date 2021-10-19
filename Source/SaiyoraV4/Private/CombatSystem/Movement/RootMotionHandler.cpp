@@ -1,36 +1,58 @@
 ﻿#include "RootMotionHandler.h"
 #include "PlayerCombatAbility.h"
-#include "GameFramework/CharacterMovementComponent.h"
+#include "SaiyoraMovementComponent.h"
 
-void URootMotionHandler::Apply()
+void URootMotionHandler::OnMispredicted(int32 const PredictionID, ECastFailReason const FailReason)
 {
-	//Override.
+	if (PredictionID == this->PredictionID)
+	{
+		Expire();
+	}
 }
 
-URootMotionJumpForceHandler* URootMotionJumpForceHandler::RootMotionJumpForce(UPlayerCombatAbility* Source,
-                                                                              UCharacterMovementComponent* Movement, FRotator Rotation, float Distance, float Height, float Duration, float MinimumLandedTriggerTime,
-                                                                              bool bFinishOnLanded, ERootMotionFinishVelocityMode VelocityOnFinishMode, FVector SetVelocityOnFinish,
-                                                                              float ClampVelocityOnFinish, UCurveVector* PathOffsetCurve, UCurveFloat* TimeMappingCurve)
+void URootMotionHandler::OnTimeout()
 {
-	if (!IsValid(Movement) || !IsValid(Source) || Source->GetHandler()->GetOwnerRole() == ROLE_SimulatedProxy)
+	Expire();
+}
+
+void URootMotionHandler::Expire()
+{
+	GetWorld()->GetTimerManager().ClearTimer(DurationHandle);
+	if (IsValid(SourceHandler))
 	{
-		return nullptr;
+		SourceHandler->UnsubscribeFromAbilityMispredicted(MispredictionCallback);
 	}
-	URootMotionJumpForceHandler* MyTask = NewObject<URootMotionJumpForceHandler>(Source->GetHandler()->GetOwner());
-	MyTask->TargetMovement = Movement;
-    MyTask->Rotation = Rotation;
-    MyTask->Distance = Distance;
-    MyTask->Height = Height;
-    MyTask->Duration = Duration;
-	MyTask->bHasDuration = Duration != 0.0f;
-    MyTask->MinimumLandedTriggerTime = MinimumLandedTriggerTime * Duration;
-    MyTask->bFinishOnLanded = bFinishOnLanded;
-    MyTask->FinishVelocityMode = VelocityOnFinishMode;
-    MyTask->FinishSetVelocity = SetVelocityOnFinish;
-    MyTask->FinishClampVelocity = ClampVelocityOnFinish;
-    MyTask->PathOffsetCurve = PathOffsetCurve;
-    MyTask->TimeMappingCurve = TimeMappingCurve;
-	MyTask->StartTime = Source->GetWorld()->GetTimeSeconds();
-	MyTask->EndTime = MyTask->StartTime + Duration;
-	MyTask->Apply();
+	if (IsValid(TargetMovement))
+	{
+		TargetMovement->ExpireHandledRootMotion(this);
+	}
+}
+
+void URootMotionHandler::Init(USaiyoraMovementComponent* Movement, UPlayerAbilityHandler* AbilityHandler,
+	uint16 SourceID, bool const bDurationBased, float const ExpireDuration, int32 const AbilityPredictionID)
+{
+	if (!IsValid(Movement) || !IsValid(AbilityHandler) || SourceID == (uint16)ERootMotionSourceID::Invalid)
+	{
+		return;
+	}
+	if (AbilityHandler->GetOwnerRole() == ROLE_AutonomousProxy)
+	{
+		if (AbilityPredictionID == 0)
+		{
+			return;
+		}
+		SourceHandler = AbilityHandler;
+		MispredictionCallback.BindDynamic(this, &URootMotionHandler::OnMispredicted);
+		SourceHandler->SubscribeToAbilityMispredicted(MispredictionCallback);
+	}
+	PredictionID = AbilityPredictionID;
+	RootMotionSourceID = SourceID;
+	TargetMovement = Movement;
+	if (bDurationBased && ExpireDuration > 0.0f)
+	{
+		bHasDuration = bDurationBased;
+		Duration = ExpireDuration;
+		GetWorld()->GetTimerManager().SetTimer(DurationHandle, this, &URootMotionHandler::OnTimeout, Duration);
+	}
+	SetupExpirationConditions();
 }
