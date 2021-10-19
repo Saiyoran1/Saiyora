@@ -28,7 +28,7 @@ protected:
 	UPROPERTY()
 	UPlayerAbilityHandler* SourceHandler = nullptr;
 	uint16 RootMotionSourceID = (uint16)ERootMotionSourceID::Invalid;
-	int32 PredictionID = 0;
+	int32 SourcePredictionID = 0;
 	void Expire();
 public:
 	void Init(USaiyoraMovementComponent* Movement, UPlayerAbilityHandler* AbilityHandler, uint16 SourceID, bool const bDurationBased, float const ExpireDuration = 0.0f, int32 const AbilityPredictionID = 0);

@@ -25,4 +25,5 @@ enum class ESaiyoraCustomMove : uint8
 	TeleportDirection = 1,
 	TeleportLocation = 2,
 	Launch = 3,
+	RootMotion = 4,
 };

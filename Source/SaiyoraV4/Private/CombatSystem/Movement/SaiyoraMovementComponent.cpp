@@ -376,27 +376,6 @@ void USaiyoraMovementComponent::ExecuteLaunchPlayer(FVector const& Direction, fl
  Root Motion Testing
  */
 
-void USaiyoraMovementComponent::TestRootMotion(UPlayerCombatAbility* Source)
-{
-	if (!IsValid(Source))
-	{
-		return;
-	}
-	TSharedPtr<FCustomJumpForce> CustomRootMotion = MakeShared<FCustomJumpForce>();
-	CustomRootMotion->PredictionID = OwnerAbilityHandler->GetLastPredictionID();
-	CustomRootMotion->Distance = 500.f;
-	CustomRootMotion->Height = 500.f;
-	CustomRootMotion->Duration = 0.5f;
-	uint16 ID = ApplyRootMotionSource(CustomRootMotion);
-	//TODO: Handle cleanup of source.
-	URootMotionHandler* NewHandler = NewObject<URootMotionHandler>(GetOwner());
-	if (IsValid(NewHandler))
-	{
-		NewHandler->Init(this, Cast<UPlayerAbilityHandler>(Source->GetHandler()), ID, true, 0.5f, CustomRootMotion->PredictionID);
-		ActiveRootMotionHandlers.Add(NewHandler);
-	}
-}
-
 void USaiyoraMovementComponent::ExpireHandledRootMotion(URootMotionHandler* Handler)
 {
 	if (IsValid(Handler))
@@ -408,12 +387,77 @@ void USaiyoraMovementComponent::ExpireHandledRootMotion(URootMotionHandler* Hand
 	}
 }
 
-void USaiyoraMovementComponent::JumpForce(UPlayerCombatAbility* Source, FRotator Rotation, float Distance, float Height,
-	float Duration, float MinimumLandedTriggerTime, bool bFinishOnLanded,
+void USaiyoraMovementComponent::CreateRootMotionHandler(UPlayerCombatAbility* Source, TSubclassOf<URootMotionHandler> const HandlerClass,
+	int32 const PredictionID, uint16 const RootMotionID, bool const bDurationBased, float const DurationTime)
+{
+	if (RootMotionID == (uint16)ERootMotionSourceID::Invalid || !IsValid(Source) || !IsValid(Source->GetHandler()))
+	{
+		return;
+	}
+	UPlayerAbilityHandler* AbilityHandler = Cast<UPlayerAbilityHandler>(Source->GetHandler());
+	if (!IsValid(AbilityHandler))
+	{
+		return;
+	}
+	URootMotionHandler* NewHandler = NewObject<URootMotionHandler>(GetOwner(), HandlerClass);
+	if (!IsValid(NewHandler))
+	{
+		return;
+	}
+	ActiveRootMotionHandlers.Add(NewHandler);
+	NewHandler->Init(this, AbilityHandler, RootMotionID, bDurationBased, DurationTime, PredictionID);
+}
+
+bool USaiyoraMovementComponent::ExecuteJumpForce(UPlayerCombatAbility* Source, FRotator Rotation, float Distance,
+	float Height, float Duration, ERootMotionFinishVelocityMode VelocityOnFinishMode, FVector SetVelocityOnFinish,
+	float ClampVelocityOnFinish, UCurveVector* PathOffsetCurve, UCurveFloat* TimeMappingCurve)
+{
+	TSharedPtr<FCustomJumpForce> CustomRootMotion = MakeShared<FCustomJumpForce>();
+	CustomRootMotion->PredictionID = OwnerAbilityHandler->GetLastPredictionID();
+	CustomRootMotion->Rotation = Rotation;
+	CustomRootMotion->Distance = Distance;
+	CustomRootMotion->Height = Height;
+	CustomRootMotion->Duration = Duration;
+	CustomRootMotion->FinishVelocityParams.Mode = VelocityOnFinishMode;
+	CustomRootMotion->FinishVelocityParams.SetVelocity = SetVelocityOnFinish;
+	CustomRootMotion->FinishVelocityParams.ClampVelocity = ClampVelocityOnFinish;
+	CustomRootMotion->PathOffsetCurve = PathOffsetCurve;
+	CustomRootMotion->TimeMappingCurve = TimeMappingCurve;
+	uint16 const ID = ApplyRootMotionSource(CustomRootMotion);
+	UPlayerAbilityHandler* AbilityHandler = Cast<UPlayerAbilityHandler>(Source->GetHandler());
+	if (!IsValid(AbilityHandler))
+	{
+		return true;
+	}
+	CreateRootMotionHandler(Source, URootMotionHandler::StaticClass(), AbilityHandler->GetLastPredictionID(), ID, (Duration != 0.0f), Duration);
+	return false;
+}
+
+void USaiyoraMovementComponent::PredictJumpForce(UPlayerCombatAbility* Source, FRotator Rotation, float Distance,
+	float Height, float Duration, float MinimumLandedTriggerTime, bool bFinishOnLanded,
 	ERootMotionFinishVelocityMode VelocityOnFinishMode, FVector SetVelocityOnFinish, float ClampVelocityOnFinish,
 	UCurveVector* PathOffsetCurve, UCurveFloat* TimeMappingCurve)
 {
-	//TODO: Handling for creating, applying, and removing the jump force.
+	if (GetOwnerRole() != ROLE_AutonomousProxy || !IsValid(Source))
+	{
+		return;
+	}
+	ExecuteJumpForce(Source, Rotation, Distance, Height, Duration, VelocityOnFinishMode, SetVelocityOnFinish,
+		ClampVelocityOnFinish, PathOffsetCurve, TimeMappingCurve);
+	SetupCustomMovement(Source, ESaiyoraCustomMove::RootMotion, FCustomMoveParams());
+}
+
+void USaiyoraMovementComponent::JumpForce(UPlayerCombatAbility* Source, FRotator Rotation, float Distance, float Height,
+                                          float Duration, float MinimumLandedTriggerTime, bool bFinishOnLanded,
+                                          ERootMotionFinishVelocityMode VelocityOnFinishMode, FVector SetVelocityOnFinish, float ClampVelocityOnFinish,
+                                          UCurveVector* PathOffsetCurve, UCurveFloat* TimeMappingCurve)
+{
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(Source))
+	{
+		return;
+	}
+	ExecuteJumpForce(Source, Rotation, Distance, Height, Duration, VelocityOnFinishMode, SetVelocityOnFinish,
+	                     ClampVelocityOnFinish, PathOffsetCurve, TimeMappingCurve);
 }
 
 FCustomRootMotionSource::FCustomRootMotionSource()

@@ -4,7 +4,7 @@
 
 void URootMotionHandler::OnMispredicted(int32 const PredictionID, ECastFailReason const FailReason)
 {
-	if (PredictionID == this->PredictionID)
+	if (PredictionID == this->SourcePredictionID)
 	{
 		Expire();
 	}
@@ -45,7 +45,7 @@ void URootMotionHandler::Init(USaiyoraMovementComponent* Movement, UPlayerAbilit
 		MispredictionCallback.BindDynamic(this, &URootMotionHandler::OnMispredicted);
 		SourceHandler->SubscribeToAbilityMispredicted(MispredictionCallback);
 	}
-	PredictionID = AbilityPredictionID;
+	SourcePredictionID = AbilityPredictionID;
 	RootMotionSourceID = SourceID;
 	TargetMovement = Movement;
 	if (bDurationBased && ExpireDuration > 0.0f)

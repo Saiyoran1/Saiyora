@@ -112,18 +112,26 @@ private:
 	//Root Motion Sources?
 	
 public:
-	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf="Source", HidePin="Source"))
-	void TestRootMotion(UPlayerCombatAbility* Source);
 	UFUNCTION()
 	void ExpireHandledRootMotion(URootMotionHandler* Handler);
 private:
 	UPROPERTY()
 	TArray<URootMotionHandler*> ActiveRootMotionHandlers;
+	void CreateRootMotionHandler(UPlayerCombatAbility* Source, TSubclassOf<URootMotionHandler> const HandlerClass, int32 const PredictionID, uint16 const RootMotionID, bool const bDurationBased, float const DurationTime);
 public:
 	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf="Source", HidePin="Source"))
+	void PredictJumpForce(UPlayerCombatAbility* Source, FRotator Rotation, float Distance, float Height, float Duration, float MinimumLandedTriggerTime,
+		bool bFinishOnLanded, ERootMotionFinishVelocityMode VelocityOnFinishMode, FVector SetVelocityOnFinish, float ClampVelocityOnFinish, UCurveVector* PathOffsetCurve, UCurveFloat* TimeMappingCurve);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Movement", meta = (DefaultToSelf="Source", HidePin="Source"))
 	void JumpForce(UPlayerCombatAbility* Source, FRotator Rotation, float Distance, float Height, float Duration, float MinimumLandedTriggerTime,
-	bool bFinishOnLanded, ERootMotionFinishVelocityMode VelocityOnFinishMode, FVector SetVelocityOnFinish, float ClampVelocityOnFinish, UCurveVector* PathOffsetCurve, UCurveFloat* TimeMappingCurve);
+		bool bFinishOnLanded, ERootMotionFinishVelocityMode VelocityOnFinishMode, FVector SetVelocityOnFinish, float ClampVelocityOnFinish, UCurveVector* PathOffsetCurve, UCurveFloat* TimeMappingCurve);
+private:
+	bool ExecuteJumpForce(UPlayerCombatAbility* Source, FRotator Rotation, float Distance, float Height, float Duration,
+		ERootMotionFinishVelocityMode VelocityOnFinishMode, FVector SetVelocityOnFinish,
+		float ClampVelocityOnFinish, UCurveVector* PathOffsetCurve, UCurveFloat* TimeMappingCurve);
 };
+
+//Root Motion Sources
 
 USTRUCT()
 struct FCustomRootMotionSource : public FRootMotionSource
