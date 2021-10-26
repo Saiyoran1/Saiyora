@@ -49,11 +49,12 @@ public:
 	void StartCooldownFromPrediction();
 //Casting
 	bool GetTickNeedsPredictionParams(int32 const TickNumber) const { return TicksWithPredictionParams.Contains(TickNumber); }
-	void PredictedTick(int32 const TickNumber, FCombatParameters& PredictionParams);
-	void ServerTick(int32 const TickNumber, FCombatParameters const& PredictionParams, FCombatParameters& BroadcastParams);
-	void PredictedCancel(FCombatParameters& PredictionParams);
-	void ServerCancel(FCombatParameters const& PredictionParams, FCombatParameters& BroadcastParams);
+	void PredictedTick(int32 const TickNumber, FCombatParameters& PredictionParams, int32 const PredictionID);
+	void ServerTick(int32 const TickNumber, FCombatParameters const& PredictionParams, FCombatParameters& BroadcastParams, int32 const PredictionID);
+	void PredictedCancel(FCombatParameters& PredictionParams, int32 const PredictionID);
+	void ServerCancel(FCombatParameters const& PredictionParams, FCombatParameters& BroadcastParams, int32 const PredictionID);
 	void AbilityMisprediction(int32 const PredictionID, ECastFailReason const FailReason);
+	int32 GetCurrentPredictionID() const { return CurrentPredictionID; }
 protected:
 	UPROPERTY(BlueprintReadWrite, Transient, Category = "Abilities")
 	FCombatParameters PredictionParameters;
@@ -69,4 +70,6 @@ protected:
 	FCombatParameter GetPredictionParamByName(FString const& Name);
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
 	FCombatParameter GetPredictionParamByType(ECombatParamType const Type);
+private:
+	int32 CurrentPredictionID = 0;
 };

@@ -2,10 +2,12 @@
 
 #include "Movement/SaiyoraMovementComponent.h"
 #include "SaiyoraCombatInterface.h"
+#include "SaiyoraCombatLibrary.h"
+#include "Engine/ActorChannel.h"
 #include "GameFramework/Character.h"
 #include "Movement/MovementStructs.h"
-#include "Curves/CurveVector.h"
-#include "Curves/CurveFloat.h"
+
+float const USaiyoraMovementComponent::MaxPingDelay = 0.2f;
 
 bool USaiyoraMovementComponent::FSavedMove_Saiyora::CanCombineWith(const FSavedMovePtr& NewMove,
                                                                    ACharacter* InCharacter, float MaxDelta) const
@@ -107,6 +109,30 @@ USaiyoraMovementComponent::FSaiyoraNetworkMoveDataContainer::FSaiyoraNetworkMove
 USaiyoraMovementComponent::USaiyoraMovementComponent(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	SetNetworkMoveDataContainer(CustomNetworkMoveDataContainer);
+	SetIsReplicatedByDefault(true);
+}
+
+bool USaiyoraMovementComponent::ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch,
+	FReplicationFlags* RepFlags)
+{
+	bool bWroteSomething = false;
+	if (RepFlags->bNetOwner)
+	{
+		bWroteSomething |= Channel->ReplicateSubobjectList(HandlersAwaitingPingDelay, *Bunch, *RepFlags);
+		for (USaiyoraRootMotionHandler* Handler : ReplicatedRootMotionHandlers)
+		{
+			if (IsValid(Handler) && Handler->GetPredictionID() == 0)
+			{
+				bWroteSomething |= Channel->ReplicateSubobject(Handler, *Bunch, *RepFlags);
+			}
+		}
+	}
+	else
+	{
+		bWroteSomething |= Channel->ReplicateSubobjectList(ReplicatedRootMotionHandlers, *Bunch, *RepFlags);
+	}
+	bWroteSomething |= Super::ReplicateSubobjects(Channel, Bunch, RepFlags);
+	return bWroteSomething;
 }
 
 void USaiyoraMovementComponent::UpdateFromCompressedFlags(uint8 Flags)
@@ -172,6 +198,15 @@ void USaiyoraMovementComponent::MoveAutonomous(float ClientTimeStamp, float Delt
 		CustomMoveAbilityRequest = MoveData->CustomMoveAbilityRequest;
 	}
 	Super::MoveAutonomous(ClientTimeStamp, DeltaTime, CompressedFlags, NewAccel);
+}
+
+void USaiyoraMovementComponent::TickComponent(float DeltaTime, ELevelTick TickType,
+	FActorComponentTickFunction* ThisTickFunction)
+{
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+	//Clear this every tick, as it only exists to prevent listen servers from double-applying Root Motion Sources.
+	//This happens because the ability system calls Predicted and Server tick of an ability back to back on listen servers.
+	CurrentTickServerRootMotionSources.Empty();
 }
 
 void USaiyoraMovementComponent::ExecuteCustomMove()
@@ -241,7 +276,7 @@ void USaiyoraMovementComponent::SetupCustomMovement(UPlayerCombatAbility* Source
 	PendingCustomMove.MoveType = MoveType;
 	PendingCustomMove.AbilityClass = Source->GetClass();
 	PendingCustomMove.MoveParams = Params;
-	PendingCustomMove.PredictionID = OwnerAbilityHandler->GetLastPredictionID();
+	PendingCustomMove.PredictionID = Source->GetCurrentPredictionID();
 	PendingCustomMove.OriginalTimestamp = GameStateRef->GetServerWorldTimeSeconds();
 }
 
@@ -372,305 +407,152 @@ void USaiyoraMovementComponent::ExecuteLaunchPlayer(FVector const& Direction, fl
 	Launch(Direction.GetSafeNormal() * Force);
 }
 
-/*
- Root Motion Testing
- */
+void USaiyoraMovementComponent::TestRootMotion(UObject* Source)
+{
+	UTestJumpForceHandler* JumpForce = NewObject<UTestJumpForceHandler>(GetOwner(), UTestJumpForceHandler::StaticClass());
+	if (!IsValid(JumpForce))
+	{
+		return;
+	}
+	JumpForce->AccumulateMode = ERootMotionAccumulateMode::Override;
+	JumpForce->Priority = 500;
+	JumpForce->Duration = 1.0f;
+	JumpForce->Rotation = GetOwner()->GetActorRotation();
+	JumpForce->Distance = 500.0f;
+	JumpForce->Height = 1000.0f;
+	JumpForce->bFinishOnLanded = false;
+	JumpForce->PathOffsetCurve = nullptr;
+	JumpForce->TimeMappingCurve = nullptr;
+	JumpForce->FinishVelocityMode = ERootMotionFinishVelocityMode::SetVelocity;
+	JumpForce->FinishSetVelocity = FVector::ZeroVector;
+	JumpForce->FinishClampVelocity = 0.0f;
+	ApplyCustomRootMotionHandler(JumpForce, Source);
+}
 
-void USaiyoraMovementComponent::ExpireHandledRootMotion(URootMotionHandler* Handler)
+void USaiyoraMovementComponent::RemoveRootMotionHandler(USaiyoraRootMotionHandler* Handler)
+{
+	if (!IsValid(Handler))
+	{
+		return;
+	}
+	RemoveRootMotionSourceByID(Handler->GetHandledID());
+	CurrentRootMotionHandlers.Remove(Handler);
+	//TODO: Figure out how to do cleanup with replication.
+	/*
+	if (GetWorld()->GetTimerManager().IsTimerActive(Handler->PingDelayHandle))
+	{
+		HandlersAwaitingPingDelay.Remove(Handler);
+		Handler->PingDelayHandle.Invalidate();
+	}
+	if (GetOwnerRole() == ROLE_Authority)
+	{
+		ReplicatedRootMotionHandlers.Remove(Handler);
+		HandlersAwaitingPingDelay.Remove(Handler);
+	}*/
+}
+
+bool USaiyoraMovementComponent::ApplyCustomRootMotionHandler(USaiyoraRootMotionHandler* Handler, UObject* Source)
+{
+	if (!IsValid(Source))
+	{
+		return false;
+	}
+	UPlayerCombatAbility* PlayerAbilitySource = Cast<UPlayerCombatAbility>(Source);
+	if (!IsValid(PlayerAbilitySource) || PlayerAbilitySource->GetHandler()->GetOwner() != GetOwner() || PlayerAbilitySource->GetCurrentPredictionID() == 0)
+	{
+		//This root motion source should NOT deal with prediction, and thus must be on the server.
+		if (GetOwnerRole() != ROLE_Authority)
+		{
+			return false;
+		}
+		//Listen servers call Predicted and Server ability ticks back to back, so we need to guard against getting the same input twice in one tick.
+		if (CurrentTickServerRootMotionSources.Contains(Source))
+		{
+			return false;
+		}
+		CurrentTickServerRootMotionSources.Add(Source);
+		
+		if (PawnOwner->IsLocallyControlled())
+		{
+			Handler->Init(this, 0, Source);
+			CurrentRootMotionHandlers.Add(Handler);
+			ReplicatedRootMotionHandlers.Add(Handler);
+			Handler->Apply();
+		}
+		else
+		{
+			Handler->Init(this, 0, Source);
+			HandlersAwaitingPingDelay.Add(Handler);
+			//Set timer to move handler from awaiting to replicated, add to current, then call Apply().
+			FTimerDelegate PingDelayDelegate;
+			PingDelayDelegate.BindUObject(this, &USaiyoraMovementComponent::DelayedHandlerApplication, Handler);
+			FTimerHandle PingDelayHandle;
+			GetWorld()->GetTimerManager().SetTimer(PingDelayHandle, PingDelayDelegate, FMath::Min(MaxPingDelay, USaiyoraCombatLibrary::GetActorPing(GetOwner())), false);
+			//Store the timer handle. If something clears the movement before ping (very unlikely), we can cancel the timer.
+			Handler->PingDelayHandle = PingDelayHandle;
+		}
+		//This should instantly replicate the new handler to the clients.
+		GetOwner()->ForceNetUpdate();
+		return true;
+	}
+	//This root motion came from a player ability, was initiated by the player on itself, and has a valid prediction ID.
+	switch (GetOwnerRole())
+	{
+	case ROLE_Authority :
+		{
+			//There are going to be 2 calls to predicted movement (one from the ability system, one from the Networked Move Data), so we need to check that this is the first call (the 2nd won't do anything).
+			if (ServerCompletedMovementIDs.Contains(PlayerAbilitySource->GetCurrentPredictionID()))
+			{
+				return false;
+			}
+			ServerCompletedMovementIDs.Add(PlayerAbilitySource->GetCurrentPredictionID());
+			Handler->Init(this, PlayerAbilitySource->GetCurrentPredictionID(), Source);
+			CurrentRootMotionHandlers.Add(Handler);
+			ReplicatedRootMotionHandlers.Add(Handler);
+			//No delayed apply here, since the client should already have predicted this.
+			Handler->Apply();
+			return true;
+		}
+	case ROLE_AutonomousProxy :
+		{
+			//Since we know this came from an ability, it can be predicted.
+			SetupCustomMovement(PlayerAbilitySource, ESaiyoraCustomMove::RootMotion, FCustomMoveParams());
+			Handler->Init(this, PlayerAbilitySource->GetCurrentPredictionID(), Source);
+			CurrentRootMotionHandlers.Add(Handler);
+			//Note that we don't add to rep arrays on auto proxy. There's no need.
+			Handler->Apply();
+			return true;
+		}
+	case ROLE_SimulatedProxy :
+		{
+			//Sim proxies shouldn't ever need to create their own root motion source handler.
+			//They will get a replicated version from the server.
+			return false;
+		}
+	default :
+		return false;
+	}
+}
+
+void USaiyoraMovementComponent::DelayedHandlerApplication(USaiyoraRootMotionHandler* Handler)
+{
+	if (!IsValid(Handler))
+	{
+		return;
+	}
+	if (HandlersAwaitingPingDelay.Remove(Handler) > 0)
+	{
+		CurrentRootMotionHandlers.Add(Handler);
+		ReplicatedRootMotionHandlers.Add(Handler);
+		Handler->Apply();
+	}
+}
+
+void USaiyoraMovementComponent::AddRootMotionHandlerFromReplication(USaiyoraRootMotionHandler* Handler)
 {
 	if (IsValid(Handler))
 	{
-		if (ActiveRootMotionHandlers.Remove(Handler) > 0)
-		{
-			RemoveRootMotionSourceByID(Handler->GetHandledID());
-		}
+		CurrentRootMotionHandlers.Add(Handler);
+		ReplicatedRootMotionHandlers.Add(Handler);
 	}
-}
-
-void USaiyoraMovementComponent::CreateRootMotionHandler(UPlayerCombatAbility* Source, TSubclassOf<URootMotionHandler> const HandlerClass,
-	int32 const PredictionID, uint16 const RootMotionID, bool const bDurationBased, float const DurationTime)
-{
-	if (RootMotionID == (uint16)ERootMotionSourceID::Invalid || !IsValid(Source) || !IsValid(Source->GetHandler()))
-	{
-		return;
-	}
-	UPlayerAbilityHandler* AbilityHandler = Cast<UPlayerAbilityHandler>(Source->GetHandler());
-	if (!IsValid(AbilityHandler))
-	{
-		return;
-	}
-	URootMotionHandler* NewHandler = NewObject<URootMotionHandler>(GetOwner(), HandlerClass);
-	if (!IsValid(NewHandler))
-	{
-		return;
-	}
-	ActiveRootMotionHandlers.Add(NewHandler);
-	NewHandler->Init(this, AbilityHandler, RootMotionID, bDurationBased, DurationTime, PredictionID);
-}
-
-bool USaiyoraMovementComponent::ExecuteJumpForce(UPlayerCombatAbility* Source, FRotator Rotation, float Distance,
-	float Height, float Duration, ERootMotionFinishVelocityMode VelocityOnFinishMode, FVector SetVelocityOnFinish,
-	float ClampVelocityOnFinish, UCurveVector* PathOffsetCurve, UCurveFloat* TimeMappingCurve)
-{
-	TSharedPtr<FCustomJumpForce> CustomRootMotion = MakeShared<FCustomJumpForce>();
-	CustomRootMotion->PredictionID = OwnerAbilityHandler->GetLastPredictionID();
-	CustomRootMotion->Rotation = Rotation;
-	CustomRootMotion->Distance = Distance;
-	CustomRootMotion->Height = Height;
-	CustomRootMotion->Duration = Duration;
-	CustomRootMotion->FinishVelocityParams.Mode = VelocityOnFinishMode;
-	CustomRootMotion->FinishVelocityParams.SetVelocity = SetVelocityOnFinish;
-	CustomRootMotion->FinishVelocityParams.ClampVelocity = ClampVelocityOnFinish;
-	CustomRootMotion->PathOffsetCurve = PathOffsetCurve;
-	CustomRootMotion->TimeMappingCurve = TimeMappingCurve;
-	uint16 const ID = ApplyRootMotionSource(CustomRootMotion);
-	UPlayerAbilityHandler* AbilityHandler = Cast<UPlayerAbilityHandler>(Source->GetHandler());
-	if (!IsValid(AbilityHandler))
-	{
-		return true;
-	}
-	CreateRootMotionHandler(Source, URootMotionHandler::StaticClass(), AbilityHandler->GetLastPredictionID(), ID, (Duration != 0.0f), Duration);
-	return false;
-}
-
-void USaiyoraMovementComponent::PredictJumpForce(UPlayerCombatAbility* Source, FRotator Rotation, float Distance,
-	float Height, float Duration, float MinimumLandedTriggerTime, bool bFinishOnLanded,
-	ERootMotionFinishVelocityMode VelocityOnFinishMode, FVector SetVelocityOnFinish, float ClampVelocityOnFinish,
-	UCurveVector* PathOffsetCurve, UCurveFloat* TimeMappingCurve)
-{
-	if (GetOwnerRole() != ROLE_AutonomousProxy || !IsValid(Source))
-	{
-		return;
-	}
-	ExecuteJumpForce(Source, Rotation, Distance, Height, Duration, VelocityOnFinishMode, SetVelocityOnFinish,
-		ClampVelocityOnFinish, PathOffsetCurve, TimeMappingCurve);
-	SetupCustomMovement(Source, ESaiyoraCustomMove::RootMotion, FCustomMoveParams());
-}
-
-void USaiyoraMovementComponent::JumpForce(UPlayerCombatAbility* Source, FRotator Rotation, float Distance, float Height,
-                                          float Duration, float MinimumLandedTriggerTime, bool bFinishOnLanded,
-                                          ERootMotionFinishVelocityMode VelocityOnFinishMode, FVector SetVelocityOnFinish, float ClampVelocityOnFinish,
-                                          UCurveVector* PathOffsetCurve, UCurveFloat* TimeMappingCurve)
-{
-	if (GetOwnerRole() != ROLE_Authority || !IsValid(Source))
-	{
-		return;
-	}
-	ExecuteJumpForce(Source, Rotation, Distance, Height, Duration, VelocityOnFinishMode, SetVelocityOnFinish,
-	                     ClampVelocityOnFinish, PathOffsetCurve, TimeMappingCurve);
-}
-
-FCustomRootMotionSource::FCustomRootMotionSource()
-{
-	PredictionID = 0;
-}
-
-FRootMotionSource* FCustomRootMotionSource::Clone() const
-{
-	FCustomRootMotionSource* CopyPtr = new FCustomRootMotionSource(*this);
-    return CopyPtr;
-}
-
-bool FCustomRootMotionSource::Matches(const FRootMotionSource* Other) const
-{
-	if (!Super::Matches(Other))
-	{
-		return false;
-	}
-	FCustomRootMotionSource const* CastOther = static_cast<FCustomRootMotionSource const*>(Other);
-	if (CastOther)
-	{
-		return PredictionID == CastOther->PredictionID;
-	}
-	return false;
-}
-
-bool FCustomRootMotionSource::NetSerialize(FArchive& Ar, UPackageMap* Map, bool& bOutSuccess)
-{
-	if (!Super::NetSerialize(Ar, Map, bOutSuccess))
-	{
-		return false;
-	}
-	Ar << PredictionID;
-	bOutSuccess = true;
-	return true;
-}
-
-UScriptStruct* FCustomRootMotionSource::GetScriptStruct() const
-{
-	return FCustomRootMotionSource::StaticStruct();
-}
-
-//Jump Force
-
-FCustomJumpForce::FCustomJumpForce()
-	: Rotation(ForceInitToZero)
-	, Distance(-1.0f)
-	, Height(-1.0f)
-	, bDisableTimeout(false)
-	, PathOffsetCurve(nullptr)
-	, TimeMappingCurve(nullptr)
-	, SavedHalfwayLocation(FVector::ZeroVector)
-{
-	// Don't allow partial end ticks. Jump forces are meant to provide velocity that
-	// carries through to the end of the jump, and if we do partial ticks at the very end,
-	// it means the provided velocity can be significantly reduced on the very last tick,
-	// resulting in lost momentum. This is not desirable for jumps.
-	Settings.SetFlag(ERootMotionSourceSettingsFlags::DisablePartialEndTick);
-}
-
-bool FCustomJumpForce::IsTimeOutEnabled() const
-{
-	if (bDisableTimeout)
-	{
-		return false;
-	}
-	return FRootMotionSource::IsTimeOutEnabled();
-}
-
-FRootMotionSource* FCustomJumpForce::Clone() const
-{
-	FCustomJumpForce* CopyPtr = new FCustomJumpForce(*this);
-	return CopyPtr;
-}
-
-bool FCustomJumpForce::Matches(const FRootMotionSource* Other) const
-{
-	if (!Super::Matches(Other))
-	{
-		return false;
-	}
-
-	// We can cast safely here since in FRootMotionSource::Matches() we ensured ScriptStruct equality
-	const FCustomJumpForce* OtherCast = static_cast<const FCustomJumpForce*>(Other);
-
-	return bDisableTimeout == OtherCast->bDisableTimeout &&
-		PathOffsetCurve == OtherCast->PathOffsetCurve &&
-		TimeMappingCurve == OtherCast->TimeMappingCurve &&
-		FMath::IsNearlyEqual(Distance, OtherCast->Distance, SMALL_NUMBER) &&
-		FMath::IsNearlyEqual(Height, OtherCast->Height, SMALL_NUMBER) &&
-		Rotation.Equals(OtherCast->Rotation, 1.0f);
-}
-
-FVector FCustomJumpForce::GetPathOffset(float MoveFraction) const
-{
-	FVector PathOffset(FVector::ZeroVector);
-	if (PathOffsetCurve)
-	{
-		// Calculate path offset
-		PathOffset = PathOffsetCurve->GetVectorValue(MoveFraction);
-	}
-	else
-	{
-		// Default to "jump parabola", a simple x^2 shifted to be upside-down and shifted
-		// to get [0,1] X (MoveFraction/Distance) mapping to [0,1] Y (height)
-		// Height = -(2x-1)^2 + 1
-		const float Phi = 2.f*MoveFraction - 1;
-		const float Z = -(Phi*Phi) + 1;
-		PathOffset.Z = Z;
-	}
-
-	// Scale Z offset to height. If Height < 0, we use direct path offset values
-	if (Height >= 0.f)
-	{
-		PathOffset.Z *= Height;
-	}
-
-	return PathOffset;
-}
-
-FVector FCustomJumpForce::GetRelativeLocation(float MoveFraction) const
-{
-	// Given MoveFraction, what relative location should a character be at?
-	FRotator FacingRotation(Rotation);
-	FacingRotation.Pitch = 0.f; // By default we don't include pitch, but an option could be added if necessary
-
-	FVector RelativeLocationFacingSpace = FVector(MoveFraction * Distance, 0.f, 0.f) + GetPathOffset(MoveFraction);
-
-	return FacingRotation.RotateVector(RelativeLocationFacingSpace);
-}
-
-void FCustomJumpForce::PrepareRootMotion
-	(
-		float SimulationTime, 
-		float MovementTickTime,
-		const ACharacter& Character, 
-		const UCharacterMovementComponent& MoveComponent
-	)
-{
-	RootMotionParams.Clear();
-
-	if (Duration > SMALL_NUMBER && MovementTickTime > SMALL_NUMBER && SimulationTime > SMALL_NUMBER)
-	{
-		float CurrentTimeFraction = GetTime() / Duration;
-		float TargetTimeFraction = (GetTime() + SimulationTime) / Duration;
-
-		// If we're beyond specified duration, we need to re-map times so that
-		// we continue our desired ending velocity
-		if (TargetTimeFraction > 1.f)
-		{
-			float TimeFractionPastAllowable = TargetTimeFraction - 1.0f;
-			TargetTimeFraction -= TimeFractionPastAllowable;
-			CurrentTimeFraction -= TimeFractionPastAllowable;
-		}
-
-		float CurrentMoveFraction = CurrentTimeFraction;
-		float TargetMoveFraction = TargetTimeFraction;
-
-		if (TimeMappingCurve)
-		{
-			CurrentMoveFraction = TimeMappingCurve->GetFloatValue(CurrentTimeFraction);
-			TargetMoveFraction = TimeMappingCurve->GetFloatValue(TargetTimeFraction);
-		}
-
-		const FVector CurrentRelativeLocation = GetRelativeLocation(CurrentMoveFraction);
-		const FVector TargetRelativeLocation = GetRelativeLocation(TargetMoveFraction);
-
-		const FVector Force = (TargetRelativeLocation - CurrentRelativeLocation) / MovementTickTime;
-
-		const FTransform NewTransform(Force);
-		RootMotionParams.Set(NewTransform);
-	}
-	else
-	{
-		checkf(Duration > SMALL_NUMBER, TEXT("FCustomJumpForce prepared with invalid duration."));
-	}
-
-	SetTime(GetTime() + SimulationTime);
-}
-
-bool FCustomJumpForce::NetSerialize(FArchive& Ar, UPackageMap* Map, bool& bOutSuccess)
-{
-	if (!Super::NetSerialize(Ar, Map, bOutSuccess))
-	{
-		return false;
-	}
-
-	Ar << Rotation;
-	Ar << Distance;
-	Ar << Height;
-	Ar << bDisableTimeout;
-	Ar << PathOffsetCurve;
-	Ar << TimeMappingCurve;
-
-	bOutSuccess = true;
-	return true;
-}
-
-UScriptStruct* FCustomJumpForce::GetScriptStruct() const
-{
-	return FCustomJumpForce::StaticStruct();
-}
-
-FString FCustomJumpForce::ToSimpleString() const
-{
-	return FString::Printf(TEXT("[ID:%u]FCustomJumpForce %s"), LocalID, *InstanceName.GetPlainNameString());
-}
-
-void FCustomJumpForce::AddReferencedObjects(class FReferenceCollector& Collector)
-{
-	Collector.AddReferencedObject(PathOffsetCurve);
-	Collector.AddReferencedObject(TimeMappingCurve);
-
-	Super::AddReferencedObjects(Collector);
 }

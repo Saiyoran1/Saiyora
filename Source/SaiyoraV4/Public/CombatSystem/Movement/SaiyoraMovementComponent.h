@@ -6,7 +6,7 @@
 #include "MovementStructs.h"
 #include "PlayerAbilityHandler.h"
 #include "PlayerCombatAbility.h"
-#include "RootMotionHandler.h"
+#include "SaiyoraRootMotionHandler.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "SaiyoraMovementComponent.generated.h"
 
@@ -51,15 +51,21 @@ private:
 		FSaiyoraNetworkMoveDataContainer();
 		FSaiyoraNetworkMoveData CustomDefaultMoveData[3];
 	};
+
+	static const float MaxPingDelay;
 	
 public:
 	USaiyoraMovementComponent(const FObjectInitializer& ObjectInitializer);
+	UPlayerAbilityHandler* GetOwnerAbilityHandler() const { return OwnerAbilityHandler; }
+	ASaiyoraGameState* GetGameStateRef() const { return GameStateRef; }
+	virtual bool ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags) override;
 private:
 	virtual void UpdateFromCompressedFlags(uint8 Flags) override;
 	virtual FNetworkPredictionData_Client* GetPredictionData_Client() const override;
 	virtual void OnMovementUpdated(float DeltaSeconds, const FVector& OldLocation, const FVector& OldVelocity) override;
 	virtual void BeginPlay() override;
 	virtual void MoveAutonomous(float ClientTimeStamp, float DeltaTime, uint8 CompressedFlags, const FVector& NewAccel) override;
+	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 	uint8 bWantsCustomMove : 1;
 	//Client-side move struct, used for replaying the move without access to the original ability.
@@ -110,99 +116,21 @@ private:
 	void ExecuteLaunchPlayer(FVector const& Direction, float const Force);
 
 	//Root Motion Sources?
-	
 public:
+	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf = "Source", HidePin = "Source"))
+	void TestRootMotion(UObject* Source);
+	void RemoveRootMotionHandler(USaiyoraRootMotionHandler* Handler);
+	void AddRootMotionHandlerFromReplication(USaiyoraRootMotionHandler* Handler);
+private:
 	UFUNCTION()
-	void ExpireHandledRootMotion(URootMotionHandler* Handler);
-private:
+	void DelayedHandlerApplication(USaiyoraRootMotionHandler* Handler);
 	UPROPERTY()
-	TArray<URootMotionHandler*> ActiveRootMotionHandlers;
-	void CreateRootMotionHandler(UPlayerCombatAbility* Source, TSubclassOf<URootMotionHandler> const HandlerClass, int32 const PredictionID, uint16 const RootMotionID, bool const bDurationBased, float const DurationTime);
-public:
-	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf="Source", HidePin="Source"))
-	void PredictJumpForce(UPlayerCombatAbility* Source, FRotator Rotation, float Distance, float Height, float Duration, float MinimumLandedTriggerTime,
-		bool bFinishOnLanded, ERootMotionFinishVelocityMode VelocityOnFinishMode, FVector SetVelocityOnFinish, float ClampVelocityOnFinish, UCurveVector* PathOffsetCurve, UCurveFloat* TimeMappingCurve);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Movement", meta = (DefaultToSelf="Source", HidePin="Source"))
-	void JumpForce(UPlayerCombatAbility* Source, FRotator Rotation, float Distance, float Height, float Duration, float MinimumLandedTriggerTime,
-		bool bFinishOnLanded, ERootMotionFinishVelocityMode VelocityOnFinishMode, FVector SetVelocityOnFinish, float ClampVelocityOnFinish, UCurveVector* PathOffsetCurve, UCurveFloat* TimeMappingCurve);
-private:
-	bool ExecuteJumpForce(UPlayerCombatAbility* Source, FRotator Rotation, float Distance, float Height, float Duration,
-		ERootMotionFinishVelocityMode VelocityOnFinishMode, FVector SetVelocityOnFinish,
-		float ClampVelocityOnFinish, UCurveVector* PathOffsetCurve, UCurveFloat* TimeMappingCurve);
-};
-
-//Root Motion Sources
-
-USTRUCT()
-struct FCustomRootMotionSource : public FRootMotionSource
-{
-	GENERATED_BODY()
-
-	FCustomRootMotionSource();
-	virtual FRootMotionSource* Clone() const override;
-	virtual bool Matches(const FRootMotionSource* Other) const override;
-	virtual bool NetSerialize(FArchive& Ar, UPackageMap* Map, bool& bOutSuccess) override;
-	virtual UScriptStruct* GetScriptStruct() const override;
-
+	TArray<UObject*> CurrentTickServerRootMotionSources;
+	bool ApplyCustomRootMotionHandler(USaiyoraRootMotionHandler* Handler, UObject* Source);
 	UPROPERTY()
-	int32 PredictionID = 0;
-};
-
-template<>
-struct TStructOpsTypeTraits<FCustomRootMotionSource> : public TStructOpsTypeTraitsBase2<FCustomRootMotionSource>
-{
-	enum
-	{
-		WithNetSerializer = true,
-		WithCopy = true
-	};
-};
-
-USTRUCT()
-struct FCustomJumpForce : public FCustomRootMotionSource
-{
-	GENERATED_USTRUCT_BODY()
-
-	FCustomJumpForce();
-	virtual ~FCustomJumpForce() {}
-
+	TArray<USaiyoraRootMotionHandler*> CurrentRootMotionHandlers;
 	UPROPERTY()
-	FRotator Rotation;
+	TArray<USaiyoraRootMotionHandler*> ReplicatedRootMotionHandlers;
 	UPROPERTY()
-	float Distance;
-	UPROPERTY()
-	float Height;
-	UPROPERTY()
-	bool bDisableTimeout;
-	UPROPERTY()
-	UCurveVector* PathOffsetCurve;
-	UPROPERTY()
-	UCurveFloat* TimeMappingCurve;
-	FVector SavedHalfwayLocation;
-
-	FVector GetPathOffset(float MoveFraction) const;
-	FVector GetRelativeLocation(float MoveFraction) const;
-	virtual bool IsTimeOutEnabled() const override;
-	virtual FRootMotionSource* Clone() const override;
-	virtual bool Matches(const FRootMotionSource* Other) const override;
-	virtual void PrepareRootMotion(
-		float SimulationTime, 
-		float MovementTickTime,
-		const ACharacter& Character, 
-		const UCharacterMovementComponent& MoveComponent
-		) override;
-	virtual bool NetSerialize(FArchive& Ar, UPackageMap* Map, bool& bOutSuccess) override;
-	virtual UScriptStruct* GetScriptStruct() const override;
-	virtual FString ToSimpleString() const override;
-	virtual void AddReferencedObjects(class FReferenceCollector& Collector) override;
-};
-
-template<>
-struct TStructOpsTypeTraits<FCustomJumpForce> : public TStructOpsTypeTraitsBase2<FCustomJumpForce>
-{
-	enum
-	{
-		WithNetSerializer = true,
-		WithCopy = true
-	};
+	TArray<USaiyoraRootMotionHandler*> HandlersAwaitingPingDelay;
 };

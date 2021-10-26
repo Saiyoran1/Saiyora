@@ -190,11 +190,13 @@ void UPlayerCombatAbility::StartCooldownFromPrediction()
     AbilityCooldown.CooldownEndTime = AbilityCooldown.CooldownStartTime + Cooldown;
 }
 
-void UPlayerCombatAbility::PredictedTick(int32 const TickNumber, FCombatParameters& PredictionParams)
+void UPlayerCombatAbility::PredictedTick(int32 const TickNumber, FCombatParameters& PredictionParams, int32 const PredictionID)
 {
     PredictionParameters.ClearParams();
+    CurrentPredictionID = PredictionID;
     OnPredictedTick(TickNumber);
     PredictionParams = PredictionParameters;
+    CurrentPredictionID = 0;
     PredictionParameters.ClearParams();
 }
 
@@ -204,22 +206,26 @@ void UPlayerCombatAbility::OnPredictedTick_Implementation(int32)
 }
 
 void UPlayerCombatAbility::ServerTick(int32 const TickNumber, FCombatParameters const& PredictionParams,
-    FCombatParameters& BroadcastParams)
+                                      FCombatParameters& BroadcastParams, int32 const PredictionID)
 {
     PredictionParameters.ClearParams();
     BroadcastParameters.ClearParams();
     PredictionParameters = PredictionParams;
+    CurrentPredictionID = PredictionID;
     OnServerTick(TickNumber);
     BroadcastParams = BroadcastParameters;
+    CurrentPredictionID = 0;
     PredictionParameters.ClearParams();
     BroadcastParameters.ClearParams();
 }
 
-void UPlayerCombatAbility::PredictedCancel(FCombatParameters& PredictionParams)
+void UPlayerCombatAbility::PredictedCancel(FCombatParameters& PredictionParams, int32 const PredictionID)
 {
     PredictionParameters.ClearParams();
+    CurrentPredictionID = PredictionID;
     OnPredictedCancel();
     PredictionParams = PredictionParameters;
+    CurrentPredictionID = PredictionID;
     PredictionParameters.ClearParams();
 }
 
@@ -228,13 +234,15 @@ void UPlayerCombatAbility::OnPredictedCancel_Implementation()
     return;
 }
 
-void UPlayerCombatAbility::ServerCancel(FCombatParameters const& PredictionParams, FCombatParameters& BroadcastParams)
+void UPlayerCombatAbility::ServerCancel(FCombatParameters const& PredictionParams, FCombatParameters& BroadcastParams, int32 const PredictionID)
 {
     PredictionParameters.ClearParams();
     BroadcastParameters.ClearParams();
     PredictionParameters = PredictionParams;
+    CurrentPredictionID = PredictionID;
     OnServerCancel();
     BroadcastParams = BroadcastParameters;
+    CurrentPredictionID = PredictionID;
     PredictionParameters.ClearParams();
     BroadcastParameters.ClearParams();
 }

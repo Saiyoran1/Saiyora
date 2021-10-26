@@ -387,7 +387,7 @@ FCastEvent UPlayerAbilityHandler::UsePlayerAbility(TSubclassOf<UPlayerCombatAbil
 			return Result;
 		case EAbilityCastType::Instant :
 			Result.ActionTaken = ECastAction::Success;
-			PlayerAbility->PredictedTick(0, AbilityRequest.PredictionParams);
+			PlayerAbility->PredictedTick(0, AbilityRequest.PredictionParams, Result.PredictionID);
 			Result.PredictionParams = AbilityRequest.PredictionParams;
 			OnAbilityTick.Broadcast(Result);
 			break;
@@ -397,7 +397,7 @@ FCastEvent UPlayerAbilityHandler::UsePlayerAbility(TSubclassOf<UPlayerCombatAbil
 			AbilityPrediction.bPredictedCastBar = true;
 			if (PlayerAbility->GetHasInitialTick())
 			{
-				PlayerAbility->PredictedTick(0, AbilityRequest.PredictionParams);
+				PlayerAbility->PredictedTick(0, AbilityRequest.PredictionParams, Result.PredictionID);
 				Result.PredictionParams = AbilityRequest.PredictionParams;
 				OnAbilityTick.Broadcast(Result);
 			}
@@ -412,6 +412,8 @@ FCastEvent UPlayerAbilityHandler::UsePlayerAbility(TSubclassOf<UPlayerCombatAbil
 		
 		return Result;
 	}
+
+	//Server usage of the ability (listen server).
 	
 	PlayerAbility->CommitCharges();
 	
@@ -435,8 +437,8 @@ FCastEvent UPlayerAbilityHandler::UsePlayerAbility(TSubclassOf<UPlayerCombatAbil
 		return Result;
 	case EAbilityCastType::Instant :
 		Result.ActionTaken = ECastAction::Success;
-		PlayerAbility->PredictedTick(0, PredictionParams);
-		PlayerAbility->ServerTick(0, PredictionParams, BroadcastParams);
+		PlayerAbility->PredictedTick(0, PredictionParams, 0);
+		PlayerAbility->ServerTick(0, PredictionParams, BroadcastParams, 0);
 		Result.PredictionParams = PredictionParams;
 		Result.BroadcastParams = BroadcastParams;
 		OnAbilityTick.Broadcast(Result);
@@ -447,8 +449,8 @@ FCastEvent UPlayerAbilityHandler::UsePlayerAbility(TSubclassOf<UPlayerCombatAbil
 		StartCast(PlayerAbility, Result.PredictionID);
 		if (Result.Ability->GetHasInitialTick())
 		{
-			PlayerAbility->PredictedTick(0, PredictionParams);
-			PlayerAbility->ServerTick(0, PredictionParams, BroadcastParams);
+			PlayerAbility->PredictedTick(0, PredictionParams, 0);
+			PlayerAbility->ServerTick(0, PredictionParams, BroadcastParams, 0);
 			Result.PredictionParams = PredictionParams;
 			Result.BroadcastParams = BroadcastParams;
 			OnAbilityTick.Broadcast(Result);
@@ -528,7 +530,7 @@ void UPlayerAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest 
 	case EAbilityCastType::Instant :
 		Result.ActionTaken = ECastAction::Success;
 		LastAckedClientID = AbilityRequest.PredictionID;
-		PlayerAbility->ServerTick(0, AbilityRequest.PredictionParams, BroadcastParams);
+		PlayerAbility->ServerTick(0, AbilityRequest.PredictionParams, BroadcastParams, AbilityRequest.PredictionID);
 		Result.BroadcastParams = BroadcastParams;
 		OnAbilityTick.Broadcast(Result);
 		MulticastAbilityTick(Result, BroadcastParams);
@@ -542,7 +544,7 @@ void UPlayerAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest 
 		LastAckedClientID = AbilityRequest.PredictionID;
 		if (PlayerAbility->GetHasInitialTick())
 		{
-			PlayerAbility->ServerTick(0, AbilityRequest.PredictionParams, BroadcastParams);
+			PlayerAbility->ServerTick(0, AbilityRequest.PredictionParams, BroadcastParams, AbilityRequest.PredictionID);
 			Result.BroadcastParams = BroadcastParams;
 			OnAbilityTick.Broadcast(Result);
 			MulticastAbilityTick(Result, BroadcastParams);
@@ -766,7 +768,7 @@ void UPlayerAbilityHandler::PredictAbilityTick()
 	}
 	CastingState.ElapsedTicks++;
 	FCombatParameters PredictionParams;
-	CurrentPlayerCast->PredictedTick(CastingState.ElapsedTicks, PredictionParams);
+	CurrentPlayerCast->PredictedTick(CastingState.ElapsedTicks, PredictionParams, CastingState.PredictionID);
 	if (CurrentPlayerCast->GetTickNeedsPredictionParams(CastingState.ElapsedTicks))
 	{
 		FAbilityRequest TickRequest;
@@ -806,7 +808,7 @@ void UPlayerAbilityHandler::HandleMissedPredictedTick(int32 const TickNumber)
 		return;
 	}
 	FCombatParameters PredictionParams;
-	CurrentPlayerCast->PredictedTick(TickNumber, PredictionParams);
+	CurrentPlayerCast->PredictedTick(TickNumber, PredictionParams, CastingState.PredictionID);
 	if (CurrentPlayerCast->GetTickNeedsPredictionParams(TickNumber))
 	{
 		FAbilityRequest TickRequest;
@@ -846,7 +848,7 @@ void UPlayerAbilityHandler::ServerHandlePredictedTick_Implementation(FAbilityReq
 			if (IsValid(Ability))
 			{
 				FCombatParameters BroadcastParams;
-				Ability->ServerTick(TickRequest.Tick, TickRequest.PredictionParams, BroadcastParams);
+				Ability->ServerTick(TickRequest.Tick, TickRequest.PredictionParams, BroadcastParams, TickRequest.PredictionID);
 				FCastEvent TickEvent;
 				TickEvent.Ability = Ability;
 				TickEvent.Tick = TickRequest.Tick;
@@ -920,8 +922,8 @@ void UPlayerAbilityHandler::AuthTickPredictedCast()
 	if (OwnerAsPawn->IsLocallyControlled())
 	{
 		FCombatParameters PredictionParams;
-		CurrentPlayerCast->PredictedTick(CastingState.ElapsedTicks, PredictionParams);
-		CurrentPlayerCast->ServerTick(CastingState.ElapsedTicks, PredictionParams, BroadcastParams);
+		CurrentPlayerCast->PredictedTick(CastingState.ElapsedTicks, PredictionParams, CastingState.PredictionID);
+		CurrentPlayerCast->ServerTick(CastingState.ElapsedTicks, PredictionParams, BroadcastParams, CastingState.PredictionID);
 		FCastEvent TickEvent;
 		TickEvent.Ability = CurrentPlayerCast;
 		TickEvent.Tick = CastingState.ElapsedTicks;
@@ -946,7 +948,7 @@ void UPlayerAbilityHandler::AuthTickPredictedCast()
 	}
 	else if (ParamsAwaitingTicks.Contains(Tick))
 	{
-		CurrentPlayerCast->ServerTick(CastingState.ElapsedTicks, ParamsAwaitingTicks.FindRef(Tick), BroadcastParams);
+		CurrentPlayerCast->ServerTick(CastingState.ElapsedTicks, ParamsAwaitingTicks.FindRef(Tick), BroadcastParams, CastingState.PredictionID);
 		FCastEvent TickEvent;
 		TickEvent.Ability = CurrentPlayerCast;
 		TickEvent.Tick = CastingState.ElapsedTicks;
@@ -1015,7 +1017,7 @@ FCancelEvent UPlayerAbilityHandler::PredictCancelAbility()
 		CancelRequest.CancelTime = Result.CancelTime;
 		CancelRequest.CancelID = Result.CancelID;
 		CancelRequest.CancelledCastID = Result.CancelledCastID;
-		CurrentPlayerCast->PredictedCancel(CancelRequest.PredictionParams);
+		CurrentPlayerCast->PredictedCancel(CancelRequest.PredictionParams, Result.CancelID);
 		Result.PredictionParams = CancelRequest.PredictionParams;
 		ServerPredictCancelAbility(CancelRequest);
 		OnAbilityCancelled.Broadcast(Result);
@@ -1055,7 +1057,7 @@ void UPlayerAbilityHandler::ServerPredictCancelAbility_Implementation(FCancelReq
 	Result.CancelledCastID = CastingState.PredictionID;
 	Result.ElapsedTicks = CastingState.ElapsedTicks;
 	Result.PredictionParams = CancelRequest.PredictionParams;
-	CurrentPlayerCast->ServerCancel(Result.PredictionParams, Result.BroadcastParams);
+	CurrentPlayerCast->ServerCancel(Result.PredictionParams, Result.BroadcastParams, Result.CancelID);
 	OnAbilityCancelled.Broadcast(Result);
 	MulticastAbilityCancel(Result);
 	EndCast();
