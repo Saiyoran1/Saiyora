@@ -119,16 +119,22 @@ bool USaiyoraMovementComponent::ReplicateSubobjects(UActorChannel* Channel, FOut
 	bool bWroteSomething = Super::ReplicateSubobjects(Channel, Bunch, RepFlags);
 	if (RepFlags->bNetOwner)
 	{
-		bWroteSomething |= Channel->ReplicateSubobjectList(HandlersAwaitingPingDelay, *Bunch, *RepFlags);
-		for (USaiyoraRootMotionHandler* Handler : ReplicatedRootMotionHandlers)
+		if (HandlersAwaitingPingDelay.Num() > 0)
 		{
-			if (IsValid(Handler) && Handler->GetPredictionID() == 0)
+			bWroteSomething |= Channel->ReplicateSubobjectList(HandlersAwaitingPingDelay, *Bunch, *RepFlags);
+		}
+		if (ReplicatedRootMotionHandlers.Num() > 0)
+		{
+			for (USaiyoraRootMotionHandler* Handler : ReplicatedRootMotionHandlers)
 			{
-				bWroteSomething |= Channel->ReplicateSubobject(Handler, *Bunch, *RepFlags);
+				if (IsValid(Handler) && Handler->GetPredictionID() == 0)
+				{
+					bWroteSomething |= Channel->ReplicateSubobject(Handler, *Bunch, *RepFlags);
+				}
 			}
 		}
 	}
-	else
+	else if (ReplicatedRootMotionHandlers.Num() > 0)
 	{
 		bWroteSomething |= Channel->ReplicateSubobjectList(ReplicatedRootMotionHandlers, *Bunch, *RepFlags);
 	}
@@ -139,11 +145,6 @@ void USaiyoraMovementComponent::GetLifetimeReplicatedProps(TArray<FLifetimePrope
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	return;
-}
-
-void USaiyoraMovementComponent::OnRep_TestThing()
-{
-	UE_LOG(LogTemp, Warning, TEXT("%f"), TestThing);
 }
 
 void USaiyoraMovementComponent::UpdateFromCompressedFlags(uint8 Flags)
