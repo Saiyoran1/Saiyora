@@ -23,6 +23,7 @@ private:
 	void OnRep_Finished();
 	virtual TSharedPtr<FRootMotionSource> MakeRootMotionSource() { return nullptr; }
 	virtual void PostInit() {}
+	virtual void PreDestroyFromReplication() override;
 protected:
 	UPROPERTY(Replicated)
 	USaiyoraMovementComponent* TargetMovement = nullptr;

@@ -59,6 +59,7 @@ public:
 	UPlayerAbilityHandler* GetOwnerAbilityHandler() const { return OwnerAbilityHandler; }
 	ASaiyoraGameState* GetGameStateRef() const { return GameStateRef; }
 	virtual bool ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags) override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 private:
 	virtual void UpdateFromCompressedFlags(uint8 Flags) override;
 	virtual FNetworkPredictionData_Client* GetPredictionData_Client() const override;

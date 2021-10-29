@@ -13,10 +13,19 @@ void USaiyoraRootMotionHandler::OnMispredicted(int32 const PredictionID, ECastFa
 
 void USaiyoraRootMotionHandler::OnRep_Finished()
 {
-	if (bFinished)
+	if (bInitialized && bFinished)
 	{
 		Expire();
 	}
+}
+
+void USaiyoraRootMotionHandler::PreDestroyFromReplication()
+{
+	if (!bFinished)
+	{
+		Expire();
+	}
+	Super::PreDestroyFromReplication();
 }
 
 void USaiyoraRootMotionHandler::Expire()
@@ -48,27 +57,36 @@ void USaiyoraRootMotionHandler::PostNetReceive()
 	{
 		return;
 	}
-	if (bInitialized || bFinished)
+	if (bInitialized)
 	{
 		return;
 	}
+	//Cache the bFinished value to see if we need to expire immediately after applying.
+	bool const bStartedFinished = bFinished;
 	TargetMovement->AddRootMotionHandlerFromReplication(this);
 	bInitialized = true;
-	//TODO: Do I need to call Init here?
+	//Set finished to false here (we have already cached the value). This allows us to check if Expire is called during Apply.
+	bFinished = false;
 	Apply();
+	//If we need to expire immediately due to having replicated bFinished as true, and Expire wasn't already called, call it here.
+	if (bStartedFinished && !bFinished)
+	{
+		Expire();
+	}
 }
 
 void USaiyoraRootMotionHandler::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME(USaiyoraRootMotionHandler, TargetMovement);
-	DOREPLIFETIME(USaiyoraRootMotionHandler, SourcePredictionID);
-	DOREPLIFETIME(USaiyoraRootMotionHandler, Source);
-	DOREPLIFETIME(USaiyoraRootMotionHandler, Priority);
-	DOREPLIFETIME(USaiyoraRootMotionHandler, AccumulateMode);
-	DOREPLIFETIME(USaiyoraRootMotionHandler, FinishVelocityMode);
-	DOREPLIFETIME(USaiyoraRootMotionHandler, FinishSetVelocity);
-	DOREPLIFETIME(USaiyoraRootMotionHandler, FinishClampVelocity);
+	DOREPLIFETIME_CONDITION(USaiyoraRootMotionHandler, TargetMovement, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(USaiyoraRootMotionHandler, SourcePredictionID, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(USaiyoraRootMotionHandler, Source, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(USaiyoraRootMotionHandler, Priority, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(USaiyoraRootMotionHandler, AccumulateMode, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(USaiyoraRootMotionHandler, FinishVelocityMode, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(USaiyoraRootMotionHandler, FinishSetVelocity, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(USaiyoraRootMotionHandler, FinishClampVelocity, COND_InitialOnly);
+	DOREPLIFETIME(USaiyoraRootMotionHandler, bFinished);
 }
 
 void USaiyoraRootMotionHandler::Init(USaiyoraMovementComponent* Movement, int32 const PredictionID, UObject* MoveSource)
@@ -114,14 +132,14 @@ void USaiyoraRootMotionHandler::Apply()
 void UTestJumpForceHandler::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME(UTestJumpForceHandler, Rotation);
-	DOREPLIFETIME(UTestJumpForceHandler, Distance);
-	DOREPLIFETIME(UTestJumpForceHandler, Height);
-	DOREPLIFETIME(UTestJumpForceHandler, Duration);
-	DOREPLIFETIME(UTestJumpForceHandler, MinimumLandedTriggerTime);
-	DOREPLIFETIME(UTestJumpForceHandler, bFinishOnLanded);
-	DOREPLIFETIME(UTestJumpForceHandler, PathOffsetCurve);
-	DOREPLIFETIME(UTestJumpForceHandler, TimeMappingCurve);
+	DOREPLIFETIME_CONDITION(UTestJumpForceHandler, Rotation, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(UTestJumpForceHandler, Distance, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(UTestJumpForceHandler, Height, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(UTestJumpForceHandler, Duration, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(UTestJumpForceHandler, MinimumLandedTriggerTime, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(UTestJumpForceHandler, bFinishOnLanded, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(UTestJumpForceHandler, PathOffsetCurve, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(UTestJumpForceHandler, TimeMappingCurve, COND_InitialOnly);
 }
 
 TSharedPtr<FRootMotionSource> UTestJumpForceHandler::MakeRootMotionSource()

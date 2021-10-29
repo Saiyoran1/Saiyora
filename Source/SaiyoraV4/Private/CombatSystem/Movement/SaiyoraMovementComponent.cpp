@@ -3,6 +3,7 @@
 #include "Movement/SaiyoraMovementComponent.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraCombatLibrary.h"
+#include "UnrealNetwork.h"
 #include "Engine/ActorChannel.h"
 #include "GameFramework/Character.h"
 #include "Movement/MovementStructs.h"
@@ -115,7 +116,7 @@ USaiyoraMovementComponent::USaiyoraMovementComponent(const FObjectInitializer& O
 bool USaiyoraMovementComponent::ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch,
 	FReplicationFlags* RepFlags)
 {
-	bool bWroteSomething = false;
+	bool bWroteSomething = Super::ReplicateSubobjects(Channel, Bunch, RepFlags);
 	if (RepFlags->bNetOwner)
 	{
 		bWroteSomething |= Channel->ReplicateSubobjectList(HandlersAwaitingPingDelay, *Bunch, *RepFlags);
@@ -131,8 +132,18 @@ bool USaiyoraMovementComponent::ReplicateSubobjects(UActorChannel* Channel, FOut
 	{
 		bWroteSomething |= Channel->ReplicateSubobjectList(ReplicatedRootMotionHandlers, *Bunch, *RepFlags);
 	}
-	bWroteSomething |= Super::ReplicateSubobjects(Channel, Bunch, RepFlags);
 	return bWroteSomething;
+}
+
+void USaiyoraMovementComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	return;
+}
+
+void USaiyoraMovementComponent::OnRep_TestThing()
+{
+	UE_LOG(LogTemp, Warning, TEXT("%f"), TestThing);
 }
 
 void USaiyoraMovementComponent::UpdateFromCompressedFlags(uint8 Flags)
@@ -437,18 +448,18 @@ void USaiyoraMovementComponent::RemoveRootMotionHandler(USaiyoraRootMotionHandle
 	}
 	RemoveRootMotionSourceByID(Handler->GetHandledID());
 	CurrentRootMotionHandlers.Remove(Handler);
-	//TODO: Figure out how to do cleanup with replication.
-	/*
-	if (GetWorld()->GetTimerManager().IsTimerActive(Handler->PingDelayHandle))
-	{
-		HandlersAwaitingPingDelay.Remove(Handler);
-		Handler->PingDelayHandle.Invalidate();
-	}
 	if (GetOwnerRole() == ROLE_Authority)
 	{
-		ReplicatedRootMotionHandlers.Remove(Handler);
-		HandlersAwaitingPingDelay.Remove(Handler);
-	}*/
+		if (GetWorld()->GetTimerManager().IsTimerActive(Handler->PingDelayHandle))
+		{
+			HandlersAwaitingPingDelay.Remove(Handler);
+			Handler->PingDelayHandle.Invalidate();
+		}
+		else
+		{
+			ReplicatedRootMotionHandlers.Remove(Handler);
+		}
+	}
 }
 
 bool USaiyoraMovementComponent::ApplyCustomRootMotionHandler(USaiyoraRootMotionHandler* Handler, UObject* Source)
@@ -487,7 +498,9 @@ bool USaiyoraMovementComponent::ApplyCustomRootMotionHandler(USaiyoraRootMotionH
 			FTimerDelegate PingDelayDelegate;
 			PingDelayDelegate.BindUObject(this, &USaiyoraMovementComponent::DelayedHandlerApplication, Handler);
 			FTimerHandle PingDelayHandle;
-			GetWorld()->GetTimerManager().SetTimer(PingDelayHandle, PingDelayDelegate, FMath::Min(MaxPingDelay, USaiyoraCombatLibrary::GetActorPing(GetOwner())), false);
+			float const PingDelay = USaiyoraCombatLibrary::GetActorPing(GetOwner());
+			UE_LOG(LogTemp, Warning, TEXT("%f ping delay."), PingDelay);
+			GetWorld()->GetTimerManager().SetTimer(PingDelayHandle, PingDelayDelegate, PingDelay, false);
 			//Store the timer handle. If something clears the movement before ping (very unlikely), we can cancel the timer.
 			Handler->PingDelayHandle = PingDelayHandle;
 		}
