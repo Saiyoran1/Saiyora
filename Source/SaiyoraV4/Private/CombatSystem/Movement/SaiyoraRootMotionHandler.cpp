@@ -32,6 +32,7 @@ void USaiyoraRootMotionHandler::PreDestroyFromReplication()
 void USaiyoraRootMotionHandler::Expire()
 {
 	bFinished = true;
+	GetWorld()->GetTimerManager().ClearTimer(ExpireHandle);
 	if (IsValid(TargetMovement))
 	{
 		if (SourcePredictionID != 0 && TargetMovement->GetOwnerRole() == ROLE_AutonomousProxy && IsValid(TargetMovement->GetOwnerAbilityHandler()))
@@ -40,6 +41,7 @@ void USaiyoraRootMotionHandler::Expire()
 		}
 		TargetMovement->RemoveRootMotionHandler(this);
 	}
+	PostExpire();
 }
 
 UWorld* USaiyoraRootMotionHandler::GetWorld() const
@@ -88,6 +90,7 @@ void USaiyoraRootMotionHandler::GetLifetimeReplicatedProps(TArray<FLifetimePrope
 	DOREPLIFETIME(USaiyoraRootMotionHandler, FinishSetVelocity);
 	DOREPLIFETIME(USaiyoraRootMotionHandler, FinishClampVelocity);
 	DOREPLIFETIME(USaiyoraRootMotionHandler, bFinished);
+	DOREPLIFETIME(USaiyoraRootMotionHandler, Duration);
 }
 
 void USaiyoraRootMotionHandler::Init(USaiyoraMovementComponent* Movement, int32 const PredictionID, UObject* MoveSource)
@@ -127,7 +130,11 @@ void USaiyoraRootMotionHandler::Apply()
 	{
 		TargetMovement->GetOwnerAbilityHandler()->SubscribeToAbilityMispredicted(MispredictionCallback);
 	}
-	PostInit();
+	if (NeedsExpireTimer())
+	{
+		GetWorld()->GetTimerManager().SetTimer(ExpireHandle, this, &USaiyoraRootMotionHandler::Expire, Duration);
+	}
+	PostApply();
 }
 
 void UJumpForceHandler::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -136,7 +143,6 @@ void UJumpForceHandler::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 	DOREPLIFETIME(UJumpForceHandler, Rotation);
 	DOREPLIFETIME(UJumpForceHandler, Distance);
 	DOREPLIFETIME(UJumpForceHandler, Height);
-	DOREPLIFETIME(UJumpForceHandler, Duration);
 	DOREPLIFETIME(UJumpForceHandler, MinimumLandedTriggerTime);
 	DOREPLIFETIME(UJumpForceHandler, bFinishOnLanded);
 	DOREPLIFETIME(UJumpForceHandler, PathOffsetCurve);
@@ -165,7 +171,7 @@ TSharedPtr<FRootMotionSource> UJumpForceHandler::MakeRootMotionSource()
 	return JumpForce;
 }
 
-void UJumpForceHandler::PostInit()
+void UJumpForceHandler::PostApply()
 {
 	if (bFinishOnLanded && IsValid(TargetMovement))
 	{
@@ -173,11 +179,45 @@ void UJumpForceHandler::PostInit()
 	}
 }
 
-void UJumpForceHandler::OnLanded(FHitResult const& Result)
+void UJumpForceHandler::PostExpire()
 {
-	Expire();
-	if (IsValid(TargetMovement))
+	if (bFinishOnLanded && IsValid(TargetMovement))
 	{
 		TargetMovement->GetCharacterOwner()->LandedDelegate.RemoveDynamic(this, &UJumpForceHandler::OnLanded);
 	}
+}
+
+bool UJumpForceHandler::NeedsExpireTimer() const
+{
+	return Duration > 0.0f && !bFinishOnLanded;
+}
+
+void UJumpForceHandler::OnLanded(FHitResult const& Result)
+{
+	Expire();
+}
+
+void UConstantForceHandler::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(UConstantForceHandler, Force);
+	DOREPLIFETIME(UConstantForceHandler, StrengthOverTime);
+}
+
+TSharedPtr<FRootMotionSource> UConstantForceHandler::MakeRootMotionSource()
+{
+	TSharedPtr<FRootMotionSource_ConstantForce> ConstantForce = MakeShared<FRootMotionSource_ConstantForce>(FRootMotionSource_ConstantForce());
+	if (!ConstantForce.IsValid())
+	{
+		return nullptr;
+	}
+	ConstantForce->Duration = Duration;
+	ConstantForce->AccumulateMode = AccumulateMode;
+	ConstantForce->Priority = Priority;
+	ConstantForce->FinishVelocityParams.Mode = FinishVelocityMode;
+	ConstantForce->FinishVelocityParams.SetVelocity = FinishSetVelocity;
+	ConstantForce->FinishVelocityParams.ClampVelocity = FinishClampVelocity;
+	ConstantForce->Force = Force;
+	ConstantForce->StrengthOverTime = StrengthOverTime;
+	return ConstantForce;
 }

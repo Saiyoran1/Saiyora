@@ -22,7 +22,9 @@ private:
 	UFUNCTION()
 	void OnRep_Finished();
 	virtual TSharedPtr<FRootMotionSource> MakeRootMotionSource() { return nullptr; }
-	virtual void PostInit() {}
+	virtual void PostApply() {}
+	virtual void PostExpire() {}
+	virtual bool NeedsExpireTimer() const { return Duration < 0.0f; }
 	virtual void PreDestroyFromReplication() override;
 protected:
 	UPROPERTY(Replicated)
@@ -56,7 +58,10 @@ public:
 	FVector FinishSetVelocity = FVector::ZeroVector;
 	UPROPERTY(Replicated)
 	float FinishClampVelocity = 0.0f;
+	UPROPERTY(Replicated)
+	float Duration = 0.0f;
 	FTimerHandle PingDelayHandle;
+	FTimerHandle ExpireHandle;
 };
 
 UCLASS()
@@ -66,7 +71,9 @@ class SAIYORAV4_API UJumpForceHandler : public USaiyoraRootMotionHandler
 	
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual TSharedPtr<FRootMotionSource> MakeRootMotionSource() override;
-	virtual void PostInit() override;
+	virtual void PostApply() override;
+	virtual void PostExpire() override;
+	virtual bool NeedsExpireTimer() const override;
 	UFUNCTION()
 	void OnLanded(FHitResult const& Result);
 public:
@@ -77,8 +84,6 @@ public:
 	UPROPERTY(Replicated)
 	float Height;
 	UPROPERTY(Replicated)
-	float Duration;
-	UPROPERTY(Replicated)
 	float MinimumLandedTriggerTime;
 	UPROPERTY(Replicated)
 	bool bFinishOnLanded;
@@ -86,6 +91,18 @@ public:
 	UCurveVector* PathOffsetCurve;
 	UPROPERTY(Replicated)
 	UCurveFloat* TimeMappingCurve;
+};
 
-	bool bHasLanded = false;
+UCLASS()
+class SAIYORAV4_API UConstantForceHandler : public USaiyoraRootMotionHandler
+{
+	GENERATED_BODY()
+
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual TSharedPtr<FRootMotionSource> MakeRootMotionSource() override;
+public:
+	UPROPERTY(Replicated)
+	FVector Force = FVector::ZeroVector;
+	UPROPERTY(Replicated)
+	UCurveFloat* StrengthOverTime = nullptr;
 };

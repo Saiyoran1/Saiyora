@@ -444,6 +444,23 @@ void USaiyoraMovementComponent::ApplyJumpForce(UObject* Source, ERootMotionAccum
 	ApplyCustomRootMotionHandler(JumpForce, Source);
 }
 
+void USaiyoraMovementComponent::ApplyConstantForce(UObject* Source, ERootMotionAccumulateMode const AccumulateMode, int32 const Priority,
+	float const Duration, FVector const& Force, UCurveFloat* StrengthOverTime)
+{
+	UConstantForceHandler* ConstantForce = NewObject<UConstantForceHandler>(GetOwner(), UConstantForceHandler::StaticClass());
+	if (!IsValid(ConstantForce))
+	{
+		return;
+	}
+	ConstantForce->AccumulateMode = AccumulateMode;
+	ConstantForce->Priority = Priority;
+	ConstantForce->Duration = Duration;
+	ConstantForce->Force = Force;
+	ConstantForce->StrengthOverTime = StrengthOverTime;
+	ConstantForce->FinishVelocityMode = ERootMotionFinishVelocityMode::MaintainLastRootMotionVelocity;
+	ApplyCustomRootMotionHandler(ConstantForce, Source);
+}
+
 void USaiyoraMovementComponent::RemoveRootMotionHandler(USaiyoraRootMotionHandler* Handler)
 {
 	if (!IsValid(Handler))

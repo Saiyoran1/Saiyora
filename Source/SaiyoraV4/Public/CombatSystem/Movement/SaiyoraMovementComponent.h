@@ -121,6 +121,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf = "Source", HidePin = "Source"))
 	void ApplyJumpForce(UObject* Source, ERootMotionAccumulateMode const AccumulateMode, int32 const Priority, float const Duration, FRotator const& Rotation,
 		float const Distance, float const Height, bool const bFinishOnLanded, UCurveVector* PathOffsetCurve, UCurveFloat* TimeMappingCurve);
+	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf = "Source", HidePin = "Source"))
+	void ApplyConstantForce(UObject* Source, ERootMotionAccumulateMode const AccumulateMode, int32 const Priority, float const Duration, FVector const& Force, UCurveFloat* StrengthOverTime);
 	
 	void RemoveRootMotionHandler(USaiyoraRootMotionHandler* Handler);
 	void AddRootMotionHandlerFromReplication(USaiyoraRootMotionHandler* Handler);
