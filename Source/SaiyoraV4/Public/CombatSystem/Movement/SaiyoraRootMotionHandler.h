@@ -60,12 +60,15 @@ public:
 };
 
 UCLASS()
-class SAIYORAV4_API UTestJumpForceHandler : public USaiyoraRootMotionHandler
+class SAIYORAV4_API UJumpForceHandler : public USaiyoraRootMotionHandler
 {
 	GENERATED_BODY()
 	
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual TSharedPtr<FRootMotionSource> MakeRootMotionSource() override;
+	virtual void PostInit() override;
+	UFUNCTION()
+	void OnLanded(FHitResult const& Result);
 public:
 	UPROPERTY(Replicated)
 	FRotator Rotation;
@@ -83,4 +86,6 @@ public:
 	UCurveVector* PathOffsetCurve;
 	UPROPERTY(Replicated)
 	UCurveFloat* TimeMappingCurve;
+
+	bool bHasLanded = false;
 };

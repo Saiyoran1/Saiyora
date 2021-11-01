@@ -2,6 +2,7 @@
 #include "PlayerCombatAbility.h"
 #include "SaiyoraMovementComponent.h"
 #include "UnrealNetwork.h"
+#include "GameFramework/Character.h"
 
 void USaiyoraRootMotionHandler::OnMispredicted(int32 const PredictionID, ECastFailReason const FailReason)
 {
@@ -129,20 +130,20 @@ void USaiyoraRootMotionHandler::Apply()
 	PostInit();
 }
 
-void UTestJumpForceHandler::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+void UJumpForceHandler::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME(UTestJumpForceHandler, Rotation);
-	DOREPLIFETIME(UTestJumpForceHandler, Distance);
-	DOREPLIFETIME(UTestJumpForceHandler, Height);
-	DOREPLIFETIME(UTestJumpForceHandler, Duration);
-	DOREPLIFETIME(UTestJumpForceHandler, MinimumLandedTriggerTime);
-	DOREPLIFETIME(UTestJumpForceHandler, bFinishOnLanded);
-	DOREPLIFETIME(UTestJumpForceHandler, PathOffsetCurve);
-	DOREPLIFETIME(UTestJumpForceHandler, TimeMappingCurve);
+	DOREPLIFETIME(UJumpForceHandler, Rotation);
+	DOREPLIFETIME(UJumpForceHandler, Distance);
+	DOREPLIFETIME(UJumpForceHandler, Height);
+	DOREPLIFETIME(UJumpForceHandler, Duration);
+	DOREPLIFETIME(UJumpForceHandler, MinimumLandedTriggerTime);
+	DOREPLIFETIME(UJumpForceHandler, bFinishOnLanded);
+	DOREPLIFETIME(UJumpForceHandler, PathOffsetCurve);
+	DOREPLIFETIME(UJumpForceHandler, TimeMappingCurve);
 }
 
-TSharedPtr<FRootMotionSource> UTestJumpForceHandler::MakeRootMotionSource()
+TSharedPtr<FRootMotionSource> UJumpForceHandler::MakeRootMotionSource()
 {
 	TSharedPtr<FRootMotionSource_JumpForce> JumpForce = MakeShared<FRootMotionSource_JumpForce>(FRootMotionSource_JumpForce());
 	if (!JumpForce.IsValid())
@@ -153,7 +154,7 @@ TSharedPtr<FRootMotionSource> UTestJumpForceHandler::MakeRootMotionSource()
 	JumpForce->Height = Height;
 	JumpForce->Duration = Duration;
 	JumpForce->Rotation = Rotation;
-	JumpForce->bDisableTimeout = false;
+	JumpForce->bDisableTimeout = bFinishOnLanded;
 	JumpForce->PathOffsetCurve = PathOffsetCurve;
 	JumpForce->TimeMappingCurve = TimeMappingCurve;
 	JumpForce->AccumulateMode = AccumulateMode;
@@ -162,4 +163,21 @@ TSharedPtr<FRootMotionSource> UTestJumpForceHandler::MakeRootMotionSource()
 	JumpForce->FinishVelocityParams.SetVelocity = FinishSetVelocity;
 	JumpForce->FinishVelocityParams.ClampVelocity = FinishClampVelocity;
 	return JumpForce;
+}
+
+void UJumpForceHandler::PostInit()
+{
+	if (bFinishOnLanded && IsValid(TargetMovement))
+	{
+		TargetMovement->GetCharacterOwner()->LandedDelegate.AddDynamic(this, &UJumpForceHandler::OnLanded);
+	}
+}
+
+void UJumpForceHandler::OnLanded(FHitResult const& Result)
+{
+	Expire();
+	if (IsValid(TargetMovement))
+	{
+		TargetMovement->GetCharacterOwner()->LandedDelegate.RemoveDynamic(this, &UJumpForceHandler::OnLanded);
+	}
 }

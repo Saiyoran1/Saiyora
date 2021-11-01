@@ -119,7 +119,9 @@ private:
 	//Root Motion Sources?
 public:
 	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf = "Source", HidePin = "Source"))
-	void TestRootMotion(UObject* Source);
+	void ApplyJumpForce(UObject* Source, ERootMotionAccumulateMode const AccumulateMode, int32 const Priority, float const Duration, FRotator const& Rotation,
+		float const Distance, float const Height, bool const bFinishOnLanded, UCurveVector* PathOffsetCurve, UCurveFloat* TimeMappingCurve);
+	
 	void RemoveRootMotionHandler(USaiyoraRootMotionHandler* Handler);
 	void AddRootMotionHandlerFromReplication(USaiyoraRootMotionHandler* Handler);
 private:

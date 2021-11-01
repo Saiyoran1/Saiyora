@@ -419,25 +419,28 @@ void USaiyoraMovementComponent::ExecuteLaunchPlayer(FVector const& Direction, fl
 	Launch(Direction.GetSafeNormal() * Force);
 }
 
-void USaiyoraMovementComponent::TestRootMotion(UObject* Source)
+void USaiyoraMovementComponent::ApplyJumpForce(UObject* Source, ERootMotionAccumulateMode const AccumulateMode,
+	int32 const Priority, float const Duration, FRotator const& Rotation, float const Distance, float const Height,
+	bool const bFinishOnLanded, UCurveVector* PathOffsetCurve, UCurveFloat* TimeMappingCurve)
 {
-	UTestJumpForceHandler* JumpForce = NewObject<UTestJumpForceHandler>(GetOwner(), UTestJumpForceHandler::StaticClass());
+	UJumpForceHandler* JumpForce = NewObject<UJumpForceHandler>(GetOwner(), UJumpForceHandler::StaticClass());
 	if (!IsValid(JumpForce))
 	{
 		return;
 	}
-	JumpForce->AccumulateMode = ERootMotionAccumulateMode::Override;
-	JumpForce->Priority = 500;
-	JumpForce->Duration = 1.0f;
-	JumpForce->Rotation = GetOwner()->GetActorRotation();
-	JumpForce->Distance = 500.0f;
-	JumpForce->Height = 1000.0f;
-	JumpForce->bFinishOnLanded = false;
-	JumpForce->PathOffsetCurve = nullptr;
-	JumpForce->TimeMappingCurve = nullptr;
-	JumpForce->FinishVelocityMode = ERootMotionFinishVelocityMode::SetVelocity;
-	JumpForce->FinishSetVelocity = FVector::ZeroVector;
-	JumpForce->FinishClampVelocity = 0.0f;
+	JumpForce->AccumulateMode = AccumulateMode;
+	JumpForce->Priority = Priority;
+	JumpForce->Duration = Duration;
+	JumpForce->Rotation = Rotation;
+	JumpForce->Distance = Distance;
+	JumpForce->Height = Height;
+	JumpForce->bFinishOnLanded = bFinishOnLanded;
+	JumpForce->PathOffsetCurve = PathOffsetCurve;
+	JumpForce->TimeMappingCurve = TimeMappingCurve;
+	JumpForce->FinishVelocityMode = ERootMotionFinishVelocityMode::MaintainLastRootMotionVelocity;
+	//Can add the option to clamp velocity at the end I guess if needed.
+	/*JumpForce->FinishSetVelocity = FVector::ZeroVector;
+	JumpForce->FinishClampVelocity = 0.0f;*/
 	ApplyCustomRootMotionHandler(JumpForce, Source);
 }
 
