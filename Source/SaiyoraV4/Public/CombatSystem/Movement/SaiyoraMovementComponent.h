@@ -81,42 +81,42 @@ private:
 	UPROPERTY()
 	ASaiyoraGameState* GameStateRef = nullptr;
 
-	void ExecuteCustomMove();
+	void CustomMoveFromFlag();
 	FAbilityMispredictionCallback OnMispredict;
 	UFUNCTION()
 	void AbilityMispredicted(int32 const PredictionID, ECastFailReason const FailReason);
 	TMap<int32, bool> CompletedCastStatus;
 	TSet<int32> ServerCompletedMovementIDs;
 
-	//Movement Functions
+	//Custom Movement
+public:
+	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf="Source", HidePin="Source"))
+	bool TeleportToLocation(UObject* Source, FVector const& Target, FRotator const& DesiredRotation);
 private:
-	void SetupCustomMovement(UPlayerCombatAbility* Source, ESaiyoraCustomMove const MoveType, FCustomMoveParams const& Params);
+	void ExecuteTeleportToLocation(FVector const& Target, FRotator const& DesiredRotation);
+public:
+	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf="Source", HidePin="Source"))
+	bool LaunchPlayer(UPlayerCombatAbility* Source, FVector const& LaunchVector);
+private:
+	void ExecuteLaunchPlayer(FVector const& LaunchVector);
+
+	void SetupCustomMovementPrediction(UPlayerCombatAbility* Source, FCustomMoveParams const& CustomMove);
 	FAbilityCallback OnPredictedAbility;
 	UFUNCTION()
 	void OnCustomMoveCastPredicted(FCastEvent const& Event);
-public:
-	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf="Source", HidePin="Source"))
-	void PredictTeleportInDirection(UPlayerCombatAbility* Source, FVector const& Direction, float const Length, bool const bSweep, bool const bIgnoreZ);
-	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf="Source", HidePin="Source"))
-	void TeleportInDirection(UPlayerCombatAbility* Source, FVector const& Direction, float const Length, bool const bSweep, bool const bIgnoreZ);
-private:
-	void ExecuteTeleportInDirection(FVector const& Direction, float const Length, bool const bSweep, bool const bIgnoreZ);
-public:
-	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf="Source", HidePin="Source"))
-	void PredictTeleportToLocation(UPlayerCombatAbility* Source, FVector const& Target, FRotator const& DesiredRotation, bool const bSweep);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Movement", meta = (DefaultToSelf="Source", HidePin="Source"))
-	void TeleportToLocation(UPlayerCombatAbility* Source, FVector const& Target, FRotator const& DesiredRotation, bool const bSweep);
-private:
-	void ExecuteTeleportToLocation(FVector const& Target, FRotator const& DesiredRotation, bool const bSweep);
-public:
-	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf="Source", HidePin="Source"))
-	void PredictLaunchPlayer(UPlayerCombatAbility* Source, FVector const& Direction, float const Force);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Movement", meta = (DefaultToSelf="Source", HidePin="Source"))
-	void LaunchPlayer(UPlayerCombatAbility* Source, FVector const& Direction, float const Force);
-private:
-	void ExecuteLaunchPlayer(FVector const& Direction, float const Force);
+	bool ApplyCustomMove(FCustomMoveParams const& CustomMove, UObject* Source);
+	void ExecuteCustomMove(FCustomMoveParams const& CustomMove);
+	UFUNCTION()
+	void DelayedCustomMoveApplication(FCustomMoveParams CustomMove);
+	UFUNCTION(NetMulticast, Unreliable)
+	void Multicast_ExecuteCustomMove(FCustomMoveParams const& CustomMove);
+	UFUNCTION(NetMulticast, Unreliable)
+	void Multicast_ExecuteCustomMoveNoOwner(FCustomMoveParams const& CustomMove);
+	UFUNCTION(Client, Unreliable)
+	void Client_ExecuteCustomMove(FCustomMoveParams const& CustomMove);
+	TArray<UObject*> CurrentTickServerCustomMoveSources;
 
-	//Root Motion Sources?
+	//Root Motion Sources
 public:
 	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf = "Source", HidePin = "Source"))
 	void ApplyJumpForce(UObject* Source, ERootMotionAccumulateMode const AccumulateMode, int32 const Priority, float const Duration, FRotator const& Rotation,

@@ -13,14 +13,14 @@ struct FCustomMoveParams
 {
 	GENERATED_BODY()
 
+	UPROPERTY()
+	ESaiyoraCustomMove MoveType = ESaiyoraCustomMove::None;
+	UPROPERTY()
 	FVector Target = FVector::ZeroVector;
-	FVector Direction = FVector::ZeroVector;
-	float Scale = 0.0f;
+	UPROPERTY()
 	FRotator Rotation = FRotator::ZeroRotator;
-	FGameplayTag MoveStatTag;
-	FCombatModifier StatModifier;
-	bool bSweep = false;
-	bool bIgnoreZ = false;
+	UPROPERTY()
+	bool bStopMovement = false;
 };
 
 USTRUCT()
@@ -31,9 +31,8 @@ struct FClientPendingCustomMove
 	TSubclassOf<UPlayerCombatAbility> AbilityClass;
 	int32 PredictionID = 0;
 	float OriginalTimestamp = 0.0f;
-	ESaiyoraCustomMove MoveType;
 	FCustomMoveParams MoveParams;
 	FCombatParameters PredictionParams;
 
-	void Clear() { AbilityClass = nullptr; PredictionID = 0; MoveType = ESaiyoraCustomMove::None; MoveParams = FCustomMoveParams(); PredictionParams = FCombatParameters(); }
+	void Clear() { AbilityClass = nullptr; PredictionID = 0; OriginalTimestamp = 0.0f; MoveParams = FCustomMoveParams(); PredictionParams = FCombatParameters(); }
 };
