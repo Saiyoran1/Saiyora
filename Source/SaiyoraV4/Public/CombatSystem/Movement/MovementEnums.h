@@ -22,8 +22,19 @@ UENUM(BlueprintType)
 enum class ESaiyoraCustomMove : uint8
 {
 	None = 0,
-	TeleportDirection = 1,
-	TeleportLocation = 2,
-	Launch = 3,
-	RootMotion = 4,
+	Teleport = 1,
+	Launch = 2,
+	RootMotion = 3,
+};
+
+UENUM()
+enum class ERestrictableMove : uint8
+{
+	None = 0,
+	Walk = 1,
+	Jump = 2,
+	Crouch = 3,
+	Launch = 4,
+	Teleport = 5,
+	RootMotion = 6,
 };

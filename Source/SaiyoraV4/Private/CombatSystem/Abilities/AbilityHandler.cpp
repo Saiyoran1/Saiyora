@@ -153,7 +153,7 @@ void UAbilityHandler::InterruptCastOnCrowdControl(FCrowdControlStatus const& Pre
 {
 	if (GetCastingState().bIsCasting && NewStatus.bActive == true)
 	{
-		if (GetCastingState().CurrentCast->GetRestrictedCrowdControls().Contains(NewStatus.CrowdControlClass))
+		if (GetCastingState().CurrentCast->GetRestrictedCrowdControls().Contains(NewStatus.CrowdControlType))
 		{
 			InterruptCurrentCast(GetOwner(), nullptr, true);
 		}

@@ -1,53 +1,114 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
-
 #include "CrowdControlStructs.h"
-#include "CrowdControlHandler.h"
+#include "Buff.h"
 
-void FReplicatedCrowdControl::PostReplicatedAdd(const FReplicatedCrowdControlArray& InArraySerializer)
+bool FCrowdControlStatus::AddNewBuff(UBuff* Source)
 {
-    if (!IsValid(InArraySerializer.Handler))
+    if (!IsValid(Source) || Sources.Contains(Source))
     {
-        return;
+        return false;
     }
-    InArraySerializer.Handler->UpdateCrowdControlFromReplication(*this);
+    Sources.AddUnique(Source);
+    if (!bActive)
+    {
+        bActive = true;
+        SetNewDominantBuff(Source);
+        return true;
+    }
+    if (!IsValid(DominantBuffInstance) || !IsValid(DominantBuffClass))
+    {
+        SetNewDominantBuff(Source);
+        return true;
+    }
+    if (!DominantBuffInstance->GetFiniteDuration())
+    {
+        return false;
+    }
+    if (!Source->GetFiniteDuration())
+    {
+        SetNewDominantBuff(Source);
+        return true;
+    }
+    if (DominantBuffInstance->GetExpirationTime() > Source->GetExpirationTime())
+    {
+        return false;
+    }
+    SetNewDominantBuff(Source);
+    return true;
 }
 
-void FReplicatedCrowdControl::PostReplicatedChange(const FReplicatedCrowdControlArray& InArraySerializer)
+bool FCrowdControlStatus::RemoveBuff(UBuff* Source)
 {
-    if (!IsValid(InArraySerializer.Handler))
+    if (!IsValid(Source) || !Sources.Contains(Source))
     {
-        return;
+        return false;
     }
-    InArraySerializer.Handler->UpdateCrowdControlFromReplication(*this);
+    Sources.Remove(Source);
+    if (Sources.Num() == 0)
+    {
+        bActive = false;
+        SetNewDominantBuff(nullptr);
+        return true;
+    }
+    if (DominantBuffInstance != Source)
+    {
+        return false;
+    }
+    UBuff* Longest = GetLongestBuff();
+    SetNewDominantBuff(Longest);
+    return true;
 }
 
-void FReplicatedCrowdControl::PreReplicatedRemove(const FReplicatedCrowdControlArray& InArraySerializer)
+bool FCrowdControlStatus::RefreshBuff(UBuff* Source)
 {
-    if (!IsValid(InArraySerializer.Handler))
+    if (!IsValid(Source) || !Sources.Contains(Source))
     {
-        return;
+        return false;
     }
-    InArraySerializer.Handler->RemoveCrowdControlFromReplication(CrowdControlClass);
+    UBuff* Longest = GetLongestBuff();
+    if (DominantBuffInstance == Longest)
+    {
+        return false;
+    }
+    SetNewDominantBuff(Longest);
+    return true;
 }
 
-void FReplicatedCrowdControlArray::UpdateArray(FCrowdControlStatus const& NewStatus)
+void FCrowdControlStatus::SetNewDominantBuff(UBuff* NewDominant)
 {
-    for (FReplicatedCrowdControl& Item : Items)
+    DominantBuffInstance = NewDominant;
+    if (IsValid(NewDominant))
     {
-        if (Item.CrowdControlClass == NewStatus.CrowdControlClass)
+        DominantBuffClass = NewDominant->GetClass();
+        EndTime = NewDominant->GetFiniteDuration() ? NewDominant->GetExpirationTime() : 0.0f;
+    }
+    else
+    {
+        DominantBuffClass = nullptr;
+        EndTime = 0.0f;
+    }
+}
+
+UBuff* FCrowdControlStatus::GetLongestBuff()
+{
+    UBuff* LongestBuff = nullptr;
+    float Expire = -1.0f;
+    for (UBuff* Buff : Sources)
+    {
+        if (!IsValid(Buff))
         {
-            Item.bActive = NewStatus.bActive;
-            Item.DominantBuff = NewStatus.DominantBuff;
-            Item.EndTime = NewStatus.EndTime;
-            MarkItemDirty(Item);
-            return;
+            continue;
+        }
+        if (!Buff->GetFiniteDuration())
+        {
+            LongestBuff = Buff;
+            break;
+        }
+        if (Buff->GetExpirationTime() > Expire)
+        {
+            LongestBuff = Buff;
+            Expire = Buff->GetExpirationTime();
         }
     }
-    FReplicatedCrowdControl NewItem;
-    NewItem.CrowdControlClass = NewStatus.CrowdControlClass;
-    NewItem.bActive = NewStatus.bActive;
-    NewItem.DominantBuff = NewStatus.DominantBuff;
-    NewItem.EndTime = NewStatus.EndTime;
-    MarkItemDirty(Items.Add_GetRef(NewItem));
+    return LongestBuff;
 }
+

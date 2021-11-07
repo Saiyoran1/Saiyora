@@ -7,6 +7,7 @@
 #include "Engine/ActorChannel.h"
 #include "GameFramework/Character.h"
 #include "Movement/MovementStructs.h"
+#include "CrowdControlHandler.h"
 
 float const USaiyoraMovementComponent::MaxPingDelay = 0.2f;
 
@@ -191,6 +192,7 @@ void USaiyoraMovementComponent::BeginPlay()
 		return;
 	}
 	OwnerAbilityHandler = Cast<UPlayerAbilityHandler>(ISaiyoraCombatInterface::Execute_GetAbilityHandler(GetOwner()));
+	OwnerCcHandler = Cast<UCrowdControlHandler>(ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(GetOwner()));
 	if (GetOwnerRole() == ROLE_AutonomousProxy && IsValid(OwnerAbilityHandler))
 	{
 		OnPredictedAbility.BindDynamic(this, &USaiyoraMovementComponent::OnCustomMoveCastPredicted);
@@ -270,7 +272,7 @@ void USaiyoraMovementComponent::ExecuteCustomMove(FCustomMoveParams const& Custo
 		case ESaiyoraCustomMove::Launch :
 			ExecuteLaunchPlayer(CustomMove.Target);
 			break;
-		case ESaiyoraCustomMove::TeleportLocation :
+		case ESaiyoraCustomMove::Teleport :
 			ExecuteTeleportToLocation(CustomMove.Target, CustomMove.Rotation);
 			break;
 		default:
@@ -343,7 +345,7 @@ bool USaiyoraMovementComponent::ApplyCustomMove(FCustomMoveParams const& CustomM
 			//TODO: Investigate why I can't pass a ref to a struct into a timer delegate.
 			PingDelayDelegate.BindUObject(this, &USaiyoraMovementComponent::DelayedCustomMoveApplication, CustomMove);
 			FTimerHandle PingDelayHandle;
-			float const PingDelay = USaiyoraCombatLibrary::GetActorPing(GetOwner());
+			float const PingDelay = FMath::Min(MaxPingDelay, USaiyoraCombatLibrary::GetActorPing(GetOwner()));
 			GetWorld()->GetTimerManager().SetTimer(PingDelayHandle, PingDelayDelegate, PingDelay, false);
 			Client_ExecuteCustomMove(CustomMove);
 		}
@@ -407,7 +409,7 @@ void USaiyoraMovementComponent::Multicast_ExecuteCustomMove_Implementation(FCust
 bool USaiyoraMovementComponent::TeleportToLocation(UObject* Source, FVector const& Target, FRotator const& DesiredRotation)
 {
 	FCustomMoveParams TeleParams;
-	TeleParams.MoveType = ESaiyoraCustomMove::TeleportLocation;
+	TeleParams.MoveType = ESaiyoraCustomMove::Teleport;
 	TeleParams.Target = Target;
 	TeleParams.Rotation = DesiredRotation;
 	TeleParams.bStopMovement = true;
@@ -533,7 +535,7 @@ bool USaiyoraMovementComponent::ApplyCustomRootMotionHandler(USaiyoraRootMotionH
 			FTimerDelegate PingDelayDelegate;
 			PingDelayDelegate.BindUObject(this, &USaiyoraMovementComponent::DelayedHandlerApplication, Handler);
 			FTimerHandle PingDelayHandle;
-			float const PingDelay = USaiyoraCombatLibrary::GetActorPing(GetOwner());
+			float const PingDelay = FMath::Min(MaxPingDelay, USaiyoraCombatLibrary::GetActorPing(GetOwner()));
 			GetWorld()->GetTimerManager().SetTimer(PingDelayHandle, PingDelayDelegate, PingDelay, false);
 			//Store the timer handle. If something clears the movement before ping (very unlikely), we can cancel the timer.
 			Handler->PingDelayHandle = PingDelayHandle;
@@ -581,6 +583,25 @@ bool USaiyoraMovementComponent::ApplyCustomRootMotionHandler(USaiyoraRootMotionH
 	default :
 		return false;
 	}
+}
+
+bool USaiyoraMovementComponent::CanAttemptJump() const
+{
+	if (!Super::CanAttemptJump())
+	{
+		return false;
+	}
+	return !CheckMovementRestricted(ERestrictableMove::Jump);
+}
+
+bool USaiyoraMovementComponent::CanCrouchInCurrentState() const
+{
+	if (!Super::CanCrouchInCurrentState())
+	{
+		return false;
+	}
+	//TODO: Check for stun or incapacitate.
+	return !CheckMovementRestricted(ERestrictableMove::Crouch);
 }
 
 void USaiyoraMovementComponent::DelayedHandlerApplication(USaiyoraRootMotionHandler* Handler)

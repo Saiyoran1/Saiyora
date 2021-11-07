@@ -68,25 +68,13 @@ private:
 	virtual void MoveAutonomous(float ClientTimeStamp, float DeltaTime, uint8 CompressedFlags, const FVector& NewAccel) override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
-	uint8 bWantsCustomMove : 1;
-	//Client-side move struct, used for replaying the move without access to the original ability.
-	FClientPendingCustomMove PendingCustomMove;
-	//Ability request received by the server, used to activate an ability resulting in a custom move.
-	FAbilityRequest CustomMoveAbilityRequest;
-	
 	FSaiyoraNetworkMoveDataContainer CustomNetworkMoveDataContainer;
-
 	UPROPERTY()
 	UPlayerAbilityHandler* OwnerAbilityHandler = nullptr;
 	UPROPERTY()
+	class UCrowdControlHandler* OwnerCcHandler = nullptr;
+	UPROPERTY()
 	ASaiyoraGameState* GameStateRef = nullptr;
-
-	void CustomMoveFromFlag();
-	FAbilityMispredictionCallback OnMispredict;
-	UFUNCTION()
-	void AbilityMispredicted(int32 const PredictionID, ECastFailReason const FailReason);
-	TMap<int32, bool> CompletedCastStatus;
-	TSet<int32> ServerCompletedMovementIDs;
 
 	//Custom Movement
 public:
@@ -115,6 +103,17 @@ private:
 	UFUNCTION(Client, Unreliable)
 	void Client_ExecuteCustomMove(FCustomMoveParams const& CustomMove);
 	TArray<UObject*> CurrentTickServerCustomMoveSources;
+	void CustomMoveFromFlag();
+	FAbilityMispredictionCallback OnMispredict;
+	UFUNCTION()
+	void AbilityMispredicted(int32 const PredictionID, ECastFailReason const FailReason);
+	TMap<int32, bool> CompletedCastStatus;
+	TSet<int32> ServerCompletedMovementIDs;
+	uint8 bWantsCustomMove : 1;
+	//Client-side move struct, used for replaying the move without access to the original ability.
+	FClientPendingCustomMove PendingCustomMove;
+	//Ability request received by the server, used to activate an ability resulting in a custom move.
+	FAbilityRequest CustomMoveAbilityRequest;
 
 	//Root Motion Sources
 public:
@@ -138,4 +137,12 @@ private:
 	TArray<USaiyoraRootMotionHandler*> ReplicatedRootMotionHandlers;
 	UPROPERTY()
 	TArray<USaiyoraRootMotionHandler*> HandlersAwaitingPingDelay;
+
+	//Restrictions
+public:
+	//TODO: Implement movement restriction system.
+	bool CheckMovementRestricted(ERestrictableMove const MoveType) const { return false; }
+private:
+	virtual bool CanAttemptJump() const override;
+	virtual bool CanCrouchInCurrentState() const override;
 };

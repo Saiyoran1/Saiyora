@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "UObject/NoExportTypes.h"
 #include "AbilityStructs.h"
+#include "CrowdControlEnums.h"
 #include "DamageEnums.h"
 #include "SaiyoraObjects.h"
 #include "CombatAbility.generated.h"
@@ -89,7 +90,7 @@ public:
     UFUNCTION(BlueprintCallable, BlueprintPure)
     bool GetCastableWhileDead() const { return bCastableWhileDead; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
-    TArray<TSubclassOf<UCrowdControl>> GetRestrictedCrowdControls() const { return RestrictedCrowdControls; }
+    TSet<ECrowdControlType> GetRestrictedCrowdControls() const { return RestrictedCrowdControls; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
     bool CheckCustomCastConditionsMet() const { return bCustomCastConditionsMet; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
@@ -156,7 +157,7 @@ private:
     UPROPERTY(EditDefaultsOnly, Category = "Crowd Control")
     bool bCastableWhileDead = false;
     UPROPERTY(EditDefaultsOnly, Category = "Crowd Control")
-    TArray<TSubclassOf<UCrowdControl>> RestrictedCrowdControls;
+    TSet<ECrowdControlType> RestrictedCrowdControls;
     bool bCustomCastConditionsMet = true;
     TSet<FName> CustomCastRestrictions;
     ECastFailReason Castable = ECastFailReason::InvalidAbility;
