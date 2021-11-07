@@ -106,10 +106,22 @@ UCrowdControlHandler::UCrowdControlHandler()
 {
 	PrimaryComponentTick.bCanEverTick = false;
 	SetIsReplicatedByDefault(true);
+	bWantsInitializeComponent = true;
+}
+
+void UCrowdControlHandler::InitializeComponent()
+{
+	Super::InitializeComponent();
+	StunStatus.CrowdControlType = ECrowdControlType::Stun;
+	IncapStatus.CrowdControlType = ECrowdControlType::Incapacitate;
+	RootStatus.CrowdControlType = ECrowdControlType::Root;
+	SilenceStatus.CrowdControlType = ECrowdControlType::Silence;
+	DisarmStatus.CrowdControlType = ECrowdControlType::Disarm;
 }
 
 void UCrowdControlHandler::BeginPlay()
 {
+	Super::BeginPlay();
 	//Sub to buff handler to add CCs from buffs that are applied.
 	//Restrict buffs with CC tags that match immunities.
 	//Sub to damage handler to tell buff handler to remove all Incap buffs when damage is taken.
@@ -171,6 +183,66 @@ void UCrowdControlHandler::UnsubscribeFromCrowdControlChanged(FCrowdControlCallb
 	OnCrowdControlChanged.Remove(Callback);
 }
 
+bool UCrowdControlHandler::IsCrowdControlActive(ECrowdControlType const CcType) const
+{
+	FCrowdControlStatus const* CcStruct = GetCcStructConst(CcType);
+	if (CcStruct)
+	{
+		return CcStruct->bActive;
+	}
+	return false;
+}
+
+FCrowdControlStatus UCrowdControlHandler::GetCrowdControlStatus(ECrowdControlType const CcType) const
+{
+	FCrowdControlStatus const* CcStruct = GetCcStructConst(CcType);
+	if (CcStruct)
+	{
+		return *CcStruct;
+	}
+	return FCrowdControlStatus();
+}
+
+void UCrowdControlHandler::GetActiveCrowdControls(TSet<ECrowdControlType>& OutCcs) const
+{
+	if (StunStatus.bActive)
+	{
+		OutCcs.Add(ECrowdControlType::Stun);
+	}
+	if (IncapStatus.bActive)
+	{
+		OutCcs.Add(ECrowdControlType::Incapacitate);
+	}
+	if (RootStatus.bActive)
+	{
+		OutCcs.Add(ECrowdControlType::Root);
+	}
+	if (SilenceStatus.bActive)
+	{
+		OutCcs.Add(ECrowdControlType::Silence);
+	}
+	if (DisarmStatus.bActive)
+	{
+		OutCcs.Add(ECrowdControlType::Disarm);
+	}
+}
+
+bool UCrowdControlHandler::IsImmuneToCrowdControl(ECrowdControlType const CcType) const
+{
+	return CrowdControlImmunities.FindRef(CcType) > 0;
+}
+
+void UCrowdControlHandler::GetImmunedCrowdControls(TSet<ECrowdControlType>& OutImmunes) const
+{
+	for (TTuple<ECrowdControlType, int32> const& CcTuple : CrowdControlImmunities)
+	{
+		if (CcTuple.Value > 0)
+		{
+			OutImmunes.Add(CcTuple.Key);
+		}
+	}
+}
+
 void UCrowdControlHandler::AddImmunity(ECrowdControlType const CcType)
 {
 	if (CcType == ECrowdControlType::None)
@@ -218,6 +290,25 @@ void UCrowdControlHandler::PurgeCcOfType(ECrowdControlType const CcType)
 }
 
 FCrowdControlStatus* UCrowdControlHandler::GetCcStruct(ECrowdControlType const CcType)
+{
+	switch (CcType)
+	{
+	case ECrowdControlType::Stun :
+		return &StunStatus;
+	case ECrowdControlType::Incapacitate :
+		return &IncapStatus;
+	case ECrowdControlType::Root :
+		return &RootStatus;
+	case ECrowdControlType::Silence :
+		return &SilenceStatus;
+	case ECrowdControlType::Disarm :
+		return &DisarmStatus;
+	default :
+		return nullptr;
+	}
+}
+
+FCrowdControlStatus const* UCrowdControlHandler::GetCcStructConst(ECrowdControlType const CcType) const
 {
 	switch (CcType)
 	{

@@ -31,6 +31,7 @@ public:
 	static ECrowdControlType CcImmunityToType(FGameplayTag const& ImmunityTag);
 	
 	UCrowdControlHandler();
+	virtual void InitializeComponent() override;
 	virtual void BeginPlay() override;
 	virtual void GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	
@@ -38,6 +39,16 @@ public:
 	void SubscribeToCrowdControlChanged(FCrowdControlCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Crowd Control")
 	void UnsubscribeFromCrowdControlChanged(FCrowdControlCallback const& Callback);
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Crowd Control")
+	bool IsCrowdControlActive(ECrowdControlType const CcType) const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Crowd Control")
+	FCrowdControlStatus GetCrowdControlStatus(ECrowdControlType const CcType) const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Crowd Control")
+	void GetActiveCrowdControls(TSet<ECrowdControlType>& OutCcs) const;
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, BlueprintPure, Category = "Crowd Control")
+	bool IsImmuneToCrowdControl(ECrowdControlType const CcType) const;
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, BlueprintPure, Category = "Crowd Control")
+	void GetImmunedCrowdControls(TSet<ECrowdControlType>& OutImmunes) const;
 	
 private:
 	UPROPERTY(EditAnywhere, Category = "Crowd Control", meta = (AllowPrivateAccess = true))
@@ -48,6 +59,7 @@ private:
 	void PurgeCcOfType(ECrowdControlType const CcType);
 	
 	FCrowdControlStatus* GetCcStruct(ECrowdControlType const CcType);
+	FCrowdControlStatus const* GetCcStructConst(ECrowdControlType const CcType) const;
 	FCrowdControlNotification OnCrowdControlChanged;
 	
 	UPROPERTY(ReplicatedUsing=OnRep_StunStatus)
