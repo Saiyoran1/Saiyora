@@ -1,7 +1,6 @@
 ﻿#pragma once
 #include "CoreMinimal.h"
 #include "AbilityStructs.h"
-#include "PlayerAbilityHandler.h"
 #include "GameFramework/RootMotionSource.h"
 #include "SaiyoraRootMotionHandler.generated.h"
 
@@ -43,6 +42,7 @@ public:
 	
 	void Init(USaiyoraMovementComponent* Movement, int32 const PredictionID, UObject* MoveSource);
 	void Apply();
+	void CancelRootMotion();
 	
 	int32 GetPredictionID() const { return SourcePredictionID; }
 	UObject* GetSource() const { return Source; }
@@ -60,6 +60,8 @@ public:
 	float FinishClampVelocity = 0.0f;
 	UPROPERTY(Replicated)
 	float Duration = 0.0f;
+	UPROPERTY(Replicated)
+	bool bIgnoreRestrictions = false;
 	FTimerHandle PingDelayHandle;
 	FTimerHandle ExpireHandle;
 };

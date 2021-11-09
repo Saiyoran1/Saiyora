@@ -8,6 +8,7 @@
 #include "GameFramework/Character.h"
 #include "Movement/MovementStructs.h"
 #include "CrowdControlHandler.h"
+#include "DamageHandler.h"
 
 float const USaiyoraMovementComponent::MaxPingDelay = 0.2f;
 
@@ -135,9 +136,12 @@ bool USaiyoraMovementComponent::ReplicateSubobjects(UActorChannel* Channel, FOut
 			}
 		}
 	}
-	else if (ReplicatedRootMotionHandlers.Num() > 0)
+	else
 	{
-		bWroteSomething |= Channel->ReplicateSubobjectList(ReplicatedRootMotionHandlers, *Bunch, *RepFlags);
+		if (ReplicatedRootMotionHandlers.Num() > 0)
+		{
+			bWroteSomething |= Channel->ReplicateSubobjectList(ReplicatedRootMotionHandlers, *Bunch, *RepFlags);
+		}
 	}
 	return bWroteSomething;
 }
@@ -191,14 +195,28 @@ void USaiyoraMovementComponent::BeginPlay()
 		UE_LOG(LogTemp, Warning, (TEXT("Custom CMC encountered wrong Game State Ref!")));
 		return;
 	}
-	OwnerAbilityHandler = Cast<UPlayerAbilityHandler>(ISaiyoraCombatInterface::Execute_GetAbilityHandler(GetOwner()));
-	OwnerCcHandler = Cast<UCrowdControlHandler>(ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(GetOwner()));
+	if (GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	{
+		OwnerAbilityHandler = Cast<UPlayerAbilityHandler>(ISaiyoraCombatInterface::Execute_GetAbilityHandler(GetOwner()));
+		OwnerCcHandler = Cast<UCrowdControlHandler>(ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(GetOwner()));
+		OwnerDamageHandler = Cast<UDamageHandler>(ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner()));
+	}
 	if (GetOwnerRole() == ROLE_AutonomousProxy && IsValid(OwnerAbilityHandler))
 	{
 		OnPredictedAbility.BindDynamic(this, &USaiyoraMovementComponent::OnCustomMoveCastPredicted);
-		//Do not bind OnPredictedAbility, this will be bound and unbound only when custom moves are predicted.
+		//Do not sub OnPredictedAbility, this will be added and removed only when custom moves are predicted.
 		OnMispredict.BindDynamic(this, &USaiyoraMovementComponent::AbilityMispredicted);
 		OwnerAbilityHandler->SubscribeToAbilityMispredicted(OnMispredict);
+	}
+	if (IsValid(OwnerDamageHandler))
+	{
+		OnDeath.BindDynamic(this, &USaiyoraMovementComponent::StopMotionOnOwnerDeath);
+		OwnerDamageHandler->SubscribeToLifeStatusChanged(OnDeath);
+	}
+	if (IsValid(OwnerCcHandler))
+	{
+		OnRooted.BindDynamic(this, &USaiyoraMovementComponent::StopMotionOnRooted);
+		OwnerCcHandler->SubscribeToCrowdControlChanged(OnRooted);
 	}
 }
 
@@ -263,17 +281,13 @@ void USaiyoraMovementComponent::CustomMoveFromFlag()
 
 void USaiyoraMovementComponent::ExecuteCustomMove(FCustomMoveParams const& CustomMove)
 {
-	if (GetOwnerRole() == ROLE_Authority || GetOwnerRole() == ROLE_AutonomousProxy)
-	{
-		//TODO: Check can use move.
-	}
 	switch (CustomMove.MoveType)
 	{
 		case ESaiyoraCustomMove::Launch :
-			ExecuteLaunchPlayer(CustomMove.Target);
+			ExecuteLaunchPlayer(CustomMove);
 			break;
 		case ESaiyoraCustomMove::Teleport :
-			ExecuteTeleportToLocation(CustomMove.Target, CustomMove.Rotation);
+			ExecuteTeleportToLocation(CustomMove);
 			break;
 		default:
 			break;
@@ -319,6 +333,11 @@ bool USaiyoraMovementComponent::ApplyCustomMove(FCustomMoveParams const& CustomM
 	{
 		return false;
 	}
+	//Do not apply custom moves to dead targets.
+	if (IsValid(OwnerDamageHandler) && OwnerDamageHandler->GetLifeStatus() != ELifeStatus::Alive)
+	{
+		return false;
+	}
 	UPlayerCombatAbility* PlayerAbilitySource = Cast<UPlayerCombatAbility>(Source);
 	if (!IsValid(PlayerAbilitySource) || PlayerAbilitySource->GetHandler()->GetOwner() != GetOwner() || PlayerAbilitySource->GetCurrentPredictionID() == 0)
 	{
@@ -333,7 +352,22 @@ bool USaiyoraMovementComponent::ApplyCustomMove(FCustomMoveParams const& CustomM
 			return false;
 		}
 		CurrentTickServerCustomMoveSources.Add(Source);
-		
+		//Check for roots and custom restrictions.
+		if (!CustomMove.bIgnoreRestrictions)
+		{
+			if (IsValid(OwnerCcHandler) && OwnerCcHandler->IsCrowdControlActive(ECrowdControlType::Root))
+			{
+				return false;
+			}
+			//If this move comes from another owner, we check external movement restrictions.
+			if (!IsValid(PlayerAbilitySource) || PlayerAbilitySource->GetHandler()->GetOwner() != GetOwner())
+			{
+				if (CheckExternalMoveRestricted(Source, CustomMove.MoveType))
+				{
+					return false;
+				}
+			}
+		}
 		if (PawnOwner->IsLocallyControlled())
 		{
 			Multicast_ExecuteCustomMove(CustomMove);
@@ -383,7 +417,6 @@ bool USaiyoraMovementComponent::ApplyCustomMove(FCustomMoveParams const& CustomM
 
 void USaiyoraMovementComponent::DelayedCustomMoveApplication(FCustomMoveParams CustomMove)
 {
-	//TODO: Recheck move can be executed? This could lead to situations where being rooted during ping delay actually prevents movements.
 	Multicast_ExecuteCustomMoveNoOwner(CustomMove);
 }
 
@@ -406,38 +439,91 @@ void USaiyoraMovementComponent::Multicast_ExecuteCustomMove_Implementation(FCust
 	ExecuteCustomMove(CustomMove);
 }
 
-bool USaiyoraMovementComponent::TeleportToLocation(UObject* Source, FVector const& Target, FRotator const& DesiredRotation)
+void USaiyoraMovementComponent::StopMotionOnOwnerDeath(AActor* Target, ELifeStatus const Previous,
+	ELifeStatus const New)
+{
+	if (Target == GetOwner() && New != ELifeStatus::Alive)
+	{
+		TArray<USaiyoraRootMotionHandler*> HandlersToRemove = CurrentRootMotionHandlers;
+		if (GetOwnerRole() == ROLE_Authority)
+		{
+			HandlersToRemove.Append(HandlersAwaitingPingDelay);
+		}
+		for (USaiyoraRootMotionHandler* Handler : HandlersToRemove)
+		{
+			if (IsValid(Handler))
+			{
+				Handler->CancelRootMotion();
+			}
+		}
+		StopMovementImmediately();
+	}
+}
+
+void USaiyoraMovementComponent::StopMotionOnRooted(FCrowdControlStatus const& Previous, FCrowdControlStatus const& New)
+{
+	//TODO: Can add ping delay to root taking effect for auto proxies? How does this work with sim proxies?
+	if (New.CrowdControlType == ECrowdControlType::Root && New.bActive)
+	{
+		TArray<USaiyoraRootMotionHandler*> HandlersToRemove = CurrentRootMotionHandlers;
+		if (GetOwnerRole() == ROLE_Authority)
+		{
+			HandlersToRemove.Append(HandlersAwaitingPingDelay);
+		}
+		for (USaiyoraRootMotionHandler* Handler : HandlersToRemove)
+		{
+			if (IsValid(Handler) && !Handler->bIgnoreRestrictions)
+			{
+				Handler->CancelRootMotion();
+			}
+		}
+		StopMovementImmediately();
+	}
+}
+
+bool USaiyoraMovementComponent::TeleportToLocation(UObject* Source, FVector const& Target, FRotator const& DesiredRotation, bool const bStopMovement, bool const bIgnoreRestrictions)
 {
 	FCustomMoveParams TeleParams;
 	TeleParams.MoveType = ESaiyoraCustomMove::Teleport;
 	TeleParams.Target = Target;
 	TeleParams.Rotation = DesiredRotation;
-	TeleParams.bStopMovement = true;
+	TeleParams.bStopMovement = bStopMovement;
+	TeleParams.bIgnoreRestrictions = bIgnoreRestrictions;
 	return ApplyCustomMove(TeleParams, Source);
 }
 
-void USaiyoraMovementComponent::ExecuteTeleportToLocation(FVector const& Target, FRotator const& DesiredRotation)
+void USaiyoraMovementComponent::ExecuteTeleportToLocation(FCustomMoveParams const& CustomMove)
 {
-	GetOwner()->SetActorLocation(Target);
-	GetOwner()->SetActorRotation(DesiredRotation);
+	GetOwner()->SetActorLocation(CustomMove.Target);
+	GetOwner()->SetActorRotation(CustomMove.Rotation);
+	if (CustomMove.bStopMovement)
+	{
+		StopMovementImmediately();
+	}
 }
 
-bool USaiyoraMovementComponent::LaunchPlayer(UPlayerCombatAbility* Source, FVector const& LaunchVector)
+bool USaiyoraMovementComponent::LaunchPlayer(UPlayerCombatAbility* Source, FVector const& LaunchVector, bool const bStopMovement, bool const bIgnoreRestrictions)
 {
 	FCustomMoveParams LaunchParams;
 	LaunchParams.MoveType = ESaiyoraCustomMove::Launch;
 	LaunchParams.Target = LaunchVector;
+	LaunchParams.bStopMovement = bStopMovement;
+	LaunchParams.bIgnoreRestrictions = bIgnoreRestrictions;
 	return ApplyCustomMove(LaunchParams, Source);
 }
 
-void USaiyoraMovementComponent::ExecuteLaunchPlayer(FVector const& LaunchVector)
+void USaiyoraMovementComponent::ExecuteLaunchPlayer(FCustomMoveParams const& CustomMove)
 {
-	Launch(LaunchVector);
+	if (CustomMove.bStopMovement)
+	{
+		StopMovementImmediately();
+	}
+	Launch(CustomMove.Target);
 }
 
 void USaiyoraMovementComponent::ApplyJumpForce(UObject* Source, ERootMotionAccumulateMode const AccumulateMode,
 	int32 const Priority, float const Duration, FRotator const& Rotation, float const Distance, float const Height,
-	bool const bFinishOnLanded, UCurveVector* PathOffsetCurve, UCurveFloat* TimeMappingCurve)
+	bool const bFinishOnLanded, UCurveVector* PathOffsetCurve, UCurveFloat* TimeMappingCurve, bool const bIgnoreRestrictions)
 {
 	UJumpForceHandler* JumpForce = NewObject<UJumpForceHandler>(GetOwner(), UJumpForceHandler::StaticClass());
 	if (!IsValid(JumpForce))
@@ -454,6 +540,7 @@ void USaiyoraMovementComponent::ApplyJumpForce(UObject* Source, ERootMotionAccum
 	JumpForce->PathOffsetCurve = PathOffsetCurve;
 	JumpForce->TimeMappingCurve = TimeMappingCurve;
 	JumpForce->FinishVelocityMode = ERootMotionFinishVelocityMode::MaintainLastRootMotionVelocity;
+	JumpForce->bIgnoreRestrictions = bIgnoreRestrictions;
 	//Can add the option to clamp velocity at the end I guess if needed.
 	/*JumpForce->FinishSetVelocity = FVector::ZeroVector;
 	JumpForce->FinishClampVelocity = 0.0f;*/
@@ -461,7 +548,7 @@ void USaiyoraMovementComponent::ApplyJumpForce(UObject* Source, ERootMotionAccum
 }
 
 void USaiyoraMovementComponent::ApplyConstantForce(UObject* Source, ERootMotionAccumulateMode const AccumulateMode, int32 const Priority,
-	float const Duration, FVector const& Force, UCurveFloat* StrengthOverTime)
+	float const Duration, FVector const& Force, UCurveFloat* StrengthOverTime, bool const bIgnoreRestrictions)
 {
 	UConstantForceHandler* ConstantForce = NewObject<UConstantForceHandler>(GetOwner(), UConstantForceHandler::StaticClass());
 	if (!IsValid(ConstantForce))
@@ -474,11 +561,14 @@ void USaiyoraMovementComponent::ApplyConstantForce(UObject* Source, ERootMotionA
 	ConstantForce->Force = Force;
 	ConstantForce->StrengthOverTime = StrengthOverTime;
 	ConstantForce->FinishVelocityMode = ERootMotionFinishVelocityMode::MaintainLastRootMotionVelocity;
+	ConstantForce->bIgnoreRestrictions = bIgnoreRestrictions;
 	ApplyCustomRootMotionHandler(ConstantForce, Source);
 }
 
 void USaiyoraMovementComponent::RemoveRootMotionHandler(USaiyoraRootMotionHandler* Handler)
 {
+	//This function should ONLY be called by USaiyoraRootMotionHandler::Expire(). This is the cleanup function that actually removes.
+	//It assumes that replication of bFinished and all PostExpire() functionality are already done.
 	if (!IsValid(Handler))
 	{
 		return;
@@ -505,6 +595,11 @@ bool USaiyoraMovementComponent::ApplyCustomRootMotionHandler(USaiyoraRootMotionH
 	{
 		return false;
 	}
+	//Do not apply root motion to dead targets.
+	if (IsValid(OwnerDamageHandler) && OwnerDamageHandler->GetLifeStatus() != ELifeStatus::Alive)
+	{
+		return false;
+	}
 	UPlayerCombatAbility* PlayerAbilitySource = Cast<UPlayerCombatAbility>(Source);
 	if (!IsValid(PlayerAbilitySource) || PlayerAbilitySource->GetHandler()->GetOwner() != GetOwner() || PlayerAbilitySource->GetCurrentPredictionID() == 0)
 	{
@@ -519,7 +614,23 @@ bool USaiyoraMovementComponent::ApplyCustomRootMotionHandler(USaiyoraRootMotionH
 			return false;
 		}
 		CurrentTickServerRootMotionSources.Add(Source);
-		
+		//Check for roots and custom restrictions.
+		if (!Handler->bIgnoreRestrictions)
+		{
+			if (IsValid(OwnerCcHandler) && OwnerCcHandler->IsCrowdControlActive(ECrowdControlType::Root))
+			{
+				return false;
+			}
+			//If this move comes from another owner, we check external movement restrictions.
+			if (!IsValid(PlayerAbilitySource) || PlayerAbilitySource->GetHandler()->GetOwner() != GetOwner())
+			{
+				if (CheckExternalMoveRestricted(Source, ESaiyoraCustomMove::RootMotion))
+				{
+					return false;
+				}
+			}
+		}
+		//For locally controlled player, we just apply instantly and replicate the handler to other clients.
 		if (PawnOwner->IsLocallyControlled())
 		{
 			Handler->Init(this, 0, Source);
@@ -527,6 +638,7 @@ bool USaiyoraMovementComponent::ApplyCustomRootMotionHandler(USaiyoraRootMotionH
 			ReplicatedRootMotionHandlers.Add(Handler);
 			Handler->Apply();
 		}
+		//For remotely controlled player, we delay application by ping, and replication will force the client to apply the root motion "predictively."
 		else
 		{
 			Handler->Init(this, 0, Source);
@@ -555,6 +667,11 @@ bool USaiyoraMovementComponent::ApplyCustomRootMotionHandler(USaiyoraRootMotionH
 				return false;
 			}
 			ServerCompletedMovementIDs.Add(PlayerAbilitySource->GetCurrentPredictionID());
+			//We don't check custom restrictions since the move was self-initiated, but we do check for root.
+			if (!Handler->bIgnoreRestrictions && IsValid(OwnerCcHandler) && OwnerCcHandler->IsCrowdControlActive(ECrowdControlType::Root))
+			{
+				return false;
+			}
 			Handler->Init(this, PlayerAbilitySource->GetCurrentPredictionID(), Source);
 			CurrentRootMotionHandlers.Add(Handler);
 			ReplicatedRootMotionHandlers.Add(Handler);
@@ -564,6 +681,11 @@ bool USaiyoraMovementComponent::ApplyCustomRootMotionHandler(USaiyoraRootMotionH
 		}
 	case ROLE_AutonomousProxy :
 		{
+			//We don't check for custom restrictions since the move was self-initiated, but we do check for root.
+			if (!Handler->bIgnoreRestrictions && IsValid(OwnerCcHandler) && OwnerCcHandler->IsCrowdControlActive(ECrowdControlType::Root))
+			{
+				return false;
+			}
 			//Since we know this came from an ability, it can be predicted.
 			FCustomMoveParams TempParams;
 			TempParams.MoveType = ESaiyoraCustomMove::RootMotion;
@@ -585,13 +707,56 @@ bool USaiyoraMovementComponent::ApplyCustomRootMotionHandler(USaiyoraRootMotionH
 	}
 }
 
+void USaiyoraMovementComponent::AddExternalMovementRestriction(FExternalMovementCondition const& Restriction)
+{
+	if (!Restriction.IsBound())
+	{
+		return;
+	}
+	MovementRestrictions.AddUnique(Restriction);
+	TArray<USaiyoraRootMotionHandler*> HandlersToRemove = CurrentRootMotionHandlers;
+	if (GetOwnerRole() == ROLE_Authority)
+	{
+		HandlersToRemove.Append(HandlersAwaitingPingDelay);
+	}
+	for (USaiyoraRootMotionHandler* Handler : HandlersToRemove)
+	{
+		if (!Handler->bIgnoreRestrictions && Restriction.Execute(Handler->GetSource(), ESaiyoraCustomMove::RootMotion))
+		{
+			Handler->CancelRootMotion();
+		}
+	}
+}
+
+void USaiyoraMovementComponent::RemoveExternalMovementRestriction(FExternalMovementCondition const& Restriction)
+{
+	if (!Restriction.IsBound())
+	{
+		return;
+	}
+	MovementRestrictions.RemoveSingleSwap(Restriction);
+}
+
 bool USaiyoraMovementComponent::CanAttemptJump() const
 {
 	if (!Super::CanAttemptJump())
 	{
 		return false;
 	}
-	return !CheckMovementRestricted(ERestrictableMove::Jump);
+	if (IsValid(OwnerDamageHandler) && OwnerDamageHandler->GetLifeStatus() != ELifeStatus::Alive)
+	{
+		return false;
+	}
+	if (IsValid(OwnerCcHandler))
+	{
+		TSet<ECrowdControlType> ActiveCcs;
+		OwnerCcHandler->GetActiveCrowdControls(ActiveCcs);
+		if (ActiveCcs.Contains(ECrowdControlType::Stun) || ActiveCcs.Contains(ECrowdControlType::Incapacitate) || ActiveCcs.Contains(ECrowdControlType::Root))
+		{
+			return false;
+		}
+	}
+	return true;
 }
 
 bool USaiyoraMovementComponent::CanCrouchInCurrentState() const
@@ -600,8 +765,59 @@ bool USaiyoraMovementComponent::CanCrouchInCurrentState() const
 	{
 		return false;
 	}
-	//TODO: Check for stun or incapacitate.
-	return !CheckMovementRestricted(ERestrictableMove::Crouch);
+	if (IsValid(OwnerDamageHandler) && OwnerDamageHandler->GetLifeStatus() != ELifeStatus::Alive)
+	{
+		return false;
+	}
+	if (IsValid(OwnerCcHandler))
+	{
+		TSet<ECrowdControlType> ActiveCcs;
+		OwnerCcHandler->GetActiveCrowdControls(ActiveCcs);
+		if (ActiveCcs.Contains(ECrowdControlType::Stun) || ActiveCcs.Contains(ECrowdControlType::Incapacitate))
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+FVector USaiyoraMovementComponent::ConsumeInputVector()
+{
+	if (IsValid(OwnerDamageHandler) && OwnerDamageHandler->GetLifeStatus() != ELifeStatus::Alive)
+	{
+		return FVector::ZeroVector;
+	}
+	if (IsValid(OwnerCcHandler) && (OwnerCcHandler->IsCrowdControlActive(ECrowdControlType::Stun) || OwnerCcHandler->IsCrowdControlActive(ECrowdControlType::Incapacitate) || OwnerCcHandler->IsCrowdControlActive(ECrowdControlType::Root)))
+	{
+		return FVector::ZeroVector;
+	}
+	return Super::ConsumeInputVector();
+}
+
+float USaiyoraMovementComponent::GetMaxAcceleration() const
+{
+	if (IsValid(OwnerDamageHandler) && OwnerDamageHandler->GetLifeStatus() != ELifeStatus::Alive)
+	{
+		return 0.0f;
+	}
+	if (IsValid(OwnerCcHandler) && (OwnerCcHandler->IsCrowdControlActive(ECrowdControlType::Stun) || OwnerCcHandler->IsCrowdControlActive(ECrowdControlType::Incapacitate) || OwnerCcHandler->IsCrowdControlActive(ECrowdControlType::Root)))
+	{
+		return 0.0f;
+	}
+	return Super::GetMaxAcceleration();
+}
+
+float USaiyoraMovementComponent::GetMaxSpeed() const
+{
+	if (IsValid(OwnerDamageHandler) && OwnerDamageHandler->GetLifeStatus() != ELifeStatus::Alive)
+	{
+		return 0.0f;
+	}
+	if (IsValid(OwnerCcHandler) && (OwnerCcHandler->IsCrowdControlActive(ECrowdControlType::Stun) || OwnerCcHandler->IsCrowdControlActive(ECrowdControlType::Incapacitate) || OwnerCcHandler->IsCrowdControlActive(ECrowdControlType::Root)))
+	{
+		return 0.0f;
+	}
+	return Super::GetMaxSpeed();
 }
 
 void USaiyoraMovementComponent::DelayedHandlerApplication(USaiyoraRootMotionHandler* Handler)
@@ -625,4 +841,20 @@ void USaiyoraMovementComponent::AddRootMotionHandlerFromReplication(USaiyoraRoot
 		CurrentRootMotionHandlers.Add(Handler);
 		ReplicatedRootMotionHandlers.Add(Handler);
 	}
+}
+
+bool USaiyoraMovementComponent::CheckExternalMoveRestricted(UObject* Source, ESaiyoraCustomMove const MoveType)
+{
+	if (!IsValid(Source) || MoveType == ESaiyoraCustomMove::None)
+	{
+		return true;
+	}
+	for (FExternalMovementCondition const& Restriction : MovementRestrictions)
+	{
+		if (Restriction.IsBound() && Restriction.Execute(Source, MoveType))
+		{
+			return true;
+		}
+	}
+	return false;
 }

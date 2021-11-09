@@ -91,6 +91,7 @@ void USaiyoraRootMotionHandler::GetLifetimeReplicatedProps(TArray<FLifetimePrope
 	DOREPLIFETIME(USaiyoraRootMotionHandler, FinishClampVelocity);
 	DOREPLIFETIME(USaiyoraRootMotionHandler, bFinished);
 	DOREPLIFETIME(USaiyoraRootMotionHandler, Duration);
+	DOREPLIFETIME(USaiyoraRootMotionHandler, bIgnoreRestrictions);
 }
 
 void USaiyoraRootMotionHandler::Init(USaiyoraMovementComponent* Movement, int32 const PredictionID, UObject* MoveSource)
@@ -135,6 +136,14 @@ void USaiyoraRootMotionHandler::Apply()
 		GetWorld()->GetTimerManager().SetTimer(ExpireHandle, this, &USaiyoraRootMotionHandler::Expire, Duration);
 	}
 	PostApply();
+}
+
+void USaiyoraRootMotionHandler::CancelRootMotion()
+{
+	if (!bFinished)
+	{
+		Expire();
+	}
 }
 
 void UJumpForceHandler::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

@@ -21,6 +21,8 @@ struct FCustomMoveParams
 	FRotator Rotation = FRotator::ZeroRotator;
 	UPROPERTY()
 	bool bStopMovement = false;
+	UPROPERTY()
+	bool bIgnoreRestrictions = false;
 };
 
 USTRUCT()
@@ -36,3 +38,5 @@ struct FClientPendingCustomMove
 
 	void Clear() { AbilityClass = nullptr; PredictionID = 0; OriginalTimestamp = 0.0f; MoveParams = FCustomMoveParams(); PredictionParams = FCombatParameters(); }
 };
+
+DECLARE_DYNAMIC_DELEGATE_RetVal_TwoParams(bool, FExternalMovementCondition, UObject*, Source, ESaiyoraCustomMove const, MoveType);

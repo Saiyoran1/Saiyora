@@ -2,6 +2,8 @@
 
 #pragma once
 #include "CoreMinimal.h"
+
+#include "DamageStructs.h"
 #include "MovementEnums.h"
 #include "MovementStructs.h"
 #include "PlayerAbilityHandler.h"
@@ -74,19 +76,27 @@ private:
 	UPROPERTY()
 	class UCrowdControlHandler* OwnerCcHandler = nullptr;
 	UPROPERTY()
+	UDamageHandler* OwnerDamageHandler = nullptr;
+	UPROPERTY()
 	ASaiyoraGameState* GameStateRef = nullptr;
+	FLifeStatusCallback OnDeath;
+	UFUNCTION()
+	void StopMotionOnOwnerDeath(AActor* Target, ELifeStatus const Previous, ELifeStatus const New);
+	FCrowdControlCallback OnRooted;
+	UFUNCTION()
+	void StopMotionOnRooted(FCrowdControlStatus const& Previous, FCrowdControlStatus const& New);
 
 	//Custom Movement
 public:
 	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf="Source", HidePin="Source"))
-	bool TeleportToLocation(UObject* Source, FVector const& Target, FRotator const& DesiredRotation);
+	bool TeleportToLocation(UObject* Source, FVector const& Target, FRotator const& DesiredRotation, bool const bStopMovement, bool const bIgnoreRestrictions);
 private:
-	void ExecuteTeleportToLocation(FVector const& Target, FRotator const& DesiredRotation);
+	void ExecuteTeleportToLocation(FCustomMoveParams const& CustomMove);
 public:
 	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf="Source", HidePin="Source"))
-	bool LaunchPlayer(UPlayerCombatAbility* Source, FVector const& LaunchVector);
+	bool LaunchPlayer(UPlayerCombatAbility* Source, FVector const& LaunchVector, bool const bStopMovement, bool const bIgnoreRestrictions);
 private:
-	void ExecuteLaunchPlayer(FVector const& LaunchVector);
+	void ExecuteLaunchPlayer(FCustomMoveParams const& CustomMove);
 
 	void SetupCustomMovementPrediction(UPlayerCombatAbility* Source, FCustomMoveParams const& CustomMove);
 	FAbilityCallback OnPredictedAbility;
@@ -119,9 +129,10 @@ private:
 public:
 	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf = "Source", HidePin = "Source"))
 	void ApplyJumpForce(UObject* Source, ERootMotionAccumulateMode const AccumulateMode, int32 const Priority, float const Duration, FRotator const& Rotation,
-		float const Distance, float const Height, bool const bFinishOnLanded, UCurveVector* PathOffsetCurve, UCurveFloat* TimeMappingCurve);
+		float const Distance, float const Height, bool const bFinishOnLanded, UCurveVector* PathOffsetCurve, UCurveFloat* TimeMappingCurve, bool const bIgnoreRestrictions);
 	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf = "Source", HidePin = "Source"))
-	void ApplyConstantForce(UObject* Source, ERootMotionAccumulateMode const AccumulateMode, int32 const Priority, float const Duration, FVector const& Force, UCurveFloat* StrengthOverTime);
+	void ApplyConstantForce(UObject* Source, ERootMotionAccumulateMode const AccumulateMode, int32 const Priority, float const Duration, FVector const& Force,
+		UCurveFloat* StrengthOverTime, bool const bIgnoreRestrictions);
 	
 	void RemoveRootMotionHandler(USaiyoraRootMotionHandler* Handler);
 	void AddRootMotionHandlerFromReplication(USaiyoraRootMotionHandler* Handler);
@@ -137,12 +148,19 @@ private:
 	TArray<USaiyoraRootMotionHandler*> ReplicatedRootMotionHandlers;
 	UPROPERTY()
 	TArray<USaiyoraRootMotionHandler*> HandlersAwaitingPingDelay;
-
+	
 	//Restrictions
 public:
-	//TODO: Implement movement restriction system.
-	bool CheckMovementRestricted(ERestrictableMove const MoveType) const { return false; }
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Movement")
+	void AddExternalMovementRestriction(FExternalMovementCondition const& Restriction);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Movement")
+	void RemoveExternalMovementRestriction(FExternalMovementCondition const& Restriction);
 private:
+	bool CheckExternalMoveRestricted(UObject* Source, ESaiyoraCustomMove const MoveType);
+	TArray<FExternalMovementCondition> MovementRestrictions;
 	virtual bool CanAttemptJump() const override;
 	virtual bool CanCrouchInCurrentState() const override;
+	virtual FVector ConsumeInputVector() override;
+	virtual float GetMaxAcceleration() const override;
+	virtual float GetMaxSpeed() const override;
 };
