@@ -2,7 +2,6 @@
 
 #pragma once
 #include "CoreMinimal.h"
-
 #include "DamageStructs.h"
 #include "MovementEnums.h"
 #include "MovementStructs.h"
@@ -87,6 +86,34 @@ private:
 	void StopMotionOnRooted(FCrowdControlStatus const& Previous, FCrowdControlStatus const& New);
 
 	//Custom Movement
+
+	bool ApplyCustomMove(FCustomMoveParams const& CustomMove, UObject* Source);
+	void ExecuteCustomMove(FCustomMoveParams const& CustomMove);
+	UFUNCTION()
+	void DelayedCustomMoveExecution(FCustomMoveParams CustomMove);
+	UFUNCTION(NetMulticast, Unreliable)
+	void Multicast_ExecuteCustomMove(FCustomMoveParams const& CustomMove);
+	UFUNCTION(NetMulticast, Unreliable)
+	void Multicast_ExecuteCustomMoveNoOwner(FCustomMoveParams const& CustomMove);
+	UFUNCTION(Client, Unreliable)
+	void Client_ExecuteCustomMove(FCustomMoveParams const& CustomMove);
+	void SetupCustomMovementPrediction(UPlayerCombatAbility* Source, FCustomMoveParams const& CustomMove);
+	FAbilityCallback OnPredictedAbility;
+	UFUNCTION()
+	void OnCustomMoveCastPredicted(FCastEvent const& Event);
+	void CustomMoveFromFlag();
+	FAbilityMispredictionCallback OnMispredict;
+	UFUNCTION()
+	void AbilityMispredicted(int32 const PredictionID, ECastFailReason const FailReason);
+	TMap<int32, bool> CompletedCastStatus;
+	TSet<int32> ServerCompletedMovementIDs;
+	TArray<UObject*> CurrentTickServerCustomMoveSources;
+	uint8 bWantsCustomMove : 1;
+	//Client-side move struct, used for replaying the move without access to the original ability.
+	FClientPendingCustomMove PendingCustomMove;
+	//Ability request received by the server, used to activate an ability resulting in a custom move.
+	FAbilityRequest CustomMoveAbilityRequest;
+	
 public:
 	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf="Source", HidePin="Source"))
 	bool TeleportToLocation(UObject* Source, FVector const& Target, FRotator const& DesiredRotation, bool const bStopMovement, bool const bIgnoreRestrictions);
@@ -97,33 +124,6 @@ public:
 	bool LaunchPlayer(UPlayerCombatAbility* Source, FVector const& LaunchVector, bool const bStopMovement, bool const bIgnoreRestrictions);
 private:
 	void ExecuteLaunchPlayer(FCustomMoveParams const& CustomMove);
-
-	void SetupCustomMovementPrediction(UPlayerCombatAbility* Source, FCustomMoveParams const& CustomMove);
-	FAbilityCallback OnPredictedAbility;
-	UFUNCTION()
-	void OnCustomMoveCastPredicted(FCastEvent const& Event);
-	bool ApplyCustomMove(FCustomMoveParams const& CustomMove, UObject* Source);
-	void ExecuteCustomMove(FCustomMoveParams const& CustomMove);
-	UFUNCTION()
-	void DelayedCustomMoveApplication(FCustomMoveParams CustomMove);
-	UFUNCTION(NetMulticast, Unreliable)
-	void Multicast_ExecuteCustomMove(FCustomMoveParams const& CustomMove);
-	UFUNCTION(NetMulticast, Unreliable)
-	void Multicast_ExecuteCustomMoveNoOwner(FCustomMoveParams const& CustomMove);
-	UFUNCTION(Client, Unreliable)
-	void Client_ExecuteCustomMove(FCustomMoveParams const& CustomMove);
-	TArray<UObject*> CurrentTickServerCustomMoveSources;
-	void CustomMoveFromFlag();
-	FAbilityMispredictionCallback OnMispredict;
-	UFUNCTION()
-	void AbilityMispredicted(int32 const PredictionID, ECastFailReason const FailReason);
-	TMap<int32, bool> CompletedCastStatus;
-	TSet<int32> ServerCompletedMovementIDs;
-	uint8 bWantsCustomMove : 1;
-	//Client-side move struct, used for replaying the move without access to the original ability.
-	FClientPendingCustomMove PendingCustomMove;
-	//Ability request received by the server, used to activate an ability resulting in a custom move.
-	FAbilityRequest CustomMoveAbilityRequest;
 
 	//Root Motion Sources
 public:
