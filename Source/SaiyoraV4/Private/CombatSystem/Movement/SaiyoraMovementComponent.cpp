@@ -7,6 +7,7 @@
 #include "Movement/MovementStructs.h"
 #include "CrowdControlHandler.h"
 #include "DamageHandler.h"
+#include "StatHandler.h"
 
 float const USaiyoraMovementComponent::MaxPingDelay = 0.2f;
 
@@ -137,6 +138,7 @@ USaiyoraMovementComponent::USaiyoraMovementComponent(const FObjectInitializer& O
 {
 	SetNetworkMoveDataContainer(CustomNetworkMoveDataContainer);
 	SetIsReplicatedByDefault(true);
+	bWantsInitializeComponent = true;
 }
 
 bool USaiyoraMovementComponent::ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch,
@@ -176,6 +178,19 @@ void USaiyoraMovementComponent::GetLifetimeReplicatedProps(TArray<FLifetimePrope
 	return;
 }
 
+void USaiyoraMovementComponent::InitializeComponent()
+{
+	Super::InitializeComponent();
+	DefaultMaxWalkSpeed = MaxWalkSpeed;
+	DefaultCrouchSpeed = MaxWalkSpeedCrouched;
+	DefaultGroundFriction = GroundFriction;
+	DefaultBrakingDeceleration = BrakingDecelerationWalking;
+	DefaultMaxAcceleration = MaxAcceleration;
+	DefaultGravityScale = GravityScale;
+	DefaultJumpZVelocity = JumpZVelocity;
+	DefaultAirControl = AirControl;
+}
+
 void USaiyoraMovementComponent::BeginPlay()
 {
 	Super::BeginPlay();
@@ -190,6 +205,7 @@ void USaiyoraMovementComponent::BeginPlay()
 		OwnerAbilityHandler = Cast<UPlayerAbilityHandler>(ISaiyoraCombatInterface::Execute_GetAbilityHandler(GetOwner()));
 		OwnerCcHandler = Cast<UCrowdControlHandler>(ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(GetOwner()));
 		OwnerDamageHandler = Cast<UDamageHandler>(ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner()));
+		OwnerStatHandler = Cast<UStatHandler>(ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner()));
 	}
 	if (GetOwnerRole() == ROLE_AutonomousProxy && IsValid(OwnerAbilityHandler))
 	{
@@ -207,6 +223,65 @@ void USaiyoraMovementComponent::BeginPlay()
 	{
 		OnRooted.BindDynamic(this, &USaiyoraMovementComponent::StopMotionOnRooted);
 		OwnerCcHandler->SubscribeToCrowdControlChanged(OnRooted);
+	}
+	if (IsValid(OwnerStatHandler))
+	{
+		if (OwnerStatHandler->GetStatValid(MaxWalkSpeedStatTag()))
+		{
+			MaxWalkSpeed = FMath::Max(DefaultMaxWalkSpeed * OwnerStatHandler->GetStatValue(MaxWalkSpeedStatTag()), 0.0f);
+			FStatCallback MaxWalkSpeedStatCallback;
+			MaxWalkSpeedStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnMaxWalkSpeedStatChanged);
+			OwnerStatHandler->SubscribeToStatChanged(MaxWalkSpeedStatTag(), MaxWalkSpeedStatCallback);
+		}
+		if (OwnerStatHandler->GetStatValid(MaxCrouchSpeedStatTag()))
+		{
+			MaxWalkSpeedCrouched = FMath::Max(DefaultCrouchSpeed * OwnerStatHandler->GetStatValue(MaxCrouchSpeedStatTag()), 0.0f);
+			FStatCallback MaxCrouchSpeedStatCallback;
+			MaxCrouchSpeedStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnMaxCrouchSpeedStatChanged);
+			OwnerStatHandler->SubscribeToStatChanged(MaxCrouchSpeedStatTag(), MaxCrouchSpeedStatCallback);
+		}
+		if (OwnerStatHandler->GetStatValid(GroundFrictionStatTag()))
+		{
+			GroundFriction = FMath::Max(DefaultGroundFriction * OwnerStatHandler->GetStatValue(GroundFrictionStatTag()), 0.0f);
+			FStatCallback GroundFrictionStatCallback;
+			GroundFrictionStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnGroundFrictionStatChanged);
+			OwnerStatHandler->SubscribeToStatChanged(GroundFrictionStatTag(), GroundFrictionStatCallback);
+		}
+		if (OwnerStatHandler->GetStatValid(BrakingDecelerationStatTag()))
+		{
+			BrakingDecelerationWalking = FMath::Max(DefaultBrakingDeceleration * OwnerStatHandler->GetStatValue(BrakingDecelerationStatTag()), 0.0f);
+			FStatCallback BrakingDecelerationStatCallback;
+			BrakingDecelerationStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnBrakingDecelerationStatChanged);
+			OwnerStatHandler->SubscribeToStatChanged(BrakingDecelerationStatTag(), BrakingDecelerationStatCallback);
+		}
+		if (OwnerStatHandler->GetStatValid(MaxAccelerationStatTag()))
+		{
+			MaxAcceleration = FMath::Max(DefaultMaxAcceleration * OwnerStatHandler->GetStatValue(MaxAccelerationStatTag()), 0.0f);
+			FStatCallback MaxAccelerationStatCallback;
+			MaxAccelerationStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnMaxAccelerationStatChanged);
+			OwnerStatHandler->SubscribeToStatChanged(MaxAccelerationStatTag(), MaxAccelerationStatCallback);
+		}
+		if (OwnerStatHandler->GetStatValid(GravityScaleStatTag()))
+		{
+			GravityScale = FMath::Max(DefaultGravityScale * OwnerStatHandler->GetStatValue(GravityScaleStatTag()), 0.0f);
+			FStatCallback GravityScaleStatCallback;
+			GravityScaleStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnGravityScaleStatChanged);
+			OwnerStatHandler->SubscribeToStatChanged(GravityScaleStatTag(), GravityScaleStatCallback);
+		}
+		if (OwnerStatHandler->GetStatValid(JumpZVelocityStatTag()))
+		{
+			JumpZVelocity = FMath::Max(DefaultJumpZVelocity * OwnerStatHandler->GetStatValue(JumpZVelocityStatTag()), 0.0f);
+			FStatCallback JumpVelocityStatCallback;
+			JumpVelocityStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnJumpVelocityStatChanged);
+			OwnerStatHandler->SubscribeToStatChanged(JumpZVelocityStatTag(), JumpVelocityStatCallback);
+		}
+		if (OwnerStatHandler->GetStatValid(AirControlStatTag()))
+		{
+			AirControl = FMath::Max(DefaultAirControl * OwnerStatHandler->GetStatValue(AirControlStatTag()), 0.0f);
+			FStatCallback AirControlStatCallback;
+			AirControlStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnAirControlStatChanged);
+			OwnerStatHandler->SubscribeToStatChanged(AirControlStatTag(), AirControlStatCallback);
+		}
 	}
 }
 
@@ -878,6 +953,52 @@ float USaiyoraMovementComponent::GetMaxSpeed() const
 		return 0.0f;
 	}
 	return Super::GetMaxSpeed();
+}
+
+#pragma endregion
+#pragma region Stats
+
+void USaiyoraMovementComponent::OnMaxWalkSpeedStatChanged(FGameplayTag const& StatTag, float const NewValue)
+{
+	//TODO: Delay by ping for non-locally controlled on the server?
+	//Make sure all movement stats are actually replicated.
+	//Need a way for remote clients to see these changes?
+	MaxWalkSpeed = FMath::Max(DefaultMaxWalkSpeed * NewValue, 0.0f);
+}
+
+void USaiyoraMovementComponent::OnMaxCrouchSpeedStatChanged(FGameplayTag const& StatTag, float const NewValue)
+{
+	MaxWalkSpeedCrouched = FMath::Max(DefaultCrouchSpeed * NewValue, 0.0f);
+}
+
+void USaiyoraMovementComponent::OnGroundFrictionStatChanged(FGameplayTag const& StatTag, float const NewValue)
+{
+	GroundFriction = FMath::Max(DefaultGroundFriction * NewValue, 0.0f);
+}
+
+void USaiyoraMovementComponent::OnBrakingDecelerationStatChanged(FGameplayTag const& StatTag, float const NewValue)
+{
+	BrakingDecelerationWalking = FMath::Max(DefaultBrakingDeceleration * NewValue, 0.0f);
+}
+
+void USaiyoraMovementComponent::OnMaxAccelerationStatChanged(FGameplayTag const& StatTag, float const NewValue)
+{
+	MaxAcceleration = FMath::Max(DefaultMaxAcceleration * NewValue, 0.0f);
+}
+
+void USaiyoraMovementComponent::OnGravityScaleStatChanged(FGameplayTag const& StatTag, float const NewValue)
+{
+	GravityScale = FMath::Max(DefaultGravityScale * NewValue, 0.0f);
+}
+
+void USaiyoraMovementComponent::OnJumpVelocityStatChanged(FGameplayTag const& StatTag, float const NewValue)
+{
+	JumpZVelocity = FMath::Max(DefaultJumpZVelocity * NewValue, 0.0f);
+}
+
+void USaiyoraMovementComponent::OnAirControlStatChanged(FGameplayTag const& StatTag, float const NewValue)
+{
+	AirControl = FMath::Max(DefaultAirControl * NewValue, 0.0f);
 }
 
 #pragma endregion

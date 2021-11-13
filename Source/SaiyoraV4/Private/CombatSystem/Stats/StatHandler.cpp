@@ -86,7 +86,7 @@ float UStatHandler::GetStatValue(FGameplayTag const StatTag) const
 
 int32 UStatHandler::AddStatModifier(FGameplayTag const StatTag, FCombatModifier const& Modifier)
 {
-	if (Modifier.GetModType() == EModifierType::Invalid || !StatTag.MatchesTag(GenericStatTag()))
+	if (GetOwnerRole() != ROLE_Authority || Modifier.GetModType() == EModifierType::Invalid || !StatTag.MatchesTag(GenericStatTag()))
 	{
 		return -1;
 	}
@@ -100,7 +100,7 @@ int32 UStatHandler::AddStatModifier(FGameplayTag const StatTag, FCombatModifier 
 
 void UStatHandler::RemoveStatModifier(FGameplayTag const StatTag, int32 const ModifierID)
 {
-	if (!StatTag.MatchesTag(GenericStatTag()) || ModifierID == -1)
+	if (GetOwnerRole() != ROLE_Authority || !StatTag.MatchesTag(GenericStatTag()) || ModifierID == -1)
 	{
 		return;
 	}

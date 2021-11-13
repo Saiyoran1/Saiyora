@@ -65,6 +65,7 @@ private:
 	virtual void UpdateFromCompressedFlags(uint8 Flags) override;
 	virtual FNetworkPredictionData_Client* GetPredictionData_Client() const override;
 	virtual void OnMovementUpdated(float DeltaSeconds, const FVector& OldLocation, const FVector& OldVelocity) override;
+	virtual void InitializeComponent() override;
 	virtual void BeginPlay() override;
 	virtual void MoveAutonomous(float ClientTimeStamp, float DeltaTime, uint8 CompressedFlags, const FVector& NewAccel) override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
@@ -77,6 +78,8 @@ private:
 	UPROPERTY()
 	UDamageHandler* OwnerDamageHandler = nullptr;
 	UPROPERTY()
+	UStatHandler* OwnerStatHandler = nullptr;
+	UPROPERTY()
 	ASaiyoraGameState* GameStateRef = nullptr;
 	FLifeStatusCallback OnDeath;
 	UFUNCTION()
@@ -84,6 +87,42 @@ private:
 	FCrowdControlCallback OnRooted;
 	UFUNCTION()
 	void StopMotionOnRooted(FCrowdControlStatus const& Previous, FCrowdControlStatus const& New);
+
+	//Stats
+public:
+	static FGameplayTag MaxWalkSpeedStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.MaxWalkSpeed")), false); }
+	static FGameplayTag MaxCrouchSpeedStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.MaxCrouchSpeed")), false); }
+	static FGameplayTag GroundFrictionStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.GroundFriction")), false); }
+	static FGameplayTag BrakingDecelerationStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.BrakingDeceleration")), false); }
+	static FGameplayTag MaxAccelerationStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.MaxAcceleration")), false); }
+	static FGameplayTag GravityScaleStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.GravityScale")), false); }
+	static FGameplayTag JumpZVelocityStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.JumpZVelocity")), false); }
+	static FGameplayTag AirControlStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.AirControl")), false); }
+private:
+	float DefaultMaxWalkSpeed = 0.0f;
+	UFUNCTION()
+	void OnMaxWalkSpeedStatChanged(FGameplayTag const& StatTag, float const NewValue);
+	float DefaultCrouchSpeed = 0.0f;
+	UFUNCTION()
+	void OnMaxCrouchSpeedStatChanged(FGameplayTag const& StatTag, float const NewValue);
+	float DefaultGroundFriction = 0.0f;
+	UFUNCTION()
+	void OnGroundFrictionStatChanged(FGameplayTag const& StatTag, float const NewValue);
+	float DefaultBrakingDeceleration = 0.0f;
+	UFUNCTION()
+	void OnBrakingDecelerationStatChanged(FGameplayTag const& StatTag, float const NewValue);
+	float DefaultMaxAcceleration = 0.0f;
+	UFUNCTION()
+	void OnMaxAccelerationStatChanged(FGameplayTag const& StatTag, float const NewValue);
+	float DefaultGravityScale = 0.0f;
+	UFUNCTION()
+	void OnGravityScaleStatChanged(FGameplayTag const& StatTag, float const NewValue);
+	float DefaultJumpZVelocity = 0.0f;
+	UFUNCTION()
+	void OnJumpVelocityStatChanged(FGameplayTag const& StatTag, float const NewValue);
+	float DefaultAirControl = 0.0f;
+	UFUNCTION()
+	void OnAirControlStatChanged(FGameplayTag const& StatTag, float const NewValue);
 
 	//Custom Movement
 

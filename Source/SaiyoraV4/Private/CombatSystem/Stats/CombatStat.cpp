@@ -1,6 +1,4 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
-
-#include "CombatStat.h"
+﻿#include "CombatStat.h"
 #include "StatHandler.h"
 
 void UCombatStat::BroadcastStatChanged(float const Previous, float const New)
