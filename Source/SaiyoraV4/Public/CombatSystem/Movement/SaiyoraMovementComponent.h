@@ -151,9 +151,9 @@ private:
 	
 	//Restrictions
 public:
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Movement")
+	UFUNCTION(BlueprintCallable, Category = "Movement")
 	void AddExternalMovementRestriction(FExternalMovementCondition const& Restriction);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Movement")
+	UFUNCTION(BlueprintCallable, Category = "Movement")
 	void RemoveExternalMovementRestriction(FExternalMovementCondition const& Restriction);
 private:
 	bool CheckExternalMoveRestricted(UObject* Source, ESaiyoraCustomMove const MoveType);
