@@ -1,8 +1,6 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
-
 #include "SaiyoraDamageFunctions.h"
 #include "DamageHandler.h"
+#include "MegaComponent/CombatComponent.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraCombatLibrary.h"
 
@@ -29,7 +27,7 @@ FDamagingEvent USaiyoraDamageFunctions::ApplyDamage(float const Amount, AActor* 
      {
          return DamageEvent;
      }
-    UDamageHandler* TargetComponent = ISaiyoraCombatInterface::Execute_GetDamageHandler(AppliedTo);
+    UCombatComponent* TargetComponent = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(AppliedTo);
     if (!IsValid(TargetComponent) || !TargetComponent->CanEverReceiveDamage() || TargetComponent->GetLifeStatus() != ELifeStatus::Alive)
     {
         return DamageEvent;
@@ -55,29 +53,28 @@ FDamagingEvent USaiyoraDamageFunctions::ApplyDamage(float const Amount, AActor* 
      }
     
     //Check for generator. Not required.
-    UDamageHandler* GeneratorComponent = nullptr;
+    UCombatComponent* GeneratorComponent = nullptr;
     if (AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
     {
-        GeneratorComponent = ISaiyoraCombatInterface::Execute_GetDamageHandler(AppliedBy);
+        GeneratorComponent = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(AppliedBy);
     }
-     if (IsValid(GeneratorComponent) && !GeneratorComponent->CanEverDealDamage())
-     {
-         return DamageEvent;
-     }
 
     //Modify the damage, if ignore modifiers is false.
     if (!bIgnoreModifiers)
     {
+        //TODO: I think snapshot calculation might not work in situations without a generator component?
         if (!bFromSnapshot && IsValid(GeneratorComponent))
         {
             //Apply relevant outgoing mods, save off snapshot damage for use in DoTs.
-            DamageEvent.DamageInfo.Damage = FCombatModifier::ApplyModifiers(
-                GeneratorComponent->GetOutgoingDamageMods(DamageEvent.DamageInfo), DamageEvent.DamageInfo.Damage);
+            TArray<FCombatModifier> OutgoingMods;
+            GeneratorComponent->GetOutgoingDamageMods(DamageEvent.DamageInfo, OutgoingMods);
+            DamageEvent.DamageInfo.Damage = FCombatModifier::ApplyModifiers(OutgoingMods, DamageEvent.DamageInfo.Damage);
             DamageEvent.DamageInfo.SnapshotDamage = DamageEvent.DamageInfo.Damage;
         }
         //Apply relevant incoming mods.
-        DamageEvent.DamageInfo.Damage = FCombatModifier::ApplyModifiers(
-            TargetComponent->GetIncomingDamageMods(DamageEvent.DamageInfo), DamageEvent.DamageInfo.Damage);
+        TArray<FCombatModifier> IncomingMods;
+        TargetComponent->GetIncomingDamageMods(DamageEvent.DamageInfo, IncomingMods);
+        DamageEvent.DamageInfo.Damage = FCombatModifier::ApplyModifiers(IncomingMods, DamageEvent.DamageInfo.Damage);
     }
 
     //Check for restrictions, if ignore restrictions is false.
@@ -101,7 +98,7 @@ FDamagingEvent USaiyoraDamageFunctions::ApplyDamage(float const Amount, AActor* 
     //Notify the generator if one exists and the event was a success.
     if (DamageEvent.Result.Success && IsValid(GeneratorComponent))
     {
-       GeneratorComponent->NotifyOfOutgoingDamageSuccess(DamageEvent);
+       GeneratorComponent->NotifyOfOutgoingDamage(DamageEvent);
     }
     
     return DamageEvent;
@@ -130,7 +127,7 @@ FHealingEvent USaiyoraDamageFunctions::ApplyHealing(float const Amount, AActor* 
     {
         return HealingEvent;
     }
-    UDamageHandler* TargetComponent = ISaiyoraCombatInterface::Execute_GetDamageHandler(AppliedTo);
+    UCombatComponent* TargetComponent = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(AppliedTo);
     if (!IsValid(TargetComponent) || !TargetComponent->CanEverReceiveHealing())
     {
         return HealingEvent;
@@ -156,29 +153,28 @@ FHealingEvent USaiyoraDamageFunctions::ApplyHealing(float const Amount, AActor* 
     }
     
     //Check for generator. Not required.
-    UDamageHandler* GeneratorComponent = nullptr;
+    UCombatComponent* GeneratorComponent = nullptr;
     if (AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
     {
-        GeneratorComponent = ISaiyoraCombatInterface::Execute_GetDamageHandler(AppliedBy);
-    }
-    if (IsValid(GeneratorComponent) && !GeneratorComponent->CanEverDealHealing())
-    {
-        return HealingEvent;
+        GeneratorComponent = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(AppliedBy);
     }
 
     //Modify the healing, if ignore modifiers is false.
     if (!bIgnoreModifiers)
     {
         //Apply relevant outgoing modifiers, save off snapshot healing for use in HoTs.
+        //TODO: I think snapshot calculation might not work in situations without a generator component?
         if (!bFromSnapshot && IsValid(GeneratorComponent))
         {
-            HealingEvent.HealingInfo.Healing = FCombatModifier::ApplyModifiers(
-                GeneratorComponent->GetOutgoingHealingMods(HealingEvent.HealingInfo), HealingEvent.HealingInfo.Healing);
+            TArray<FCombatModifier> OutgoingMods;
+            GeneratorComponent->GetOutgoingHealingMods(HealingEvent.HealingInfo, OutgoingMods);
+            HealingEvent.HealingInfo.Healing = FCombatModifier::ApplyModifiers(OutgoingMods, HealingEvent.HealingInfo.Healing);
             HealingEvent.HealingInfo.SnapshotHealing = HealingEvent.HealingInfo.Healing;
         }
         //Apply relevant incoming mods.
-        HealingEvent.HealingInfo.Healing = FCombatModifier::ApplyModifiers(
-            TargetComponent->GetIncomingHealingMods(HealingEvent.HealingInfo), HealingEvent.HealingInfo.Healing);
+        TArray<FCombatModifier> IncomingMods;
+        TargetComponent->GetIncomingHealingMods(HealingEvent.HealingInfo, IncomingMods);
+        HealingEvent.HealingInfo.Healing = FCombatModifier::ApplyModifiers(IncomingMods, HealingEvent.HealingInfo.Healing);
     }
 
     //Check for restrictions, if ignore restrictions is false.
@@ -202,7 +198,7 @@ FHealingEvent USaiyoraDamageFunctions::ApplyHealing(float const Amount, AActor* 
     //Notify the generator if one exists and the event was a success.
     if (HealingEvent.Result.Success && IsValid(GeneratorComponent))
     {
-       GeneratorComponent->NotifyOfOutgoingHealingSuccess(HealingEvent);
+       GeneratorComponent->NotifyOfOutgoingHealing(HealingEvent);
     }
     
     return HealingEvent;

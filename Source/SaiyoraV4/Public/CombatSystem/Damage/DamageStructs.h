@@ -54,7 +54,7 @@ struct FDamageInfo
  float SnapshotDamage = 0.0f;
 };
 
-DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FDamageCondition, FDamageInfo const&, DamageInfo);
+DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FDamageRestriction, FDamageInfo const&, DamageInfo);
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FDamageModCondition, FDamageInfo const&, DamageInfo);
 
 USTRUCT(BlueprintType)
@@ -70,7 +70,7 @@ struct FDamagingEvent
     FThreatFromDamage ThreatInfo;
 };
 
-DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FDeathCondition, FDamagingEvent const&, DamageEvent);
+DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FDeathRestriction, FDamagingEvent const&, DamageEvent);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FDamageEventCallback, FDamagingEvent const&, DamageEvent);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDamageEventNotification, FDamagingEvent const&, DamageEvent);
 
@@ -118,7 +118,7 @@ struct FHealingInfo
  float SnapshotHealing = 0.0f;
 };
 
-DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FHealingCondition, FHealingInfo const&, HealingInfo);
+DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FHealingRestriction, FHealingInfo const&, HealingInfo);
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FHealingModCondition, FHealingInfo const&, HealingInfo);
 
 USTRUCT(BlueprintType)

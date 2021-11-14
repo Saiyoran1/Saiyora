@@ -149,7 +149,7 @@ void UDamageHandler::ReactToMaxHealthStat(FGameplayTag const& StatTag, float con
 
 bool UDamageHandler::CheckDeathRestricted(FDamageInfo const& DamageInfo)
 {
-	for (FDamageCondition Condition : DeathConditions)
+	for (FDamageRestriction Condition : DeathConditions)
 	{
 		if (Condition.IsBound() && Condition.Execute(DamageInfo))
 		{
@@ -229,7 +229,7 @@ void UDamageHandler::UnsubscribeFromLifeStatusChanged(FLifeStatusCallback const&
 	}
 }
 
-void UDamageHandler::AddDeathRestriction(FDamageCondition const& Restriction)
+void UDamageHandler::AddDeathRestriction(FDamageRestriction const& Restriction)
 {
 	if (GetOwnerRole() != ROLE_Authority)
 	{
@@ -241,7 +241,7 @@ void UDamageHandler::AddDeathRestriction(FDamageCondition const& Restriction)
 	}
 }
 
-void UDamageHandler::RemoveDeathRestriction(FDamageCondition const& Restriction)
+void UDamageHandler::RemoveDeathRestriction(FDamageRestriction const& Restriction)
 {
 	if (GetOwnerRole() != ROLE_Authority)
 	{
@@ -265,7 +265,7 @@ void UDamageHandler::NotifyOfOutgoingDamageSuccess(FDamagingEvent const& DamageE
 
 bool UDamageHandler::CheckOutgoingDamageRestricted(FDamageInfo const& DamageInfo)
 {
-	for (FDamageCondition Condition : OutgoingDamageConditions)
+	for (FDamageRestriction Condition : OutgoingDamageConditions)
 	{
 		if (Condition.IsBound() && Condition.Execute(DamageInfo))
 		{
@@ -317,7 +317,7 @@ void UDamageHandler::UnsubscribeFromOutgoingDamageSuccess(FDamageEventCallback c
 	}
 }
 
-void UDamageHandler::AddOutgoingDamageRestriction(FDamageCondition const& Restriction)
+void UDamageHandler::AddOutgoingDamageRestriction(FDamageRestriction const& Restriction)
 {
 	if (GetOwnerRole() != ROLE_Authority)
 	{
@@ -329,7 +329,7 @@ void UDamageHandler::AddOutgoingDamageRestriction(FDamageCondition const& Restri
 	}
 }
 
-void UDamageHandler::RemoveOutgoingDamageRestriction(FDamageCondition const& Restriction)
+void UDamageHandler::RemoveOutgoingDamageRestriction(FDamageRestriction const& Restriction)
 {
 	if (GetOwnerRole() != ROLE_Authority)
 	{
@@ -393,7 +393,7 @@ void UDamageHandler::NotifyOfOutgoingHealingSuccess(FHealingEvent const& Healing
 
 bool UDamageHandler::CheckOutgoingHealingRestricted(FHealingInfo const& HealingInfo)
 {
-	for (FHealingCondition const& Condition : OutgoingHealingConditions)
+	for (FHealingRestriction const& Condition : OutgoingHealingConditions)
 	{
 		if (Condition.IsBound() && Condition.Execute(HealingInfo))
 		{
@@ -445,7 +445,7 @@ void UDamageHandler::UnsubscribeFromOutgoingHealingSuccess(FHealingEventCallback
 	}
 }
 
-void UDamageHandler::AddOutgoingHealingRestriction(FHealingCondition const& Restriction)
+void UDamageHandler::AddOutgoingHealingRestriction(FHealingRestriction const& Restriction)
 {
 	if (GetOwnerRole() != ROLE_Authority)
 	{
@@ -457,7 +457,7 @@ void UDamageHandler::AddOutgoingHealingRestriction(FHealingCondition const& Rest
 	}
 }
 
-void UDamageHandler::RemoveOutgoingHealingRestriction(FHealingCondition const& Restriction)
+void UDamageHandler::RemoveOutgoingHealingRestriction(FHealingRestriction const& Restriction)
 {
 	if (GetOwnerRole() != ROLE_Authority)
 	{
@@ -536,7 +536,7 @@ void UDamageHandler::ApplyDamage(FDamagingEvent& DamageEvent)
 
 bool UDamageHandler::CheckIncomingDamageRestricted(FDamageInfo const& DamageInfo)
 {
-	for (FDamageCondition const& Condition : IncomingDamageConditions)
+	for (FDamageRestriction const& Condition : IncomingDamageConditions)
 	{
 		if (Condition.IsBound() && Condition.Execute(DamageInfo))
 		{
@@ -588,7 +588,7 @@ void UDamageHandler::UnsubscribeFromIncomingDamageSuccess(FDamageEventCallback c
 	}
 }
 
-void UDamageHandler::AddIncomingDamageRestriction(FDamageCondition const& Restriction)
+void UDamageHandler::AddIncomingDamageRestriction(FDamageRestriction const& Restriction)
 {
 	if (GetOwnerRole() != ROLE_Authority)
 	{
@@ -600,7 +600,7 @@ void UDamageHandler::AddIncomingDamageRestriction(FDamageCondition const& Restri
 	}
 }
 
-void UDamageHandler::RemoveIncomingDamageRestriction(FDamageCondition const& Restriction)
+void UDamageHandler::RemoveIncomingDamageRestriction(FDamageRestriction const& Restriction)
 {
 	if (GetOwnerRole() != ROLE_Authority)
 	{
@@ -655,7 +655,7 @@ void UDamageHandler::ApplyHealing(FHealingEvent& HealingEvent)
 
 bool UDamageHandler::CheckIncomingHealingRestricted(FHealingInfo const& HealingInfo)
 {
-	for (FHealingCondition const& Condition : IncomingHealingConditions)
+	for (FHealingRestriction const& Condition : IncomingHealingConditions)
 	{
 		if (Condition.IsBound() && Condition.Execute(HealingInfo))
 		{
@@ -707,7 +707,7 @@ void UDamageHandler::UnsubscribeFromIncomingHealingSuccess(FHealingEventCallback
 	}
 }
 
-void UDamageHandler::AddIncomingHealingRestriction(FHealingCondition const& Restriction)
+void UDamageHandler::AddIncomingHealingRestriction(FHealingRestriction const& Restriction)
 {
 	if (GetOwnerRole() != ROLE_Authority)
 	{
@@ -719,7 +719,7 @@ void UDamageHandler::AddIncomingHealingRestriction(FHealingCondition const& Rest
 	}
 }
 
-void UDamageHandler::RemoveIncomingHealingRestriction(FHealingCondition const& Restriction)
+void UDamageHandler::RemoveIncomingHealingRestriction(FHealingRestriction const& Restriction)
 {
 	if (GetOwnerRole() != ROLE_Authority)
 	{
