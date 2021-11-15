@@ -1,5 +1,3 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #pragma once
 #include "CoreMinimal.h"
 #include "DamageEnums.h"
@@ -7,8 +5,6 @@
 #include "SaiyoraStructs.h"
 #include "ThreatStructs.h"
 #include "DamageStructs.generated.h"
-
-//Damage
 
 USTRUCT(BlueprintType)
 struct FDamageResult
@@ -49,9 +45,9 @@ struct FDamageInfo
  UPROPERTY(BlueprintReadOnly, Category = "Damage")
  EDamageSchool School = EDamageSchool::None;
  UPROPERTY(BlueprintReadOnly, Category = "Damage")
- float Damage = 0.0f;
+ float Value = 0.0f;
  UPROPERTY(BlueprintReadOnly, Category = "Damage")
- float SnapshotDamage = 0.0f;
+ float SnapshotValue = 0.0f;
 };
 
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FDamageRestriction, FDamageInfo const&, DamageInfo);
@@ -63,7 +59,7 @@ struct FDamagingEvent
     GENERATED_BODY()
  
     UPROPERTY(BlueprintReadOnly, Category = "Damage")
-    FDamageInfo DamageInfo;
+    FDamageInfo Info;
     UPROPERTY(BlueprintReadOnly, Category = "Damage")
     FDamageResult Result;
     UPROPERTY(BlueprintReadOnly, Category = "Threat")
@@ -76,7 +72,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDamageEventNotification, FDamagingE
 
 //Healing
 
-USTRUCT(BlueprintType)
+/*USTRUCT(BlueprintType)
 struct FHealingResult
 {
  GENERATED_BODY()
@@ -135,7 +131,7 @@ struct FHealingEvent
 };
 
 DECLARE_DYNAMIC_DELEGATE_OneParam(FHealingEventCallback, FHealingEvent const&, HealingEvent);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FHealingEventNotification, FHealingEvent const&, HealingEvent);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FHealingEventNotification, FHealingEvent const&, HealingEvent);*/
 
 DECLARE_DYNAMIC_DELEGATE_TwoParams(FHealthChangeCallback, float, PreviousHealth, float, NewHealth);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FHealthChangeNotification, float, PreviousHealth, float, NewHealth);

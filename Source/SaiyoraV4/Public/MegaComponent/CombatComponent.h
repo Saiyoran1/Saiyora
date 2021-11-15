@@ -62,9 +62,9 @@ public:
 	void UnsubscribeFromLifeStatusChanged(FLifeStatusCallback const& Callback);
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Health")
-	void AddDeathRestriction(FDamageRestriction const& Restriction);
+	void AddDeathRestriction(FDeathRestriction const& Restriction);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Health")
-	void RemoveDeathRestriction(FDamageRestriction const& Restriction);
+	void RemoveDeathRestriction(FDeathRestriction const& Restriction);
 
 private:
 
@@ -86,11 +86,11 @@ private:
 	UFUNCTION()
 	void OnRep_LifeStatus(ELifeStatus const PreviousStatus);
 	FLifeStatusNotification OnLifeStatusChanged;
-	TArray<FDamageRestriction> DeathRestrictions;
+	TArray<FDeathRestriction> DeathRestrictions;
 
 	/*UFUNCTION()
 	void OnMaxHealthStatChanged(FGameplayTag const& StatTag, float const NewValue);*/
-	bool CheckDeathRestricted(FDamageInfo const& DamageInfo);
+	bool CheckDeathRestricted(FDamagingEvent const& DamageEvent);
 	void Die();
 
 	//Incoming Damage
@@ -138,34 +138,34 @@ public:
 	bool CanEverReceiveHealing() const { return bCanEverReceiveHealing; }
 	
 	UFUNCTION(BlueprintCallable, Category = "Healing")
-	void SubscribeToIncomingHealingSuccess(FHealingEventCallback const& Callback);
+	void SubscribeToIncomingHealingSuccess(FDamageEventCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Healing")
-	void UnsubscribeFromIncomingHealingSuccess(FHealingEventCallback const& Callback);
+	void UnsubscribeFromIncomingHealingSuccess(FDamageEventCallback const& Callback);
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Healing")
-	void AddIncomingHealingRestriction(FHealingRestriction const& Restriction);
+	void AddIncomingHealingRestriction(FDamageRestriction const& Restriction);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Healing")
-	void RemoveIncomingHealingRestriction(FHealingRestriction const& Restriction);
-	bool CheckIncomingHealingRestricted(FHealingInfo const& HealingInfo);
+	void RemoveIncomingHealingRestriction(FDamageRestriction const& Restriction);
+	bool CheckIncomingHealingRestricted(FDamageInfo const& HealingInfo);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Healing")
-	void AddIncomingHealingModifier(FHealingModCondition const& Modifier);
+	void AddIncomingHealingModifier(FDamageModCondition const& Modifier);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Healing")
-	void RemoveIncomingHealingModifier(FHealingModCondition const& Modifier);
-	void GetIncomingHealingMods(FHealingInfo const& HealingInfo, TArray<FCombatModifier>& OutMods);
+	void RemoveIncomingHealingModifier(FDamageModCondition const& Modifier);
+	void GetIncomingHealingMods(FDamageInfo const& HealingInfo, TArray<FCombatModifier>& OutMods);
 
-	void ApplyHealing(FHealingEvent& HealingEvent);
+	void ApplyHealing(FDamagingEvent& HealingEvent);
 
 private:
 
 	UPROPERTY(EditAnywhere, Category = "Healing")
 	bool bCanEverReceiveHealing = true;
 	
-	FHealingEventNotification OnIncomingHealing;
-	TArray<FHealingRestriction> IncomingHealingRestrictions;
-	TArray<FHealingModCondition> IncomingHealingModifiers;
+	FDamageEventNotification OnIncomingHealing;
+	TArray<FDamageRestriction> IncomingHealingRestrictions;
+	TArray<FDamageModCondition> IncomingHealingModifiers;
 
 	UFUNCTION(Client, Unreliable)
-	void ClientNotifyOfIncomingHealing(FHealingEvent const& HealingEvent);
+	void ClientNotifyOfIncomingHealing(FDamagingEvent const& HealingEvent);
 
 	//Outgoing Damage
 
@@ -206,31 +206,31 @@ private:
 public:
 
 	UFUNCTION(BlueprintCallable, Category = "Healing")
-	void SubscribeToOutgoingHealingSuccess(FHealingEventCallback const& Callback);
+	void SubscribeToOutgoingHealingSuccess(FDamageEventCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Healing")
-	void UnsubscribeFromOutgoingHealingSuccess(FHealingEventCallback const& Callback);
+	void UnsubscribeFromOutgoingHealingSuccess(FDamageEventCallback const& Callback);
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Healing")
-	void AddOutgoingHealingRestriction(FHealingRestriction const& Restriction);
+	void AddOutgoingHealingRestriction(FDamageRestriction const& Restriction);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Healing")
-	void RemoveOutgoingHealingRestriction(FHealingRestriction const& Restriction);
-	bool CheckOutgoingHealingRestricted(FHealingInfo const& HealingInfo);
+	void RemoveOutgoingHealingRestriction(FDamageRestriction const& Restriction);
+	bool CheckOutgoingHealingRestricted(FDamageInfo const& HealingInfo);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Healing")
-	void AddOutgoingHealingModifier(FHealingModCondition const& Modifier);
+	void AddOutgoingHealingModifier(FDamageModCondition const& Modifier);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Healing")
-	void RemoveOutgoingHealingModifier(FHealingModCondition const& Modifier);
-	void GetOutgoingHealingMods(FHealingInfo const& HealingInfo, TArray<FCombatModifier>& OutMods);
+	void RemoveOutgoingHealingModifier(FDamageModCondition const& Modifier);
+	void GetOutgoingHealingMods(FDamageInfo const& HealingInfo, TArray<FCombatModifier>& OutMods);
 
-	void NotifyOfOutgoingHealing(FHealingEvent const& HealingEvent);
+	void NotifyOfOutgoingHealing(FDamagingEvent const& HealingEvent);
 
 private:
 	
-	FHealingEventNotification OnOutgoingHealing;
-	TArray<FHealingRestriction> OutgoingHealingRestrictions;
-	TArray<FHealingModCondition> OutgoingHealingModifiers;
+	FDamageEventNotification OnOutgoingHealing;
+	TArray<FDamageRestriction> OutgoingHealingRestrictions;
+	TArray<FDamageModCondition> OutgoingHealingModifiers;
     
 	UFUNCTION(Client, Unreliable)
-	void ClientNotifyOfOutgoingHealing(FHealingEvent const& HealingEvent);
+	void ClientNotifyOfOutgoingHealing(FDamagingEvent const& HealingEvent);
 
 	/*UFUNCTION()
 	bool RestrictHealingBuffs(FBuffApplyEvent const& BuffEvent);*/

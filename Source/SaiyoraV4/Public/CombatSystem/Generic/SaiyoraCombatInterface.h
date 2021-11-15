@@ -28,9 +28,9 @@ class SAIYORAV4_API ISaiyoraCombatInterface
 	GENERATED_BODY()
 	
 public:
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Damage")
+	/*UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Damage")
 	UDamageHandler* GetDamageHandler() const;
-	virtual UDamageHandler* GetDamageHandler_Implementation() const { return nullptr; }
+	virtual UDamageHandler* GetDamageHandler_Implementation() const { return nullptr; }*/
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Buffs")
 	UBuffHandler* GetBuffHandler() const;
 	virtual UBuffHandler* GetBuffHandler_Implementation() const { return nullptr; }

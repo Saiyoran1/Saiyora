@@ -8,7 +8,7 @@
 #include "StatHandler.h"
 #include "CrowdControlHandler.h"
 #include "SaiyoraCombatInterface.h"
-#include "DamageHandler.h"
+#include "MegaComponent/CombatComponent.h"
 #include "SaiyoraCombatLibrary.h"
 #include "UObjectGlobals.h"
 
@@ -51,7 +51,7 @@ void UAbilityHandler::BeginPlay()
 		ResourceHandler = ISaiyoraCombatInterface::Execute_GetResourceHandler(GetOwner());
 		StatHandler = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
 		CrowdControlHandler = ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(GetOwner());
-		DamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
+		DamageHandler = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(GetOwner());
 	}
 	if (IsValid(StatHandler))
 	{

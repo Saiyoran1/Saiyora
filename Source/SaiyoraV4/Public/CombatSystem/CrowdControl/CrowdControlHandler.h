@@ -95,7 +95,7 @@ private:
 	void CheckRemovedBuffForCcOrImmunity(FBuffRemoveEvent const& RemoveEvent);
 	FBuffRemoveCallback OnBuffRemoved;
 	UPROPERTY()
-	class UDamageHandler* DamageHandler;
+	class UCombatComponent* DamageHandler;
 	UFUNCTION()
 	void RemoveIncapacitatesOnDamageTaken(FDamagingEvent const& DamageEvent);
 	FDamageEventCallback OnDamageTaken;

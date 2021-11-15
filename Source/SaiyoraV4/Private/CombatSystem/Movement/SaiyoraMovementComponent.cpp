@@ -6,7 +6,7 @@
 #include "GameFramework/Character.h"
 #include "Movement/MovementStructs.h"
 #include "CrowdControlHandler.h"
-#include "DamageHandler.h"
+#include "MegaComponent/CombatComponent.h"
 #include "StatHandler.h"
 
 float const USaiyoraMovementComponent::MaxPingDelay = 0.2f;
@@ -203,9 +203,9 @@ void USaiyoraMovementComponent::BeginPlay()
 	if (GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 	{
 		OwnerAbilityHandler = Cast<UPlayerAbilityHandler>(ISaiyoraCombatInterface::Execute_GetAbilityHandler(GetOwner()));
-		OwnerCcHandler = Cast<UCrowdControlHandler>(ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(GetOwner()));
-		OwnerDamageHandler = Cast<UDamageHandler>(ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner()));
-		OwnerStatHandler = Cast<UStatHandler>(ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner()));
+		OwnerCcHandler = ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(GetOwner());
+		OwnerDamageHandler = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(GetOwner());
+		OwnerStatHandler = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
 	}
 	if (GetOwnerRole() == ROLE_AutonomousProxy && IsValid(OwnerAbilityHandler))
 	{

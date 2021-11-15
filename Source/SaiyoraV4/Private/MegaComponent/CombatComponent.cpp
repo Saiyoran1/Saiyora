@@ -121,7 +121,7 @@ void UCombatComponent::UnsubscribeFromIncomingDamageSuccess(FDamageEventCallback
 	OnIncomingDamage.Remove(Callback);
 }
 
-void UCombatComponent::SubscribeToIncomingHealingSuccess(FHealingEventCallback const& Callback)
+void UCombatComponent::SubscribeToIncomingHealingSuccess(FDamageEventCallback const& Callback)
 {
 	if (!Callback.IsBound())
 	{
@@ -130,7 +130,7 @@ void UCombatComponent::SubscribeToIncomingHealingSuccess(FHealingEventCallback c
 	OnIncomingHealing.AddUnique(Callback);
 }
 
-void UCombatComponent::UnsubscribeFromIncomingHealingSuccess(FHealingEventCallback const& Callback)
+void UCombatComponent::UnsubscribeFromIncomingHealingSuccess(FDamageEventCallback const& Callback)
 {
 	if (!Callback.IsBound())
 	{
@@ -157,7 +157,7 @@ void UCombatComponent::UnsubscribeFromOutgoingDamageSuccess(FDamageEventCallback
 	OnOutgoingDamage.Remove(Callback);
 }
 
-void UCombatComponent::SubscribeToOutgoingHealingSuccess(FHealingEventCallback const& Callback)
+void UCombatComponent::SubscribeToOutgoingHealingSuccess(FDamageEventCallback const& Callback)
 {
 	if (!Callback.IsBound())
 	{
@@ -166,7 +166,7 @@ void UCombatComponent::SubscribeToOutgoingHealingSuccess(FHealingEventCallback c
 	OnOutgoingHealing.AddUnique(Callback);
 }
 
-void UCombatComponent::UnsubscribeFromOutgoingHealingSuccess(FHealingEventCallback const& Callback)
+void UCombatComponent::UnsubscribeFromOutgoingHealingSuccess(FDamageEventCallback const& Callback)
 {
 	if (!Callback.IsBound())
 	{
@@ -178,7 +178,7 @@ void UCombatComponent::UnsubscribeFromOutgoingHealingSuccess(FHealingEventCallba
 #pragma endregion
 #pragma region Restrictions
 
-void UCombatComponent::AddDeathRestriction(FDamageRestriction const& Restriction)
+void UCombatComponent::AddDeathRestriction(FDeathRestriction const& Restriction)
 {
 	if (GetOwnerRole() != ROLE_Authority || !Restriction.IsBound())
 	{
@@ -187,7 +187,7 @@ void UCombatComponent::AddDeathRestriction(FDamageRestriction const& Restriction
 	DeathRestrictions.AddUnique(Restriction);
 }
 
-void UCombatComponent::RemoveDeathRestriction(FDamageRestriction const& Restriction)
+void UCombatComponent::RemoveDeathRestriction(FDeathRestriction const& Restriction)
 {
 	if (GetOwnerRole() != ROLE_Authority || !Restriction.IsBound())
 	{
@@ -210,16 +210,12 @@ void UCombatComponent::OnRep_LifeStatus(ELifeStatus const PreviousStatus)
 	OnLifeStatusChanged.Broadcast(GetOwner(), PreviousStatus, LifeStatus);
 }
 
-bool UCombatComponent::CheckDeathRestricted(FDamageInfo const& DamageInfo)
+bool UCombatComponent::CheckDeathRestricted(FDamagingEvent const& DamageEvent)
 {
-	//TODO: Change this to a bIgnoreRestrictions flag in the struct.
-	if (DamageInfo.HitStyle == EDamageHitStyle::Authority)
+	//TODO: bIgnoreRestrictions for death?
+	for (FDeathRestriction const& Restriction : DeathRestrictions)
 	{
-		return false;
-	}
-	for (FDamageRestriction const& Restriction : DeathRestrictions)
-	{
-		if (Restriction.IsBound() && Restriction.Execute(DamageInfo))
+		if (Restriction.IsBound() && Restriction.Execute(DamageEvent))
 		{
 			return true;
 		}
@@ -257,7 +253,7 @@ bool UCombatComponent::CheckIncomingDamageRestricted(FDamageInfo const& DamageIn
 	return false;
 }
 
-void UCombatComponent::AddIncomingHealingRestriction(FHealingRestriction const& Restriction)
+void UCombatComponent::AddIncomingHealingRestriction(FDamageRestriction const& Restriction)
 {
 	if (GetOwnerRole() != ROLE_Authority || !Restriction.IsBound())
 	{
@@ -266,7 +262,7 @@ void UCombatComponent::AddIncomingHealingRestriction(FHealingRestriction const& 
 	IncomingHealingRestrictions.AddUnique(Restriction);
 }
 
-void UCombatComponent::RemoveIncomingHealingRestriction(FHealingRestriction const& Restriction)
+void UCombatComponent::RemoveIncomingHealingRestriction(FDamageRestriction const& Restriction)
 {
 	if (GetOwnerRole() != ROLE_Authority || !Restriction.IsBound())
 	{
@@ -275,9 +271,9 @@ void UCombatComponent::RemoveIncomingHealingRestriction(FHealingRestriction cons
 	IncomingHealingRestrictions.Remove(Restriction);
 }
 
-bool UCombatComponent::CheckIncomingHealingRestricted(FHealingInfo const& HealingInfo)
+bool UCombatComponent::CheckIncomingHealingRestricted(FDamageInfo const& HealingInfo)
 {
-	for (FHealingRestriction const& Restriction : IncomingHealingRestrictions)
+	for (FDamageRestriction const& Restriction : IncomingHealingRestrictions)
 	{
 		if (Restriction.IsBound() && Restriction.Execute(HealingInfo))
 		{
@@ -317,7 +313,7 @@ bool UCombatComponent::CheckOutgoingDamageRestricted(FDamageInfo const& DamageIn
 	return false;
 }
 
-void UCombatComponent::AddOutgoingHealingRestriction(FHealingRestriction const& Restriction)
+void UCombatComponent::AddOutgoingHealingRestriction(FDamageRestriction const& Restriction)
 {
 	if (GetOwnerRole() != ROLE_Authority || !Restriction.IsBound())
 	{
@@ -326,7 +322,7 @@ void UCombatComponent::AddOutgoingHealingRestriction(FHealingRestriction const& 
 	OutgoingHealingRestrictions.AddUnique(Restriction);
 }
 
-void UCombatComponent::RemoveOutgoingHealingRestriction(FHealingRestriction const& Restriction)
+void UCombatComponent::RemoveOutgoingHealingRestriction(FDamageRestriction const& Restriction)
 {
 	if (GetOwnerRole() != ROLE_Authority || !Restriction.IsBound())
 	{
@@ -335,9 +331,9 @@ void UCombatComponent::RemoveOutgoingHealingRestriction(FHealingRestriction cons
 	OutgoingHealingRestrictions.Remove(Restriction);
 }
 
-bool UCombatComponent::CheckOutgoingHealingRestricted(FHealingInfo const& HealingInfo)
+bool UCombatComponent::CheckOutgoingHealingRestricted(FDamageInfo const& HealingInfo)
 {
-	for (FHealingRestriction const& Restriction : OutgoingHealingRestrictions)
+	for (FDamageRestriction const& Restriction : OutgoingHealingRestrictions)
 	{
 		if (Restriction.IsBound() && Restriction.Execute(HealingInfo))
 		{
@@ -384,7 +380,7 @@ void UCombatComponent::GetIncomingDamageMods(FDamageInfo const& DamageInfo, TArr
 	//TODO: Add DamageTaken stat mod.
 }
 
-void UCombatComponent::AddIncomingHealingModifier(FHealingModCondition const& Modifier)
+void UCombatComponent::AddIncomingHealingModifier(FDamageModCondition const& Modifier)
 {
 	if (GetOwnerRole() != ROLE_Authority || !Modifier.IsBound())
 	{
@@ -393,7 +389,7 @@ void UCombatComponent::AddIncomingHealingModifier(FHealingModCondition const& Mo
 	IncomingHealingModifiers.AddUnique(Modifier);
 }
 
-void UCombatComponent::RemoveIncomingHealingModifier(FHealingModCondition const& Modifier)
+void UCombatComponent::RemoveIncomingHealingModifier(FDamageModCondition const& Modifier)
 {
 	if (GetOwnerRole() != ROLE_Authority || !Modifier.IsBound())
 	{
@@ -402,9 +398,9 @@ void UCombatComponent::RemoveIncomingHealingModifier(FHealingModCondition const&
 	IncomingHealingModifiers.Remove(Modifier);
 }
 
-void UCombatComponent::GetIncomingHealingMods(FHealingInfo const& HealingInfo, TArray<FCombatModifier>& OutMods)
+void UCombatComponent::GetIncomingHealingMods(FDamageInfo const& HealingInfo, TArray<FCombatModifier>& OutMods)
 {
-	for (FHealingModCondition const& Modifier : IncomingHealingModifiers)
+	for (FDamageModCondition const& Modifier : IncomingHealingModifiers)
 	{
 		if (Modifier.IsBound())
 		{
@@ -452,7 +448,7 @@ void UCombatComponent::GetOutgoingDamageMods(FDamageInfo const& DamageInfo, TArr
 	//TODO: Add DamageDone stat mod.
 }
 
-void UCombatComponent::AddOutgoingHealingModifier(FHealingModCondition const& Modifier)
+void UCombatComponent::AddOutgoingHealingModifier(FDamageModCondition const& Modifier)
 {
 	if (GetOwnerRole() != ROLE_Authority || !Modifier.IsBound())
 	{
@@ -461,7 +457,7 @@ void UCombatComponent::AddOutgoingHealingModifier(FHealingModCondition const& Mo
 	OutgoingHealingModifiers.AddUnique(Modifier);
 }
 
-void UCombatComponent::RemoveOutgoingHealingModifier(FHealingModCondition const& Modifier)
+void UCombatComponent::RemoveOutgoingHealingModifier(FDamageModCondition const& Modifier)
 {
 	if (GetOwnerRole() != ROLE_Authority || !Modifier.IsBound())
 	{
@@ -470,9 +466,9 @@ void UCombatComponent::RemoveOutgoingHealingModifier(FHealingModCondition const&
 	OutgoingHealingModifiers.Remove(Modifier);
 }
 
-void UCombatComponent::GetOutgoingHealingMods(FHealingInfo const& HealingInfo, TArray<FCombatModifier>& OutMods)
+void UCombatComponent::GetOutgoingHealingMods(FDamageInfo const& HealingInfo, TArray<FCombatModifier>& OutMods)
 {
-	for (FHealingModCondition const& Modifier : OutgoingHealingModifiers)
+	for (FDamageModCondition const& Modifier : OutgoingHealingModifiers)
 	{
 		if (Modifier.IsBound())
 		{
@@ -498,7 +494,7 @@ void UCombatComponent::NotifyOfOutgoingDamage(FDamagingEvent const& DamageEvent)
 	}
 }
 
-void UCombatComponent::NotifyOfOutgoingHealing(FHealingEvent const& HealingEvent)
+void UCombatComponent::NotifyOfOutgoingHealing(FDamagingEvent const& HealingEvent)
 {
 	OnOutgoingHealing.Broadcast(HealingEvent);
 	if (IsValid(OwnerAsPawn) && !OwnerAsPawn->IsLocallyControlled())
@@ -512,7 +508,7 @@ void UCombatComponent::ClientNotifyOfIncomingDamage_Implementation(FDamagingEven
 	OnIncomingDamage.Broadcast(DamageEvent);
 }
 
-void UCombatComponent::ClientNotifyOfIncomingHealing_Implementation(FHealingEvent const& HealingEvent)
+void UCombatComponent::ClientNotifyOfIncomingHealing_Implementation(FDamagingEvent const& HealingEvent)
 {
 	OnIncomingHealing.Broadcast(HealingEvent);
 }
@@ -522,7 +518,7 @@ void UCombatComponent::ClientNotifyOfOutgoingDamage_Implementation(FDamagingEven
 	OnOutgoingDamage.Broadcast(DamageEvent);
 }
 
-void UCombatComponent::ClientNotifyOfOutgoingHealing_Implementation(FHealingEvent const& HealingEvent)
+void UCombatComponent::ClientNotifyOfOutgoingHealing_Implementation(FDamagingEvent const& HealingEvent)
 {
 	OnOutgoingHealing.Broadcast(HealingEvent);
 }
@@ -532,7 +528,7 @@ void UCombatComponent::ClientNotifyOfOutgoingHealing_Implementation(FHealingEven
 void UCombatComponent::ApplyDamage(FDamagingEvent& DamageEvent)
 {
 	DamageEvent.Result.PreviousHealth = CurrentHealth;
-    CurrentHealth = FMath::Clamp(CurrentHealth - DamageEvent.DamageInfo.Damage, 0.0f, MaxHealth);
+    CurrentHealth = FMath::Clamp(CurrentHealth - DamageEvent.Info.Value, 0.0f, MaxHealth);
 	if (CurrentHealth != DamageEvent.Result.PreviousHealth)
 	{
 		OnHealthChanged.Broadcast(DamageEvent.Result.PreviousHealth, CurrentHealth);
@@ -540,7 +536,7 @@ void UCombatComponent::ApplyDamage(FDamagingEvent& DamageEvent)
     DamageEvent.Result.Success = true;
     DamageEvent.Result.NewHealth = CurrentHealth;
     DamageEvent.Result.AmountDealt = DamageEvent.Result.PreviousHealth - CurrentHealth;
-    if (CurrentHealth == 0.0f && !CheckDeathRestricted(DamageEvent.DamageInfo))
+    if (CurrentHealth == 0.0f && !CheckDeathRestricted(DamageEvent))
     {
     	//TODO: Save pending killing blow.
     	DamageEvent.Result.KillingBlow = true;
@@ -552,10 +548,10 @@ void UCombatComponent::ApplyDamage(FDamagingEvent& DamageEvent)
     }
 }
 
-void UCombatComponent::ApplyHealing(FHealingEvent& HealingEvent)
+void UCombatComponent::ApplyHealing(FDamagingEvent& HealingEvent)
 {
 	HealingEvent.Result.PreviousHealth = CurrentHealth;
-    CurrentHealth = FMath::Clamp(CurrentHealth + HealingEvent.HealingInfo.Healing, 0.0f, MaxHealth);
+    CurrentHealth = FMath::Clamp(CurrentHealth + HealingEvent.Info.Value, 0.0f, MaxHealth);
 	if (CurrentHealth != HealingEvent.Result.PreviousHealth)
 	{
 		OnHealthChanged.Broadcast(HealingEvent.Result.PreviousHealth, CurrentHealth);
@@ -564,6 +560,7 @@ void UCombatComponent::ApplyHealing(FHealingEvent& HealingEvent)
     HealingEvent.Result.Success = true;
     HealingEvent.Result.NewHealth = CurrentHealth;
     HealingEvent.Result.AmountDealt = CurrentHealth - HealingEvent.Result.PreviousHealth;
+	HealingEvent.Result.KillingBlow = false;
     ClientNotifyOfIncomingHealing(HealingEvent);	
 }
 

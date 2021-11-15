@@ -89,7 +89,7 @@ private:
 	UFUNCTION()
 	void OnOwnerDamageTaken(FDamagingEvent const& DamageEvent);
 	UFUNCTION()
-	void OnTargetHealingTaken(FHealingEvent const& HealingEvent);
+	void OnTargetHealingTaken(FDamagingEvent const& HealingEvent);
 	UFUNCTION()
 	void OnTargetVanished(AActor* Actor);
 	UFUNCTION()
@@ -120,7 +120,7 @@ private:
 	TArray<AActor*> TargetedBy;
 
 	UPROPERTY()
-	class UDamageHandler* DamageHandlerRef;
+	class UCombatComponent* DamageHandlerRef;
 	UPROPERTY()
 	class UBuffHandler* BuffHandlerRef;
 	UFUNCTION()
@@ -140,6 +140,6 @@ private:
 	FLifeStatusCallback DeathCallback;
 	FLifeStatusCallback OwnerDeathCallback;
 	FDamageEventCallback ThreatFromDamageCallback;
-	FHealingEventCallback ThreatFromHealingCallback;
+	FDamageEventCallback ThreatFromHealingCallback;
 	FBuffRemoveCallback BuffRemovalCallback;
 };

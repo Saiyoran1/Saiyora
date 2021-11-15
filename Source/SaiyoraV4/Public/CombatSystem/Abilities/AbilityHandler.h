@@ -13,7 +13,7 @@
 class UStatHandler;
 class UResourceHandler;
 class UCrowdControlHandler;
-class UDamageHandler;
+class UCombatComponent;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class SAIYORAV4_API UAbilityHandler : public UActorComponent
@@ -36,7 +36,7 @@ public:
 	UResourceHandler* GetResourceHandlerRef() const { return ResourceHandler; }
 	UStatHandler* GetStatHandlerRef() const { return StatHandler; }
 	UCrowdControlHandler* GetCrowdControlHandlerRef() const { return CrowdControlHandler; }
-	UDamageHandler* GetDamageHandlerRef() const { return DamageHandler; }
+	UCombatComponent* GetDamageHandlerRef() const { return DamageHandler; }
 private:
 	UPROPERTY()
 	AGameState* GameStateRef;
@@ -47,7 +47,7 @@ private:
 	UPROPERTY()
 	UCrowdControlHandler* CrowdControlHandler;
 	UPROPERTY()
-	UDamageHandler* DamageHandler;
+	UCombatComponent* DamageHandler;
 //Ability Management
 public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")

@@ -5,7 +5,7 @@
 #include "Buff.h"
 #include "BuffHandler.h"
 #include "SaiyoraCombatInterface.h"
-#include "DamageHandler.h"
+#include "MegaComponent/CombatComponent.h"
 #include "SaiyoraBuffLibrary.h"
 
 float UThreatHandler::GlobalHealingThreatModifier = 0.3f;
@@ -38,7 +38,7 @@ void UThreatHandler::BeginPlay()
 				BuffHandlerRef->AddIncomingBuffRestriction(ThreatBuffRestriction);
 			}
 		}
-		DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
+		DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(GetOwner());
 		if (IsValid(DamageHandlerRef))
 		{
 			DamageHandlerRef->SubscribeToLifeStatusChanged(OwnerDeathCallback);
@@ -90,19 +90,19 @@ void UThreatHandler::OnOwnerDamageTaken(FDamagingEvent const& DamageEvent)
 	{
 		return;
 	}
-	AddThreat(EThreatType::Damage, DamageEvent.ThreatInfo.BaseThreat, DamageEvent.DamageInfo.AppliedBy,
-		DamageEvent.DamageInfo.Source, DamageEvent.ThreatInfo.IgnoreRestrictions, DamageEvent.ThreatInfo.IgnoreModifiers,
+	AddThreat(EThreatType::Damage, DamageEvent.ThreatInfo.BaseThreat, DamageEvent.Info.AppliedBy,
+		DamageEvent.Info.Source, DamageEvent.ThreatInfo.IgnoreRestrictions, DamageEvent.ThreatInfo.IgnoreModifiers,
 		DamageEvent.ThreatInfo.SourceModifier);
 }
 
-void UThreatHandler::OnTargetHealingTaken(FHealingEvent const& HealingEvent)
+void UThreatHandler::OnTargetHealingTaken(FDamagingEvent const& HealingEvent)
 {
 	if (!HealingEvent.Result.Success || !HealingEvent.ThreatInfo.GeneratesThreat)
 	{
 		return;
 	}
-	AddThreat(EThreatType::Healing, (HealingEvent.ThreatInfo.BaseThreat * GlobalHealingThreatModifier), HealingEvent.HealingInfo.AppliedBy,
-		HealingEvent.HealingInfo.Source, HealingEvent.ThreatInfo.IgnoreRestrictions, HealingEvent.ThreatInfo.IgnoreModifiers,
+	AddThreat(EThreatType::Healing, (HealingEvent.ThreatInfo.BaseThreat * GlobalHealingThreatModifier), HealingEvent.Info.AppliedBy,
+		HealingEvent.Info.Source, HealingEvent.ThreatInfo.IgnoreRestrictions, HealingEvent.ThreatInfo.IgnoreModifiers,
 		HealingEvent.ThreatInfo.SourceModifier);
 }
 
@@ -238,7 +238,7 @@ FThreatEvent UThreatHandler::AddThreat(EThreatType const ThreatType, float const
 		return Result;
 	}
 	//Generator must either be alive, or not have a health component.
-	UDamageHandler* GeneratorHealth = ISaiyoraCombatInterface::Execute_GetDamageHandler(AppliedBy);
+	UCombatComponent* GeneratorHealth = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(AppliedBy);
 	if (IsValid(GeneratorHealth) && GeneratorHealth->GetLifeStatus() != ELifeStatus::Alive)
 	{
 		return Result;
@@ -247,7 +247,7 @@ FThreatEvent UThreatHandler::AddThreat(EThreatType const ThreatType, float const
 	if (IsValid(GeneratorComponent->GetMisdirectTarget()))
 	{
 		//If we are misdirected to a different actor, that actor must also be alive or not have a health component.
-		UDamageHandler* MisdirectHealth = ISaiyoraCombatInterface::Execute_GetDamageHandler(GeneratorComponent->GetMisdirectTarget());
+		UCombatComponent* MisdirectHealth = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(GeneratorComponent->GetMisdirectTarget());
 		if (IsValid(MisdirectHealth) && MisdirectHealth->GetLifeStatus() != ELifeStatus::Alive)
 		{
 			//If the misdirected actor is dead, threat will come from the original generator.
@@ -448,7 +448,7 @@ void UThreatHandler::AddToThreatTable(AActor* Actor, float const InitialThreat, 
 		TargetThreatHandler->SubscribeToVanished(VanishCallback);
 		TargetThreatHandler->NotifyAddedToThreatTable(GetOwner());
 	}
-	UDamageHandler* TargetDamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(Actor);
+	UCombatComponent* TargetDamageHandler = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(Actor);
 	if (IsValid(TargetDamageHandler))
 	{	
 		TargetDamageHandler->SubscribeToLifeStatusChanged(DeathCallback);
@@ -474,7 +474,7 @@ void UThreatHandler::RemoveFromThreatTable(AActor* Actor)
 				TargetThreatHandler->UnsubscribeFromVanished(VanishCallback);
 				TargetThreatHandler->NotifyRemovedFromThreatTable(GetOwner());
 			}
-			UDamageHandler* TargetDamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(Actor);
+			UCombatComponent* TargetDamageHandler = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(Actor);
 			if (IsValid(TargetDamageHandler))
 			{	
 				TargetDamageHandler->UnsubscribeFromLifeStatusChanged(DeathCallback);
@@ -715,7 +715,7 @@ void UThreatHandler::AddFixate(AActor* Target, UBuff* Source)
 	{
 		return;
 	}
-	UDamageHandler* HealthComponent = ISaiyoraCombatInterface::Execute_GetDamageHandler(Target);
+	UCombatComponent* HealthComponent = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(Target);
 	if (IsValid(HealthComponent) && HealthComponent->GetLifeStatus() != ELifeStatus::Alive)
 	{
 		return;
@@ -806,7 +806,7 @@ void UThreatHandler::AddBlind(AActor* Target, UBuff* Source)
 	{
 		return;
 	}
-	UDamageHandler* HealthComponent = ISaiyoraCombatInterface::Execute_GetDamageHandler(Target);
+	UCombatComponent* HealthComponent = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(Target);
 	if (IsValid(HealthComponent) && HealthComponent->GetLifeStatus() != ELifeStatus::Alive)
 	{
 		return;

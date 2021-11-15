@@ -76,7 +76,7 @@ private:
 	UPROPERTY()
 	class UCrowdControlHandler* OwnerCcHandler = nullptr;
 	UPROPERTY()
-	UDamageHandler* OwnerDamageHandler = nullptr;
+	class UCombatComponent* OwnerDamageHandler = nullptr;
 	UPROPERTY()
 	UStatHandler* OwnerStatHandler = nullptr;
 	UPROPERTY()

@@ -32,7 +32,7 @@ public:
 
 	//Apply healing to an actor.
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Healing")
-	static FHealingEvent ApplyHealing(
+	static FDamagingEvent ApplyHealing(
 		float const Amount,
 		AActor* AppliedBy,
 		AActor* AppliedTo,

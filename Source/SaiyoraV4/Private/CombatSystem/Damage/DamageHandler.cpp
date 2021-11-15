@@ -1,6 +1,3 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
-
 #include "DamageHandler.h"
 #include "StatHandler.h"
 #include "BuffHandler.h"
@@ -8,7 +5,7 @@
 #include "SaiyoraCombatInterface.h"
 #include "UnrealNetwork.h"
 
-UDamageHandler::UDamageHandler()
+/*UDamageHandler::UDamageHandler()
 {
 	PrimaryComponentTick.bCanEverTick = false;
 	SetIsReplicatedByDefault(true);
@@ -766,3 +763,4 @@ void UDamageHandler::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& Out
 	DOREPLIFETIME(UDamageHandler, MaxHealth);
 	DOREPLIFETIME(UDamageHandler, LifeStatus);
 }
+*/

@@ -3,7 +3,7 @@
 #include "SaiyoraCombatInterface.h"
 #include "UnrealNetwork.h"
 #include "BuffHandler.h"
-#include "DamageHandler.h"
+#include "MegaComponent/CombatComponent.h"
 #include "SaiyoraBuffLibrary.h"
 
 FGameplayTag UCrowdControlHandler::CcTypeToTag(ECrowdControlType const CcType)
@@ -135,7 +135,7 @@ void UCrowdControlHandler::BeginPlay()
 		if (GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 		{
 			BuffHandler = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwner());
-			DamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
+			DamageHandler = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(GetOwner());
 		}
 		if (IsValid(BuffHandler))
 		{
@@ -456,7 +456,7 @@ void UCrowdControlHandler::RemoveIncapacitatesOnDamageTaken(FDamagingEvent const
 {
 	//TODO: Figure out exactly what qualifies for breaking incaps.
 	//Currently any non-zero and non-DoT damage will break all incaps.
-	if (DamageEvent.Result.AmountDealt > 0.0f && DamageEvent.DamageInfo.HitStyle != EDamageHitStyle::Chronic)
+	if (DamageEvent.Result.AmountDealt > 0.0f && DamageEvent.Info.HitStyle != EDamageHitStyle::Chronic)
 	{
 		PurgeCcOfType(ECrowdControlType::Incapacitate);
 	}
