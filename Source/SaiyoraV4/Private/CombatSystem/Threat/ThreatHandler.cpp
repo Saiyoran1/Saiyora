@@ -1,5 +1,5 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
-
+/*
 #include "Threat/ThreatHandler.h"
 #include "UnrealNetwork.h"
 #include "Buff.h"
@@ -940,4 +940,4 @@ void UThreatHandler::TransferThreat(AActor* FromActor, AActor* ToActor, float co
 	}
 	RemoveThreat(TransferThreat, FromActor);
 	AddThreat(EThreatType::Absolute, TransferThreat, ToActor, nullptr, true, true, FThreatModCondition());
-}
+}*/

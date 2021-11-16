@@ -49,9 +49,9 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Reaction")
 	UCombatReactionComponent* GetReactionComponent() const;
 	virtual UCombatReactionComponent* GetReactionComponent_Implementation() const { return nullptr; }
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Threat")
+	/*UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Threat")
 	UThreatHandler* GetThreatHandler() const;
-	virtual UThreatHandler* GetThreatHandler_Implementation() const { return nullptr; }
+	virtual UThreatHandler* GetThreatHandler_Implementation() const { return nullptr; }*/
 
 	//WIP
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "TEST")

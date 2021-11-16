@@ -68,7 +68,7 @@ struct FMisdirect
 	FORCEINLINE bool operator==(FMisdirect const& Other) const { return Other.SourceBuff == SourceBuff; }
 };
 
-DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FThreatCondition, FThreatEvent const&, ThreatEvent);
+DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FThreatRestriction, FThreatEvent const&, ThreatEvent);
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FThreatModCondition, FThreatEvent const&, ThreatEvent);
 
 DECLARE_DYNAMIC_DELEGATE_OneParam(FCombatStatusCallback, bool const, NewCombatStatus);

@@ -1,7 +1,7 @@
 ﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
-#include "CoreMinimal.h"
+/*#include "CoreMinimal.h"
 #include "BuffStructs.h"
 #include "GameplayTagContainer.h"
 #include "ThreatStructs.h"
@@ -142,4 +142,4 @@ private:
 	FDamageEventCallback ThreatFromDamageCallback;
 	FDamageEventCallback ThreatFromHealingCallback;
 	FBuffRemoveCallback BuffRemovalCallback;
-};
+};*/
