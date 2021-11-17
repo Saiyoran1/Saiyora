@@ -79,6 +79,11 @@ class UDamageOverTimeFunction : public UBuffFunction
 {
 	GENERATED_BODY()
 
+	UPROPERTY()
+	class UCombatComponent* TargetComponent;
+	UPROPERTY()
+	class UCombatComponent* GeneratorComponent;
+
 	float BaseDamage = 0.0f;
 	EDamageSchool DamageSchool = EDamageSchool::None;
 	float DamageInterval = 0.0f;
@@ -124,6 +129,11 @@ class UHealingOverTimeFunction : public UBuffFunction
 {
 	GENERATED_BODY()
 
+	UPROPERTY()
+	class UCombatComponent* TargetComponent;
+	UPROPERTY()
+	class UCombatComponent* GeneratorComponent;
+	
 	float BaseHealing = 0.0f;
 	EDamageSchool HealingSchool = EDamageSchool::None;
 	float HealingInterval = 0.0f;

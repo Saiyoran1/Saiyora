@@ -1,6 +1,8 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 #include "BuffFunction.h"
 #include "Buff.h"
+#include "BuffHandler.h"
+#include "CombatComponent.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraDamageFunctions.h"
 #include "StatHandler.h"
@@ -59,21 +61,25 @@ void UCustomBuffFunction::SetupCustomBuffFunctions(UBuff* Buff,
 
 void UDamageOverTimeFunction::InitialTick()
 {
-    float const InitDamage = bUsesSeparateInitialDamage ? InitialDamageAmount : BaseDamage;
-    EDamageSchool const InitSchool = bUsesSeparateInitialDamage ? InitialDamageSchool : DamageSchool;
-        
-    USaiyoraDamageFunctions::ApplyDamage(InitDamage, GetOwningBuff()->GetAppliedBy(),
-        GetOwningBuff()->GetAppliedTo(), GetOwningBuff(), EDamageHitStyle::Chronic, InitSchool, bIgnoresRestrictions,
-        bIgnoresModifiers, false, ThreatInfo);
+    if (IsValid(TargetComponent))
+    {
+        float const InitDamage = bUsesSeparateInitialDamage ? InitialDamageAmount : BaseDamage;
+        EDamageSchool const InitSchool = bUsesSeparateInitialDamage ? InitialDamageSchool : DamageSchool;
+        bool const FromSnapshot = bSnapshots && !bUsesSeparateInitialDamage;
+        TargetComponent->ApplyDamage(InitDamage, GetOwningBuff()->GetAppliedBy(), GetOwningBuff(),
+            EDamageHitStyle::Chronic, InitSchool, bIgnoresRestrictions, bIgnoresModifiers,
+            FromSnapshot, ThreatInfo);
+    }
 }
 
 void UDamageOverTimeFunction::TickDamage()
 {
-    float const TickDamage = bScalesWithStacks ? BaseDamage * GetOwningBuff()->GetCurrentStacks() : BaseDamage;
-
-    USaiyoraDamageFunctions::ApplyDamage(TickDamage, GetOwningBuff()->GetAppliedBy(),
-        GetOwningBuff()->GetAppliedTo(), GetOwningBuff(), EDamageHitStyle::Chronic, DamageSchool, bIgnoresRestrictions,
-        bIgnoresModifiers, bSnapshots, ThreatInfo);
+    if (IsValid(TargetComponent))
+    {
+        float const TickDamage = bScalesWithStacks ? BaseDamage * GetOwningBuff()->GetCurrentStacks() : BaseDamage;
+        TargetComponent->ApplyDamage(TickDamage, GetOwningBuff()->GetAppliedBy(), GetOwningBuff(), EDamageHitStyle::Chronic,
+            DamageSchool, bIgnoresRestrictions, bIgnoresModifiers, bSnapshots, ThreatInfo);
+    }
 }
 
 void UDamageOverTimeFunction::SetDamageVars(float const Damage, EDamageSchool const School, float const Interval,
@@ -94,18 +100,25 @@ void UDamageOverTimeFunction::SetDamageVars(float const Damage, EDamageSchool co
     InitialDamageAmount = InitialDamage;
     InitialDamageSchool = InitialSchool;
     ThreatInfo = ThreatParams;
+    if (IsValid(GetOwningBuff()->GetAppliedBy()) && GetOwningBuff()->GetAppliedBy()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+    {
+        GeneratorComponent = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(GetOwningBuff()->GetAppliedBy());
+    }
+    if (IsValid(GetOwningBuff()->GetAppliedTo()) && GetOwningBuff()->GetAppliedTo()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+    {
+        TargetComponent = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(GetOwningBuff()->GetAppliedTo());
+    }
 }
 
 void UDamageOverTimeFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
 {
+    if (bSnapshots && !bIgnoresModifiers && IsValid(GeneratorComponent))
+    {
+        BaseDamage = GeneratorComponent->GetSnapshotDamage(BaseDamage, GetOwningBuff()->GetAppliedTo(), GetOwningBuff(), EDamageHitStyle::Chronic, DamageSchool);
+    }
     if (bHasInitialTick)
     {
         InitialTick();
-    }
-    if (bSnapshots)
-    {
-        BaseDamage = USaiyoraDamageFunctions::GetSnapshotDamage(BaseDamage, GetOwningBuff()->GetAppliedBy(),
-            GetOwningBuff()->GetAppliedTo(), GetOwningBuff(), EDamageHitStyle::Chronic, DamageSchool, bIgnoresModifiers);
     }
     if (DamageInterval > 0.0f)
     {
@@ -115,15 +128,14 @@ void UDamageOverTimeFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
 
 void UDamageOverTimeFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
 {
-    if (bTicksOnExpire && RemoveEvent.ExpireReason == EBuffExpireReason::TimedOut && DamageInterval > 0.0f)
+    if (IsValid(TargetComponent) && bTicksOnExpire && RemoveEvent.ExpireReason == EBuffExpireReason::TimedOut && DamageInterval > 0.0f)
     {
         float const TickFraction = GetWorld()->GetTimerManager().GetTimerRemaining(TickHandle) / DamageInterval;
         if (TickFraction > 0.0f)
         {
             float const ExpireTickDamage = (bScalesWithStacks ? BaseDamage * GetOwningBuff()->GetCurrentStacks() : BaseDamage) * TickFraction;
-            USaiyoraDamageFunctions::ApplyDamage(ExpireTickDamage, GetOwningBuff()->GetAppliedBy(),
-                GetOwningBuff()->GetAppliedTo(), GetOwningBuff(), EDamageHitStyle::Chronic, DamageSchool, bIgnoresRestrictions,
-                bIgnoresModifiers, bSnapshots, ThreatInfo);
+            TargetComponent->ApplyDamage(ExpireTickDamage, GetOwningBuff()->GetAppliedBy(),GetOwningBuff(), EDamageHitStyle::Chronic,
+                DamageSchool, bIgnoresRestrictions, bIgnoresModifiers, bSnapshots, ThreatInfo);
         }
     }
 }
@@ -155,21 +167,24 @@ void UDamageOverTimeFunction::DamageOverTime(UBuff* Buff, float const Damage, ED
 
 void UHealingOverTimeFunction::InitialTick()
 {
-    float const InitHealing = bUsesSeparateInitialHealing ? InitialHealingAmount : BaseHealing;
-    EDamageSchool const InitSchool = bUsesSeparateInitialHealing ? InitialHealingSchool : HealingSchool;
-        
-    USaiyoraDamageFunctions::ApplyHealing(InitHealing, GetOwningBuff()->GetAppliedBy(),
-        GetOwningBuff()->GetAppliedTo(), GetOwningBuff(), EDamageHitStyle::Chronic, InitSchool, bIgnoresRestrictions,
-        bIgnoresModifiers, false, ThreatInfo);
+    if (IsValid(TargetComponent))
+    {
+        float const InitHealing = bUsesSeparateInitialHealing ? InitialHealingAmount : BaseHealing;
+        EDamageSchool const InitSchool = bUsesSeparateInitialHealing ? InitialHealingSchool : HealingSchool;
+        bool const FromSnapshot = bSnapshots && !bUsesSeparateInitialHealing;
+        TargetComponent->ApplyHealing(InitHealing, GetOwningBuff()->GetAppliedBy(), GetOwningBuff(),
+            EDamageHitStyle::Chronic, InitSchool, bIgnoresRestrictions, bIgnoresModifiers, FromSnapshot, ThreatInfo);
+    }
 }
 
 void UHealingOverTimeFunction::TickHealing()
 {
-    float const TickHealing = bScalesWithStacks ? BaseHealing * GetOwningBuff()->GetCurrentStacks() : BaseHealing;
-
-    USaiyoraDamageFunctions::ApplyHealing(TickHealing, GetOwningBuff()->GetAppliedBy(),
-        GetOwningBuff()->GetAppliedTo(), GetOwningBuff(), EDamageHitStyle::Chronic, HealingSchool, bIgnoresRestrictions,
-        bIgnoresModifiers, bSnapshots, ThreatInfo);
+    if (IsValid(TargetComponent))
+    {
+        float const TickHealing = bScalesWithStacks ? BaseHealing * GetOwningBuff()->GetCurrentStacks() : BaseHealing;
+        TargetComponent->ApplyHealing(TickHealing, GetOwningBuff()->GetAppliedBy(),GetOwningBuff(), EDamageHitStyle::Chronic,
+            HealingSchool, bIgnoresRestrictions,bIgnoresModifiers, bSnapshots, ThreatInfo);
+    }
 }
 
 void UHealingOverTimeFunction::SetHealingVars(float const Healing, EDamageSchool const School, float const Interval,
@@ -190,18 +205,25 @@ void UHealingOverTimeFunction::SetHealingVars(float const Healing, EDamageSchool
     InitialHealingAmount = InitialHealing;
     InitialHealingSchool = InitialSchool;
     ThreatInfo = ThreatParams;
+    if (IsValid(GetOwningBuff()->GetAppliedBy()) && GetOwningBuff()->GetAppliedBy()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+    {
+        GeneratorComponent = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(GetOwningBuff()->GetAppliedBy());
+    }
+    if (IsValid(GetOwningBuff()->GetAppliedTo()) && GetOwningBuff()->GetAppliedTo()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+    {
+        TargetComponent = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(GetOwningBuff()->GetAppliedTo());
+    }
 }
 
 void UHealingOverTimeFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
 {
+    if (bSnapshots && !bIgnoresModifiers && IsValid(GeneratorComponent))
+    {
+        BaseHealing = GeneratorComponent->GetSnapshotHealing(BaseHealing, GetOwningBuff()->GetAppliedTo(), GetOwningBuff(), EDamageHitStyle::Chronic, HealingSchool);
+    }
     if (bHasInitialTick)
     {
         InitialTick();
-    }
-    if (bSnapshots)
-    {
-        BaseHealing = USaiyoraDamageFunctions::GetSnapshotHealing(BaseHealing, GetOwningBuff()->GetAppliedBy(),
-            GetOwningBuff()->GetAppliedTo(), GetOwningBuff(), EDamageHitStyle::Chronic, HealingSchool, bIgnoresModifiers);
     }
     if (HealingInterval > 0.0f)
     {
@@ -211,15 +233,14 @@ void UHealingOverTimeFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
 
 void UHealingOverTimeFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
 {
-    if (bTicksOnExpire && RemoveEvent.ExpireReason == EBuffExpireReason::TimedOut && HealingInterval > 0.0f)
+    if (IsValid(TargetComponent) && bTicksOnExpire && RemoveEvent.ExpireReason == EBuffExpireReason::TimedOut && HealingInterval > 0.0f)
     {
         float const TickFraction = GetWorld()->GetTimerManager().GetTimerRemaining(TickHandle) / HealingInterval;
         if (TickFraction > 0.0f)
         {
             float const ExpireTickHealing = (bScalesWithStacks ? BaseHealing * GetOwningBuff()->GetCurrentStacks() : BaseHealing) * TickFraction;
-            USaiyoraDamageFunctions::ApplyHealing(ExpireTickHealing, GetOwningBuff()->GetAppliedBy(),
-                GetOwningBuff()->GetAppliedTo(), GetOwningBuff(), EDamageHitStyle::Chronic, HealingSchool, bIgnoresRestrictions,
-                bIgnoresModifiers, bSnapshots, ThreatInfo);
+            TargetComponent->ApplyHealing(ExpireTickHealing, GetOwningBuff()->GetAppliedBy(),GetOwningBuff(), EDamageHitStyle::Chronic,
+                HealingSchool, bIgnoresRestrictions,bIgnoresModifiers, bSnapshots, ThreatInfo);
         }
     }
 }

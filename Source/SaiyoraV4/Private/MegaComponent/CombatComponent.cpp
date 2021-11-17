@@ -52,10 +52,88 @@ bool UCombatComponent::ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bu
 
 #pragma region Damage and Healing
 
-void UCombatComponent::ApplyDamage(FDamagingEvent& DamageEvent)
+#pragma region Damage
+
+FDamagingEvent UCombatComponent::ApplyDamage(float const Amount, AActor* AppliedBy, UObject* Source,
+	EDamageHitStyle const HitStyle, EDamageSchool const School, bool const bIgnoreRestrictions, bool const bIgnoreModifiers,
+	bool const bFromSnapshot, FThreatFromDamage const& ThreatParams)
 {
-	//TODO: Convert from static function to just component function.
-	//TODO: Add threat from damage.
+    FDamagingEvent DamageEvent;
+    if (GetOwnerRole() != ROLE_Authority || !IsValid(AppliedBy) || !IsValid(Source))
+    {
+        return DamageEvent;
+    }
+    if (!bCanEverReceiveDamage || (bHasHealth && LifeStatus != ELifeStatus::Alive))
+    {
+        return DamageEvent;
+    }
+
+    DamageEvent.Info.Value = Amount;
+    DamageEvent.Info.SnapshotValue = Amount;
+    DamageEvent.Info.AppliedBy = AppliedBy;
+    DamageEvent.Info.AppliedTo = GetOwner();
+    DamageEvent.Info.Source = Source;
+    DamageEvent.Info.HitStyle = HitStyle;
+    DamageEvent.Info.School = School;
+    DamageEvent.Info.AppliedByPlane = USaiyoraCombatLibrary::GetActorPlane(AppliedBy);
+    DamageEvent.Info.AppliedToPlane = USaiyoraCombatLibrary::GetActorPlane(GetOwner());
+    DamageEvent.Info.AppliedXPlane = USaiyoraCombatLibrary::CheckForXPlane(
+        DamageEvent.Info.AppliedByPlane, DamageEvent.Info.AppliedToPlane);
+
+    DamageEvent.ThreatInfo = ThreatParams;
+     if (!ThreatParams.SeparateBaseThreat)
+     {
+         DamageEvent.ThreatInfo.BaseThreat = DamageEvent.Info.Value;
+     }
+    
+    //Check for generator. Not required.
+    UCombatComponent* GeneratorComponent = nullptr;
+    if (AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+    {
+        GeneratorComponent = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(AppliedBy);
+    }
+
+    //Modify the damage, if ignore modifiers is false.
+    if (!bIgnoreModifiers)
+    {
+        //Damage that is not snapshotted and has a generator component should apply outgoing modifiers.
+        if (!bFromSnapshot && IsValid(GeneratorComponent))
+        {
+            //Apply relevant outgoing mods, save off snapshot damage for use in DoTs.
+            DamageEvent.Info.Value = GeneratorComponent->GetSnapshotDamage(DamageEvent.Info);
+            DamageEvent.Info.SnapshotValue = DamageEvent.Info.Value;
+        }
+        //Apply relevant incoming mods.
+        TArray<FCombatModifier> IncomingMods;
+    	for (FDamageModCondition const& Modifier : IncomingDamageModifiers)
+    	{
+    		if (Modifier.IsBound())
+    		{
+    			FCombatModifier Mod = Modifier.Execute(DamageEvent.Info);
+    			if (Mod.GetModType() != EModifierType::Invalid)
+    			{
+    				IncomingMods.Add(Mod);
+    			}
+    		}
+    	}
+    	//TODO: Add DamageTaken stat mod. Probably condense this to a function for ease of use?
+        DamageEvent.Info.Value = FCombatModifier::ApplyModifiers(IncomingMods, DamageEvent.Info.Value);
+    }
+
+    //Check for restrictions, if ignore restrictions is false.
+    if (!bIgnoreRestrictions)
+    {
+        //Check incoming restrictions.
+        if (CheckIncomingDamageRestricted(DamageEvent.Info))
+        {
+            return DamageEvent;
+        }
+        //Check outgoing restrictions.
+        if (IsValid(GeneratorComponent) && GeneratorComponent->CheckOutgoingDamageRestricted(DamageEvent.Info))
+        {
+            return DamageEvent;
+        }
+    }
 	DamageEvent.Result.PreviousHealth = CurrentHealth;
 	CurrentHealth = FMath::Clamp(CurrentHealth - DamageEvent.Info.Value, 0.0f, MaxHealth);
 	if (CurrentHealth != DamageEvent.Result.PreviousHealth)
@@ -65,48 +143,217 @@ void UCombatComponent::ApplyDamage(FDamagingEvent& DamageEvent)
 	DamageEvent.Result.Success = true;
 	DamageEvent.Result.NewHealth = CurrentHealth;
 	DamageEvent.Result.AmountDealt = DamageEvent.Result.PreviousHealth - CurrentHealth;
-	if (CurrentHealth == 0.0f && !CheckDeathRestricted(DamageEvent))
+	if (CurrentHealth == 0.0f)
 	{
-		//TODO: Save pending killing blow.
-		DamageEvent.Result.KillingBlow = true;
+		if (!CheckDeathRestricted(DamageEvent))
+		{
+			DamageEvent.Result.KillingBlow = true;
+		}
+		else if (!bHasPendingKillingBlow)
+		{
+			bHasPendingKillingBlow = true;
+			PendingKillingBlow = DamageEvent;
+		}
 	}
 	ClientNotifyOfIncomingDamage(DamageEvent);
+	//Notify the generator if one exists and the event was a success.
+	if (DamageEvent.Result.Success && IsValid(GeneratorComponent))
+	{
+		GeneratorComponent->NotifyOfOutgoingDamage(DamageEvent);
+	}
 	if (DamageEvent.Result.KillingBlow)
 	{
 		Die();
 	}
+	else if (DamageEvent.ThreatInfo.GeneratesThreat)
+	{
+		AddThreat(EThreatType::Damage, DamageEvent.ThreatInfo.BaseThreat, AppliedBy,
+			Source, DamageEvent.ThreatInfo.IgnoreRestrictions, DamageEvent.ThreatInfo.IgnoreModifiers,
+			DamageEvent.ThreatInfo.SourceModifier);
+	}
+    
+	return DamageEvent;
 }
 
-void UCombatComponent::ApplyHealing(FDamagingEvent& HealingEvent)
+float UCombatComponent::GetSnapshotDamage(float const Amount, AActor* AppliedTo, UObject* Source,
+	EDamageHitStyle const HitStyle, EDamageSchool const School)
 {
-	//TODO: Convert from static function to just component function.
-	//TODO: Add threat from healing.
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(AppliedTo) || !IsValid(Source))
+	{
+		return 0.0f;
+	}
+	FDamageInfo Info;
+	Info.AppliedBy = GetOwner();
+	Info.AppliedTo = AppliedTo;
+	Info.Source = Source;
+	Info.Value = Amount;
+	Info.HitStyle = HitStyle;
+	Info.School = School;
+	Info.AppliedByPlane = USaiyoraCombatLibrary::GetActorPlane(GetOwner());
+	Info.AppliedToPlane = USaiyoraCombatLibrary::GetActorPlane(AppliedTo);
+	Info.AppliedXPlane = USaiyoraCombatLibrary::CheckForXPlane(Info.AppliedByPlane, Info.AppliedToPlane);
+	return GetSnapshotDamage(Info);
+}
+
+float UCombatComponent::GetSnapshotDamage(FDamageInfo const& Event)
+{
+	TArray<FCombatModifier> Mods;
+	for (FDamageModCondition const& Modifier : OutgoingDamageModifiers)
+	{
+		if (Modifier.IsBound())
+		{
+			FCombatModifier Mod = Modifier.Execute(Event);
+			if (Mod.GetModType() != EModifierType::Invalid)
+			{
+				Mods.Add(Mod);
+			}
+		}
+	}
+	//TODO: Add DamageDone stat mod.
+	return FCombatModifier::ApplyModifiers(Mods, Event.Value);
+}
+
+#pragma endregion
+#pragma region Healing
+
+FDamagingEvent UCombatComponent::ApplyHealing(float const Amount, AActor* AppliedBy, UObject* Source,
+	EDamageHitStyle const HitStyle, EDamageSchool const School, bool const bIgnoreRestrictions, bool const bIgnoreModifiers,
+	bool const bFromSnapshot, FThreatFromDamage const& ThreatParams)
+{
+    FDamagingEvent HealingEvent;
+    if (GetOwnerRole() != ROLE_Authority || !IsValid(AppliedBy) || !IsValid(Source))
+    {
+        return HealingEvent;
+    }
+    if (!bCanEverReceiveHealing || (bHasHealth && LifeStatus != ELifeStatus::Alive))
+    {
+        return HealingEvent;
+    }
+    HealingEvent.Info.Value = Amount;
+    HealingEvent.Info.SnapshotValue = Amount;
+    HealingEvent.Info.AppliedBy = AppliedBy;
+    HealingEvent.Info.AppliedTo = GetOwner();
+    HealingEvent.Info.Source = Source;
+    HealingEvent.Info.HitStyle = HitStyle;
+    HealingEvent.Info.School = School;
+    HealingEvent.Info.AppliedByPlane = USaiyoraCombatLibrary::GetActorPlane(AppliedBy);
+    HealingEvent.Info.AppliedToPlane = USaiyoraCombatLibrary::GetActorPlane(GetOwner());
+    HealingEvent.Info.AppliedXPlane = USaiyoraCombatLibrary::CheckForXPlane(
+        HealingEvent.Info.AppliedByPlane, HealingEvent.Info.AppliedToPlane);
+    HealingEvent.ThreatInfo = ThreatParams;
+    if (!ThreatParams.SeparateBaseThreat)
+    {
+        HealingEvent.ThreatInfo.BaseThreat = HealingEvent.Info.Value;
+    }
+    //Check for generator. Not required.
+    UCombatComponent* GeneratorComponent = nullptr;
+    if (AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+    {
+        GeneratorComponent = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(AppliedBy);
+    }
+    //Modify the healing, if ignore modifiers is false.
+    if (!bIgnoreModifiers)
+    {
+        //Apply relevant outgoing modifiers, save off snapshot healing for use in HoTs.
+        if (!bFromSnapshot && IsValid(GeneratorComponent))
+        {
+            HealingEvent.Info.Value = GeneratorComponent->GetSnapshotHealing(HealingEvent.Info);
+            HealingEvent.Info.SnapshotValue = HealingEvent.Info.Value;
+        }
+        //Apply relevant incoming mods.
+        TArray<FCombatModifier> IncomingMods;
+        for (FDamageModCondition const& Modifier : IncomingHealingModifiers)
+        {
+	        if (Modifier.IsBound())
+	        {
+		        FCombatModifier Mod = Modifier.Execute(HealingEvent.Info);
+	        	if (Mod.GetModType() != EModifierType::Invalid)
+	        	{
+	        		IncomingMods.Add(Mod);
+	        	}
+	        }
+        }
+    	//TODO: Add HealingTaken stat mod, probably convert to ModifyIncomingHealing function.
+        HealingEvent.Info.Value = FCombatModifier::ApplyModifiers(IncomingMods, HealingEvent.Info.Value);
+    }
+    //Check for restrictions, if ignore restrictions is false.
+    if (!bIgnoreRestrictions)
+    {
+        //Check incoming restrictions.
+        if (CheckIncomingHealingRestricted(HealingEvent.Info))
+        {
+            return HealingEvent;
+        }
+        //Check outgoing restrictions.
+        if (IsValid(GeneratorComponent) && GeneratorComponent->CheckOutgoingHealingRestricted(HealingEvent.Info))
+        {
+            return HealingEvent;
+        }
+    }
 	HealingEvent.Result.PreviousHealth = CurrentHealth;
 	CurrentHealth = FMath::Clamp(CurrentHealth + HealingEvent.Info.Value, 0.0f, MaxHealth);
 	if (CurrentHealth != HealingEvent.Result.PreviousHealth)
 	{
 		OnHealthChanged.Broadcast(HealingEvent.Result.PreviousHealth, CurrentHealth);
 	}
-	//TODO: Check if previously pending death, clear pending killing blow if health increases above zero.
+	//Clear pending killing blow when health gets above 0.
+	if (bHasPendingKillingBlow && CurrentHealth > 0.0f)
+	{
+		bHasPendingKillingBlow = false;
+		PendingKillingBlow = FDamagingEvent();
+	}
 	HealingEvent.Result.Success = true;
 	HealingEvent.Result.NewHealth = CurrentHealth;
 	HealingEvent.Result.AmountDealt = CurrentHealth - HealingEvent.Result.PreviousHealth;
 	HealingEvent.Result.KillingBlow = false;
-	ClientNotifyOfIncomingHealing(HealingEvent);	
-}
-
-void UCombatComponent::Die()
-{
-	//TODO: Convert to generic SetLifeStatus() function that can be reused during respawn?
-	ELifeStatus const PreviousStatus = LifeStatus;
-	LifeStatus = ELifeStatus::Dead;
-	if (LifeStatus != PreviousStatus)
+	ClientNotifyOfIncomingHealing(HealingEvent);
+	//Notify the generator if one exists and the event was a success.
+	if (HealingEvent.Result.Success && IsValid(GeneratorComponent))
 	{
-		OnLifeStatusChanged.Broadcast(GetOwner(), PreviousStatus, LifeStatus);
+		GeneratorComponent->NotifyOfOutgoingHealing(HealingEvent);
 	}
-	//TODO: Clear threat table, clear actor from all other threat tables.
+	return HealingEvent;
 }
 
+float UCombatComponent::GetSnapshotHealing(float const Amount, AActor* AppliedTo, UObject* Source,
+	EDamageHitStyle const HitStyle, EDamageSchool const School)
+{
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(AppliedTo) || !IsValid(Source))
+	{
+		return 0.0f;
+	}
+	FDamageInfo Info;
+	Info.Value = Amount;
+	Info.AppliedBy = GetOwner();
+	Info.AppliedTo = AppliedTo;
+	Info.Source = Source;
+	Info.HitStyle = HitStyle;
+	Info.School = School;
+	Info.AppliedByPlane = USaiyoraCombatLibrary::GetActorPlane(GetOwner());
+	Info.AppliedToPlane = USaiyoraCombatLibrary::GetActorPlane(AppliedTo);
+	Info.AppliedXPlane = USaiyoraCombatLibrary::CheckForXPlane(Info.AppliedByPlane, Info.AppliedToPlane);
+	return GetSnapshotHealing(Info);
+}
+
+float UCombatComponent::GetSnapshotHealing(FDamageInfo const& Event)
+{
+	TArray<FCombatModifier> Mods;
+	for (FDamageModCondition const& Modifier : OutgoingHealingModifiers)
+	{
+		if (Modifier.IsBound())
+		{
+			FCombatModifier Mod = Modifier.Execute(Event);
+			if (Mod.GetModType() != EModifierType::Invalid)
+			{
+				Mods.Add(Mod);
+			}
+		}
+	}
+	//TODO: Add HealingDone stat mod.
+	return FCombatModifier::ApplyModifiers(Mods, Event.Value);
+}
+
+#pragma endregion 
 #pragma region Subscriptions
 
 void UCombatComponent::SubscribeToHealthChanged(FHealthChangeCallback const& Callback)
@@ -217,6 +464,24 @@ void UCombatComponent::UnsubscribeFromOutgoingDamageSuccess(FDamageEventCallback
 	OnOutgoingDamage.Remove(Callback);
 }
 
+void UCombatComponent::SubscribeToKillingBlow(FDamageEventCallback const& Callback)
+{
+	if (!Callback.IsBound())
+	{
+		return;
+	}
+	OnKillingBlow.AddUnique(Callback);
+}
+
+void UCombatComponent::UnsubscribeFromKillingBlow(FDamageEventCallback const& Callback)
+{
+	if (!Callback.IsBound())
+	{
+		return;
+	}
+	OnKillingBlow.Remove(Callback);
+}
+
 void UCombatComponent::SubscribeToOutgoingHealingSuccess(FDamageEventCallback const& Callback)
 {
 	if (!Callback.IsBound())
@@ -254,9 +519,22 @@ void UCombatComponent::RemoveDeathRestriction(FDeathRestriction const& Restricti
 		return;
 	}
 	int32 const Removed = DeathRestrictions.Remove(Restriction);
-	if (Removed > 0)
+	if (Removed > 0 && bHasPendingKillingBlow)
 	{
-		//TODO: Recheck for pending death that was previously restricted.
+		if (!CheckDeathRestricted(PendingKillingBlow))
+		{
+			Die();
+			if (IsValid(PendingKillingBlow.Info.AppliedBy) && PendingKillingBlow.Info.AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+			{
+				UCombatComponent* GeneratorComponent = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(PendingKillingBlow.Info.AppliedBy);
+				if (IsValid(GeneratorComponent))
+				{
+					GeneratorComponent->NotifyOfDelayedKillingBlow(PendingKillingBlow);
+				}
+			}
+			bHasPendingKillingBlow = false;
+			PendingKillingBlow = FDamagingEvent();
+		}
 	}
 }
 
@@ -424,22 +702,6 @@ void UCombatComponent::RemoveIncomingDamageModifier(FDamageModCondition const& M
 	IncomingDamageModifiers.Remove(Modifier);
 }
 
-void UCombatComponent::GetIncomingDamageMods(FDamageInfo const& DamageInfo, TArray<FCombatModifier>& OutMods)
-{
-	for (FDamageModCondition const& Modifier : IncomingDamageModifiers)
-	{
-		if (Modifier.IsBound())
-		{
-			FCombatModifier Mod = Modifier.Execute(DamageInfo);
-			if (Mod.GetModType() != EModifierType::Invalid)
-			{
-				OutMods.Add(Mod);
-			}
-		}
-	}
-	//TODO: Add DamageTaken stat mod.
-}
-
 void UCombatComponent::AddIncomingHealingModifier(FDamageModCondition const& Modifier)
 {
 	if (GetOwnerRole() != ROLE_Authority || !Modifier.IsBound())
@@ -456,22 +718,6 @@ void UCombatComponent::RemoveIncomingHealingModifier(FDamageModCondition const& 
 		return;
 	}
 	IncomingHealingModifiers.Remove(Modifier);
-}
-
-void UCombatComponent::GetIncomingHealingMods(FDamageInfo const& HealingInfo, TArray<FCombatModifier>& OutMods)
-{
-	for (FDamageModCondition const& Modifier : IncomingHealingModifiers)
-	{
-		if (Modifier.IsBound())
-		{
-			FCombatModifier Mod = Modifier.Execute(HealingInfo);
-			if (Mod.GetModType() != EModifierType::Invalid)
-			{
-				OutMods.Add(Mod);
-			}
-		}
-	}
-	//TODO: Add HealingTaken stat mod.
 }
 
 void UCombatComponent::AddOutgoingDamageModifier(FDamageModCondition const& Modifier)
@@ -492,22 +738,6 @@ void UCombatComponent::RemoveOutgoingDamageModifier(FDamageModCondition const& M
 	OutgoingDamageModifiers.Remove(Modifier);
 }
 
-void UCombatComponent::GetOutgoingDamageMods(FDamageInfo const& DamageInfo, TArray<FCombatModifier>& OutMods)
-{
-	for (FDamageModCondition const& Modifier : OutgoingDamageModifiers)
-	{
-		if (Modifier.IsBound())
-		{
-			FCombatModifier Mod = Modifier.Execute(DamageInfo);
-			if (Mod.GetModType() != EModifierType::Invalid)
-			{
-				OutMods.Add(Mod);
-			}
-		}
-	}
-	//TODO: Add DamageDone stat mod.
-}
-
 void UCombatComponent::AddOutgoingHealingModifier(FDamageModCondition const& Modifier)
 {
 	if (GetOwnerRole() != ROLE_Authority || !Modifier.IsBound())
@@ -526,28 +756,16 @@ void UCombatComponent::RemoveOutgoingHealingModifier(FDamageModCondition const& 
 	OutgoingHealingModifiers.Remove(Modifier);
 }
 
-void UCombatComponent::GetOutgoingHealingMods(FDamageInfo const& HealingInfo, TArray<FCombatModifier>& OutMods)
-{
-	for (FDamageModCondition const& Modifier : OutgoingHealingModifiers)
-	{
-		if (Modifier.IsBound())
-		{
-			FCombatModifier Mod = Modifier.Execute(HealingInfo);
-			if (Mod.GetModType() != EModifierType::Invalid)
-			{
-				OutMods.Add(Mod);
-			}
-		}
-	}
-	//TODO: Add HealingDone stat mod.
-}
-
 #pragma endregion
 #pragma region Notifies
 
 void UCombatComponent::NotifyOfOutgoingDamage(FDamagingEvent const& DamageEvent)
 {
 	OnOutgoingDamage.Broadcast(DamageEvent);
+	if (DamageEvent.Result.KillingBlow)
+	{
+		OnKillingBlow.Broadcast(DamageEvent);
+	}
 	if (IsValid(OwnerAsPawn) && !OwnerAsPawn->IsLocallyControlled())
 	{
 		ClientNotifyOfOutgoingDamage(DamageEvent);
@@ -560,6 +778,15 @@ void UCombatComponent::NotifyOfOutgoingHealing(FDamagingEvent const& HealingEven
 	if (IsValid(OwnerAsPawn) && !OwnerAsPawn->IsLocallyControlled())
 	{
 		ClientNotifyOfOutgoingHealing(HealingEvent);
+	}
+}
+
+void UCombatComponent::NotifyOfDelayedKillingBlow(FDamagingEvent const& KillingBlow)
+{
+	OnKillingBlow.Broadcast(KillingBlow);
+	if (IsValid(OwnerAsPawn) && !OwnerAsPawn->IsLocallyControlled())
+	{
+		ClientNotifyOfDelayedKillingBlow(KillingBlow);
 	}
 }
 
@@ -576,6 +803,15 @@ void UCombatComponent::ClientNotifyOfIncomingHealing_Implementation(FDamagingEve
 void UCombatComponent::ClientNotifyOfOutgoingDamage_Implementation(FDamagingEvent const& DamageEvent)
 {
 	OnOutgoingDamage.Broadcast(DamageEvent);
+	if (DamageEvent.Result.KillingBlow)
+	{
+		OnKillingBlow.Broadcast(DamageEvent);
+	}
+}
+
+void UCombatComponent::ClientNotifyOfDelayedKillingBlow_Implementation(FDamagingEvent const& KillingBlow)
+{
+	OnKillingBlow.Broadcast(KillingBlow);
 }
 
 void UCombatComponent::ClientNotifyOfOutgoingHealing_Implementation(FDamagingEvent const& HealingEvent)
@@ -584,6 +820,19 @@ void UCombatComponent::ClientNotifyOfOutgoingHealing_Implementation(FDamagingEve
 }
 
 #pragma endregion
+
+void UCombatComponent::Die()
+{
+	ELifeStatus const PreviousStatus = LifeStatus;
+	LifeStatus = ELifeStatus::Dead;
+	if (LifeStatus != PreviousStatus)
+	{
+		OnLifeStatusChanged.Broadcast(GetOwner(), PreviousStatus, LifeStatus);
+	}
+	//TODO: Clear threat table, clear actor from all other threat tables.
+	//TODO: Remove all buffs that don't persist through death.
+	//TODO: Cancel cast if necessary.
+}
 
 #pragma endregion
 #pragma region Threat
