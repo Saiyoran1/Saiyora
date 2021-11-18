@@ -6,6 +6,9 @@
 #include "Components/ActorComponent.h"
 #include "CombatComponent.generated.h"
 
+class UCombatGroup;
+class ASaiyoraGameState;
+
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class SAIYORAV4_API UCombatComponent : public UActorComponent
 {
@@ -17,9 +20,12 @@ public:
 	virtual void InitializeComponent() override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual bool ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags) override;
+	ASaiyoraGameState* GetGameStateRef() const { return GameStateRef; }
 private:
 	UPROPERTY()
 	APawn* OwnerAsPawn = nullptr;
+	UPROPERTY()
+	ASaiyoraGameState* GameStateRef;
 
 #pragma region Damage and Healing
 	
@@ -256,6 +262,8 @@ private:
 	bool bInCombat = false;
 	UFUNCTION()
 	void OnRep_bInCombat();
+	UPROPERTY()
+	UCombatGroup* CombatGroup;
 	void UpdateCombatStatus();
 	UPROPERTY(ReplicatedUsing=OnRep_CurrentTarget)
     AActor* CurrentTarget = nullptr;

@@ -1,7 +1,9 @@
 ﻿#include "MegaComponent/CombatComponent.h"
 #include "Buff.h"
+#include "CombatGroup.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraCombatLibrary.h"
+#include "SaiyoraGameState.h"
 #include "UnrealNetwork.h"
 
 UCombatComponent::UCombatComponent()
@@ -14,6 +16,12 @@ UCombatComponent::UCombatComponent()
 void UCombatComponent::BeginPlay()
 {
 	Super::BeginPlay();
+	GameStateRef = Cast<ASaiyoraGameState>(GetWorld()->GetGameState());
+	if (!IsValid(GameStateRef))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Invalid Game State Ref in CombatComponent!"));
+		return;
+	}
 }
 
 void UCombatComponent::InitializeComponent()
@@ -164,12 +172,6 @@ FDamagingEvent UCombatComponent::ApplyDamage(float const Amount, AActor* Applied
 	if (DamageEvent.Result.KillingBlow)
 	{
 		Die();
-	}
-	else if (DamageEvent.ThreatInfo.GeneratesThreat)
-	{
-		AddThreat(EThreatType::Damage, DamageEvent.ThreatInfo.BaseThreat, AppliedBy,
-			Source, DamageEvent.ThreatInfo.IgnoreRestrictions, DamageEvent.ThreatInfo.IgnoreModifiers,
-			DamageEvent.ThreatInfo.SourceModifier);
 	}
     
 	return DamageEvent;
