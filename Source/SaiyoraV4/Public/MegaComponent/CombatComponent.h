@@ -27,6 +27,26 @@ private:
 	UPROPERTY()
 	ASaiyoraGameState* GameStateRef;
 
+#pragma region Combat Status
+
+public:
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Threat")
+	bool IsInCombat() const { return bInCombat; }
+	void NotifyOfCombatJoined(UCombatGroup* Group);
+	void NotifyOfCombatLeft(UCombatGroup* Group);
+	void NotifyOfNewCombatant(UCombatComponent* Combatant);
+	void NotifyOfCombatantRemoved(UCombatComponent* Combatant);
+private:
+	UPROPERTY(ReplicatedUsing=OnRep_bInCombat)
+	bool bInCombat = false;
+	UFUNCTION()
+	void OnRep_bInCombat();
+	UPROPERTY()
+	UCombatGroup* CombatGroup;
+	void UpdateCombatStatus();
+
+#pragma endregion 
+
 #pragma region Damage and Healing
 	
 	/*
@@ -45,21 +65,21 @@ public:
 	static FGameplayTag BuffFunctionHealingTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Buff.Healing")), false); }
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Damage")
-	FDamagingEvent ApplyDamage(float const Amount, AActor* AppliedBy, UObject* Source,
+	FDamagingEvent ApplyDamage(float const Amount, UCombatComponent* AppliedBy, UObject* Source,
 		EDamageHitStyle const HitStyle, EDamageSchool const School, bool const bIgnoreRestrictions,
 		bool const bIgnoreModifiers, bool const bFromSnapshot, FThreatFromDamage const& ThreatParams);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Damage")
-	float GetSnapshotDamage(float const Amount, AActor* AppliedTo, UObject* Source, EDamageHitStyle const HitStyle, EDamageSchool const School);
+	float GetSnapshotDamage(float const Amount, UCombatComponent* AppliedTo, UObject* Source, EDamageHitStyle const HitStyle, EDamageSchool const School);
 	float GetSnapshotDamage(FDamageInfo const& Event);
 	void NotifyOfOutgoingDamage(FDamagingEvent const& DamageEvent);
 	void NotifyOfDelayedKillingBlow(FDamagingEvent const& KillingBlow);
 	
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Healing")
-	FDamagingEvent ApplyHealing(float const Amount, AActor* AppliedBy, UObject* Source,
+	FDamagingEvent ApplyHealing(float const Amount, UCombatComponent* AppliedBy, UObject* Source,
 		EDamageHitStyle const HitStyle, EDamageSchool const School, bool const bIgnoreRestrictions,
 		bool const bIgnoreModifiers, bool const bFromSnapshot, FThreatFromDamage const& ThreatParams);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Healing")
-	float GetSnapshotHealing(float const Amount, AActor* AppliedTo, UObject* Source, EDamageHitStyle const HitStyle, EDamageSchool const School);
+	float GetSnapshotHealing(float const Amount, UCombatComponent* AppliedTo, UObject* Source, EDamageHitStyle const HitStyle, EDamageSchool const School);
 	float GetSnapshotHealing(FDamageInfo const& Event);
 	void NotifyOfOutgoingHealing(FDamagingEvent const& HealingEvent);
 	
@@ -247,40 +267,32 @@ public:
 	static float GlobalThreatDecayInterval;
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Threat")
-	bool IsInCombat() const { return bInCombat; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Threat")
-	AActor* GetCurrentTarget() const { return CurrentTarget; }
+	UCombatComponent* GetCurrentTarget() const { return CurrentTarget; }
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
-	FThreatEvent AddThreat(EThreatType const ThreatType, float const BaseThreat, AActor* AppliedBy,
+	FThreatEvent AddThreat(EThreatType const ThreatType, float const BaseThreat, UCombatComponent* AppliedBy,
 			UObject* Source, bool const bIgnoreRestrictions, bool const bIgnoreModifiers, FThreatModCondition const& SourceModifier);
 	UFUNCTION(BlueprintCallable, BlueprintPure, BlueprintAuthorityOnly, Category = "Threat")
-	float GetThreatLevel(AActor* Target) const;
-	void NotifyAddedToThreatTable(AActor* Actor);
-	void NotifyRemovedFromThreatTable(AActor* Actor);
+	float GetThreatLevel(UCombatComponent* Target) const;
+	void NotifyAddedToThreatTable(UCombatComponent* Target);
+	void NotifyRemovedFromThreatTable(UCombatComponent* Target);
+	
 private:
-	UPROPERTY(ReplicatedUsing=OnRep_bInCombat)
-	bool bInCombat = false;
-	UFUNCTION()
-	void OnRep_bInCombat();
-	UPROPERTY()
-	UCombatGroup* CombatGroup;
-	void UpdateCombatStatus();
 	UPROPERTY(ReplicatedUsing=OnRep_CurrentTarget)
-    AActor* CurrentTarget = nullptr;
+	UCombatComponent* CurrentTarget = nullptr;
     UFUNCTION()
-    void OnRep_CurrentTarget(AActor* PreviousTarget);
+    void OnRep_CurrentTarget(UCombatComponent* PreviousTarget);
 	void UpdateTarget();
 	UPROPERTY()
 	TArray<FThreatTarget> ThreatTable;
-	void AddToThreatTable(AActor* Target, float const InitialThreat = 0.0f, bool const bFaded = false, UBuff* InitialFixate = nullptr, UBuff* InitialBlind = nullptr);
-	void RemoveFromThreatTable(AActor* Target);
-	void RemoveThreat(AActor* Target, float const Amount);
+	void AddToThreatTable(UCombatComponent* Target, float const InitialThreat = 0.0f, bool const bFaded = false, UBuff* InitialFixate = nullptr, UBuff* InitialBlind = nullptr);
+	void RemoveFromThreatTable(UCombatComponent* Target);
+	void RemoveThreat(UCombatComponent* Target, float const Amount);
 	FTimerDelegate DecayDelegate;
 	UFUNCTION()
 	void DecayThreat();
 	FTimerHandle DecayHandle;
 	UPROPERTY()
-	TArray<AActor*> TargetedBy;
+	TArray<UCombatComponent*> TargetedBy;
 	/*UFUNCTION()
 	bool CheckBuffForThreat(FBuffApplyEvent const& BuffEvent);
 	FBuffEventCondition ThreatBuffRestriction;*/
@@ -289,25 +301,25 @@ private:
 
 public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
-	void Taunt(AActor* AppliedBy);
+	void Taunt(UCombatComponent* AppliedBy);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
-	void DropThreat(AActor* Target, float const Percentage);
+	void DropThreat(UCombatComponent* Target, float const Percentage);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
-	void TransferThreat(AActor* FromActor, AActor* ToActor, float const Percentage);
+	void TransferThreat(UCombatComponent* From, UCombatComponent* To, float const Percentage);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
 	void Vanish();
-	void NotifyOfTargetVanish(AActor* Actor) { RemoveFromThreatTable(Actor); }
-	void AddFixate(AActor* Target, UBuff* Source);
-    void RemoveFixate(AActor* Target, UBuff* Source);
-    void AddBlind(AActor* Target, UBuff* Source);
-    void RemoveBlind(AActor* Target, UBuff* Source);
+	void NotifyOfTargetVanish(UCombatComponent* Target) { RemoveFromThreatTable(Target); }
+	void AddFixate(UCombatComponent* Target, UBuff* Source);
+    void RemoveFixate(UCombatComponent* Target, UBuff* Source);
+    void AddBlind(UCombatComponent* Target, UBuff* Source);
+    void RemoveBlind(UCombatComponent* Target, UBuff* Source);
     void AddFade(UBuff* Source);
     void RemoveFade(UBuff* Source);
 	bool HasActiveFade() const { return Fades.Num() != 0; }
-	void NotifyOfTargetFadeStatusChange(AActor* Actor, bool const bFaded);
-    void AddMisdirect(UBuff* Source, AActor* Target);
+	void NotifyOfTargetFadeStatusChange(UCombatComponent* Target, bool const bFaded);
+    void AddMisdirect(UBuff* Source, UCombatComponent* Target);
     void RemoveMisdirect(UBuff* Source);
-	AActor* GetMisdirectTarget() const { return Misdirects.Num() == 0 ? nullptr : Misdirects[Misdirects.Num() - 1].TargetActor; }
+	UCombatComponent* GetMisdirectTarget() const { return Misdirects.Num() == 0 ? nullptr : Misdirects[Misdirects.Num() - 1].Target; }
 private:
 	UPROPERTY()
 	TArray<UBuff*> Fades;

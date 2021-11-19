@@ -1,8 +1,5 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
-
-#include "Threat/ThreatStructs.h"
+﻿#include "Threat/ThreatStructs.h"
 #include "Buff.h"
-#include "SaiyoraCombatInterface.h"
 #include "ThreatHandler.h"
 
 FThreatTarget::FThreatTarget()
@@ -11,7 +8,7 @@ FThreatTarget::FThreatTarget()
 	Threat = 0.0f;
 }
 
-FThreatTarget::FThreatTarget(AActor* ThreatTarget, float const InitialThreat, bool const bFaded, UBuff* InitialFixate,
+FThreatTarget::FThreatTarget(UCombatComponent* ThreatTarget, float const InitialThreat, bool const bFaded, UBuff* InitialFixate,
 	UBuff* InitialBlind)
 {
 	Target = ThreatTarget;
@@ -75,12 +72,12 @@ bool FThreatTarget::LessThan(FThreatTarget const& Other) const
 
 FMisdirect::FMisdirect()
 {
-	SourceBuff = nullptr;
-	TargetActor = nullptr;
+	Source = nullptr;
+	Target = nullptr;
 }
 
-FMisdirect::FMisdirect(UBuff* Source, AActor* Target)
+FMisdirect::FMisdirect(UBuff* SourceBuff, UCombatComponent* TargetComponent)
 {
-	SourceBuff = Source;
-	TargetActor = Target;
+	Source = SourceBuff;
+	Target = TargetComponent;
 }

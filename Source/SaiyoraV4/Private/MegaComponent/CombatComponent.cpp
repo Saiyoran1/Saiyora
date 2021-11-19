@@ -1,4 +1,7 @@
 ﻿#include "MegaComponent/CombatComponent.h"
+
+#include <Windows.UI.WindowManagement.h>
+
 #include "Buff.h"
 #include "CombatGroup.h"
 #include "SaiyoraCombatInterface.h"
@@ -62,7 +65,7 @@ bool UCombatComponent::ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bu
 
 #pragma region Damage
 
-FDamagingEvent UCombatComponent::ApplyDamage(float const Amount, AActor* AppliedBy, UObject* Source,
+FDamagingEvent UCombatComponent::ApplyDamage(float const Amount, UCombatComponent* AppliedBy, UObject* Source,
 	EDamageHitStyle const HitStyle, EDamageSchool const School, bool const bIgnoreRestrictions, bool const bIgnoreModifiers,
 	bool const bFromSnapshot, FThreatFromDamage const& ThreatParams)
 {
@@ -79,7 +82,7 @@ FDamagingEvent UCombatComponent::ApplyDamage(float const Amount, AActor* Applied
     DamageEvent.Info.Value = Amount;
     DamageEvent.Info.SnapshotValue = Amount;
     DamageEvent.Info.AppliedBy = AppliedBy;
-    DamageEvent.Info.AppliedTo = GetOwner();
+    DamageEvent.Info.AppliedTo = this;
     DamageEvent.Info.Source = Source;
     DamageEvent.Info.HitStyle = HitStyle;
     DamageEvent.Info.School = School;
@@ -93,22 +96,15 @@ FDamagingEvent UCombatComponent::ApplyDamage(float const Amount, AActor* Applied
      {
          DamageEvent.ThreatInfo.BaseThreat = DamageEvent.Info.Value;
      }
-    
-    //Check for generator. Not required.
-    UCombatComponent* GeneratorComponent = nullptr;
-    if (AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
-    {
-        GeneratorComponent = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(AppliedBy);
-    }
 
     //Modify the damage, if ignore modifiers is false.
     if (!bIgnoreModifiers)
     {
-        //Damage that is not snapshotted and has a generator component should apply outgoing modifiers.
-        if (!bFromSnapshot && IsValid(GeneratorComponent))
+        //Damage that is not snapshotted should apply outgoing modifiers.
+        if (!bFromSnapshot)
         {
             //Apply relevant outgoing mods, save off snapshot damage for use in DoTs.
-            DamageEvent.Info.Value = GeneratorComponent->GetSnapshotDamage(DamageEvent.Info);
+            DamageEvent.Info.Value = AppliedBy->GetSnapshotDamage(DamageEvent.Info);
             DamageEvent.Info.SnapshotValue = DamageEvent.Info.Value;
         }
         //Apply relevant incoming mods.
@@ -129,19 +125,13 @@ FDamagingEvent UCombatComponent::ApplyDamage(float const Amount, AActor* Applied
     }
 
     //Check for restrictions, if ignore restrictions is false.
-    if (!bIgnoreRestrictions)
+    if (!bIgnoreRestrictions && (CheckIncomingDamageRestricted(DamageEvent.Info) || AppliedBy->CheckOutgoingDamageRestricted(DamageEvent.Info)))
     {
-        //Check incoming restrictions.
-        if (CheckIncomingDamageRestricted(DamageEvent.Info))
-        {
-            return DamageEvent;
-        }
-        //Check outgoing restrictions.
-        if (IsValid(GeneratorComponent) && GeneratorComponent->CheckOutgoingDamageRestricted(DamageEvent.Info))
-        {
-            return DamageEvent;
-        }
+        return DamageEvent;
     }
+	
+	//TODO: Try enter combat if neither actor is in combat?
+	
 	DamageEvent.Result.PreviousHealth = CurrentHealth;
 	CurrentHealth = FMath::Clamp(CurrentHealth - DamageEvent.Info.Value, 0.0f, MaxHealth);
 	if (CurrentHealth != DamageEvent.Result.PreviousHealth)
@@ -163,21 +153,23 @@ FDamagingEvent UCombatComponent::ApplyDamage(float const Amount, AActor* Applied
 			PendingKillingBlow = DamageEvent;
 		}
 	}
-	ClientNotifyOfIncomingDamage(DamageEvent);
-	//Notify the generator if one exists and the event was a success.
-	if (DamageEvent.Result.Success && IsValid(GeneratorComponent))
+	OnIncomingDamage.Broadcast(DamageEvent);
+	if (!OwnerAsPawn->IsLocallyControlled())
 	{
-		GeneratorComponent->NotifyOfOutgoingDamage(DamageEvent);
+		ClientNotifyOfIncomingDamage(DamageEvent);
 	}
+	AppliedBy->NotifyOfOutgoingDamage(DamageEvent);
 	if (DamageEvent.Result.KillingBlow)
 	{
 		Die();
 	}
-    
+
+	//TODO: Add threat?
+	
 	return DamageEvent;
 }
 
-float UCombatComponent::GetSnapshotDamage(float const Amount, AActor* AppliedTo, UObject* Source,
+float UCombatComponent::GetSnapshotDamage(float const Amount, UCombatComponent* AppliedTo, UObject* Source,
 	EDamageHitStyle const HitStyle, EDamageSchool const School)
 {
 	if (GetOwnerRole() != ROLE_Authority || !IsValid(AppliedTo) || !IsValid(Source))
@@ -185,7 +177,7 @@ float UCombatComponent::GetSnapshotDamage(float const Amount, AActor* AppliedTo,
 		return 0.0f;
 	}
 	FDamageInfo Info;
-	Info.AppliedBy = GetOwner();
+	Info.AppliedBy = this;
 	Info.AppliedTo = AppliedTo;
 	Info.Source = Source;
 	Info.Value = Amount;
@@ -218,7 +210,7 @@ float UCombatComponent::GetSnapshotDamage(FDamageInfo const& Event)
 #pragma endregion
 #pragma region Healing
 
-FDamagingEvent UCombatComponent::ApplyHealing(float const Amount, AActor* AppliedBy, UObject* Source,
+FDamagingEvent UCombatComponent::ApplyHealing(float const Amount, UCombatComponent* AppliedBy, UObject* Source,
 	EDamageHitStyle const HitStyle, EDamageSchool const School, bool const bIgnoreRestrictions, bool const bIgnoreModifiers,
 	bool const bFromSnapshot, FThreatFromDamage const& ThreatParams)
 {
@@ -234,7 +226,7 @@ FDamagingEvent UCombatComponent::ApplyHealing(float const Amount, AActor* Applie
     HealingEvent.Info.Value = Amount;
     HealingEvent.Info.SnapshotValue = Amount;
     HealingEvent.Info.AppliedBy = AppliedBy;
-    HealingEvent.Info.AppliedTo = GetOwner();
+    HealingEvent.Info.AppliedTo = this;
     HealingEvent.Info.Source = Source;
     HealingEvent.Info.HitStyle = HitStyle;
     HealingEvent.Info.School = School;
@@ -247,19 +239,13 @@ FDamagingEvent UCombatComponent::ApplyHealing(float const Amount, AActor* Applie
     {
         HealingEvent.ThreatInfo.BaseThreat = HealingEvent.Info.Value;
     }
-    //Check for generator. Not required.
-    UCombatComponent* GeneratorComponent = nullptr;
-    if (AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
-    {
-        GeneratorComponent = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(AppliedBy);
-    }
     //Modify the healing, if ignore modifiers is false.
     if (!bIgnoreModifiers)
     {
         //Apply relevant outgoing modifiers, save off snapshot healing for use in HoTs.
-        if (!bFromSnapshot && IsValid(GeneratorComponent))
+        if (!bFromSnapshot)
         {
-            HealingEvent.Info.Value = GeneratorComponent->GetSnapshotHealing(HealingEvent.Info);
+            HealingEvent.Info.Value = AppliedBy->GetSnapshotHealing(HealingEvent.Info);
             HealingEvent.Info.SnapshotValue = HealingEvent.Info.Value;
         }
         //Apply relevant incoming mods.
@@ -279,18 +265,9 @@ FDamagingEvent UCombatComponent::ApplyHealing(float const Amount, AActor* Applie
         HealingEvent.Info.Value = FCombatModifier::ApplyModifiers(IncomingMods, HealingEvent.Info.Value);
     }
     //Check for restrictions, if ignore restrictions is false.
-    if (!bIgnoreRestrictions)
+    if (!bIgnoreRestrictions && (CheckIncomingHealingRestricted(HealingEvent.Info) || AppliedBy->CheckOutgoingHealingRestricted(HealingEvent.Info)))
     {
-        //Check incoming restrictions.
-        if (CheckIncomingHealingRestricted(HealingEvent.Info))
-        {
-            return HealingEvent;
-        }
-        //Check outgoing restrictions.
-        if (IsValid(GeneratorComponent) && GeneratorComponent->CheckOutgoingHealingRestricted(HealingEvent.Info))
-        {
-            return HealingEvent;
-        }
+		return HealingEvent;
     }
 	HealingEvent.Result.PreviousHealth = CurrentHealth;
 	CurrentHealth = FMath::Clamp(CurrentHealth + HealingEvent.Info.Value, 0.0f, MaxHealth);
@@ -308,16 +285,16 @@ FDamagingEvent UCombatComponent::ApplyHealing(float const Amount, AActor* Applie
 	HealingEvent.Result.NewHealth = CurrentHealth;
 	HealingEvent.Result.AmountDealt = CurrentHealth - HealingEvent.Result.PreviousHealth;
 	HealingEvent.Result.KillingBlow = false;
-	ClientNotifyOfIncomingHealing(HealingEvent);
-	//Notify the generator if one exists and the event was a success.
-	if (HealingEvent.Result.Success && IsValid(GeneratorComponent))
+	OnIncomingHealing.Broadcast(HealingEvent);
+	if (!OwnerAsPawn->IsLocallyControlled())
 	{
-		GeneratorComponent->NotifyOfOutgoingHealing(HealingEvent);
+		ClientNotifyOfIncomingHealing(HealingEvent);
 	}
+	AppliedBy->NotifyOfOutgoingHealing(HealingEvent);
 	return HealingEvent;
 }
 
-float UCombatComponent::GetSnapshotHealing(float const Amount, AActor* AppliedTo, UObject* Source,
+float UCombatComponent::GetSnapshotHealing(float const Amount, UCombatComponent* AppliedTo, UObject* Source,
 	EDamageHitStyle const HitStyle, EDamageSchool const School)
 {
 	if (GetOwnerRole() != ROLE_Authority || !IsValid(AppliedTo) || !IsValid(Source))
@@ -326,7 +303,7 @@ float UCombatComponent::GetSnapshotHealing(float const Amount, AActor* AppliedTo
 	}
 	FDamageInfo Info;
 	Info.Value = Amount;
-	Info.AppliedBy = GetOwner();
+	Info.AppliedBy = this;
 	Info.AppliedTo = AppliedTo;
 	Info.Source = Source;
 	Info.HitStyle = HitStyle;
@@ -844,53 +821,33 @@ float UCombatComponent::GlobalTauntThreatPercentage = 1.2f;
 float UCombatComponent::GlobalThreatDecayPercentage = 0.9f;
 float UCombatComponent::GlobalThreatDecayInterval = 3.0f;
 
-FThreatEvent UCombatComponent::AddThreat(EThreatType const ThreatType, float const BaseThreat, AActor* AppliedBy,
+FThreatEvent UCombatComponent::AddThreat(EThreatType const ThreatType, float const BaseThreat, UCombatComponent* AppliedBy,
 	UObject* Source, bool const bIgnoreRestrictions, bool const bIgnoreModifiers,
 	FThreatModCondition const& SourceModifier)
 {
 	FThreatEvent Result;
     	
-    if (GetOwnerRole() != ROLE_Authority || !IsValid(AppliedBy) || BaseThreat <= 0.0f || !bCanEverReceiveThreat)
+    if (GetOwnerRole() != ROLE_Authority || !bCanEverReceiveThreat || !IsValid(AppliedBy) || BaseThreat <= 0.0f)
     {
     	return Result;
     }
     	
-    //Target must either be alive, or not have health.
-    if (bHasHealth && LifeStatus != ELifeStatus::Alive)
-    {
-    	return Result;
-    }
-    	
-    if (!AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
-    {
-    	return Result;
-    }
-    UCombatComponent* GeneratorComponent = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(AppliedBy);
-    if (!IsValid(GeneratorComponent) || (GeneratorComponent->HasHealth() && GeneratorComponent->GetLifeStatus() != ELifeStatus::Alive))
+    //Applied by and target must both either be alive or not have health.
+    if ((bHasHealth && LifeStatus != ELifeStatus::Alive) || (AppliedBy->HasHealth() && AppliedBy->GetLifeStatus() != ELifeStatus::Alive))
     {
     	return Result;
     }
 
-    if (IsValid(GeneratorComponent->GetMisdirectTarget()))
-    {
-    	//If we are misdirected to a different actor, that actor must also be alive or not have health.
-    	UCombatComponent* MisdirectComponent = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(GeneratorComponent->GetMisdirectTarget());
-    	if (IsValid(MisdirectComponent) && (!MisdirectComponent->HasHealth() || MisdirectComponent->GetLifeStatus() == ELifeStatus::Alive))
-    	{
-    		Result.AppliedBy = GeneratorComponent->GetMisdirectTarget();
-    	}
-    	else
-    	{
-    		//If the misdirected actor is dead, we ignore the misdirect.
-    		Result.AppliedBy = AppliedBy;
-    	}
-    }
-    else
+    if (!IsValid(AppliedBy->GetMisdirectTarget()) || (AppliedBy->GetMisdirectTarget()->HasHealth() && AppliedBy->GetMisdirectTarget()->GetLifeStatus() != ELifeStatus::Alive))
     {
     	Result.AppliedBy = AppliedBy;
     }
+    else
+    {
+    	Result.AppliedBy = AppliedBy->GetMisdirectTarget();
+    }
     
-    Result.AppliedTo = GetOwner();
+    Result.AppliedTo = this;
    	Result.Source = Source;
     Result.ThreatType = ThreatType;
    	Result.AppliedByPlane = USaiyoraCombatLibrary::GetActorPlane(Result.AppliedBy);
@@ -901,7 +858,8 @@ FThreatEvent UCombatComponent::AddThreat(EThreatType const ThreatType, float con
     if (!bIgnoreModifiers)
     {
     	TArray<FCombatModifier> Mods;
-    	GeneratorComponent->GetOutgoingThreatMods(Result, Mods);
+    	//TODO: ModifyOutgoingThreat function that takes into account the SourceModifier.
+    	AppliedBy->GetOutgoingThreatMods(Result, Mods);
     	if (SourceModifier.IsBound())
     	{
     		Mods.Add(SourceModifier.Execute(Result));
@@ -918,15 +876,10 @@ FThreatEvent UCombatComponent::AddThreat(EThreatType const ThreatType, float con
     	}
     }
     
-    if (!bIgnoreRestrictions)
+    if (!bIgnoreRestrictions && (AppliedBy->CheckOutgoingThreatRestricted(Result) || CheckIncomingThreatRestricted(Result)))
     {
-    	//We don't check for a misdirect target here because I don't know how to solve the issue of needing all calculations and mods done to check restrictions.
-    	//In the case of checking misdirect restrictions, the misdirect could be restricted from dealing threat, meaning we'd default back to the generator.
-    	//In that case, we've used the misdirect target for all mods already, so we'd have to recalculate and re-check restrictions again.
-    	if (GeneratorComponent->CheckOutgoingThreatRestricted(Result) || CheckIncomingThreatRestricted(Result))
-    	{
-    		return Result;
-    	}
+    	//Possible fuckery with misdirect target restricting threat being bypassed, since we just check the original AppliedBy here?
+    	return Result;
     }
     
     int32 FoundIndex = ThreatTable.Num();
@@ -955,16 +908,16 @@ FThreatEvent UCombatComponent::AddThreat(EThreatType const ThreatType, float con
     if (!bFound)
     {
     	Result.bInitialThreat = true;
-    	AddToThreatTable(Result.AppliedBy, Result.Threat, GeneratorComponent->HasActiveFade());
+    	AddToThreatTable(Result.AppliedBy, Result.Threat, AppliedBy->HasActiveFade());
     }
     Result.bSuccess = true;
     
     return Result;
 }
 
-void UCombatComponent::RemoveThreat(AActor* Target, float const Amount)
+void UCombatComponent::RemoveThreat(UCombatComponent* Target, float const Amount)
 {
-	if (GetOwnerRole() != ROLE_Authority || !IsValid(Target) || !bCanEverReceiveThreat)
+	if (GetOwnerRole() != ROLE_Authority || !bCanEverReceiveThreat || !IsValid(Target))
 	{
 		return;
 	}
@@ -996,19 +949,13 @@ void UCombatComponent::RemoveThreat(AActor* Target, float const Amount)
 	}
 }
 
-void UCombatComponent::AddToThreatTable(AActor* Target, float const InitialThreat, bool const bFaded,
+void UCombatComponent::AddToThreatTable(UCombatComponent* Target, float const InitialThreat, bool const bFaded,
                                         UBuff* InitialFixate, UBuff* InitialBlind)
 {
-	//TODO: I probably should check if the ToActor is actually alive, implements the combat interface, etc.
-	if (GetOwnerRole() != ROLE_Authority || !IsValid(Target) || !Target->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	if (GetOwnerRole() != ROLE_Authority || (bHasHealth && LifeStatus != ELifeStatus::Alive) || !IsValid(Target) || (Target->HasHealth() && Target->GetLifeStatus() != ELifeStatus::Alive))
     {
     	return;
     }
-	UCombatComponent* TargetComponent = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(Target);
-	if (!IsValid(TargetComponent))
-	{
-		return;
-	}
     if (ThreatTable.Num() == 0)
     {
     	ThreatTable.Add(FThreatTarget(Target, InitialThreat, bFaded, InitialFixate, InitialBlind));
@@ -1039,10 +986,10 @@ void UCombatComponent::AddToThreatTable(AActor* Target, float const InitialThrea
     		UpdateTarget();
     	}
     }
-	TargetComponent->NotifyAddedToThreatTable(GetOwner());
+	Target->NotifyAddedToThreatTable(this);
 }
 
-void UCombatComponent::RemoveFromThreatTable(AActor* Target)
+void UCombatComponent::RemoveFromThreatTable(UCombatComponent* Target)
 {
 	if (GetOwnerRole() != ROLE_Authority || !IsValid(Target))
 	{
@@ -1053,19 +1000,12 @@ void UCombatComponent::RemoveFromThreatTable(AActor* Target)
     {
     	if (ThreatTable[i].Target == Target)
     	{
-    		if (Target->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
-    		{
-    			UCombatComponent* TargetComponent = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(Target);
-				if (IsValid(TargetComponent))
-				{
-					TargetComponent->NotifyRemovedFromThreatTable(GetOwner());
-				}
-    		}
     		if (i == ThreatTable.Num() - 1)
     		{
     			bAffectedTarget = true;
     		}
     		ThreatTable.RemoveAt(i);
+    		Target->NotifyRemovedFromThreatTable(this);
     		break;
     	}
    	}
@@ -1079,26 +1019,26 @@ void UCombatComponent::RemoveFromThreatTable(AActor* Target)
     }
 }
 
-void UCombatComponent::NotifyAddedToThreatTable(AActor* Actor)
+void UCombatComponent::NotifyAddedToThreatTable(UCombatComponent* Target)
 {
-	if (!IsValid(Actor) || TargetedBy.Contains(Actor))
+	if (!IsValid(Target) || TargetedBy.Contains(Target))
 	{
 		return;
 	}
-	TargetedBy.Add(Actor);
+	TargetedBy.Add(Target);
 	if (TargetedBy.Num() == 1)
 	{
 		UpdateCombatStatus();
 	}
 }
 
-void UCombatComponent::NotifyRemovedFromThreatTable(AActor* Actor)
+void UCombatComponent::NotifyRemovedFromThreatTable(UCombatComponent* Target)
 {
-	if (!IsValid(Actor))
+	if (!IsValid(Target))
 	{
 		return;
 	}
-	if (TargetedBy.Remove(Actor) > 0 && TargetedBy.Num() == 0)
+	if (TargetedBy.Remove(Target) > 0 && TargetedBy.Num() == 0)
 	{
 		UpdateCombatStatus();
 	}
@@ -1137,7 +1077,7 @@ void UCombatComponent::OnRep_bInCombat()
 
 void UCombatComponent::UpdateTarget()
 {
-	AActor* Previous = CurrentTarget;
+	UCombatComponent* Previous = CurrentTarget;
 	if (ThreatTable.Num() == 0)
 	{
 		CurrentTarget = nullptr;
@@ -1154,12 +1094,12 @@ void UCombatComponent::UpdateTarget()
 	}
 }
 
-void UCombatComponent::OnRep_CurrentTarget(AActor* PreviousTarget)
+void UCombatComponent::OnRep_CurrentTarget(UCombatComponent* PreviousTarget)
 {
 	OnTargetChanged.Broadcast(PreviousTarget, CurrentTarget);
 }
 
-float UCombatComponent::GetThreatLevel(AActor* Target) const
+float UCombatComponent::GetThreatLevel(UCombatComponent* Target) const
 {
 	if (GetOwnerRole() != ROLE_Authority || !IsValid(Target))
 	{
@@ -1188,15 +1128,9 @@ void UCombatComponent::DecayThreat()
 
 #pragma region Threat Special Events
 
-void UCombatComponent::Taunt(AActor* AppliedBy)
+void UCombatComponent::Taunt(UCombatComponent* AppliedBy)
 {
-	//TODO: I probably should check if the ToActor is actually alive, implements the combat interface, etc.
-	if (GetOwnerRole() != ROLE_Authority || !bCanEverReceiveThreat || !IsValid(AppliedBy) || !AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
-	{
-		return;
-	}
-	UCombatComponent* GeneratorComponent = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(AppliedBy);
-	if (!IsValid(GeneratorComponent))
+	if (GetOwnerRole() != ROLE_Authority || !bCanEverReceiveThreat || (bHasHealth && LifeStatus != ELifeStatus::Alive) || !IsValid(AppliedBy) || (AppliedBy->HasHealth() && AppliedBy->GetLifeStatus() != ELifeStatus::Alive))
 	{
 		return;
 	}
@@ -1213,7 +1147,7 @@ void UCombatComponent::Taunt(AActor* AppliedBy)
 	AddThreat(EThreatType::Absolute, FMath::Max(0.0f, HighestThreat - InitialThreat), AppliedBy, nullptr, true, true, FThreatModCondition());
 }
 
-void UCombatComponent::DropThreat(AActor* Target, float const Percentage)
+void UCombatComponent::DropThreat(UCombatComponent* Target, float const Percentage)
 {
 	if (GetOwnerRole() != ROLE_Authority || !bCanEverReceiveThreat || !IsValid(Target))
 	{
@@ -1227,51 +1161,50 @@ void UCombatComponent::DropThreat(AActor* Target, float const Percentage)
 	RemoveThreat(Target, DropThreat);
 }
 
-void UCombatComponent::TransferThreat(AActor* FromActor, AActor* ToActor, float const Percentage)
+void UCombatComponent::TransferThreat(UCombatComponent* From, UCombatComponent* To, float const Percentage)
 {
-	//TODO: I probably should check if the ToActor is actually alive, implements the combat interface, etc.
-	if (GetOwnerRole() != ROLE_Authority || !bCanEverReceiveThreat || !IsValid(FromActor) || !IsValid(ToActor))
+	if (GetOwnerRole() != ROLE_Authority || !bCanEverReceiveThreat || (bHasHealth && LifeStatus != ELifeStatus::Alive))
 	{
 		return;
 	}
-	float const TransferThreat = GetThreatLevel(FromActor) * FMath::Clamp(Percentage, 0.0f, 1.0f);
+	if (!IsValid(From) || (From->HasHealth() && From->GetLifeStatus() != ELifeStatus::Alive) || !IsValid(To) || (To->HasHealth() && To->GetLifeStatus() != ELifeStatus::Alive))
+	{
+		return;
+	}
+	float const TransferThreat = GetThreatLevel(From) * FMath::Clamp(Percentage, 0.0f, 1.0f);
 	if (TransferThreat <= 0.0f)
 	{
 		return;
 	}
-	RemoveThreat(FromActor, TransferThreat);
-	AddThreat(EThreatType::Absolute, TransferThreat, ToActor, nullptr, true, true, FThreatModCondition());
+	RemoveThreat(From, TransferThreat);
+	AddThreat(EThreatType::Absolute, TransferThreat, To, nullptr, true, true, FThreatModCondition());
 }
 
 void UCombatComponent::Vanish()
 {
+	//TODO: Do this through combat group?
 	if (GetOwnerRole() != ROLE_Authority)
 	{
 		return;
 	}
-	for (AActor* Actor : TargetedBy)
+	for (UCombatComponent* Target : TargetedBy)
 	{
-		if (IsValid(Actor) && Actor->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+		if (IsValid(Target))
 		{
-			UCombatComponent* TargetComponent = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(Actor);
-			if (IsValid(TargetComponent))
-			{
-				TargetComponent->NotifyOfTargetVanish(GetOwner());
-			}
+			Target->NotifyOfTargetVanish(this);
 		}
 	}
 	//This only clears us from actors that have us in their threat table. This does NOT clear our threat table. This shouldn't matter, as if an NPC vanishes its unlikely the player will care.
 	//This only has ramifications if NPCs can possibly attack each other.
 }
 
-void UCombatComponent::AddFixate(AActor* Target, UBuff* Source)
+void UCombatComponent::AddFixate(UCombatComponent* Target, UBuff* Source)
 {
-	if (GetOwnerRole() != ROLE_Authority || !bCanEverReceiveThreat || !IsValid(Target) || !IsValid(Source) || Source->GetAppliedTo() != GetOwner() || !Target->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	if (GetOwnerRole() != ROLE_Authority || !bCanEverReceiveThreat || (bHasHealth && LifeStatus != ELifeStatus::Alive) || !IsValid(Source) || Source->GetAppliedTo() != GetOwner())
 	{
 		return;
 	}
-	UCombatComponent* GeneratorComponent = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(Target);
-	if (!IsValid(GeneratorComponent) || (GeneratorComponent->HasHealth() && GeneratorComponent->GetLifeStatus() != ELifeStatus::Alive))
+	if (!IsValid(Target) || (Target->HasHealth() && Target->GetLifeStatus() != ELifeStatus::Alive))
 	{
 		return;
 	}
@@ -1308,11 +1241,11 @@ void UCombatComponent::AddFixate(AActor* Target, UBuff* Source)
 	//If this unit was not in the threat table, need to add them.
 	if (!bFound)
 	{
-		AddToThreatTable(Target, 0.0f, GeneratorComponent->HasActiveFade(), Source);
+		AddToThreatTable(Target, 0.0f, Target->HasActiveFade(), Source);
 	}
 }
 
-void UCombatComponent::RemoveFixate(AActor* Target, UBuff* Source)
+void UCombatComponent::RemoveFixate(UCombatComponent* Target, UBuff* Source)
 {
 	if (GetOwnerRole() != ROLE_Authority || !IsValid(Target) || !IsValid(Source))
 	{
@@ -1350,14 +1283,13 @@ void UCombatComponent::RemoveFixate(AActor* Target, UBuff* Source)
 	}
 }
 
-void UCombatComponent::AddBlind(AActor* Target, UBuff* Source)
+void UCombatComponent::AddBlind(UCombatComponent* Target, UBuff* Source)
 {
-	if (GetOwnerRole() != ROLE_Authority || !bCanEverReceiveThreat || !IsValid(Target) || !IsValid(Source) || Source->GetAppliedTo() != GetOwner() || !Target->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	if (GetOwnerRole() != ROLE_Authority || !bCanEverReceiveThreat || (bHasHealth && LifeStatus != ELifeStatus::Alive) || !IsValid(Source) || Source->GetAppliedTo() != GetOwner())
 	{
 		return;
 	}
-	UCombatComponent* GeneratorComponent = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(Target);
-	if (!IsValid(GeneratorComponent) || (GeneratorComponent->HasHealth() && GeneratorComponent->GetLifeStatus() != ELifeStatus::Alive))
+	if (!IsValid(Target) || (Target->HasHealth() && Target->GetLifeStatus() != ELifeStatus::Alive))
 	{
 		return;
 	}
@@ -1394,11 +1326,11 @@ void UCombatComponent::AddBlind(AActor* Target, UBuff* Source)
 	}
 	if (!bFound)
 	{
-		AddToThreatTable(Target, 0.0f, GeneratorComponent->HasActiveFade(), nullptr, Source);
+		AddToThreatTable(Target, 0.0f, Target->HasActiveFade(), nullptr, Source);
 	}
 }
 
-void UCombatComponent::RemoveBlind(AActor* Target, UBuff* Source)
+void UCombatComponent::RemoveBlind(UCombatComponent* Target, UBuff* Source)
 {
 	if (GetOwnerRole() != ROLE_Authority || !IsValid(Target) || !IsValid(Source))
 	{
@@ -1438,7 +1370,8 @@ void UCombatComponent::RemoveBlind(AActor* Target, UBuff* Source)
 
 void UCombatComponent::AddFade(UBuff* Source)
 {
-	if (GetOwnerRole() != ROLE_Authority || !bCanEverReceiveThreat || !IsValid(Source) || Source->GetAppliedTo() != GetOwner())
+	//TODO: Do this through combat group?
+	if (GetOwnerRole() != ROLE_Authority || !bCanEverReceiveThreat || (bHasHealth && LifeStatus != ELifeStatus::Alive) || !IsValid(Source) || Source->GetAppliedTo() != GetOwner())
 	{
 		return;
 	}
@@ -1450,15 +1383,11 @@ void UCombatComponent::AddFade(UBuff* Source)
 	Fades.Add(Source);
 	if (PreviousFades == 0 && Fades.Num() == 1)
 	{
-		for (AActor* Actor : TargetedBy)
+		for (UCombatComponent* Target : TargetedBy)
 		{
-			if (IsValid(Actor) && Actor->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+			if (IsValid(Target))
 			{
-				UCombatComponent* TargetComponent = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(Actor);
-				if (IsValid(TargetComponent))
-				{
-					TargetComponent->NotifyOfTargetFadeStatusChange(GetOwner(), true);
-				}
+				Target->NotifyOfTargetFadeStatusChange(this, true);
 			}
 		}
 	}
@@ -1473,29 +1402,25 @@ void UCombatComponent::RemoveFade(UBuff* Source)
 	int32 const Removed = Fades.Remove(Source);
 	if (Removed != 0 && Fades.Num() == 0)
 	{
-		for (AActor* Actor : TargetedBy)
+		for (UCombatComponent* Target : TargetedBy)
 		{
-			if (IsValid(Actor) && Actor->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+			if (IsValid(Target))
 			{
-				UCombatComponent* TargetComponent = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(Actor);
-				if (IsValid(TargetComponent))
-				{
-					TargetComponent->NotifyOfTargetFadeStatusChange(GetOwner(), false);
-				}
+				Target->NotifyOfTargetFadeStatusChange(this, false);
 			}
 		}
 	}
 }
 
-void UCombatComponent::NotifyOfTargetFadeStatusChange(AActor* Actor, bool const bFaded)
+void UCombatComponent::NotifyOfTargetFadeStatusChange(UCombatComponent* Target, bool const bFaded)
 {
-	if (GetOwnerRole() != ROLE_Authority || !IsValid(Actor))
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(Target))
     {
     	return;
     }
     for (int i = 0; i < ThreatTable.Num(); i++)
     {
-    	if (ThreatTable[i].Target == Actor)
+    	if (ThreatTable[i].Target == Target)
     	{
     		bool AffectedTarget = false;
     		ThreatTable[i].Faded = bFaded;
@@ -1538,20 +1463,19 @@ void UCombatComponent::NotifyOfTargetFadeStatusChange(AActor* Actor, bool const 
     }
 }
 
-void UCombatComponent::AddMisdirect(UBuff* Source, AActor* Target)
+void UCombatComponent::AddMisdirect(UBuff* Source, UCombatComponent* Target)
 {
-	if (GetOwnerRole() != ROLE_Authority || !bCanEverReceiveThreat || !IsValid(Source) || Source->GetAppliedTo() != GetOwner() || !IsValid(Target) || !Target->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	if (GetOwnerRole() != ROLE_Authority || !bCanEverReceiveThreat || (bHasHealth && LifeStatus != ELifeStatus::Alive) || !IsValid(Source) || Source->GetAppliedTo() != GetOwner())
 	{
 		return;
 	}
-	UCombatComponent* TargetComponent = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(Target);
-	if (!IsValid(TargetComponent) || (TargetComponent->HasHealth() && TargetComponent->GetLifeStatus() != ELifeStatus::Alive))
+	if (!IsValid(Target) || (Target->HasHealth() && Target->GetLifeStatus() != ELifeStatus::Alive))
 	{
 		return;
 	}
 	for (FMisdirect const& Misdirect : Misdirects)
 	{
-		if (Misdirect.SourceBuff == Source)
+		if (Misdirect.Source == Source)
 		{
 			return;
 		}
@@ -1567,7 +1491,7 @@ void UCombatComponent::RemoveMisdirect(UBuff* Source)
 	}
 	for (FMisdirect& Misdirect : Misdirects)
 	{
-		if (Misdirect.SourceBuff == Source)
+		if (Misdirect.Source == Source)
 		{
 			Misdirects.Remove(Misdirect);
 			return;

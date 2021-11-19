@@ -40,10 +40,11 @@ class SAIYORAV4_API UCombatGroup : public UObject
 	UFUNCTION()
 	void OnCombatantLifeStatusChanged(AActor* Actor, ELifeStatus const Previous, ELifeStatus const New);
 	//TODO: OnCombatantFactionSwap
+
+	TArray<FDamageLogEvent> DamageLog;
+	void LogDamageEvent(FDamagingEvent const& DamageEvent, bool const bHealing = false);
 	
 public:
-	void Initialize(FDamagingEvent const& DamageEvent);
-	void Initialize(FThreatEvent const& ThreatEvent);
 	void Initialize(UCombatComponent* Instigator, UCombatComponent* Target);
 
 	//TODO: Combat logging could take place here?
