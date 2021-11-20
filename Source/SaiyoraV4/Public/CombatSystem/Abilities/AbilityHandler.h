@@ -1,7 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #pragma once
-
 #include "CoreMinimal.h"
 #include "CombatAbility.h"
 #include "Components/ActorComponent.h"
@@ -13,7 +10,7 @@
 class UStatHandler;
 class UResourceHandler;
 class UCrowdControlHandler;
-class UCombatComponent;
+class UDamageHandler;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class SAIYORAV4_API UAbilityHandler : public UActorComponent
@@ -36,7 +33,7 @@ public:
 	UResourceHandler* GetResourceHandlerRef() const { return ResourceHandler; }
 	UStatHandler* GetStatHandlerRef() const { return StatHandler; }
 	UCrowdControlHandler* GetCrowdControlHandlerRef() const { return CrowdControlHandler; }
-	UCombatComponent* GetDamageHandlerRef() const { return DamageHandler; }
+	UDamageHandler* GetDamageHandlerRef() const { return DamageHandler; }
 private:
 	UPROPERTY()
 	AGameState* GameStateRef;
@@ -47,7 +44,7 @@ private:
 	UPROPERTY()
 	UCrowdControlHandler* CrowdControlHandler;
 	UPROPERTY()
-	UCombatComponent* DamageHandler;
+	UDamageHandler* DamageHandler;
 //Ability Management
 public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")

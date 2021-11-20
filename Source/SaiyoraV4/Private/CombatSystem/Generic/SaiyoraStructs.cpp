@@ -3,6 +3,7 @@
 #include "Buff.h"
 
 int32 FCombatModifier::GlobalID = 0;
+const FCombatModifier FCombatModifier::InvalidMod(0.0f, EModifierType::Invalid);
 
 FCombatModifier::FCombatModifier()
 {

@@ -1,8 +1,5 @@
 ﻿#include "MegaComponent/CombatComponent.h"
-
-#include <Windows.UI.WindowManagement.h>
-
-#include "Buff.h"
+/*#include "Buff.h"
 #include "CombatGroup.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraCombatLibrary.h"
@@ -1672,4 +1669,4 @@ void UCombatComponent::GetOutgoingThreatMods(FThreatEvent const& ThreatEvent, TA
 
 #pragma endregion 
 
-#pragma endregion
+#pragma endregion*/

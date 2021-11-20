@@ -1,7 +1,5 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
-
-#pragma once
-/*#include "CoreMinimal.h"
+﻿#pragma once
+#include "CoreMinimal.h"
 #include "BuffStructs.h"
 #include "GameplayTagContainer.h"
 #include "ThreatStructs.h"
@@ -28,7 +26,7 @@ public:
 
 	bool CanEverReceiveThreat() const { return bCanEverReceiveThreat; }
 	bool CanEverGenerateThreat() const { return bCanEverGenerateThreat; }
-	AActor* GetMisdirectTarget() const { return Misdirects.Num() == 0 ? nullptr : Misdirects[Misdirects.Num() - 1].TargetActor; }
+	AActor* GetMisdirectTarget() const { return Misdirects.Num() == 0 ? nullptr : Misdirects[Misdirects.Num() - 1].Target; }
 	bool HasActiveFade() const { return Fades.Num() != 0; }
 
 	void GetIncomingThreatMods(TArray<FCombatModifier>& OutMods, FThreatEvent const& Event);
@@ -120,7 +118,7 @@ private:
 	TArray<AActor*> TargetedBy;
 
 	UPROPERTY()
-	class UCombatComponent* DamageHandlerRef;
+	class UDamageHandler* DamageHandlerRef;
 	UPROPERTY()
 	class UBuffHandler* BuffHandlerRef;
 	UFUNCTION()
@@ -129,8 +127,8 @@ private:
 	
 	TArray<FThreatModCondition> OutgoingThreatMods;
 	TArray<FThreatModCondition> IncomingThreatMods;
-	TArray<FThreatCondition> OutgoingThreatRestrictions;
-	TArray<FThreatCondition> IncomingThreatRestrictions;
+	TArray<FThreatRestriction> OutgoingThreatRestrictions;
+	TArray<FThreatRestriction> IncomingThreatRestrictions;
 	FTargetNotification OnTargetChanged;
 	FCombatStatusNotification OnCombatChanged;
 	FFadeCallback FadeCallback;
@@ -142,4 +140,4 @@ private:
 	FDamageEventCallback ThreatFromDamageCallback;
 	FDamageEventCallback ThreatFromHealingCallback;
 	FBuffRemoveCallback BuffRemovalCallback;
-};*/
+};

@@ -3,7 +3,7 @@
 #include "SaiyoraCombatInterface.h"
 #include "UnrealNetwork.h"
 #include "BuffHandler.h"
-#include "MegaComponent/CombatComponent.h"
+#include "DamageHandler.h"
 #include "SaiyoraBuffLibrary.h"
 
 FGameplayTag UCrowdControlHandler::CcTypeToTag(ECrowdControlType const CcType)
@@ -135,7 +135,7 @@ void UCrowdControlHandler::BeginPlay()
 		if (GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 		{
 			BuffHandler = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwner());
-			DamageHandler = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(GetOwner());
+			DamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
 		}
 		if (IsValid(BuffHandler))
 		{

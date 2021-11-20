@@ -33,6 +33,7 @@ public:
     static float ApplyModifiers(TArray<FCombatModifier> const& ModArray, float const BaseValue);
     static int32 ApplyModifiers(TArray<FCombatModifier> const& ModArray, int32 const BaseValue);
     static int32 GetID();
+    static const FCombatModifier InvalidMod;
 };
 
 DECLARE_DYNAMIC_DELEGATE_RetVal_TwoParams(float, FFloatValueRecalculation, TArray<FCombatModifier>const&, Modifiers, float const, BaseValue);

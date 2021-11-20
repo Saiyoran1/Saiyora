@@ -1,7 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #pragma once
-/*
 #include "CoreMinimal.h"
 #include "DamageStructs.h"
 #include "Components/ActorComponent.h"
@@ -22,6 +19,7 @@ public:
 	UDamageHandler();
 	virtual void InitializeComponent() override;
 	virtual void BeginPlay() override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	static FGameplayTag DamageDoneStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.DamageDone")), false); }
 	static FGameplayTag DamageTakenStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.DamageTaken")), false); }
@@ -34,45 +32,13 @@ public:
 private:
 	
 	UPROPERTY()
-	UStatHandler* StatHandler;
+	UStatHandler* StatHandler = nullptr;
 	UPROPERTY()
-	UBuffHandler* BuffHandler;
+	UBuffHandler* BuffHandler = nullptr;
+	UPROPERTY()
+	APawn* OwnerAsPawn = nullptr;
 
-	//Health
-
-private:
-	
-	UPROPERTY(EditAnywhere, Category = "Health")
-	bool StaticMaxHealth = false;
-	UPROPERTY(EditAnywhere, Category = "Health", meta = (ClampMin = "1"))
-	float DefaultMaxHealth = 1.0f;
-	UPROPERTY(EditAnywhere, Category = "Health")
-	bool HealthFollowsMaxHealth = true;
-
-	UPROPERTY(ReplicatedUsing = OnRep_CurrentHealth)
-	float CurrentHealth = 0.0f;
-	UPROPERTY(ReplicatedUsing = OnRep_MaxHealth)
-	float MaxHealth = 1.0f;
-	UPROPERTY(ReplicatedUsing = OnRep_LifeStatus)
-	ELifeStatus LifeStatus = ELifeStatus::Invalid;
-
-	FHealthChangeNotification OnHealthChanged;
-	FHealthChangeNotification OnMaxHealthChanged;
-	FLifeStatusNotification OnLifeStatusChanged;
-	TArray<FDamageRestriction> DeathConditions;
-
-	void UpdateMaxHealth(float const NewMaxHealth);
-	UFUNCTION()
-	void ReactToMaxHealthStat(FGameplayTag const& StatTag, float const NewValue);
-	bool CheckDeathRestricted(FDamageInfo const& DamageInfo);
-	void Die();
-
-	UFUNCTION()
-	void OnRep_CurrentHealth(float PreviousValue);
-	UFUNCTION()
-	void OnRep_MaxHealth(float PreviousValue);
-	UFUNCTION()
-	void OnRep_LifeStatus(ELifeStatus PreviousValue);
+//Health
 	
 public:
 
@@ -82,6 +48,10 @@ public:
 	float GetMaxHealth() const { return MaxHealth; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Health")
 	ELifeStatus GetLifeStatus() const { return LifeStatus; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Health")
+	bool HasHealth() const { return bHasHealth; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Health")
+	bool IsDead() const { return bHasHealth && LifeStatus != ELifeStatus::Alive; }
 
 	UFUNCTION(BlueprintCallable, Category = "Health")
 	void SubscribeToHealthChanged(FHealthChangeCallback const& Callback);
@@ -97,104 +67,127 @@ public:
 	void UnsubscribeFromLifeStatusChanged(FLifeStatusCallback const& Callback);
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Health")
-	void AddDeathRestriction(FDamageRestriction const& Restriction);
+	void AddDeathRestriction(FDeathRestriction const& Restriction);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Health")
-	void RemoveDeathRestriction(FDamageRestriction const& Restriction);
+	void RemoveDeathRestriction(FDeathRestriction const& Restriction);
 
-	//Outgoing Damage
+private:
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Damage")
-	bool CanEverDealDamage() const { return bCanEverDealDamage; }
-	
-	void NotifyOfOutgoingDamageSuccess(FDamagingEvent const& DamageEvent);
-    bool CheckOutgoingDamageRestricted(FDamageInfo const& DamageInfo);
-    TArray<FCombatModifier> GetOutgoingDamageMods(FDamageInfo const& DamageInfo);
+	UPROPERTY(EditAnywhere, Category = "Health")
+	bool bHasHealth = true;
+	UPROPERTY(EditAnywhere, Category = "Health")
+	bool bStaticMaxHealth = false;
+	UPROPERTY(EditAnywhere, Category = "Health", meta = (ClampMin = "1"))
+	float DefaultMaxHealth = 1.0f;
+
+	UPROPERTY(ReplicatedUsing = OnRep_CurrentHealth)
+	float CurrentHealth = 0.0f;
+	UPROPERTY(ReplicatedUsing = OnRep_MaxHealth)
+	float MaxHealth = 1.0f;
+	UPROPERTY(ReplicatedUsing = OnRep_LifeStatus)
+	ELifeStatus LifeStatus = ELifeStatus::Invalid;
+
+	FHealthChangeNotification OnHealthChanged;
+	FHealthChangeNotification OnMaxHealthChanged;
+	FLifeStatusNotification OnLifeStatusChanged;
+	TArray<FDeathRestriction> DeathRestrictions;
+
+	void UpdateMaxHealth(float const NewMaxHealth);
+	UFUNCTION()
+	void ReactToMaxHealthStat(FGameplayTag const& StatTag, float const NewValue);
+	bool CheckDeathRestricted(FDamagingEvent const& DamageEvent);
+	void Die();
+
+	UFUNCTION()
+	void OnRep_CurrentHealth(float PreviousValue);
+	UFUNCTION()
+	void OnRep_MaxHealth(float PreviousValue);
+	UFUNCTION()
+	void OnRep_LifeStatus(ELifeStatus PreviousValue);
+
+//Outgoing Damage
+
+public:
 
 	UFUNCTION(BlueprintCallable, Category = "Damage")
-    void SubscribeToOutgoingDamageSuccess(FDamageEventCallback const& Callback);
+    void SubscribeToOutgoingDamage(FDamageEventCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Damage")
-   	void UnsubscribeFromOutgoingDamageSuccess(FDamageEventCallback const& Callback);
+   	void UnsubscribeFromOutgoingDamage(FDamageEventCallback const& Callback);
+	UFUNCTION(BlueprintCallable, Category = "Damage")
+	void SubscribeToKillingBlow(FDamageEventCallback const& Callback);
+	UFUNCTION(BlueprintCallable, Category = "Damage")
+	void UnsubscribeFromKillingBlow(FDamageEventCallback const& Callback);
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Damage")
    	void AddOutgoingDamageRestriction(FDamageRestriction const& Restriction);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Damage")
    	void RemoveOutgoingDamageRestriction(FDamageRestriction const& Restriction);
+	bool CheckOutgoingDamageRestricted(FDamageInfo const& DamageInfo);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Damage")
-   	int32 AddOutgoingDamageModifier(FDamageModCondition const& Modifier);
+    void AddOutgoingDamageModifier(FDamageModCondition const& Modifier);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Damage")
-   	void RemoveOutgoingDamageModifier(int32 const ModifierID);
+   	void RemoveOutgoingDamageModifier(FDamageModCondition const& Modifier);
+	void ModifyOutgoingDamage(FDamageInfo& DamageInfo, FDamageModCondition const& SourceMod);
+
+	void NotifyOfOutgoingDamage(FDamagingEvent const& DamageEvent);
 	
 private:
+	
+	FDamageEventNotification OnOutgoingDamage;
+	FDamageEventNotification OnKillingBlow;
+	TArray<FDamageRestriction> OutgoingDamageRestrictions;
+	TArray<FDamageModCondition> OutgoingDamageModifiers;
+
+	UFUNCTION(Client, Unreliable)
+    void ClientNotifyOfOutgoingDamage(FDamagingEvent const& DamageEvent);
 
 	UFUNCTION()
 	FCombatModifier ModifyDamageDoneFromStat(FDamageInfo const& DamageInfo);
 
-	UPROPERTY(EditAnywhere, Category = "Damage")
-	bool bCanEverDealDamage = true;
-	
-	FDamageEventNotification OnOutgoingDamage;
-	TArray<FDamageRestriction> OutgoingDamageConditions;
-	TMap<int32, FDamageModCondition> OutgoingDamageModifiers;
-
-	UFUNCTION(NetMulticast, Unreliable)
-    void MulticastNotifyOfOutgoingDamageSuccess(FDamagingEvent DamageEvent);
-
-	UFUNCTION()
-	bool RestrictDamageBuffs(FBuffApplyEvent const& BuffEvent);
-    
-    //Outgoing Healing
+//Outgoing Healing
 
 public:
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Healing")
-	bool CanEverDealHealing() const { return bCanEverDealHealing; }
+	UFUNCTION(BlueprintCallable, Category = "Healing")
+   	void SubscribeToOutgoingHealing(FDamageEventCallback const& Callback);
+	UFUNCTION(BlueprintCallable, Category = "Healing")
+   	void UnsubscribeFromOutgoingHealing(FDamageEventCallback const& Callback);
+
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Healing")
+   	void AddOutgoingHealingRestriction(FDamageRestriction const& Restriction);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Healing")
+   	void RemoveOutgoingHealingRestriction(FDamageRestriction const& Restriction);
+	bool CheckOutgoingHealingRestricted(FDamageInfo const& HealingInfo);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Healing")
+   	void AddOutgoingHealingModifier(FDamageModCondition const& Modifier);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Healing")
+   	void RemoveOutgoingHealingModifier(FDamageModCondition const& Modifier);
+	void ModifyOutgoingHealing(FDamageInfo& HealingInfo, FDamageModCondition const& SourceMod);
 	
-	void NotifyOfOutgoingHealingSuccess(FHealingEvent const& HealingEvent);
-    bool CheckOutgoingHealingRestricted(FHealingInfo const& HealingInfo);
-   	TArray<FCombatModifier> GetOutgoingHealingMods(FHealingInfo const& HealingInfo);
-
-	UFUNCTION(BlueprintCallable, Category = "Healing")
-   	void SubscribeToOutgoingHealingSuccess(FHealingEventCallback const& Callback);
-	UFUNCTION(BlueprintCallable, Category = "Healing")
-   	void UnsubscribeFromOutgoingHealingSuccess(FHealingEventCallback const& Callback);
-
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Healing")
-   	void AddOutgoingHealingRestriction(FHealingRestriction const& Restriction);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Healing")
-   	void RemoveOutgoingHealingRestriction(FHealingRestriction const& Restriction);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Healing")
-   	int32 AddOutgoingHealingModifier(FHealingModCondition const& Modifier);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Healing")
-   	void RemoveOutgoingHealingModifier(int32 const ModifierID);
-
+	void NotifyOfOutgoingHealing(FDamagingEvent const& HealingEvent);
+	
 private:
-
-	UFUNCTION()
-	FCombatModifier ModifyHealingDoneFromStat(FHealingInfo const& HealingInfo);
 	
-	UPROPERTY(EditAnywhere, Category = "Healing")
-	bool bCanEverDealHealing = true;
-	
-    FHealingEventNotification OnOutgoingHealing;
-    TArray<FHealingRestriction> OutgoingHealingConditions;
-    TMap<int32, FHealingModCondition> OutgoingHealingModifiers;
+    FDamageEventNotification OnOutgoingHealing;
+    TArray<FDamageRestriction> OutgoingHealingRestrictions;
+    TArray<FDamageModCondition> OutgoingHealingModifiers;
     
-    UFUNCTION(NetMulticast, Unreliable)
-    void MulticastNotifyOfOutgoingHealingSuccess(FHealingEvent HealingEvent);
+    UFUNCTION(Client, Unreliable)
+    void ClientNotifyOfOutgoingHealing(FDamagingEvent const& HealingEvent);
 
 	UFUNCTION()
-	bool RestrictHealingBuffs(FBuffApplyEvent const& BuffEvent);
+	FCombatModifier ModifyHealingDoneFromStat(FDamageInfo const& HealingInfo);
 
-	//Incoming Damage
+//Incoming Damage
 
 public:
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Damage")
 	bool CanEverReceiveDamage() const { return bCanEverReceiveDamage; }
-	
-	void ApplyDamage(FDamagingEvent& DamageEvent);
-	bool CheckIncomingDamageRestricted(FDamageInfo const& DamageInfo);
-	TArray<FCombatModifier> GetIncomingDamageMods(FDamageInfo const& DamageInfo);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Damage", meta = (AutoCreateRefTerm = "SourceModifier, ThreatParams"))
+	FDamagingEvent ApplyDamage(float const Amount, AActor* AppliedBy, UObject* Source,
+		EDamageHitStyle const HitStyle, EDamageSchool const School, bool const bIgnoreRestrictions,
+		bool const bIgnoreModifiers, bool const bFromSnapshot, FDamageModCondition const& SourceModifier, FThreatFromDamage const& ThreatParams);
 
 	UFUNCTION(BlueprintCallable, Category = "Damage")
 	void SubscribeToIncomingDamageSuccess(FDamageEventCallback const& Callback);
@@ -205,25 +198,32 @@ public:
 	void AddIncomingDamageRestriction(FDamageRestriction const& Restriction);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Damage")
 	void RemoveIncomingDamageRestriction(FDamageRestriction const& Restriction);
+	bool CheckIncomingDamageRestricted(FDamageInfo const& DamageInfo);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Damage")
-	int32 AddIncomingDamageModifier(FDamageModCondition const& Modifier);
+	void AddIncomingDamageModifier(FDamageModCondition const& Modifier);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Damage")
-	void RemoveIncomingDamageModifier(int32 const ModifierID);
+	void RemoveIncomingDamageModifier(FDamageModCondition const& Modifier);
+	void ModifyIncomingDamage(FDamageInfo& DamageInfo);
 
 private:
 
-	UFUNCTION()
-	FCombatModifier ModifyDamageTakenFromStat(FDamageInfo const& DamageInfo);
-
 	UPROPERTY(EditAnywhere, Category = "Damage")
 	bool bCanEverReceiveDamage = true;
+	UFUNCTION()
+	bool RestrictDamageBuffs(FBuffApplyEvent const& BuffEvent);
+
+	bool bHasPendingKillingBlow = false;
+	FDamagingEvent PendingKillingBlow;
 	
 	FDamageEventNotification OnIncomingDamage;
-	TArray<FDamageRestriction> IncomingDamageConditions;
-	TMap<int32, FDamageModCondition> IncomingDamageModifiers;
+	TArray<FDamageRestriction> IncomingDamageRestrictions;
+	TArray<FDamageModCondition> IncomingDamageModifiers;
 
-	UFUNCTION(NetMulticast, Unreliable)
-    void MulticastNotifyOfIncomingDamageSuccess(FDamagingEvent DamageEvent);
+	UFUNCTION(Client, Unreliable)
+    void ClientNotifyOfIncomingDamage(FDamagingEvent const& DamageEvent);
+
+	UFUNCTION()
+	FCombatModifier ModifyDamageTakenFromStat(FDamageInfo const& DamageInfo);
 
 	//Incoming Healing
 
@@ -231,42 +231,41 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Healing")
 	bool CanEverReceiveHealing() const { return bCanEverReceiveHealing; }
-	
-	void ApplyHealing(FHealingEvent& HealingEvent);
-	bool CheckIncomingHealingRestricted(FHealingInfo const& HealingInfo);
-	TArray<FCombatModifier> GetIncomingHealingMods(FHealingInfo const& HealingInfo);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Healing", meta = (AutoCreateRefTerm = "SourceModifier, ThreatParams"))
+	FDamagingEvent ApplyHealing(float const Amount, AActor* AppliedBy, UObject* Source,
+		EDamageHitStyle const HitStyle, EDamageSchool const School, bool const bIgnoreRestrictions,
+		bool const bIgnoreModifiers, bool const bFromSnapshot, FDamageModCondition const& SourceModifier, FThreatFromDamage const& ThreatParams);
 
 	UFUNCTION(BlueprintCallable, Category = "Healing")
-	void SubscribeToIncomingHealingSuccess(FHealingEventCallback const& Callback);
+	void SubscribeToIncomingHealingSuccess(FDamageEventCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Healing")
-	void UnsubscribeFromIncomingHealingSuccess(FHealingEventCallback const& Callback);
+	void UnsubscribeFromIncomingHealingSuccess(FDamageEventCallback const& Callback);
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Healing")
-	void AddIncomingHealingRestriction(FHealingRestriction const& Restriction);
+	void AddIncomingHealingRestriction(FDamageRestriction const& Restriction);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Healing")
-	void RemoveIncomingHealingRestriction(FHealingRestriction const& Restriction);
+	void RemoveIncomingHealingRestriction(FDamageRestriction const& Restriction);
+	bool CheckIncomingHealingRestricted(FDamageInfo const& HealingInfo);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Healing")
-	int32 AddIncomingHealingModifier(FHealingModCondition const& Modifier);
+	void AddIncomingHealingModifier(FDamageModCondition const& Modifier);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Healing")
-	void RemoveIncomingHealingModifier(int32 const ModifierID);
+	void RemoveIncomingHealingModifier(FDamageModCondition const& Modifier);
+	void ModifyIncomingHealing(FDamageInfo& HealingInfo);
 
 private:
 
-	UFUNCTION()
-	FCombatModifier ModifyHealingTakenFromStat(FHealingInfo const& HealingInfo);
-
 	UPROPERTY(EditAnywhere, Category = "Healing")
 	bool bCanEverReceiveHealing = true;
+	UFUNCTION()
+	bool RestrictHealingBuffs(FBuffApplyEvent const& BuffEvent);
 	
-	FHealingEventNotification OnIncomingHealing;
-	TArray<FHealingRestriction> IncomingHealingConditions;
-	TMap<int32, FHealingModCondition> IncomingHealingModifiers;
+	FDamageEventNotification OnIncomingHealing;
+	TArray<FDamageRestriction> IncomingHealingRestrictions;
+	TArray<FDamageModCondition> IncomingHealingModifiers;
 
-	UFUNCTION(NetMulticast, Unreliable)
-    void MulticastNotifyOfIncomingHealingSuccess(FHealingEvent HealingEvent);
+	UFUNCTION(Client, Unreliable)
+    void ClientNotifyOfIncomingHealing(FDamagingEvent const& HealingEvent);
 
-	//Replication
-
-	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
-		
-};*/
+	UFUNCTION()
+	FCombatModifier ModifyHealingTakenFromStat(FDamageInfo const& HealingInfo);
+};

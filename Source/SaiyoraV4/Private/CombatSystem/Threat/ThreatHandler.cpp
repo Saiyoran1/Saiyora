@@ -1,11 +1,9 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
-/*
-#include "Threat/ThreatHandler.h"
+﻿#include "Threat/ThreatHandler.h"
 #include "UnrealNetwork.h"
 #include "Buff.h"
 #include "BuffHandler.h"
+#include "DamageHandler.h"
 #include "SaiyoraCombatInterface.h"
-#include "MegaComponent/CombatComponent.h"
 #include "SaiyoraBuffLibrary.h"
 
 float UThreatHandler::GlobalHealingThreatModifier = 0.3f;
@@ -38,7 +36,7 @@ void UThreatHandler::BeginPlay()
 				BuffHandlerRef->AddIncomingBuffRestriction(ThreatBuffRestriction);
 			}
 		}
-		DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(GetOwner());
+		DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
 		if (IsValid(DamageHandlerRef))
 		{
 			DamageHandlerRef->SubscribeToLifeStatusChanged(OwnerDeathCallback);
@@ -149,7 +147,7 @@ void UThreatHandler::GetOutgoingThreatMods(TArray<FCombatModifier>& OutMods, FTh
 
 bool UThreatHandler::CheckIncomingThreatRestricted(FThreatEvent const& Event)
 {
-	for (FThreatCondition const& Restriction : IncomingThreatRestrictions)
+	for (FThreatRestriction const& Restriction : IncomingThreatRestrictions)
 	{
 		if (Restriction.IsBound() && Restriction.Execute(Event))
 		{
@@ -161,7 +159,7 @@ bool UThreatHandler::CheckIncomingThreatRestricted(FThreatEvent const& Event)
 
 bool UThreatHandler::CheckOutgoingThreatRestricted(FThreatEvent const& Event)
 {
-	for (FThreatCondition const& Restriction : OutgoingThreatRestrictions)
+	for (FThreatRestriction const& Restriction : OutgoingThreatRestrictions)
 	{
 		if (Restriction.IsBound() && Restriction.Execute(Event))
 		{
@@ -223,7 +221,7 @@ FThreatEvent UThreatHandler::AddThreat(EThreatType const ThreatType, float const
 	}
 	
 	//Target must either be alive, or not have a health component.
-	if (IsValid(DamageHandlerRef) && DamageHandlerRef->GetLifeStatus() != ELifeStatus::Alive)
+	if (IsValid(DamageHandlerRef) && DamageHandlerRef->IsDead())
 	{
 		return Result;
 	}
@@ -238,8 +236,8 @@ FThreatEvent UThreatHandler::AddThreat(EThreatType const ThreatType, float const
 		return Result;
 	}
 	//Generator must either be alive, or not have a health component.
-	UCombatComponent* GeneratorHealth = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(AppliedBy);
-	if (IsValid(GeneratorHealth) && GeneratorHealth->GetLifeStatus() != ELifeStatus::Alive)
+	UDamageHandler* GeneratorHealth = ISaiyoraCombatInterface::Execute_GetDamageHandler(AppliedBy);
+	if (IsValid(GeneratorHealth) && GeneratorHealth->IsDead())
 	{
 		return Result;
 	}
@@ -247,8 +245,8 @@ FThreatEvent UThreatHandler::AddThreat(EThreatType const ThreatType, float const
 	if (IsValid(GeneratorComponent->GetMisdirectTarget()))
 	{
 		//If we are misdirected to a different actor, that actor must also be alive or not have a health component.
-		UCombatComponent* MisdirectHealth = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(GeneratorComponent->GetMisdirectTarget());
-		if (IsValid(MisdirectHealth) && MisdirectHealth->GetLifeStatus() != ELifeStatus::Alive)
+		UDamageHandler* MisdirectHealth = ISaiyoraCombatInterface::Execute_GetDamageHandler(GeneratorComponent->GetMisdirectTarget());
+		if (IsValid(MisdirectHealth) && MisdirectHealth->IsDead())
 		{
 			//If the misdirected actor is dead, threat will come from the original generator.
 			Result.AppliedBy = AppliedBy;
@@ -448,7 +446,7 @@ void UThreatHandler::AddToThreatTable(AActor* Actor, float const InitialThreat, 
 		TargetThreatHandler->SubscribeToVanished(VanishCallback);
 		TargetThreatHandler->NotifyAddedToThreatTable(GetOwner());
 	}
-	UCombatComponent* TargetDamageHandler = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(Actor);
+	UDamageHandler* TargetDamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(Actor);
 	if (IsValid(TargetDamageHandler))
 	{	
 		TargetDamageHandler->SubscribeToLifeStatusChanged(DeathCallback);
@@ -474,7 +472,7 @@ void UThreatHandler::RemoveFromThreatTable(AActor* Actor)
 				TargetThreatHandler->UnsubscribeFromVanished(VanishCallback);
 				TargetThreatHandler->NotifyRemovedFromThreatTable(GetOwner());
 			}
-			UCombatComponent* TargetDamageHandler = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(Actor);
+			UDamageHandler* TargetDamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(Actor);
 			if (IsValid(TargetDamageHandler))
 			{	
 				TargetDamageHandler->UnsubscribeFromLifeStatusChanged(DeathCallback);
@@ -533,7 +531,7 @@ void UThreatHandler::AddMisdirect(UBuff* Source, AActor* Target)
 	}
 	for (FMisdirect const& Misdirect : Misdirects)
 	{
-		if (Misdirect.SourceBuff == Source)
+		if (Misdirect.Source == Source)
 		{
 			return;
 		}
@@ -549,7 +547,7 @@ void UThreatHandler::RemoveMisdirect(UBuff* Source)
 	}
 	for (FMisdirect& Misdirect : Misdirects)
 	{
-		if (Misdirect.SourceBuff == Source)
+		if (Misdirect.Source == Source)
 		{
 			Misdirects.Remove(Misdirect);
 			return;
@@ -715,8 +713,8 @@ void UThreatHandler::AddFixate(AActor* Target, UBuff* Source)
 	{
 		return;
 	}
-	UCombatComponent* HealthComponent = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(Target);
-	if (IsValid(HealthComponent) && HealthComponent->GetLifeStatus() != ELifeStatus::Alive)
+	UDamageHandler* HealthComponent = ISaiyoraCombatInterface::Execute_GetDamageHandler(Target);
+	if (IsValid(HealthComponent) && HealthComponent->IsDead())
 	{
 		return;
 	}
@@ -806,8 +804,8 @@ void UThreatHandler::AddBlind(AActor* Target, UBuff* Source)
 	{
 		return;
 	}
-	UCombatComponent* HealthComponent = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(Target);
-	if (IsValid(HealthComponent) && HealthComponent->GetLifeStatus() != ELifeStatus::Alive)
+	UDamageHandler* HealthComponent = ISaiyoraCombatInterface::Execute_GetDamageHandler(Target);
+	if (IsValid(HealthComponent) && HealthComponent->IsDead())
 	{
 		return;
 	}
@@ -940,4 +938,4 @@ void UThreatHandler::TransferThreat(AActor* FromActor, AActor* ToActor, float co
 	}
 	RemoveThreat(TransferThreat, FromActor);
 	AddThreat(EThreatType::Absolute, TransferThreat, ToActor, nullptr, true, true, FThreatModCondition());
-}*/
+}

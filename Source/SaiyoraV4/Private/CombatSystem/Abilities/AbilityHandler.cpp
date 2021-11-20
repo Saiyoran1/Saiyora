@@ -1,5 +1,3 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #include "AbilityHandler.h"
 #include "UnrealNetwork.h"
 #include "Engine/ActorChannel.h"
@@ -7,8 +5,8 @@
 #include "ResourceHandler.h"
 #include "StatHandler.h"
 #include "CrowdControlHandler.h"
+#include "DamageHandler.h"
 #include "SaiyoraCombatInterface.h"
-#include "MegaComponent/CombatComponent.h"
 #include "SaiyoraCombatLibrary.h"
 #include "UObjectGlobals.h"
 
@@ -51,7 +49,7 @@ void UAbilityHandler::BeginPlay()
 		ResourceHandler = ISaiyoraCombatInterface::Execute_GetResourceHandler(GetOwner());
 		StatHandler = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
 		CrowdControlHandler = ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(GetOwner());
-		DamageHandler = ISaiyoraCombatInterface::Execute_GetGenericCombatComponent(GetOwner());
+		DamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
 	}
 	if (IsValid(StatHandler))
 	{

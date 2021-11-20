@@ -99,7 +99,7 @@ private:
 	TArray<UBuff*> RecentlyRemoved;
 	UPROPERTY()
 	TArray<UBuff*> OutgoingBuffs;
-	
+
 	FBuffEventNotification OnIncomingBuffApplied;
 	FBuffRemoveNotification OnIncomingBuffRemoved;
 	TArray<FBuffEventCondition> IncomingBuffConditions;

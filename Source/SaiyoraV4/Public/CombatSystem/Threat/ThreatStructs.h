@@ -4,17 +4,15 @@
 #include "ThreatEnums.h"
 #include "ThreatStructs.generated.h"
 
-class UCombatComponent;
-
 USTRUCT(BlueprintType)
 struct FThreatEvent
 {
 	GENERATED_BODY()
 
 	UPROPERTY(BlueprintReadOnly, Category = "Threat")
-	UCombatComponent* AppliedTo = nullptr;
+	AActor* AppliedTo = nullptr;
 	UPROPERTY(BlueprintReadOnly, Category = "Threat")
-	UCombatComponent* AppliedBy = nullptr;
+	AActor* AppliedBy = nullptr;
 	UPROPERTY(BlueprintReadOnly, Category = "Threat")
 	UObject* Source = nullptr;
 	UPROPERTY(BlueprintReadOnly, Category = "Threat")
@@ -39,7 +37,7 @@ struct FThreatTarget
 	GENERATED_BODY()
 
 	UPROPERTY()
-	UCombatComponent* Target = nullptr;
+	AActor* Target = nullptr;
 	float Threat = 0.0f;
 	UPROPERTY()
 	TArray<UBuff*> Fixates;
@@ -48,7 +46,7 @@ struct FThreatTarget
 	bool Faded = false;
 
 	FThreatTarget();
-	FThreatTarget(UCombatComponent* ThreatTarget, float const InitialThreat, bool const bFaded = false, UBuff* InitialFixate = nullptr, UBuff* InitialBlind = nullptr);
+	FThreatTarget(AActor* ThreatTarget, float const InitialThreat, bool const bFaded = false, UBuff* InitialFixate = nullptr, UBuff* InitialBlind = nullptr);
 
 	FORCEINLINE bool operator<(FThreatTarget const& Other) const { return LessThan(Other); }
 	bool LessThan(FThreatTarget const& Other) const;
@@ -62,10 +60,10 @@ struct FMisdirect
 	UPROPERTY()
 	UBuff* Source;
 	UPROPERTY()
-	UCombatComponent* Target;
+	AActor* Target;
 
 	FMisdirect();
-	FMisdirect(UBuff* SourceBuff, UCombatComponent* TargetComponent);
+	FMisdirect(UBuff* SourceBuff, AActor* TargetActor);
 
 	FORCEINLINE bool operator==(FMisdirect const& Other) const { return Other.Source == Source; }
 };
@@ -76,14 +74,14 @@ DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FThreatModCondition, F
 DECLARE_DYNAMIC_DELEGATE_OneParam(FCombatStatusCallback, bool const, NewCombatStatus);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FCombatStatusNotification, bool const, NewCombatStatus);
 
-DECLARE_DYNAMIC_DELEGATE_TwoParams(FTargetCallback, UCombatComponent*, PreviousTarget, UCombatComponent*, NewTarget);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FTargetNotification, UCombatComponent*, PreviousTarget, UCombatComponent*, NewTarget);
+DECLARE_DYNAMIC_DELEGATE_TwoParams(FTargetCallback, AActor*, PreviousTarget, AActor*, NewTarget);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FTargetNotification, AActor*, PreviousTarget, AActor*, NewTarget);
 
-DECLARE_DYNAMIC_DELEGATE_TwoParams(FFadeCallback, UCombatComponent*, Target, bool const, Faded);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FFadeNotification, UCombatComponent*, Target, bool const, Faded);
+DECLARE_DYNAMIC_DELEGATE_TwoParams(FFadeCallback, AActor*, Target, bool const, Faded);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FFadeNotification, AActor*, Target, bool const, Faded);
 
-DECLARE_DYNAMIC_DELEGATE_OneParam(FVanishCallback, UCombatComponent*, Target);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FVanishNotification, UCombatComponent*, Target);
+DECLARE_DYNAMIC_DELEGATE_OneParam(FVanishCallback, AActor*, Target);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FVanishNotification, AActor*, Target);
 
 //Threat caused by damage and healing can have a separate base threat value, an optional modifier from the source, and the option to ignore modifiers and restrictions.
 USTRUCT(BlueprintType)

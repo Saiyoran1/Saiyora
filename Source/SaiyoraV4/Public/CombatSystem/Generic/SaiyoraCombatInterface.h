@@ -1,9 +1,5 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #pragma once
-
 #include "CoreMinimal.h"
-#include "SaiyoraEnums.h"
 #include "UObject/Interface.h"
 #include "SaiyoraCombatInterface.generated.h"
 
@@ -28,9 +24,9 @@ class SAIYORAV4_API ISaiyoraCombatInterface
 	GENERATED_BODY()
 	
 public:
-	/*UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Damage")
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Damage")
 	UDamageHandler* GetDamageHandler() const;
-	virtual UDamageHandler* GetDamageHandler_Implementation() const { return nullptr; }*/
+	virtual UDamageHandler* GetDamageHandler_Implementation() const { return nullptr; }
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Buffs")
 	UBuffHandler* GetBuffHandler() const;
 	virtual UBuffHandler* GetBuffHandler_Implementation() const { return nullptr; }
@@ -49,12 +45,7 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Reaction")
 	UCombatReactionComponent* GetReactionComponent() const;
 	virtual UCombatReactionComponent* GetReactionComponent_Implementation() const { return nullptr; }
-	/*UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Threat")
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Threat")
 	UThreatHandler* GetThreatHandler() const;
-	virtual UThreatHandler* GetThreatHandler_Implementation() const { return nullptr; }*/
-
-	//WIP
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "TEST")
-	UCombatComponent* GetGenericCombatComponent() const;
-	virtual UCombatComponent* GetGenericCombatComponent_Implementation() const { return nullptr; }
+	virtual UThreatHandler* GetThreatHandler_Implementation() const { return nullptr; }
 };

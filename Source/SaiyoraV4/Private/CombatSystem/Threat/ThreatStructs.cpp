@@ -8,7 +8,7 @@ FThreatTarget::FThreatTarget()
 	Threat = 0.0f;
 }
 
-FThreatTarget::FThreatTarget(UCombatComponent* ThreatTarget, float const InitialThreat, bool const bFaded, UBuff* InitialFixate,
+FThreatTarget::FThreatTarget(AActor* ThreatTarget, float const InitialThreat, bool const bFaded, UBuff* InitialFixate,
 	UBuff* InitialBlind)
 {
 	Target = ThreatTarget;
@@ -76,8 +76,8 @@ FMisdirect::FMisdirect()
 	Target = nullptr;
 }
 
-FMisdirect::FMisdirect(UBuff* SourceBuff, UCombatComponent* TargetComponent)
+FMisdirect::FMisdirect(UBuff* SourceBuff, AActor* TargetActor)
 {
 	Source = SourceBuff;
-	Target = TargetComponent;
+	Target = TargetActor;
 }

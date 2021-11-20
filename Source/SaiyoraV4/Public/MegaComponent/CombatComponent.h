@@ -1,5 +1,5 @@
 ﻿#pragma once
-#include "CoreMinimal.h"
+/*#include "CoreMinimal.h"
 #include "DamageEnums.h"
 #include "DamageStructs.h"
 #include "GameplayTagContainer.h"
@@ -55,7 +55,7 @@ private:
 	 *
 	 */
 	
-public:
+/*public:
 	static FGameplayTag DamageDoneStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.DamageDone")), false); }
 	static FGameplayTag DamageTakenStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.DamageTaken")), false); }
 	static FGameplayTag HealingDoneStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.HealingDone")), false); }
@@ -102,7 +102,7 @@ private:
 	/*UFUNCTION()
 	bool RestrictHealingBuffs(FBuffApplyEvent const& BuffEvent);*/
 
-#pragma region Subscriptions
+/*#pragma region Subscriptions
 	
 public:
 	UFUNCTION(BlueprintCallable, Category = "Health")
@@ -242,7 +242,7 @@ private:
 	float MaxHealth = 1.0f;
 	/*UFUNCTION()
 	void OnMaxHealthStatChanged(FGameplayTag const& StatTag, float const NewValue);*/
-	UPROPERTY(ReplicatedUsing=OnRep_LifeStatus)
+/*	UPROPERTY(ReplicatedUsing=OnRep_LifeStatus)
 	ELifeStatus LifeStatus = ELifeStatus::Invalid;
 	UFUNCTION()
 	void OnRep_LifeStatus(ELifeStatus const PreviousStatus);
@@ -259,7 +259,7 @@ private:
 	 *
 	 */
 	
-public:
+/*public:
 	static FGameplayTag GenericThreatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Threat")), false); }
 	static float GlobalHealingThreatModifier;
 	static float GlobalTauntThreatPercentage;
@@ -297,7 +297,7 @@ private:
 	bool CheckBuffForThreat(FBuffApplyEvent const& BuffEvent);
 	FBuffEventCondition ThreatBuffRestriction;*/
 
-#pragma region Threat Special Events
+/*#pragma region Threat Special Events
 
 public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
@@ -386,4 +386,4 @@ private:
 	
 #pragma endregion
 	
-};
+};*/

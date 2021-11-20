@@ -1,12 +1,9 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #pragma once
 #include "BuffStructs.h"
 #include "DamageEnums.h"
 #include "GameplayTagContainer.h"
 #include "StatStructs.h"
 #include "ThreatStructs.h"
-
 #include "BuffFunction.generated.h"
 
 UCLASS(Abstract)
@@ -80,9 +77,9 @@ class UDamageOverTimeFunction : public UBuffFunction
 	GENERATED_BODY()
 
 	UPROPERTY()
-	class UCombatComponent* TargetComponent;
+	class UDamageHandler* TargetComponent;
 	UPROPERTY()
-	class UCombatComponent* GeneratorComponent;
+	class UDamageHandler* GeneratorComponent;
 
 	float BaseDamage = 0.0f;
 	EDamageSchool DamageSchool = EDamageSchool::None;
@@ -130,9 +127,9 @@ class UHealingOverTimeFunction : public UBuffFunction
 	GENERATED_BODY()
 
 	UPROPERTY()
-	class UCombatComponent* TargetComponent;
+	class UDamageHandler* TargetComponent;
 	UPROPERTY()
-	class UCombatComponent* GeneratorComponent;
+	class UDamageHandler* GeneratorComponent;
 	
 	float BaseHealing = 0.0f;
 	EDamageSchool HealingSchool = EDamageSchool::None;
