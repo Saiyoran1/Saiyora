@@ -18,6 +18,21 @@ UThreatHandler::UThreatHandler()
 	bWantsInitializeComponent = true;
 }
 
+void UThreatHandler::InitializeComponent()
+{
+	if (GetOwnerRole() == ROLE_Authority)
+	{
+		FadeCallback.BindDynamic(this, &UThreatHandler::OnTargetFadeStatusChanged);
+		VanishCallback.BindDynamic(this, &UThreatHandler::OnTargetVanished);
+		DeathCallback.BindDynamic(this, &UThreatHandler::OnTargetDied);
+		OwnerDeathCallback.BindDynamic(this, &UThreatHandler::OnOwnerDied);
+		ThreatFromDamageCallback.BindDynamic(this, &UThreatHandler::OnOwnerDamageTaken);
+		ThreatFromHealingCallback.BindDynamic(this, &UThreatHandler::OnTargetHealingTaken);
+		ThreatBuffRestriction.BindDynamic(this, &UThreatHandler::CheckBuffForThreat);
+		DecayDelegate.BindUObject(this, &UThreatHandler::DecayThreat);
+	}
+}
+
 void UThreatHandler::BeginPlay()
 {
 	Super::BeginPlay();
@@ -45,21 +60,6 @@ void UThreatHandler::BeginPlay()
 	}
 }
 
-void UThreatHandler::InitializeComponent()
-{
-	if (GetOwnerRole() == ROLE_Authority)
-	{
-		FadeCallback.BindDynamic(this, &UThreatHandler::OnTargetFadeStatusChanged);
-		VanishCallback.BindDynamic(this, &UThreatHandler::OnTargetVanished);
-		DeathCallback.BindDynamic(this, &UThreatHandler::OnTargetDied);
-		OwnerDeathCallback.BindDynamic(this, &UThreatHandler::OnOwnerDied);
-		ThreatFromDamageCallback.BindDynamic(this, &UThreatHandler::OnOwnerDamageTaken);
-		ThreatFromHealingCallback.BindDynamic(this, &UThreatHandler::OnTargetHealingTaken);
-		ThreatBuffRestriction.BindDynamic(this, &UThreatHandler::CheckBuffForThreat);
-		DecayDelegate.BindUObject(this, &UThreatHandler::DecayThreat);
-	}
-}
-
 void UThreatHandler::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
@@ -67,144 +67,17 @@ void UThreatHandler::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 	DOREPLIFETIME(UThreatHandler, bInCombat);
 }
 
-void UThreatHandler::OnOwnerDied(AActor* Actor, ELifeStatus Previous, ELifeStatus New)
+float UThreatHandler::GetActorThreatValue(AActor* Actor) const
 {
-	if (GetOwnerRole() != ROLE_Authority || !IsValid(Actor) || Actor != GetOwner() || New != ELifeStatus::Dead)
-	{
-		return;
-	}
-	for (int i = ThreatTable.Num() - 1; i > 0; i--)
-	{
-		if (IsValid(ThreatTable[i].Target))
-		{
-			RemoveFromThreatTable(ThreatTable[i].Target);
-		}
-	}
-}
-
-void UThreatHandler::OnOwnerDamageTaken(FDamagingEvent const& DamageEvent)
-{
-	if (!DamageEvent.Result.Success || !DamageEvent.ThreatInfo.GeneratesThreat)
-	{
-		return;
-	}
-	AddThreat(EThreatType::Damage, DamageEvent.ThreatInfo.BaseThreat, DamageEvent.Info.AppliedBy,
-		DamageEvent.Info.Source, DamageEvent.ThreatInfo.IgnoreRestrictions, DamageEvent.ThreatInfo.IgnoreModifiers,
-		DamageEvent.ThreatInfo.SourceModifier);
-}
-
-void UThreatHandler::OnTargetHealingTaken(FDamagingEvent const& HealingEvent)
-{
-	if (!HealingEvent.Result.Success || !HealingEvent.ThreatInfo.GeneratesThreat)
-	{
-		return;
-	}
-	AddThreat(EThreatType::Healing, (HealingEvent.ThreatInfo.BaseThreat * GlobalHealingThreatModifier), HealingEvent.Info.AppliedBy,
-		HealingEvent.Info.Source, HealingEvent.ThreatInfo.IgnoreRestrictions, HealingEvent.ThreatInfo.IgnoreModifiers,
-		HealingEvent.ThreatInfo.SourceModifier);
-}
-
-void UThreatHandler::OnTargetVanished(AActor* Actor)
-{
-	if (IsValid(Actor))
-	{
-		RemoveFromThreatTable(Actor);
-	}
-}
-
-void UThreatHandler::DecayThreat()
-{
-	if (GetOwnerRole() == ROLE_Authority)
-	{
-		for (FThreatTarget& Target : ThreatTable)
-		{
-			Target.Threat *= GlobalThreatDecayPercentage;
-		}
-	}
-}
-
-void UThreatHandler::GetIncomingThreatMods(TArray<FCombatModifier>& OutMods, FThreatEvent const& Event)
-{
-	for (FThreatModCondition const& Modifier : IncomingThreatMods)
-	{
-		if (Modifier.IsBound())
-		{
-			OutMods.Add(Modifier.Execute(Event));
-		}
-	}
-}
-
-void UThreatHandler::GetOutgoingThreatMods(TArray<FCombatModifier>& OutMods, FThreatEvent const& Event)
-{
-	for (FThreatModCondition const& Modifier : OutgoingThreatMods)
-	{
-		if (Modifier.IsBound())
-		{
-			OutMods.Add(Modifier.Execute(Event));
-		}
-	}
-}
-
-bool UThreatHandler::CheckIncomingThreatRestricted(FThreatEvent const& Event)
-{
-	for (FThreatRestriction const& Restriction : IncomingThreatRestrictions)
-	{
-		if (Restriction.IsBound() && Restriction.Execute(Event))
-		{
-			return true;
-		}
-	}
-	return false;
-}
-
-bool UThreatHandler::CheckOutgoingThreatRestricted(FThreatEvent const& Event)
-{
-	for (FThreatRestriction const& Restriction : OutgoingThreatRestrictions)
-	{
-		if (Restriction.IsBound() && Restriction.Execute(Event))
-		{
-			return true;
-		}
-	}
-	return false;
-}
-
-void UThreatHandler::NotifyAddedToThreatTable(AActor* Actor)
-{
-	if (TargetedBy.Contains(Actor))
-	{
-		return;
-	}
-	TargetedBy.Add(Actor);
-	if (TargetedBy.Num() == 1)
-	{
-		UpdateCombatStatus();
-	}
-}
-
-void UThreatHandler::NotifyRemovedFromThreatTable(AActor* Actor)
-{
-	if (!IsValid(Actor))
-	{
-		return;
-	}
-	if (TargetedBy.Remove(Actor) > 0 && TargetedBy.Num() == 0)
-	{
-		UpdateCombatStatus();
-	}
-}
-
-float UThreatHandler::GetThreatLevel(AActor* Target) const
-{
-	if (GetOwnerRole() != ROLE_Authority || !IsValid(Target))
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(Actor))
 	{
 		return 0.0f;
 	}
-	for (FThreatTarget const& ThreatEntry : ThreatTable)
+	for (FThreatTarget const& Target : ThreatTable)
 	{
-		if (IsValid(ThreatEntry.Target) && ThreatEntry.Target == Target)
+		if (Target.Target == Actor)
 		{
-			return ThreatEntry.Threat;
+			return Target.Threat;
 		}
 	}
 	return 0.0f;
@@ -272,8 +145,8 @@ FThreatEvent UThreatHandler::AddThreat(EThreatType const ThreatType, float const
 	if (!bIgnoreModifiers)
 	{
 		TArray<FCombatModifier> Mods;
-		GeneratorComponent->GetOutgoingThreatMods(Mods, Result);
-		GetIncomingThreatMods(Mods, Result);
+		GeneratorComponent->GetModifiedOutgoingThreat(Result);
+		GetModifiedIncomingThreat(Result,);
 		if (SourceModifier.IsBound())
 		{
 			Mods.Add(SourceModifier.Execute(Result));
@@ -323,6 +196,247 @@ FThreatEvent UThreatHandler::AddThreat(EThreatType const ThreatType, float const
 	return Result;
 }
 
+#pragma region Subscriptions
+
+void UThreatHandler::SubscribeToTargetChanged(FTargetCallback const& Callback)
+{
+	if (Callback.IsBound())
+	{
+		OnTargetChanged.AddUnique(Callback);
+	}
+}
+
+void UThreatHandler::UnsubscribeFromTargetChanged(FTargetCallback const& Callback)
+{
+	if (Callback.IsBound())
+	{
+		OnTargetChanged.Remove(Callback);
+	}
+}
+
+#pragma endregion
+#pragma region Restrictions
+
+void UThreatHandler::AddIncomingThreatRestriction(FThreatRestriction const& Restriction)
+{
+	if (GetOwnerRole() == ROLE_Authority && Restriction.IsBound())
+	{
+		IncomingThreatRestrictions.AddUnique(Restriction);
+	}
+}
+
+void UThreatHandler::RemoveIncomingThreatRestriction(FThreatRestriction const& Restriction)
+{
+	if (GetOwnerRole() == ROLE_Authority && Restriction.IsBound())
+	{
+		IncomingThreatRestrictions.Remove(Restriction);
+	}
+}
+
+bool UThreatHandler::CheckIncomingThreatRestricted(FThreatEvent const& Event)
+{
+	for (FThreatRestriction const& Restriction : IncomingThreatRestrictions)
+	{
+		if (Restriction.IsBound() && Restriction.Execute(Event))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+void UThreatHandler::AddOutgoingThreatRestriction(FThreatRestriction const& Restriction)
+{
+	if (GetOwnerRole() == ROLE_Authority && Restriction.IsBound())
+	{
+		OutgoingThreatRestrictions.AddUnique(Restriction);
+	}
+}
+
+void UThreatHandler::RemoveOutgoingThreatRestriction(FThreatRestriction const& Restriction)
+{
+	if (GetOwnerRole() == ROLE_Authority && Restriction.IsBound())
+	{
+		OutgoingThreatRestrictions.Remove(Restriction);
+	}
+}
+
+bool UThreatHandler::CheckOutgoingThreatRestricted(FThreatEvent const& Event)
+{
+	for (FThreatRestriction const& Restriction : OutgoingThreatRestrictions)
+	{
+		if (Restriction.IsBound() && Restriction.Execute(Event))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+#pragma endregion
+#pragma region Modifiers
+
+void UThreatHandler::AddIncomingThreatModifier(FThreatModCondition const& Modifier)
+{
+	if (GetOwnerRole() == ROLE_Authority && Modifier.IsBound())
+	{
+		IncomingThreatMods.AddUnique(Modifier);
+	}
+}
+
+void UThreatHandler::RemoveIncomingThreatModifier(FThreatModCondition const& Modifier)
+{
+	if (GetOwnerRole() == ROLE_Authority && Modifier.IsBound())
+	{
+		IncomingThreatMods.Remove(Modifier);
+	}
+}
+
+float UThreatHandler::GetModifiedIncomingThreat(FThreatEvent const& ThreatEvent, FThreatModCondition const& SourceModifier) const
+{
+	TArray<FCombatModifier> Mods;
+	for (FThreatModCondition const& Modifier : IncomingThreatMods)
+	{
+		if (Modifier.IsBound())
+		{
+			Mods.Add(Modifier.Execute(ThreatEvent));
+		}
+	}
+	if (SourceModifier.IsBound())
+	{
+		Mods.Add(SourceModifier.Execute(ThreatEvent));
+	}
+	return FCombatModifier::ApplyModifiers(Mods, ThreatEvent.Threat);
+}
+
+void UThreatHandler::AddOutgoingThreatModifier(FThreatModCondition const& Modifier)
+{
+	if (GetOwnerRole() == ROLE_Authority && Modifier.IsBound())
+	{
+		OutgoingThreatMods.AddUnique(Modifier);
+	}
+}
+
+void UThreatHandler::RemoveOutgoingThreatModifier(FThreatModCondition const& Modifier)
+{
+	if (GetOwnerRole() == ROLE_Authority && Modifier.IsBound())
+	{
+		OutgoingThreatMods.Remove(Modifier);
+	}
+}
+
+float UThreatHandler::GetModifiedOutgoingThreat(FThreatEvent const& ThreatEvent) const
+{
+	TArray<FCombatModifier> Mods;
+	for (FThreatModCondition const& Modifier : OutgoingThreatMods)
+	{
+		if (Modifier.IsBound())
+		{
+			Mods.Add(Modifier.Execute(ThreatEvent));
+		}
+	}
+	return FCombatModifier::ApplyModifiers(Mods, ThreatEvent.Threat);
+}
+
+#pragma endregion 
+
+void UThreatHandler::OnOwnerDied(AActor* Actor, ELifeStatus Previous, ELifeStatus New)
+{
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(Actor) || Actor != GetOwner() || New != ELifeStatus::Dead)
+	{
+		return;
+	}
+	for (int i = ThreatTable.Num() - 1; i > 0; i--)
+	{
+		if (IsValid(ThreatTable[i].Target))
+		{
+			RemoveFromThreatTable(ThreatTable[i].Target);
+		}
+	}
+}
+
+void UThreatHandler::OnOwnerDamageTaken(FDamagingEvent const& DamageEvent)
+{
+	if (!DamageEvent.Result.Success || !DamageEvent.ThreatInfo.GeneratesThreat)
+	{
+		return;
+	}
+	AddThreat(EThreatType::Damage, DamageEvent.ThreatInfo.BaseThreat, DamageEvent.Info.AppliedBy,
+		DamageEvent.Info.Source, DamageEvent.ThreatInfo.IgnoreRestrictions, DamageEvent.ThreatInfo.IgnoreModifiers,
+		DamageEvent.ThreatInfo.SourceModifier);
+}
+
+void UThreatHandler::OnTargetHealingTaken(FDamagingEvent const& HealingEvent)
+{
+	if (!HealingEvent.Result.Success || !HealingEvent.ThreatInfo.GeneratesThreat)
+	{
+		return;
+	}
+	AddThreat(EThreatType::Healing, (HealingEvent.ThreatInfo.BaseThreat * GlobalHealingThreatModifier), HealingEvent.Info.AppliedBy,
+		HealingEvent.Info.Source, HealingEvent.ThreatInfo.IgnoreRestrictions, HealingEvent.ThreatInfo.IgnoreModifiers,
+		HealingEvent.ThreatInfo.SourceModifier);
+}
+
+void UThreatHandler::OnTargetVanished(AActor* Actor)
+{
+	if (IsValid(Actor))
+	{
+		RemoveFromThreatTable(Actor);
+	}
+}
+
+void UThreatHandler::DecayThreat()
+{
+	if (GetOwnerRole() == ROLE_Authority)
+	{
+		for (FThreatTarget& Target : ThreatTable)
+		{
+			Target.Threat *= GlobalThreatDecayPercentage;
+		}
+	}
+}
+
+void UThreatHandler::NotifyAddedToThreatTable(AActor* Actor)
+{
+	if (TargetedBy.Contains(Actor))
+	{
+		return;
+	}
+	TargetedBy.Add(Actor);
+	if (TargetedBy.Num() == 1)
+	{
+		UpdateCombatStatus();
+	}
+}
+
+void UThreatHandler::NotifyRemovedFromThreatTable(AActor* Actor)
+{
+	if (!IsValid(Actor))
+	{
+		return;
+	}
+	if (TargetedBy.Remove(Actor) > 0 && TargetedBy.Num() == 0)
+	{
+		UpdateCombatStatus();
+	}
+}
+
+float UThreatHandler::GetThreatLevel(AActor* Target) const
+{
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(Target))
+	{
+		return 0.0f;
+	}
+	for (FThreatTarget const& ThreatEntry : ThreatTable)
+	{
+		if (IsValid(ThreatEntry.Target) && ThreatEntry.Target == Target)
+		{
+			return ThreatEntry.Threat;
+		}
+	}
+	return 0.0f;
+}
+
 void UThreatHandler::RemoveThreat(float const Amount, AActor* AppliedBy)
 {
 	if (GetOwnerRole() != ROLE_Authority || !IsValid(AppliedBy) || !bCanEverReceiveThreat)
@@ -353,22 +467,6 @@ void UThreatHandler::RemoveThreat(float const Amount, AActor* AppliedBy)
 	{
 		UpdateTarget();
 	}
-}
-
-float UThreatHandler::GetActorThreatValue(AActor* Actor) const
-{
-	if (GetOwnerRole() != ROLE_Authority || !IsValid(Actor))
-	{
-		return 0.0f;
-	}
-	for (FThreatTarget const& Target : ThreatTable)
-	{
-		if (Target.Target == Actor)
-		{
-			return Target.Threat;
-		}
-	}
-	return 0.0f;
 }
 
 void UThreatHandler::UpdateCombatStatus()

@@ -327,7 +327,7 @@ FCombatModifier UDamageHandler::ModifyDamageDoneFromStat(FDamageInfo const& Dama
 	return FCombatModifier::InvalidMod;
 }
 
-void UDamageHandler::ModifyOutgoingDamage(FDamageInfo& DamageInfo, FDamageModCondition const& SourceMod)
+float UDamageHandler::GetModifiedOutgoingDamage(FDamageInfo const& DamageInfo, FDamageModCondition const& SourceMod) const
 {
 	TArray<FCombatModifier> Mods;
 	for (FDamageModCondition const& Modifier : OutgoingDamageModifiers)
@@ -341,7 +341,7 @@ void UDamageHandler::ModifyOutgoingDamage(FDamageInfo& DamageInfo, FDamageModCon
 	{
 		Mods.Add(SourceMod.Execute(DamageInfo));
 	}
-	DamageInfo.Value = FCombatModifier::ApplyModifiers(Mods, DamageInfo.Value);
+	return FCombatModifier::ApplyModifiers(Mods, DamageInfo.Value);
 }
 
 void UDamageHandler::NotifyOfOutgoingDamage(FDamagingEvent const& DamageEvent)
@@ -440,7 +440,7 @@ FCombatModifier UDamageHandler::ModifyHealingDoneFromStat(FDamageInfo const& Hea
 	return FCombatModifier::InvalidMod;
 }
 
-void UDamageHandler::ModifyOutgoingHealing(FDamageInfo& HealingInfo, FDamageModCondition const& SourceMod)
+float UDamageHandler::GetModifiedOutgoingHealing(FDamageInfo const& HealingInfo, FDamageModCondition const& SourceMod) const
 {
 	TArray<FCombatModifier> Mods;
 	for (FDamageModCondition const& Modifier : OutgoingHealingModifiers)
@@ -454,7 +454,7 @@ void UDamageHandler::ModifyOutgoingHealing(FDamageInfo& HealingInfo, FDamageModC
 	{
 		Mods.Add(SourceMod.Execute(HealingInfo));
 	}
-	HealingInfo.Value = FCombatModifier::ApplyModifiers(Mods, HealingInfo.Value);
+	return FCombatModifier::ApplyModifiers(Mods, HealingInfo.Value);
 }
 
 void UDamageHandler::NotifyOfOutgoingHealing(FDamagingEvent const& HealingEvent)
@@ -516,10 +516,10 @@ FDamagingEvent UDamageHandler::ApplyDamage(float const Amount, AActor* AppliedBy
     {
         if (!bFromSnapshot && IsValid(GeneratorComponent))
         {
-            GeneratorComponent->ModifyOutgoingDamage(DamageEvent.Info, SourceModifier);
+            DamageEvent.Info.Value = GeneratorComponent->GetModifiedOutgoingDamage(DamageEvent.Info, SourceModifier);
             DamageEvent.Info.SnapshotValue = DamageEvent.Info.Value;
         }
-        ModifyIncomingDamage(DamageEvent.Info);
+        DamageEvent.Info.Value = GetModifiedIncomingDamage(DamageEvent.Info);
     }
     if (!bIgnoreRestrictions && (CheckIncomingDamageRestricted(DamageEvent.Info) || (IsValid(GeneratorComponent) && GeneratorComponent->CheckOutgoingDamageRestricted(DamageEvent.Info))))
     {
@@ -637,7 +637,7 @@ FCombatModifier UDamageHandler::ModifyDamageTakenFromStat(FDamageInfo const& Dam
 	return FCombatModifier::InvalidMod;
 }
 
-void UDamageHandler::ModifyIncomingDamage(FDamageInfo& DamageInfo)
+float UDamageHandler::GetModifiedIncomingDamage(FDamageInfo const& DamageInfo) const
 {
 	TArray<FCombatModifier> Mods;
 	for (FDamageModCondition const& Modifier : IncomingDamageModifiers)
@@ -647,7 +647,7 @@ void UDamageHandler::ModifyIncomingDamage(FDamageInfo& DamageInfo)
 			Mods.Add(Modifier.Execute(DamageInfo));
 		}
 	}
-	DamageInfo.Value = FCombatModifier::ApplyModifiers(Mods, DamageInfo.Value);
+	return FCombatModifier::ApplyModifiers(Mods, DamageInfo.Value);
 }
 
 void UDamageHandler::ClientNotifyOfIncomingDamage_Implementation(FDamagingEvent const& DamageEvent)
@@ -712,10 +712,10 @@ FDamagingEvent UDamageHandler::ApplyHealing(float const Amount, AActor* AppliedB
     {
         if (!bFromSnapshot && IsValid(GeneratorComponent))
         {
-            GeneratorComponent->ModifyOutgoingHealing(HealingEvent.Info, SourceModifier);
+            HealingEvent.Info.Value = GeneratorComponent->GetModifiedOutgoingHealing(HealingEvent.Info, SourceModifier);
             HealingEvent.Info.SnapshotValue = HealingEvent.Info.Value;
         }
-        ModifyIncomingHealing(HealingEvent.Info);
+        HealingEvent.Info.Value = GetModifiedIncomingHealing(HealingEvent.Info);
     }
     if (!bIgnoreRestrictions && (CheckIncomingHealingRestricted(HealingEvent.Info) || (IsValid(GeneratorComponent) && GeneratorComponent->CheckOutgoingHealingRestricted(HealingEvent.Info))))
     {
@@ -817,7 +817,7 @@ FCombatModifier UDamageHandler::ModifyHealingTakenFromStat(FDamageInfo const& He
 	return FCombatModifier::InvalidMod;
 }
 
-void UDamageHandler::ModifyIncomingHealing(FDamageInfo& HealingInfo)
+float UDamageHandler::GetModifiedIncomingHealing(FDamageInfo const& HealingInfo) const
 {
 	TArray<FCombatModifier> Mods;
 	for (FDamageModCondition const& Modifier : IncomingHealingModifiers)
@@ -827,7 +827,7 @@ void UDamageHandler::ModifyIncomingHealing(FDamageInfo& HealingInfo)
 			Mods.Add(Modifier.Execute(HealingInfo));
 		}
 	}
-	HealingInfo.Value = FCombatModifier::ApplyModifiers(Mods, HealingInfo.Value);
+	return FCombatModifier::ApplyModifiers(Mods, HealingInfo.Value);
 }
 
 void UDamageHandler::ClientNotifyOfIncomingHealing_Implementation(FDamagingEvent const& HealingEvent)

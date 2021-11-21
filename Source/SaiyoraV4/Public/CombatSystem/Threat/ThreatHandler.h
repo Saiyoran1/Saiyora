@@ -13,7 +13,12 @@ class SAIYORAV4_API UThreatHandler : public UActorComponent
 	GENERATED_BODY()
 
 public:
+	
 	static FGameplayTag GenericThreatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Threat")), false); }
+	static FGameplayTag FixateTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Threat.Fixate")), false); }
+	static FGameplayTag BlingTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Threat.Blind")), false); }
+	static FGameplayTag FadeTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Threat.Fade")), false); }
+	static FGameplayTag MisdirectTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Threat.Misdirect")), false); }
 	static float GlobalHealingThreatModifier;
 	static float GlobalTauntThreatPercentage;
 	static float GlobalThreatDecayPercentage;
@@ -24,23 +29,78 @@ public:
 	virtual void InitializeComponent() override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
+private:
+
+	UPROPERTY()
+	class UDamageHandler* DamageHandlerRef;
+	UPROPERTY()
+	class UBuffHandler* BuffHandlerRef;
+
+//Threat
+
+public:
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Threat")
 	bool CanEverReceiveThreat() const { return bCanEverReceiveThreat; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Threat")
 	bool CanEverGenerateThreat() const { return bCanEverGenerateThreat; }
+	/*UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Threat")
+	bool IsInCombat() const { return bInCombat; }*/
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat", meta = (AutoCreateRefTerm = "SourceModifier"))
+	FThreatEvent AddThreat(EThreatType const ThreatType, float const BaseThreat, AActor* AppliedBy,
+		UObject* Source, bool const bIgnoreRestrictions, bool const bIgnoreModifiers, FThreatModCondition const& SourceModifier);
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Threat")
+	float GetActorThreatValue(AActor* Actor) const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Threat")
+	AActor* GetCurrentTarget() const { return CurrentTarget; }
+
+	UFUNCTION(BlueprintCallable, Category = "Threat")
+	void SubscribeToTargetChanged(FTargetCallback const& Callback);
+	UFUNCTION(BlueprintCallable, Category = "Threat")
+	void UnsubscribeFromTargetChanged(FTargetCallback const& Callback);
+
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
+	void AddIncomingThreatRestriction(FThreatRestriction const& Restriction);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
+	void RemoveIncomingThreatRestriction(FThreatRestriction const& Restriction);
+	bool CheckIncomingThreatRestricted(FThreatEvent const& Event);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
+	void AddOutgoingThreatRestriction(FThreatRestriction const& Restriction);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
+	void RemoveOutgoingThreatRestriction(FThreatRestriction const& Restriction);
+	bool CheckOutgoingThreatRestricted(FThreatEvent const& Event);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
+	void AddIncomingThreatModifier(FThreatModCondition const& Modifier);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
+	void RemoveIncomingThreatModifier(FThreatModCondition const& Modifier);
+	float GetModifiedIncomingThreat(FThreatEvent const& ThreatEvent, FThreatModCondition const& SourceModifier) const;
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
+	void AddOutgoingThreatModifier(FThreatModCondition const& Modifier);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
+	void RemoveOutgoingThreatModifier(FThreatModCondition const& Modifier);
+	float GetModifiedOutgoingThreat(FThreatEvent const& ThreatEvent) const;
+
+private:
+
+//Threat Actions
+
+public:
+
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
+	void Taunt(AActor* AppliedBy);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
+	void DropThreat(AActor* Target, float const Percentage);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
+	void Vanish();
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
+	void TransferThreat(AActor* FromActor, AActor* ToActor, float const Percentage);
+	
 	AActor* GetMisdirectTarget() const { return Misdirects.Num() == 0 ? nullptr : Misdirects[Misdirects.Num() - 1].Target; }
 	bool HasActiveFade() const { return Fades.Num() != 0; }
 
-	void GetIncomingThreatMods(TArray<FCombatModifier>& OutMods, FThreatEvent const& Event);
-	void GetOutgoingThreatMods(TArray<FCombatModifier>& OutMods, FThreatEvent const& Event);
-
-	bool CheckIncomingThreatRestricted(FThreatEvent const& Event);
-	bool CheckOutgoingThreatRestricted(FThreatEvent const& Event);
-
 	void NotifyAddedToThreatTable(AActor* Actor);
 	void NotifyRemovedFromThreatTable(AActor* Actor);
-
-	float GetThreatLevel(AActor* Target) const;
-	FThreatEvent AddThreat(EThreatType const ThreatType, float const BaseThreat, AActor* AppliedBy,
-		UObject* Source, bool const bIgnoreRestrictions, bool const bIgnoreModifiers, FThreatModCondition const& SourceModifier);
+	
 	void RemoveThreat(float const Amount, AActor* AppliedBy);
 
 	void AddFixate(AActor* Target, UBuff* Source);
@@ -53,23 +113,10 @@ public:
 	void UnsubscribeFromFadeStatusChanged(FFadeCallback const& Callback);
 	void AddMisdirect(UBuff* Source, AActor* Target);
 	void RemoveMisdirect(UBuff* Source);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
-	void Taunt(AActor* AppliedBy);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
-	void DropThreat(AActor* Target, float const Percentage);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
-	void Vanish();
+	
 	void SubscribeToVanished(FVanishCallback const& Callback);
 	void UnsubscribeFromVanished(FVanishCallback const& Callback);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
-	void TransferThreat(AActor* FromActor, AActor* ToActor, float const Percentage);
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Threat")
-	bool IsInCombat() const { return bInCombat; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Threat")
-	AActor* GetCurrentTarget() const { return CurrentTarget; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Threat")
-	float GetActorThreatValue(AActor* Actor) const;
+	
 
 private:
 
@@ -117,10 +164,6 @@ private:
 	UPROPERTY()
 	TArray<AActor*> TargetedBy;
 
-	UPROPERTY()
-	class UDamageHandler* DamageHandlerRef;
-	UPROPERTY()
-	class UBuffHandler* BuffHandlerRef;
 	UFUNCTION()
 	bool CheckBuffForThreat(FBuffApplyEvent const& BuffEvent);
 	FBuffEventCondition ThreatBuffRestriction;

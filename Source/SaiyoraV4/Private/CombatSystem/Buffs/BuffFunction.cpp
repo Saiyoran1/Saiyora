@@ -124,8 +124,7 @@ void UDamageOverTimeFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
         SnapshotInfo.AppliedXPlane = USaiyoraCombatLibrary::CheckForXPlane(SnapshotInfo.AppliedByPlane, SnapshotInfo.AppliedToPlane);
         SnapshotInfo.HitStyle = EDamageHitStyle::Chronic;
         SnapshotInfo.School = DamageSchool;
-        GeneratorComponent->ModifyOutgoingDamage(SnapshotInfo, FDamageModCondition());
-        BaseDamage = SnapshotInfo.Value;
+        BaseDamage = GeneratorComponent->GetModifiedOutgoingDamage(SnapshotInfo, FDamageModCondition());
     }
     if (bHasInitialTick)
     {
@@ -240,8 +239,7 @@ void UHealingOverTimeFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
         SnapshotInfo.AppliedXPlane = USaiyoraCombatLibrary::CheckForXPlane(SnapshotInfo.AppliedByPlane, SnapshotInfo.AppliedToPlane);
         SnapshotInfo.HitStyle = EDamageHitStyle::Chronic;
         SnapshotInfo.School = HealingSchool;
-        GeneratorComponent->ModifyOutgoingHealing(SnapshotInfo, FDamageModCondition());
-        BaseHealing = SnapshotInfo.Value;
+        BaseHealing = GeneratorComponent->GetModifiedOutgoingHealing(SnapshotInfo, FDamageModCondition());
     }
     if (bHasInitialTick)
     {

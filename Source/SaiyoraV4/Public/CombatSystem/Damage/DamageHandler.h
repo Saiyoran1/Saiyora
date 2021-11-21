@@ -127,7 +127,7 @@ public:
     void AddOutgoingDamageModifier(FDamageModCondition const& Modifier);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Damage")
    	void RemoveOutgoingDamageModifier(FDamageModCondition const& Modifier);
-	void ModifyOutgoingDamage(FDamageInfo& DamageInfo, FDamageModCondition const& SourceMod);
+	float GetModifiedOutgoingDamage(FDamageInfo const& DamageInfo, FDamageModCondition const& SourceMod) const;
 
 	void NotifyOfOutgoingDamage(FDamagingEvent const& DamageEvent);
 	
@@ -162,7 +162,7 @@ public:
    	void AddOutgoingHealingModifier(FDamageModCondition const& Modifier);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Healing")
    	void RemoveOutgoingHealingModifier(FDamageModCondition const& Modifier);
-	void ModifyOutgoingHealing(FDamageInfo& HealingInfo, FDamageModCondition const& SourceMod);
+	float GetModifiedOutgoingHealing(FDamageInfo const& HealingInfo, FDamageModCondition const& SourceMod) const;
 	
 	void NotifyOfOutgoingHealing(FDamagingEvent const& HealingEvent);
 	
@@ -203,7 +203,7 @@ public:
 	void AddIncomingDamageModifier(FDamageModCondition const& Modifier);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Damage")
 	void RemoveIncomingDamageModifier(FDamageModCondition const& Modifier);
-	void ModifyIncomingDamage(FDamageInfo& DamageInfo);
+	float GetModifiedIncomingDamage(FDamageInfo const& DamageInfo) const;
 
 private:
 
@@ -250,7 +250,7 @@ public:
 	void AddIncomingHealingModifier(FDamageModCondition const& Modifier);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Healing")
 	void RemoveIncomingHealingModifier(FDamageModCondition const& Modifier);
-	void ModifyIncomingHealing(FDamageInfo& HealingInfo);
+	float GetModifiedIncomingHealing(FDamageInfo const& HealingInfo) const;
 
 private:
 
