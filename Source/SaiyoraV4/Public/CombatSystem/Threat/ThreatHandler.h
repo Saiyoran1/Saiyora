@@ -7,6 +7,8 @@
 #include "Components/ActorComponent.h"
 #include "ThreatHandler.generated.h"
 
+class UCombatGroup;
+
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class SAIYORAV4_API UThreatHandler : public UActorComponent
 {
@@ -36,20 +38,40 @@ private:
 	UPROPERTY()
 	class UBuffHandler* BuffHandlerRef;
 
+//Combat
+
+public:
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Combat")
+	bool IsInCombat() const { return bInCombat; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, BlueprintAuthorityOnly, Category = "Combat")
+	UCombatGroup* GetCombatGroup() const { return CombatGroup; }
+	void NotifyOfCombatJoined(UCombatGroup* NewGroup);
+
+private:
+
+	UPROPERTY(ReplicatedUsing=OnRep_bInCombat)
+	bool bInCombat = false;
+	UFUNCTION()
+	void OnRep_bInCombat();
+	UPROPERTY()
+	UCombatGroup* CombatGroup;
+	void StartNewCombat(UThreatHandler* TargetThreatHandler);
+
 //Threat
 
 public:
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Threat")
-	bool CanEverReceiveThreat() const { return bCanEverReceiveThreat; }
+	bool HasThreatTable() const { return bHasThreatTable; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Threat")
-	bool CanEverGenerateThreat() const { return bCanEverGenerateThreat; }
-	/*UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Threat")
-	bool IsInCombat() const { return bInCombat; }*/
+	bool CanBeInThreatTable() const { return bCanBeInThreatTable; }
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat", meta = (AutoCreateRefTerm = "SourceModifier"))
 	FThreatEvent AddThreat(EThreatType const ThreatType, float const BaseThreat, AActor* AppliedBy,
 		UObject* Source, bool const bIgnoreRestrictions, bool const bIgnoreModifiers, FThreatModCondition const& SourceModifier);
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Threat")
+	UFUNCTION(BlueprintCallable, BlueprintPure, BlueprintAuthorityOnly, Category = "Threat")
+	bool IsActorInThreatTable(AActor* Target) const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, BlueprintAuthorityOnly, Category = "Threat")
 	float GetActorThreatValue(AActor* Actor) const;
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Threat")
 	AActor* GetCurrentTarget() const { return CurrentTarget; }
@@ -73,15 +95,46 @@ public:
 	void AddIncomingThreatModifier(FThreatModCondition const& Modifier);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
 	void RemoveIncomingThreatModifier(FThreatModCondition const& Modifier);
-	float GetModifiedIncomingThreat(FThreatEvent const& ThreatEvent, FThreatModCondition const& SourceModifier) const;
+	float GetModifiedIncomingThreat(FThreatEvent const& ThreatEvent) const;
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
 	void AddOutgoingThreatModifier(FThreatModCondition const& Modifier);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
 	void RemoveOutgoingThreatModifier(FThreatModCondition const& Modifier);
-	float GetModifiedOutgoingThreat(FThreatEvent const& ThreatEvent) const;
+	float GetModifiedOutgoingThreat(FThreatEvent const& ThreatEvent, FThreatModCondition const& SourceModifier) const;
 
 private:
 
+	UPROPERTY(EditAnywhere, Category = "Threat")
+	bool bHasThreatTable = false;
+	UPROPERTY(EditAnywhere, Category = "Threat")
+	bool bCanBeInThreatTable = false;
+	UPROPERTY()
+	TArray<FThreatTarget> ThreatTable;
+	void AddToThreatTable(AActor* Actor, float const InitialThreat = 0.0f, UBuff* InitialFixate = nullptr, UBuff* InitialBlind = nullptr);
+	void RemoveFromThreatTable(AActor* Actor);
+	void RemoveThreat(float const Amount, AActor* AppliedBy);
+	TArray<FThreatModCondition> OutgoingThreatMods;
+	TArray<FThreatModCondition> IncomingThreatMods;
+	TArray<FThreatRestriction> OutgoingThreatRestrictions;
+	TArray<FThreatRestriction> IncomingThreatRestrictions;
+	UPROPERTY(ReplicatedUsing=OnRep_CurrentTarget)
+	AActor* CurrentTarget = nullptr;
+	UFUNCTION()
+	void OnRep_CurrentTarget(AActor* PreviousTarget);
+	void UpdateTarget();
+	FTargetNotification OnTargetChanged;
+	FCombatStatusNotification OnCombatChanged;
+	FDamageEventCallback ThreatFromDamageCallback;
+	UFUNCTION()
+	void OnOwnerDamageTaken(FDamagingEvent const& DamageEvent);
+	FDamageEventCallback ThreatFromHealingCallback;
+	UFUNCTION()
+	void OnTargetHealingTaken(FDamagingEvent const& HealingEvent);
+	FTimerHandle DecayHandle;
+	FTimerDelegate DecayDelegate;
+	UFUNCTION()
+	void DecayThreat();
+	
 //Threat Actions
 
 public:
@@ -98,11 +151,6 @@ public:
 	AActor* GetMisdirectTarget() const { return Misdirects.Num() == 0 ? nullptr : Misdirects[Misdirects.Num() - 1].Target; }
 	bool HasActiveFade() const { return Fades.Num() != 0; }
 
-	void NotifyAddedToThreatTable(AActor* Actor);
-	void NotifyRemovedFromThreatTable(AActor* Actor);
-	
-	void RemoveThreat(float const Amount, AActor* AppliedBy);
-
 	void AddFixate(AActor* Target, UBuff* Source);
 	void RemoveFixate(AActor* Target, UBuff* Source);
 	void AddBlind(AActor* Target, UBuff* Source);
@@ -113,74 +161,19 @@ public:
 	void UnsubscribeFromFadeStatusChanged(FFadeCallback const& Callback);
 	void AddMisdirect(UBuff* Source, AActor* Target);
 	void RemoveMisdirect(UBuff* Source);
-	
-	void SubscribeToVanished(FVanishCallback const& Callback);
-	void UnsubscribeFromVanished(FVanishCallback const& Callback);
-	
 
 private:
-
-	void UpdateCombatStatus();
-	UPROPERTY(ReplicatedUsing=OnRep_bInCombat)
-	bool bInCombat = false;
-	UFUNCTION()
-	void OnRep_bInCombat();
-	void AddToThreatTable(AActor* Actor, float const InitialThreat = 0.0f, bool const Faded = false, UBuff* InitialFixate = nullptr, UBuff* InitialBlind = nullptr);
-	void RemoveFromThreatTable(AActor* Actor);
-	UFUNCTION()
-	void OnTargetDied(AActor* Actor, ELifeStatus Previous, ELifeStatus New);
-	UFUNCTION()
-	void OnOwnerDied(AActor* Actor, ELifeStatus Previous, ELifeStatus New);
-	UFUNCTION()
-	void OnOwnerDamageTaken(FDamagingEvent const& DamageEvent);
-	UFUNCTION()
-	void OnTargetHealingTaken(FDamagingEvent const& HealingEvent);
-	UFUNCTION()
-	void OnTargetVanished(AActor* Actor);
-	UFUNCTION()
-	void DecayThreat();
-	FTimerHandle DecayHandle;
-	FTimerDelegate DecayDelegate;
 	
-	UPROPERTY(EditAnywhere, Category = "Threat")
-	bool bCanEverReceiveThreat = false;
-	UPROPERTY(EditAnywhere, Category = "Threat")
-	bool bCanEverGenerateThreat = false;
-	
-	UPROPERTY()
-	TArray<FThreatTarget> ThreatTable;
-	void UpdateTarget();
-	UPROPERTY(ReplicatedUsing=OnRep_CurrentTarget)
-	AActor* CurrentTarget = nullptr;
-	UFUNCTION()
-	void OnRep_CurrentTarget(AActor* PreviousTarget);
 	UPROPERTY()
 	TArray<UBuff*> Fades;
+	FFadeCallback FadeCallback;
 	UFUNCTION()
 	void OnTargetFadeStatusChanged(AActor* Actor, bool const FadeStatus);
+	FFadeNotification OnFadeStatusChanged;
 	UPROPERTY()
 	TArray<FMisdirect> Misdirects;
 
-	UPROPERTY()
-	TArray<AActor*> TargetedBy;
-
+	FBuffEventCondition ThreatBuffRestriction;
 	UFUNCTION()
 	bool CheckBuffForThreat(FBuffApplyEvent const& BuffEvent);
-	FBuffEventCondition ThreatBuffRestriction;
-	
-	TArray<FThreatModCondition> OutgoingThreatMods;
-	TArray<FThreatModCondition> IncomingThreatMods;
-	TArray<FThreatRestriction> OutgoingThreatRestrictions;
-	TArray<FThreatRestriction> IncomingThreatRestrictions;
-	FTargetNotification OnTargetChanged;
-	FCombatStatusNotification OnCombatChanged;
-	FFadeCallback FadeCallback;
-	FFadeNotification OnFadeStatusChanged;
-	FVanishCallback VanishCallback;
-	FVanishNotification OnVanished;
-	FLifeStatusCallback DeathCallback;
-	FLifeStatusCallback OwnerDeathCallback;
-	FDamageEventCallback ThreatFromDamageCallback;
-	FDamageEventCallback ThreatFromHealingCallback;
-	FBuffRemoveCallback BuffRemovalCallback;
 };
