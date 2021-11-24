@@ -1,9 +1,6 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
-
 #include "CombatSystem/Generic/Hitbox.h"
-#include "CombatReactionComponent.h"
 #include "SaiyoraCombatInterface.h"
+#include "Faction/FactionComponent.h"
 
 UBoxHitbox::UBoxHitbox()
 {
@@ -40,10 +37,10 @@ void UBoxHitbox::BeginPlay()
 	Super::BeginPlay();
 	if (GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 	{
-		UCombatReactionComponent* ReactionComponent = ISaiyoraCombatInterface::Execute_GetReactionComponent(GetOwner());
-		if (IsValid(ReactionComponent))
+		UFactionComponent* FactionComponent = ISaiyoraCombatInterface::Execute_GetFactionComponent(GetOwner());
+		if (IsValid(FactionComponent))
 		{
-			UpdateFactionCollision(ReactionComponent->GetCurrentFaction());
+			UpdateFactionCollision(FactionComponent->GetCurrentFaction());
 		}
 	}
 }
@@ -53,10 +50,10 @@ void USphereHitbox::BeginPlay()
 	Super::BeginPlay();
 	if (GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 	{
-		UCombatReactionComponent* ReactionComponent = ISaiyoraCombatInterface::Execute_GetReactionComponent(GetOwner());
-		if (IsValid(ReactionComponent))
+		UFactionComponent* FactionComponent = ISaiyoraCombatInterface::Execute_GetFactionComponent(GetOwner());
+		if (IsValid(FactionComponent))
 		{
-			UpdateFactionCollision(ReactionComponent->GetCurrentFaction());
+			UpdateFactionCollision(FactionComponent->GetCurrentFaction());
 		}
 	}
 }
@@ -66,10 +63,10 @@ void UCapsuleHitbox::BeginPlay()
 	Super::BeginPlay();
 	if (GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 	{
-		UCombatReactionComponent* ReactionComponent = ISaiyoraCombatInterface::Execute_GetReactionComponent(GetOwner());
-		if (IsValid(ReactionComponent))
+		UFactionComponent* FactionComponent = ISaiyoraCombatInterface::Execute_GetFactionComponent(GetOwner());
+		if (IsValid(FactionComponent))
 		{
-			UpdateFactionCollision(ReactionComponent->GetCurrentFaction());
+			UpdateFactionCollision(FactionComponent->GetCurrentFaction());
 		}
 	}
 }

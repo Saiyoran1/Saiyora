@@ -103,5 +103,5 @@ struct FThreatFromDamage
 	FThreatModCondition SourceModifier;
 };
 
-DECLARE_DYNAMIC_DELEGATE_TwoParams(FCombatantCallback, class UCombatGroup*, Group, class AActor*, NewCombatant);
+DECLARE_DYNAMIC_DELEGATE_TwoParams(FCombatantCallback, class UCombatGroup*, Group, class AActor*, Combatant);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FCombatantNotification, class UCombatGroup*, Group, class AActor*, NewCombatant);

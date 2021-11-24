@@ -5,6 +5,7 @@
 #include "BuffHandler.h"
 #include "SaiyoraCombatLibrary.h"
 #include "Buff.h"
+#include "PlaneComponent.h"
 #include "SaiyoraCombatInterface.h"
 
 FBuffApplyEvent USaiyoraBuffLibrary::ApplyBuff(
@@ -60,9 +61,18 @@ FBuffApplyEvent USaiyoraBuffLibrary::ApplyBuff(
     Event.OverrideStacks = OverrideStacks;
     Event.RefreshOverrideType = RefreshOverrideType;
     Event.OverrideDuration = OverrideDuration;
-    Event.AppliedByPlane = USaiyoraCombatLibrary::GetActorPlane(AppliedBy);
-    Event.AppliedToPlane = USaiyoraCombatLibrary::GetActorPlane(AppliedTo);
-    Event.AppliedXPlane = USaiyoraCombatLibrary::CheckForXPlane(Event.AppliedByPlane, Event.AppliedToPlane);
+    if (Event.AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+    {
+        UPlaneComponent* AppliedByPlaneComp = ISaiyoraCombatInterface::Execute_GetPlaneComponent(Event.AppliedBy);
+        Event.AppliedByPlane = IsValid(AppliedByPlaneComp) ? AppliedByPlaneComp->GetCurrentPlane() : ESaiyoraPlane::None;
+    }
+    else
+    {
+        Event.AppliedByPlane = ESaiyoraPlane::None;
+    }
+    UPlaneComponent* AppliedToPlaneComp = ISaiyoraCombatInterface::Execute_GetPlaneComponent(Event.AppliedTo);
+    Event.AppliedToPlane = IsValid(AppliedToPlaneComp) ? AppliedToPlaneComp->GetCurrentPlane() : ESaiyoraPlane::None;
+    Event.AppliedXPlane = UPlaneComponent::CheckForXPlane(Event.AppliedByPlane, Event.AppliedToPlane);
     Event.CombatParams = BuffParams;
 
     //Incoming condition checks. Ignore restrictions will bypass these checks.

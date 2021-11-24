@@ -1,9 +1,7 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #include "CombatSystem/Abilities/PlayerAbilityHandler.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraCombatLibrary.h"
-#include "CombatReactionComponent.h"
+#include "PlaneComponent.h"
 #include "ResourceHandler.h"
 #include "PlayerCombatAbility.h"
 #include "UnrealNetwork.h"
@@ -54,10 +52,10 @@ void UPlayerAbilityHandler::BeginPlay()
 	
 	if (GetOwnerRole() != ROLE_SimulatedProxy)
 	{
-		UCombatReactionComponent* ReactionComponent = ISaiyoraCombatInterface::Execute_GetReactionComponent(GetOwner());
-		if (IsValid(ReactionComponent))
+		UPlaneComponent* PlaneComponent = ISaiyoraCombatInterface::Execute_GetPlaneComponent(GetOwner());
+		if (IsValid(PlaneComponent))
 		{
-			switch (ReactionComponent->GetCurrentPlane())
+			switch (PlaneComponent->GetCurrentPlane())
 			{
 				case ESaiyoraPlane::None :
 					break;
@@ -76,7 +74,7 @@ void UPlayerAbilityHandler::BeginPlay()
 			}
 			FPlaneSwapCallback PlaneSwapCallback;
 			PlaneSwapCallback.BindDynamic(this, &UPlayerAbilityHandler::SwapBarOnPlaneSwap);
-			ReactionComponent->SubscribeToPlaneSwap(PlaneSwapCallback);
+			PlaneComponent->SubscribeToPlaneSwap(PlaneSwapCallback);
 		}
 	}
 }

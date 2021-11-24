@@ -1,11 +1,7 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
-
 #include "SaiyoraCombatLibrary.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraPlayerController.h"
-#include "GameFramework/GameState.h"
-#include "CombatReactionComponent.h"
+#include "PlaneComponent.h"
 #include "Buff.h"
 #include "BuffFunction.h"
 
@@ -24,7 +20,7 @@ float USaiyoraCombatLibrary::GetActorPing(AActor const* Actor)
     return Controller->GetPlayerPing();
 }
 
-ESaiyoraPlane USaiyoraCombatLibrary::GetActorPlane(AActor* Actor)
+/*ESaiyoraPlane USaiyoraCombatLibrary::GetActorPlane(AActor* Actor)
 {
     if (!IsValid(Actor))
     {
@@ -34,15 +30,15 @@ ESaiyoraPlane USaiyoraCombatLibrary::GetActorPlane(AActor* Actor)
     {
         return ESaiyoraPlane::None;
     }
-    UCombatReactionComponent* ReactionComponent = ISaiyoraCombatInterface::Execute_GetReactionComponent(Actor);
-    if (!IsValid(ReactionComponent))
+    UPlaneComponent* PlaneComponent = ISaiyoraCombatInterface::Execute_GetPlaneComponent(Actor);
+    if (!IsValid(PlaneComponent))
     {
         return ESaiyoraPlane::None;
     }
-    return ReactionComponent->GetCurrentPlane();
-}
+    return PlaneComponent->GetCurrentPlane();
+}*/
 
-bool USaiyoraCombatLibrary::CheckForXPlane(ESaiyoraPlane const FromPlane, ESaiyoraPlane const ToPlane)
+/*bool USaiyoraCombatLibrary::CheckForXPlane(ESaiyoraPlane const FromPlane, ESaiyoraPlane const ToPlane)
 {
     //None is the default value, always return false if it is provided.
     if (FromPlane == ESaiyoraPlane::None || ToPlane == ESaiyoraPlane::None)
@@ -62,6 +58,7 @@ bool USaiyoraCombatLibrary::CheckForXPlane(ESaiyoraPlane const FromPlane, ESaiyo
     //Actors in a normal plane will only see actors in the same plane or both planes as the same plane.
     return FromPlane != ToPlane;
 }
+*/
 
 FCombatModifier USaiyoraCombatLibrary::MakeCombatModifier(UBuff* Source, EModifierType const ModifierType,
     float const ModifierValue, bool const bStackable)

@@ -50,3 +50,27 @@ void UCombatGroup::JoinCombat(AActor* NewCombatant)
 	CombatantThreat->NotifyOfCombatJoined(this);
 	OnCombatantAdded.Broadcast(this, NewCombatant);
 }
+
+void UCombatGroup::LeaveCombat(AActor* Combatant)
+{
+	if (!IsValid(Combatant) || !Combatant->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	{
+		return;
+	}
+	UThreatHandler* CombatantThreat = ISaiyoraCombatInterface::Execute_GetThreatHandler(Combatant);
+	if (!IsValid(CombatantThreat))
+	{
+		return;
+	}
+	int32 const Removed = Combatants.Remove(Combatant);
+	if (Removed > 0)
+	{
+		CombatantThreat->NotifyOfCombatLeft(this);
+		OnCombatantRemoved.Broadcast(this, Combatant);
+	}
+}
+
+void UCombatGroup::MergeGroups(UCombatGroup* OtherGroup)
+{
+	//TODO: Merge Groups.
+}

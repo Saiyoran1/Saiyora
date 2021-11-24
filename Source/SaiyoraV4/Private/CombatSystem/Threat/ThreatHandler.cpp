@@ -6,6 +6,8 @@
 #include "DamageHandler.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraBuffLibrary.h"
+#include "PlaneComponent.h"
+#include "Faction/FactionComponent.h"
 
 float UThreatHandler::GlobalHealingThreatModifier = 0.3f;
 float UThreatHandler::GlobalTauntThreatPercentage = 1.2f;
@@ -28,6 +30,8 @@ void UThreatHandler::InitializeComponent()
 		ThreatFromHealingCallback.BindDynamic(this, &UThreatHandler::OnTargetHealingTaken);
 		ThreatBuffRestriction.BindDynamic(this, &UThreatHandler::CheckBuffForThreat);
 		DecayDelegate.BindUObject(this, &UThreatHandler::DecayThreat);
+		CombatantAddedCallback.BindDynamic(this, &UThreatHandler::AddNewCombatantToThreatTable);
+		CombatantRemovedCallback.BindDynamic(this, &UThreatHandler::RemoveCombatantFromThreatTable);
 	}
 }
 
@@ -52,9 +56,10 @@ void UThreatHandler::BeginPlay()
 		DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
 		if (IsValid(DamageHandlerRef))
 		{
-			DamageHandlerRef->SubscribeToLifeStatusChanged(OwnerDeathCallback);
 			DamageHandlerRef->SubscribeToIncomingDamageSuccess(ThreatFromDamageCallback);
 		}
+		PlaneCompRef = ISaiyoraCombatInterface::Execute_GetPlaneComponent(GetOwner());
+		FactionCompRef = ISaiyoraCombatInterface::Execute_GetFactionComponent(GetOwner());
 	}
 }
 
@@ -65,28 +70,88 @@ void UThreatHandler::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 	DOREPLIFETIME(UThreatHandler, bInCombat);
 }
 
-float UThreatHandler::GetActorThreatValue(AActor* Actor) const
+#pragma region Combat
+
+void UThreatHandler::StartNewCombat(UThreatHandler* TargetThreatHandler)
 {
-	if (GetOwnerRole() != ROLE_Authority || !IsValid(Actor))
+	CombatGroup = NewObject<UCombatGroup>(GetOwner());
+	if (!IsValid(CombatGroup))
 	{
-		return 0.0f;
+		CombatGroup = nullptr;	
 	}
-	for (FThreatTarget const& Target : ThreatTable)
+	CombatGroup->JoinCombat(GetOwner());
+	CombatGroup->JoinCombat(TargetThreatHandler->GetOwner());
+}
+
+void UThreatHandler::AddNewCombatantToThreatTable(UCombatGroup* Group, AActor* Combatant)
+{
+	if (Group == CombatGroup && Combatant != GetOwner())
 	{
-		if (Target.Target == Actor)
+		AddToThreatTable(Combatant);
+	}
+}
+
+void UThreatHandler::RemoveCombatantFromThreatTable(UCombatGroup* Group, AActor* Combatant)
+{
+	if (Group == CombatGroup && Combatant != GetOwner())
+	{
+		RemoveFromThreatTable(Combatant);
+	}
+}
+
+void UThreatHandler::NotifyOfCombatJoined(UCombatGroup* NewGroup)
+{
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(NewGroup))
+	{
+		return;
+	}
+	CombatGroup = NewGroup;
+	if (!bInCombat)
+	{
+		bInCombat = true;
+		OnCombatChanged.Broadcast(true);
+	}
+	TArray<AActor*> Combatants;
+	NewGroup->GetActorsInCombat(Combatants);
+	for (AActor* Combatant : Combatants)
+	{
+		if (Combatant != GetOwner())
 		{
-			return Target.Threat;
+			AddToThreatTable(Combatant);
 		}
 	}
-	return 0.0f;
+	CombatGroup->SubscribeToCombatantAdded(CombatantAddedCallback);
+	CombatGroup->SubscribeToCombatantRemoved(CombatantRemovedCallback);
 }
+
+void UThreatHandler::NotifyOfCombatLeft(UCombatGroup* LeftGroup)
+{
+	if (GetOwnerRole() != ROLE_Authority || !bInCombat || !IsValid(LeftGroup) || LeftGroup != CombatGroup)
+	{
+		return;
+	}
+	CombatGroup->UnsubscribeFromCombatantAdded(CombatantAddedCallback);
+	CombatGroup->UnsubscribeFromCombatantRemoved(CombatantRemovedCallback);
+	CombatGroup = nullptr;
+	bInCombat = false;
+	OnCombatChanged.Broadcast(false);
+	ClearThreatTable();
+}
+
+void UThreatHandler::OnRep_bInCombat()
+{
+	OnCombatChanged.Broadcast(bInCombat);
+}
+
+#pragma endregion
+#pragma region Threat
 
 FThreatEvent UThreatHandler::AddThreat(EThreatType const ThreatType, float const BaseThreat, AActor* AppliedBy,
                                        UObject* Source, bool const bIgnoreRestrictions, bool const bIgnoreModifiers, FThreatModCondition const& SourceModifier)
 {
 	FThreatEvent Result;
 	
-	if (GetOwnerRole() != ROLE_Authority || !IsValid(AppliedBy) || BaseThreat <= 0.0f || !bHasThreatTable)
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(AppliedBy) || BaseThreat <= 0.0f || !bHasThreatTable || !IsValid(FactionCompRef))
 	{
 		return Result;
 	}
@@ -112,7 +177,13 @@ FThreatEvent UThreatHandler::AddThreat(EThreatType const ThreatType, float const
 	{
 		return Result;
 	}
-
+	//Generator must have a faction, and can not be the same faction as the target.
+	UFactionComponent* GeneratorFaction = ISaiyoraCombatInterface::Execute_GetFactionComponent(AppliedBy);
+	if (!IsValid(GeneratorFaction) || GeneratorFaction->GetCurrentFaction() == FactionCompRef->GetCurrentFaction())
+	{
+		return Result;
+	}
+	//TODO: Check misdirect target faction?
 	if (IsValid(GeneratorComponent->GetMisdirectTarget()) && GeneratorComponent->GetMisdirectTarget()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 	{
 		UThreatHandler* MisdirectComponent = ISaiyoraCombatInterface::Execute_GetThreatHandler(GeneratorComponent->GetMisdirectTarget());
@@ -142,9 +213,10 @@ FThreatEvent UThreatHandler::AddThreat(EThreatType const ThreatType, float const
 	Result.AppliedTo = GetOwner();
 	Result.Source = Source;
 	Result.ThreatType = ThreatType;
-	Result.AppliedByPlane = USaiyoraCombatLibrary::GetActorPlane(Result.AppliedBy);
-	Result.AppliedToPlane = USaiyoraCombatLibrary::GetActorPlane(Result.AppliedTo);
-	Result.AppliedXPlane = USaiyoraCombatLibrary::CheckForXPlane(Result.AppliedByPlane, Result.AppliedToPlane);
+	UPlaneComponent* AppliedByPlaneComp = ISaiyoraCombatInterface::Execute_GetPlaneComponent(AppliedBy);
+	Result.AppliedByPlane = IsValid(AppliedByPlaneComp) ? AppliedByPlaneComp->GetCurrentPlane() : ESaiyoraPlane::None;
+	Result.AppliedToPlane = IsValid(PlaneCompRef) ? PlaneCompRef->GetCurrentPlane() : ESaiyoraPlane::None;
+	Result.AppliedXPlane = UPlaneComponent::CheckForXPlane(Result.AppliedByPlane, Result.AppliedToPlane);
 	Result.Threat = BaseThreat;
 
 	if (!bIgnoreModifiers)
@@ -195,6 +267,162 @@ FThreatEvent UThreatHandler::AddThreat(EThreatType const ThreatType, float const
 	return Result;
 }
 
+void UThreatHandler::AddToThreatTable(AActor* Actor, float const InitialThreat, UBuff* InitialFixate,
+                                      UBuff* InitialBlind)
+{
+	if (!IsValid(Actor) || GetOwnerRole() != ROLE_Authority || !bHasThreatTable || IsActorInThreatTable(Actor) || !IsValid(FactionCompRef))
+	{
+		return;
+	}
+	UThreatHandler* TargetThreatHandler = ISaiyoraCombatInterface::Execute_GetThreatHandler(Actor);
+	if (!IsValid(TargetThreatHandler) || !TargetThreatHandler->CanBeInThreatTable())
+	{
+		return;
+	}
+	UFactionComponent* TargetFactionComp = ISaiyoraCombatInterface::Execute_GetFactionComponent(Actor);
+	if (!IsValid(TargetFactionComp) || TargetFactionComp->GetCurrentFaction() == FactionCompRef->GetCurrentFaction())
+	{
+		return;
+	}
+	bool const TargetFade = TargetThreatHandler->HasActiveFade();
+	if (ThreatTable.Num() == 0)
+	{
+		ThreatTable.Add(FThreatTarget(Actor, InitialThreat, TargetFade, InitialFixate, InitialBlind));
+		UpdateTarget();
+	}
+	else
+	{
+		FThreatTarget const NewTarget = FThreatTarget(Actor, InitialThreat, TargetFade, InitialFixate, InitialBlind);
+		int32 InsertIndex = 0;
+		for (; InsertIndex < ThreatTable.Num(); InsertIndex++)
+		{
+			if (!(ThreatTable[InsertIndex] < NewTarget))
+			{
+				break;
+			}
+		}
+		ThreatTable.Insert(NewTarget, InsertIndex);
+		if (InsertIndex == ThreatTable.Num() - 1)
+		{
+			UpdateTarget();
+		}
+	}
+	TargetThreatHandler->SubscribeToFadeStatusChanged(FadeCallback);
+	UDamageHandler* TargetDamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(Actor);
+	if (IsValid(TargetDamageHandler) && TargetDamageHandler->CanEverReceiveHealing())
+	{
+		TargetDamageHandler->SubscribeToIncomingHealingSuccess(ThreatFromHealingCallback);
+	}
+	if (TargetThreatHandler->IsInCombat() && IsValid(TargetThreatHandler->GetCombatGroup()))
+	{
+		if (bInCombat && IsValid(CombatGroup))
+		{
+			if (CombatGroup != TargetThreatHandler->GetCombatGroup())
+			{
+				CombatGroup->MergeGroups(TargetThreatHandler->GetCombatGroup());
+			}
+		}
+		else
+		{
+			TargetThreatHandler->GetCombatGroup()->JoinCombat(GetOwner());
+		}
+	}
+	else
+	{
+		if (bInCombat && IsValid(CombatGroup))
+		{
+			CombatGroup->JoinCombat(TargetThreatHandler->GetOwner());
+		}
+		else
+		{
+			StartNewCombat(TargetThreatHandler);
+		}
+	}
+}
+
+void UThreatHandler::RemoveThreat(float const Amount, AActor* AppliedBy)
+{
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(AppliedBy) || !bHasThreatTable)
+	{
+		return;
+	}
+	bool bAffectedTarget = false;
+	bool bFound = false;
+	for (int i = 0; i < ThreatTable.Num(); i++)
+	{
+		if (ThreatTable[i].Target == AppliedBy)
+		{
+			bFound = true;
+			ThreatTable[i].Threat = FMath::Max(0.0f, ThreatTable[i].Threat - Amount);
+			while (i > 0 && ThreatTable[i] < ThreatTable[i - 1])
+			{
+				ThreatTable.Swap(i, i - 1);
+				if (!bAffectedTarget && i == ThreatTable.Num() - 1)
+				{
+					bAffectedTarget = true;
+				}
+				i--;
+			}
+			break;
+		}
+	}
+	if (bFound && bAffectedTarget)
+	{
+		UpdateTarget();
+	}
+}
+
+void UThreatHandler::RemoveFromThreatTable(AActor* Actor)
+{
+	if (!IsValid(Actor) || GetOwnerRole() != ROLE_Authority || !bHasThreatTable)
+	{
+		return;
+	}
+	bool bAffectedTarget = false;
+	for (int i = 0; i < ThreatTable.Num(); i++)
+	{
+		if (ThreatTable[i].Target == Actor)
+		{
+			UThreatHandler* TargetThreatHandler = ISaiyoraCombatInterface::Execute_GetThreatHandler(Actor);
+			if (IsValid(TargetThreatHandler))
+			{
+				TargetThreatHandler->UnsubscribeFromFadeStatusChanged(FadeCallback);
+			}
+			UDamageHandler* TargetDamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(Actor);
+			if (IsValid(TargetDamageHandler) && TargetDamageHandler->CanEverReceiveHealing())
+			{	
+				TargetDamageHandler->UnsubscribeFromIncomingHealingSuccess(ThreatFromHealingCallback);
+			}
+			if (i == ThreatTable.Num() - 1)
+			{
+				bAffectedTarget = true;
+			}
+			ThreatTable.RemoveAt(i);
+			break;
+		}
+	}
+	if (bAffectedTarget)
+	{
+		UpdateTarget();
+	}
+}
+
+void UThreatHandler::ClearThreatTable()
+{
+	//TODO: Clear Threat Table.
+}
+
+void UThreatHandler::DecayThreat()
+{
+	if (GetOwnerRole() == ROLE_Authority)
+	{
+		for (FThreatTarget& Target : ThreatTable)
+		{
+			Target.Threat *= GlobalThreatDecayPercentage;
+		}
+	}
+}
+
 bool UThreatHandler::IsActorInThreatTable(AActor* Target) const
 {
 	if (!IsValid(Target) || !bHasThreatTable || !bInCombat)
@@ -211,6 +439,47 @@ bool UThreatHandler::IsActorInThreatTable(AActor* Target) const
 	return false;
 }
 
+float UThreatHandler::GetActorThreatValue(AActor* Actor) const
+{
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(Actor))
+	{
+		return 0.0f;
+	}
+	for (FThreatTarget const& Target : ThreatTable)
+	{
+		if (Target.Target == Actor)
+		{
+			return Target.Threat;
+		}
+	}
+	return 0.0f;
+}
+
+void UThreatHandler::UpdateTarget()
+{
+	AActor* Previous = CurrentTarget;
+	if (ThreatTable.Num() == 0)
+	{
+		CurrentTarget = nullptr;
+		if (IsValid(Previous))
+		{
+			OnTargetChanged.Broadcast(Previous, CurrentTarget);
+		}
+		return;
+	}
+	CurrentTarget = ThreatTable[ThreatTable.Num() - 1].Target;
+	if (CurrentTarget != Previous)
+	{
+		OnTargetChanged.Broadcast(Previous, CurrentTarget);
+	}
+}
+
+void UThreatHandler::OnRep_CurrentTarget(AActor* PreviousTarget)
+{
+	OnTargetChanged.Broadcast(PreviousTarget, CurrentTarget);
+}
+
+#pragma endregion 
 #pragma region Subscriptions
 
 void UThreatHandler::SubscribeToTargetChanged(FTargetCallback const& Callback)
@@ -355,21 +624,6 @@ float UThreatHandler::GetModifiedOutgoingThreat(FThreatEvent const& ThreatEvent,
 
 #pragma endregion 
 
-void UThreatHandler::OnOwnerDied(AActor* Actor, ELifeStatus Previous, ELifeStatus New)
-{
-	if (GetOwnerRole() != ROLE_Authority || !IsValid(Actor) || Actor != GetOwner() || New != ELifeStatus::Dead)
-	{
-		return;
-	}
-	for (int i = ThreatTable.Num() - 1; i > 0; i--)
-	{
-		if (IsValid(ThreatTable[i].Target))
-		{
-			RemoveFromThreatTable(ThreatTable[i].Target);
-		}
-	}
-}
-
 void UThreatHandler::OnOwnerDamageTaken(FDamagingEvent const& DamageEvent)
 {
 	if (!DamageEvent.Result.Success || !DamageEvent.ThreatInfo.GeneratesThreat)
@@ -390,200 +644,6 @@ void UThreatHandler::OnTargetHealingTaken(FDamagingEvent const& HealingEvent)
 	AddThreat(EThreatType::Healing, (HealingEvent.ThreatInfo.BaseThreat * GlobalHealingThreatModifier), HealingEvent.Info.AppliedBy,
 		HealingEvent.Info.Source, HealingEvent.ThreatInfo.IgnoreRestrictions, HealingEvent.ThreatInfo.IgnoreModifiers,
 		HealingEvent.ThreatInfo.SourceModifier);
-}
-
-void UThreatHandler::OnTargetVanished(AActor* Actor)
-{
-	if (IsValid(Actor))
-	{
-		RemoveFromThreatTable(Actor);
-	}
-}
-
-void UThreatHandler::DecayThreat()
-{
-	if (GetOwnerRole() == ROLE_Authority)
-	{
-		for (FThreatTarget& Target : ThreatTable)
-		{
-			Target.Threat *= GlobalThreatDecayPercentage;
-		}
-	}
-}
-
-void UThreatHandler::RemoveThreat(float const Amount, AActor* AppliedBy)
-{
-	if (GetOwnerRole() != ROLE_Authority || !IsValid(AppliedBy) || !bHasThreatTable)
-	{
-		return;
-	}
-	bool bAffectedTarget = false;
-	bool bFound = false;
-	for (int i = 0; i < ThreatTable.Num(); i++)
-	{
-		if (ThreatTable[i].Target == AppliedBy)
-		{
-			bFound = true;
-			ThreatTable[i].Threat = FMath::Max(0.0f, ThreatTable[i].Threat - Amount);
-			while (i > 0 && ThreatTable[i] < ThreatTable[i - 1])
-			{
-				ThreatTable.Swap(i, i - 1);
-				if (!bAffectedTarget && i == ThreatTable.Num() - 1)
-				{
-					bAffectedTarget = true;
-				}
-				i--;
-			}
-			break;
-		}
-	}
-	if (bFound && bAffectedTarget)
-	{
-		UpdateTarget();
-	}
-}
-
-void UThreatHandler::NotifyOfCombatJoined(UCombatGroup* NewGroup)
-{
-	if (GetOwnerRole() != ROLE_Authority || !IsValid(NewGroup))
-	{
-		return;
-	}
-	CombatGroup = NewGroup;
-	if (!bInCombat)
-	{
-		bInCombat = true;
-		OnCombatChanged.Broadcast(true);
-	}
-	TArray<AActor*> Combatants;
-	NewGroup->GetActorsInCombat(Combatants);
-	for (AActor* Combatant : Combatants)
-	{
-		if (Combatant != GetOwner()) //TODO: Check for opposite faction.
-		{
-			AddToThreatTable(Combatant);
-		}
-	}
-	//Bind to OnCombatantAdded, OnCombatantRemoved?
-}
-
-void UThreatHandler::OnRep_bInCombat()
-{
-	OnCombatChanged.Broadcast(bInCombat);
-}
-
-void UThreatHandler::StartNewCombat(UThreatHandler* TargetThreatHandler)
-{
-	CombatGroup = NewObject<UCombatGroup>(GetOwner());
-	if (!IsValid(CombatGroup))
-	{
-		CombatGroup = nullptr;	
-	}
-	CombatGroup->JoinCombat(GetOwner());
-	CombatGroup->JoinCombat(TargetThreatHandler->GetOwner());
-}
-
-void UThreatHandler::AddToThreatTable(AActor* Actor, float const InitialThreat, UBuff* InitialFixate,
-                                      UBuff* InitialBlind)
-{
-	if (!IsValid(Actor) || GetOwnerRole() != ROLE_Authority || !bHasThreatTable || IsActorInThreatTable(Actor))
-	{
-		return;
-	}
-	UThreatHandler* TargetThreatHandler = ISaiyoraCombatInterface::Execute_GetThreatHandler(Actor);
-	if (!IsValid(TargetThreatHandler) || !TargetThreatHandler->CanBeInThreatTable())
-	{
-		return;
-	}
-	bool const TargetFade = TargetThreatHandler->HasActiveFade();
-	if (ThreatTable.Num() == 0)
-	{
-		ThreatTable.Add(FThreatTarget(Actor, InitialThreat, TargetFade, InitialFixate, InitialBlind));
-		UpdateTarget();
-	}
-	else
-	{
-		FThreatTarget const NewTarget = FThreatTarget(Actor, InitialThreat, TargetFade, InitialFixate, InitialBlind);
-		int32 InsertIndex = 0;
-		for (; InsertIndex < ThreatTable.Num(); InsertIndex++)
-		{
-			if (!(ThreatTable[InsertIndex] < NewTarget))
-			{
-				break;
-			}
-		}
-		ThreatTable.Insert(NewTarget, InsertIndex);
-		if (InsertIndex == ThreatTable.Num() - 1)
-		{
-			UpdateTarget();
-		}
-	}
-	TargetThreatHandler->SubscribeToFadeStatusChanged(FadeCallback);
-	UDamageHandler* TargetDamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(Actor);
-	if (IsValid(TargetDamageHandler) && TargetDamageHandler->CanEverReceiveHealing())
-	{
-		TargetDamageHandler->SubscribeToIncomingHealingSuccess(ThreatFromHealingCallback);
-	}
-	if (TargetThreatHandler->IsInCombat() && IsValid(TargetThreatHandler->GetCombatGroup()))
-	{
-		if (bInCombat && IsValid(CombatGroup))
-		{
-			if (CombatGroup != TargetThreatHandler->GetCombatGroup())
-			{
-				CombatGroup->MergeGroups(TargetThreatHandler->GetCombatGroup());
-			}
-		}
-		else
-		{
-			TargetThreatHandler->GetCombatGroup()->JoinCombat(GetOwner());
-		}
-	}
-	else
-	{
-		if (bInCombat && IsValid(CombatGroup))
-		{
-			CombatGroup->JoinCombat(TargetThreatHandler->GetOwner());
-		}
-		else
-		{
-			StartNewCombat(TargetThreatHandler);
-		}
-	}
-}
-
-void UThreatHandler::RemoveFromThreatTable(AActor* Actor)
-{
-	if (!IsValid(Actor) || GetOwnerRole() != ROLE_Authority || !bHasThreatTable)
-	{
-		return;
-	}
-	bool bAffectedTarget = false;
-	for (int i = 0; i < ThreatTable.Num(); i++)
-	{
-		if (ThreatTable[i].Target == Actor)
-		{
-			UThreatHandler* TargetThreatHandler = ISaiyoraCombatInterface::Execute_GetThreatHandler(Actor);
-			if (IsValid(TargetThreatHandler))
-			{
-				TargetThreatHandler->UnsubscribeFromFadeStatusChanged(FadeCallback);
-			}
-			UDamageHandler* TargetDamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(Actor);
-			if (IsValid(TargetDamageHandler) && TargetDamageHandler->CanEverReceiveHealing())
-			{	
-				TargetDamageHandler->UnsubscribeFromIncomingHealingSuccess(ThreatFromHealingCallback);
-			}
-			if (i == ThreatTable.Num() - 1)
-			{
-				bAffectedTarget = true;
-			}
-			ThreatTable.RemoveAt(i);
-			break;
-		}
-	}
-	if (bAffectedTarget)
-	{
-		UpdateTarget();
-	}
 }
 
 void UThreatHandler::SubscribeToFadeStatusChanged(FFadeCallback const& Callback)
@@ -647,7 +707,7 @@ void UThreatHandler::Taunt(AActor* AppliedBy)
 	{
 		return;
 	}
-	float const InitialThreat = GetThreatLevel(AppliedBy);
+	float const InitialThreat = GetActorThreatValue(AppliedBy);
 	float HighestThreat = 0.0f;
 	for (FThreatTarget const& Target : ThreatTable)
 	{
@@ -666,7 +726,7 @@ void UThreatHandler::DropThreat(AActor* Target, float const Percentage)
 	{
 		return;
 	}
-	float const DropThreat = GetThreatLevel(Target) * FMath::Clamp(Percentage, 0.0f, 1.0f);
+	float const DropThreat = GetActorThreatValue(Target) * FMath::Clamp(Percentage, 0.0f, 1.0f);
 	if (DropThreat <= 0.0f)
 	{
 		return;
@@ -739,30 +799,6 @@ bool UThreatHandler::CheckBuffForThreat(FBuffApplyEvent const& BuffEvent)
 	FGameplayTagContainer BuffTags;	
 	DefaultBuff->GetBuffTags(BuffTags);
 	return BuffTags.HasTag(GenericThreatTag());
-}
-
-void UThreatHandler::UpdateTarget()
-{
-	AActor* Previous = CurrentTarget;
-	if (ThreatTable.Num() == 0)
-	{
-		CurrentTarget = nullptr;
-		if (IsValid(Previous))
-		{
-			OnTargetChanged.Broadcast(Previous, CurrentTarget);
-		}
-		return;
-	}
-	CurrentTarget = ThreatTable[ThreatTable.Num() - 1].Target;
-	if (CurrentTarget != Previous)
-	{
-		OnTargetChanged.Broadcast(Previous, CurrentTarget);
-	}
-}
-
-void UThreatHandler::OnRep_CurrentTarget(AActor* PreviousTarget)
-{
-	OnTargetChanged.Broadcast(PreviousTarget, CurrentTarget);
 }
 
 void UThreatHandler::AddFixate(AActor* Target, UBuff* Source)
@@ -983,9 +1019,7 @@ void UThreatHandler::Vanish()
 	{
 		return;
 	}
-	OnVanished.Broadcast(GetOwner());
-	//This only clears us from actors that have us in their threat table. This does NOT clear our threat table. This shouldn't matter, as if an NPC vanishes its unlikely the player will care.
-	//This only has ramifications if NPCs can possibly attack each other.
+	//TODO: Vanish.
 }
 
 void UThreatHandler::TransferThreat(AActor* FromActor, AActor* ToActor, float const Percentage)
@@ -994,7 +1028,7 @@ void UThreatHandler::TransferThreat(AActor* FromActor, AActor* ToActor, float co
 	{
 		return;
 	}
-	float const TransferThreat = GetThreatLevel(FromActor) * FMath::Clamp(Percentage, 0.0f, 1.0f);
+	float const TransferThreat = GetActorThreatValue(FromActor) * FMath::Clamp(Percentage, 0.0f, 1.0f);
 	if (TransferThreat <= 0.0f)
 	{
 		return;

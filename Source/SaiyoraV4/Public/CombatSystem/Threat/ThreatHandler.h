@@ -8,6 +8,10 @@
 #include "ThreatHandler.generated.h"
 
 class UCombatGroup;
+class UDamageHandler;
+class UBuffHandler;
+class UPlaneComponent;
+class UFactionComponent;
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class SAIYORAV4_API UThreatHandler : public UActorComponent
@@ -34,9 +38,13 @@ public:
 private:
 
 	UPROPERTY()
-	class UDamageHandler* DamageHandlerRef;
+	UDamageHandler* DamageHandlerRef;
 	UPROPERTY()
-	class UBuffHandler* BuffHandlerRef;
+	UBuffHandler* BuffHandlerRef;
+	UPROPERTY()
+	UPlaneComponent* PlaneCompRef;
+	UPROPERTY()
+	UFactionComponent* FactionCompRef;
 
 //Combat
 
@@ -47,6 +55,7 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, BlueprintAuthorityOnly, Category = "Combat")
 	UCombatGroup* GetCombatGroup() const { return CombatGroup; }
 	void NotifyOfCombatJoined(UCombatGroup* NewGroup);
+	void NotifyOfCombatLeft(UCombatGroup* LeftGroup);
 
 private:
 
@@ -54,9 +63,16 @@ private:
 	bool bInCombat = false;
 	UFUNCTION()
 	void OnRep_bInCombat();
+	FCombatStatusNotification OnCombatChanged;
 	UPROPERTY()
 	UCombatGroup* CombatGroup;
 	void StartNewCombat(UThreatHandler* TargetThreatHandler);
+	FCombatantCallback CombatantAddedCallback;
+	UFUNCTION()
+	void AddNewCombatantToThreatTable(UCombatGroup* Group, AActor* Combatant);
+	FCombatantCallback CombatantRemovedCallback;
+	UFUNCTION()
+	void RemoveCombatantFromThreatTable(UCombatGroup* Group, AActor* Combatant);
 
 //Threat
 
@@ -112,6 +128,7 @@ private:
 	TArray<FThreatTarget> ThreatTable;
 	void AddToThreatTable(AActor* Actor, float const InitialThreat = 0.0f, UBuff* InitialFixate = nullptr, UBuff* InitialBlind = nullptr);
 	void RemoveFromThreatTable(AActor* Actor);
+	void ClearThreatTable();
 	void RemoveThreat(float const Amount, AActor* AppliedBy);
 	TArray<FThreatModCondition> OutgoingThreatMods;
 	TArray<FThreatModCondition> IncomingThreatMods;
@@ -123,7 +140,6 @@ private:
 	void OnRep_CurrentTarget(AActor* PreviousTarget);
 	void UpdateTarget();
 	FTargetNotification OnTargetChanged;
-	FCombatStatusNotification OnCombatChanged;
 	FDamageEventCallback ThreatFromDamageCallback;
 	UFUNCTION()
 	void OnOwnerDamageTaken(FDamagingEvent const& DamageEvent);

@@ -3,7 +3,6 @@
 #include "UObject/Interface.h"
 #include "SaiyoraCombatInterface.generated.h"
 
-class UCombatComponent;
 class UThreatHandler;
 class UDamageHandler;
 class UBuffHandler;
@@ -11,7 +10,8 @@ class UAbilityHandler;
 class UCrowdControlHandler;
 class UResourceHandler;
 class UStatHandler;
-class UCombatReactionComponent;
+class UPlaneComponent;
+class UFactionComponent;
 
 UINTERFACE(Blueprintable)
 class USaiyoraCombatInterface : public UInterface
@@ -42,9 +42,12 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Stats")
 	UStatHandler* GetStatHandler() const;
 	virtual UStatHandler* GetStatHandler_Implementation() const { return nullptr; }
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Reaction")
-	UCombatReactionComponent* GetReactionComponent() const;
-	virtual UCombatReactionComponent* GetReactionComponent_Implementation() const { return nullptr; }
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Plane")
+	UPlaneComponent* GetPlaneComponent() const;
+	virtual UPlaneComponent* GetPlaneComponent_Implementation() const { return nullptr; }
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Faction")
+	UFactionComponent* GetFactionComponent() const;
+	virtual UFactionComponent* GetFactionComponent_Implementation() const { return nullptr; }
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Threat")
 	UThreatHandler* GetThreatHandler() const;
 	virtual UThreatHandler* GetThreatHandler_Implementation() const { return nullptr; }

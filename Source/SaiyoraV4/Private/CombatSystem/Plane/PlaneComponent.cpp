@@ -1,33 +1,30 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
-#include "CombatReactionComponent.h"
-
+#include "PlaneComponent.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraCombatLibrary.h"
 #include "UnrealNetwork.h"
 #include "Kismet/GameplayStatics.h"
 
-UCombatReactionComponent::UCombatReactionComponent()
+UPlaneComponent::UPlaneComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
 	SetIsReplicatedByDefault(true);
 	bWantsInitializeComponent = true;
 }
 
-void UCombatReactionComponent::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const
+void UPlaneComponent::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME(UCombatReactionComponent, PlaneStatus);
+	DOREPLIFETIME(UPlaneComponent, PlaneStatus);
 }
 
-void UCombatReactionComponent::InitializeComponent()
+void UPlaneComponent::InitializeComponent()
 {
 	PlaneStatus.CurrentPlane = DefaultPlane;
 	PlaneStatus.LastSwapSource = nullptr;
-	LocalPlayerSwapCallback.BindDynamic(this, &UCombatReactionComponent::OnLocalPlayerPlaneSwap);
+	LocalPlayerSwapCallback.BindDynamic(this, &UPlaneComponent::OnLocalPlayerPlaneSwap);
 }
 
-void UCombatReactionComponent::BeginPlay()
+void UPlaneComponent::BeginPlay()
 {
 	Super::BeginPlay();
 	APlayerController* LocalPC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
@@ -36,10 +33,10 @@ void UCombatReactionComponent::BeginPlay()
 		APawn* LocalPawn = LocalPC->GetPawn();
 		if (IsValid(LocalPawn))
 		{
-			LocalPlayerReaction = ISaiyoraCombatInterface::Execute_GetReactionComponent(LocalPawn);
-			if (IsValid(LocalPlayerReaction))
+			LocalPlayerPlaneComponent = ISaiyoraCombatInterface::Execute_GetPlaneComponent(LocalPawn);
+			if (IsValid(LocalPlayerPlaneComponent))
 			{
-				LocalPlayerReaction->SubscribeToPlaneSwap(LocalPlayerSwapCallback);
+				LocalPlayerPlaneComponent->SubscribeToPlaneSwap(LocalPlayerSwapCallback);
 			}
 		}
 	}
@@ -47,7 +44,7 @@ void UCombatReactionComponent::BeginPlay()
 	UpdateOwnerCustomRendering();
 }
 
-ESaiyoraPlane UCombatReactionComponent::PlaneSwap(bool const bIgnoreRestrictions, UObject* Source,
+ESaiyoraPlane UPlaneComponent::PlaneSwap(bool const bIgnoreRestrictions, UObject* Source,
                                                   bool const bToSpecificPlane, ESaiyoraPlane const TargetPlane)
 {
 	if (GetOwnerRole() != ROLE_Authority)
@@ -110,7 +107,7 @@ ESaiyoraPlane UCombatReactionComponent::PlaneSwap(bool const bIgnoreRestrictions
 	return PlaneStatus.CurrentPlane;
 }
 
-void UCombatReactionComponent::AddPlaneSwapRestriction(FPlaneSwapCondition const& Condition)
+void UPlaneComponent::AddPlaneSwapRestriction(FPlaneSwapCondition const& Condition)
 {
 	if (GetOwnerRole() != ROLE_Authority)
 	{
@@ -122,7 +119,7 @@ void UCombatReactionComponent::AddPlaneSwapRestriction(FPlaneSwapCondition const
 	}
 }
 
-void UCombatReactionComponent::RemovePlaneSwapRestriction(FPlaneSwapCondition const& Condition)
+void UPlaneComponent::RemovePlaneSwapRestriction(FPlaneSwapCondition const& Condition)
 {
 	if (GetOwnerRole() != ROLE_Authority)
 	{
@@ -134,7 +131,7 @@ void UCombatReactionComponent::RemovePlaneSwapRestriction(FPlaneSwapCondition co
 	}
 }
 
-void UCombatReactionComponent::SubscribeToPlaneSwap(FPlaneSwapCallback const& Callback)
+void UPlaneComponent::SubscribeToPlaneSwap(FPlaneSwapCallback const& Callback)
 {
 	if (bCanEverPlaneSwap && Callback.IsBound())
 	{
@@ -142,7 +139,7 @@ void UCombatReactionComponent::SubscribeToPlaneSwap(FPlaneSwapCallback const& Ca
 	}
 }
 
-void UCombatReactionComponent::UnsubscribeFromPlaneSwap(FPlaneSwapCallback const& Callback)
+void UPlaneComponent::UnsubscribeFromPlaneSwap(FPlaneSwapCallback const& Callback)
 {
 	if (bCanEverPlaneSwap && Callback.IsBound())
 	{
@@ -150,7 +147,28 @@ void UCombatReactionComponent::UnsubscribeFromPlaneSwap(FPlaneSwapCallback const
 	}
 }
 
-void UCombatReactionComponent::OnRep_PlaneStatus(FPlaneStatus const PreviousStatus)
+bool UPlaneComponent::CheckForXPlane(ESaiyoraPlane const FromPlane, ESaiyoraPlane const ToPlane)
+{
+	//None is the default value, always return false if it is provided.
+	if (FromPlane == ESaiyoraPlane::None || ToPlane == ESaiyoraPlane::None)
+	{
+		return false;
+	}
+	//Actors "in between" planes will see everything as another plane.
+	if (FromPlane == ESaiyoraPlane::Neither || ToPlane == ESaiyoraPlane::Neither)
+	{
+		return true;
+	}
+	//Actors in both planes will see everything except "in between" actors as the same plane.
+	if (FromPlane == ESaiyoraPlane::Both || ToPlane == ESaiyoraPlane::Both)
+	{
+		return false;
+	}
+	//Actors in a normal plane will only see actors in the same plane or both planes as the same plane.
+	return FromPlane != ToPlane;
+}
+
+void UPlaneComponent::OnRep_PlaneStatus(FPlaneStatus const PreviousStatus)
 {
 	if (PreviousStatus.CurrentPlane != PlaneStatus.CurrentPlane)
 	{
@@ -159,25 +177,25 @@ void UCombatReactionComponent::OnRep_PlaneStatus(FPlaneStatus const PreviousStat
 	}
 }
 
-void UCombatReactionComponent::UpdateOwnerCustomRendering()
+void UPlaneComponent::UpdateOwnerCustomRendering()
 {
-	if (IsValid(LocalPlayerReaction) && LocalPlayerReaction != this)
+	if (IsValid(LocalPlayerPlaneComponent) && LocalPlayerPlaneComponent != this)
 	{
 		int32 StencilIndex = 0;
-		StencilIndex += USaiyoraCombatLibrary::CheckForXPlane(PlaneStatus.CurrentPlane, LocalPlayerReaction->GetCurrentPlane()) ? 10 : 0;
-		StencilIndex += static_cast<int>(DefaultFaction) + 1;
+		StencilIndex += CheckForXPlane(PlaneStatus.CurrentPlane, LocalPlayerPlaneComponent->GetCurrentPlane()) ? 10 : 0;
 		for (UMeshComponent* Mesh : OwnerMeshes)
 		{
 			if (IsValid(Mesh))
 			{
+				int32 const PreviousStencil = Mesh->CustomDepthStencilValue;
 				Mesh->SetRenderCustomDepth(true);
-				Mesh->SetCustomDepthStencilValue(StencilIndex);
+				Mesh->SetCustomDepthStencilValue((PreviousStencil % 10) + StencilIndex);
 			}
 		}
 	}
 }
 
-void UCombatReactionComponent::OnLocalPlayerPlaneSwap(ESaiyoraPlane const Previous, ESaiyoraPlane const New, UObject* Source)
+void UPlaneComponent::OnLocalPlayerPlaneSwap(ESaiyoraPlane const Previous, ESaiyoraPlane const New, UObject* Source)
 {
 	UpdateOwnerCustomRendering();
 }

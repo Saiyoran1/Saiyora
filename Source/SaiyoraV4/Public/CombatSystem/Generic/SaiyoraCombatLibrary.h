@@ -20,11 +20,11 @@ public:
 	
 	//Plane
 	
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Plane")
-	static ESaiyoraPlane GetActorPlane(AActor* Actor);
+	/*UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Plane")
+	static ESaiyoraPlane GetActorPlane(AActor* Actor);*/
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Plane")
-	static bool CheckForXPlane(ESaiyoraPlane const FromPlane, ESaiyoraPlane const ToPlane);
+	/*UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Plane")
+	static bool CheckForXPlane(ESaiyoraPlane const FromPlane, ESaiyoraPlane const ToPlane);*/
 
 	//Modifier
 

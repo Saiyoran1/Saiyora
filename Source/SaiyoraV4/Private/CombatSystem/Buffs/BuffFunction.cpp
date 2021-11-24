@@ -4,6 +4,7 @@
 #include "BuffHandler.h"
 #include "CombatComponent.h"
 #include "DamageHandler.h"
+#include "PlaneComponent.h"
 #include "SaiyoraCombatInterface.h"
 #include "StatHandler.h"
 
@@ -119,9 +120,25 @@ void UDamageOverTimeFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
         SnapshotInfo.Source = GetOwningBuff();
         SnapshotInfo.AppliedBy = GetOwningBuff()->GetAppliedBy();
         SnapshotInfo.AppliedTo = GetOwningBuff()->GetAppliedTo();
-        SnapshotInfo.AppliedByPlane = USaiyoraCombatLibrary::GetActorPlane(SnapshotInfo.AppliedBy);
-        SnapshotInfo.AppliedToPlane = USaiyoraCombatLibrary::GetActorPlane(SnapshotInfo.AppliedTo);
-        SnapshotInfo.AppliedXPlane = USaiyoraCombatLibrary::CheckForXPlane(SnapshotInfo.AppliedByPlane, SnapshotInfo.AppliedToPlane);
+        if (SnapshotInfo.AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+        {
+            UPlaneComponent* AppliedByPlaneComp = ISaiyoraCombatInterface::Execute_GetPlaneComponent(SnapshotInfo.AppliedBy);
+            SnapshotInfo.AppliedByPlane = IsValid(AppliedByPlaneComp) ? AppliedByPlaneComp->GetCurrentPlane() : ESaiyoraPlane::None;
+        }
+        else
+        {
+            SnapshotInfo.AppliedByPlane = ESaiyoraPlane::None;
+        }
+        if (SnapshotInfo.AppliedTo->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+        {
+            UPlaneComponent* AppliedToPlaneComp = ISaiyoraCombatInterface::Execute_GetPlaneComponent(SnapshotInfo.AppliedTo);
+            SnapshotInfo.AppliedToPlane = IsValid(AppliedToPlaneComp) ? AppliedToPlaneComp->GetCurrentPlane() : ESaiyoraPlane::None;
+        }
+        else
+        {
+            SnapshotInfo.AppliedToPlane = ESaiyoraPlane::None;
+        }
+        SnapshotInfo.AppliedXPlane = UPlaneComponent::CheckForXPlane(SnapshotInfo.AppliedByPlane, SnapshotInfo.AppliedToPlane);
         SnapshotInfo.HitStyle = EDamageHitStyle::Chronic;
         SnapshotInfo.School = DamageSchool;
         BaseDamage = GeneratorComponent->GetModifiedOutgoingDamage(SnapshotInfo, FDamageModCondition());
@@ -234,9 +251,25 @@ void UHealingOverTimeFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
         SnapshotInfo.Source = GetOwningBuff();
         SnapshotInfo.AppliedBy = GetOwningBuff()->GetAppliedBy();
         SnapshotInfo.AppliedTo = GetOwningBuff()->GetAppliedTo();
-        SnapshotInfo.AppliedByPlane = USaiyoraCombatLibrary::GetActorPlane(SnapshotInfo.AppliedBy);
-        SnapshotInfo.AppliedToPlane = USaiyoraCombatLibrary::GetActorPlane(SnapshotInfo.AppliedTo);
-        SnapshotInfo.AppliedXPlane = USaiyoraCombatLibrary::CheckForXPlane(SnapshotInfo.AppliedByPlane, SnapshotInfo.AppliedToPlane);
+        if (SnapshotInfo.AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+        {
+            UPlaneComponent* AppliedByPlaneComp = ISaiyoraCombatInterface::Execute_GetPlaneComponent(SnapshotInfo.AppliedBy);
+            SnapshotInfo.AppliedByPlane = IsValid(AppliedByPlaneComp) ? AppliedByPlaneComp->GetCurrentPlane() : ESaiyoraPlane::None;
+        }
+        else
+        {
+            SnapshotInfo.AppliedByPlane = ESaiyoraPlane::None;
+        }
+        if (SnapshotInfo.AppliedTo->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+        {
+            UPlaneComponent* AppliedToPlaneComp = ISaiyoraCombatInterface::Execute_GetPlaneComponent(SnapshotInfo.AppliedTo);
+            SnapshotInfo.AppliedToPlane = IsValid(AppliedToPlaneComp) ? AppliedToPlaneComp->GetCurrentPlane() : ESaiyoraPlane::None;
+        }
+        else
+        {
+            SnapshotInfo.AppliedToPlane = ESaiyoraPlane::None;
+        }
+        SnapshotInfo.AppliedXPlane = UPlaneComponent::CheckForXPlane(SnapshotInfo.AppliedByPlane, SnapshotInfo.AppliedToPlane);
         SnapshotInfo.HitStyle = EDamageHitStyle::Chronic;
         SnapshotInfo.School = HealingSchool;
         BaseHealing = GeneratorComponent->GetModifiedOutgoingHealing(SnapshotInfo, FDamageModCondition());

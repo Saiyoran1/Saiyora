@@ -2,6 +2,7 @@
 #include "StatHandler.h"
 #include "BuffHandler.h"
 #include "Buff.h"
+#include "PlaneComponent.h"
 #include "SaiyoraCombatInterface.h"
 #include "UnrealNetwork.h"
 
@@ -496,10 +497,19 @@ FDamagingEvent UDamageHandler::ApplyDamage(float const Amount, AActor* AppliedBy
     DamageEvent.Info.Source = Source;
     DamageEvent.Info.HitStyle = HitStyle;
     DamageEvent.Info.School = School;
-    DamageEvent.Info.AppliedByPlane = USaiyoraCombatLibrary::GetActorPlane(AppliedBy);
-    DamageEvent.Info.AppliedToPlane = USaiyoraCombatLibrary::GetActorPlane(GetOwner());
-    DamageEvent.Info.AppliedXPlane = USaiyoraCombatLibrary::CheckForXPlane(
-        DamageEvent.Info.AppliedByPlane, DamageEvent.Info.AppliedToPlane);
+	if (DamageEvent.Info.AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	{
+		UPlaneComponent* AppliedByPlaneComp = ISaiyoraCombatInterface::Execute_GetPlaneComponent(DamageEvent.Info.AppliedBy);
+		DamageEvent.Info.AppliedByPlane = IsValid(AppliedByPlaneComp) ? AppliedByPlaneComp->GetCurrentPlane() : ESaiyoraPlane::None;
+	}
+	else
+	{
+		DamageEvent.Info.AppliedByPlane = ESaiyoraPlane::None;
+	}
+	//TODO: Cache plane component, make sure all components check owner for interface implementation because I don't want to IsValid this shit all the time.
+	UPlaneComponent* AppliedToPlaneComp = ISaiyoraCombatInterface::Execute_GetPlaneComponent(DamageEvent.Info.AppliedTo);
+    DamageEvent.Info.AppliedToPlane = IsValid(AppliedToPlaneComp) ? AppliedToPlaneComp->GetCurrentPlane() : ESaiyoraPlane::None;
+    DamageEvent.Info.AppliedXPlane = UPlaneComponent::CheckForXPlane(DamageEvent.Info.AppliedByPlane, DamageEvent.Info.AppliedToPlane);
 	if (ThreatParams.GeneratesThreat)
 	{
 		DamageEvent.ThreatInfo = ThreatParams;
@@ -692,10 +702,19 @@ FDamagingEvent UDamageHandler::ApplyHealing(float const Amount, AActor* AppliedB
     HealingEvent.Info.Source = Source;
     HealingEvent.Info.HitStyle = HitStyle;
     HealingEvent.Info.School = School;
-    HealingEvent.Info.AppliedByPlane = USaiyoraCombatLibrary::GetActorPlane(AppliedBy);
-    HealingEvent.Info.AppliedToPlane = USaiyoraCombatLibrary::GetActorPlane(GetOwner());
-    HealingEvent.Info.AppliedXPlane = USaiyoraCombatLibrary::CheckForXPlane(
-        HealingEvent.Info.AppliedByPlane, HealingEvent.Info.AppliedToPlane);
+	if (HealingEvent.Info.AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	{
+		UPlaneComponent* AppliedByPlaneComp = ISaiyoraCombatInterface::Execute_GetPlaneComponent(HealingEvent.Info.AppliedBy);
+		HealingEvent.Info.AppliedByPlane = IsValid(AppliedByPlaneComp) ? AppliedByPlaneComp->GetCurrentPlane() : ESaiyoraPlane::None;
+	}
+	else
+	{
+		HealingEvent.Info.AppliedByPlane = ESaiyoraPlane::None;
+	}
+	//TODO: Cache plane component, make sure all components check owner for interface implementation because I don't want to IsValid this shit all the time.
+	UPlaneComponent* AppliedToPlaneComp = ISaiyoraCombatInterface::Execute_GetPlaneComponent(HealingEvent.Info.AppliedTo);
+	HealingEvent.Info.AppliedToPlane = IsValid(AppliedToPlaneComp) ? AppliedToPlaneComp->GetCurrentPlane() : ESaiyoraPlane::None;
+	HealingEvent.Info.AppliedXPlane = UPlaneComponent::CheckForXPlane(HealingEvent.Info.AppliedByPlane, HealingEvent.Info.AppliedToPlane);
 	if (ThreatParams.GeneratesThreat)
 	{
 		HealingEvent.ThreatInfo = ThreatParams;
