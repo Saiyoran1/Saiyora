@@ -194,6 +194,7 @@ void USaiyoraMovementComponent::InitializeComponent()
 void USaiyoraMovementComponent::BeginPlay()
 {
 	Super::BeginPlay();
+	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("%s does not implement combat interface, but has Custom Movement Component."), *GetOwner()->GetActorLabel());
 	GameStateRef = Cast<ASaiyoraGameState>(GetWorld()->GetGameState());
 	if (!IsValid(GameStateRef))
 	{

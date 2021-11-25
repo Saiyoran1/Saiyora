@@ -1,9 +1,7 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
-
 #include "BuffHandler.h"
 
 #include "Buff.h"
+#include "SaiyoraCombatInterface.h"
 #include "UnrealNetwork.h"
 #include "Engine/ActorChannel.h"
 
@@ -11,6 +9,12 @@ UBuffHandler::UBuffHandler()
 {
 	PrimaryComponentTick.bCanEverTick = false;
 	SetIsReplicatedByDefault(true);
+}
+
+void UBuffHandler::BeginPlay()
+{
+	Super::BeginPlay();
+	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("%s does not implement combat interface, but has Buff Handler."), *GetOwner()->GetActorLabel());
 }
 
 void UBuffHandler::ApplyBuff(FBuffApplyEvent& BuffEvent)

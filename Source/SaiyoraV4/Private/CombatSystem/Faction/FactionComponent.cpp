@@ -1,4 +1,5 @@
 ﻿#include "Faction/FactionComponent.h"
+#include "SaiyoraCombatInterface.h"
 
 UFactionComponent::UFactionComponent()
 {
@@ -8,7 +9,7 @@ UFactionComponent::UFactionComponent()
 void UFactionComponent::BeginPlay()
 {
 	Super::BeginPlay();
-
+	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("%s does not implement combat interface, but has Faction Component."), *GetOwner()->GetActorLabel());
 	GetOwner()->GetComponents(OwnerMeshes);
 	UpdateOwnerCustomRendering();
 }

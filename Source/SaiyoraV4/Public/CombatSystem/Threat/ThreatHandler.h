@@ -56,6 +56,9 @@ public:
 	UCombatGroup* GetCombatGroup() const { return CombatGroup; }
 	void NotifyOfCombatJoined(UCombatGroup* NewGroup);
 	void NotifyOfCombatLeft(UCombatGroup* LeftGroup);
+	void NotifyOfCombatGroupMerge(UCombatGroup* OldGroup, UCombatGroup* NewGroup);
+	void NotifyOfNewCombatant(AActor* NewCombatant) { AddToThreatTable(NewCombatant); }
+	void NotifyOfRemovedCombatant(AActor* RemovedCombatant) { RemoveFromThreatTable(RemovedCombatant); }
 
 private:
 
@@ -67,12 +70,6 @@ private:
 	UPROPERTY()
 	UCombatGroup* CombatGroup;
 	void StartNewCombat(UThreatHandler* TargetThreatHandler);
-	FCombatantCallback CombatantAddedCallback;
-	UFUNCTION()
-	void AddNewCombatantToThreatTable(UCombatGroup* Group, AActor* Combatant);
-	FCombatantCallback CombatantRemovedCallback;
-	UFUNCTION()
-	void RemoveCombatantFromThreatTable(UCombatGroup* Group, AActor* Combatant);
 
 //Threat
 

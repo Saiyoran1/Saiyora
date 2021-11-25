@@ -15,6 +15,7 @@ const float UAbilityHandler::MinimumCastLength = 0.5f;
 const float UAbilityHandler::MinimumCooldownLength = 0.5f;
 
 #pragma region SetupFunctions
+
 UAbilityHandler::UAbilityHandler()
 {
 	PrimaryComponentTick.bCanEverTick = false;
@@ -38,7 +39,7 @@ bool UAbilityHandler::ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bun
 void UAbilityHandler::BeginPlay()
 {
 	Super::BeginPlay();
-
+	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("%s does not implement combat interface, but has Ability Handler."), *GetOwner()->GetActorLabel());
 	GameStateRef = GetWorld()->GetGameState<AGameState>();
 	if (!IsValid(GameStateRef))
 	{

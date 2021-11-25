@@ -1,6 +1,3 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
-
 #include "StatHandler.h"
 #include "SaiyoraBuffLibrary.h"
 #include "UnrealNetwork.h"
@@ -13,7 +10,7 @@
 void UStatHandler::BeginPlay()
 {
 	Super::BeginPlay();
-	
+	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("%s does not implement combat interface, but has Stat Handler."), *GetOwner()->GetActorLabel());
 	if (GetOwnerRole() == ROLE_Authority)
 	{
 		if (GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))

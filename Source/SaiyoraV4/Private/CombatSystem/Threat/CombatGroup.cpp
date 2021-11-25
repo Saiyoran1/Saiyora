@@ -2,42 +2,11 @@
 #include "SaiyoraCombatInterface.h"
 #include "ThreatHandler.h"
 
-void UCombatGroup::SubscribeToCombatantAdded(FCombatantCallback const& Callback)
-{
-	//No good way to protect against calling this on clients, but the delegate will never trigger anyway so...
-	if (Callback.IsBound())
-	{
-		OnCombatantAdded.AddUnique(Callback);
-	}
-}
-
-void UCombatGroup::UnsubscribeFromCombatantAdded(FCombatantCallback const& Callback)
-{
-	if (Callback.IsBound())
-	{
-		OnCombatantAdded.Remove(Callback);
-	}
-}
-
-void UCombatGroup::SubscribeToCombatantRemoved(FCombatantCallback const& Callback)
-{
-	if (Callback.IsBound())
-	{
-		OnCombatantRemoved.AddUnique(Callback);
-	}
-}
-
-void UCombatGroup::UnsubscribeFromCombatantRemoved(FCombatantCallback const& Callback)
-{
-	if (Callback.IsBound())
-	{
-		OnCombatantRemoved.Remove(Callback);
-	}
-}
-
 void UCombatGroup::JoinCombat(AActor* NewCombatant)
 {
-	if (!IsValid(NewCombatant) || !NewCombatant->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	checkf(IsValid(NewCombatant), TEXT("Invalid actor added to a combat group."));
+	
+	if (!NewCombatant->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 	{
 		return;
 	}
@@ -47,30 +16,84 @@ void UCombatGroup::JoinCombat(AActor* NewCombatant)
 		return;
 	}
 	Combatants.Add(NewCombatant);
+	for (AActor* Combatant : Combatants)
+	{
+		if (IsValid(Combatant) && Combatant->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+		{
+			UThreatHandler* NotifyThreat = ISaiyoraCombatInterface::Execute_GetThreatHandler(Combatant);
+			if (IsValid(NotifyThreat))
+			{
+				NotifyThreat->NotifyOfNewCombatant(NewCombatant);
+			}
+		}
+	}
 	CombatantThreat->NotifyOfCombatJoined(this);
-	OnCombatantAdded.Broadcast(this, NewCombatant);
 }
 
-void UCombatGroup::LeaveCombat(AActor* Combatant)
+void UCombatGroup::LeaveCombat(AActor* LeavingCombatant)
 {
-	if (!IsValid(Combatant) || !Combatant->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
-	{
-		return;
-	}
-	UThreatHandler* CombatantThreat = ISaiyoraCombatInterface::Execute_GetThreatHandler(Combatant);
-	if (!IsValid(CombatantThreat))
-	{
-		return;
-	}
-	int32 const Removed = Combatants.Remove(Combatant);
+	checkf(IsValid(LeavingCombatant), TEXT("Attempted to remove an invalid combatant from combat."));
+	
+	int32 const Removed = Combatants.Remove(LeavingCombatant);
 	if (Removed > 0)
 	{
-		CombatantThreat->NotifyOfCombatLeft(this);
-		OnCombatantRemoved.Broadcast(this, Combatant);
+		for (AActor* Combatant : Combatants)
+		{
+			if (IsValid(Combatant) && Combatant->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+			{
+				UThreatHandler* NotifyThreat = ISaiyoraCombatInterface::Execute_GetThreatHandler(Combatant);
+				if (IsValid(NotifyThreat))
+				{
+					NotifyThreat->NotifyOfRemovedCombatant(LeavingCombatant);
+				}
+			}
+		}
+		if (LeavingCombatant->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+		{
+			UThreatHandler* CombatantThreat = ISaiyoraCombatInterface::Execute_GetThreatHandler(LeavingCombatant);
+			if (IsValid(CombatantThreat))
+			{
+				CombatantThreat->NotifyOfCombatLeft(this);
+			}
+		}
 	}
 }
 
 void UCombatGroup::MergeGroups(UCombatGroup* OtherGroup)
 {
-	//TODO: Merge Groups.
+	checkf(IsValid(OtherGroup), TEXT("Attempted to merge into an invalid combat group."));
+
+	if (bInMerge)
+	{
+		return;
+	}
+	bInMerge = true;
+	OtherGroup->NotifyOfMergeStart();
+	TArray<AActor*> OtherCombatants;
+	OtherGroup->GetActorsInCombat(OtherCombatants);
+	for (AActor* Combatant : OtherCombatants)
+	{
+		if (IsValid(Combatant) && Combatant->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+		{
+			UThreatHandler* CombatantThreat = ISaiyoraCombatInterface::Execute_GetThreatHandler(Combatant);
+			if (IsValid(CombatantThreat))
+			{
+				CombatantThreat->NotifyOfCombatGroupMerge(OtherGroup, this);
+			}
+		}
+	}
+	for (AActor* Combatant : Combatants)
+	{
+		if (IsValid(Combatant) && Combatant->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+		{
+			UThreatHandler* CombatantThreat = ISaiyoraCombatInterface::Execute_GetThreatHandler(Combatant);
+			if (IsValid(CombatantThreat))
+			{
+				CombatantThreat->NotifyOfCombatGroupMerge(OtherGroup, this);
+			}
+		}
+	}
+	Combatants.Append(OtherCombatants);
+	OtherGroup->NotifyOfMergeComplete();
+	bInMerge = false;
 }

@@ -14,6 +14,8 @@ float UThreatHandler::GlobalTauntThreatPercentage = 1.2f;
 float UThreatHandler::GlobalThreatDecayPercentage = 0.9f;
 float UThreatHandler::GlobalThreatDecayInterval = 3.0f;
 
+#pragma region Initialization
+
 UThreatHandler::UThreatHandler()
 {
 	PrimaryComponentTick.bCanEverTick = false;
@@ -25,25 +27,27 @@ void UThreatHandler::InitializeComponent()
 {
 	if (GetOwnerRole() == ROLE_Authority)
 	{
-		FadeCallback.BindDynamic(this, &UThreatHandler::OnTargetFadeStatusChanged);
-		ThreatFromDamageCallback.BindDynamic(this, &UThreatHandler::OnOwnerDamageTaken);
-		ThreatFromHealingCallback.BindDynamic(this, &UThreatHandler::OnTargetHealingTaken);
-		ThreatBuffRestriction.BindDynamic(this, &UThreatHandler::CheckBuffForThreat);
 		DecayDelegate.BindUObject(this, &UThreatHandler::DecayThreat);
-		CombatantAddedCallback.BindDynamic(this, &UThreatHandler::AddNewCombatantToThreatTable);
-		CombatantRemovedCallback.BindDynamic(this, &UThreatHandler::RemoveCombatantFromThreatTable);
+		FadeCallback.BindDynamic(this, &UThreatHandler::OnTargetFadeStatusChanged);
+		ThreatFromHealingCallback.BindDynamic(this, &UThreatHandler::OnTargetHealingTaken);
 	}
 }
 
 void UThreatHandler::BeginPlay()
 {
 	Super::BeginPlay();
-
+	
+	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("%s does not implement combat interface, but has Threat Handler."), *GetOwner()->GetActorLabel());
+	
 	if (GetOwnerRole() == ROLE_Authority)
 	{
+		FactionCompRef = ISaiyoraCombatInterface::Execute_GetFactionComponent(GetOwner());
+		checkf(IsValid(FactionCompRef), TEXT("%s does not have a valid Faction Component, which Threat Handler depends on."), *GetOwner()->GetActorLabel());
+		
 		BuffHandlerRef = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwner());
 		if (IsValid(BuffHandlerRef))
 		{
+			ThreatBuffRestriction.BindDynamic(this, &UThreatHandler::CheckBuffForThreat);
 			if (!bCanBeInThreatTable)
 			{
 				BuffHandlerRef->AddOutgoingBuffRestriction(ThreatBuffRestriction);
@@ -53,13 +57,15 @@ void UThreatHandler::BeginPlay()
 				BuffHandlerRef->AddIncomingBuffRestriction(ThreatBuffRestriction);
 			}
 		}
+		
 		DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
 		if (IsValid(DamageHandlerRef))
 		{
+			ThreatFromDamageCallback.BindDynamic(this, &UThreatHandler::OnOwnerDamageTaken);
 			DamageHandlerRef->SubscribeToIncomingDamageSuccess(ThreatFromDamageCallback);
 		}
+		
 		PlaneCompRef = ISaiyoraCombatInterface::Execute_GetPlaneComponent(GetOwner());
-		FactionCompRef = ISaiyoraCombatInterface::Execute_GetFactionComponent(GetOwner());
 	}
 }
 
@@ -70,47 +76,27 @@ void UThreatHandler::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 	DOREPLIFETIME(UThreatHandler, bInCombat);
 }
 
+#pragma endregion 
 #pragma region Combat
 
 void UThreatHandler::StartNewCombat(UThreatHandler* TargetThreatHandler)
 {
 	CombatGroup = NewObject<UCombatGroup>(GetOwner());
-	if (!IsValid(CombatGroup))
-	{
-		CombatGroup = nullptr;	
-	}
+	checkf(IsValid(CombatGroup), TEXT("%s created an invalid new combat group."), *GetOwner()->GetActorLabel());
 	CombatGroup->JoinCombat(GetOwner());
 	CombatGroup->JoinCombat(TargetThreatHandler->GetOwner());
 }
 
-void UThreatHandler::AddNewCombatantToThreatTable(UCombatGroup* Group, AActor* Combatant)
-{
-	if (Group == CombatGroup && Combatant != GetOwner())
-	{
-		AddToThreatTable(Combatant);
-	}
-}
-
-void UThreatHandler::RemoveCombatantFromThreatTable(UCombatGroup* Group, AActor* Combatant)
-{
-	if (Group == CombatGroup && Combatant != GetOwner())
-	{
-		RemoveFromThreatTable(Combatant);
-	}
-}
-
 void UThreatHandler::NotifyOfCombatJoined(UCombatGroup* NewGroup)
 {
-	if (GetOwnerRole() != ROLE_Authority || !IsValid(NewGroup))
+	if (GetOwnerRole() != ROLE_Authority)
 	{
 		return;
 	}
+	checkf(IsValid(NewGroup), TEXT("%s was notified of joining combat, but the combat group was invalid."), *GetOwner()->GetActorLabel());
+	checkf(!bInCombat, TEXT("%s was notified of joining combat, but was already in combat."), *GetOwner()->GetActorLabel());
 	CombatGroup = NewGroup;
-	if (!bInCombat)
-	{
-		bInCombat = true;
-		OnCombatChanged.Broadcast(true);
-	}
+	bInCombat = true;
 	TArray<AActor*> Combatants;
 	NewGroup->GetActorsInCombat(Combatants);
 	for (AActor* Combatant : Combatants)
@@ -120,22 +106,39 @@ void UThreatHandler::NotifyOfCombatJoined(UCombatGroup* NewGroup)
 			AddToThreatTable(Combatant);
 		}
 	}
-	CombatGroup->SubscribeToCombatantAdded(CombatantAddedCallback);
-	CombatGroup->SubscribeToCombatantRemoved(CombatantRemovedCallback);
+	OnCombatChanged.Broadcast(true);
 }
 
 void UThreatHandler::NotifyOfCombatLeft(UCombatGroup* LeftGroup)
 {
-	if (GetOwnerRole() != ROLE_Authority || !bInCombat || !IsValid(LeftGroup) || LeftGroup != CombatGroup)
+	checkf((bInCombat && IsValid(LeftGroup) && LeftGroup == CombatGroup), TEXT("%s was notified of leaving combat, but the combat group was invalid."), *GetOwner()->GetActorLabel());
+	
+	if (GetOwnerRole() != ROLE_Authority)
 	{
 		return;
 	}
-	CombatGroup->UnsubscribeFromCombatantAdded(CombatantAddedCallback);
-	CombatGroup->UnsubscribeFromCombatantRemoved(CombatantRemovedCallback);
 	CombatGroup = nullptr;
 	bInCombat = false;
-	OnCombatChanged.Broadcast(false);
 	ClearThreatTable();
+	OnCombatChanged.Broadcast(false);
+}
+
+void UThreatHandler::NotifyOfCombatGroupMerge(UCombatGroup* OldGroup, UCombatGroup* NewGroup)
+{
+	checkf(bInCombat && IsValid(CombatGroup) && IsValid(OldGroup) && IsValid(NewGroup), TEXT("%s tried to change to invalid combat group, or wasn't in combat before the change."), *GetOwner()->GetActorLabel());
+	
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
+	UCombatGroup* GroupToAdd = CombatGroup == OldGroup ? NewGroup : OldGroup;
+	TArray<AActor*> NewCombatants;
+	GroupToAdd->GetActorsInCombat(NewCombatants);
+	for (AActor* Combatant : NewCombatants)
+	{
+		AddToThreatTable(Combatant);
+	}
+	CombatGroup = NewGroup;
 }
 
 void UThreatHandler::OnRep_bInCombat()
@@ -149,79 +152,67 @@ void UThreatHandler::OnRep_bInCombat()
 FThreatEvent UThreatHandler::AddThreat(EThreatType const ThreatType, float const BaseThreat, AActor* AppliedBy,
                                        UObject* Source, bool const bIgnoreRestrictions, bool const bIgnoreModifiers, FThreatModCondition const& SourceModifier)
 {
+	checkf(IsValid(AppliedBy), TEXT("%s had threat added, but the AppliedBy was invalid."), *GetOwner()->GetActorLabel());
+	
 	FThreatEvent Result;
 	
-	if (GetOwnerRole() != ROLE_Authority || !IsValid(AppliedBy) || BaseThreat <= 0.0f || !bHasThreatTable || !IsValid(FactionCompRef))
+	if (GetOwnerRole() != ROLE_Authority)
 	{
 		return Result;
 	}
-	
-	//Target must either be alive, or not have a health component.
-	if (IsValid(DamageHandlerRef) && DamageHandlerRef->IsDead())
+	if (!bHasThreatTable || BaseThreat <= 0.0f || (IsValid(DamageHandlerRef) && DamageHandlerRef->IsDead()))
 	{
-		return Result;
+		return Result;		
 	}
-	
 	if (!AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 	{
 		return Result;
 	}
-	UThreatHandler* GeneratorComponent = ISaiyoraCombatInterface::Execute_GetThreatHandler(AppliedBy);
-	if (!IsValid(GeneratorComponent) || !GeneratorComponent->CanBeInThreatTable())
+	UThreatHandler* GeneratorThreat = ISaiyoraCombatInterface::Execute_GetThreatHandler(AppliedBy);
+	if (!IsValid(GeneratorThreat) || !GeneratorThreat->CanBeInThreatTable())
 	{
 		return Result;
 	}
-	//Generator must either be alive, or not have a health component.
 	UDamageHandler* GeneratorHealth = ISaiyoraCombatInterface::Execute_GetDamageHandler(AppliedBy);
 	if (IsValid(GeneratorHealth) && GeneratorHealth->IsDead())
 	{
 		return Result;
 	}
-	//Generator must have a faction, and can not be the same faction as the target.
 	UFactionComponent* GeneratorFaction = ISaiyoraCombatInterface::Execute_GetFactionComponent(AppliedBy);
 	if (!IsValid(GeneratorFaction) || GeneratorFaction->GetCurrentFaction() == FactionCompRef->GetCurrentFaction())
 	{
 		return Result;
 	}
-	//TODO: Check misdirect target faction?
-	if (IsValid(GeneratorComponent->GetMisdirectTarget()) && GeneratorComponent->GetMisdirectTarget()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
-	{
-		UThreatHandler* MisdirectComponent = ISaiyoraCombatInterface::Execute_GetThreatHandler(GeneratorComponent->GetMisdirectTarget());
-		if (IsValid(MisdirectComponent) && MisdirectComponent->CanBeInThreatTable())
-		{
-			UDamageHandler* MisdirectHealth = ISaiyoraCombatInterface::Execute_GetDamageHandler(GeneratorComponent->GetMisdirectTarget());
-			if (IsValid(MisdirectHealth) && MisdirectHealth->IsDead())
-			{
-				//If the misdirected actor is dead, threat will come from the original generator.
-				Result.AppliedBy = AppliedBy;
-			}
-			else
-			{
-				Result.AppliedBy = GeneratorComponent->GetMisdirectTarget();
-			}
-		}
-		else
-		{
-			Result.AppliedBy = AppliedBy;
-		}
-	}
-	else
-	{
-		Result.AppliedBy = AppliedBy;
-	}
 
+	Result.AppliedBy = AppliedBy;
+	if (IsValid(GeneratorThreat->GetMisdirectTarget()) && GeneratorThreat->GetMisdirectTarget()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	{
+		UThreatHandler* MisdirectThreat = ISaiyoraCombatInterface::Execute_GetThreatHandler(GeneratorThreat->GetMisdirectTarget());
+		if (IsValid(MisdirectThreat) && MisdirectThreat->CanBeInThreatTable())
+		{
+			UDamageHandler* MisdirectHealth = ISaiyoraCombatInterface::Execute_GetDamageHandler(GeneratorThreat->GetMisdirectTarget());
+			if (!IsValid(MisdirectHealth) || !MisdirectHealth->IsDead())
+			{
+				UFactionComponent* MisdirectFaction = ISaiyoraCombatInterface::Execute_GetFactionComponent(GeneratorThreat->GetMisdirectTarget());
+				if (IsValid(MisdirectFaction) && MisdirectFaction->GetCurrentFaction() != FactionCompRef->GetCurrentFaction())
+				{
+					Result.AppliedBy = GeneratorThreat->GetMisdirectTarget();
+				}
+			}
+		}
+	}
 	Result.AppliedTo = GetOwner();
 	Result.Source = Source;
 	Result.ThreatType = ThreatType;
-	UPlaneComponent* AppliedByPlaneComp = ISaiyoraCombatInterface::Execute_GetPlaneComponent(AppliedBy);
-	Result.AppliedByPlane = IsValid(AppliedByPlaneComp) ? AppliedByPlaneComp->GetCurrentPlane() : ESaiyoraPlane::None;
+	UPlaneComponent* GeneratorPlane = ISaiyoraCombatInterface::Execute_GetPlaneComponent(AppliedBy);
+	Result.AppliedByPlane = IsValid(GeneratorPlane) ? GeneratorPlane->GetCurrentPlane() : ESaiyoraPlane::None;
 	Result.AppliedToPlane = IsValid(PlaneCompRef) ? PlaneCompRef->GetCurrentPlane() : ESaiyoraPlane::None;
 	Result.AppliedXPlane = UPlaneComponent::CheckForXPlane(Result.AppliedByPlane, Result.AppliedToPlane);
 	Result.Threat = BaseThreat;
 
 	if (!bIgnoreModifiers)
 	{
-		Result.Threat = GeneratorComponent->GetModifiedOutgoingThreat(Result, SourceModifier);
+		Result.Threat = GeneratorThreat->GetModifiedOutgoingThreat(Result, SourceModifier);
 		Result.Threat = GetModifiedIncomingThreat(Result);
 		if (Result.Threat <= 0.0f)
 		{
@@ -231,7 +222,7 @@ FThreatEvent UThreatHandler::AddThreat(EThreatType const ThreatType, float const
 
 	if (!bIgnoreRestrictions)
 	{
-		if (GeneratorComponent->CheckOutgoingThreatRestricted(Result) || CheckIncomingThreatRestricted(Result))
+		if (GeneratorThreat->CheckOutgoingThreatRestricted(Result) || CheckIncomingThreatRestricted(Result))
 		{
 			return Result;
 		}
@@ -270,7 +261,13 @@ FThreatEvent UThreatHandler::AddThreat(EThreatType const ThreatType, float const
 void UThreatHandler::AddToThreatTable(AActor* Actor, float const InitialThreat, UBuff* InitialFixate,
                                       UBuff* InitialBlind)
 {
-	if (!IsValid(Actor) || GetOwnerRole() != ROLE_Authority || !bHasThreatTable || IsActorInThreatTable(Actor) || !IsValid(FactionCompRef))
+	checkf(IsValid(Actor), TEXT("%s tried to add target to threat table, but target was invalid."), *GetOwner()->GetActorLabel());
+	
+	if (GetOwnerRole() != ROLE_Authority || !bHasThreatTable || IsActorInThreatTable(Actor))
+	{
+		return;
+	}
+	if (!Actor->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 	{
 		return;
 	}
@@ -281,6 +278,11 @@ void UThreatHandler::AddToThreatTable(AActor* Actor, float const InitialThreat, 
 	}
 	UFactionComponent* TargetFactionComp = ISaiyoraCombatInterface::Execute_GetFactionComponent(Actor);
 	if (!IsValid(TargetFactionComp) || TargetFactionComp->GetCurrentFaction() == FactionCompRef->GetCurrentFaction())
+	{
+		return;
+	}
+	UDamageHandler* TargetDamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(Actor);
+	if (IsValid(TargetDamageHandler) && TargetDamageHandler->IsDead())
 	{
 		return;
 	}
@@ -308,7 +310,6 @@ void UThreatHandler::AddToThreatTable(AActor* Actor, float const InitialThreat, 
 		}
 	}
 	TargetThreatHandler->SubscribeToFadeStatusChanged(FadeCallback);
-	UDamageHandler* TargetDamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(Actor);
 	if (IsValid(TargetDamageHandler) && TargetDamageHandler->CanEverReceiveHealing())
 	{
 		TargetDamageHandler->SubscribeToIncomingHealingSuccess(ThreatFromHealingCallback);
@@ -342,7 +343,9 @@ void UThreatHandler::AddToThreatTable(AActor* Actor, float const InitialThreat, 
 
 void UThreatHandler::RemoveThreat(float const Amount, AActor* AppliedBy)
 {
-	if (GetOwnerRole() != ROLE_Authority || !IsValid(AppliedBy) || !bHasThreatTable)
+	checkf(IsValid(AppliedBy), TEXT("%s tried to remove threat from invalid actor."), *GetOwner()->GetActorLabel());
+	
+	if (GetOwnerRole() != ROLE_Authority || !bHasThreatTable)
 	{
 		return;
 	}
@@ -374,7 +377,9 @@ void UThreatHandler::RemoveThreat(float const Amount, AActor* AppliedBy)
 
 void UThreatHandler::RemoveFromThreatTable(AActor* Actor)
 {
-	if (!IsValid(Actor) || GetOwnerRole() != ROLE_Authority || !bHasThreatTable)
+	checkf(IsValid(Actor), TEXT("%s tried to remove invalid actor from threat table."), *GetOwner()->GetActorLabel());
+	
+	if (GetOwnerRole() != ROLE_Authority || !bHasThreatTable)
 	{
 		return;
 	}
@@ -409,7 +414,21 @@ void UThreatHandler::RemoveFromThreatTable(AActor* Actor)
 
 void UThreatHandler::ClearThreatTable()
 {
-	//TODO: Clear Threat Table.
+	for (FThreatTarget const& ThreatTarget : ThreatTable)
+	{
+		UThreatHandler* TargetThreatHandler = ISaiyoraCombatInterface::Execute_GetThreatHandler(ThreatTarget.Target);
+		if (IsValid(TargetThreatHandler))
+		{
+			TargetThreatHandler->UnsubscribeFromFadeStatusChanged(FadeCallback);
+		}
+		UDamageHandler* TargetDamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(ThreatTarget.Target);
+		if (IsValid(TargetDamageHandler) && TargetDamageHandler->CanEverReceiveHealing())
+		{	
+			TargetDamageHandler->UnsubscribeFromIncomingHealingSuccess(ThreatFromHealingCallback);
+		}
+	}
+	ThreatTable.Empty();
+	UpdateTarget();
 }
 
 void UThreatHandler::DecayThreat()
@@ -425,7 +444,9 @@ void UThreatHandler::DecayThreat()
 
 bool UThreatHandler::IsActorInThreatTable(AActor* Target) const
 {
-	if (!IsValid(Target) || !bHasThreatTable || !bInCombat)
+	checkf(IsValid(Target), TEXT("%s tried to find an invalid actor in the threat table."), *GetOwner()->GetActorLabel());
+	
+	if (!bHasThreatTable || !bInCombat)
 	{
 		return false;
 	}
@@ -441,7 +462,9 @@ bool UThreatHandler::IsActorInThreatTable(AActor* Target) const
 
 float UThreatHandler::GetActorThreatValue(AActor* Actor) const
 {
-	if (GetOwnerRole() != ROLE_Authority || !IsValid(Actor))
+	checkf(IsValid(Actor), TEXT("%s tried to find an invalid actor in the threat table."), *GetOwner()->GetActorLabel());
+	
+	if (GetOwnerRole() != ROLE_Authority)
 	{
 		return 0.0f;
 	}

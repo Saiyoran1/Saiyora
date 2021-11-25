@@ -1,6 +1,3 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
-
 #include "ResourceHandler.h"
 #include "Resource.h"
 #include "UnrealNetwork.h"
@@ -17,7 +14,7 @@ UResourceHandler::UResourceHandler()
 void UResourceHandler::BeginPlay()
 {
 	Super::BeginPlay();
-
+	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("%s does not implement combat interface, but has Resource Handler."), *GetOwner()->GetActorLabel());
 	if (IsValid(GetOwner()) && GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 	{
 		StatHandler = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());

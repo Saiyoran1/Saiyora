@@ -122,6 +122,7 @@ void UCrowdControlHandler::InitializeComponent()
 void UCrowdControlHandler::BeginPlay()
 {
 	Super::BeginPlay();
+	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("%s does not implement combat interface, but has Crowd Control Handler."), *GetOwner()->GetActorLabel());
 	//Sub to buff handler to add CCs from buffs that are applied.
 	//Restrict buffs with CC tags that match immunities.
 	//Sub to damage handler to tell buff handler to remove all Incap buffs when damage is taken.
