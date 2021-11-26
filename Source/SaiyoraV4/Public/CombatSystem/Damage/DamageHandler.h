@@ -4,10 +4,13 @@
 #include "Components/ActorComponent.h"
 #include "GameplayTagContainer.h"
 #include "BuffStructs.h"
+#include "StatStructs.h"
+
 #include "DamageHandler.generated.h"
 
 class UStatHandler;
 class UBuffHandler;
+class UPlaneComponent;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class SAIYORAV4_API UDamageHandler : public UActorComponent
@@ -35,6 +38,8 @@ private:
 	UStatHandler* StatHandler = nullptr;
 	UPROPERTY()
 	UBuffHandler* BuffHandler = nullptr;
+	UPROPERTY()
+	UPlaneComponent* PlaneComponent = nullptr;
 	UPROPERTY()
 	APawn* OwnerAsPawn = nullptr;
 
@@ -82,10 +87,16 @@ private:
 
 	UPROPERTY(ReplicatedUsing = OnRep_CurrentHealth)
 	float CurrentHealth = 0.0f;
+	UFUNCTION()
+	void OnRep_CurrentHealth(float PreviousValue);
 	UPROPERTY(ReplicatedUsing = OnRep_MaxHealth)
 	float MaxHealth = 1.0f;
+	UFUNCTION()
+	void OnRep_MaxHealth(float PreviousValue);
 	UPROPERTY(ReplicatedUsing = OnRep_LifeStatus)
 	ELifeStatus LifeStatus = ELifeStatus::Invalid;
+	UFUNCTION()
+	void OnRep_LifeStatus(ELifeStatus PreviousValue);
 
 	FHealthChangeNotification OnHealthChanged;
 	FHealthChangeNotification OnMaxHealthChanged;
@@ -93,17 +104,11 @@ private:
 	TArray<FDeathRestriction> DeathRestrictions;
 
 	void UpdateMaxHealth(float const NewMaxHealth);
+	FStatCallback MaxHealthStatCallback;
 	UFUNCTION()
 	void ReactToMaxHealthStat(FGameplayTag const& StatTag, float const NewValue);
 	bool CheckDeathRestricted(FDamagingEvent const& DamageEvent);
 	void Die();
-
-	UFUNCTION()
-	void OnRep_CurrentHealth(float PreviousValue);
-	UFUNCTION()
-	void OnRep_MaxHealth(float PreviousValue);
-	UFUNCTION()
-	void OnRep_LifeStatus(ELifeStatus PreviousValue);
 
 //Outgoing Damage
 
@@ -141,6 +146,7 @@ private:
 	UFUNCTION(Client, Unreliable)
     void ClientNotifyOfOutgoingDamage(FDamagingEvent const& DamageEvent);
 
+	FDamageModCondition DamageDoneModFromStat;
 	UFUNCTION()
 	FCombatModifier ModifyDamageDoneFromStat(FDamageInfo const& DamageInfo);
 
@@ -175,6 +181,7 @@ private:
     UFUNCTION(Client, Unreliable)
     void ClientNotifyOfOutgoingHealing(FDamagingEvent const& HealingEvent);
 
+	FDamageModCondition HealingDoneModFromStat;
 	UFUNCTION()
 	FCombatModifier ModifyHealingDoneFromStat(FDamageInfo const& HealingInfo);
 
@@ -209,8 +216,6 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Damage")
 	bool bCanEverReceiveDamage = true;
-	UFUNCTION()
-	bool RestrictDamageBuffs(FBuffApplyEvent const& BuffEvent);
 
 	bool bHasPendingKillingBlow = false;
 	FDamagingEvent PendingKillingBlow;
@@ -222,8 +227,12 @@ private:
 	UFUNCTION(Client, Unreliable)
     void ClientNotifyOfIncomingDamage(FDamagingEvent const& DamageEvent);
 
+	FDamageModCondition DamageTakenModFromStat;
 	UFUNCTION()
 	FCombatModifier ModifyDamageTakenFromStat(FDamageInfo const& DamageInfo);
+	FBuffEventCondition DamageBuffRestriction;
+	UFUNCTION()
+	bool RestrictDamageBuffs(FBuffApplyEvent const& BuffEvent);
 
 	//Incoming Healing
 
@@ -256,8 +265,6 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Healing")
 	bool bCanEverReceiveHealing = true;
-	UFUNCTION()
-	bool RestrictHealingBuffs(FBuffApplyEvent const& BuffEvent);
 	
 	FDamageEventNotification OnIncomingHealing;
 	TArray<FDamageRestriction> IncomingHealingRestrictions;
@@ -266,6 +273,10 @@ private:
 	UFUNCTION(Client, Unreliable)
     void ClientNotifyOfIncomingHealing(FDamagingEvent const& HealingEvent);
 
+	FDamageModCondition HealingTakenModFromStat;
 	UFUNCTION()
 	FCombatModifier ModifyHealingTakenFromStat(FDamageInfo const& HealingInfo);
+	FBuffEventCondition HealingBuffRestriction;
+	UFUNCTION()
+	bool RestrictHealingBuffs(FBuffApplyEvent const& BuffEvent);
 };

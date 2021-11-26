@@ -514,6 +514,17 @@ float UThreatHandler::GetActorThreatValue(AActor* Actor) const
 	return 0.0f;
 }
 
+void UThreatHandler::GetActorsInThreatTable(TArray<AActor*>& OutActors) const
+{
+	for (FThreatTarget const& Target : ThreatTable)
+	{
+		if (IsValid(Target.Target))
+		{
+			OutActors.Add(Target.Target);
+		}
+	}
+}
+
 void UThreatHandler::UpdateTarget()
 {
 	AActor* Previous = CurrentTarget;

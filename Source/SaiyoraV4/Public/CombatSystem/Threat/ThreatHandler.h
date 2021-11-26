@@ -62,6 +62,10 @@ public:
 	float GetActorThreatValue(AActor* Actor) const;
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Threat")
 	AActor* GetCurrentTarget() const { return CurrentTarget; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, BlueprintAuthorityOnly, Category = "Threat")
+	void GetActorsInThreatTable(TArray<AActor*>& OutActors) const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, BlueprintAuthorityOnly, Category = "Threat")
+	void GetActorsTargetingThis(TArray<AActor*>& OutActors) const { OutActors = TargetedBy; }
 
 	UFUNCTION(BlueprintCallable, Category = "Threat")
 	void SubscribeToTargetChanged(FTargetCallback const& Callback);

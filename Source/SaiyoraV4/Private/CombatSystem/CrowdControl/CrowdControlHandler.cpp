@@ -143,7 +143,7 @@ void UCrowdControlHandler::BeginPlay()
 			BuffCcRestriction.BindDynamic(this, &UCrowdControlHandler::CheckBuffRestrictedByCcImmunity);
 			BuffHandler->AddIncomingBuffRestriction(BuffCcRestriction);
 			OnBuffApplied.BindDynamic(this, &UCrowdControlHandler::CheckAppliedBuffForCcOrImmunity);
-			BuffHandler->SubscribeToIncomingBuffSuccess(OnBuffApplied);
+			BuffHandler->SubscribeToIncomingBuff(OnBuffApplied);
 			OnBuffRemoved.BindDynamic(this, &UCrowdControlHandler::CheckRemovedBuffForCcOrImmunity);
 			BuffHandler->SubscribeToIncomingBuffRemove(OnBuffRemoved);
 		}

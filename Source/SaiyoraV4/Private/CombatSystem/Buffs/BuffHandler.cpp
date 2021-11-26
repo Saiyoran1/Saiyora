@@ -179,7 +179,7 @@ void UBuffHandler::AddIncomingBuffRestriction(FBuffEventCondition const& Restric
 	}
 	if (Restriction.IsBound())
 	{
-		IncomingBuffConditions.AddUnique(Restriction);
+		IncomingBuffRestrictions.AddUnique(Restriction);
 	}
 }
 
@@ -191,13 +191,13 @@ void UBuffHandler::RemoveIncomingBuffRestriction(FBuffEventCondition const& Rest
 	}
 	if (Restriction.IsBound())
 	{
-		IncomingBuffConditions.RemoveSingleSwap(Restriction);
+		IncomingBuffRestrictions.RemoveSingleSwap(Restriction);
 	}
 }
 
 bool UBuffHandler::CheckIncomingBuffRestricted(FBuffApplyEvent const& BuffEvent)
 {
-	for (FBuffEventCondition const& Condition : IncomingBuffConditions)
+	for (FBuffEventCondition const& Condition : IncomingBuffRestrictions)
 	{
 		if (Condition.IsBound() && Condition.Execute(BuffEvent))
 		{
@@ -227,7 +227,7 @@ void UBuffHandler::CreateNewBuff(FBuffApplyEvent& BuffEvent)
 	}
 }
 
-void UBuffHandler::SubscribeToIncomingBuffSuccess(FBuffEventCallback const& Callback)
+void UBuffHandler::SubscribeToIncomingBuff(FBuffEventCallback const& Callback)
 {
 	if (Callback.IsBound())
 	{
@@ -235,7 +235,7 @@ void UBuffHandler::SubscribeToIncomingBuffSuccess(FBuffEventCallback const& Call
 	}
 }
 
-void UBuffHandler::UnsubscribeFromIncomingBuffSuccess(FBuffEventCallback const& Callback)
+void UBuffHandler::UnsubscribeFromIncomingBuff(FBuffEventCallback const& Callback)
 {
 	if (Callback.IsBound())
 	{
@@ -261,7 +261,7 @@ void UBuffHandler::UnsubscribeFromIncomingBuffRemove(FBuffRemoveCallback const& 
 
 bool UBuffHandler::CheckOutgoingBuffRestricted(FBuffApplyEvent const& BuffEvent)
 {
-	for (FBuffEventCondition const& Condition : OutgoingBuffConditions)
+	for (FBuffEventCondition const& Condition : OutgoingBuffRestrictions)
 	{
 		if (Condition.IsBound() && Condition.Execute(BuffEvent))
 		{
@@ -294,7 +294,7 @@ void UBuffHandler::AddOutgoingBuffRestriction(FBuffEventCondition const& Restric
 	}
 	if (Restriction.IsBound())
 	{
-		OutgoingBuffConditions.AddUnique(Restriction);
+		OutgoingBuffRestrictions.AddUnique(Restriction);
 	}
 }
 
@@ -306,11 +306,11 @@ void UBuffHandler::RemoveOutgoingBuffRestriction(FBuffEventCondition const& Rest
 	}
 	if (Restriction.IsBound())
 	{
-		OutgoingBuffConditions.RemoveSingleSwap(Restriction);
+		OutgoingBuffRestrictions.RemoveSingleSwap(Restriction);
 	}
 }
 
-void UBuffHandler::SubscribeToOutgoingBuffSuccess(FBuffEventCallback const& Callback)
+void UBuffHandler::SubscribeToOutgoingBuff(FBuffEventCallback const& Callback)
 {
 	if (Callback.IsBound())
 	{
@@ -318,7 +318,7 @@ void UBuffHandler::SubscribeToOutgoingBuffSuccess(FBuffEventCallback const& Call
 	}
 }
 
-void UBuffHandler::UnsubscribeFromOutgoingBuffSuccess(FBuffEventCallback const& Callback)
+void UBuffHandler::UnsubscribeFromOutgoingBuff(FBuffEventCallback const& Callback)
 {
 	if (Callback.IsBound())
 	{
