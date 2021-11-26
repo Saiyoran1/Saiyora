@@ -1,5 +1,3 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #pragma once
 #include "BuffStructs.h"
 #include "GameplayTagContainer.h"
@@ -101,7 +99,6 @@ private:
 	FModifierNotification OnRemoved;
 
 #pragma endregion
-	
 #pragma region Getters
 
 public:
@@ -176,7 +173,6 @@ public:
 	UBuffHandler* GetHandler() const { return Handler; }
 
 #pragma endregion
-
 #pragma region Application/Expiration
 
 	//Application and Expiration Functions
@@ -218,7 +214,6 @@ private:
 	void CompleteExpireTimer();
 
 #pragma endregion
-
 #pragma region Replication
 
 public:

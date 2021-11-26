@@ -578,7 +578,7 @@ FDamagingEvent UDamageHandler::ApplyDamage(float const Amount, AActor* AppliedBy
 	return DamageEvent;
 }
 
-void UDamageHandler::SubscribeToIncomingDamageSuccess(FDamageEventCallback const& Callback)
+void UDamageHandler::SubscribeToIncomingDamage(FDamageEventCallback const& Callback)
 {
 	if (Callback.IsBound())
 	{
@@ -767,7 +767,7 @@ FDamagingEvent UDamageHandler::ApplyHealing(float const Amount, AActor* AppliedB
 	return HealingEvent;
 }
 
-void UDamageHandler::SubscribeToIncomingHealingSuccess(FDamageEventCallback const& Callback)
+void UDamageHandler::SubscribeToIncomingHealing(FDamageEventCallback const& Callback)
 {
 	if (Callback.IsBound())
 	{

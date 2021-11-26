@@ -7,7 +7,6 @@
 #include "Components/ActorComponent.h"
 #include "ThreatHandler.generated.h"
 
-class UCombatGroup;
 class UDamageHandler;
 class UBuffHandler;
 class UPlaneComponent;
@@ -27,8 +26,6 @@ public:
 	static FGameplayTag MisdirectTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Threat.Misdirect")), false); }
 	static float GlobalHealingThreatModifier;
 	static float GlobalTauntThreatPercentage;
-	static float GlobalThreatDecayPercentage;
-	static float GlobalThreatDecayInterval;
 	
 	UThreatHandler();
 	virtual void BeginPlay() override;
@@ -46,35 +43,12 @@ private:
 	UPROPERTY()
 	UFactionComponent* FactionCompRef;
 
-//Combat
+//Threat
 
 public:
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Combat")
 	bool IsInCombat() const { return bInCombat; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, BlueprintAuthorityOnly, Category = "Combat")
-	UCombatGroup* GetCombatGroup() const { return CombatGroup; }
-	void NotifyOfCombatJoined(UCombatGroup* NewGroup);
-	void NotifyOfCombatLeft(UCombatGroup* LeftGroup);
-	void NotifyOfCombatGroupMerge(UCombatGroup* OldGroup, UCombatGroup* NewGroup);
-	void NotifyOfNewCombatant(AActor* NewCombatant) { AddToThreatTable(NewCombatant); }
-	void NotifyOfRemovedCombatant(AActor* RemovedCombatant) { RemoveFromThreatTable(RemovedCombatant); }
-
-private:
-
-	UPROPERTY(ReplicatedUsing=OnRep_bInCombat)
-	bool bInCombat = false;
-	UFUNCTION()
-	void OnRep_bInCombat();
-	FCombatStatusNotification OnCombatChanged;
-	UPROPERTY()
-	UCombatGroup* CombatGroup;
-	void StartNewCombat(UThreatHandler* TargetThreatHandler);
-
-//Threat
-
-public:
-
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Threat")
 	bool HasThreatTable() const { return bHasThreatTable; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Threat")
@@ -93,6 +67,10 @@ public:
 	void SubscribeToTargetChanged(FTargetCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Threat")
 	void UnsubscribeFromTargetChanged(FTargetCallback const& Callback);
+	UFUNCTION(BlueprintCallable, Category = "Threat")
+	void SubscribeToCombatStatusChanged(FCombatStatusCallback const& Callback);
+	UFUNCTION(BlueprintCallable, Category = "Threat")
+	void UnsubscribeFromCombatStatusChanged(FCombatStatusCallback const& Callback);
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
 	void AddIncomingThreatRestriction(FThreatRestriction const& Restriction);
@@ -115,15 +93,26 @@ public:
 	void RemoveOutgoingThreatModifier(FThreatModCondition const& Modifier);
 	float GetModifiedOutgoingThreat(FThreatEvent const& ThreatEvent, FThreatModCondition const& SourceModifier) const;
 
+	void NotifyOfTargeting(UThreatHandler* TargetingComponent);
+	void NotifyOfTargetingEnded(UThreatHandler* TargetingComponent);
+
 private:
 
+	UPROPERTY(ReplicatedUsing=OnRep_bInCombat)
+	bool bInCombat = false;
+	UFUNCTION()
+	void OnRep_bInCombat();
+	void UpdateCombat();
+	FCombatStatusNotification OnCombatChanged;
 	UPROPERTY(EditAnywhere, Category = "Threat")
 	bool bHasThreatTable = false;
 	UPROPERTY(EditAnywhere, Category = "Threat")
 	bool bCanBeInThreatTable = false;
 	UPROPERTY()
 	TArray<FThreatTarget> ThreatTable;
-	void AddToThreatTable(AActor* Actor, float const InitialThreat = 0.0f, UBuff* InitialFixate = nullptr, UBuff* InitialBlind = nullptr);
+	UPROPERTY()
+	TArray<AActor*> TargetedBy;
+	void AddToThreatTable(FThreatTarget const& NewTarget);
 	void RemoveFromThreatTable(AActor* Actor);
 	void ClearThreatTable();
 	void RemoveThreat(float const Amount, AActor* AppliedBy);
@@ -140,13 +129,21 @@ private:
 	FDamageEventCallback ThreatFromDamageCallback;
 	UFUNCTION()
 	void OnOwnerDamageTaken(FDamagingEvent const& DamageEvent);
-	FDamageEventCallback ThreatFromHealingCallback;
+	FDamageEventCallback ThreatFromIncomingHealingCallback;
 	UFUNCTION()
 	void OnTargetHealingTaken(FDamagingEvent const& HealingEvent);
-	FTimerHandle DecayHandle;
-	FTimerDelegate DecayDelegate;
+	FDamageEventCallback ThreatFromOutgoingHealingCallback;
 	UFUNCTION()
-	void DecayThreat();
+	void OnTargetHealingDone(FDamagingEvent const& HealingEvent);
+	FLifeStatusCallback TargetLifeStatusCallback;
+	UFUNCTION()
+	void OnTargetLifeStatusChanged(AActor* Actor, ELifeStatus const PreviousStatus, ELifeStatus const NewStatus);
+	FLifeStatusCallback OwnerLifeStatusCallback;
+	UFUNCTION()
+	void OnOwnerLifeStatusChanged(AActor* Actor, ELifeStatus const PreviousStatus, ELifeStatus const NewStatus);
+	FBuffEventCondition ThreatBuffRestriction;
+	UFUNCTION()
+	bool CheckBuffForThreat(FBuffApplyEvent const& BuffEvent);
 	
 //Threat Actions
 
@@ -157,36 +154,30 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
 	void DropThreat(AActor* Target, float const Percentage);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
-	void Vanish();
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
 	void TransferThreat(AActor* FromActor, AActor* ToActor, float const Percentage);
-	
-	AActor* GetMisdirectTarget() const { return Misdirects.Num() == 0 ? nullptr : Misdirects[Misdirects.Num() - 1].Target; }
-	bool HasActiveFade() const { return Fades.Num() != 0; }
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
+	void Vanish();
+	void NotifyOfTargetVanished(AActor* Target) { RemoveFromThreatTable(Target); }
 
 	void AddFixate(AActor* Target, UBuff* Source);
 	void RemoveFixate(AActor* Target, UBuff* Source);
+	
 	void AddBlind(AActor* Target, UBuff* Source);
 	void RemoveBlind(AActor* Target, UBuff* Source);
+	
 	void AddFade(UBuff* Source);
 	void RemoveFade(UBuff* Source);
-	void SubscribeToFadeStatusChanged(FFadeCallback const& Callback);
-	void UnsubscribeFromFadeStatusChanged(FFadeCallback const& Callback);
+	bool HasActiveFade() const { return Fades.Num() != 0; }
+	void NotifyOfTargetFadeStatusUpdate(AActor* Target, bool const FadeStatus);
+	
 	void AddMisdirect(UBuff* Source, AActor* Target);
 	void RemoveMisdirect(UBuff* Source);
+	AActor* GetMisdirectTarget() const { return Misdirects.Num() == 0 ? nullptr : Misdirects[Misdirects.Num() - 1].Target; }
 
 private:
 	
 	UPROPERTY()
 	TArray<UBuff*> Fades;
-	FFadeCallback FadeCallback;
-	UFUNCTION()
-	void OnTargetFadeStatusChanged(AActor* Actor, bool const FadeStatus);
-	FFadeNotification OnFadeStatusChanged;
 	UPROPERTY()
 	TArray<FMisdirect> Misdirects;
-
-	FBuffEventCondition ThreatBuffRestriction;
-	UFUNCTION()
-	bool CheckBuffForThreat(FBuffApplyEvent const& BuffEvent);
 };

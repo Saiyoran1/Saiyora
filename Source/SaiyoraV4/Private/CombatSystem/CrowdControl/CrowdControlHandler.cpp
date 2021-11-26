@@ -150,7 +150,7 @@ void UCrowdControlHandler::BeginPlay()
 		if (IsValid(DamageHandler))
 		{
 			OnDamageTaken.BindDynamic(this, &UCrowdControlHandler::RemoveIncapacitatesOnDamageTaken);
-			DamageHandler->SubscribeToIncomingDamageSuccess(OnDamageTaken);
+			DamageHandler->SubscribeToIncomingDamage(OnDamageTaken);
 		}
 	}
 }

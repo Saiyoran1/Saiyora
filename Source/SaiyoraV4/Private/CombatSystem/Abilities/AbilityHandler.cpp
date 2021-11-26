@@ -124,7 +124,7 @@ FCombatModifier UAbilityHandler::ModifyCastLengthFromStat(TSubclassOf<UCombatAbi
 	return Mod;
 }
 
-void UAbilityHandler::InterruptCastOnDeath(AActor* Actor, ELifeStatus PreviousStatus, ELifeStatus NewStatus)
+void UAbilityHandler::InterruptCastOnDeath(AActor* Actor, ELifeStatus const PreviousStatus, ELifeStatus const NewStatus)
 {
 	if (GetCastingState().bIsCasting)
 	{

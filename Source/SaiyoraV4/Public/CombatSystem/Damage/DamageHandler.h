@@ -190,7 +190,7 @@ public:
 		bool const bIgnoreModifiers, bool const bFromSnapshot, FDamageModCondition const& SourceModifier, FThreatFromDamage const& ThreatParams);
 
 	UFUNCTION(BlueprintCallable, Category = "Damage")
-	void SubscribeToIncomingDamageSuccess(FDamageEventCallback const& Callback);
+	void SubscribeToIncomingDamage(FDamageEventCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Damage")
 	void UnsubscribeFromIncomingDamageSuccess(FDamageEventCallback const& Callback);
 
@@ -237,7 +237,7 @@ public:
 		bool const bIgnoreModifiers, bool const bFromSnapshot, FDamageModCondition const& SourceModifier, FThreatFromDamage const& ThreatParams);
 
 	UFUNCTION(BlueprintCallable, Category = "Healing")
-	void SubscribeToIncomingHealingSuccess(FDamageEventCallback const& Callback);
+	void SubscribeToIncomingHealing(FDamageEventCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Healing")
 	void UnsubscribeFromIncomingHealingSuccess(FDamageEventCallback const& Callback);
 

@@ -97,7 +97,7 @@ struct FDamageLogEvent
 	bool XPlane = false;
 };
 
-DECLARE_DYNAMIC_DELEGATE_ThreeParams(FHealthChangeCallback, AActor*, Actor, float, PreviousHealth, float, NewHealth);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FHealthChangeNotification, AActor*, Actor, float, PreviousHealth, float, NewHealth);
-DECLARE_DYNAMIC_DELEGATE_ThreeParams(FLifeStatusCallback, AActor*, Actor, ELifeStatus, PreviousStatus, ELifeStatus, NewStatus);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FLifeStatusNotification, AActor*, Actor, ELifeStatus, PreviousStatus, ELifeStatus, NewStatus);
+DECLARE_DYNAMIC_DELEGATE_ThreeParams(FHealthChangeCallback, AActor*, Actor, float const, PreviousHealth, float const, NewHealth);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FHealthChangeNotification, AActor*, Actor, float const, PreviousHealth, float const, NewHealth);
+DECLARE_DYNAMIC_DELEGATE_ThreeParams(FLifeStatusCallback, AActor*, Actor, ELifeStatus const, PreviousStatus, ELifeStatus const, NewStatus);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FLifeStatusNotification, AActor*, Actor, ELifeStatus const, PreviousStatus, ELifeStatus const, NewStatus);
