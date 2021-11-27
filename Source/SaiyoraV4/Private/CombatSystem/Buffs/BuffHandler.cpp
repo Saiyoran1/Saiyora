@@ -1,9 +1,11 @@
 #include "BuffHandler.h"
-
 #include "Buff.h"
+#include "PlaneComponent.h"
 #include "SaiyoraCombatInterface.h"
 #include "UnrealNetwork.h"
 #include "Engine/ActorChannel.h"
+
+#pragma region Initialization
 
 UBuffHandler::UBuffHandler()
 {
@@ -17,23 +19,104 @@ void UBuffHandler::BeginPlay()
 	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("%s does not implement combat interface, but has Buff Handler."), *GetOwner()->GetActorLabel());
 }
 
-void UBuffHandler::ApplyBuff(FBuffApplyEvent& BuffEvent)
+void UBuffHandler::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
-	UBuff* AffectedBuff = FindExistingBuff(BuffEvent.BuffClass, BuffEvent.AppliedBy);
-	if (AffectedBuff && !(AffectedBuff->GetDuplicable() || BuffEvent.DuplicateOverride))
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	return;
+}
+
+bool UBuffHandler::ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags)
+{
+	bool bWroteSomething = Super::ReplicateSubobjects(Channel, Bunch, RepFlags);
+
+	bWroteSomething |= Channel->ReplicateSubobjectList(Buffs, *Bunch, *RepFlags);
+	bWroteSomething |= Channel->ReplicateSubobjectList(Debuffs, *Bunch, *RepFlags);
+	bWroteSomething |= Channel->ReplicateSubobjectList(HiddenBuffs, *Bunch, *RepFlags);
+	bWroteSomething |= Channel->ReplicateSubobjectList(RecentlyRemoved, *Bunch, *RepFlags);
+
+	return bWroteSomething;
+}
+
+#pragma endregion 
+#pragma region Application
+
+FBuffApplyEvent UBuffHandler::ApplyBuff(TSubclassOf<UBuff> const BuffClass, AActor* const AppliedBy,
+		UObject* const Source, bool const DuplicateOverride, EBuffApplicationOverrideType const StackOverrideType,
+		int32 const OverrideStacks, EBuffApplicationOverrideType const RefreshOverrideType, float const OverrideDuration,
+		bool const IgnoreRestrictions, TArray<FCombatParameter> const& BuffParams)
+{
+    FBuffApplyEvent Event;
+
+    if (GetOwnerRole() != ROLE_Authority || !bCanEverReceiveBuffs || !IsValid(AppliedBy) || !IsValid(Source) || !IsValid(BuffClass))
+    {
+        Event.ActionTaken = EBuffApplyAction::Failed;
+        return Event;
+    }
+
+    Event.AppliedBy = AppliedBy;
+	UPlaneComponent* GeneratorPlane = nullptr;
+	UBuffHandler* GeneratorBuff = nullptr;
+	if (AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 	{
-		AffectedBuff->ApplyEvent(BuffEvent);
+		GeneratorPlane = ISaiyoraCombatInterface::Execute_GetPlaneComponent(AppliedBy);
+		GeneratorBuff = ISaiyoraCombatInterface::Execute_GetBuffHandler(AppliedBy);
+	}
+	Event.AppliedByPlane = IsValid(GeneratorPlane) ? GeneratorPlane->GetCurrentPlane() : ESaiyoraPlane::None;
+    Event.AppliedTo = GetOwner();
+	Event.AppliedToPlane = IsValid(PlaneComponent) ? PlaneComponent->GetCurrentPlane() : ESaiyoraPlane::None;
+	Event.AppliedXPlane = UPlaneComponent::CheckForXPlane(Event.AppliedByPlane, Event.AppliedToPlane);
+    Event.Source = Source;
+    Event.BuffClass = BuffClass;
+	Event.CombatParams = BuffParams;
+
+    if (!IgnoreRestrictions && (CheckIncomingBuffRestricted(Event) || (IsValid(GeneratorBuff) && GeneratorBuff->CheckOutgoingBuffRestricted(Event))))
+    {
+    	Event.ActionTaken = EBuffApplyAction::Failed;
+    	return Event;
+    }
+
+	UBuff* AffectedBuff = FindExistingBuff(BuffClass, AppliedBy);
+	if (IsValid(AffectedBuff) && !AffectedBuff->GetDuplicable() && !DuplicateOverride)
+	{
+		AffectedBuff->ApplyEvent(Event, StackOverrideType, OverrideStacks, RefreshOverrideType, OverrideDuration);
 	}
 	else
 	{
-		CreateNewBuff(BuffEvent);
+		Event.AffectedBuff = NewObject<UBuff>(GetOwner(), Event.BuffClass);
+		Event.AffectedBuff->InitializeBuff(Event, this, StackOverrideType, OverrideStacks, RefreshOverrideType, OverrideDuration);
+		switch (Event.AffectedBuff->GetBuffType())
+		{
+		case EBuffType::Buff :
+			Buffs.Add(Event.AffectedBuff);
+			break;
+		case EBuffType::Debuff :
+			Debuffs.Add(Event.AffectedBuff);
+			break;
+		case EBuffType::HiddenBuff :
+			HiddenBuffs.Add(Event.AffectedBuff);
+			break;
+		default :
+			break;
+		}
+		OnIncomingBuffApplied.Broadcast(Event);
+		if (IsValid(GeneratorBuff))
+		{
+			GeneratorBuff->NotifyOfOutgoingBuffApplication(Event);
+		}
 	}
-	
-	if (BuffEvent.Result.ActionTaken == EBuffApplyAction::NewBuff)
-	{
-		OnIncomingBuffApplied.Broadcast(BuffEvent);
-	}
+    return Event;
 }
+
+void UBuffHandler::NotifyOfOutgoingBuffApplication(FBuffApplyEvent const& BuffEvent)
+{
+	if (BuffEvent.ActionTaken == EBuffApplyAction::NewBuff)
+	{
+		OutgoingBuffs.Add(BuffEvent.AffectedBuff);
+	}
+	OnOutgoingBuffApplied.Broadcast(BuffEvent);
+}
+
+#pragma endregion
 
 void UBuffHandler::RemoveBuff(FBuffRemoveEvent& RemoveEvent)
 {
@@ -171,61 +254,77 @@ UBuff* UBuffHandler::FindExistingBuff(TSubclassOf<UBuff> const BuffClass, AActor
 	return nullptr;
 }
 
-void UBuffHandler::AddIncomingBuffRestriction(FBuffEventCondition const& Restriction)
+void UBuffHandler::SuccessfulOutgoingBuffRemoval(FBuffRemoveEvent const& RemoveEvent)
 {
-	if (GetOwnerRole() != ROLE_Authority)
-	{
-		return;
-	}
-	if (Restriction.IsBound())
-	{
-		IncomingBuffRestrictions.AddUnique(Restriction);
-	}
+	OutgoingBuffs.RemoveSingleSwap(RemoveEvent.RemovedBuff);
+	OnOutgoingBuffRemoved.Broadcast(RemoveEvent);
 }
 
-void UBuffHandler::RemoveIncomingBuffRestriction(FBuffEventCondition const& Restriction)
+void UBuffHandler::NotifyOfReplicatedIncomingBuffApply(FBuffApplyEvent const& ReplicatedEvent)
 {
-	if (GetOwnerRole() != ROLE_Authority)
+	if (ReplicatedEvent.ActionTaken == EBuffApplyAction::NewBuff)
 	{
-		return;
-	}
-	if (Restriction.IsBound())
-	{
-		IncomingBuffRestrictions.RemoveSingleSwap(Restriction);
-	}
-}
-
-bool UBuffHandler::CheckIncomingBuffRestricted(FBuffApplyEvent const& BuffEvent)
-{
-	for (FBuffEventCondition const& Condition : IncomingBuffRestrictions)
-	{
-		if (Condition.IsBound() && Condition.Execute(BuffEvent))
+		switch (ReplicatedEvent.AffectedBuff->GetBuffType())
 		{
-			return true;
-		}
-	}
-	return false;
-}
-
-void UBuffHandler::CreateNewBuff(FBuffApplyEvent& BuffEvent)
-{
-	UBuff* NewBuff = NewObject<UBuff>(GetOwner(), BuffEvent.BuffClass);
-	NewBuff->InitializeBuff(BuffEvent, this);
-	switch (NewBuff->GetBuffType())
-	{
 		case EBuffType::Buff :
-			Buffs.Add(NewBuff);
+			Buffs.Add(ReplicatedEvent.AffectedBuff);
 			break;
 		case EBuffType::Debuff :
-			Debuffs.Add(NewBuff);
+			Debuffs.Add(ReplicatedEvent.AffectedBuff);
 			break;
 		case EBuffType::HiddenBuff :
-			HiddenBuffs.Add(NewBuff);
+			HiddenBuffs.Add(ReplicatedEvent.AffectedBuff);
 			break;
 		default :
 			break;
+		}
+	}
+	OnIncomingBuffApplied.Broadcast(ReplicatedEvent);
+}
+
+void UBuffHandler::NotifyOfReplicatedIncomingBuffRemove(FBuffRemoveEvent const& ReplicatedEvent)
+{
+	TArray<UBuff*>* BuffArray;
+	switch (ReplicatedEvent.RemovedBuff->GetBuffType())
+	{
+	case EBuffType::Buff :
+		BuffArray = &Buffs;
+		break;
+	case EBuffType::Debuff :
+		BuffArray = &Debuffs;
+		break;
+	case EBuffType::HiddenBuff :
+		BuffArray = &HiddenBuffs;
+		break;
+	default :
+		BuffArray = &Buffs;
+		break;
+	}
+
+	if (BuffArray->RemoveSingleSwap(ReplicatedEvent.RemovedBuff) != 0)
+	{
+		OnIncomingBuffRemoved.Broadcast(ReplicatedEvent);
 	}
 }
+
+void UBuffHandler::NotifyOfReplicatedOutgoingBuffApply(FBuffApplyEvent const& ReplicatedEvent)
+{
+	if (ReplicatedEvent.ActionTaken == EBuffApplyAction::NewBuff)
+	{
+		OutgoingBuffs.Add(ReplicatedEvent.AffectedBuff);
+	}
+	OnOutgoingBuffApplied.Broadcast(ReplicatedEvent);
+}
+
+void UBuffHandler::NotifyOfReplicatedOutgoingBuffRemove(FBuffRemoveEvent const& ReplicatedEvent)
+{
+	if (OutgoingBuffs.RemoveSingleSwap(ReplicatedEvent.RemovedBuff) != 0)
+	{
+		OnOutgoingBuffRemoved.Broadcast(ReplicatedEvent);
+	}
+}
+
+#pragma region Subscriptions
 
 void UBuffHandler::SubscribeToIncomingBuff(FBuffEventCallback const& Callback)
 {
@@ -256,57 +355,6 @@ void UBuffHandler::UnsubscribeFromIncomingBuffRemove(FBuffRemoveCallback const& 
 	if (Callback.IsBound())
 	{
 		OnIncomingBuffRemoved.Remove(Callback);
-	}
-}
-
-bool UBuffHandler::CheckOutgoingBuffRestricted(FBuffApplyEvent const& BuffEvent)
-{
-	for (FBuffEventCondition const& Condition : OutgoingBuffRestrictions)
-	{
-		if (Condition.IsBound() && Condition.Execute(BuffEvent))
-		{
-			return true;
-		}
-	}
-	return false;
-}
-
-void UBuffHandler::SuccessfulOutgoingBuffApplication(FBuffApplyEvent const& BuffEvent)
-{
-	if (BuffEvent.Result.ActionTaken == EBuffApplyAction::NewBuff)
-	{
-		OutgoingBuffs.Add(BuffEvent.Result.AffectedBuff);
-	}
-	OnOutgoingBuffApplied.Broadcast(BuffEvent);
-}
-
-void UBuffHandler::SuccessfulOutgoingBuffRemoval(FBuffRemoveEvent const& RemoveEvent)
-{
-	OutgoingBuffs.RemoveSingleSwap(RemoveEvent.RemovedBuff);
-	OnOutgoingBuffRemoved.Broadcast(RemoveEvent);
-}
-
-void UBuffHandler::AddOutgoingBuffRestriction(FBuffEventCondition const& Restriction)
-{
-	if (GetOwnerRole() != ROLE_Authority)
-	{
-		return;
-	}
-	if (Restriction.IsBound())
-	{
-		OutgoingBuffRestrictions.AddUnique(Restriction);
-	}
-}
-
-void UBuffHandler::RemoveOutgoingBuffRestriction(FBuffEventCondition const& Restriction)
-{
-	if (GetOwnerRole() != ROLE_Authority)
-	{
-		return;
-	}
-	if (Restriction.IsBound())
-	{
-		OutgoingBuffRestrictions.RemoveSingleSwap(Restriction);
 	}
 }
 
@@ -342,87 +390,63 @@ void UBuffHandler::UnsubscribeFromOutgoingBuffRemove(FBuffRemoveCallback const& 
 	}
 }
 
-//Replication
+#pragma endregion
+#pragma region Restrictions
 
-void UBuffHandler::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+void UBuffHandler::AddIncomingBuffRestriction(FBuffRestriction const& Restriction)
 {
-	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	return;
-}
-
-bool UBuffHandler::ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags)
-{
-	bool bWroteSomething = Super::ReplicateSubobjects(Channel, Bunch, RepFlags);
-
-	bWroteSomething |= Channel->ReplicateSubobjectList(Buffs, *Bunch, *RepFlags);
-	bWroteSomething |= Channel->ReplicateSubobjectList(Debuffs, *Bunch, *RepFlags);
-	bWroteSomething |= Channel->ReplicateSubobjectList(HiddenBuffs, *Bunch, *RepFlags);
-	bWroteSomething |= Channel->ReplicateSubobjectList(RecentlyRemoved, *Bunch, *RepFlags);
-
-	return bWroteSomething;
-}
-
-void UBuffHandler::NotifyOfReplicatedIncomingBuffApply(FBuffApplyEvent const& ReplicatedEvent)
-{
-	if (ReplicatedEvent.Result.ActionTaken == EBuffApplyAction::NewBuff)
+	if (GetOwnerRole() == ROLE_Authority && Restriction.IsBound())
 	{
-		switch (ReplicatedEvent.Result.AffectedBuff->GetBuffType())
+		IncomingBuffRestrictions.AddUnique(Restriction);
+	}
+}
+
+void UBuffHandler::RemoveIncomingBuffRestriction(FBuffRestriction const& Restriction)
+{
+	if (GetOwnerRole() == ROLE_Authority && Restriction.IsBound())
+	{
+		IncomingBuffRestrictions.Remove(Restriction);
+	}
+}
+
+bool UBuffHandler::CheckIncomingBuffRestricted(FBuffApplyEvent const& BuffEvent)
+{
+	for (FBuffRestriction const& Restriction : IncomingBuffRestrictions)
+	{
+		if (Restriction.IsBound() && Restriction.Execute(BuffEvent))
 		{
-		case EBuffType::Buff :
-			Buffs.Add(ReplicatedEvent.Result.AffectedBuff);
-			break;
-		case EBuffType::Debuff :
-			Debuffs.Add(ReplicatedEvent.Result.AffectedBuff);
-			break;
-		case EBuffType::HiddenBuff :
-			HiddenBuffs.Add(ReplicatedEvent.Result.AffectedBuff);
-			break;
-		default :
-			break;
+			return true;
 		}
 	}
-	
-	OnIncomingBuffApplied.Broadcast(ReplicatedEvent);
+	return false;
 }
 
-void UBuffHandler::NotifyOfReplicatedIncomingBuffRemove(FBuffRemoveEvent const& ReplicatedEvent)
+void UBuffHandler::AddOutgoingBuffRestriction(FBuffRestriction const& Restriction)
 {
-	TArray<UBuff*>* BuffArray;
-	switch (ReplicatedEvent.RemovedBuff->GetBuffType())
+	if (GetOwnerRole() == ROLE_Authority && Restriction.IsBound())
 	{
-	case EBuffType::Buff :
-		BuffArray = &Buffs;
-		break;
-	case EBuffType::Debuff :
-		BuffArray = &Debuffs;
-		break;
-	case EBuffType::HiddenBuff :
-		BuffArray = &HiddenBuffs;
-		break;
-	default :
-		BuffArray = &Buffs;
-		break;
-	}
-
-	if (BuffArray->RemoveSingleSwap(ReplicatedEvent.RemovedBuff) != 0)
-	{
-		OnIncomingBuffRemoved.Broadcast(ReplicatedEvent);
+		OutgoingBuffRestrictions.AddUnique(Restriction);
 	}
 }
 
-void UBuffHandler::NotifyOfReplicatedOutgoingBuffApply(FBuffApplyEvent const& ReplicatedEvent)
+void UBuffHandler::RemoveOutgoingBuffRestriction(FBuffRestriction const& Restriction)
 {
-	if (ReplicatedEvent.Result.ActionTaken == EBuffApplyAction::NewBuff)
+	if (GetOwnerRole() == ROLE_Authority && Restriction.IsBound())
 	{
-		OutgoingBuffs.Add(ReplicatedEvent.Result.AffectedBuff);
+		OutgoingBuffRestrictions.Remove(Restriction);
 	}
-	OnOutgoingBuffApplied.Broadcast(ReplicatedEvent);
 }
 
-void UBuffHandler::NotifyOfReplicatedOutgoingBuffRemove(FBuffRemoveEvent const& ReplicatedEvent)
+bool UBuffHandler::CheckOutgoingBuffRestricted(FBuffApplyEvent const& BuffEvent)
 {
-	if (OutgoingBuffs.RemoveSingleSwap(ReplicatedEvent.RemovedBuff) != 0)
+	for (FBuffRestriction const& Restriction : OutgoingBuffRestrictions)
 	{
-		OnOutgoingBuffRemoved.Broadcast(ReplicatedEvent);
+		if (Restriction.IsBound() && Restriction.Execute(BuffEvent))
+		{
+			return true;
+		}
 	}
+	return false;
 }
+
+#pragma endregion

@@ -47,15 +47,15 @@ private:
 
 public:
 
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat", meta = (AutoCreateRefTerm = "SourceModifier"))
+	FThreatEvent AddThreat(EThreatType const ThreatType, float const BaseThreat, AActor* AppliedBy,
+		UObject* Source, bool const bIgnoreRestrictions, bool const bIgnoreModifiers, FThreatModCondition const& SourceModifier);
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Combat")
 	bool IsInCombat() const { return bInCombat; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Threat")
 	bool HasThreatTable() const { return bHasThreatTable; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Threat")
 	bool CanBeInThreatTable() const { return bCanBeInThreatTable; }
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat", meta = (AutoCreateRefTerm = "SourceModifier"))
-	FThreatEvent AddThreat(EThreatType const ThreatType, float const BaseThreat, AActor* AppliedBy,
-		UObject* Source, bool const bIgnoreRestrictions, bool const bIgnoreModifiers, FThreatModCondition const& SourceModifier);
 	UFUNCTION(BlueprintCallable, BlueprintPure, BlueprintAuthorityOnly, Category = "Threat")
 	bool IsActorInThreatTable(AActor* Target) const;
 	UFUNCTION(BlueprintCallable, BlueprintPure, BlueprintAuthorityOnly, Category = "Threat")
