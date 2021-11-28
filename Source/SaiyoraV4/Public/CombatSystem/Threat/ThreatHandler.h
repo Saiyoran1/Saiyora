@@ -145,7 +145,7 @@ private:
 	FLifeStatusCallback OwnerLifeStatusCallback;
 	UFUNCTION()
 	void OnOwnerLifeStatusChanged(AActor* Actor, ELifeStatus const PreviousStatus, ELifeStatus const NewStatus);
-	FBuffEventCondition ThreatBuffRestriction;
+	FBuffRestriction ThreatBuffRestriction;
 	UFUNCTION()
 	bool CheckBuffForThreat(FBuffApplyEvent const& BuffEvent);
 	

@@ -230,7 +230,7 @@ private:
 	FDamageModCondition DamageTakenModFromStat;
 	UFUNCTION()
 	FCombatModifier ModifyDamageTakenFromStat(FDamageInfo const& DamageInfo);
-	FBuffEventCondition DamageBuffRestriction;
+	FBuffRestriction DamageBuffRestriction;
 	UFUNCTION()
 	bool RestrictDamageBuffs(FBuffApplyEvent const& BuffEvent);
 
@@ -276,7 +276,7 @@ private:
 	FDamageModCondition HealingTakenModFromStat;
 	UFUNCTION()
 	FCombatModifier ModifyHealingTakenFromStat(FDamageInfo const& HealingInfo);
-	FBuffEventCondition HealingBuffRestriction;
+	FBuffRestriction HealingBuffRestriction;
 	UFUNCTION()
 	bool RestrictHealingBuffs(FBuffApplyEvent const& BuffEvent);
 };

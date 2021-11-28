@@ -31,7 +31,8 @@ public:
 		bool const DuplicateOverride, EBuffApplicationOverrideType const StackOverrideType, int32 const OverrideStacks,
 		EBuffApplicationOverrideType const RefreshOverrideType, float const OverrideDuration, bool const IgnoreRestrictions,
 		TArray<FCombatParameter> const& BuffParams);
-	void RemoveBuff(FBuffRemoveEvent& RemoveEvent);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Buffs")
+	FBuffRemoveEvent RemoveBuff(UBuff* Buff, EBuffExpireReason const ExpireReason);
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buffs")
 	bool CanEverReceiveBuffs() const { return bCanEverReceiveBuffs; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
@@ -106,7 +107,7 @@ public:
 	bool CheckOutgoingBuffRestricted(FBuffApplyEvent const& BuffEvent);
 
 	void NotifyOfOutgoingBuffApplication(FBuffApplyEvent const& BuffEvent);
-	void SuccessfulOutgoingBuffRemoval(FBuffRemoveEvent const& RemoveEvent);
+	void NotifyOfOutgoingBuffRemoval(FBuffRemoveEvent const& RemoveEvent);
 	void NotifyOfReplicatedOutgoingBuffApply(FBuffApplyEvent const& ReplicatedEvent);
 	void NotifyOfReplicatedOutgoingBuffRemove(FBuffRemoveEvent const& ReplicatedEvent);
 

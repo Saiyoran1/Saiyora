@@ -119,7 +119,7 @@ void UModifiableIntValue::RemoveModifier(int32 const ModifierID)
 
 void UModifiableIntValue::CheckForModifierSourceStack(FBuffApplyEvent const& Event)
 {
-    if (Event.Result.PreviousStacks != Event.Result.NewStacks && IsValid(Event.Result.AffectedBuff))
+    if (Event.PreviousStacks != Event.NewStacks && IsValid(Event.AffectedBuff))
     {
         RecalculateValue();
     }
@@ -241,7 +241,7 @@ void UModifiableFloatValue::RemoveModifier(int32 const ModifierID)
 
 void UModifiableFloatValue::CheckForModifierSourceStack(FBuffApplyEvent const& Event)
 {
-    if (Event.Result.PreviousStacks != Event.Result.NewStacks && IsValid(Event.Result.AffectedBuff))
+    if (Event.PreviousStacks != Event.NewStacks && IsValid(Event.AffectedBuff))
     {
         RecalculateValue();
     }

@@ -87,7 +87,7 @@ private:
 	class UBuffHandler* BuffHandler;
 	UFUNCTION()
 	bool CheckBuffRestrictedByCcImmunity(FBuffApplyEvent const& BuffEvent);
-	FBuffEventCondition BuffCcRestriction;
+	FBuffRestriction BuffCcRestriction;
 	UFUNCTION()
 	void CheckAppliedBuffForCcOrImmunity(FBuffApplyEvent const& BuffEvent);
 	FBuffEventCallback OnBuffApplied;

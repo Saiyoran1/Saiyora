@@ -118,36 +118,57 @@ void UBuffHandler::NotifyOfOutgoingBuffApplication(FBuffApplyEvent const& BuffEv
 
 #pragma endregion
 
-void UBuffHandler::RemoveBuff(FBuffRemoveEvent& RemoveEvent)
+FBuffRemoveEvent UBuffHandler::RemoveBuff(UBuff* Buff, EBuffExpireReason const ExpireReason)
 {
-	EBuffType const BuffType = RemoveEvent.RemovedBuff->GetBuffType();
+	FBuffRemoveEvent Event;
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(Buff) || Buff->GetAppliedTo() != GetOwner())
+	{
+		Event.Result = false;
+		return Event;
+	}
+	Event.RemovedBuff = Buff;
+	Event.AppliedBy = Buff->GetAppliedBy();
+	Event.RemovedFrom = GetOwner();
+	Event.ExpireReason = ExpireReason;
+	EBuffType const BuffType = Buff->GetBuffType();
+	TArray<UBuff*>* ArrayToRemoveFrom;
 	switch (BuffType)
 	{
 		case EBuffType::Buff :
-			RemoveEvent.Result = Buffs.Remove(RemoveEvent.RemovedBuff) > 0;
+			ArrayToRemoveFrom = &Buffs;
 			break;
 		case EBuffType::Debuff :
-			RemoveEvent.Result = Debuffs.Remove(RemoveEvent.RemovedBuff) > 0;
+			ArrayToRemoveFrom = &Debuffs;
 			break;
 		case EBuffType::HiddenBuff :
-			RemoveEvent.Result = HiddenBuffs.Remove(RemoveEvent.RemovedBuff) > 0;
+			ArrayToRemoveFrom = &HiddenBuffs;
 			break;
 		default :
-			RemoveEvent.Result = false;
-			break;
+			Event.Result = false;
+			return Event;
 	}
-
-	if (RemoveEvent.Result)
+	Event.Result = ArrayToRemoveFrom->Remove(Buff) > 0;
+	if (Event.Result)
 	{
-		RemoveEvent.RemovedBuff->ExpireBuff(RemoveEvent);
-		OnIncomingBuffRemoved.Broadcast(RemoveEvent);
+		Buff->ExpireBuff(Event);
+		OnIncomingBuffRemoved.Broadcast(Event);
 
 		//This is to allow replication one last time (replicating the remove event).
-		RecentlyRemoved.Add(RemoveEvent.RemovedBuff);
+		RecentlyRemoved.Add(Buff);
 		FTimerHandle RemoveTimer;
-		FTimerDelegate const RemoveDel = FTimerDelegate::CreateUObject(this, &UBuffHandler::PostRemoveCleanup, RemoveEvent.RemovedBuff);
+		FTimerDelegate const RemoveDel = FTimerDelegate::CreateUObject(this, &UBuffHandler::PostRemoveCleanup, Buff);
 		GetWorld()->GetTimerManager().SetTimer(RemoveTimer, RemoveDel, 1.0f, false);
+
+		if (IsValid(Event.AppliedBy) && Event.AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+		{
+			UBuffHandler* BuffGenerator = ISaiyoraCombatInterface::Execute_GetBuffHandler(Event.AppliedBy);
+			if (IsValid(BuffGenerator))
+			{
+				BuffGenerator->NotifyOfOutgoingBuffRemoval(Event);
+			}
+		}
 	}
+	return Event;
 }
 
 void UBuffHandler::PostRemoveCleanup(UBuff* Buff)
@@ -254,7 +275,7 @@ UBuff* UBuffHandler::FindExistingBuff(TSubclassOf<UBuff> const BuffClass, AActor
 	return nullptr;
 }
 
-void UBuffHandler::SuccessfulOutgoingBuffRemoval(FBuffRemoveEvent const& RemoveEvent)
+void UBuffHandler::NotifyOfOutgoingBuffRemoval(FBuffRemoveEvent const& RemoveEvent)
 {
 	OutgoingBuffs.RemoveSingleSwap(RemoveEvent.RemovedBuff);
 	OnOutgoingBuffRemoved.Broadcast(RemoveEvent);

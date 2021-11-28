@@ -20,7 +20,7 @@ void UStatHandler::BeginPlay()
 		if (IsValid(BuffHandler))
 		{
 			//Setup a restriction on buffs that modify stats that this component has determined can not be modified.
-			FBuffEventCondition BuffStatModCondition;
+			FBuffRestriction BuffStatModCondition;
 			BuffStatModCondition.BindDynamic(this, &UStatHandler::CheckBuffStatMods);
 			BuffHandler->AddIncomingBuffRestriction(BuffStatModCondition);
 		}

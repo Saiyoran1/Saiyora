@@ -286,7 +286,8 @@ void UCrowdControlHandler::PurgeCcOfType(ECrowdControlType const CcType)
 	TArray<UBuff*> NonMutableBuffs = CcStruct->Sources;
 	for (UBuff* Buff : NonMutableBuffs)
 	{
-		USaiyoraBuffLibrary::RemoveBuff(Buff, EBuffExpireReason::Dispel);
+		//TODO: Check in BeginPlay that BuffHandler exists.
+		BuffHandler->RemoveBuff(Buff, EBuffExpireReason::Dispel);
 	}
 }
 
@@ -373,13 +374,13 @@ bool UCrowdControlHandler::CheckBuffRestrictedByCcImmunity(FBuffApplyEvent const
 
 void UCrowdControlHandler::CheckAppliedBuffForCcOrImmunity(FBuffApplyEvent const& BuffEvent)
 {
-	if (BuffEvent.Result.ActionTaken == EBuffApplyAction::Failed || BuffEvent.Result.ActionTaken == EBuffApplyAction::Stacked || !IsValid(BuffEvent.Result.AffectedBuff))
+	if (BuffEvent.ActionTaken == EBuffApplyAction::Failed || BuffEvent.ActionTaken == EBuffApplyAction::Stacked || !IsValid(BuffEvent.AffectedBuff))
 	{
 		return;
 	}
 	FGameplayTagContainer BuffTags;
-	BuffEvent.Result.AffectedBuff->GetBuffTags(BuffTags);
-	if (BuffEvent.Result.ActionTaken == EBuffApplyAction::NewBuff)
+	BuffEvent.AffectedBuff->GetBuffTags(BuffTags);
+	if (BuffEvent.ActionTaken == EBuffApplyAction::NewBuff)
 	{
 		for (FGameplayTag const& Tag : BuffTags)
 		{
@@ -389,7 +390,7 @@ void UCrowdControlHandler::CheckAppliedBuffForCcOrImmunity(FBuffApplyEvent const
 				if (CcStruct)
 				{
 					FCrowdControlStatus const Previous = *CcStruct;
-					if (CcStruct->AddNewBuff(BuffEvent.Result.AffectedBuff))
+					if (CcStruct->AddNewBuff(BuffEvent.AffectedBuff))
 					{
 						OnCrowdControlChanged.Broadcast(Previous, *CcStruct);
 					}
@@ -404,7 +405,7 @@ void UCrowdControlHandler::CheckAppliedBuffForCcOrImmunity(FBuffApplyEvent const
 			}
 		}
 	}
-	else if (BuffEvent.Result.ActionTaken == EBuffApplyAction::Refreshed || BuffEvent.Result.ActionTaken == EBuffApplyAction::StackedAndRefreshed)
+	else if (BuffEvent.ActionTaken == EBuffApplyAction::Refreshed || BuffEvent.ActionTaken == EBuffApplyAction::StackedAndRefreshed)
 	{
 		for (FGameplayTag const& Tag : BuffTags)
 		{
@@ -414,7 +415,7 @@ void UCrowdControlHandler::CheckAppliedBuffForCcOrImmunity(FBuffApplyEvent const
 				if (CcStruct)
 				{
 					FCrowdControlStatus const Previous = *CcStruct;
-					if (CcStruct->RefreshBuff(BuffEvent.Result.AffectedBuff))
+					if (CcStruct->RefreshBuff(BuffEvent.AffectedBuff))
 					{
 						OnCrowdControlChanged.Broadcast(Previous, *CcStruct);
 					}

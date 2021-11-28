@@ -3,7 +3,6 @@
 #include "UnrealNetwork.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "BuffHandler.h"
-#include "SaiyoraBuffLibrary.h"
 #include "SaiyoraCombatInterface.h"
 #include "GameFramework/GameStateBase.h"
 
@@ -326,7 +325,7 @@ void UBuff::ResetExpireTimer()
 void UBuff::CompleteExpireTimer()
 {
     GetWorld()->GetTimerManager().ClearTimer(ExpireHandle);
-    USaiyoraBuffLibrary::RemoveBuff(this, EBuffExpireReason::TimedOut);
+    GetHandler()->RemoveBuff(this, EBuffExpireReason::TimedOut);
 }
 
 void UBuff::ExpireBuff(FBuffRemoveEvent const & RemoveEvent)
