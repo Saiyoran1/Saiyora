@@ -1,32 +1,14 @@
-// Fill out your copyright notice in the Description page of Project Settings.
 #include "SaiyoraStructs.h"
 #include "Buff.h"
 
-int32 FCombatModifier::GlobalID = 0;
 const FCombatModifier FCombatModifier::InvalidMod(0.0f, EModifierType::Invalid);
 
-FCombatModifier::FCombatModifier()
+FCombatModifier::FCombatModifier(float const BaseValue, EModifierType const ModifierType, bool const Stackable, int32 const InitialStacks)
 {
-    Source = nullptr;
-    ModType = EModifierType::Invalid;
-    ModValue = 0.0f;
-    bStackable = false;
-}
-
-FCombatModifier::FCombatModifier(float const Value, EModifierType const ModType, bool const bStackable, UBuff* Source)
-{
-    ModValue = Value;
-    this->ModType = ModType;
-    if (IsValid(Source))
-    {
-        this->Source = Source;
-        this->bStackable = bStackable;
-    }
-    else
-    {
-        this->Source = nullptr;
-        this->bStackable = false;
-    }
+    Value = BaseValue;
+    Type = ModifierType;
+    bStackable = Stackable;
+    Stacks = InitialStacks;
 }
 
 float FCombatModifier::ApplyModifiers(TArray<FCombatModifier> const& ModArray, float const BaseValue)
@@ -35,19 +17,18 @@ float FCombatModifier::ApplyModifiers(TArray<FCombatModifier> const& ModArray, f
     float MultMod = 1.0f;
     for (FCombatModifier const& Mod : ModArray)
     {
-        bool const bShouldStack = Mod.bStackable && IsValid(Mod.Source);
-        switch (Mod.ModType)
+        switch (Mod.Type)
         {
         case EModifierType::Invalid :
             break;
         case EModifierType::Additive :
-            AddMod += bShouldStack ? Mod.ModValue * Mod.Source->GetCurrentStacks() : Mod.ModValue;
+            AddMod += Mod.Value * Mod.Stacks;
             break;
         case EModifierType::Multiplicative :
             //This means no negative multipliers.
             //If you want a 5% reduction as a modifier, you would use .95. At, for example, 2 stacks, this would become:
             //.95 - 1, which is -.05, then -.05 * 2, which is -.1, then -.1 + 1, which is .9, so a 10% reduction.
-            MultMod *= FMath::Max(0.0f, bShouldStack ? Mod.Source->GetCurrentStacks() * (Mod.ModValue - 1.0f) + 1.0f : Mod.ModValue);
+            MultMod *= FMath::Max(0.0f, Mod.Stacks * (Mod.Value - 1.0f) + 1.0f);
             break;
         default :
             break;
@@ -60,14 +41,4 @@ int32 FCombatModifier::ApplyModifiers(TArray<FCombatModifier> const& ModArray, i
 {
     float const ValueAsFloat = static_cast<float>(BaseValue);
     return static_cast<int32>(ApplyModifiers(ModArray, ValueAsFloat));
-}
-
-int32 FCombatModifier::GetID()
-{
-    GlobalID++;
-    if (GlobalID == -1)
-    {
-        GlobalID++;
-    }
-    return GlobalID;
 }

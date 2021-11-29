@@ -339,23 +339,18 @@ void UStatModifierFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
     {
         return;
     }
-    ModIDs.Empty();
     for (TTuple<FGameplayTag, FCombatModifier> const& Mod : StatMods)
     {
-        int32 const NewID = TargetHandler->AddStatModifier(Mod.Key, Mod.Value);
-        if (NewID != -1)
-        {
-            ModIDs.Add(Mod.Key, TargetHandler->AddStatModifier(Mod.Key, Mod.Value));
-        }
+        TargetHandler->AddStatModifier(GetOwningBuff(), Mod.Key, Mod.Value);
     }
 }
 void UStatModifierFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
 {
     if (IsValid(TargetHandler))
     {
-        for (TTuple<FGameplayTag, int32> const& ModID : ModIDs)
+        for (TTuple<FGameplayTag, FCombatModifier> const& Mod : StatMods)
         {
-            TargetHandler->RemoveStatModifier(ModID.Key, ModID.Value);
+            TargetHandler->RemoveStatModifier(GetOwningBuff(), Mod.Key);
         }
     }
 }

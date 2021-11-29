@@ -1,13 +1,8 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #pragma once
-
 #include "CoreMinimal.h"
 #include "SaiyoraEnums.h"
 #include "SaiyoraStructs.generated.h"
 
-DECLARE_DELEGATE(FModifierCallback);
-DECLARE_MULTICAST_DELEGATE(FModifierNotification);
 DECLARE_DYNAMIC_DELEGATE(FGenericCallback);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FGenericNotification);
 
@@ -16,24 +11,14 @@ struct FCombatModifier
 {
     GENERATED_BODY()
 
-    FCombatModifier();
-    FCombatModifier(float const Value, EModifierType const ModType, bool const bStackable = false, class UBuff* Source = nullptr);
-    float GetValue() const { return ModValue; }
-    EModifierType GetModType() const { return ModType; }
-    bool GetStackable() const { return bStackable; }
-    UBuff* GetSource() const { return Source; }
-private:
-    UPROPERTY()
-    UBuff* Source = nullptr;
-    EModifierType ModType = EModifierType::Invalid;
-    float ModValue = 0.0f;
-    bool bStackable = true;
-    static int32 GlobalID;
-public:
     static float ApplyModifiers(TArray<FCombatModifier> const& ModArray, float const BaseValue);
     static int32 ApplyModifiers(TArray<FCombatModifier> const& ModArray, int32 const BaseValue);
-    static int32 GetID();
     static const FCombatModifier InvalidMod;
+    FCombatModifier(float const BaseValue, EModifierType const ModifierType, bool const Stackable = false, int32 const InitialStacks = 0);
+    EModifierType Type = EModifierType::Invalid;
+    float Value = 0.0f;
+    bool bStackable = true;
+    int32 Stacks = 0;
 };
 
 DECLARE_DYNAMIC_DELEGATE_RetVal_TwoParams(float, FFloatValueRecalculation, TArray<FCombatModifier>const&, Modifiers, float const, BaseValue);

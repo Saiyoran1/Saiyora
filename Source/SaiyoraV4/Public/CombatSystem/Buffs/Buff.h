@@ -215,7 +215,4 @@ private:
 	
 	UPROPERTY()
 	TArray<UBuffFunction*> BuffFunctions;
-	//Delegates here are only for FCombatModifiers that buff functions apply.
-	FModifierNotification ModifierStack;
-	FModifierNotification ModifierInvalidate;
 };

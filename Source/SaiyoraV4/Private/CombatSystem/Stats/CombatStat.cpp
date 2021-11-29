@@ -1,11 +1,6 @@
 ﻿#include "CombatStat.h"
 #include "StatHandler.h"
 
-void UCombatStat::BroadcastStatChanged(float const Previous, float const New)
-{
-	OnStatChanged.Broadcast(StatTag, New);
-}
-
 void UCombatStat::Init(FStatInfo const& InitInfo, UStatHandler* NewHandler)
 {
 	if (!IsValid(NewHandler) || !InitInfo.StatTag.MatchesTag(UStatHandler::GenericStatTag()))
@@ -16,9 +11,12 @@ void UCombatStat::Init(FStatInfo const& InitInfo, UStatHandler* NewHandler)
 	StatTag = InitInfo.StatTag;
 	bShouldReplicate = InitInfo.bShouldReplicate;
 	UModifiableFloatValue::Init(InitInfo.DefaultValue, InitInfo.bModifiable, InitInfo.bCappedLow, InitInfo.MinClamp, InitInfo.bCappedHigh, InitInfo.MaxClamp);
-	BroadcastCallback.BindDynamic(this, &UCombatStat::BroadcastStatChanged);
-	SubscribeToValueChanged(BroadcastCallback);
 	bInitialized = true;
+}
+
+void UCombatStat::OnValueChanged(float const PreviousValue)
+{
+	OnStatChanged.Broadcast(StatTag, GetValue());
 }
 
 void UCombatStat::SubscribeToStatChanged(FStatCallback const& Callback)

@@ -13,19 +13,17 @@ class SAIYORAV4_API UCombatStat : public UModifiableFloatValue
 	FGameplayTag StatTag;
 	UPROPERTY()
 	class UStatHandler* Handler;
-	FStatNotification OnStatChanged;
 	bool bInitialized = false;
 	bool bShouldReplicate = false;
-	FFloatValueCallback BroadcastCallback;
-	UFUNCTION()
-	void BroadcastStatChanged(float const Previous, float const New);
+	FStatNotification OnStatChanged;
+	virtual void OnValueChanged(float const PreviousValue) override;
+	
 public:
+
+	void SubscribeToStatChanged(FStatCallback const& Callback);
+	void UnsubscribeFromStatChanged(FStatCallback const& Callback);
 	bool IsInitialized() const { return bInitialized; }
 	void Init(FStatInfo const& InitInfo, class UStatHandler* NewHandler);
-	UFUNCTION(BlueprintCallable, Category = "Stats")
-	void SubscribeToStatChanged(FStatCallback const& Callback);
-	UFUNCTION(BlueprintCallable, Category = "Stats")
-	void UnsubscribeFromStatChanged(FStatCallback const& Callback);
 	FGameplayTag GetStatTag() const { return StatTag; }
 	bool ShouldReplicate() const { return bShouldReplicate; }
 };

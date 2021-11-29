@@ -199,7 +199,6 @@ void UBuff::ApplyEvent(FBuffApplyEvent& ApplicationEvent, EBuffApplicationOverri
         if (LastApplyEvent.ActionTaken == EBuffApplyAction::Stacked || LastApplyEvent.ActionTaken == EBuffApplyAction::StackedAndRefreshed)
         {
             Function->OnStack(LastApplyEvent);
-            ModifierStack.Broadcast();
         }
         if (LastApplyEvent.ActionTaken == EBuffApplyAction::Refreshed || LastApplyEvent.ActionTaken == EBuffApplyAction::StackedAndRefreshed)
         {
@@ -225,7 +224,6 @@ void UBuff::OnRep_LastApplyEvent()
         if (LastApplyEvent.ActionTaken == EBuffApplyAction::Stacked || LastApplyEvent.ActionTaken == EBuffApplyAction::StackedAndRefreshed)
         {
             Function->OnStack(LastApplyEvent);
-            ModifierStack.Broadcast();
         }
         if (LastApplyEvent.ActionTaken == EBuffApplyAction::Refreshed || LastApplyEvent.ActionTaken == EBuffApplyAction::StackedAndRefreshed)
         {
@@ -269,7 +267,6 @@ FBuffRemoveEvent UBuff::TerminateBuff(EBuffExpireReason const TerminationReason)
         Function->OnRemove(RemoveEvent);
         Function->CleanupBuffFunction();
     }
-    ModifierInvalidate.Broadcast();
     OnRemove(RemoveEvent);
     Status = EBuffStatus::Removed;
     Handler->NotifyOfIncomingBuffRemoval(RemoveEvent);

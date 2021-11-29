@@ -80,23 +80,23 @@ float UStatHandler::GetStatValue(FGameplayTag const StatTag) const
 	return -1.0f;
 }
 
-int32 UStatHandler::AddStatModifier(FGameplayTag const StatTag, FCombatModifier const& Modifier)
+void UStatHandler::AddStatModifier(UBuff* Source, FGameplayTag const StatTag, FCombatModifier const& Modifier)
 {
-	if (GetOwnerRole() != ROLE_Authority || Modifier.GetModType() == EModifierType::Invalid || !StatTag.MatchesTag(GenericStatTag()))
+	if (GetOwnerRole() != ROLE_Authority || Modifier.Type() == EModifierType::Invalid || !StatTag.MatchesTag(GenericStatTag()) || !IsValid(Source))
 	{
-		return -1;
+		return;
 	}
 	UCombatStat* Stat = Stats.FindRef(StatTag);
 	if (!IsValid(Stat))
 	{
-		return -1;
+		return;
 	}
-	return Stat->AddModifier(Modifier);
+	Stat->AddModifier(Modifier, Source);
 }
 
-void UStatHandler::RemoveStatModifier(FGameplayTag const StatTag, int32 const ModifierID)
+void UStatHandler::RemoveStatModifier(UBuff* Source, FGameplayTag const StatTag)
 {
-	if (GetOwnerRole() != ROLE_Authority || !StatTag.MatchesTag(GenericStatTag()) || ModifierID == -1)
+	if (GetOwnerRole() != ROLE_Authority || !StatTag.MatchesTag(GenericStatTag()) || !IsValid(Source))
 	{
 		return;
 	}
@@ -105,11 +105,12 @@ void UStatHandler::RemoveStatModifier(FGameplayTag const StatTag, int32 const Mo
 	{
 		return;
 	}
-	Stat->RemoveModifier(ModifierID);
+	Stat->RemoveModifier(Source);
 }
 
 void UStatHandler::SubscribeToStatChanged(FGameplayTag const StatTag, FStatCallback const& Callback)
 {
+	//TODO: Modify this to work for clients as well.
 	if (!Callback.IsBound())
 	{
 		return;
@@ -124,6 +125,7 @@ void UStatHandler::SubscribeToStatChanged(FGameplayTag const StatTag, FStatCallb
 
 void UStatHandler::UnsubscribeFromStatChanged(FGameplayTag const StatTag, FStatCallback const& Callback)
 {
+	//TODO: Modify this to work for clients as well.
 	if (!Callback.IsBound())
 	{
 		return;

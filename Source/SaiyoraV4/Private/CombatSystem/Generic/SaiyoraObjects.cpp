@@ -1,6 +1,4 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
-
-#include "SaiyoraObjects.h"
+﻿#include "SaiyoraObjects.h"
 #include "Buff.h"
 
 void UModifiableIntValue::Init(int32 const Base, bool const bModdable, bool const bLowCapped, int32 const Min,
@@ -21,7 +19,6 @@ void UModifiableIntValue::Init(int32 const Base, bool const bModdable, bool cons
         BaseValue = FMath::Min(Max, BaseValue);
     }
     Value = BaseValue;
-    BuffStackCallback.BindDynamic(this, &UModifiableIntValue::CheckForModifierSourceStack);
 }
 
 void UModifiableIntValue::SetRecalculationFunction(FIntValueRecalculation const& NewCalculation)
@@ -84,42 +81,36 @@ void UModifiableIntValue::UnsubscribeFromValueChanged(FIntValueCallback const& C
     }
 }
 
-int32 UModifiableIntValue::AddModifier(FCombatModifier const& Modifier)
+void UModifiableIntValue::AddModifier(FCombatModifier const& Modifier, UBuff* Source)
 {
-    if (Modifier.GetModType() == EModifierType::Invalid)
-    {
-        return -1;
-    }
-    int32 const ModID = FCombatModifier::GetID();
-    Modifiers.Add(ModID, Modifier);
-    if (Modifier.GetStackable() && IsValid(Modifier.GetSource()))
-    {
-        Modifier.GetSource()->SubscribeToBuffUpdated(BuffStackCallback);
-    }
-    RecalculateValue();
-    return ModID;
-}
-
-void UModifiableIntValue::RemoveModifier(int32 const ModifierID)
-{
-    if (ModifierID == -1)
+    if (Modifier.Type == EModifierType::Invalid || (Modifier.bStackable && Modifier.Stacks < 1) || !IsValid(Source))
     {
         return;
     }
-    FCombatModifier* Mod = Modifiers.Find(ModifierID);
-    if (Mod && Mod->GetStackable() && IsValid(Mod->GetSource()))
+    bool bShouldRecalculate = false;
+    FCombatModifier* Found = Modifiers.Find(Source);
+    if (Found)
     {
-        Mod->GetSource()->UnsubscribeFromBuffUpdated(BuffStackCallback);
+        if (Found->bStackable && Found->Stacks != Modifier.Stacks)
+        {
+            Found->Stacks = Modifier.Stacks;
+            bShouldRecalculate = true;
+        }
     }
-    if (Modifiers.Remove(ModifierID) > 0)
+    else
+    {
+        Modifiers.Add(Source, Modifier);
+        bShouldRecalculate = true;
+    }
+    if (bShouldRecalculate)
     {
         RecalculateValue();
     }
 }
 
-void UModifiableIntValue::CheckForModifierSourceStack(FBuffApplyEvent const& Event)
+void UModifiableIntValue::RemoveModifier(UBuff* Source)
 {
-    if (Event.PreviousStacks != Event.NewStacks && IsValid(Event.AffectedBuff))
+    if (!IsValid(Source) || Modifiers.Remove(Source) < 1)
     {
         RecalculateValue();
     }
@@ -143,7 +134,6 @@ void UModifiableFloatValue::Init(float const Base, bool const bModdable, bool co
         BaseValue = FMath::Min(Max, BaseValue);
     }
     Value = BaseValue;
-    BuffStackCallback.BindDynamic(this, &UModifiableFloatValue::CheckForModifierSourceStack);
 }
 
 void UModifiableFloatValue::SetRecalculationFunction(FFloatValueRecalculation const& NewCalculation)
@@ -206,42 +196,36 @@ void UModifiableFloatValue::UnsubscribeFromValueChanged(FFloatValueCallback cons
     }
 }
 
-int32 UModifiableFloatValue::AddModifier(FCombatModifier const& Modifier)
+void UModifiableFloatValue::AddModifier(FCombatModifier const& Modifier, UBuff* Source)
 {
-    if (Modifier.GetModType() == EModifierType::Invalid)
-    {
-        return -1;
-    }
-    int32 const ModID = FCombatModifier::GetID();
-    Modifiers.Add(ModID, Modifier);
-    if (Modifier.GetStackable() && IsValid(Modifier.GetSource()))
-    {
-        Modifier.GetSource()->SubscribeToBuffUpdated(BuffStackCallback);
-    }
-    RecalculateValue();
-    return ModID;
-}
-
-void UModifiableFloatValue::RemoveModifier(int32 const ModifierID)
-{
-    if (ModifierID == -1)
+    if (Modifier.Type == EModifierType::Invalid || (Modifier.bStackable && Modifier.Stacks < 1) || !IsValid(Source))
     {
         return;
     }
-    FCombatModifier* Mod = Modifiers.Find(ModifierID);
-    if (Mod && Mod->GetStackable() && IsValid(Mod->GetSource()))
+    bool bShouldRecalculate = false;
+    FCombatModifier* Found = Modifiers.Find(Source);
+    if (Found)
     {
-        Mod->GetSource()->UnsubscribeFromBuffUpdated(BuffStackCallback);
+        if (Found->bStackable && Found->Stacks != Modifier.Stacks)
+        {
+            Found->Stacks = Modifier.Stacks;
+            bShouldRecalculate = true;
+        }
     }
-    if (Modifiers.Remove(ModifierID) > 0)
+    else
+    {
+        Modifiers.Add(Source, Modifier);
+        bShouldRecalculate = true;
+    }
+    if (bShouldRecalculate)
     {
         RecalculateValue();
     }
 }
 
-void UModifiableFloatValue::CheckForModifierSourceStack(FBuffApplyEvent const& Event)
+void UModifiableFloatValue::RemoveModifier(UBuff* Source)
 {
-    if (Event.PreviousStacks != Event.NewStacks && IsValid(Event.AffectedBuff))
+    if (!IsValid(Source) || Modifiers.Remove(Source) < 1)
     {
         RecalculateValue();
     }

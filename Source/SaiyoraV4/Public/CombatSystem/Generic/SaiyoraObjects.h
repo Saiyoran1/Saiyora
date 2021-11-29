@@ -1,6 +1,4 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
-
-#pragma once
+﻿#pragma once
 #include "CoreMinimal.h"
 #include "Object.h"
 #include "SaiyoraStructs.h"
@@ -17,8 +15,8 @@ public:
 	void RecalculateValue();
 	void SubscribeToValueChanged(FIntValueCallback const& Callback);
 	void UnsubscribeFromValueChanged(FIntValueCallback const& Callback);
-	int32 AddModifier(FCombatModifier const& Modifier);
-	void RemoveModifier(int32 const ModifierID);
+	void AddModifier(FCombatModifier const& Modifier, UBuff* Source);
+	void RemoveModifier(UBuff* Source);
 	int32 GetValue() const { return Value; }
 	bool IsModifiable() const { return bModifiable; }
 private:
@@ -29,12 +27,9 @@ private:
 	int32 Minimum = 0;
 	bool bHasMax = false;
 	int32 Maximum = 0;
-	TMap<int32, FCombatModifier> Modifiers;
+	TMap<UBuff*, FCombatModifier> Modifiers;
 	FIntValueRecalculation CustomRecalculation;
-	FIntValueNotification OnValueChanged;
-	FBuffEventCallback BuffStackCallback;
-	UFUNCTION()
-	void CheckForModifierSourceStack(FBuffApplyEvent const& Event);
+	virtual void OnValueChanged(int32 const PreviousValue) {}
 };
 
 UCLASS()
@@ -45,10 +40,8 @@ public:
 	void Init(float const Base, bool const bModdable = false, bool const bLowCapped = false, float const Min = 0.0f, bool const bHighCapped = false, float const Max = 0.0f);
 	void SetRecalculationFunction(FFloatValueRecalculation const& NewCalculation);
 	void RecalculateValue();
-	void SubscribeToValueChanged(FFloatValueCallback const& Callback);
-	void UnsubscribeFromValueChanged(FFloatValueCallback const& Callback);
-	int32 AddModifier(FCombatModifier const& Modifier);
-	void RemoveModifier(int32 const ModifierID);
+	void AddModifier(FCombatModifier const& Modifier, UBuff* Source);
+	void RemoveModifier(UBuff* Source);
 	float GetValue() const { return Value; }
 	bool IsModifiable() const { return bModifiable; }
 private:
@@ -59,10 +52,7 @@ private:
 	float Minimum = 0.0f;
 	bool bHasMax = false;
 	float Maximum = 0.0f;
-	TMap<int32, FCombatModifier> Modifiers;
+	TMap<UBuff*, FCombatModifier> Modifiers;
 	FFloatValueRecalculation CustomRecalculation;
-	FFloatValueNotification OnValueChanged;
-	FBuffEventCallback BuffStackCallback;
-	UFUNCTION()
-	void CheckForModifierSourceStack(FBuffApplyEvent const& Event);
+	virtual void OnValueChanged(float const PreviousValue) {}
 };
