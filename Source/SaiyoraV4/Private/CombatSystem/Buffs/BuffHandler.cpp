@@ -61,10 +61,10 @@ FBuffApplyEvent UBuffHandler::ApplyBuff(TSubclassOf<UBuff> const BuffClass, AAct
 		GeneratorPlane = ISaiyoraCombatInterface::Execute_GetPlaneComponent(AppliedBy);
 		GeneratorBuff = ISaiyoraCombatInterface::Execute_GetBuffHandler(AppliedBy);
 	}
-	Event.AppliedByPlane = IsValid(GeneratorPlane) ? GeneratorPlane->GetCurrentPlane() : ESaiyoraPlane::None;
+	Event.OriginPlane = IsValid(GeneratorPlane) ? GeneratorPlane->GetCurrentPlane() : ESaiyoraPlane::None;
     Event.AppliedTo = GetOwner();
-	Event.AppliedToPlane = IsValid(PlaneComponent) ? PlaneComponent->GetCurrentPlane() : ESaiyoraPlane::None;
-	Event.AppliedXPlane = UPlaneComponent::CheckForXPlane(Event.AppliedByPlane, Event.AppliedToPlane);
+	Event.TargetPlane = IsValid(PlaneComponent) ? PlaneComponent->GetCurrentPlane() : ESaiyoraPlane::None;
+	Event.AppliedXPlane = UPlaneComponent::CheckForXPlane(Event.OriginPlane, Event.TargetPlane);
     Event.Source = Source;
     Event.BuffClass = BuffClass;
 	Event.CombatParams = BuffParams;
@@ -75,8 +75,8 @@ FBuffApplyEvent UBuffHandler::ApplyBuff(TSubclassOf<UBuff> const BuffClass, AAct
     	return Event;
     }
 
-	UBuff* AffectedBuff = FindExistingBuff(BuffClass, AppliedBy);
-	if (IsValid(AffectedBuff) && !AffectedBuff->GetDuplicable() && !DuplicateOverride)
+	UBuff* AffectedBuff = FindExistingBuff(BuffClass, true, AppliedBy);
+	if (IsValid(AffectedBuff) && !AffectedBuff->IsDuplicable() && !DuplicateOverride)
 	{
 		AffectedBuff->ApplyEvent(Event, StackOverrideType, OverrideStacks, RefreshOverrideType, OverrideDuration);
 	}
@@ -84,229 +84,18 @@ FBuffApplyEvent UBuffHandler::ApplyBuff(TSubclassOf<UBuff> const BuffClass, AAct
 	{
 		Event.AffectedBuff = NewObject<UBuff>(GetOwner(), Event.BuffClass);
 		Event.AffectedBuff->InitializeBuff(Event, this, StackOverrideType, OverrideStacks, RefreshOverrideType, OverrideDuration);
-		switch (Event.AffectedBuff->GetBuffType())
-		{
-		case EBuffType::Buff :
-			Buffs.Add(Event.AffectedBuff);
-			break;
-		case EBuffType::Debuff :
-			Debuffs.Add(Event.AffectedBuff);
-			break;
-		case EBuffType::HiddenBuff :
-			HiddenBuffs.Add(Event.AffectedBuff);
-			break;
-		default :
-			break;
-		}
-		OnIncomingBuffApplied.Broadcast(Event);
-		if (IsValid(GeneratorBuff))
-		{
-			GeneratorBuff->NotifyOfOutgoingBuffApplication(Event);
-		}
 	}
     return Event;
 }
 
-void UBuffHandler::NotifyOfOutgoingBuffApplication(FBuffApplyEvent const& BuffEvent)
+void UBuffHandler::NotifyOfNewIncomingBuff(FBuffApplyEvent const& ApplicationEvent)
 {
-	if (BuffEvent.ActionTaken == EBuffApplyAction::NewBuff)
+	if (!IsValid(ApplicationEvent.AffectedBuff))
 	{
-		OutgoingBuffs.Add(BuffEvent.AffectedBuff);
+		return;
 	}
-	OnOutgoingBuffApplied.Broadcast(BuffEvent);
-}
-
-#pragma endregion
-
-FBuffRemoveEvent UBuffHandler::RemoveBuff(UBuff* Buff, EBuffExpireReason const ExpireReason)
-{
-	FBuffRemoveEvent Event;
-	if (GetOwnerRole() != ROLE_Authority || !IsValid(Buff) || Buff->GetAppliedTo() != GetOwner())
-	{
-		Event.Result = false;
-		return Event;
-	}
-	Event.RemovedBuff = Buff;
-	Event.AppliedBy = Buff->GetAppliedBy();
-	Event.RemovedFrom = GetOwner();
-	Event.ExpireReason = ExpireReason;
-	EBuffType const BuffType = Buff->GetBuffType();
-	TArray<UBuff*>* ArrayToRemoveFrom;
-	switch (BuffType)
-	{
-		case EBuffType::Buff :
-			ArrayToRemoveFrom = &Buffs;
-			break;
-		case EBuffType::Debuff :
-			ArrayToRemoveFrom = &Debuffs;
-			break;
-		case EBuffType::HiddenBuff :
-			ArrayToRemoveFrom = &HiddenBuffs;
-			break;
-		default :
-			Event.Result = false;
-			return Event;
-	}
-	Event.Result = ArrayToRemoveFrom->Remove(Buff) > 0;
-	if (Event.Result)
-	{
-		Buff->ExpireBuff(Event);
-		OnIncomingBuffRemoved.Broadcast(Event);
-
-		//This is to allow replication one last time (replicating the remove event).
-		RecentlyRemoved.Add(Buff);
-		FTimerHandle RemoveTimer;
-		FTimerDelegate const RemoveDel = FTimerDelegate::CreateUObject(this, &UBuffHandler::PostRemoveCleanup, Buff);
-		GetWorld()->GetTimerManager().SetTimer(RemoveTimer, RemoveDel, 1.0f, false);
-
-		if (IsValid(Event.AppliedBy) && Event.AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
-		{
-			UBuffHandler* BuffGenerator = ISaiyoraCombatInterface::Execute_GetBuffHandler(Event.AppliedBy);
-			if (IsValid(BuffGenerator))
-			{
-				BuffGenerator->NotifyOfOutgoingBuffRemoval(Event);
-			}
-		}
-	}
-	return Event;
-}
-
-void UBuffHandler::PostRemoveCleanup(UBuff* Buff)
-{
-	RecentlyRemoved.Remove(Buff);	
-}
-
-TArray<UBuff*> UBuffHandler::GetBuffsOfClass(TSubclassOf<UBuff> const BuffClass) const
-{
-	TArray<UBuff*> FoundBuffs;
-	if (!BuffClass)
-	{
-		return FoundBuffs;
-	}
-	EBuffType const BuffType = BuffClass.GetDefaultObject()->GetBuffType();
-	switch (BuffType)
-	{
-		case EBuffType::Buff :
-			for (UBuff* Buff : Buffs)
-			{
-				if (Buff->GetClass() == BuffClass)
-				{
-					FoundBuffs.AddUnique(Buff);
-				}
-			}
-			break;
-		case EBuffType::Debuff :
-			for(UBuff* Buff : Debuffs)
-			{
-				if (Buff->GetClass() == BuffClass)
-				{
-					FoundBuffs.AddUnique(Buff);
-				}
-			}
-			break;
-		case EBuffType::HiddenBuff :
-			for (UBuff* Buff : HiddenBuffs)
-			{
-				if (Buff->GetClass() == BuffClass)
-				{
-					FoundBuffs.AddUnique(Buff);
-				}
-			}
-			break;
-		default :
-			break;
-	}
-	return FoundBuffs;
-}
-
-TArray<UBuff*> UBuffHandler::GetOutgoingBuffsOfClass(TSubclassOf<UBuff> const BuffClass) const
-{
-	TArray<UBuff*> FoundBuffs;
-	if (!BuffClass)
-	{
-		return FoundBuffs;
-	}
-	for (UBuff* Buff : OutgoingBuffs)
-	{
-		if (Buff->GetClass() == BuffClass)
-		{
-			FoundBuffs.AddUnique(Buff);
-		}
-	}
-	return FoundBuffs;
-}
-
-UBuff* UBuffHandler::FindExistingBuff(TSubclassOf<UBuff> const BuffClass, AActor* Owner) const
-{
-	if (!BuffClass)
-	{
-		return nullptr;
-	}
-	EBuffType const SearchType = BuffClass.GetDefaultObject()->GetBuffType();
-	TArray<UBuff*> const* BuffArray;
-	switch (SearchType)
-	{
-		case EBuffType::Buff :
-			BuffArray = &Buffs;
-			break;
-		case EBuffType::Debuff :
-			BuffArray = &Debuffs;
-			break;
-		case EBuffType::HiddenBuff :
-			BuffArray = &HiddenBuffs;
-			break;
-		default :
-			BuffArray = &Buffs;
-	}
-	for (UBuff* Buff : *BuffArray)
-	{
-		if (Owner)
-		{
-			if (Buff->GetClass() == BuffClass && Buff->GetAppliedBy() == Owner)
-			{
-				return Buff;
-			}
-		}
-		else if (Buff->GetClass() == BuffClass)
-		{
-			return Buff;
-		}
-	}
-	return nullptr;
-}
-
-void UBuffHandler::NotifyOfOutgoingBuffRemoval(FBuffRemoveEvent const& RemoveEvent)
-{
-	OutgoingBuffs.RemoveSingleSwap(RemoveEvent.RemovedBuff);
-	OnOutgoingBuffRemoved.Broadcast(RemoveEvent);
-}
-
-void UBuffHandler::NotifyOfReplicatedIncomingBuffApply(FBuffApplyEvent const& ReplicatedEvent)
-{
-	if (ReplicatedEvent.ActionTaken == EBuffApplyAction::NewBuff)
-	{
-		switch (ReplicatedEvent.AffectedBuff->GetBuffType())
-		{
-		case EBuffType::Buff :
-			Buffs.Add(ReplicatedEvent.AffectedBuff);
-			break;
-		case EBuffType::Debuff :
-			Debuffs.Add(ReplicatedEvent.AffectedBuff);
-			break;
-		case EBuffType::HiddenBuff :
-			HiddenBuffs.Add(ReplicatedEvent.AffectedBuff);
-			break;
-		default :
-			break;
-		}
-	}
-	OnIncomingBuffApplied.Broadcast(ReplicatedEvent);
-}
-
-void UBuffHandler::NotifyOfReplicatedIncomingBuffRemove(FBuffRemoveEvent const& ReplicatedEvent)
-{
 	TArray<UBuff*>* BuffArray;
-	switch (ReplicatedEvent.RemovedBuff->GetBuffType())
+	switch (ApplicationEvent.AffectedBuff->GetBuffType())
 	{
 	case EBuffType::Buff :
 		BuffArray = &Buffs;
@@ -318,33 +107,241 @@ void UBuffHandler::NotifyOfReplicatedIncomingBuffRemove(FBuffRemoveEvent const& 
 		BuffArray = &HiddenBuffs;
 		break;
 	default :
+		return;
+	}
+	if (BuffArray->Contains(ApplicationEvent.AffectedBuff))
+	{
+		return;
+	}
+	BuffArray->Add(ApplicationEvent.AffectedBuff);
+	OnIncomingBuffApplied.Broadcast(ApplicationEvent);
+	if (IsValid(ApplicationEvent.AffectedBuff->GetAppliedBy()) && ApplicationEvent.AffectedBuff->GetAppliedBy()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	{
+		UBuffHandler* GeneratorBuff = ISaiyoraCombatInterface::Execute_GetBuffHandler(ApplicationEvent.AffectedBuff->GetAppliedBy());
+		if (IsValid(GeneratorBuff))
+		{
+			GeneratorBuff->NotifyOfNewOutgoingBuff(ApplicationEvent);
+		}
+	}
+}
+
+void UBuffHandler::NotifyOfNewOutgoingBuff(FBuffApplyEvent const& ApplicationEvent)
+{
+	if (!IsValid(ApplicationEvent.AffectedBuff) || OutgoingBuffs.Contains(ApplicationEvent.AffectedBuff))
+	{
+		return;
+	}
+	OutgoingBuffs.Add(ApplicationEvent.AffectedBuff);
+	OnOutgoingBuffApplied.Broadcast(ApplicationEvent);
+}
+
+#pragma endregion
+#pragma region Removal
+
+FBuffRemoveEvent UBuffHandler::RemoveBuff(UBuff* Buff, EBuffExpireReason const ExpireReason)
+{
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(Buff) || Buff->GetAppliedTo() != GetOwner())
+	{
+		return FBuffRemoveEvent();
+	}
+	return Buff->TerminateBuff(ExpireReason);
+}
+
+void UBuffHandler::NotifyOfIncomingBuffRemoval(FBuffRemoveEvent const& RemoveEvent)
+{
+	if (!IsValid(RemoveEvent.RemovedBuff))
+	{
+		return;
+	}
+	TArray<UBuff*>* BuffArray;
+	switch (RemoveEvent.RemovedBuff->GetBuffType())
+	{
+	case EBuffType::Buff :
 		BuffArray = &Buffs;
 		break;
+	case EBuffType::Debuff :
+		BuffArray = &Debuffs;
+		break;
+	case EBuffType::HiddenBuff :
+		BuffArray = &HiddenBuffs;
+		break;
+	default :
+		return;
 	}
-
-	if (BuffArray->RemoveSingleSwap(ReplicatedEvent.RemovedBuff) != 0)
+	if (BuffArray->Remove(RemoveEvent.RemovedBuff) > 0)
 	{
-		OnIncomingBuffRemoved.Broadcast(ReplicatedEvent);
+		OnIncomingBuffRemoved.Broadcast(RemoveEvent);
+		//This is to allow replication one last time (replicating the remove event).
+		RecentlyRemoved.Add(RemoveEvent.RemovedBuff);
+		FTimerHandle RemoveTimer;
+		FTimerDelegate const RemoveDel = FTimerDelegate::CreateUObject(this, &UBuffHandler::PostRemoveCleanup, RemoveEvent.RemovedBuff);
+		GetWorld()->GetTimerManager().SetTimer(RemoveTimer, RemoveDel, 1.0f, false);
+		
+		if (IsValid(RemoveEvent.RemovedBuff->GetAppliedBy()) && RemoveEvent.RemovedBuff->GetAppliedBy()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+		{
+			UBuffHandler* BuffGenerator = ISaiyoraCombatInterface::Execute_GetBuffHandler(RemoveEvent.RemovedBuff->GetAppliedBy());
+			if (IsValid(BuffGenerator))
+			{
+				BuffGenerator->NotifyOfOutgoingBuffRemoval(RemoveEvent);
+			}
+		}
 	}
 }
 
-void UBuffHandler::NotifyOfReplicatedOutgoingBuffApply(FBuffApplyEvent const& ReplicatedEvent)
+void UBuffHandler::NotifyOfOutgoingBuffRemoval(FBuffRemoveEvent const& RemoveEvent)
 {
-	if (ReplicatedEvent.ActionTaken == EBuffApplyAction::NewBuff)
+	if (OutgoingBuffs.Remove(RemoveEvent.RemovedBuff) > 0)
 	{
-		OutgoingBuffs.Add(ReplicatedEvent.AffectedBuff);
+		OnOutgoingBuffRemoved.Broadcast(RemoveEvent);
 	}
-	OnOutgoingBuffApplied.Broadcast(ReplicatedEvent);
 }
 
-void UBuffHandler::NotifyOfReplicatedOutgoingBuffRemove(FBuffRemoveEvent const& ReplicatedEvent)
+void UBuffHandler::PostRemoveCleanup(UBuff* Buff)
 {
-	if (OutgoingBuffs.RemoveSingleSwap(ReplicatedEvent.RemovedBuff) != 0)
+	RecentlyRemoved.Remove(Buff);	
+}
+
+#pragma endregion 
+#pragma region Get Buffs
+
+void UBuffHandler::GetBuffsOfClass(TSubclassOf<UBuff> const BuffClass, TArray<UBuff*>& OutBuffs) const
+{
+	if (!IsValid(BuffClass))
 	{
-		OnOutgoingBuffRemoved.Broadcast(ReplicatedEvent);
+		return;
+	}
+	TArray<UBuff*> const* BuffArray;
+	switch (BuffClass.GetDefaultObject()->GetBuffType())
+	{
+		case EBuffType::Buff :
+			BuffArray = &Buffs;
+			break;
+		case EBuffType::Debuff :
+			BuffArray = &Debuffs;
+			break;
+		case EBuffType::HiddenBuff :
+			BuffArray = &HiddenBuffs;
+			break;
+		default :
+			return;
+	}
+	for (UBuff* Buff : *BuffArray)
+	{
+		if (IsValid(Buff) && Buff->GetClass() == BuffClass)
+		{
+			OutBuffs.Add(Buff);
+		}
 	}
 }
 
+void UBuffHandler::GetBuffsAppliedByActor(AActor* Actor, TArray<UBuff*>& OutBuffs) const
+{
+	if (!IsValid(Actor))
+	{
+		return;
+	}
+	for (UBuff* Buff : Buffs)
+	{
+		if (IsValid(Buff) && Buff->GetAppliedBy() == Actor)
+		{
+			OutBuffs.Add(Buff);
+		}
+	}
+	for (UBuff* Debuff : Debuffs)
+	{
+		if (IsValid(Debuff) && Debuff->GetAppliedBy() == Actor)
+		{
+			OutBuffs.Add(Debuff);
+		}
+	}
+	for (UBuff* HiddenBuff : HiddenBuffs)
+	{
+		if (IsValid(HiddenBuff) && HiddenBuff->GetAppliedBy() == Actor)
+		{
+			OutBuffs.Add(HiddenBuff);
+		}
+	}
+}
+
+void UBuffHandler::GetOutgoingBuffsOfClass(TSubclassOf<UBuff> const BuffClass, TArray<UBuff*>& OutBuffs) const
+{
+	if (!IsValid(BuffClass))
+	{
+		return;
+	}
+	for (UBuff* Buff : OutgoingBuffs)
+	{
+		if (IsValid(Buff) && Buff->GetClass() == BuffClass)
+		{
+			OutBuffs.Add(Buff);
+		}
+	}
+}
+
+void UBuffHandler::GetBuffsAppliedToActor(AActor* Target, TArray<UBuff*>& OutBuffs) const
+{
+	if (!IsValid(Target))
+	{
+		return;
+	}
+	for (UBuff* Buff : OutgoingBuffs)
+	{
+		if (IsValid(Buff) && Buff->GetAppliedTo() == Target)
+		{
+			OutBuffs.Add(Buff);
+		}
+	}
+}
+
+UBuff* UBuffHandler::FindExistingOutgoingBuff(TSubclassOf<UBuff> const BuffClass, bool const bSpecificTarget,
+	AActor* BuffTarget) const
+{
+	if (!IsValid(BuffClass) || (bSpecificTarget && !IsValid(BuffTarget)))
+	{
+		return nullptr;
+	}
+	for (UBuff* Buff : OutgoingBuffs)
+	{
+		if (IsValid(Buff) && Buff->GetClass() == BuffClass && (!bSpecificTarget || Buff->GetAppliedTo() == BuffTarget))
+		{
+			return Buff;
+		}
+	}
+	return nullptr;
+}
+
+UBuff* UBuffHandler::FindExistingBuff(TSubclassOf<UBuff> const BuffClass, bool const bSpecificOwner, AActor* BuffOwner) const
+{
+	if (!IsValid(BuffClass) || (bSpecificOwner && !IsValid(BuffOwner)))
+	{
+		return nullptr;
+	}
+	TArray<UBuff*> const* BuffArray;
+	switch (BuffClass.GetDefaultObject()->GetBuffType())
+	{
+		case EBuffType::Buff :
+			BuffArray = &Buffs;
+			break;
+		case EBuffType::Debuff :
+			BuffArray = &Debuffs;
+			break;
+		case EBuffType::HiddenBuff :
+			BuffArray = &HiddenBuffs;
+			break;
+		default :
+			return nullptr;
+	}
+	for (UBuff* Buff : *BuffArray)
+	{
+		if (IsValid(Buff) && Buff->GetClass() == BuffClass && (!bSpecificOwner || Buff->GetAppliedBy() == BuffOwner))
+		{
+			return Buff;
+		}
+	}
+	return nullptr;
+}
+
+#pragma endregion 
 #pragma region Subscriptions
 
 void UBuffHandler::SubscribeToIncomingBuff(FBuffEventCallback const& Callback)

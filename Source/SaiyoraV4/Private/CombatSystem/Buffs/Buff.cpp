@@ -25,7 +25,7 @@ void UBuff::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimePro
 
     DOREPLIFETIME(UBuff, CreationEvent);
     DOREPLIFETIME(UBuff, LastApplyEvent);
-    DOREPLIFETIME(UBuff, RemovingEvent);
+    DOREPLIFETIME(UBuff, RemovalReason);
 }
 
 void UBuff::InitializeBuff(FBuffApplyEvent& Event, UBuffHandler* NewHandler, EBuffApplicationOverrideType const StackOverrideType,
@@ -37,8 +37,6 @@ void UBuff::InitializeBuff(FBuffApplyEvent& Event, UBuffHandler* NewHandler, EBu
     }
     GameStateRef = GetWorld()->GetGameState();
     Handler = NewHandler;
-    AppliedBy = Event.AppliedBy;
-    Source = Event.Source;
     Event.ActionTaken = EBuffApplyAction::NewBuff;
     Event.PreviousStacks = 0;
     switch (StackOverrideType)
@@ -85,41 +83,49 @@ void UBuff::InitializeBuff(FBuffApplyEvent& Event, UBuffHandler* NewHandler, EBu
         Event.NewDuration = 0.0f;
         ExpireTime = 0.0f;
     }
-    //TODO: Creation Event refactoring?
     CreationEvent = Event;
+    SetupCommonBuffFunctions();
     Status = EBuffStatus::Active;
-    //TODO: Buff functionality refactoring.
-    BuffFunctionality();
-    
+    Handler->NotifyOfNewIncomingBuff(CreationEvent);
     for (UBuffFunction* Function : BuffFunctions)
     {
-        Function->OnApply(Event);
+        if (IsValid(Function))
+        {
+            Function->OnApply(CreationEvent);
+        }
     }
+    OnApply(CreationEvent);
 }
 
 void UBuff::OnRep_CreationEvent()
 {
     if (Status != EBuffStatus::Spawning || CreationEvent.ActionTaken != EBuffApplyAction::NewBuff)
     {
-        //Replication of a creation event after initialization has already happened.
-        //An invalid creation event.
-
-        UE_LOG(LogTemp, Warning, TEXT("Creation Event replication gone wrong."))
+        //The check for new buff is more to guard against replicating a default CreationEvent than anything else.
         return;
     }
-    
-    UpdateClientStateOnApply(CreationEvent);
+    GameStateRef = GetWorld()->GetGameState();
+    CurrentStacks = CreationEvent.NewStacks;
+    LastApplyTime = CreationEvent.NewApplyTime;
+    ExpireTime = CreationEvent.NewDuration + LastApplyTime;
+    SetupCommonBuffFunctions();
     Status = EBuffStatus::Active;
-
-    BuffFunctionality();
-
+    if (IsValid(CreationEvent.AppliedTo) && CreationEvent.AppliedTo->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+    {
+        Handler = ISaiyoraCombatInterface::Execute_GetBuffHandler(CreationEvent.AppliedTo);
+        if (IsValid(Handler))
+        {
+            Handler->NotifyOfNewIncomingBuff(CreationEvent);
+        }
+    }
     for (UBuffFunction* Function : BuffFunctions)
     {
-        Function->OnApply(CreationEvent);
+        if (IsValid(Function))
+        {
+            Function->OnApply(CreationEvent);
+        }
     }
-
-    HandleBuffApplyEventReplication(CreationEvent);
-
+    OnApply(CreationEvent);
     //Check if there is a valid LastApplyEvent that came in before or at the same time as CreationEvent (due to either variables coming in the wrong order, or net relevancy).
     if (LastApplyEvent.ActionTaken != EBuffApplyAction::NewBuff && LastApplyEvent.ActionTaken != EBuffApplyAction::Failed)
     {
@@ -134,10 +140,7 @@ void UBuff::ApplyEvent(FBuffApplyEvent& ApplicationEvent, EBuffApplicationOverri
         int32 const OverrideStacks, EBuffApplicationOverrideType const RefreshOverrideType, float const OverrideDuration)
 {
     ApplicationEvent.AffectedBuff = this;
-    ApplicationEvent.PreviousDuration = GetRemainingTime();
     ApplicationEvent.PreviousStacks = GetCurrentStacks();
-    ApplicationEvent.NewApplyTime = GameStateRef->GetServerWorldTimeSeconds();
-    
     bool bStacked = false;
     if (bStackable && CurrentStacks < MaximumStacks)
     {
@@ -159,7 +162,8 @@ void UBuff::ApplyEvent(FBuffApplyEvent& ApplicationEvent, EBuffApplicationOverri
         bStacked = true;
     }
     ApplicationEvent.NewStacks = CurrentStacks;
-    
+    ApplicationEvent.NewApplyTime = GameStateRef->GetServerWorldTimeSeconds();
+    ApplicationEvent.PreviousDuration = GetRemainingTime();
     bool bRefreshed = false;
     if (bFiniteDuration && bRefreshable && GetRemainingTime() < MaximumDuration)
     {
@@ -183,134 +187,53 @@ void UBuff::ApplyEvent(FBuffApplyEvent& ApplicationEvent, EBuffApplicationOverri
         bRefreshed = true;
     }
     ApplicationEvent.NewDuration = GetRemainingTime();
-    
     ApplicationEvent.ActionTaken = bStacked ? (bRefreshed ? EBuffApplyAction::StackedAndRefreshed : EBuffApplyAction::Stacked) 
         : (bRefreshed ? EBuffApplyAction::Refreshed : EBuffApplyAction::Failed);
-    switch (ApplicationEvent.ActionTaken)
+    if (ApplicationEvent.ActionTaken == EBuffApplyAction::Failed)
     {
-        case EBuffApplyAction::Failed:
-            break;
-        case EBuffApplyAction::Stacked:
-            for (UBuffFunction* Function : BuffFunctions)
-            {
-                if (IsValid(Function))
-                {
-                    Function->OnStack(ApplicationEvent);
-                }
-            }
-            OnStacked.Broadcast();
-            break;
-        case EBuffApplyAction::Refreshed:
-            for (UBuffFunction* Function : BuffFunctions)
-            {
-                if (IsValid(Function))
-                {
-                    Function->OnRefresh(ApplicationEvent);
-                }
-            }
-            break;
-        case EBuffApplyAction::StackedAndRefreshed:
-            for (UBuffFunction* Function : BuffFunctions)
-            {
-                if (IsValid(Function))
-                {
-                    Function->OnStack(ApplicationEvent);
-                    Function->OnRefresh(ApplicationEvent);
-                }
-            }
-            OnStacked.Broadcast();
-            break;
-        default:
-            break;
+        return;
     }
-
-    //TODO: Last apply event refactoring?
-    if (ApplicationEvent.ActionTaken != EBuffApplyAction::Failed)
+    LastApplyEvent = ApplicationEvent;
+    for (UBuffFunction* Function : BuffFunctions)
     {
-        LastApplyEvent = ApplicationEvent;
-        OnUpdated.Broadcast(ApplicationEvent);
+        if (LastApplyEvent.ActionTaken == EBuffApplyAction::Stacked || LastApplyEvent.ActionTaken == EBuffApplyAction::StackedAndRefreshed)
+        {
+            Function->OnStack(LastApplyEvent);
+            ModifierStack.Broadcast();
+        }
+        if (LastApplyEvent.ActionTaken == EBuffApplyAction::Refreshed || LastApplyEvent.ActionTaken == EBuffApplyAction::StackedAndRefreshed)
+        {
+            Function->OnRefresh(LastApplyEvent);
+        }
     }
+    OnApply(LastApplyEvent);
+    OnUpdated.Broadcast(ApplicationEvent);
 }
 
 void UBuff::OnRep_LastApplyEvent()
 {
-    if (Status != EBuffStatus::Active || !IsValid(LastApplyEvent.AffectedBuff))
+    if (Status != EBuffStatus::Active)
     {
         //Wait for CreationEvent replication to initialize the buff. This function will be called again if needed.
         return;
     }
-    UpdateClientStateOnApply(LastApplyEvent);
-    switch (LastApplyEvent.ActionTaken)
+    CurrentStacks = LastApplyEvent.NewStacks;
+    LastApplyTime = LastApplyEvent.NewApplyTime;
+    ExpireTime = LastApplyEvent.NewDuration + LastApplyTime;
+    for (UBuffFunction* Function : BuffFunctions)
     {
-    case EBuffApplyAction::Failed:
-        break;
-    case EBuffApplyAction::Stacked:
-        for (UBuffFunction* Function : BuffFunctions)
+        if (LastApplyEvent.ActionTaken == EBuffApplyAction::Stacked || LastApplyEvent.ActionTaken == EBuffApplyAction::StackedAndRefreshed)
         {
-            if (IsValid(Function))
-            {
-                Function->OnStack(LastApplyEvent);
-            }
+            Function->OnStack(LastApplyEvent);
+            ModifierStack.Broadcast();
         }
-        OnStacked.Broadcast();
-        break;
-    case EBuffApplyAction::Refreshed:
-        for (UBuffFunction* Function : BuffFunctions)
+        if (LastApplyEvent.ActionTaken == EBuffApplyAction::Refreshed || LastApplyEvent.ActionTaken == EBuffApplyAction::StackedAndRefreshed)
         {
-            if (IsValid(Function))
-            {
-                Function->OnRefresh(LastApplyEvent);
-            }
+            Function->OnRefresh(LastApplyEvent);
         }
-        break;
-    case EBuffApplyAction::StackedAndRefreshed:
-        for (UBuffFunction* Function : BuffFunctions)
-        {
-            if (IsValid(Function))
-            {
-                Function->OnStack(LastApplyEvent);
-                Function->OnRefresh(LastApplyEvent);
-            }
-        }
-        OnStacked.Broadcast();
-        break;
-    default:
-        break;
     }
-    HandleBuffApplyEventReplication(LastApplyEvent);
-}
-
-void UBuff::UpdateClientStateOnApply(FBuffApplyEvent const& ReplicatedEvent)
-{
-    CurrentStacks = ReplicatedEvent.NewStacks;
-    //No actual expire timer on clients, just Apply and Expire time for UI display and BuffFunction access.
-    LastApplyTime = ReplicatedEvent.NewApplyTime;
-    ExpireTime = ReplicatedEvent.NewDuration + LastApplyTime;
-}
-
-void UBuff::HandleBuffApplyEventReplication(FBuffApplyEvent const& ReplicatedEvent)
-{
-    if (!IsValid(ReplicatedEvent.AppliedTo) || !ReplicatedEvent.AppliedTo->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
-    {
-        return;
-    }
-    UBuffHandler* BuffContainer = ISaiyoraCombatInterface::Execute_GetBuffHandler(ReplicatedEvent.AppliedTo);
-    if (!IsValid(BuffContainer))
-    {
-        return;
-    }
-    Handler = BuffContainer;
-    BuffContainer->NotifyOfReplicatedIncomingBuffApply(ReplicatedEvent);
-
-    if (!IsValid(ReplicatedEvent.AppliedBy) || !ReplicatedEvent.AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
-    {
-        return;
-    }
-    UBuffHandler* BuffGenerator = ISaiyoraCombatInterface::Execute_GetBuffHandler(ReplicatedEvent.AppliedBy);
-    if (IsValid(BuffGenerator))
-    {
-        BuffGenerator->NotifyOfReplicatedOutgoingBuffApply(ReplicatedEvent);
-    }
+    OnApply(LastApplyEvent);
+    OnUpdated.Broadcast(LastApplyEvent);
 }
 
 #pragma endregion
@@ -325,67 +248,43 @@ void UBuff::ResetExpireTimer()
 void UBuff::CompleteExpireTimer()
 {
     GetWorld()->GetTimerManager().ClearTimer(ExpireHandle);
-    GetHandler()->RemoveBuff(this, EBuffExpireReason::TimedOut);
+    TerminateBuff(EBuffExpireReason::TimedOut);
 }
 
-void UBuff::ExpireBuff(FBuffRemoveEvent const & RemoveEvent)
+FBuffRemoveEvent UBuff::TerminateBuff(EBuffExpireReason const TerminationReason)
 {
     if (bFiniteDuration)
     {
         GetWorld()->GetTimerManager().ClearTimer(ExpireHandle);
     }
+    RemovalReason = TerminationReason;
+    FBuffRemoveEvent RemoveEvent;
+    RemoveEvent.Result = true;
+    RemoveEvent.RemovedBuff = this;
+    RemoveEvent.RemovedFrom = CreationEvent.AppliedTo;
+    RemoveEvent.AppliedBy = CreationEvent.AppliedBy;
+    RemoveEvent.ExpireReason = RemovalReason;
     for (UBuffFunction* Function : BuffFunctions)
     {
         Function->OnRemove(RemoveEvent);
         Function->CleanupBuffFunction();
     }
-    OnRemoved.Broadcast();
+    ModifierInvalidate.Broadcast();
+    OnRemove(RemoveEvent);
     Status = EBuffStatus::Removed;
-
-    RemovingEvent = RemoveEvent;
+    Handler->NotifyOfIncomingBuffRemoval(RemoveEvent);
+    OnRemoved.Broadcast(RemoveEvent);
+    return RemoveEvent;
 }
 
-void UBuff::OnRep_RemovingEvent()
+void UBuff::OnRep_RemovalReason()
 {
-    if (!RemovingEvent.Result || !RemovingEvent.RemovedBuff)
+    if (RemovalReason == EBuffExpireReason::Invalid)
     {
-        //Invalid remove event.
+        //Guard against replicating the default RemovalReason.
         return;
     }
-
-    for (UBuffFunction* Function : BuffFunctions)
-    {
-        Function->OnRemove(RemovingEvent);
-        Function->CleanupBuffFunction();
-    }
-
-    Status = EBuffStatus::Removed;
-    OnRemoved.Broadcast();
-    HandleBuffRemoveEventReplication(RemovingEvent);
-}
-
-void UBuff::HandleBuffRemoveEventReplication(FBuffRemoveEvent const& ReplicatedEvent)
-{
-    if (!IsValid(ReplicatedEvent.RemovedFrom) || !ReplicatedEvent.RemovedFrom->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
-    {
-        return;
-    }
-    UBuffHandler* BuffContainer = ISaiyoraCombatInterface::Execute_GetBuffHandler(ReplicatedEvent.RemovedFrom);
-    if (!IsValid(BuffContainer))
-    {
-        return;
-    }
-    BuffContainer->NotifyOfReplicatedIncomingBuffRemove(ReplicatedEvent);
-
-    if (!IsValid(ReplicatedEvent.AppliedBy) || !ReplicatedEvent.AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
-    {
-        return;
-    }
-    UBuffHandler* BuffGenerator = ISaiyoraCombatInterface::Execute_GetBuffHandler(ReplicatedEvent.AppliedBy);
-    if (IsValid(BuffGenerator))
-    {
-        BuffGenerator->NotifyOfReplicatedOutgoingBuffRemove(ReplicatedEvent);
-    }
+    TerminateBuff(RemovalReason);
 }
 
 #pragma endregion 
@@ -393,20 +292,34 @@ void UBuff::HandleBuffRemoveEventReplication(FBuffRemoveEvent const& ReplicatedE
 
 void UBuff::SubscribeToBuffUpdated(FBuffEventCallback const& Callback)
 {
-    if (!Callback.IsBound())
+    if (Callback.IsBound())
     {
-        return;
+        OnUpdated.AddUnique(Callback);
     }
-    OnUpdated.AddUnique(Callback);
 }
 
 void UBuff::UnsubscribeFromBuffUpdated(FBuffEventCallback const& Callback)
 {
-    if (!Callback.IsBound())
+    if (Callback.IsBound())
     {
-        return;
+        OnUpdated.Remove(Callback);
     }
-    OnUpdated.Remove(Callback);
+}
+
+void UBuff::SubscribeToBuffRemoved(FBuffRemoveCallback const& Callback)
+{
+    if (Callback.IsBound())
+    {
+        OnRemoved.AddUnique(Callback);
+    }
+}
+
+void UBuff::UnsubscribeFromBuffRemoved(FBuffRemoveCallback const& Callback)
+{
+    if (Callback.IsBound())
+    {
+        OnRemoved.Remove(Callback);
+    }
 }
 
 #pragma endregion

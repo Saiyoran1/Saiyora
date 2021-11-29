@@ -19,11 +19,11 @@ bool FCrowdControlStatus::AddNewBuff(UBuff* Source)
         SetNewDominantBuff(Source);
         return true;
     }
-    if (!DominantBuffInstance->GetFiniteDuration())
+    if (!DominantBuffInstance->HasFiniteDuration())
     {
         return false;
     }
-    if (!Source->GetFiniteDuration())
+    if (!Source->HasFiniteDuration())
     {
         SetNewDominantBuff(Source);
         return true;
@@ -79,7 +79,7 @@ void FCrowdControlStatus::SetNewDominantBuff(UBuff* NewDominant)
     if (IsValid(NewDominant))
     {
         DominantBuffClass = NewDominant->GetClass();
-        EndTime = NewDominant->GetFiniteDuration() ? NewDominant->GetExpirationTime() : 0.0f;
+        EndTime = NewDominant->HasFiniteDuration() ? NewDominant->GetExpirationTime() : 0.0f;
     }
     else
     {
@@ -98,7 +98,7 @@ UBuff* FCrowdControlStatus::GetLongestBuff()
         {
             continue;
         }
-        if (!Buff->GetFiniteDuration())
+        if (!Buff->HasFiniteDuration())
         {
             LongestBuff = Buff;
             break;

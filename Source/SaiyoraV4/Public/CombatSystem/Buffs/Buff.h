@@ -22,14 +22,14 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual UWorld* GetWorld() const override;
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Getter")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
 	UBuffHandler* GetHandler() const { return Handler; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Getter")
-	AActor* GetAppliedBy() const { return AppliedBy; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Getter")
-	AActor* GetAppliedTo() const { return Handler->GetOwner(); }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Getter")
-	UObject* GetSource() const { return Source; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	AActor* GetAppliedBy() const { return CreationEvent.AppliedBy; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	AActor* GetAppliedTo() const { return CreationEvent.AppliedTo; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	UObject* GetSource() const { return CreationEvent.Source; }
 
 private:
 
@@ -37,10 +37,6 @@ private:
 	AGameStateBase* GameStateRef;
 	UPROPERTY()
 	UBuffHandler* Handler;
-	UPROPERTY()
-	AActor* AppliedBy;
-	UPROPERTY()
-	UObject* Source;
 
 //Info
 
@@ -76,15 +72,31 @@ private:
 public:
 	
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
-	bool GetDuplicable() const { return bDuplicable; }
+	bool IsDuplicable() const { return bDuplicable; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
-	bool GetStackable() const { return bStackable; }
+	bool IsStackable() const { return bStackable; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
-	bool GetRefreshable() const { return bRefreshable; }
+	bool IsRefreshable() const { return bRefreshable; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
-	bool GetFiniteDuration() const { return bFiniteDuration; }
+	bool HasFiniteDuration() const { return bFiniteDuration; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
 	void GetBuffTags(FGameplayTagContainer& OutContainer) const { OutContainer.AppendTags(BuffTags); }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	int32 GetInitialStacks() const { return CreationEvent.NewStacks; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	float GetInitialDuration() const { return bFiniteDuration ? CreationEvent.NewDuration : 0.0f; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	float GetInitialApplyTime() const { return CreationEvent.NewApplyTime; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	float GetInitialExpireTime() const { return bFiniteDuration ? (GetInitialApplyTime() + CreationEvent.NewDuration) : 0.0f; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	bool WasInitiallyAppliedXPlane() const { return CreationEvent.AppliedXPlane; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	ESaiyoraPlane GetInitialOriginPlane() const { return CreationEvent.OriginPlane; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	ESaiyoraPlane GetInitialTargetPlane() const { return CreationEvent.TargetPlane; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	void GetInitialParameters(TArray<FCombatParameter>& OutParams) const { OutParams.Append(CreationEvent.CombatParams); }
 	void InitializeBuff(FBuffApplyEvent& Event, UBuffHandler* NewHandler, EBuffApplicationOverrideType const StackOverrideType,
 		int32 const OverrideStacks, EBuffApplicationOverrideType const RefreshOverrideType, float const OverrideDuration);
 	void ApplyEvent(FBuffApplyEvent& ApplicationEvent, EBuffApplicationOverrideType const StackOverrideType,
@@ -114,36 +126,54 @@ private:
 	float MaximumDuration = 1.0f;
 	UPROPERTY(EditDefaultsOnly, Category = "Application Behavior")
 	FGameplayTagContainer BuffTags;
-	void UpdateClientStateOnApply(FBuffApplyEvent const& ReplicatedEvent);
-	void HandleBuffApplyEventReplication(FBuffApplyEvent const& ReplicatedEvent);
+	UPROPERTY(ReplicatedUsing = OnRep_CreationEvent)
+	FBuffApplyEvent CreationEvent;
+	UFUNCTION()
+	void OnRep_CreationEvent();
 
 //Expiration
 
 public:
 
-	void ExpireBuff(FBuffRemoveEvent const & RemoveEvent);
+	UFUNCTION(BlueprintCallable, Category = "Buff")
+	void SubscribeToBuffRemoved(FBuffRemoveCallback const& Callback);
+	UFUNCTION(BlueprintCallable, Category = "Buff")
+	void UnsubscribeFromBuffRemoved(FBuffRemoveCallback const& Callback);
+	FBuffRemoveEvent TerminateBuff(EBuffExpireReason const TerminationReason);
 
 private:
 
+	UPROPERTY(ReplicatedUsing = OnRep_RemovalReason)
+	EBuffExpireReason RemovalReason;
+	UFUNCTION()
+	void OnRep_RemovalReason();
 	FTimerHandle ExpireHandle;
 	void ResetExpireTimer();
 	void CompleteExpireTimer();
-	void HandleBuffRemoveEventReplication(FBuffRemoveEvent const& ReplicatedEvent);
+	FBuffRemoveNotification OnRemoved;
 
 //Status
 
 public:
-	
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	EBuffStatus GetBuffStatus() const { return Status; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
 	int32 GetCurrentStacks() const { return CurrentStacks; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
 	float GetRemainingTime() const { return bFiniteDuration ? FMath::Max(0.0f, ExpireTime - GameStateRef->GetServerWorldTimeSeconds()) : 0.0f; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
-	float GetApplicationTime() const { return LastApplyTime; }
+	float GetLastApplicationTime() const { return LastApplyTime; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
 	float GetExpirationTime() const { return ExpireTime; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
-	EBuffStatus GetBuffStatus() const { return Status; }
+	bool WasLastAppliedXPlane() const { return LastApplyEvent.AppliedXPlane; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	ESaiyoraPlane GetLastOriginPlane() const { return LastApplyEvent.OriginPlane; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	ESaiyoraPlane GetLastTargetPlane() const { return LastApplyEvent.TargetPlane; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	void GetLastApplicationParameters(TArray<FCombatParameter>& OutParams) const { OutParams.Append(LastApplyEvent.CombatParams); }
 
 	UFUNCTION(BlueprintCallable, Category = "Buffs")
 	void SubscribeToBuffUpdated(FBuffEventCallback const& Callback);
@@ -152,63 +182,40 @@ public:
 
 private:
 
+	EBuffStatus Status = EBuffStatus::Spawning;
 	int32 CurrentStacks = 0;
 	float LastApplyTime = 0.0f;
 	float ExpireTime = 0.0f;
-	
-	EBuffStatus Status = EBuffStatus::Spawning;
-	
-	UPROPERTY(ReplicatedUsing = OnRep_CreationEvent)
-	FBuffApplyEvent CreationEvent;
-	UFUNCTION()
-	void OnRep_CreationEvent();
 	UPROPERTY(ReplicatedUsing = OnRep_LastApplyEvent)
 	FBuffApplyEvent LastApplyEvent;
 	UFUNCTION()
 	void OnRep_LastApplyEvent();
-	UPROPERTY(ReplicatedUsing = OnRep_RemovingEvent)
-	FBuffRemoveEvent RemovingEvent;
-	UFUNCTION()
-	void OnRep_RemovingEvent();
-
+	//This delegate is for stacking and refreshing, for non-FCombatModifier functionality.
 	FBuffEventNotification OnUpdated;
 
 //Buff Functions
 
 public:
 
-	void RegisterBuffFunction(UBuffFunction* NewFunction) { BuffFunctions.AddUnique(NewFunction); }
+	void RegisterBuffFunction(UBuffFunction* NewFunction) { if (Status == EBuffStatus::Spawning) { BuffFunctions.AddUnique(NewFunction); }}
 
 protected:
 
-	UFUNCTION(BlueprintImplementableEvent)
-	void BuffFunctionality();
+	UFUNCTION(BlueprintNativeEvent)
+	void SetupCommonBuffFunctions();
+	virtual void SetupCommonBuffFunctions_Implementation() {}
+	UFUNCTION(BlueprintNativeEvent)
+	void OnApply(FBuffApplyEvent const& Event);
+	virtual void OnApply_Implementation(FBuffApplyEvent const& Event) {}
+	UFUNCTION(BlueprintNativeEvent)
+	void OnRemove(FBuffRemoveEvent const& Event);
+	virtual void OnRemove_Implementation(FBuffRemoveEvent const& Event) {}
 	
 private:
 	
 	UPROPERTY()
 	TArray<UBuffFunction*> BuffFunctions;
 	//Delegates here are only for FCombatModifiers that buff functions apply.
-	FModifierNotification OnStacked;
-	FModifierNotification OnRemoved;
-
-public:
-/*
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Getter")
-	FBuffApplyEvent GetCreationEvent() const { return CreationEvent; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Getter")
-	FBuffApplyEvent GetLastApplyEvent() const { return LastApplyEvent; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Getter")
-    int32 GetInitialStacks() const { return CreationEvent.NewStacks; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Getter")
-    float GetInitialApplyTime() const { return CreationEvent.NewApplyTime; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Getter")
-    float GetInitialExpireTime() const { return bFiniteDuration ? (GetInitialApplyTime() + CreationEvent.NewDuration) : 0.0f; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Getter")
-    bool GetAppliedXPlane() const { return CreationEvent.AppliedXPlane; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Getter")
-    ESaiyoraPlane GetAppliedByPlane() const { return CreationEvent.AppliedByPlane; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Getter")
-    ESaiyoraPlane GetAppliedToPlane() const { return CreationEvent.AppliedToPlane; }
-*/
+	FModifierNotification ModifierStack;
+	FModifierNotification ModifierInvalidate;
 };
