@@ -5,7 +5,7 @@
 #include "SaiyoraObjects.h"
 #include "CombatStat.generated.h"
 
-UCLASS()
+/*UCLASS()
 class SAIYORAV4_API UCombatStat : public UModifiableFloatValue
 {
 	GENERATED_BODY()
@@ -26,34 +26,44 @@ public:
 	void Init(FStatInfo const& InitInfo, class UStatHandler* NewHandler);
 	FGameplayTag GetStatTag() const { return StatTag; }
 	bool ShouldReplicate() const { return bShouldReplicate; }
-};
+};*/
 
 USTRUCT()
 struct FCombatStat : public FFastArraySerializerItem
 {
 	GENERATED_BODY()
 
+	FCombatStat(FStatInfo const& InitInfo);
 	void SubscribeToStatChanged(FStatCallback const& Callback);
 	void UnsubscribeFromStatChanged(FStatCallback const& Callback);
-	FGameplayTag GetStatTag() const { return StatTag; }
-	bool ShouldReplicate() const { return bShouldReplicate; }
+	void AddModifier(FCombatModifier const& Modifier);
+	void RemoveModifier(UBuff* Source);
+	
+	FGameplayTag GetStatTag() const { return Defaults.StatTag; }
+	bool ShouldReplicate() const { return Defaults.bShouldReplicate; }
+	bool IsModifiable() const { return Defaults.bModifiable; }
 	bool IsInitialized() const { return bInitialized; }
-	FCombatStat(FStatInfo const& InitInfo);
 	float GetValue() const { return Value; }
+	float GetDefaultValue() const { return Defaults.DefaultValue; }
+	bool HasMinimum() const { return Defaults.bCappedLow; }
+	float GetMinimum() const { return Defaults.MinClamp; }
+	bool HasMaximum() const { return Defaults.bCappedHigh; }
+	float GetMaximum() const { return Defaults.MaxClamp; }
+	void GetModifiers(TArray<FCombatModifier>& OutMods) const { OutMods.Append(Modifiers); }
+
+	void PostReplicatedAdd(const struct FCombatStatArray& InArraySerializer);
+	void PostReplicatedChange(const struct FCombatStatArray& InArraySerializer);
 
 private:
-	
-	UPROPERTY()
-	FGameplayTag StatTag;
+
 	float Value = 0.0f;
-	float BaseValue = 0.0f;
-	bool bHasMin = true;
-	float Min = 0.0f;
-	bool bHasMax = false;
-	float Max = 0.0f;
+	void RecalculateValue();
+	UPROPERTY()
+	FStatInfo Defaults;
 	UPROPERTY()
 	TArray<FCombatModifier> Modifiers;
-	bool bShouldReplicate = false;
+	UPROPERTY()
+	int32 LastPredictionID = 0;
 	bool bInitialized = false;
 	FStatNotification OnStatChanged;
 };
@@ -67,6 +77,7 @@ struct FCombatStatArray : FFastArraySerializer
 	TArray<FCombatStat> Items;
 	UPROPERTY(NotReplicated)
 	class UStatHandler* Handler;
+	TMultiMap<FGameplayTag, FStatCallback> PendingSubscriptions;
 
 	bool NetDeltaSerialize(FNetDeltaSerializeInfo& DeltaParms)
     {

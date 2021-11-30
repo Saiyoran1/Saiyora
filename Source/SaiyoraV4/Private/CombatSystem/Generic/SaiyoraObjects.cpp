@@ -1,7 +1,6 @@
 ﻿#include "SaiyoraObjects.h"
-#include "Buff.h"
 
-void UModifiableIntValue::Init(int32 const Base, bool const bModdable, bool const bLowCapped, int32 const Min,
+/*void UModifiableIntValue::Init(int32 const Base, bool const bModdable, bool const bLowCapped, int32 const Min,
     bool const bHighCapped, int32 const Max)
 {
     bModifiable = bModdable;
@@ -209,4 +208,4 @@ void UModifiableFloatValue::RemoveModifier(UBuff* Source)
     {
         RecalculateValue();
     }
-}
+}*/

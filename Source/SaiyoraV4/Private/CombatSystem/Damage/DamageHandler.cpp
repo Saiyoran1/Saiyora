@@ -157,9 +157,9 @@ void UDamageHandler::UpdateMaxHealth(float const NewMaxHealth)
 	}
 }
 
-void UDamageHandler::ReactToMaxHealthStat(FGameplayTag const& StatTag, float const NewValue)
+void UDamageHandler::ReactToMaxHealthStat(FGameplayTag const& StatTag, float const NewValue, int32 const PredictionID)
 {
-	if (StatTag.IsValid() && StatTag.MatchesTag(MaxHealthStatTag()))
+	if (StatTag.IsValid() && StatTag.MatchesTagExact(MaxHealthStatTag()))
 	{
 		UpdateMaxHealth(NewValue);
 	}

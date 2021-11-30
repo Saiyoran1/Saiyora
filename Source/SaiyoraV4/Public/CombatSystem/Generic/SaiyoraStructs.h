@@ -15,9 +15,15 @@ struct FCombatModifier
     static int32 ApplyModifiers(TArray<FCombatModifier> const& ModArray, int32 const BaseValue);
     static const FCombatModifier InvalidMod;
     FCombatModifier(float const BaseValue, EModifierType const ModifierType, bool const Stackable = false, int32 const InitialStacks = 0);
+    UPROPERTY()
     EModifierType Type = EModifierType::Invalid;
+    UPROPERTY()
     float Value = 0.0f;
+    UPROPERTY()
     bool bStackable = true;
+    UPROPERTY(NotReplicated)
+    class UBuff* Source = nullptr;
+    UPROPERTY()
     int32 Stacks = 0;
 };
 

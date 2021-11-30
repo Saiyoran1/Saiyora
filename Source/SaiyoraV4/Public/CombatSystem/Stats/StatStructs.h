@@ -1,29 +1,11 @@
 #pragma once
 #include "CoreMinimal.h"
-#include "SaiyoraEnums.h"
 #include "GameplayTagContainer.h"
 #include "Engine/DataTable.h"
 #include "StatStructs.generated.h"
 
-DECLARE_DYNAMIC_DELEGATE_TwoParams(FStatCallback, FGameplayTag const&, StatTag, float const, NewValue);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FStatNotification, FGameplayTag const&, StatTag, float const, NewValue);
-
-USTRUCT(BlueprintType)
-struct FStatModifier
-{
-    GENERATED_BODY()
-
-    UPROPERTY(BlueprintReadWrite, meta = (GameplayTagFilter = "Stat"))
-    FGameplayTag StatTag;
-    UPROPERTY(BlueprintReadWrite)
-    EModifierType ModType = EModifierType::Invalid;
-    UPROPERTY(BlueprintReadWrite)
-    float ModValue = 0.0f;
-    UPROPERTY(BlueprintReadWrite)
-    bool bStackable = false;
-
-    FORCEINLINE bool operator==(const FStatModifier& Other) const { return Other.StatTag.MatchesTagExact(StatTag) && Other.ModType == ModType && Other.ModValue == ModValue && Other.bStackable == bStackable; }
-};
+DECLARE_DYNAMIC_DELEGATE_ThreeParams(FStatCallback, FGameplayTag const&, StatTag, float const, NewValue, int32 const, PredictionID);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FStatNotification, FGameplayTag const&, StatTag, float const, NewValue, int32 const, PredictionID);
 
 USTRUCT()
 struct FStatInfo : public FTableRowBase

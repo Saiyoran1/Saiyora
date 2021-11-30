@@ -106,7 +106,7 @@ private:
 	void UpdateMaxHealth(float const NewMaxHealth);
 	FStatCallback MaxHealthStatCallback;
 	UFUNCTION()
-	void ReactToMaxHealthStat(FGameplayTag const& StatTag, float const NewValue);
+	void ReactToMaxHealthStat(FGameplayTag const& StatTag, float const NewValue, int32 const PredictionID);
 	bool CheckDeathRestricted(FDamagingEvent const& DamageEvent);
 	void Die();
 

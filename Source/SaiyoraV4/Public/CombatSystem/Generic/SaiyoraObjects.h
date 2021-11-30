@@ -5,7 +5,7 @@
 #include "BuffStructs.h"
 #include "SaiyoraObjects.generated.h"
 
-UCLASS()
+/*UCLASS()
 class SAIYORAV4_API UModifiableIntValue : public UObject
 {
 	GENERATED_BODY()
@@ -57,4 +57,4 @@ private:
 	int32 LastPredictionID = 0;
 	FFloatValueRecalculation CustomRecalculation;
 	virtual void OnValueChanged(float const PreviousValue, int32 const PredictionID) {}
-};
+};*/
