@@ -33,7 +33,7 @@ public:
 
 	//TODO: Stat replication, client subscription, prediction of stat value changes via ability?
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stat", meta = (GameplayTagFilter = "Stat"))
-	bool GetStatValid(FGameplayTag const StatTag) const;
+	bool IsStatValid(FGameplayTag const StatTag) const;
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stat", meta = (GameplayTagFilter = "Stat"))
 	float GetStatValue(FGameplayTag const StatTag) const;
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Stat", meta = (GameplayTagFilter = "Stat", HidePin = "Source", DefaultToSelf = "Source"))
@@ -49,7 +49,9 @@ private:
 	
 	UPROPERTY(EditAnywhere, Category = "Stat")
 	UDataTable* InitialStats;
+	//UPROPERTY()
+	//TMap<FGameplayTag, UCombatStat*> Stats;
+	TMap<FGameplayTag, FStatInfo> StatDefaults;
 	UPROPERTY()
-	TMap<FGameplayTag, UCombatStat*> Stats;
-	FGameplayTagContainer UnmodifiableStats;
+	FCombatStatArray ModdableStats;
 };

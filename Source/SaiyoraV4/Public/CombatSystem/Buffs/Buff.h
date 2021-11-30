@@ -167,13 +167,14 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
 	float GetExpirationTime() const { return ExpireTime; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
-	bool WasLastAppliedXPlane() const { return LastApplyEvent.AppliedXPlane; }
+	bool WasLastAppliedXPlane() const { return LastApplyEvent.ActionTaken == EBuffApplyAction::Failed ? CreationEvent.AppliedXPlane : LastApplyEvent.AppliedXPlane; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
-	ESaiyoraPlane GetLastOriginPlane() const { return LastApplyEvent.OriginPlane; }
+	ESaiyoraPlane GetLastOriginPlane() const { return LastApplyEvent.ActionTaken == EBuffApplyAction::Failed ? CreationEvent.OriginPlane : LastApplyEvent.OriginPlane; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
-	ESaiyoraPlane GetLastTargetPlane() const { return LastApplyEvent.TargetPlane; }
+	ESaiyoraPlane GetLastTargetPlane() const { return LastApplyEvent.ActionTaken == EBuffApplyAction::Failed ? CreationEvent.TargetPlane : LastApplyEvent.TargetPlane; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
-	void GetLastApplicationParameters(TArray<FCombatParameter>& OutParams) const { OutParams.Append(LastApplyEvent.CombatParams); }
+	void GetLastApplicationParameters(TArray<FCombatParameter>& OutParams) const { LastApplyEvent.ActionTaken == EBuffApplyAction::Failed ? OutParams.Append(CreationEvent.CombatParams) : OutParams.Append(LastApplyEvent.CombatParams); }
+	int32 GetLastPredictionID() const { return LastApplyEvent.ActionTaken == EBuffApplyAction::Failed ? CreationEvent.PredictionID : LastApplyEvent.PredictionID; }
 
 	UFUNCTION(BlueprintCallable, Category = "Buffs")
 	void SubscribeToBuffUpdated(FBuffEventCallback const& Callback);
@@ -190,7 +191,6 @@ private:
 	FBuffApplyEvent LastApplyEvent;
 	UFUNCTION()
 	void OnRep_LastApplyEvent();
-	//This delegate is for stacking and refreshing, for non-FCombatModifier functionality.
 	FBuffEventNotification OnUpdated;
 
 //Buff Functions

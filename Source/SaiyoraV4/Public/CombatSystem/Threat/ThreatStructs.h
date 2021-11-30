@@ -4,6 +4,8 @@
 #include "ThreatEnums.h"
 #include "ThreatStructs.generated.h"
 
+class UBuff;
+
 USTRUCT(BlueprintType)
 struct FThreatEvent
 {

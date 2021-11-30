@@ -41,6 +41,8 @@ struct FBuffApplyEvent
     float NewDuration = 0.0f;
     UPROPERTY(BlueprintReadOnly, Category = "Buff")
     float NewApplyTime = 0.0f;
+    UPROPERTY()
+    int32 PredictionID = 0;
 };
 
 USTRUCT(BlueprintType)

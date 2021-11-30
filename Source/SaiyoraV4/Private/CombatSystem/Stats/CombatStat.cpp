@@ -14,7 +14,7 @@ void UCombatStat::Init(FStatInfo const& InitInfo, UStatHandler* NewHandler)
 	bInitialized = true;
 }
 
-void UCombatStat::OnValueChanged(float const PreviousValue)
+void UCombatStat::OnValueChanged(float const PreviousValue, int32 const PredictionID)
 {
 	OnStatChanged.Broadcast(StatTag, GetValue());
 }

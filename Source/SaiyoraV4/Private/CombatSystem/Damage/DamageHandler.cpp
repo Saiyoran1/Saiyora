@@ -56,24 +56,24 @@ void UDamageHandler::BeginPlay()
 		//Bind Max Health stat, create damage and healing modifiers from stats.
 		if (IsValid(StatHandler))
 		{
-			if (bHasHealth && !bStaticMaxHealth && StatHandler->GetStatValid(MaxHealthStatTag()))
+			if (bHasHealth && !bStaticMaxHealth && StatHandler->IsStatValid(MaxHealthStatTag()))
 			{
 				UpdateMaxHealth(StatHandler->GetStatValue(MaxHealthStatTag()));
 				StatHandler->SubscribeToStatChanged(MaxHealthStatTag(), MaxHealthStatCallback);
 			}
-			if (StatHandler->GetStatValid(DamageDoneStatTag()))
+			if (StatHandler->IsStatValid(DamageDoneStatTag()))
 			{
 				AddOutgoingDamageModifier(DamageDoneModFromStat);
 			}
-			if (bHasHealth && bCanEverReceiveDamage && StatHandler->GetStatValid(DamageTakenStatTag()))
+			if (bHasHealth && bCanEverReceiveDamage && StatHandler->IsStatValid(DamageTakenStatTag()))
 			{
 				AddIncomingDamageModifier(DamageTakenModFromStat);
 			}
-			if (StatHandler->GetStatValid(HealingDoneStatTag()))
+			if (StatHandler->IsStatValid(HealingDoneStatTag()))
 			{
 				AddOutgoingHealingModifier(HealingDoneModFromStat);
 			}
-			if (bHasHealth && bCanEverReceiveHealing && StatHandler->GetStatValid(HealingTakenStatTag()))
+			if (bHasHealth && bCanEverReceiveHealing && StatHandler->IsStatValid(HealingTakenStatTag()))
 			{
 				AddIncomingHealingModifier(HealingTakenModFromStat);
 			}
@@ -725,7 +725,7 @@ void UDamageHandler::RemoveOutgoingDamageModifier(FDamageModCondition const& Mod
 
 FCombatModifier UDamageHandler::ModifyDamageDoneFromStat(FDamageInfo const& DamageInfo)
 {
-	if (IsValid(StatHandler) && StatHandler->GetStatValid(DamageDoneStatTag()))
+	if (IsValid(StatHandler) && StatHandler->IsStatValid(DamageDoneStatTag()))
 	{
 		return FCombatModifier(StatHandler->GetStatValue(DamageDoneStatTag()), EModifierType::Multiplicative);
 	}
@@ -767,7 +767,7 @@ void UDamageHandler::RemoveOutgoingHealingModifier(FDamageModCondition const& Mo
 
 FCombatModifier UDamageHandler::ModifyHealingDoneFromStat(FDamageInfo const& HealingInfo)
 {
-	if (IsValid(StatHandler) && StatHandler->GetStatValid(HealingDoneStatTag()))
+	if (IsValid(StatHandler) && StatHandler->IsStatValid(HealingDoneStatTag()))
 	{
 		return FCombatModifier(StatHandler->GetStatValue(HealingDoneStatTag()), EModifierType::Multiplicative);
 	}
@@ -809,7 +809,7 @@ void UDamageHandler::RemoveIncomingDamageModifier(FDamageModCondition const& Mod
 
 FCombatModifier UDamageHandler::ModifyDamageTakenFromStat(FDamageInfo const& DamageInfo)
 {
-	if (IsValid(StatHandler) && StatHandler->GetStatValid(DamageTakenStatTag()))
+	if (IsValid(StatHandler) && StatHandler->IsStatValid(DamageTakenStatTag()))
 	{
 		return FCombatModifier(StatHandler->GetStatValue(DamageTakenStatTag()), EModifierType::Multiplicative);
 	}
@@ -847,7 +847,7 @@ void UDamageHandler::RemoveIncomingHealingModifier(FDamageModCondition const& Mo
 
 FCombatModifier UDamageHandler::ModifyHealingTakenFromStat(FDamageInfo const& HealingInfo)
 {
-	if (IsValid(StatHandler) && StatHandler->GetStatValid(HealingTakenStatTag()))
+	if (IsValid(StatHandler) && StatHandler->IsStatValid(HealingTakenStatTag()))
 	{
 		return FCombatModifier(StatHandler->GetStatValue(HealingTakenStatTag()), EModifierType::Multiplicative);
 	}

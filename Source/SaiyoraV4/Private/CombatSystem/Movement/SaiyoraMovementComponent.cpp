@@ -227,56 +227,56 @@ void USaiyoraMovementComponent::BeginPlay()
 	}
 	if (IsValid(OwnerStatHandler))
 	{
-		if (OwnerStatHandler->GetStatValid(MaxWalkSpeedStatTag()))
+		if (OwnerStatHandler->IsStatValid(MaxWalkSpeedStatTag()))
 		{
 			MaxWalkSpeed = FMath::Max(DefaultMaxWalkSpeed * OwnerStatHandler->GetStatValue(MaxWalkSpeedStatTag()), 0.0f);
 			FStatCallback MaxWalkSpeedStatCallback;
 			MaxWalkSpeedStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnMaxWalkSpeedStatChanged);
 			OwnerStatHandler->SubscribeToStatChanged(MaxWalkSpeedStatTag(), MaxWalkSpeedStatCallback);
 		}
-		if (OwnerStatHandler->GetStatValid(MaxCrouchSpeedStatTag()))
+		if (OwnerStatHandler->IsStatValid(MaxCrouchSpeedStatTag()))
 		{
 			MaxWalkSpeedCrouched = FMath::Max(DefaultCrouchSpeed * OwnerStatHandler->GetStatValue(MaxCrouchSpeedStatTag()), 0.0f);
 			FStatCallback MaxCrouchSpeedStatCallback;
 			MaxCrouchSpeedStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnMaxCrouchSpeedStatChanged);
 			OwnerStatHandler->SubscribeToStatChanged(MaxCrouchSpeedStatTag(), MaxCrouchSpeedStatCallback);
 		}
-		if (OwnerStatHandler->GetStatValid(GroundFrictionStatTag()))
+		if (OwnerStatHandler->IsStatValid(GroundFrictionStatTag()))
 		{
 			GroundFriction = FMath::Max(DefaultGroundFriction * OwnerStatHandler->GetStatValue(GroundFrictionStatTag()), 0.0f);
 			FStatCallback GroundFrictionStatCallback;
 			GroundFrictionStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnGroundFrictionStatChanged);
 			OwnerStatHandler->SubscribeToStatChanged(GroundFrictionStatTag(), GroundFrictionStatCallback);
 		}
-		if (OwnerStatHandler->GetStatValid(BrakingDecelerationStatTag()))
+		if (OwnerStatHandler->IsStatValid(BrakingDecelerationStatTag()))
 		{
 			BrakingDecelerationWalking = FMath::Max(DefaultBrakingDeceleration * OwnerStatHandler->GetStatValue(BrakingDecelerationStatTag()), 0.0f);
 			FStatCallback BrakingDecelerationStatCallback;
 			BrakingDecelerationStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnBrakingDecelerationStatChanged);
 			OwnerStatHandler->SubscribeToStatChanged(BrakingDecelerationStatTag(), BrakingDecelerationStatCallback);
 		}
-		if (OwnerStatHandler->GetStatValid(MaxAccelerationStatTag()))
+		if (OwnerStatHandler->IsStatValid(MaxAccelerationStatTag()))
 		{
 			MaxAcceleration = FMath::Max(DefaultMaxAcceleration * OwnerStatHandler->GetStatValue(MaxAccelerationStatTag()), 0.0f);
 			FStatCallback MaxAccelerationStatCallback;
 			MaxAccelerationStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnMaxAccelerationStatChanged);
 			OwnerStatHandler->SubscribeToStatChanged(MaxAccelerationStatTag(), MaxAccelerationStatCallback);
 		}
-		if (OwnerStatHandler->GetStatValid(GravityScaleStatTag()))
+		if (OwnerStatHandler->IsStatValid(GravityScaleStatTag()))
 		{
 			GravityScale = FMath::Max(DefaultGravityScale * OwnerStatHandler->GetStatValue(GravityScaleStatTag()), 0.0f);
 			FStatCallback GravityScaleStatCallback;
 			GravityScaleStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnGravityScaleStatChanged);
 			OwnerStatHandler->SubscribeToStatChanged(GravityScaleStatTag(), GravityScaleStatCallback);
 		}
-		if (OwnerStatHandler->GetStatValid(JumpZVelocityStatTag()))
+		if (OwnerStatHandler->IsStatValid(JumpZVelocityStatTag()))
 		{
 			JumpZVelocity = FMath::Max(DefaultJumpZVelocity * OwnerStatHandler->GetStatValue(JumpZVelocityStatTag()), 0.0f);
 			FStatCallback JumpVelocityStatCallback;
 			JumpVelocityStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnJumpVelocityStatChanged);
 			OwnerStatHandler->SubscribeToStatChanged(JumpZVelocityStatTag(), JumpVelocityStatCallback);
 		}
-		if (OwnerStatHandler->GetStatValid(AirControlStatTag()))
+		if (OwnerStatHandler->IsStatValid(AirControlStatTag()))
 		{
 			AirControl = FMath::Max(DefaultAirControl * OwnerStatHandler->GetStatValue(AirControlStatTag()), 0.0f);
 			FStatCallback AirControlStatCallback;

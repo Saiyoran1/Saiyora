@@ -43,13 +43,16 @@ void UStatHandler::InitializeComponent()
 		{
 			continue;
 		}
-		UCombatStat* NewStat = Stats.Add(InitInfo->StatTag, NewObject<UCombatStat>(GetOwner()));
-		if(IsValid(NewStat))
+		StatDefaults.Add(InitInfo->StatTag, *InitInfo);
+		if (GetOwnerRole() == ROLE_Authority)
 		{
-			NewStat->Init(*InitInfo, this);
-			if (!NewStat->IsModifiable())
+			if (InitInfo->bModifiable)
 			{
-				UnmodifiableStats.AddTag(NewStat->GetStatTag());
+				FCombatStat& NewStat = ModdableStats.Items.Add_GetRef(FCombatStat(*InitInfo));
+				if (NewStat.ShouldReplicate())
+				{
+					ModdableStats.MarkItemDirty(NewStat);
+				}
 			}
 		}
 	}
@@ -58,31 +61,61 @@ void UStatHandler::InitializeComponent()
 void UStatHandler::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(UStatHandler, ModdableStats);
 }
 
-bool UStatHandler::GetStatValid(FGameplayTag const StatTag) const
+bool UStatHandler::IsStatValid(FGameplayTag const StatTag) const
 {
-	if (!StatTag.IsValid() || !StatTag.MatchesTag(GenericStatTag()))
+	if (!StatTag.IsValid() || !StatTag.MatchesTag(GenericStatTag()) || StatTag.MatchesTagExact(GenericStatTag()))
 	{
 		return false;
 	}
-	UCombatStat* Stat = Stats.FindRef(StatTag);
-	return IsValid(Stat) && Stat->IsInitialized();
+	for (TTuple<FGameplayTag, FStatInfo> const& DefaultInfo : StatDefaults)
+	{
+		if (DefaultInfo.Key.MatchesTagExact(StatTag))
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 float UStatHandler::GetStatValue(FGameplayTag const StatTag) const
 {
-	UCombatStat* FoundStat = Stats.FindRef(StatTag);
-	if (IsValid(FoundStat))
+	if (!StatTag.IsValid() || !StatTag.MatchesTag(GenericStatTag()) || StatTag.MatchesTagExact(GenericStatTag()))
 	{
-		return FoundStat->GetValue();
+		return -1.0f;
+	}
+	//Iterate over defaults first.
+	for (TTuple<FGameplayTag, FStatInfo> const& DefaultInfo : StatDefaults)
+	{
+		if (DefaultInfo.Key.MatchesTagExact(StatTag))
+		{
+			//If we found the default, check if it will be in the moddable array.
+			//For the server, all moddable stats are in the array. For clients, only moddable AND replicated stats are in the array.
+			if (DefaultInfo.Value.bModifiable && (GetOwnerRole() == ROLE_Authority || DefaultInfo.Value.bShouldReplicate))
+			{
+				for (FCombatStat const& Stat : ModdableStats.Items)
+				{
+					//Check initialized to prevent garbage values or pre-replication values on client.
+					if (Stat.GetStatTag().MatchesTagExact(StatTag) && Stat.IsInitialized())
+					{
+						return Stat.GetValue();
+					}
+				}
+			}
+			//Use the default value if the modded value isn't found or isn't available.
+			return DefaultInfo.Value.DefaultValue;
+		}
 	}
 	return -1.0f;
 }
 
 void UStatHandler::AddStatModifier(UBuff* Source, FGameplayTag const StatTag, FCombatModifier const& Modifier)
 {
-	if (GetOwnerRole() != ROLE_Authority || Modifier.Type() == EModifierType::Invalid || !StatTag.MatchesTag(GenericStatTag()) || !IsValid(Source))
+	if (GetOwnerRole() != ROLE_Authority || Modifier.Type() == EModifierType::Invalid || !
+		StatTag.IsValid() || !StatTag.MatchesTag(GenericStatTag()) || StatTag.MatchesTagExact(GenericStatTag()) ||
+		!IsValid(Source) || Source->GetAppliedTo() != GetOwner())
 	{
 		return;
 	}

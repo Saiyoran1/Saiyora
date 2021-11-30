@@ -90,7 +90,7 @@ FCombatModifier UAbilityHandler::ModifyCooldownFromStat(TSubclassOf<UCombatAbili
 	FCombatModifier Mod;
 	if (IsValid(StatHandler))
 	{
-		if (StatHandler->GetStatValid(CooldownLengthStatTag()))
+		if (StatHandler->IsStatValid(CooldownLengthStatTag()))
 		{
 			Mod = FCombatModifier(StatHandler->GetStatValue(CooldownLengthStatTag()), EModifierType::Multiplicative);
 		}
@@ -103,7 +103,7 @@ FCombatModifier UAbilityHandler::ModifyGlobalCooldownFromStat(TSubclassOf<UComba
 	FCombatModifier Mod;
 	if (IsValid(StatHandler))
 	{
-		if (StatHandler->GetStatValid(GlobalCooldownLengthStatTag()))
+		if (StatHandler->IsStatValid(GlobalCooldownLengthStatTag()))
 		{
 			Mod = FCombatModifier(StatHandler->GetStatValue(GlobalCooldownLengthStatTag()), EModifierType::Multiplicative);
 		}
@@ -116,7 +116,7 @@ FCombatModifier UAbilityHandler::ModifyCastLengthFromStat(TSubclassOf<UCombatAbi
 	FCombatModifier Mod;
 	if (IsValid(StatHandler))
 	{
-		if (StatHandler->GetStatValid(CastLengthStatTag()))
+		if (StatHandler->IsStatValid(CastLengthStatTag()))
 		{
 			Mod = FCombatModifier(StatHandler->GetStatValue(CastLengthStatTag()), EModifierType::Multiplicative);
 		}

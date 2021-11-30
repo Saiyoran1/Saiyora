@@ -22,12 +22,12 @@ struct FCombatModifier
 };
 
 DECLARE_DYNAMIC_DELEGATE_RetVal_TwoParams(float, FFloatValueRecalculation, TArray<FCombatModifier>const&, Modifiers, float const, BaseValue);
-DECLARE_DYNAMIC_DELEGATE_TwoParams(FFloatValueCallback, float const, Previous, float const, New);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FFloatValueNotification, float const, Previous, float const, New);
+DECLARE_DYNAMIC_DELEGATE_ThreeParams(FFloatValueCallback, float const, Previous, float const, New, int32 const, PredictionID);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FFloatValueNotification, float const, Previous, float const, New, int32 const, PredictionID);
 
 DECLARE_DYNAMIC_DELEGATE_RetVal_TwoParams(int32, FIntValueRecalculation, TArray<FCombatModifier>const&, Modifiers, int32 const, BaseValue);
-DECLARE_DYNAMIC_DELEGATE_TwoParams(FIntValueCallback, int32 const, Previous, int32 const, New);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FIntValueNotification, int32 const, Previous, int32 const, New);
+DECLARE_DYNAMIC_DELEGATE_ThreeParams(FIntValueCallback, int32 const, Previous, int32 const, New, int32 const, PredictionID);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FIntValueNotification, int32 const, Previous, int32 const, New, int32 const, PredictionID);
 
 USTRUCT(BlueprintType)
 struct FCombatParameter

@@ -31,7 +31,7 @@ void UModifiableIntValue::SetRecalculationFunction(FIntValueRecalculation const&
     }
 }
 
-void UModifiableIntValue::RecalculateValue()
+void UModifiableIntValue::RecalculateValue(bool const bChangedPredictionID)
 {
     int32 const Previous = Value;
     if (bModifiable)
@@ -59,25 +59,9 @@ void UModifiableIntValue::RecalculateValue()
     {
         Value = BaseValue;   
     }
-    if (Value != Previous)
+    if (Previous != Value || bChangedPredictionID)
     {
-        OnValueChanged.Broadcast(Previous, Value);
-    }
-}
-
-void UModifiableIntValue::SubscribeToValueChanged(FIntValueCallback const& Callback)
-{
-    if (Callback.IsBound())
-    {
-        OnValueChanged.AddUnique(Callback);
-    }
-}
-
-void UModifiableIntValue::UnsubscribeFromValueChanged(FIntValueCallback const& Callback)
-{
-    if (Callback.IsBound())
-    {
-        OnValueChanged.Remove(Callback);
+        OnUpdated(Previous, LastPredictionID);
     }
 }
 
@@ -102,9 +86,15 @@ void UModifiableIntValue::AddModifier(FCombatModifier const& Modifier, UBuff* So
         Modifiers.Add(Source, Modifier);
         bShouldRecalculate = true;
     }
-    if (bShouldRecalculate)
+    bool bChangedPredictionID = false;
+    if (Source->GetLastPredictionID() > LastPredictionID)
     {
-        RecalculateValue();
+        LastPredictionID = Source->GetLastPredictionID();
+        bChangedPredictionID = true;
+    }
+    if (bShouldRecalculate || bChangedPredictionID)
+    {
+        RecalculateValue(bChangedPredictionID);
     }
 }
 
@@ -146,7 +136,7 @@ void UModifiableFloatValue::SetRecalculationFunction(FFloatValueRecalculation co
     }
 }
 
-void UModifiableFloatValue::RecalculateValue()
+void UModifiableFloatValue::RecalculateValue(bool const bChangedPredictionID)
 {
     float const Previous = Value;
     if (bModifiable)
@@ -174,25 +164,9 @@ void UModifiableFloatValue::RecalculateValue()
     {
         Value = BaseValue;   
     }
-    if (Value != Previous)
+    if (Value != Previous || bChangedPredictionID)
     {
-        OnValueChanged.Broadcast(Previous, Value);
-    }
-}
-
-void UModifiableFloatValue::SubscribeToValueChanged(FFloatValueCallback const& Callback)
-{
-    if (Callback.IsBound())
-    {
-        OnValueChanged.AddUnique(Callback);
-    }
-}
-
-void UModifiableFloatValue::UnsubscribeFromValueChanged(FFloatValueCallback const& Callback)
-{
-    if (Callback.IsBound())
-    {
-        OnValueChanged.Remove(Callback);
+        OnValueChanged(Previous, LastPredictionID);
     }
 }
 
@@ -217,9 +191,15 @@ void UModifiableFloatValue::AddModifier(FCombatModifier const& Modifier, UBuff* 
         Modifiers.Add(Source, Modifier);
         bShouldRecalculate = true;
     }
-    if (bShouldRecalculate)
+    bool bChangedPrediction = false;
+    if (Source->GetLastPredictionID() > LastPredictionID)
     {
-        RecalculateValue();
+        LastPredictionID = Source->GetLastPredictionID();
+        bChangedPrediction = true;
+    }
+    if (bShouldRecalculate || bChangedPrediction)
+    {
+        RecalculateValue(bChangedPrediction);
     }
 }
 

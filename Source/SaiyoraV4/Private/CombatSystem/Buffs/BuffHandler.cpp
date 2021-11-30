@@ -1,6 +1,7 @@
 #include "BuffHandler.h"
 #include "Buff.h"
 #include "PlaneComponent.h"
+#include "PlayerCombatAbility.h"
 #include "SaiyoraCombatInterface.h"
 #include "UnrealNetwork.h"
 #include "Engine/ActorChannel.h"
@@ -68,6 +69,11 @@ FBuffApplyEvent UBuffHandler::ApplyBuff(TSubclassOf<UBuff> const BuffClass, AAct
     Event.Source = Source;
     Event.BuffClass = BuffClass;
 	Event.CombatParams = BuffParams;
+	UPlayerCombatAbility* SourceAsPlayerAbility = Cast<UPlayerCombatAbility>(Source);
+	if (IsValid(SourceAsPlayerAbility) && SourceAsPlayerAbility->GetHandler()->GetOwner() == Event.AppliedBy && SourceAsPlayerAbility->GetHandler()->GetOwner() == Event.AppliedTo)
+	{
+		Event.PredictionID = SourceAsPlayerAbility->GetCurrentPredictionID();
+	}
 
     if (!IgnoreRestrictions && (CheckIncomingBuffRestricted(Event) || (IsValid(GeneratorBuff) && GeneratorBuff->CheckOutgoingBuffRestricted(Event))))
     {
