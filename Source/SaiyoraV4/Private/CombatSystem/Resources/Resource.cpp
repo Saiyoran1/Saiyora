@@ -1,5 +1,3 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #include "Resource.h"
 #include "ResourceHandler.h"
 #include "StatHandler.h"
@@ -24,7 +22,25 @@ UWorld* UResource::GetWorld() const
     return nullptr;
 }
 
-void UResource::AuthInitializeResource(UResourceHandler* NewHandler, UStatHandler* StatHandler, FResourceInitInfo const& InitInfo)
+void UResource::PostNetReceive()
+{
+    if (bInitialized || bDeactivated)
+    {
+        return;
+    }
+    if (IsValid(Handler))
+    {
+        if (Handler->GetOwnerRole() == ROLE_AutonomousProxy)
+        {
+            PredictedResourceState = ResourceState;
+        }
+        PreInitializeResource();
+        bInitialized = true;
+        Handler->NotifyOfReplicatedResource(this);
+    }
+}
+
+void UResource::InitializeResource(UResourceHandler* NewHandler, UStatHandler* StatHandler, FResourceInitInfo const& InitInfo)
 {
     if (bInitialized || !IsValid(NewHandler) || NewHandler->GetOwnerRole() != ROLE_Authority)
     {
@@ -36,28 +52,24 @@ void UResource::AuthInitializeResource(UResourceHandler* NewHandler, UStatHandle
     Handler = NewHandler;
     ResourceState.Minimum = FMath::Max(0.0f, InitInfo.bHasCustomMinimum ? InitInfo.CustomMinValue : DefaultMinimum);
     ResourceState.Maximum = FMath::Max(GetMinimum(), InitInfo.bHasCustomMaximum ? InitInfo.CustomMaxValue : DefaultMaximum);
-    ResourceState.CurrentValue = FMath::Clamp(InitInfo.bHasCustomInitial ? InitInfo.CustomInitialValue : DefaultValue, GetMinimum(), GetMaximum());
+    ResourceState.CurrentValue = FMath::Clamp(InitInfo.bHasCustomInitial ? InitInfo.CustomInitialValue : DefaultValue, ResourceState.Minimum, ResourceState.Maximum);
     ResourceState.PredictionID = 0;
     
     //Bind the resource minimum to a stat if needed.
-    if (MinimumBindStat.IsValid() && MinimumBindStat.MatchesTag(UStatHandler::GenericStatTag()))
+    if (MinimumBindStat.IsValid() && MinimumBindStat.MatchesTag(UStatHandler::GenericStatTag()) && !MinimumBindStat.MatchesTagExact(UStatHandler::GenericStatTag()))
     {
-        if (IsValid(StatHandler))
+        if (IsValid(StatHandler) && StatHandler->IsStatValid(MinimumBindStat))
         {
-            FStatCallback MinStatBind;
             MinStatBind.BindDynamic(this, &UResource::UpdateMinimumFromStatBind);
             StatHandler->SubscribeToStatChanged(MinimumBindStat, MinStatBind);
             //Manually set the minimum with the initial stat value.
             float const StatValue = StatHandler->GetStatValue(MinimumBindStat);
             if (StatValue >= 0.0f)
             {
-                float const PreviousMin = GetMinimum();
-                ResourceState.Minimum = FMath::Clamp(StatValue, 0.0f, GetMaximum());
+                float const PreviousMin = ResourceState.Minimum;
+                ResourceState.Minimum = FMath::Clamp(StatValue, 0.0f, ResourceState.Maximum);
                 //Maintain current value relative to the max and min, if the value follows min changes.
-                if (bValueFollowsMinimum)
-                {
-                    ResourceState.CurrentValue = FMath::GetMappedRangeValueClamped(FVector2D(PreviousMin, GetMaximum()), FVector2D(GetMinimum(), GetMaximum()), GetCurrentValue());
-                }
+                ResourceState.CurrentValue = FMath::GetMappedRangeValueClamped(FVector2D(PreviousMin, ResourceState.Maximum), FVector2D(ResourceState.Minimum, ResourceState.Maximum), ResourceState.CurrentValue);
             }
         }
     }
@@ -65,9 +77,8 @@ void UResource::AuthInitializeResource(UResourceHandler* NewHandler, UStatHandle
     //Bind the resource maximum to a stat if needed.
     if (MaximumBindStat.IsValid() && MaximumBindStat.MatchesTag(UStatHandler::GenericStatTag()))
     {
-        if (IsValid(StatHandler))
+        if (IsValid(StatHandler) && StatHandler->IsStatValid(MaximumBindStat))
         {
-            FStatCallback MaxStatBind;
             MaxStatBind.BindDynamic(this, &UResource::UpdateMaximumFromStatBind);
             StatHandler->SubscribeToStatChanged(MaximumBindStat, MaxStatBind);
             //Manually set the maximum with the initial stat value.
@@ -77,22 +88,32 @@ void UResource::AuthInitializeResource(UResourceHandler* NewHandler, UStatHandle
                 float const PreviousMax = GetMaximum();
                 ResourceState.Maximum = FMath::Max(StatValue, GetMinimum());
                 //Maintain current value relative to the max and min, if the value follows max changes.
-                if (bValueFollowsMaximum)
-                {
-                    ResourceState.CurrentValue = FMath::GetMappedRangeValueClamped(FVector2D(GetMinimum(), PreviousMax), FVector2D(GetMinimum(), GetMaximum()), GetCurrentValue());
-                }
+                ResourceState.CurrentValue = FMath::GetMappedRangeValueClamped(FVector2D(ResourceState.Minimum, PreviousMax), FVector2D(ResourceState.Minimum, ResourceState.Maximum), ResourceState.CurrentValue);
             }
         }
     }
     
+    PreInitializeResource();
     bInitialized = true;
-    InitializeResource();
 }
 
-void UResource::AuthDeactivateResource()
+void UResource::DeactivateResource()
 {
-    DeactivateResource();
+    PreDeactivateResource();
     bDeactivated = true;
+}
+
+void UResource::OnRep_Deactivated()
+{
+    //Don't bother calling deactivate if we were never initialized.
+    if (bDeactivated && bInitialized)
+    {
+        DeactivateResource();
+        if (IsValid(Handler))
+        {
+            Handler->NotifyOfRemovedReplicatedResource(this);
+        }
+    }
 }
 
 void UResource::CommitAbilityCost(UCombatAbility* Ability, float const Cost, int32 const PredictionID)
@@ -188,70 +209,26 @@ void UResource::PurgeOldPredictions()
     }
 }
 
-void UResource::InitializeReplicatedResource()
-{
-    PredictedResourceState = ResourceState;
-    InitializeResource();
-    bInitialized = true;
-}
-
-void UResource::OnRep_Deactivated()
-{
-    if (bDeactivated)
-    {
-        DeactivateResource();
-        if (IsValid(Handler))
-        {
-            Handler->NotifyOfRemovedReplicatedResource(this);
-        }
-    }
-}
-
-void UResource::OnRep_Handler()
-{
-    if (!IsValid(Handler))
-    {
-        return;
-    }
-    if (!bReceivedInitialState)
-    {
-        return;
-    }
-    if (bInitialized)
-    {
-        return;
-    }
-    InitializeReplicatedResource();
-    Handler->NotifyOfReplicatedResource(this);
-}
-
 void UResource::OnRep_ResourceState(FResourceState const& PreviousState)
 {
-    if (!bReceivedInitialState)
-    {
-        bReceivedInitialState = true;
-    }
-    if (!IsValid(Handler))
+    if (!bInitialized || bDeactivated || !IsValid(Handler))
     {
         return;
     }
-    if (!bInitialized)
+    if (Handler->GetOwnerRole() == ROLE_AutonomousProxy)
     {
-        InitializeReplicatedResource();
-        Handler->NotifyOfReplicatedResource(this);
-        return;
+        PurgeOldPredictions();
+        RecalculatePredictedResource(nullptr);
     }
-    if (Handler->GetOwnerRole() != ROLE_AutonomousProxy)
+    else if (Handler->GetOwnerRole() == ROLE_SimulatedProxy)
     {
         if (PreviousState.Maximum != ResourceState.Maximum || PreviousState.Minimum != ResourceState.Minimum || PreviousState.CurrentValue != ResourceState.CurrentValue)
         {
             OnResourceChanged.Broadcast(this, nullptr, PreviousState, ResourceState);
             OnResourceUpdated(nullptr, PreviousState, ResourceState);
         }
-        return;
     }
-    PurgeOldPredictions();
-    RecalculatePredictedResource(nullptr);
+    
 }
 
 void UResource::SetNewMinimum(float const NewValue)
@@ -262,10 +239,7 @@ void UResource::SetNewMinimum(float const NewValue)
     }
     FResourceState const PreviousState = ResourceState;
     ResourceState.Minimum = FMath::Clamp(NewValue, 0.0f, GetMaximum());
-    if (bValueFollowsMinimum)
-    {
-        ResourceState.CurrentValue = FMath::GetMappedRangeValueClamped(FVector2D(PreviousState.Minimum, GetMaximum()), FVector2D(GetMinimum(), GetMaximum()), GetCurrentValue());
-    }
+    ResourceState.CurrentValue = FMath::GetMappedRangeValueClamped(FVector2D(PreviousState.Minimum, GetMaximum()), FVector2D(GetMinimum(), GetMaximum()), GetCurrentValue());
     if (PreviousState.Minimum != ResourceState.Minimum || PreviousState.CurrentValue != ResourceState.CurrentValue)
     {
         OnResourceChanged.Broadcast(this, nullptr, PreviousState, ResourceState);
@@ -281,10 +255,7 @@ void UResource::SetNewMaximum(float const NewValue)
     }
     FResourceState const PreviousState = ResourceState;
     ResourceState.Maximum = FMath::Max(NewValue, GetMinimum());
-    if (bValueFollowsMaximum)
-    {
-        ResourceState.CurrentValue = FMath::GetMappedRangeValueClamped(FVector2D(GetMinimum(), PreviousState.Maximum), FVector2D(GetMinimum(), GetMaximum()), GetCurrentValue());
-    }
+    ResourceState.CurrentValue = FMath::GetMappedRangeValueClamped(FVector2D(GetMinimum(), PreviousState.Maximum), FVector2D(GetMinimum(), GetMaximum()), GetCurrentValue());
     if (PreviousState.Maximum != ResourceState.Maximum || PreviousState.CurrentValue != ResourceState.CurrentValue)
     {
         OnResourceChanged.Broadcast(this, nullptr, PreviousState, ResourceState);
@@ -313,11 +284,10 @@ void UResource::UpdateMinimumFromStatBind(FGameplayTag const& StatTag, float con
     {
         return;
     }
-    if (StatTag != MinimumBindStat)
+    if (StatTag.MatchesTagExact(MinimumBindStat))
     {
-        return;
+        SetNewMinimum(NewValue);
     }
-    SetNewMinimum(NewValue);
 }
 
 void UResource::UpdateMaximumFromStatBind(FGameplayTag const& StatTag, float const NewValue)
@@ -326,11 +296,10 @@ void UResource::UpdateMaximumFromStatBind(FGameplayTag const& StatTag, float con
     {
         return;
     }
-    if (StatTag != MaximumBindStat)
+    if (StatTag.MatchesTagExact(MaximumBindStat))
     {
-        return;
+        SetNewMaximum(NewValue);
     }
-    SetNewMaximum(NewValue);
 }
 
 int32 UResource::AddResourceGainModifier(FResourceGainModifier const& Modifier)

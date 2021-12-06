@@ -219,7 +219,7 @@ void UResourceHandler::AddNewResource(TSubclassOf<UResource> const ResourceClass
 	}
 	UResource* NewResource = NewObject<UResource>(GetOwner(), ResourceClass);
 	ActiveResources.Add(NewResource);
-	NewResource->AuthInitializeResource(this, StatHandler, InitInfo);
+	NewResource->InitializeResource(this, StatHandler, InitInfo);
 	if (NewResource->GetInitialized())
 	{
 		OnResourceAdded.Broadcast(NewResource);
@@ -241,7 +241,7 @@ void UResourceHandler::RemoveResource(TSubclassOf<UResource> const ResourceClass
 	{
 		return;
 	}
-	Resource->AuthDeactivateResource();
+	Resource->DeactivateResource();
 	if (Resource->GetDeactivated())
 	{
 		if (ActiveResources.Remove(Resource) != 0)

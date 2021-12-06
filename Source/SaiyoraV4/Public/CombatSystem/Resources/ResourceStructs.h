@@ -1,7 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #pragma once
-
 #include "CoreMinimal.h"
 #include "SaiyoraStructs.h"
 #include "ResourceStructs.generated.h"
@@ -12,7 +9,7 @@ USTRUCT(BlueprintType)
 struct FResourceState
 {
 	GENERATED_BODY()
-
+	
 	UPROPERTY(BlueprintReadOnly, Category = "Resource")
 	float Minimum = 0.0f;
 	UPROPERTY(BlueprintReadOnly, Category = "Resource")
