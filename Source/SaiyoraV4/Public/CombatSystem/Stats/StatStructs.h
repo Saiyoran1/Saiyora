@@ -2,10 +2,11 @@
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
 #include "Engine/DataTable.h"
+#include "SaiyoraStructs.h"
 #include "StatStructs.generated.h"
 
-DECLARE_DYNAMIC_DELEGATE_ThreeParams(FStatCallback, FGameplayTag const&, StatTag, float const, NewValue, int32 const, PredictionID);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FStatNotification, FGameplayTag const&, StatTag, float const, NewValue, int32 const, PredictionID);
+DECLARE_DYNAMIC_DELEGATE_TwoParams(FStatCallback, FGameplayTag const&, StatTag, float const, NewValue);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FStatNotification, FGameplayTag const&, StatTag, float const, NewValue);
 
 USTRUCT()
 struct FStatInfo : public FTableRowBase
@@ -28,4 +29,68 @@ struct FStatInfo : public FTableRowBase
     float MaxClamp = 0.0f;
     UPROPERTY(EditAnywhere, Category = "Stat")
     bool bShouldReplicate = false;
+};
+
+USTRUCT()
+struct FCombatStat : public FFastArraySerializerItem
+{
+    GENERATED_BODY()
+
+    FCombatStat(FStatInfo const& InitInfo);
+    void SubscribeToStatChanged(FStatCallback const& Callback);
+    void UnsubscribeFromStatChanged(FStatCallback const& Callback);
+    void AddModifier(FCombatModifier const& Modifier);
+    void RemoveModifier(UBuff* Source);
+	
+    FGameplayTag GetStatTag() const { return Defaults.StatTag; }
+    bool ShouldReplicate() const { return Defaults.bShouldReplicate; }
+    bool IsModifiable() const { return Defaults.bModifiable; }
+    bool IsInitialized() const { return bInitialized; }
+    float GetValue() const { return Value; }
+    float GetDefaultValue() const { return Defaults.DefaultValue; }
+    bool HasMinimum() const { return Defaults.bCappedLow; }
+    float GetMinimum() const { return Defaults.MinClamp; }
+    bool HasMaximum() const { return Defaults.bCappedHigh; }
+    float GetMaximum() const { return Defaults.MaxClamp; }
+    void GetModifiers(TArray<FCombatModifier>& OutMods) const { OutMods.Append(Modifiers); }
+
+    void PostReplicatedAdd(const struct FCombatStatArray& InArraySerializer);
+    void PostReplicatedChange(const struct FCombatStatArray& InArraySerializer);
+
+private:
+
+    UPROPERTY()
+    float Value = 0.0f;
+    void RecalculateValue();
+    UPROPERTY()
+    FStatInfo Defaults;
+    TArray<FCombatModifier> Modifiers;
+    bool bInitialized = false;
+    FStatNotification OnStatChanged;
+};
+
+USTRUCT()
+struct FCombatStatArray : FFastArraySerializer
+{
+    GENERATED_BODY()
+
+    UPROPERTY()
+    TArray<FCombatStat> Items;
+    UPROPERTY(NotReplicated)
+    class UStatHandler* Handler;
+    TMultiMap<FGameplayTag, FStatCallback> PendingSubscriptions;
+
+    bool NetDeltaSerialize(FNetDeltaSerializeInfo& DeltaParms)
+    {
+        return FFastArraySerializer::FastArrayDeltaSerialize<FCombatStat, FCombatStatArray>( Items, DeltaParms, *this );
+    }
+};
+
+template<>
+struct TStructOpsTypeTraits<FCombatStatArray> : public TStructOpsTypeTraitsBase2<FCombatStatArray>
+{
+    enum 
+    {
+        WithNetDeltaSerializer = true,
+    };
 };

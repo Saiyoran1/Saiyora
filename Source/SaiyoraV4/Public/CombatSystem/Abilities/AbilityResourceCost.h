@@ -1,9 +1,5 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
-
-#pragma once
-
+﻿#pragma once
 #include "CoreMinimal.h"
-#include "SaiyoraObjects.h"
 #include "AbilityStructs.h"
 #include "AbilityResourceCost.generated.h"
 
