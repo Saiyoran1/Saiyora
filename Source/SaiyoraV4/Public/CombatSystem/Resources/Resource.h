@@ -4,10 +4,10 @@
 #include "GameplayTagContainer.h"
 #include "StatStructs.h"
 #include "Styling/SlateBrush.h"
+#include "ResourceHandler.h"
 #include "Resource.generated.h"
 
 class UCombatAbility;
-class UResourceHandler;
 class UStatHandler;
 
 UCLASS(Blueprintable, Abstract)
@@ -24,10 +24,10 @@ public:
 	virtual UWorld* GetWorld() const override;
 	virtual void PostNetReceive() override;
 
-	void InitializeResource(UResourceHandler* NewHandler, UStatHandler* StatHandler, FResourceInitInfo const& InitInfo);
-	bool GetInitialized() const { return bInitialized; }
+	void InitializeResource(UResourceHandler* NewHandler, FResourceInitInfo const& InitInfo);
+	bool IsInitialized() const { return bInitialized; }
 	void DeactivateResource();
-	bool GetDeactivated() const { return bDeactivated; }
+	bool IsDeactivated() const { return bDeactivated; }
 
 protected:
 
@@ -49,6 +49,8 @@ private:
 	bool bDeactivated = false;
 	UFUNCTION()
 	void OnRep_Deactivated();
+	UPROPERTY()
+	UStatHandler* StatHandlerRef = nullptr;
 
 //Display Info
 
@@ -68,8 +70,6 @@ private:
 
 //Init Info
 
-public:
-
 private:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Resource", meta = (ClampMin = "0"))
@@ -83,61 +83,60 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Resource", meta = (ClampMin = "0"))
 	float DefaultValue = 0.0f;
 
+//State
+
+public:
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resource")
+	float GetCurrentValue() const { return Handler->GetOwnerRole() == ROLE_AutonomousProxy ? PredictedResourceValue : ResourceState.CurrentValue; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resource")
+	float GetMinimum() const { return ResourceState.Minimum; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resource")
+	float GetMaximum() const { return ResourceState.Maximum; }
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Resource")
+	void ModifyResource(UObject* Source, float const Amount, bool const bIgnoreModifiers);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Resource")
+	void AddResourceDeltaModifier(FResourceDeltaModifier const& Modifier);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Resource")
+	void RemoveResourceDeltaModifier(FResourceDeltaModifier const& Modifier);
+	UFUNCTION(BlueprintCallable, Category = "Resource")
+	void SubscribeToResourceChanged(FResourceValueCallback const& Callback);
+	UFUNCTION(BlueprintCallable, Category = "Resource")
+	void UnsubscribeFromResourceChanged(FResourceValueCallback const& Callback);
+
+protected:
+
+	UFUNCTION(BlueprintNativeEvent)
+	void PostResourceUpdated(UObject* Source, FResourceState const& PreviousState);
+	virtual void PostResourceUpdated_Implementation(UObject* Source, FResourceState const& PreviousState) {}
+
+private:
+
 	UPROPERTY(ReplicatedUsing = OnRep_ResourceState)
 	FResourceState ResourceState;
-	FResourceState PredictedResourceState;
-	TMap<int32, float> ResourcePredictions;
-	void RecalculatePredictedResource(UObject* ChangeSource);
-	void PurgeOldPredictions();
 	UFUNCTION()
 	void OnRep_ResourceState(FResourceState const& PreviousState);
-
-	void SetNewMinimum(float const NewValue);
-	void SetNewMaximum(float const NewValue);
-	void SetResourceValue(float const NewValue, UObject* Source, int32 const PredictionID = 0);
-
 	FStatCallback MinStatBind;
 	UFUNCTION()
 	void UpdateMinimumFromStatBind(FGameplayTag const& StatTag, float const NewValue);
 	FStatCallback MaxStatBind;
 	UFUNCTION()
 	void UpdateMaximumFromStatBind(FGameplayTag const& StatTag, float const NewValue);
-
-	TMap<int32, FResourceGainModifier> ResourceGainMods;
-
+	void SetResourceValue(float const NewValue, UObject* Source, int32 const PredictionID = 0);
+	TArray<FResourceDeltaModifier> ResourceDeltaMods;
 	FResourceValueNotification OnResourceChanged;
-
-protected:
-
 	
-	UFUNCTION(BlueprintImplementableEvent)
-	void OnResourceUpdated(UObject* Source, FResourceState const& PreviousState, FResourceState const& NewState);
+//Ability Costs
 	
 public:
 
 	void CommitAbilityCost(UCombatAbility* Ability, float const Cost, int32 const PredictionID = 0);
-	void PredictAbilityCost(UCombatAbility* Ability, int32 const PredictionID, float const Cost);
-	void RollbackFailedCost(int32 const PredictionID);
 	void UpdateCostPredictionFromServer(int32 const PredictionID, float const ServerCost);
-
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Resource")
-	void ModifyResource(UObject* Source, float const Amount, bool const bIgnoreModifiers);
-
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Resource")
-	int32 AddResourceGainModifier(FResourceGainModifier const& Modifier);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Resource")
-	void RemoveResourceGainModifier(int32 const ModifierID);
-	UFUNCTION(BlueprintCallable, Category = "Resource")
-	void SubscribeToResourceChanged(FResourceValueCallback const& Callback);
-	UFUNCTION(BlueprintCallable, Category = "Resource")
-	void UnsubscribeFromResourceChanged(FResourceValueCallback const& Callback);
-
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resource")
-	float GetCurrentValue() const;
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resource")
-	float GetMinimum() const { return ResourceState.Minimum; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resource")
-	float GetMaximum() const { return ResourceState.Maximum; }
 	
-	
+private:
+
+	float PredictedResourceValue = 0.0f;
+	TMap<int32, float> ResourcePredictions;
+	void RecalculatePredictedResource(UObject* ChangeSource);
+	void PurgeOldPredictions();
 };
