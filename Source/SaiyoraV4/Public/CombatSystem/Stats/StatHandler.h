@@ -2,7 +2,6 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "StatStructs.h"
-#include "CombatStat.h"
 #include "BuffStructs.h"
 #include "StatHandler.generated.h"
 

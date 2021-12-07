@@ -5,7 +5,6 @@
 #include "GameplayTagContainer.h"
 #include "BuffStructs.h"
 #include "StatStructs.h"
-
 #include "DamageHandler.generated.h"
 
 class UStatHandler;

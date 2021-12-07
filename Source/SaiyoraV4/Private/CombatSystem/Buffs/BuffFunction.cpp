@@ -1,8 +1,5 @@
-// Fill out your copyright notice in the Description page of Project Settings.
 #include "BuffFunction.h"
 #include "Buff.h"
-#include "BuffHandler.h"
-#include "CombatComponent.h"
 #include "DamageHandler.h"
 #include "PlaneComponent.h"
 #include "SaiyoraCombatInterface.h"

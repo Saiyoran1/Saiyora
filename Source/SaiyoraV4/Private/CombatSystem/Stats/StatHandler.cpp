@@ -5,23 +5,7 @@
 #include "BuffHandler.h"
 #include "SaiyoraCombatInterface.h"
 
-void UStatHandler::BeginPlay()
-{
-	Super::BeginPlay();
-	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("%s does not implement combat interface, but has Stat Handler."), *GetOwner()->GetActorLabel());
-	if (GetOwnerRole() == ROLE_Authority)
-	{
-		BuffHandler = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwner());
-		if (IsValid(BuffHandler))
-		{
-			//Setup a restriction on buffs that modify stats that this component has determined can not be modified.
-			//TODO: Do I really need to do this? Design decision based on whether I should be immune to buffs that modify these stats, or just immune to the stat modifications themselves.
-			FBuffRestriction BuffStatModCondition;
-			BuffStatModCondition.BindDynamic(this, &UStatHandler::CheckBuffStatMods);
-			BuffHandler->AddIncomingBuffRestriction(BuffStatModCondition);
-		}
-	}
-}
+#pragma region Setup
 
 UStatHandler::UStatHandler()
 {
@@ -62,11 +46,32 @@ void UStatHandler::InitializeComponent()
 	}
 }
 
+void UStatHandler::BeginPlay()
+{
+	Super::BeginPlay();
+	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("%s does not implement combat interface, but has Stat Handler."), *GetOwner()->GetActorLabel());
+	if (GetOwnerRole() == ROLE_Authority)
+	{
+		BuffHandler = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwner());
+		if (IsValid(BuffHandler))
+		{
+			//Setup a restriction on buffs that modify stats that this component has determined can not be modified.
+			//TODO: Do I really need to do this? Design decision based on whether I should be immune to buffs that modify these stats, or just immune to the stat modifications themselves.
+			FBuffRestriction BuffStatModCondition;
+			BuffStatModCondition.BindDynamic(this, &UStatHandler::CheckBuffStatMods);
+			BuffHandler->AddIncomingBuffRestriction(BuffStatModCondition);
+		}
+	}
+}
+
 void UStatHandler::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(UStatHandler, ReplicatedStats);
 }
+
+#pragma endregion
+#pragma region Stat Management
 
 bool UStatHandler::IsStatValid(FGameplayTag const StatTag) const
 {
@@ -135,6 +140,118 @@ float UStatHandler::GetStatValue(FGameplayTag const StatTag) const
 	}
 	return DefaultValue;
 }
+
+bool UStatHandler::CheckBuffStatMods(FBuffApplyEvent const& BuffEvent)
+{
+	if (!IsValid(BuffEvent.BuffClass))
+	{
+		return false;
+	}
+	UBuff const* Default = BuffEvent.BuffClass.GetDefaultObject();
+	if (!IsValid(Default))
+	{
+		return false;
+	}
+	FGameplayTagContainer BuffTags;
+	Default->GetBuffTags(BuffTags);
+	if (BuffTags.HasAnyExact(StaticStats))
+	{
+		return true;
+	}
+	return false;
+}
+
+#pragma endregion
+#pragma region Subscriptions
+
+void UStatHandler::SubscribeToStatChanged(FGameplayTag const StatTag, FStatCallback const& Callback)
+{
+	if (!Callback.IsBound() || !StatTag.IsValid() || !StatTag.MatchesTag(GenericStatTag()) || StatTag.MatchesTagExact(GenericStatTag()))
+	{
+		return;
+	}
+	for (TTuple<FGameplayTag, FStatInfo> const& DefaultInfo : StatDefaults)
+	{
+		if (DefaultInfo.Key.MatchesTagExact(StatTag))
+		{
+			if (!DefaultInfo.Value.bModifiable)
+			{
+				return;
+			}
+			if (DefaultInfo.Value.bShouldReplicate)
+			{
+				for (FCombatStat& Stat : ReplicatedStats.Items)
+				{
+					if (Stat.GetStatTag().MatchesTagExact(StatTag))
+					{
+						if (Stat.IsInitialized())
+						{
+							Stat.SubscribeToStatChanged(Callback);
+							return;
+						}
+						break;
+					}
+				}
+				ReplicatedStats.PendingSubscriptions.AddUnique(StatTag, Callback);
+			}
+			else if (GetOwnerRole() == ROLE_Authority)
+			{
+				FCombatStat* Stat = NonReplicatedStats.Find(StatTag);
+				if (Stat)
+				{
+					Stat->SubscribeToStatChanged(Callback);
+				}
+			}	
+			return;
+		}
+	}
+}
+
+void UStatHandler::UnsubscribeFromStatChanged(FGameplayTag const StatTag, FStatCallback const& Callback)
+{
+	if (!Callback.IsBound() || !StatTag.IsValid() || !StatTag.MatchesTag(GenericStatTag()) || StatTag.MatchesTagExact(GenericStatTag()))
+	{
+		return;
+	}
+	for (TTuple<FGameplayTag, FStatInfo> const& DefaultInfo : StatDefaults)
+	{
+		if (DefaultInfo.Key.MatchesTagExact(StatTag))
+		{
+			if (!DefaultInfo.Value.bModifiable)
+			{
+				return;
+			}
+			if (DefaultInfo.Value.bShouldReplicate)
+			{
+				for (FCombatStat& Stat : ReplicatedStats.Items)
+				{
+					if (Stat.GetStatTag().MatchesTagExact(StatTag))
+					{
+						if (Stat.IsInitialized())
+						{
+							Stat.UnsubscribeFromStatChanged(Callback);
+							return;
+						}
+						break;
+					}
+				}
+				ReplicatedStats.PendingSubscriptions.Remove(StatTag, Callback);
+			}
+			else if (GetOwnerRole() == ROLE_Authority)
+			{
+				FCombatStat* Stat = NonReplicatedStats.Find(StatTag);
+				if (Stat)
+				{
+					Stat->UnsubscribeFromStatChanged(Callback);
+				}
+			}	
+			return;
+		}
+	}
+}
+
+#pragma endregion
+#pragma region Modifiers
 
 void UStatHandler::AddStatModifier(UBuff* Source, FGameplayTag const StatTag, FCombatModifier const& Modifier)
 {
@@ -223,108 +340,4 @@ void UStatHandler::RemoveStatModifier(UBuff* Source, FGameplayTag const StatTag)
 	}
 }
 
-void UStatHandler::SubscribeToStatChanged(FGameplayTag const StatTag, FStatCallback const& Callback)
-{
-	if (!Callback.IsBound() || !StatTag.IsValid() || !StatTag.MatchesTag(GenericStatTag()) || StatTag.MatchesTagExact(GenericStatTag()))
-	{
-		return;
-	}
-	for (TTuple<FGameplayTag, FStatInfo> const& DefaultInfo : StatDefaults)
-	{
-		if (DefaultInfo.Key.MatchesTagExact(StatTag))
-		{
-			if (!DefaultInfo.Value.bModifiable)
-			{
-				return;
-			}
-			if (DefaultInfo.Value.bShouldReplicate)
-			{
-				for (FCombatStat& Stat : ReplicatedStats.Items)
-				{
-					if (Stat.GetStatTag().MatchesTagExact(StatTag))
-					{
-						if (Stat.IsInitialized())
-						{
-							Stat.SubscribeToStatChanged(Callback);
-							return;
-						}
-						break;
-					}
-				}
-				ReplicatedStats.PendingSubscriptions.AddUnique(StatTag, Callback);
-			}
-			else if (GetOwnerRole() == ROLE_Authority)
-			{
-				FCombatStat* Stat = NonReplicatedStats.Find(StatTag);
-				if (Stat)
-				{
-					Stat->SubscribeToStatChanged(Callback);
-				}
-			}	
-			return;
-		}
-	}
-}
-
-void UStatHandler::UnsubscribeFromStatChanged(FGameplayTag const StatTag, FStatCallback const& Callback)
-{
-	if (!Callback.IsBound() || !StatTag.IsValid() || !StatTag.MatchesTag(GenericStatTag()) || StatTag.MatchesTagExact(GenericStatTag()))
-	{
-		return;
-	}
-	for (TTuple<FGameplayTag, FStatInfo> const& DefaultInfo : StatDefaults)
-	{
-		if (DefaultInfo.Key.MatchesTagExact(StatTag))
-		{
-			if (!DefaultInfo.Value.bModifiable)
-			{
-				return;
-			}
-			if (DefaultInfo.Value.bShouldReplicate)
-			{
-				for (FCombatStat& Stat : ReplicatedStats.Items)
-				{
-					if (Stat.GetStatTag().MatchesTagExact(StatTag))
-					{
-						if (Stat.IsInitialized())
-						{
-							Stat.UnsubscribeFromStatChanged(Callback);
-							return;
-						}
-						break;
-					}
-				}
-				ReplicatedStats.PendingSubscriptions.Remove(StatTag, Callback);
-			}
-			else if (GetOwnerRole() == ROLE_Authority)
-			{
-				FCombatStat* Stat = NonReplicatedStats.Find(StatTag);
-				if (Stat)
-				{
-					Stat->UnsubscribeFromStatChanged(Callback);
-				}
-			}	
-			return;
-		}
-	}
-}
-
-bool UStatHandler::CheckBuffStatMods(FBuffApplyEvent const& BuffEvent)
-{
-	if (!IsValid(BuffEvent.BuffClass))
-	{
-		return false;
-	}
-	UBuff const* Default = BuffEvent.BuffClass.GetDefaultObject();
-	if (!IsValid(Default))
-	{
-		return false;
-	}
-	FGameplayTagContainer BuffTags;
-	Default->GetBuffTags(BuffTags);
-	if (BuffTags.HasAnyExact(StaticStats))
-	{
-		return true;
-	}
-	return false;
-}
+#pragma endregion 

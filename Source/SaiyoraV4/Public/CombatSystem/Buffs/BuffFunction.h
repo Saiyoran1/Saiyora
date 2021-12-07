@@ -25,12 +25,12 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
 	UBuff* GetOwningBuff() const { return OwningBuff; }
 
-	virtual void SetupBuffFunction() { return; }
-	virtual void OnApply(FBuffApplyEvent const& ApplyEvent) { return; }
-	virtual void OnStack(FBuffApplyEvent const& ApplyEvent) { return; }
-	virtual void OnRefresh(FBuffApplyEvent const& ApplyEvent) { return; }
-	virtual void OnRemove(FBuffRemoveEvent const& RemoveEvent) { return; }
-	virtual void CleanupBuffFunction() { return; }
+	virtual void SetupBuffFunction() {}
+	virtual void OnApply(FBuffApplyEvent const& ApplyEvent) {}
+	virtual void OnStack(FBuffApplyEvent const& ApplyEvent) {}
+	virtual void OnRefresh(FBuffApplyEvent const& ApplyEvent) {}
+	virtual void OnRemove(FBuffRemoveEvent const& RemoveEvent) {}
+	virtual void CleanupBuffFunction() {}
 };
 
 //Subclass of UBuffFunction that exposes functionality to Blueprints.
