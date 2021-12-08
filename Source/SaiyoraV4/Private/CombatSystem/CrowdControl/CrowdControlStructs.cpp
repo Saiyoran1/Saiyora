@@ -7,55 +7,33 @@ bool FCrowdControlStatus::AddNewBuff(UBuff* Source)
     {
         return false;
     }
-    Sources.AddUnique(Source);
-    if (!bActive)
+    Sources.Add(Source);
+    if (!bActive || !IsValid(DominantBuffInstance) || !IsValid(DominantBuffClass))
     {
         bActive = true;
         SetNewDominantBuff(Source);
         return true;
     }
-    if (!IsValid(DominantBuffInstance) || !IsValid(DominantBuffClass))
+    if (DominantBuffInstance->HasFiniteDuration() && (!Source->HasFiniteDuration() || DominantBuffInstance->GetExpirationTime() <= Source->GetExpirationTime()))
     {
         SetNewDominantBuff(Source);
         return true;
     }
-    if (!DominantBuffInstance->HasFiniteDuration())
-    {
-        return false;
-    }
-    if (!Source->HasFiniteDuration())
-    {
-        SetNewDominantBuff(Source);
-        return true;
-    }
-    if (DominantBuffInstance->GetExpirationTime() > Source->GetExpirationTime())
-    {
-        return false;
-    }
-    SetNewDominantBuff(Source);
-    return true;
+    return false;
 }
 
 bool FCrowdControlStatus::RemoveBuff(UBuff* Source)
 {
-    if (!IsValid(Source) || !Sources.Contains(Source))
+    if (!IsValid(Source))
     {
         return false;
     }
-    Sources.Remove(Source);
-    if (Sources.Num() == 0)
+    if (Sources.Remove(Source) > 0 && (Sources.Num() == 0 || DominantBuffInstance == Source))
     {
-        bActive = false;
-        SetNewDominantBuff(nullptr);
+        SetNewDominantBuff(GetLongestBuff());
         return true;
     }
-    if (DominantBuffInstance != Source)
-    {
-        return false;
-    }
-    UBuff* Longest = GetLongestBuff();
-    SetNewDominantBuff(Longest);
-    return true;
+    return false;
 }
 
 bool FCrowdControlStatus::RefreshBuff(UBuff* Source)
@@ -64,12 +42,11 @@ bool FCrowdControlStatus::RefreshBuff(UBuff* Source)
     {
         return false;
     }
-    UBuff* Longest = GetLongestBuff();
-    if (DominantBuffInstance == Longest)
+    if (IsValid(DominantBuffInstance) && (!DominantBuffInstance->HasFiniteDuration() || (Source->HasFiniteDuration() && Source->GetExpirationTime() <= DominantBuffInstance->GetExpirationTime())))
     {
         return false;
     }
-    SetNewDominantBuff(Longest);
+    SetNewDominantBuff(Source);
     return true;
 }
 
@@ -100,8 +77,7 @@ UBuff* FCrowdControlStatus::GetLongestBuff()
         }
         if (!Buff->HasFiniteDuration())
         {
-            LongestBuff = Buff;
-            break;
+            return Buff;
         }
         if (Buff->GetExpirationTime() > Expire)
         {

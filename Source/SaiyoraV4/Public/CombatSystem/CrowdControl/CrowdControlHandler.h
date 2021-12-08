@@ -12,7 +12,10 @@ class SAIYORAV4_API UCrowdControlHandler : public UActorComponent
 {
 	GENERATED_BODY()
 
+//Setup
+
 public:
+	
 	static FGameplayTag GenericCrowdControlTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("CrowdControl")), false); }
 	static FGameplayTag StunTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("CrowdControl.Stun")), false); }
 	static FGameplayTag IncapacitateTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("CrowdControl.Incapacitate")), false); }
@@ -34,6 +37,17 @@ public:
 	virtual void InitializeComponent() override;
 	virtual void BeginPlay() override;
 	virtual void GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
+private:
+
+	UPROPERTY()
+	class UBuffHandler* BuffHandler;
+	UPROPERTY()
+	class UDamageHandler* DamageHandler;
+
+//Status
+
+public:
 	
 	UFUNCTION(BlueprintCallable, Category = "Crowd Control")
 	void SubscribeToCrowdControlChanged(FCrowdControlCallback const& Callback);
@@ -51,17 +65,7 @@ public:
 	void GetImmunedCrowdControls(TSet<ECrowdControlType>& OutImmunes) const;
 	
 private:
-	UPROPERTY(EditAnywhere, Category = "Crowd Control", meta = (AllowPrivateAccess = true))
-	TSet<ECrowdControlType> DefaultCrowdControlImmunities;
-	TMap<ECrowdControlType, int32> CrowdControlImmunities;
-	void AddImmunity(ECrowdControlType const CcType);
-	void RemoveImmunity(ECrowdControlType const CcType);
-	void PurgeCcOfType(ECrowdControlType const CcType);
-	
-	FCrowdControlStatus* GetCcStruct(ECrowdControlType const CcType);
-	FCrowdControlStatus const* GetCcStructConst(ECrowdControlType const CcType) const;
-	FCrowdControlNotification OnCrowdControlChanged;
-	
+
 	UPROPERTY(ReplicatedUsing=OnRep_StunStatus)
 	FCrowdControlStatus StunStatus;
 	UFUNCTION()
@@ -82,21 +86,28 @@ private:
 	FCrowdControlStatus DisarmStatus;
 	UFUNCTION()
 	void OnRep_DisarmStatus(FCrowdControlStatus const& Previous);
-	
-	UPROPERTY()
-	class UBuffHandler* BuffHandler;
-	UFUNCTION()
-	bool CheckBuffRestrictedByCcImmunity(FBuffApplyEvent const& BuffEvent);
-	FBuffRestriction BuffCcRestriction;
-	UFUNCTION()
-	void CheckAppliedBuffForCcOrImmunity(FBuffApplyEvent const& BuffEvent);
+	FCrowdControlStatus* GetCcStruct(ECrowdControlType const CcType);
+	FCrowdControlStatus const* GetCcStructConst(ECrowdControlType const CcType) const;
+	FCrowdControlNotification OnCrowdControlChanged;
 	FBuffEventCallback OnBuffApplied;
 	UFUNCTION()
-	void CheckRemovedBuffForCcOrImmunity(FBuffRemoveEvent const& RemoveEvent);
+	void CheckAppliedBuffForCcOrImmunity(FBuffApplyEvent const& BuffEvent);
 	FBuffRemoveCallback OnBuffRemoved;
-	UPROPERTY()
-	class UDamageHandler* DamageHandler;
+	UFUNCTION()
+	void CheckRemovedBuffForCcOrImmunity(FBuffRemoveEvent const& RemoveEvent);
+	FDamageEventCallback OnDamageTaken;
 	UFUNCTION()
 	void RemoveIncapacitatesOnDamageTaken(FDamagingEvent const& DamageEvent);
-	FDamageEventCallback OnDamageTaken;
+
+//Immunities
+
+private:
+	
+	UPROPERTY(EditAnywhere, Category = "Crowd Control", meta = (AllowPrivateAccess = true))
+	TSet<ECrowdControlType> DefaultCrowdControlImmunities;
+	TMap<ECrowdControlType, int32> CrowdControlImmunities;
+	void PurgeCcOfType(ECrowdControlType const CcType);
+	FBuffRestriction BuffCcRestriction;
+	UFUNCTION()
+	bool CheckBuffRestrictedByCcImmunity(FBuffApplyEvent const& BuffEvent);
 };
