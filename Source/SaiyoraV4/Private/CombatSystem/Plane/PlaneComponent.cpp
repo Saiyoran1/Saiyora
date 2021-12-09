@@ -4,6 +4,8 @@
 #include "UnrealNetwork.h"
 #include "Kismet/GameplayStatics.h"
 
+#pragma region Setup
+
 UPlaneComponent::UPlaneComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
@@ -45,33 +47,27 @@ void UPlaneComponent::BeginPlay()
 	UpdateOwnerCustomRendering();
 }
 
+#pragma endregion
+#pragma region Plane
+
 ESaiyoraPlane UPlaneComponent::PlaneSwap(bool const bIgnoreRestrictions, UObject* Source,
                                                   bool const bToSpecificPlane, ESaiyoraPlane const TargetPlane)
 {
-	if (GetOwnerRole() != ROLE_Authority)
-	{
-		return PlaneStatus.CurrentPlane;
-	}
-	if (!bCanEverPlaneSwap)
+	if (GetOwnerRole() != ROLE_Authority || !bCanEverPlaneSwap)
 	{
 		return PlaneStatus.CurrentPlane;
 	}
 	if (!bIgnoreRestrictions)
 	{
-		for (FPlaneSwapCondition const& Condition : PlaneSwapRestrictions)
+		for (FPlaneSwapRestriction const& Restriction : PlaneSwapRestrictions)
 		{
-			if (Condition.IsBound())
+			if (Restriction.IsBound() && Restriction.Execute(this, Source, bToSpecificPlane, TargetPlane))
 			{
-				if (Condition.Execute(this, Source, bToSpecificPlane, TargetPlane))
-				{
-					return PlaneStatus.CurrentPlane;
-				}
+				return PlaneStatus.CurrentPlane;
 			}
 		}
 	}
-	
 	ESaiyoraPlane const PreviousPlane = PlaneStatus.CurrentPlane;
-	
 	if (bToSpecificPlane && TargetPlane != ESaiyoraPlane::None)
 	{
 		PlaneStatus.CurrentPlane = TargetPlane;
@@ -96,56 +92,13 @@ ESaiyoraPlane UPlaneComponent::PlaneSwap(bool const bIgnoreRestrictions, UObject
 				return PlaneStatus.CurrentPlane;
 		}
 	}
-	
 	PlaneStatus.LastSwapSource = Source;
-
 	if (PreviousPlane != PlaneStatus.CurrentPlane)
 	{
 		OnPlaneSwapped.Broadcast(PreviousPlane, PlaneStatus.CurrentPlane, Source);
 		UpdateOwnerCustomRendering();
 	}
-
 	return PlaneStatus.CurrentPlane;
-}
-
-void UPlaneComponent::AddPlaneSwapRestriction(FPlaneSwapCondition const& Condition)
-{
-	if (GetOwnerRole() != ROLE_Authority)
-	{
-		return;
-	}
-	if (bCanEverPlaneSwap && Condition.IsBound())
-	{
-		PlaneSwapRestrictions.AddUnique(Condition);
-	}
-}
-
-void UPlaneComponent::RemovePlaneSwapRestriction(FPlaneSwapCondition const& Condition)
-{
-	if (GetOwnerRole() != ROLE_Authority)
-	{
-		return;
-	}
-	if (bCanEverPlaneSwap && Condition.IsBound())
-	{
-		PlaneSwapRestrictions.RemoveSingleSwap(Condition);
-	}
-}
-
-void UPlaneComponent::SubscribeToPlaneSwap(FPlaneSwapCallback const& Callback)
-{
-	if (bCanEverPlaneSwap && Callback.IsBound())
-	{
-		OnPlaneSwapped.AddUnique(Callback);
-	}
-}
-
-void UPlaneComponent::UnsubscribeFromPlaneSwap(FPlaneSwapCallback const& Callback)
-{
-	if (bCanEverPlaneSwap && Callback.IsBound())
-	{
-		OnPlaneSwapped.Remove(Callback);
-	}
 }
 
 bool UPlaneComponent::CheckForXPlane(ESaiyoraPlane const FromPlane, ESaiyoraPlane const ToPlane)
@@ -196,9 +149,42 @@ void UPlaneComponent::UpdateOwnerCustomRendering()
 	}
 }
 
-void UPlaneComponent::OnLocalPlayerPlaneSwap(ESaiyoraPlane const Previous, ESaiyoraPlane const New, UObject* Source)
+#pragma endregion
+#pragma region Restrictions
+
+void UPlaneComponent::AddPlaneSwapRestriction(FPlaneSwapRestriction const& Restriction)
 {
-	UpdateOwnerCustomRendering();
+	if (GetOwnerRole() == ROLE_Authority && bCanEverPlaneSwap && Restriction.IsBound())
+	{
+		PlaneSwapRestrictions.AddUnique(Restriction);
+	}
 }
 
+void UPlaneComponent::RemovePlaneSwapRestriction(FPlaneSwapRestriction const& Restriction)
+{
+	if (GetOwnerRole() == ROLE_Authority && bCanEverPlaneSwap && Restriction.IsBound())
+	{
+		PlaneSwapRestrictions.Remove(Restriction);
+	}
+}
 
+#pragma endregion
+#pragma region Subscriptions
+
+void UPlaneComponent::SubscribeToPlaneSwap(FPlaneSwapCallback const& Callback)
+{
+	if (bCanEverPlaneSwap && Callback.IsBound())
+	{
+		OnPlaneSwapped.AddUnique(Callback);
+	}
+}
+
+void UPlaneComponent::UnsubscribeFromPlaneSwap(FPlaneSwapCallback const& Callback)
+{
+	if (bCanEverPlaneSwap && Callback.IsBound())
+	{
+		OnPlaneSwapped.Remove(Callback);
+	}
+}
+
+#pragma endregion 
