@@ -139,7 +139,7 @@ private:
 	void SetupCustomMovementPrediction(UPlayerCombatAbility* Source, FCustomMoveParams const& CustomMove);
 	FAbilityCallback OnPredictedAbility;
 	UFUNCTION()
-	void OnCustomMoveCastPredicted(FCastEvent const& Event);
+	void OnCustomMoveCastPredicted(FAbilityEvent const& Event);
 	void CustomMoveFromFlag();
 	FAbilityMispredictionCallback OnMispredict;
 	UFUNCTION()

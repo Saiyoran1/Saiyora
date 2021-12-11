@@ -470,7 +470,7 @@ void USaiyoraMovementComponent::SetupCustomMovementPrediction(UPlayerCombatAbili
 	PendingCustomMove.OriginalTimestamp = GameStateRef->GetServerWorldTimeSeconds();
 }
 
-void USaiyoraMovementComponent::OnCustomMoveCastPredicted(FCastEvent const& Event)
+void USaiyoraMovementComponent::OnCustomMoveCastPredicted(FAbilityEvent const& Event)
 {
 	OwnerAbilityHandler->UnsubscribeFromAbilityTicked(OnPredictedAbility);
 	CompletedCastStatus.Add(Event.PredictionID, true);

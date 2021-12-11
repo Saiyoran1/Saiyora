@@ -1,4 +1,6 @@
 #include "CombatAbility.h"
+
+#include "AbilityComponent.h"
 #include "AbilityHandler.h"
 #include "AbilityResourceCost.h"
 #include "ResourceHandler.h"
@@ -512,7 +514,7 @@ void UCombatAbility::CheckChargeCostOnCostUpdated(int32 const Previous, int32 co
     }
 }
 
-void UCombatAbility::InitializeAbility(UAbilityHandler* AbilityComponent)
+void UCombatAbility::InitializeAbility(UAbilityComponent* AbilityComponent)
 {
     if (bInitialized)
     {

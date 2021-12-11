@@ -1,7 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #pragma once
-
 #include "CoreMinimal.h"
 #include "UObject/NoExportTypes.h"
 #include "AbilityStructs.h"
@@ -11,7 +8,7 @@
 #include "CombatAbility.generated.h"
 
 class UCrowdControl;
-class UAbilityHandler;
+class UAbilityComponent;
 
 UCLASS(Abstract, Blueprintable)
 class SAIYORAV4_API UCombatAbility : public UObject
@@ -24,14 +21,14 @@ public:
     virtual void GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const override;
     virtual UWorld* GetWorld() const override;
     UFUNCTION(BlueprintCallable, BlueprintPure)
-    UAbilityHandler* GetHandler() const { return OwningComponent; }
-    bool GetInitialized() const { return bInitialized; }
-    bool GetDeactivated() const { return bDeactivated; }
-    virtual void InitializeAbility(UAbilityHandler* AbilityComponent);
+    UAbilityComponent* GetHandler() const { return OwningComponent; }
+    bool IsInitialized() const { return bInitialized; }
+    bool IsDeactivated() const { return bDeactivated; }
+    virtual void InitializeAbility(UAbilityComponent* AbilityComponent);
     void DeactivateAbility();
 protected:
     UPROPERTY(ReplicatedUsing = OnRep_OwningComponent)
-    UAbilityHandler* OwningComponent;
+    UAbilityComponent* OwningComponent;
     bool bInitialized = false;
     UFUNCTION(BlueprintNativeEvent)
     void OnInitialize();
@@ -56,6 +53,8 @@ public:
     EDamageSchool GetAbilitySchool() const { return AbilitySchool; }
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Info")
     ESaiyoraPlane GetAbilityPlane() const { return AbilityPlane; }
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Info")
+    void GetAbilityTags(FGameplayTagContainer& OutTags) const { OutTags.AppendTags(AbilityTags); }
 private:
     UPROPERTY(EditDefaultsOnly, Category = "Info")
     FName AbilityName;
@@ -67,6 +66,8 @@ private:
     EDamageSchool AbilitySchool;
     UPROPERTY(EditDefaultsOnly, Category = "Info")
     ESaiyoraPlane AbilityPlane;
+    UPROPERTY(EditDefaultsOnly, Category = "Info")
+    FGameplayTagContainer AbilityTags;
 //Casting
 public:
     UFUNCTION(BlueprintCallable, BlueprintPure)

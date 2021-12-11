@@ -54,7 +54,7 @@ struct FAbilityCooldown
 };
 
 USTRUCT(BlueprintType)
-struct FCastEvent
+struct FAbilityEvent
 {
     GENERATED_BODY()
 
@@ -276,15 +276,16 @@ struct FTickResults
 {
     GENERATED_BODY()
 
-    TMap<int32, FCastEvent> Results;
+    TMap<int32, FAbilityEvent> Results;
 };
 
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FAbilityModCondition, TSubclassOf<UCombatAbility>, AbilityClass);
 DECLARE_DYNAMIC_DELEGATE_RetVal_TwoParams(FCombatModifier, FAbilityResourceModCondition, TSubclassOf<UCombatAbility>, AbilityClass, TSubclassOf<UResource>, ResourceClass);
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FAbilityRestriction, UCombatAbility*, Ability);
+DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FAbilityClassRestriction, TSubclassOf<UCombatAbility>, AbilityClass);
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FInterruptRestriction, FInterruptEvent const&, InterruptEvent);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityInstanceCallback, UCombatAbility*, NewAbility);
-DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityCallback, FCastEvent const&, Event);
+DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityCallback, FAbilityEvent const&, Event);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityCancelCallback, FCancelEvent const&, Event);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FInterruptCallback, FInterruptEvent const&, InterruptEvent);
 DECLARE_DYNAMIC_DELEGATE_ThreeParams(FAbilityChargeCallback, UCombatAbility*, Ability, int32 const, OldCharges, int32 const, NewCharges);
@@ -298,7 +299,7 @@ DECLARE_DYNAMIC_DELEGATE(FSpellbookCallback);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FSpecializationCallback, TSubclassOf<class UPlayerSpecialization>, NewSpecialization);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FCastableCallback, ECastFailReason const, Castable);
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityNotification, FCastEvent const&, Event);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityNotification, FAbilityEvent const&, Event);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityCancelNotification, FCancelEvent const&, Event);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FInterruptNotification, FInterruptEvent const&, InterruptEvent);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FAbilityChargeNotification, UCombatAbility*, Ability, int32 const, OldCharges, int32 const, NewCharges);

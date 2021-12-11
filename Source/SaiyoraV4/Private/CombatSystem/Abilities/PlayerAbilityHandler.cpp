@@ -30,6 +30,7 @@ void UPlayerAbilityHandler::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>
 
 void UPlayerAbilityHandler::InitializeComponent()
 {
+	//TODO: Move this into spec object.
 	if (GetOwnerRole() == ROLE_SimulatedProxy)
 	{
 		return;
@@ -49,7 +50,8 @@ void UPlayerAbilityHandler::BeginPlay()
 		UE_LOG(LogTemp, Warning, TEXT("PlayerAbilityHandler put on non-Pawn class!"));
 		return;
 	}
-	
+
+	//TODO: Move this into spec object.
 	if (GetOwnerRole() != ROLE_SimulatedProxy)
 	{
 		UPlaneComponent* PlaneComponent = ISaiyoraCombatInterface::Execute_GetPlaneComponent(GetOwner());
@@ -104,6 +106,7 @@ UCombatAbility* UPlayerAbilityHandler::AddNewAbility(TSubclassOf<UCombatAbility>
 	{
 		return nullptr;
 	}
+	//TODO: Convert to a restriction system that spec object can add a restriction for.
 	if (!AbilityClass->IsChildOf(UPlayerCombatAbility::StaticClass()))
 	{
 		return nullptr;
@@ -277,17 +280,17 @@ void UPlayerAbilityHandler::RemoveAllAbilities()
 #pragma endregion
 #pragma region AbilityUsage
 
-FCastEvent UPlayerAbilityHandler::UseAbility(TSubclassOf<UCombatAbility> const AbilityClass)
+FAbilityEvent UPlayerAbilityHandler::UseAbility(TSubclassOf<UCombatAbility> const AbilityClass)
 {
 	if (!OwnerAsPawn->IsLocallyControlled())
 	{
-		FCastEvent Failure;
+		FAbilityEvent Failure;
 		Failure.FailReason = ECastFailReason::NetRole;
 		return Failure;
 	}
 	if (!AbilityClass->IsChildOf(UPlayerCombatAbility::StaticClass()))
 	{
-		FCastEvent Failure;
+		FAbilityEvent Failure;
 		Failure.FailReason = ECastFailReason::InvalidAbility;
 		return Failure;
 	}
@@ -303,7 +306,7 @@ bool UPlayerAbilityHandler::UseAbilityFromPredictedMovement(FAbilityRequest cons
 		return false;
 	}
 	//Check to see if the ability handler has processed this cast already.
-	FCastEvent* PreviousResult = PredictedCastRecord.Find(Request.PredictionID);
+	FAbilityEvent* PreviousResult = PredictedCastRecord.Find(Request.PredictionID);
 	if (PreviousResult)
 	{
 		return PreviousResult->ActionTaken == ECastAction::Success;
@@ -320,10 +323,10 @@ bool UPlayerAbilityHandler::UseAbilityFromPredictedMovement(FAbilityRequest cons
 	return PreviousResult->ActionTaken == ECastAction::Success;
 }
 
-FCastEvent UPlayerAbilityHandler::UsePlayerAbility(TSubclassOf<UPlayerCombatAbility> const AbilityClass, bool const bFromQueue)
+FAbilityEvent UPlayerAbilityHandler::UsePlayerAbility(TSubclassOf<UPlayerCombatAbility> const AbilityClass, bool const bFromQueue)
 {
 	ClearQueue();
-	FCastEvent Result;
+	FAbilityEvent Result;
 
 	UPlayerCombatAbility* PlayerAbility = FindActiveAbility(AbilityClass);
 	Result.Ability = PlayerAbility;
@@ -472,7 +475,7 @@ void UPlayerAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest 
 		return;
 	}
 	
-	FCastEvent Result;
+	FAbilityEvent Result;
 	Result.PredictionID = AbilityRequest.PredictionID;
 
 	UPlayerCombatAbility* PlayerAbility = FindActiveAbility(AbilityRequest.AbilityClass);
@@ -731,7 +734,7 @@ void UPlayerAbilityHandler::UpdatePredictedCastFromServer(FServerAbilityResult c
 
 void UPlayerAbilityHandler::CompleteCast()
 {
-	FCastEvent CompletionEvent;
+	FAbilityEvent CompletionEvent;
 	CompletionEvent.Ability = CastingState.CurrentCast;
 	CompletionEvent.PredictionID = CastingState.PredictionID;
 	CompletionEvent.ActionTaken = ECastAction::Complete;
@@ -776,7 +779,7 @@ void UPlayerAbilityHandler::PredictAbilityTick()
 		TickRequest.PredictionParams = PredictionParams;
 		ServerHandlePredictedTick(TickRequest);
 	}
-	FCastEvent TickEvent;
+	FAbilityEvent TickEvent;
 	TickEvent.Ability = CastingState.CurrentCast;
 	TickEvent.Tick = CastingState.ElapsedTicks;
 	TickEvent.ActionTaken = ECastAction::Tick;
@@ -816,7 +819,7 @@ void UPlayerAbilityHandler::HandleMissedPredictedTick(int32 const TickNumber)
 		TickRequest.PredictionParams = PredictionParams;
 		ServerHandlePredictedTick(TickRequest);
 	}
-	FCastEvent TickEvent;
+	FAbilityEvent TickEvent;
 	TickEvent.Ability = CastingState.CurrentCast;
 	TickEvent.Tick = TickNumber;
 	TickEvent.ActionTaken = ECastAction::Tick;
@@ -847,7 +850,7 @@ void UPlayerAbilityHandler::ServerHandlePredictedTick_Implementation(FAbilityReq
 			{
 				FCombatParameters BroadcastParams;
 				Ability->ServerTick(TickRequest.Tick, TickRequest.PredictionParams, BroadcastParams, TickRequest.PredictionID);
-				FCastEvent TickEvent;
+				FAbilityEvent TickEvent;
 				TickEvent.Ability = Ability;
 				TickEvent.Tick = TickRequest.Tick;
 				TickEvent.ActionTaken = ECastAction::Tick;
@@ -922,7 +925,7 @@ void UPlayerAbilityHandler::AuthTickPredictedCast()
 		FCombatParameters PredictionParams;
 		CurrentPlayerCast->PredictedTick(CastingState.ElapsedTicks, PredictionParams, CastingState.PredictionID);
 		CurrentPlayerCast->ServerTick(CastingState.ElapsedTicks, PredictionParams, BroadcastParams, CastingState.PredictionID);
-		FCastEvent TickEvent;
+		FAbilityEvent TickEvent;
 		TickEvent.Ability = CurrentPlayerCast;
 		TickEvent.Tick = CastingState.ElapsedTicks;
 		TickEvent.ActionTaken = ECastAction::Tick;
@@ -935,7 +938,7 @@ void UPlayerAbilityHandler::AuthTickPredictedCast()
 	else if (!CurrentPlayerCast->GetTickNeedsPredictionParams(CastingState.ElapsedTicks))
 	{
 		CurrentPlayerCast->UCombatAbility::ServerTick(CastingState.ElapsedTicks, BroadcastParams);
-		FCastEvent TickEvent;
+		FAbilityEvent TickEvent;
 		TickEvent.Ability = CurrentPlayerCast;
 		TickEvent.Tick = CastingState.ElapsedTicks;
 		TickEvent.ActionTaken = ECastAction::Tick;
@@ -947,7 +950,7 @@ void UPlayerAbilityHandler::AuthTickPredictedCast()
 	else if (ParamsAwaitingTicks.Contains(Tick))
 	{
 		CurrentPlayerCast->ServerTick(CastingState.ElapsedTicks, ParamsAwaitingTicks.FindRef(Tick), BroadcastParams, CastingState.PredictionID);
-		FCastEvent TickEvent;
+		FAbilityEvent TickEvent;
 		TickEvent.Ability = CurrentPlayerCast;
 		TickEvent.Tick = CastingState.ElapsedTicks;
 		TickEvent.ActionTaken = ECastAction::Tick;

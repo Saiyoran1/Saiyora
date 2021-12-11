@@ -14,7 +14,7 @@ const float UAbilityHandler::MinimumGlobalCooldownLength = 0.5f;
 const float UAbilityHandler::MinimumCastLength = 0.5f;
 const float UAbilityHandler::MinimumCooldownLength = 0.5f;
 
-#pragma region SetupFunctions
+#pragma region Setup
 
 UAbilityHandler::UAbilityHandler()
 {
@@ -245,7 +245,7 @@ UCombatAbility* UAbilityHandler::FindActiveAbility(TSubclassOf<UCombatAbility> c
 	}
 	for (UCombatAbility* Ability : ActiveAbilities)
 	{
-		if (IsValid(Ability) && Ability->IsA(AbilityClass) && Ability->GetInitialized() && !Ability->GetDeactivated())
+		if (IsValid(Ability) && Ability->IsA(AbilityClass) && Ability->IsInitialized() && !Ability->IsDeactivated())
 		{
 			return Ability;
 		}
@@ -347,9 +347,9 @@ void UAbilityHandler::UnsubscribeFromAbilityRemoved(FAbilityInstanceCallback con
 #pragma region AbilityUsage
 //ABILITY USAGE
 
-FCastEvent UAbilityHandler::UseAbility(TSubclassOf<UCombatAbility> const AbilityClass)
+FAbilityEvent UAbilityHandler::UseAbility(TSubclassOf<UCombatAbility> const AbilityClass)
 {
-	FCastEvent Result;
+	FAbilityEvent Result;
 
 	if (GetOwnerRole() != ROLE_Authority)
 	{
@@ -533,7 +533,7 @@ void UAbilityHandler::TickCurrentAbility()
 	CastingState.ElapsedTicks++;
 	FCombatParameters BroadcastParams;
 	CastingState.CurrentCast->ServerTick(CastingState.ElapsedTicks, BroadcastParams);
-	FCastEvent TickEvent;
+	FAbilityEvent TickEvent;
 	TickEvent.Ability = CastingState.CurrentCast;
 	TickEvent.Tick = CastingState.ElapsedTicks;
 	TickEvent.ActionTaken = ECastAction::Tick;
@@ -551,7 +551,7 @@ void UAbilityHandler::TickCurrentAbility()
 
 void UAbilityHandler::CompleteCast()
 {
-	FCastEvent CompletionEvent;
+	FAbilityEvent CompletionEvent;
 	CompletionEvent.Ability = CastingState.CurrentCast;
 	CompletionEvent.ActionTaken = ECastAction::Complete;
 	CompletionEvent.Tick = CastingState.ElapsedTicks;
@@ -698,7 +698,7 @@ void UAbilityHandler::OnRep_CastingState(FCastingState const& PreviousState)
 	}
 }
 
-void UAbilityHandler::MulticastAbilityComplete_Implementation(FCastEvent const& CastEvent)
+void UAbilityHandler::MulticastAbilityComplete_Implementation(FAbilityEvent const& CastEvent)
 {
 	if (GetOwnerRole() == ROLE_SimulatedProxy)
 	{
@@ -734,7 +734,7 @@ void UAbilityHandler::MulticastAbilityInterrupt_Implementation(FInterruptEvent c
 	}
 }
 
-void UAbilityHandler::MulticastAbilityTick_Implementation(FCastEvent const& CastEvent, FCombatParameters const& BroadcastParams)
+void UAbilityHandler::MulticastAbilityTick_Implementation(FAbilityEvent const& CastEvent, FCombatParameters const& BroadcastParams)
 {
 	if (GetOwnerRole() == ROLE_SimulatedProxy)
 	{
