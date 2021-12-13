@@ -66,6 +66,6 @@ public:
 	
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resource")
 	bool CheckAbilityCostsMet(TMap<TSubclassOf<UResource>, float> const& Costs) const;
-	void CommitAbilityCosts(UCombatAbility* Ability, TMap<TSubclassOf<UResource>, float> const& Costs, int32 const PredictionID = 0);
+	void CommitAbilityCosts(UCombatAbility* Ability, int32 const PredictionID = 0);
 	void UpdatePredictedCostsFromServer(FServerAbilityResult const& ServerResult, TArray<TSubclassOf<UResource>> const& MispredictedCosts);
 };

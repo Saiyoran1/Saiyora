@@ -399,7 +399,7 @@ FAbilityEvent UAbilityHandler::UseAbility(TSubclassOf<UCombatAbility> const Abil
 	case EAbilityCastType::Channel :
 		Result.ActionTaken = ECastAction::Success;
 		StartCast(Result.Ability);
-		if (Result.Ability->GetHasInitialTick())
+		if (Result.Ability->HasInitialTick())
 		{
 			Result.Ability->ServerTick(0, BroadcastParams);
 			OnAbilityTick.Broadcast(Result);
@@ -517,7 +517,7 @@ void UAbilityHandler::StartCast(UCombatAbility* Ability)
 	CastingState.CastStartTime = GameStateRef->GetServerWorldTimeSeconds();
 	float const CastLength = Ability->GetCastLength();
 	CastingState.CastEndTime = CastingState.CastStartTime + CastLength;
-	CastingState.bInterruptible = Ability->GetInterruptible();
+	CastingState.bInterruptible = Ability->IsInterruptible();
 	GetWorld()->GetTimerManager().SetTimer(CastHandle, this, &UAbilityHandler::CompleteCast, CastLength, false);
 	GetWorld()->GetTimerManager().SetTimer(TickHandle, this, &UAbilityHandler::TickCurrentAbility,
 		(CastLength / Ability->GetNumberOfTicks()), true);
@@ -619,7 +619,7 @@ FInterruptEvent UAbilityHandler::InterruptCurrentCast(AActor* AppliedBy, UObject
 	
 	if (!bIgnoreRestrictions)
 	{
-		if (!CastingState.CurrentCast->GetInterruptible() || CheckInterruptRestricted(Result))
+		if (!CastingState.CurrentCast->IsInterruptible() || CheckInterruptRestricted(Result))
 		{
 			Result.FailReason = EInterruptFailReason::Restricted;
 			return Result;

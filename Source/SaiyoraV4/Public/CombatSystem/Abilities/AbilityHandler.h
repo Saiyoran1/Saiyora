@@ -150,7 +150,6 @@ protected:
 	
 	FCastingStateNotification OnCastStateChanged;
 	FAbilityNotification OnAbilityTick;
-	FAbilityInstanceNotification OnAbilityComplete;
 	FTimerHandle CastHandle;
 	FTimerHandle TickHandle;
 	UPROPERTY(ReplicatedUsing = OnRep_CastingState)

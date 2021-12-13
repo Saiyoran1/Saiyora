@@ -25,8 +25,9 @@ UWorld* UCombatAbility::GetWorld() const
     return nullptr;
 }
 
-void UCombatAbility::CommitCharges()
+void UCombatAbility::CommitCharges(int32 const PredictionID)
 {
+    //TODO: Charge prediction.
     int32 const PreviousCharges = AbilityCooldown.CurrentCharges;
     int32 const CurrentMaxCharges = GetMaxCharges();
     AbilityCooldown.CurrentCharges = FMath::Clamp(PreviousCharges - GetChargeCost(), 0, CurrentMaxCharges);
@@ -263,6 +264,10 @@ void UCombatAbility::UpdateCastable()
     {
         Castable = ECastFailReason::AbilityConditionsNotMet;
     }
+    else if (bTagsRestricted || bClassRestricted)
+    {
+        Castable = ECastFailReason::CustomRestriction;
+    }
     else
     {
         Castable = ECastFailReason::None;
@@ -293,6 +298,7 @@ void UCombatAbility::InitialCastableChecks()
     //Need a better system.
     CheckChargeCostMet();
     bCustomCastConditionsMet = CustomCastRestrictions.Num() == 0;
+    bNoTagsRestricted = RestrictedTags.Num() == 0;
     UpdateCastable();
 }
 
@@ -664,12 +670,6 @@ void UCombatAbility::RemoveCastLengthModifier(int32 const ModifierID)
     CastLength->RemoveModifier(ModifierID);
 }
 
-ECastFailReason UCombatAbility::IsCastable(TMap<TSubclassOf<UResource>, float>& OutCosts) const
-{
-    GetAbilityCosts(OutCosts);
-    return Castable;
-}
-
 void UCombatAbility::ServerTick(int32 const TickNumber, FCombatParameters& BroadcastParams)
 {
     if (GetHandler()->GetOwnerRole() != ROLE_Authority)
@@ -728,6 +728,54 @@ void UCombatAbility::SimulatedCancel(FCombatParameters const& BroadcastParams)
     BroadcastParameters.ClearParams();
 }
 
+void UCombatAbility::AddRestrictedTag(FGameplayTag const RestrictedTag)
+{
+    if (!RestrictedTag.IsValid() || !AbilityTags.HasTag(RestrictedTag))
+    {
+        return;
+    }
+    RestrictedTags.Add(RestrictedTag);
+    bool const bPreviouslyRestricted = bTagsRestricted;
+    bTagsRestricted = RestrictedTags.Num() > 0;
+    if (bTagsRestricted != bPreviouslyRestricted)
+    {
+        UpdateCastable();
+    }
+}
+
+void UCombatAbility::RemoveRestrictedTag(FGameplayTag const RestrictedTag)
+{
+    if (!RestrictedTag.IsValid() || !AbilityTags.HasTag(RestrictedTag))
+    {
+        return;
+    }
+    RestrictedTags.Remove(RestrictedTag);
+    bool const bPreviouslyRestricted = bTagsRestricted;
+    bTagsRestricted = RestrictedTags.Num() > 0;
+    if (bPreviouslyRestricted != bTagsRestricted)
+    {
+        UpdateCastable();
+    }
+}
+
+void UCombatAbility::AddClassRestriction()
+{
+    if (!bClassRestricted)
+    {
+        bClassRestricted = true;
+        UpdateCastable();
+    }
+}
+
+void UCombatAbility::RemoveClassRestriction()
+{
+    if (bClassRestricted)
+    {
+        bClassRestricted = false;
+        UpdateCastable();
+    }
+}
+
 void UCombatAbility::SubscribeToChargesChanged(FAbilityChargeCallback const& Callback)
 {
     if (Callback.IsBound())
@@ -777,12 +825,13 @@ void UCombatAbility::ModifyCurrentCharges(int32 const Charges, bool const bAddit
     }
 }
 
-void UCombatAbility::ActivateCastRestriction(FName const& RestrictionName)
+void UCombatAbility::ActivateCastRestriction(FGameplayTag const RestrictionTag)
 {
-    if (RestrictionName.IsValid())
+    if (!RestrictionTag.IsValid() || !RestrictionTag.MatchesTag(UAbilityComponent::AbilityRestrictionTag()) || RestrictionTag.MatchesTagExact(UAbilityComponent::AbilityRestrictionTag()))
     {
-        CustomCastRestrictions.Add(RestrictionName);
+        return;
     }
+    CustomCastRestrictions.Add(RestrictionTag);
     bool const bPreviouslyMet = bCustomCastConditionsMet;
     bCustomCastConditionsMet = CustomCastRestrictions.Num() == 0;
     if (bPreviouslyMet != bCustomCastConditionsMet)
@@ -791,12 +840,13 @@ void UCombatAbility::ActivateCastRestriction(FName const& RestrictionName)
     }
 }
 
-void UCombatAbility::DeactivateCastRestriction(FName const& RestrictionName)
+void UCombatAbility::DeactivateCastRestriction(FGameplayTag const RestrictionTag)
 {
-    if (RestrictionName.IsValid())
+    if (!RestrictionTag.IsValid() || !RestrictionTag.MatchesTag(UAbilityComponent::AbilityRestrictionTag()) || RestrictionTag.MatchesTagExact(UAbilityComponent::AbilityRestrictionTag()))
     {
-        CustomCastRestrictions.Remove(RestrictionName);
+        return;
     }
+    CustomCastRestrictions.Remove(RestrictionTag);
     bool const bPreviouslyMet = bCustomCastConditionsMet;
     bCustomCastConditionsMet = CustomCastRestrictions.Num() == 0;
     if (bPreviouslyMet != bCustomCastConditionsMet)

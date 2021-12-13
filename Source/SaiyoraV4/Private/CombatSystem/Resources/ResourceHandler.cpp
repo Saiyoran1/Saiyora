@@ -150,12 +150,14 @@ bool UResourceHandler::CheckAbilityCostsMet(TMap<TSubclassOf<UResource>, float> 
 	return true;
 }
 
-void UResourceHandler::CommitAbilityCosts(UCombatAbility* Ability, TMap<TSubclassOf<UResource>, float> const& Costs, int32 const PredictionID)
+void UResourceHandler::CommitAbilityCosts(UCombatAbility* Ability, int32 const PredictionID)
 {
-	if (GetOwnerRole() == ROLE_SimulatedProxy)
+	if (GetOwnerRole() == ROLE_SimulatedProxy || !IsValid(Ability))
 	{
 		return;
 	}
+	TMap<TSubclassOf<UResource>, float> Costs;
+	Ability->GetAbilityCosts(Costs);
 	for (TTuple<TSubclassOf<UResource>, float> const& Cost : Costs)
 	{
 		UResource* Resource = FindActiveResource(Cost.Key);

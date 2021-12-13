@@ -1,11 +1,12 @@
 ﻿#include "AbilityComponent.h"
-
 #include "AbilityStructs.h"
+#include "Buff.h"
 #include "CombatAbility.h"
 #include "CrowdControlHandler.h"
 #include "DamageHandler.h"
 #include "SaiyoraCombatInterface.h"
 #include "StatHandler.h"
+#include "UnrealNetwork.h"
 #include "GameFramework/GameState.h"
 
 #pragma region Setup
@@ -30,30 +31,36 @@ void UAbilityComponent::BeginPlay()
 	DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
 	if (IsValid(StatHandlerRef))
 	{
-		StatCooldownMod.BindDynamic(this, &UAbilityHandler::ModifyCooldownFromStat);
-		AddConditionalCooldownModifier(StatCooldownMod);
-		StatGlobalCooldownMod.BindDynamic(this, &UAbilityHandler::ModifyGlobalCooldownFromStat);
-		AddConditionalGlobalCooldownModifier(StatGlobalCooldownMod);
-		StatCastLengthMod.BindDynamic(this, &UAbilityHandler::ModifyCastLengthFromStat);
-		AddConditionalCastLengthModifier(StatCastLengthMod);
+		StatCooldownMod.BindDynamic(this, &UAbilityComponent::ModifyCooldownFromStat);
+		AddCooldownModifier(StatCooldownMod);
+		StatGlobalCooldownMod.BindDynamic(this, &UAbilityComponent::ModifyGlobalCooldownFromStat);
+		AddGlobalCooldownModifier(StatGlobalCooldownMod);
+		StatCastLengthMod.BindDynamic(this, &UAbilityComponent::ModifyCastLengthFromStat);
+		AddCastLengthModifier(StatCastLengthMod);
 	}
 	if (GetOwnerRole() == ROLE_Authority)
 	{
 		if (IsValid(CrowdControlHandlerRef))
 		{
-			CcCallback.BindDynamic(this, &UAbilityHandler::InterruptCastOnCrowdControl);
-			CrowdControlHandler->SubscribeToCrowdControlChanged(CcCallback);
+			CcCallback.BindDynamic(this, &UAbilityComponent::InterruptCastOnCrowdControl);
+			CrowdControlHandlerRef->SubscribeToCrowdControlChanged(CcCallback);
 		}
 		if (IsValid(DamageHandlerRef))
 		{
-			DeathCallback.BindDynamic(this, &UAbilityHandler::InterruptCastOnDeath);
-			DamageHandler->SubscribeToLifeStatusChanged(DeathCallback);
+			DeathCallback.BindDynamic(this, &UAbilityComponent::InterruptCastOnDeath);
+			DamageHandlerRef->SubscribeToLifeStatusChanged(DeathCallback);
 		}
 		for (TSubclassOf<UCombatAbility> const AbilityClass : DefaultAbilities)
 		{
 			AddNewAbility(AbilityClass);
 		}
 	}	
+}
+
+void UAbilityComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME_CONDITION(UAbilityComponent, CastingState, COND_SkipOwner);
 }
 
 #pragma endregion 
@@ -142,101 +149,306 @@ FAbilityEvent UAbilityComponent::UseAbility(TSubclassOf<UCombatAbility> const Ab
 		Result.FailReason = ECastFailReason::NetRole;
 		return Result;
 	}
-	
 	Result.Ability = ActiveAbilities.FindRef(AbilityClass);
-	
-	
+	if (!CanUseAbility(Result.Ability, Result.FailReason))
+	{
+		return Result;
+	}
+	int32 const PredictionID = GetOwnerRole() == ROLE_Authority ? 0 : GenerateNewPredictionID();
 	if (Result.Ability->HasGlobalCooldown())
 	{
-		StartGlobal(Result.Ability);
+		StartGlobalCooldown(Result.Ability, PredictionID);
 	}
-	
-	Result.Ability->CommitCharges();
-	
-	if (Costs.Num() > 0 && IsValid(ResourceHandler))
+	Result.Ability->CommitCharges(PredictionID);
+	if (IsValid(ResourceHandlerRef))
 	{
-		ResourceHandler->CommitAbilityCosts(Result.Ability, Costs);
+		//TODO: For prediction, resource handler should keep a record of predicted costs, then ability handler can send the updated list of costs from server RPC.
+		ResourceHandlerRef->CommitAbilityCosts(Result.Ability, PredictionID);
 	}
-
-	FCombatParameters BroadcastParams;
-	
-	switch (Result.Ability->GetCastType())
+	if (GetOwnerRole() == ROLE_Authority)
 	{
-	case EAbilityCastType::None :
-		Result.FailReason = ECastFailReason::InvalidCastType;
-		return Result;
-	case EAbilityCastType::Instant :
-		Result.ActionTaken = ECastAction::Success;
-		Result.Ability->ServerTick(0, BroadcastParams);
-		OnAbilityTick.Broadcast(Result);
-		MulticastAbilityTick(Result, BroadcastParams);
-		break;
-	case EAbilityCastType::Channel :
-		Result.ActionTaken = ECastAction::Success;
-		StartCast(Result.Ability);
-		if (Result.Ability->GetHasInitialTick())
+		switch (Result.Ability->GetCastType())
 		{
-			Result.Ability->ServerTick(0, BroadcastParams);
-			OnAbilityTick.Broadcast(Result);
-			MulticastAbilityTick(Result, BroadcastParams);
+		case EAbilityCastType::Instant :
+			{
+				Result.ActionTaken = ECastAction::Success;
+				Result.Ability->PredictedTick(0, Result.PredictionParams);
+				Result.Ability->ServerTick(0, Result.PredictionParams, Result.BroadcastParams);
+				MulticastAbilityTick(Result);
+				OnAbilityTick.Broadcast(Result);
+			}
+			break;
+		case EAbilityCastType::Channel :
+			{
+				Result.ActionTaken = ECastAction::Success;
+				StartCast(Result.Ability);
+				if (Result.Ability->HasInitialTick())
+				{
+					Result.Ability->PredictedTick(0, Result.PredictionParams);
+					Result.Ability->ServerTick(0, Result.PredictionParams, Result.BroadcastParams);
+					MulticastAbilityTick(Result);
+					OnAbilityTick.Broadcast(Result);
+				}
+			}
+			break;
+		default :
+			Result.FailReason = ECastFailReason::InvalidCastType;
+			return Result;
 		}
-		break;
-	default :
-		Result.FailReason = ECastFailReason::InvalidCastType;
-		return Result;
 	}
-	
+	else if (GetOwnerRole() == ROLE_AutonomousProxy)
+	{
+		FAbilityRequest Request;
+		Request.AbilityClass = Result.Ability->GetClass();
+		Request.PredictionID = PredictionID;
+		Request.ClientStartTime = GameStateRef->GetServerWorldTimeSeconds();
+		switch (Result.Ability->GetCastType())
+		{
+			case EAbilityCastType::Instant :
+				{
+					Result.ActionTaken = ECastAction::Success;
+					Result.Ability->PredictedTick(0, Result.PredictionParams, PredictionID);
+					Request.PredictionParams = Result.PredictionParams;
+					OnAbilityTick.Broadcast(Result);
+					break;
+				}
+			case EAbilityCastType::Channel :
+				{
+					Result.ActionTaken = ECastAction::Success;
+					StartCast(Result.Ability, Result.PredictionID);
+                    if (Result.Ability->HasInitialTick())
+                    {
+                    	Result.Ability->PredictedTick(0, Result.PredictionParams, Result.PredictionID);
+                    	Request.PredictionParams = Result.PredictionParams;
+                    	OnAbilityTick.Broadcast(Result);
+                    }
+                    break;
+				}
+			default :
+				Result.FailReason = ECastFailReason::InvalidCastType;
+				return Result;
+		}
+		FClientAbilityPrediction Prediction;
+		Prediction.Ability = Result.Ability;
+		Prediction.ClientTime = GameStateRef->GetServerWorldTimeSeconds();
+		Prediction.bPredictedGCD = Result.Ability->HasGlobalCooldown();
+		Prediction.bPredictedCastBar = Result.Ability->GetCastType() == EAbilityCastType::Channel;
+		UnackedAbilityPredictions.Add(PredictionID, Prediction);
+		ServerPredictAbility(Request);
+	}
 	return Result;
 }
 
-bool UAbilityComponent::CanUseAbility(UCombatAbility* Ability, TMap<TSubclassOf<UResource>, float>& OutCosts,
-	ECastFailReason& OutFailReason) const
+void UAbilityComponent::ServerPredictAbility_Implementation(FAbilityRequest const& Request)
 {
-	if (!IsValid(Ability))
+	//TODO: Merge this function with the predicted tick function? One centralized place to predict will let me do predicted movement on ticks possibly.s
+}
+
+int32 UAbilityComponent::GenerateNewPredictionID()
+{
+	int32 const Previous = LastPredictionID;
+	LastPredictionID = LastPredictionID + 1;
+	if (LastPredictionID == 0)
 	{
-		OutFailReason = ECastFailReason::InvalidAbility;
-		return false;
+		LastPredictionID++;
 	}
-	if (!Ability->GetCastableWhileDead() && IsValid(DamageHandlerRef) && DamageHandlerRef->GetLifeStatus() != ELifeStatus::Alive)
+	if (LastPredictionID < Previous)
 	{
-		OutFailReason = ECastFailReason::Dead;
-		return false;
+		UE_LOG(LogTemp, Warning, TEXT("PredictionID overflowed into the negatives."));
 	}
-	if (Ability->HasGlobalCooldown() && GlobalCooldownState.bGlobalCooldownActive)
+	return LastPredictionID;
+}
+
+#pragma endregion
+#pragma region Casting
+
+void UAbilityComponent::StartCast(UCombatAbility* Ability, int32 const PredictionID)
+{
+	FCastingState const PreviousState = CastingState;
+	CastingState.bIsCasting = true;
+	CastingState.CurrentCast = Ability;
+	if (PredictionID != 0)
 	{
-		OutFailReason = ECastFailReason::OnGlobalCooldown;
-		return false;
+		CastingState.PredictionID = PredictionID;
 	}
-	if (CastingState.bIsCasting)
+	CastingState.CastStartTime = GameStateRef->GetServerWorldTimeSeconds();
+	float const CastLength = GetOwnerRole() == ROLE_Authority ? CalculateCastLength(Ability) : 0.0f;
+	CastingState.CastEndTime = GetOwnerRole() == ROLE_Authority ? CastingState.CastStartTime + CastLength : 0.0f;
+	CastingState.bInterruptible = Ability->IsInterruptible();
+	CastingState.ElapsedTicks = 0;
+	if (GetOwnerRole() == ROLE_Authority)
 	{
-		OutFailReason = ECastFailReason::AlreadyCasting;
-		return false;
+		GetWorld()->GetTimerManager().SetTimer(TickHandle, this, &UAbilityComponent::TickCurrentCast,
+			(CastLength / Ability->GetNumberOfTicks()), true);
 	}
-	OutFailReason = Ability->IsCastable(OutCosts);
-	if (OutFailReason != ECastFailReason::None)
+    OnCastStateChanged.Broadcast(PreviousState, CastingState);
+}
+
+void UAbilityComponent::EndCast()
+{
+	FCastingState const PreviousState = CastingState;
+    CastingState.bIsCasting = false;
+    CastingState.CurrentCast = nullptr;
+   	CastingState.bInterruptible = false;
+    CastingState.ElapsedTicks = 0;
+    CastingState.CastStartTime = 0.0f;
+    CastingState.CastEndTime = 0.0f;
+    GetWorld()->GetTimerManager().ClearTimer(TickHandle);
+    OnCastStateChanged.Broadcast(PreviousState, CastingState);
+}
+
+void UAbilityComponent::TickCurrentCast()
+{
+	if (!CastingState.bIsCasting || !IsValid(CastingState.CurrentCast))
 	{
-		return false;
+		return;
 	}
-	//TODO: These checks should probably be done per-ability when adding and removing restrictions?
-	TArray<FGameplayTag> RestrictedTags;
-	AbilityUsageTagRestrictions.GenerateValueArray(RestrictedTags);
-	FGameplayTagContainer RestrictedTagContainer;
-	RestrictedTagContainer.CreateFromArray(RestrictedTags);
-	FGameplayTagContainer AbilityTags;
-	Ability->GetAbilityTags(AbilityTags);
-	if (AbilityTags.HasAny(RestrictedTagContainer))
+	CastingState.ElapsedTicks++;
+	FAbilityEvent TickEvent;
+	TickEvent.Ability = CastingState.CurrentCast;
+	TickEvent.PredictionID = CastingState.PredictionID;
+	TickEvent.Tick = CastingState.ElapsedTicks;
+	TickEvent.ActionTaken = CastingState.ElapsedTicks >= CastingState.CurrentCast->GetNumberOfTicks() ? ECastAction::Complete : ECastAction::Tick;
+	bool bTickFired = false;
+	if (GetOwnerRole() == ROLE_Authority && bLocallyControlled)
 	{
-		OutFailReason = ECastFailReason::CustomRestriction;
-		return false;
+		CastingState.CurrentCast->PredictedTick(CastingState.ElapsedTicks, TickEvent.PredictionParams);
+		CastingState.CurrentCast->ServerTick(CastingState.ElapsedTicks, TickEvent.PredictionParams, TickEvent.BroadcastParams);
+		bTickFired = true;
 	}
-	TArray<TSubclassOf<UCombatAbility>> RestrictedClasses;
-	AbilityUsageClassRestrictions.GenerateValueArray(RestrictedClasses);
-	if (RestrictedClasses.Contains(Ability->GetClass()))
+	else if (GetOwnerRole() == ROLE_Authority)
 	{
-		OutFailReason = ECastFailReason::CustomRestriction;
-		return false;
+		RemoveExpiredTicks();
+		FPredictedTick const CurrentTick = FPredictedTick(CastingState.PredictionID, CastingState.ElapsedTicks);
+		if (ParamsAwaitingTicks.Contains(CurrentTick))
+		{
+			TickEvent.PredictionParams = ParamsAwaitingTicks.FindRef(CurrentTick);
+			CastingState.CurrentCast->ServerTick(CastingState.ElapsedTicks, TickEvent.PredictionParams, TickEvent.BroadcastParams, CastingState.PredictionID);
+			ParamsAwaitingTicks.Remove(CurrentTick);
+			bTickFired = true;
+		}
+		else
+		{
+			TicksAwaitingParams.Add(TickEvent);
+			bTickFired = false;
+		}
 	}
-	return true;
+	else if (GetOwnerRole() == ROLE_AutonomousProxy)
+	{
+		FAbilityRequest TickRequest;
+		TickRequest.PredictionID = CastingState.PredictionID;
+		TickRequest.Tick = CastingState.ElapsedTicks;
+		TickRequest.AbilityClass = CastingState.CurrentCast->GetClass();
+		CastingState.CurrentCast->PredictedTick(CastingState.ElapsedTicks, TickEvent.PredictionParams, CastingState.PredictionID);
+		TickRequest.PredictionParams = TickEvent.PredictionParams;
+		ServerHandlePredictedTick(TickRequest);
+		bTickFired = true;
+	}
+	if (bTickFired)
+	{
+		OnAbilityTick.Broadcast(TickEvent);
+		if (GetOwnerRole() == ROLE_Authority)
+		{
+			MulticastAbilityTick(TickEvent);
+		}
+	}
+	if (CastingState.ElapsedTicks >= CastingState.CurrentCast->GetNumberOfTicks())
+	{
+		EndCast();
+	}
+}
+
+void UAbilityComponent::ServerHandlePredictedTick_Implementation(FAbilityRequest const& TickRequest)
+{
+	if (CastingState.bIsCasting && IsValid(CastingState.CurrentCast) && CastingState.CurrentCast->GetClass() == TickRequest.AbilityClass &&
+		CastingState.PredictionID == TickRequest.PredictionID && CastingState.ElapsedTicks < TickRequest.Tick)
+	{
+		FPredictedTick const Tick = FPredictedTick(TickRequest.PredictionID, TickRequest.Tick);
+		ParamsAwaitingTicks.Add(Tick, TickRequest.PredictionParams);
+		//TODO: If within a certain tolerance, maybe just perform the ability and increase next tick timer by the remaining time?
+		//This would help with race conditions between PlayerAbilityHandler and CMC.
+		return;
+	}
+	for (int i = 0; i < TicksAwaitingParams.Num(); i++)
+	{
+		if (TicksAwaitingParams[i].PredictionID == TickRequest.PredictionID && TicksAwaitingParams[i].Tick == TickRequest.Tick &&
+			IsValid(TicksAwaitingParams[i].Ability) && TicksAwaitingParams[i].Ability->GetClass() == TickRequest.AbilityClass)
+		{
+			TicksAwaitingParams[i].PredictionParams = TickRequest.PredictionParams;
+			TicksAwaitingParams[i].Ability->ServerTick(TicksAwaitingParams[i].Tick, TicksAwaitingParams[i].PredictionParams, TicksAwaitingParams[i].BroadcastParams, TicksAwaitingParams[i].PredictionID);
+			OnAbilityTick.Broadcast(TicksAwaitingParams[i]);
+			MulticastAbilityTick(TicksAwaitingParams[i]);
+			TicksAwaitingParams.RemoveAt(i);
+			return;
+		}
+	}
+}
+
+void UAbilityComponent::RemoveExpiredTicks()
+{
+	for (int i = TicksAwaitingParams.Num() - 1; i >= 0; i--)
+	{
+		if ((TicksAwaitingParams[i].PredictionID == CastingState.PredictionID && TicksAwaitingParams[i].Tick < CastingState.ElapsedTicks - 1) ||
+			(TicksAwaitingParams[i].PredictionID < CastingState.PredictionID && CastingState.ElapsedTicks >= 1))
+		{
+			TicksAwaitingParams.RemoveAt(i);
+		}
+	}
+	TArray<FPredictedTick> ExpiredTicks;
+	for (TTuple<FPredictedTick, FCombatParameters> const& WaitingParams : ParamsAwaitingTicks)
+	{
+		if ((WaitingParams.Key.PredictionID == CastingState.PredictionID && WaitingParams.Key.TickNumber < CastingState.ElapsedTicks - 1) ||
+			(WaitingParams.Key.PredictionID < CastingState.PredictionID && CastingState.ElapsedTicks >= 1))
+		{
+			ExpiredTicks.Add(WaitingParams.Key);
+		}
+	}
+	for (FPredictedTick const& ExpiredTick : ExpiredTicks)
+	{
+		ParamsAwaitingTicks.Remove(ExpiredTick);
+	}
+}
+
+#pragma endregion 
+#pragma region Global Cooldown
+
+void UAbilityComponent::StartGlobalCooldown(UCombatAbility* Ability, int32 const PredictionID)
+{
+	FGlobalCooldown const PreviousState = GlobalCooldownState;
+	GlobalCooldownState.bGlobalCooldownActive = true;
+	if (PredictionID != 0)
+	{
+		GlobalCooldownState.PredictionID = PredictionID;
+	}
+	GlobalCooldownState.StartTime = GetGameStateRef()->GetServerWorldTimeSeconds();
+	if (GetOwnerRole() == ROLE_Authority)
+	{
+		float const GlobalLength = GlobalCooldownState.StartTime + CalculateGlobalCooldownLength(Ability);
+		GlobalCooldownState.EndTime = GlobalCooldownState.StartTime + GlobalLength;
+		GetWorld()->GetTimerManager().SetTimer(GlobalCooldownHandle, this, &UAbilityComponent::EndGlobalCooldown, GlobalLength, false);
+	}
+	else
+	{
+		GlobalCooldownState.EndTime = 0.0f;
+	}
+	OnGlobalCooldownChanged.Broadcast(PreviousState, GlobalCooldownState);
+}
+
+void UAbilityComponent::EndGlobalCooldown()
+{
+	if (GlobalCooldownState.bGlobalCooldownActive)
+	{
+		FGlobalCooldown const PreviousGlobal;
+		GlobalCooldownState.bGlobalCooldownActive = false;
+		GlobalCooldownState.StartTime = 0.0f;
+		GlobalCooldownState.EndTime = 0.0f;
+		GetWorld()->GetTimerManager().ClearTimer(GlobalCooldownHandle);
+		OnGlobalCooldownChanged.Broadcast(PreviousGlobal, GlobalCooldownState);
+		if (bLocallyControlled)
+		{
+			//TODO: Check for queued ability.
+		}
+	}
 }
 
 #pragma endregion 
@@ -274,7 +486,134 @@ void UAbilityComponent::UnsubscribeFromAbilityRemoved(FAbilityInstanceCallback c
 	}
 }
 
+void UAbilityComponent::SubscribeToGlobalCooldownChanged(FGlobalCooldownCallback const& Callback)
+{
+	if (Callback.IsBound())
+	{
+		OnGlobalCooldownChanged.AddUnique(Callback);
+	}
+}
+
+void UAbilityComponent::UnsubscribeFromGlobalCooldownChanged(FGlobalCooldownCallback const& Callback)
+{
+	if (Callback.IsBound())
+	{
+		OnGlobalCooldownChanged.Remove(Callback);
+	}
+}
+
+void UAbilityComponent::SubscribeToCastStateChanged(FCastingStateCallback const& Callback)
+{
+	if (Callback.IsBound())
+	{
+		OnCastStateChanged.AddUnique(Callback);
+	}
+}
+
+void UAbilityComponent::UnsubscribeFromCastStateChanged(FCastingStateCallback const& Callback)
+{
+	if (Callback.IsBound())
+	{
+		OnCastStateChanged.Remove(Callback);
+	}
+}
+
 #pragma endregion
+#pragma region Modifiers
+
+void UAbilityComponent::AddGlobalCooldownModifier(FAbilityModCondition const& Modifier)
+{
+	if (GetOwnerRole() == ROLE_Authority && Modifier.IsBound())
+	{
+		GlobalCooldownMods.AddUnique(Modifier);
+	}
+}
+
+void UAbilityComponent::RemoveGlobalCooldownModifier(FAbilityModCondition const& Modifier)
+{
+	if (GetOwnerRole() == ROLE_Authority && Modifier.IsBound())
+	{
+		GlobalCooldownMods.Remove(Modifier);
+	}
+}
+
+FCombatModifier UAbilityComponent::ModifyGlobalCooldownFromStat(TSubclassOf<UCombatAbility> AbilityClass)
+{
+	if (IsValid(StatHandlerRef) && StatHandlerRef->IsStatValid(GlobalCooldownLengthStatTag()))
+	{
+		return FCombatModifier(StatHandlerRef->GetStatValue(GlobalCooldownLengthStatTag()), EModifierType::Multiplicative);
+	}
+	return FCombatModifier::InvalidMod;
+}
+
+float UAbilityComponent::CalculateGlobalCooldownLength(UCombatAbility* Ability)
+{
+	if (!IsValid(Ability) || !Ability->HasGlobalCooldown())
+	{
+		return -1.0f;
+	}
+	if (Ability->HasStaticGlobalCooldown())
+	{
+		return Ability->GetGlobalCooldownLength();
+	}
+	TArray<FCombatModifier> Mods;
+	for (FAbilityModCondition const& Mod : GlobalCooldownMods)
+	{
+		if (Mod.IsBound())
+		{
+			Mods.Add(Mod.Execute(Ability->GetClass()));
+		}
+	}
+	return FCombatModifier::ApplyModifiers(Mods, Ability->GetGlobalCooldownLength());
+}
+
+void UAbilityComponent::AddCastLengthModifier(FAbilityModCondition const& Modifier)
+{
+	if (GetOwnerRole() == ROLE_Authority && Modifier.IsBound())
+	{
+		CastLengthMods.AddUnique(Modifier);
+	}
+}
+
+void UAbilityComponent::RemoveCastLengthModifier(FAbilityModCondition const& Modifier)
+{
+	if (GetOwnerRole() == ROLE_Authority && Modifier.IsBound())
+	{
+		CastLengthMods.Remove(Modifier);
+	}
+}
+
+FCombatModifier UAbilityComponent::ModifyCastLengthFromStat(TSubclassOf<UCombatAbility> AbilityClass)
+{
+	if (IsValid(StatHandlerRef) && StatHandlerRef->IsStatValid(CastLengthStatTag()))
+	{
+		return FCombatModifier(StatHandlerRef->GetStatValue(CastLengthStatTag()), EModifierType::Multiplicative);
+	}
+	return FCombatModifier::InvalidMod;
+}
+
+float UAbilityComponent::CalculateCastLength(UCombatAbility* Ability)
+{
+	if (!IsValid(Ability) || Ability->GetCastType() != EAbilityCastType::Channel)
+	{
+		return -1.0f;
+	}
+	if (Ability->HasStaticCastLength())
+	{
+		return Ability->GetCastLength();
+	}
+	TArray<FCombatModifier> Mods;
+	for (FAbilityModCondition const& Mod : CastLengthMods)
+	{
+		if (Mod.IsBound())
+		{
+			Mods.Add(Mod.Execute(Ability->GetClass()));
+		}
+	}
+	return FCombatModifier::ApplyModifiers(Mods, Ability->GetCastLength());
+}
+
+#pragma endregion 
 #pragma region Restrictions
 
 void UAbilityComponent::AddAbilityAcquisitionRestriction(FAbilityClassRestriction const& Restriction)
@@ -302,52 +641,110 @@ void UAbilityComponent::RemoveAbilityAcquisitionRestriction(FAbilityClassRestric
 	}
 }
 
-void UAbilityComponent::AddAbilityTagRestriction(UObject* Source, FGameplayTag const Tag)
+void UAbilityComponent::AddAbilityTagRestriction(UBuff* Source, FGameplayTag const Tag)
 {
-	if (!IsValid(Source) || !Tag.IsValid())
+	if (!IsValid(Source) || !Tag.IsValid() || !Tag.MatchesTag(AbilityRestrictionTag()) || Tag.MatchesTagExact(AbilityRestrictionTag()))
 	{
 		return;
 	}
-	bool const bAlreadyRestricted = AbilityUsageTagRestrictions.FindKey(Tag);
-	AbilityUsageTagRestrictions.AddUnique(Source, Tag);
+	bool const bAlreadyRestricted = AbilityUsageTagRestrictions.Num(Tag) > 0;
+	AbilityUsageTagRestrictions.AddUnique(Tag, Source);
 	if (!bAlreadyRestricted)
 	{
 		for (TTuple<TSubclassOf<UCombatAbility>, UCombatAbility*> const& AbilityPair : ActiveAbilities)
 		{
-			if (IsValid(AbilityPair.Value))
+			if (IsValid(AbilityPair.Value) && AbilityPair.Value->HasTag(Tag))
 			{
-				FGameplayTagContainer AbilityTags;
-				AbilityPair.Value->GetAbilityTags(AbilityTags);
-				if (AbilityTags.HasTag(Tag))
-				{
-					//TODO: Notify ability of new tag restriction.
-				}
+				AbilityPair.Value->AddRestrictedTag(Tag);
 			}
 		}
 	}
 }
 
-void UAbilityComponent::RemoveAbilityTagRestriction(UObject* Source, FGameplayTag const Tag)
+void UAbilityComponent::RemoveAbilityTagRestriction(UBuff* Source, FGameplayTag const Tag)
 {
-	if (!IsValid(Source) || !Tag.IsValid())
+	if (!IsValid(Source) || !Tag.IsValid() || !Tag.MatchesTag(AbilityRestrictionTag()) || Tag.MatchesTagExact(AbilityRestrictionTag()))
 	{
 		return;
 	}
-	if (AbilityUsageTagRestrictions.Remove(Source, Tag) > 0 && !AbilityUsageTagRestrictions.FindKey(Tag))
+	if (AbilityUsageTagRestrictions.Remove(Tag, Source) > 0 && AbilityUsageTagRestrictions.Num(Tag) == 0)
 	{
 		for (TTuple<TSubclassOf<UCombatAbility>, UCombatAbility*> const& AbilityPair : ActiveAbilities)
 		{
-			if (IsValid(AbilityPair.Value))
+			if (IsValid(AbilityPair.Value) && AbilityPair.Value->HasTag(Tag))
 			{
-				FGameplayTagContainer AbilityTags;
-				AbilityPair.Value->GetAbilityTags(AbilityTags);
-				if (AbilityTags.HasTag(Tag))
-				{
-					//TODO: Notify ability tag restriction removed.
-				}
+				AbilityPair.Value->RemoveRestrictedTag(Tag);
 			}
 		}
 	}
+}
+
+void UAbilityComponent::AddAbilityClassRestriction(UBuff* Source, TSubclassOf<UCombatAbility> const Class)
+{
+	if (!IsValid(Source) || !IsValid(Class))
+	{
+		return;
+	}
+	bool const bAlreadyRestricted = AbilityUsageClassRestrictions.Num(Class);
+	AbilityUsageClassRestrictions.AddUnique(Class, Source);
+	if (!bAlreadyRestricted)
+	{
+		for (TTuple<TSubclassOf<UCombatAbility>, UCombatAbility*> const& AbilityPair : ActiveAbilities)
+		{
+			if (IsValid(AbilityPair.Key) && IsValid(AbilityPair.Value) && AbilityPair.Key == Class)
+			{
+				AbilityPair.Value->AddRestrictedTag(AbilityClassRestrictionTag());
+			}
+		}
+	}
+}
+
+void UAbilityComponent::RemoveAbilityClassRestriction(UBuff* Source, TSubclassOf<UCombatAbility> const Class)
+{
+	if (!IsValid(Source) || !IsValid(Class))
+	{
+		return;
+	}
+	if (AbilityUsageClassRestrictions.Remove(Class, Source) > 0 && AbilityUsageClassRestrictions.Num(Class) == 0)
+	{
+		for (TTuple<TSubclassOf<UCombatAbility>, UCombatAbility*> const& AbilityPair : ActiveAbilities)
+		{
+			if (IsValid(AbilityPair.Key) && IsValid(AbilityPair.Value) && AbilityPair.Key == Class)
+			{
+				AbilityPair.Value->RemoveRestrictedTag(AbilityClassRestrictionTag());
+			}
+		}
+	}
+}
+
+bool UAbilityComponent::CanUseAbility(UCombatAbility* Ability, ECastFailReason& OutFailReason) const
+{
+	if (!IsValid(Ability))
+	{
+		OutFailReason = ECastFailReason::InvalidAbility;
+		return false;
+	}
+	if (!Ability->GetCastableWhileDead() && IsValid(DamageHandlerRef) && DamageHandlerRef->GetLifeStatus() != ELifeStatus::Alive)
+	{
+		OutFailReason = ECastFailReason::Dead;
+		return false;
+	}
+	if (Ability->HasGlobalCooldown() && GlobalCooldownState.bGlobalCooldownActive)
+	{
+		OutFailReason = ECastFailReason::OnGlobalCooldown;
+		return false;
+	}
+	if (CastingState.bIsCasting)
+	{
+		OutFailReason = ECastFailReason::AlreadyCasting;
+		return false;
+	}
+	OutFailReason = Ability->IsCastable();
+	if (OutFailReason != ECastFailReason::None)
+	{
+		return false;
+	}
+	return true;
 }
 
 #pragma endregion

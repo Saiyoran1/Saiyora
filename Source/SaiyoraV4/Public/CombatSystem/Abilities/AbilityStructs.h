@@ -218,14 +218,10 @@ struct FClientAbilityPrediction
     GENERATED_BODY()
     
     UPROPERTY()
-    UPlayerCombatAbility* Ability = nullptr;
-    int32 PredictionID = 0;
+    UCombatAbility* Ability = nullptr;
     float ClientTime = 0.0f;
     bool bPredictedGCD = false;
-    bool bPredictedCharges = false;
     bool bPredictedCastBar = false;
-    UPROPERTY()
-    TArray<TSubclassOf<UResource>> PredictedCostClasses;
 };
 
 USTRUCT()
@@ -236,7 +232,7 @@ struct FServerAbilityResult
     UPROPERTY()
     int32 PredictionID = 0;
     UPROPERTY()
-    TSubclassOf<UPlayerCombatAbility> AbilityClass;
+    TSubclassOf<UCombatAbility> AbilityClass;
     UPROPERTY()
     float ClientStartTime = 0.0f;
     UPROPERTY()
@@ -263,6 +259,7 @@ struct FPredictedTick
     int32 PredictionID;
     int32 TickNumber;
 
+    FPredictedTick(int32 const ID, int32 const Tick) { PredictionID = ID; TickNumber = Tick; }
     FORCEINLINE bool operator==(const FPredictedTick& Other) const { return Other.PredictionID == PredictionID && Other.TickNumber == TickNumber; }
 };
 

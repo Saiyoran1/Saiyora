@@ -3,6 +3,8 @@
 #include "AbilityStructs.h"
 #include "CrowdControlStructs.h"
 #include "DamageStructs.h"
+#include "GameplayTagsManager.h"
+#include "GameFramework/GameState.h"
 
 #include "AbilityComponent.generated.h"
 
@@ -21,8 +23,14 @@ class SAIYORAV4_API UAbilityComponent : public UActorComponent
 
 public:
 
+	static FGameplayTag AbilityRestrictionTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("AbilityRestriction")), false); }
+	static FGameplayTag AbilityClassRestrictionTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("AbilityRestriction.Class")), false); }
+	static FGameplayTag GlobalCooldownLengthStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.GlobalCooldownLength")), false); }
+	static FGameplayTag CastLengthStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.CastLength")), false); }
+
 	UAbilityComponent();
 	virtual void BeginPlay() override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	AGameState* GetGameStateRef() const { return GameStateRef; }
 	UResourceHandler* GetResourceHandlerRef() const { return ResourceHandlerRef; }
@@ -42,8 +50,7 @@ private:
 	UCrowdControlHandler* CrowdControlHandlerRef = nullptr;
 
 	FAbilityModCondition StatCooldownMod;
-	FAbilityModCondition StatGlobalCooldownMod;
-	FAbilityModCondition StatCastLengthMod;
+	
 	FCrowdControlCallback CcCallback;
 	FLifeStatusCallback DeathCallback;
 
@@ -95,32 +102,103 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	FAbilityEvent UseAbility(TSubclassOf<UCombatAbility> const AbilityClass);
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-	bool CanUseAbility(UCombatAbility* Ability, TMap<TSubclassOf<UResource>, float>& OutCosts, ECastFailReason& OutFailReason) const;
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities", meta = (HidePin="Source", DefaultToSelf="Source"))
-	void AddAbilityTagRestriction(UObject* Source, FGameplayTag const Tag);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities", meta = (HidePin="Source", DefaultToSelf="Source"))
-	void RemoveAbilityTagRestriction(UObject* Source, FGameplayTag const Tag);
+	bool CanUseAbility(UCombatAbility* Ability, ECastFailReason& OutFailReason) const;
+	void AddAbilityTagRestriction(UBuff* Source, FGameplayTag const Tag);
+	void RemoveAbilityTagRestriction(UBuff* Source, FGameplayTag const Tag);
+	void AddAbilityClassRestriction(UBuff* Source, TSubclassOf<UCombatAbility> const Class);
+	void RemoveAbilityClassRestriction(UBuff* Source, TSubclassOf<UCombatAbility> const Class);
 
 private:
 
 	UPROPERTY()
-	TMultiMap<UObject*, FGameplayTag> AbilityUsageTagRestrictions;
+	TMultiMap<FGameplayTag, UBuff*> AbilityUsageTagRestrictions;
 	UPROPERTY()
-	TMultiMap<UObject*, TSubclassOf<UCombatAbility>> AbilityUsageClassRestrictions;
+	TMultiMap<TSubclassOf<UCombatAbility>, UBuff*> AbilityUsageClassRestrictions;
+	int32 LastPredictionID = 0;
+	int32 GenerateNewPredictionID();
+	TMap<int32, FClientAbilityPrediction> UnackedAbilityPredictions;
+	TArray<FAbilityEvent> TicksAwaitingParams;
+	TMap<FPredictedTick, FCombatParameters> ParamsAwaitingTicks;
+	void RemoveExpiredTicks();
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerPredictAbility(FAbilityRequest const& Request);
+	bool ServerPredictAbility_Validate(FAbilityRequest const& Request) { return true; }
+	UFUNCTION(NetMulticast, Unreliable)
+	void MulticastAbilityTick(FAbilityEvent const& Event);
+	FAbilityNotification OnAbilityTick;
 
 //Casting
 
 public:
 
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+	bool IsCasting() const { return CastingState.bIsCasting; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+	bool IsInterruptible() const { return CastingState.bIsCasting && CastingState.bInterruptible; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+    float GetCurrentCastLength() const { return CastingState.bIsCasting && CastingState.CastEndTime != 0.0f ? FMath::Max(0.0f, CastingState.CastEndTime - CastingState.CastStartTime) : 0.0f; }
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+    float GetCastTimeRemaining() const { return CastingState.bIsCasting && CastingState.CastEndTime != 0.0f ? FMath::Max(0.0f, CastingState.CastEndTime - GameStateRef->GetServerWorldTimeSeconds()) : 0.0f; }
+    UFUNCTION(BlueprintCallable, Category = "Abilities")
+    void SubscribeToCastStateChanged(FCastingStateCallback const& Callback);
+    UFUNCTION(BlueprintCallable, Category = "Abilities")
+    void UnsubscribeFromCastStateChanged(FCastingStateCallback const& Callback);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+	void AddCastLengthModifier(FAbilityModCondition const& Modifier);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+	void RemoveCastLengthModifier(FAbilityModCondition const& Modifier);
+
 private:
 
+	UPROPERTY(ReplicatedUsing=OnRep_CastingState)
 	FCastingState CastingState;
+	UFUNCTION()
+	void OnRep_CastingState(FCastingState const& Previous) { OnCastStateChanged.Broadcast(Previous, CastingState); }
+	void StartCast(UCombatAbility* Ability, int32 const PredictionID = 0);
+	void EndCast();
+	FTimerHandle TickHandle;
+	UFUNCTION()
+	void TickCurrentCast();
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerHandlePredictedTick(FAbilityRequest const& TickRequest);
+	bool ServerHandlePredictedTick_Validate(FAbilityRequest const& TickRequest) { return true; }
+	TArray<FAbilityModCondition> CastLengthMods;
+	FAbilityModCondition StatCastLengthMod;
+	UFUNCTION()
+	FCombatModifier ModifyCastLengthFromStat(TSubclassOf<UCombatAbility> AbilityClass);
+	float CalculateCastLength(UCombatAbility* Ability);
+	FCastingStateNotification OnCastStateChanged;
 
 //Global Cooldown
 
 public:
 
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+	bool IsGlobalCooldownActive() const { return GlobalCooldownState.bGlobalCooldownActive; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+	float GetCurrentGlobalCooldownLength() const { return GlobalCooldownState.bGlobalCooldownActive && GlobalCooldownState.EndTime != 0.0f ? FMath::Max(0.0f, GlobalCooldownState.EndTime - GlobalCooldownState.StartTime) : 0.0f; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+	float GetGlobalCooldownTimeRemaining() const { return GlobalCooldownState.bGlobalCooldownActive && GlobalCooldownState.EndTime != 0.0f ? FMath::Max(0.0f, GlobalCooldownState.EndTime - GameStateRef->GetServerWorldTimeSeconds()) : 0.0f; }
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	void SubscribeToGlobalCooldownChanged(FGlobalCooldownCallback const& Callback);
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	void UnsubscribeFromGlobalCooldownChanged(FGlobalCooldownCallback const& Callback);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+	void AddGlobalCooldownModifier(FAbilityModCondition const& Modifier);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+	void RemoveGlobalCooldownModifier(FAbilityModCondition const& Modifier);
+
 private:
 
 	FGlobalCooldown GlobalCooldownState;
+	FTimerHandle GlobalCooldownHandle;
+	void StartGlobalCooldown(UCombatAbility* Ability, int32 const PredictionID = 0);
+	UFUNCTION()
+	void EndGlobalCooldown();
+	TArray<FAbilityModCondition> GlobalCooldownMods;
+	FAbilityModCondition StatGlobalCooldownMod;
+	UFUNCTION()
+	FCombatModifier ModifyGlobalCooldownFromStat(TSubclassOf<UCombatAbility> AbilityClass);
+	float CalculateGlobalCooldownLength(UCombatAbility* Ability);
+	FGlobalCooldownNotification OnGlobalCooldownChanged;
 };

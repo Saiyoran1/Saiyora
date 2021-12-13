@@ -396,7 +396,7 @@ FAbilityEvent UPlayerAbilityHandler::UsePlayerAbility(TSubclassOf<UPlayerCombatA
 			Result.ActionTaken = ECastAction::Success;
 			PredictStartCast(PlayerAbility, Result.PredictionID);
 			AbilityPrediction.bPredictedCastBar = true;
-			if (PlayerAbility->GetHasInitialTick())
+			if (PlayerAbility->HasInitialTick())
 			{
 				PlayerAbility->PredictedTick(0, AbilityRequest.PredictionParams, Result.PredictionID);
 				Result.PredictionParams = AbilityRequest.PredictionParams;
@@ -448,7 +448,7 @@ FAbilityEvent UPlayerAbilityHandler::UsePlayerAbility(TSubclassOf<UPlayerCombatA
 	case EAbilityCastType::Channel :
 		Result.ActionTaken = ECastAction::Success;
 		StartCast(PlayerAbility, Result.PredictionID);
-		if (Result.Ability->GetHasInitialTick())
+		if (Result.Ability->HasInitialTick())
 		{
 			PlayerAbility->PredictedTick(0, PredictionParams, 0);
 			PlayerAbility->ServerTick(0, PredictionParams, BroadcastParams, 0);
@@ -543,7 +543,7 @@ void UPlayerAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest 
 		ServerResult.bActivatedCastBar = true;
 		ServerResult.bInterruptible = CastingState.bInterruptible;
 		LastAckedClientID = AbilityRequest.PredictionID;
-		if (PlayerAbility->GetHasInitialTick())
+		if (PlayerAbility->HasInitialTick())
 		{
 			PlayerAbility->ServerTick(0, AbilityRequest.PredictionParams, BroadcastParams, AbilityRequest.PredictionID);
 			Result.BroadcastParams = BroadcastParams;
@@ -667,7 +667,7 @@ void UPlayerAbilityHandler::StartCast(UCombatAbility* Ability, int32 const Predi
 	float const PingCompensation = FMath::Clamp(USaiyoraCombatLibrary::GetActorPing(GetOwner()), 0.0f, MaxPingCompensation);
 	CastLength = FMath::Max(MinimumCastLength, CastLength - PingCompensation);
 	CastingState.CastEndTime = CastingState.CastStartTime + CastLength;
-	CastingState.bInterruptible = Ability->GetInterruptible();
+	CastingState.bInterruptible = Ability->IsInterruptible();
 	GetWorld()->GetTimerManager().SetTimer(CastHandle, this, &UPlayerAbilityHandler::CompleteCast, CastLength, false);
 	GetWorld()->GetTimerManager().SetTimer(TickHandle, this, &UPlayerAbilityHandler::AuthTickPredictedCast,
 		(CastLength / Ability->GetNumberOfTicks()), true);
@@ -683,7 +683,7 @@ void UPlayerAbilityHandler::PredictStartCast(UCombatAbility* Ability, int32 cons
 	CastingState.PredictionID = PredictionID;
 	CastingState.CastStartTime = GetGameStateRef()->GetServerWorldTimeSeconds();
 	CastingState.CastEndTime = 0.0f;
-	CastingState.bInterruptible = Ability->GetInterruptible();
+	CastingState.bInterruptible = Ability->IsInterruptible();
 	CastingState.ElapsedTicks = 0;
 	OnCastStateChanged.Broadcast(PreviousState, CastingState);
 	//Notably, don't set the tick or end cast timer. The server's response will set these timers.
