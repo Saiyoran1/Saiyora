@@ -361,7 +361,6 @@ FAbilityEvent UPlayerAbilityHandler::UsePlayerAbility(TSubclassOf<UPlayerCombatA
 		FClientAbilityPrediction AbilityPrediction;
 		AbilityPrediction.Ability = PlayerAbility;
 		AbilityPrediction.PredictionID = Result.PredictionID;
-		AbilityPrediction.ClientTime = GetGameStateRef()->GetServerWorldTimeSeconds();
 
 		if (PlayerAbility->HasGlobalCooldown())
 		{

@@ -27,6 +27,12 @@ public:
 	static FGameplayTag AbilityClassRestrictionTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("AbilityRestriction.Class")), false); }
 	static FGameplayTag GlobalCooldownLengthStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.GlobalCooldownLength")), false); }
 	static FGameplayTag CastLengthStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.CastLength")), false); }
+	static FGameplayTag CooldownLengthStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.CooldownLength")), false); }
+
+	static const float MaxPingCompensation;
+	static const float MinimumCastLength;
+	static const float MinimumGlobalCooldownLength;
+	static const float MinimumCooldownLength;
 
 	UAbilityComponent();
 	virtual void BeginPlay() override;
@@ -48,8 +54,6 @@ private:
 	UDamageHandler* DamageHandlerRef = nullptr;
 	UPROPERTY()
 	UCrowdControlHandler* CrowdControlHandlerRef = nullptr;
-
-	FAbilityModCondition StatCooldownMod;
 	
 	FCrowdControlCallback CcCallback;
 	FLifeStatusCallback DeathCallback;
@@ -123,9 +127,13 @@ private:
 	UFUNCTION(Server, Reliable, WithValidation)
 	void ServerPredictAbility(FAbilityRequest const& Request);
 	bool ServerPredictAbility_Validate(FAbilityRequest const& Request) { return true; }
+	UFUNCTION(Client, Reliable)
+	void ClientPredictionResult(FServerAbilityResult const& Result);
+	TMap<FPredictedTick, bool> PredictedTickRecord;
 	UFUNCTION(NetMulticast, Unreliable)
 	void MulticastAbilityTick(FAbilityEvent const& Event);
 	FAbilityNotification OnAbilityTick;
+	FAbilityMispredictionNotification OnAbilityMispredicted;
 
 //Casting
 
@@ -159,13 +167,10 @@ private:
 	FTimerHandle TickHandle;
 	UFUNCTION()
 	void TickCurrentCast();
-	UFUNCTION(Server, Reliable, WithValidation)
-	void ServerHandlePredictedTick(FAbilityRequest const& TickRequest);
-	bool ServerHandlePredictedTick_Validate(FAbilityRequest const& TickRequest) { return true; }
 	TArray<FAbilityModCondition> CastLengthMods;
 	FAbilityModCondition StatCastLengthMod;
 	UFUNCTION()
-	FCombatModifier ModifyCastLengthFromStat(TSubclassOf<UCombatAbility> AbilityClass);
+	FCombatModifier ModifyCastLengthFromStat(UCombatAbility* Ability);
 	float CalculateCastLength(UCombatAbility* Ability);
 	FCastingStateNotification OnCastStateChanged;
 
@@ -198,7 +203,24 @@ private:
 	TArray<FAbilityModCondition> GlobalCooldownMods;
 	FAbilityModCondition StatGlobalCooldownMod;
 	UFUNCTION()
-	FCombatModifier ModifyGlobalCooldownFromStat(TSubclassOf<UCombatAbility> AbilityClass);
+	FCombatModifier ModifyGlobalCooldownFromStat(UCombatAbility* Ability);
 	float CalculateGlobalCooldownLength(UCombatAbility* Ability);
 	FGlobalCooldownNotification OnGlobalCooldownChanged;
+
+//Cooldown
+
+public:
+
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+	void AddCooldownModifier(FAbilityModCondition const& Modifier);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+	void RemoveCooldownModifier(FAbilityModCondition const& Modifier);
+	float CalculateCooldownLength(UCombatAbility* Ability, bool const bCompensatePing = false);
+
+private:
+
+	TArray<FAbilityModCondition> CooldownMods;
+	FAbilityModCondition StatCooldownMod;
+	UFUNCTION()
+	FCombatModifier ModifyCooldownFromStat(UCombatAbility* Ability);
 };

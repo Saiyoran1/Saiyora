@@ -558,8 +558,8 @@ void UCombatAbility::InitializeAbility(UAbilityComponent* AbilityComponent)
         CooldownLength = NewObject<UModifiableFloatValue>(OwningComponent->GetOwner());
         if (IsValid(CooldownLength))
         {
-            CooldownLength->Init(DefaultCooldown, !bStaticCooldown, true, UAbilityHandler::MinimumCooldownLength);
-            if (!bStaticCooldown)
+            CooldownLength->Init(DefaultCooldown, !bStaticCooldownLength, true, UAbilityHandler::MinimumCooldownLength);
+            if (!bStaticCooldownLength)
             {
                 CooldownRecalculation.BindDynamic(this, &UCombatAbility::RecalculateCooldownLength);
                 CooldownLength->SetRecalculationFunction(CooldownRecalculation);
@@ -571,8 +571,8 @@ void UCombatAbility::InitializeAbility(UAbilityComponent* AbilityComponent)
         GlobalCooldownLength = NewObject<UModifiableFloatValue>(OwningComponent->GetOwner());
         if (IsValid(GlobalCooldownLength))
         {
-            GlobalCooldownLength->Init(DefaultGlobalCooldownLength, !bStaticGlobalCooldown, true, UAbilityHandler::MinimumGlobalCooldownLength);
-            if (!bStaticGlobalCooldown)
+            GlobalCooldownLength->Init(DefaultGlobalCooldownLength, !bStaticGlobalCooldownLength, true, UAbilityHandler::MinimumGlobalCooldownLength);
+            if (!bStaticGlobalCooldownLength)
             {
                 GcdRecalculation.BindDynamic(this, &UCombatAbility::RecalculateGcdLength);
                 GlobalCooldownLength->SetRecalculationFunction(GcdRecalculation);

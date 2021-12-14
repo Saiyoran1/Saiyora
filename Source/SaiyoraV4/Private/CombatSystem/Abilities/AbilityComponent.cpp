@@ -11,6 +11,11 @@
 
 #pragma region Setup
 
+float const UAbilityComponent::MaxPingCompensation = 0.2f;
+float const UAbilityComponent::MinimumCastLength = 0.5f;
+float const UAbilityComponent::MinimumGlobalCooldownLength = 0.5f;
+float const UAbilityComponent::MinimumCooldownLength = 0.5f;
+
 UAbilityComponent::UAbilityComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
@@ -225,12 +230,11 @@ FAbilityEvent UAbilityComponent::UseAbility(TSubclassOf<UCombatAbility> const Ab
                     break;
 				}
 			default :
-				Result.FailReason = ECastFailReason::InvalidCastType;
+				UE_LOG(LogTemp, Warning, TEXT("Defaulted on cast type for predicted ability."));
 				return Result;
 		}
 		FClientAbilityPrediction Prediction;
 		Prediction.Ability = Result.Ability;
-		Prediction.ClientTime = GameStateRef->GetServerWorldTimeSeconds();
 		Prediction.bPredictedGCD = Result.Ability->HasGlobalCooldown();
 		Prediction.bPredictedCastBar = Result.Ability->GetCastType() == EAbilityCastType::Channel;
 		UnackedAbilityPredictions.Add(PredictionID, Prediction);
@@ -241,7 +245,197 @@ FAbilityEvent UAbilityComponent::UseAbility(TSubclassOf<UCombatAbility> const Ab
 
 void UAbilityComponent::ServerPredictAbility_Implementation(FAbilityRequest const& Request)
 {
-	//TODO: Merge this function with the predicted tick function? One centralized place to predict will let me do predicted movement on ticks possibly.s
+	if (PredictedTickRecord.Contains(FPredictedTick(Request.PredictionID, Request.Tick)))
+	{
+		return;
+	}
+	if (Request.Tick == 0)
+	{
+		FServerAbilityResult ServerResult;
+		ServerResult.PredictionID = Request.PredictionID;
+		ServerResult.AbilityClass = Request.AbilityClass;
+		if (!IsValid(Request.AbilityClass))
+		{
+			ServerResult.FailReason = ECastFailReason::InvalidAbility;
+			PredictedTickRecord.Add(FPredictedTick(Request.PredictionID, 0), false);
+			ClientPredictionResult(ServerResult);
+			return;
+		}
+		UCombatAbility* Ability = ActiveAbilities.FindRef(Request.AbilityClass);
+		if (!CanUseAbility(Ability, ServerResult.FailReason))
+		{
+			PredictedTickRecord.Add(FPredictedTick(Request.PredictionID, 0), false);
+			ClientPredictionResult(ServerResult);
+			return;
+		}
+        //This should probably be manually calculated using ping value and server time, instead of trusting the client.
+        //TODO: Update this once I've got Ping worked out and am confident in it being accurate.
+        ServerResult.ClientStartTime = Request.ClientStartTime;
+		
+		FAbilityEvent Result;
+		Result.Ability = Ability;
+		Result.PredictionID = Request.PredictionID;
+		Result.PredictionParams = Request.PredictionParams;
+        
+        if (Ability->HasGlobalCooldown())
+        {
+        	StartGlobalCooldown(Ability, Request.PredictionID);
+        	ServerResult.bActivatedGlobal = true;
+        	ServerResult.GlobalLength = FMath::Max(0.0f, GlobalCooldownState.EndTime - GlobalCooldownState.StartTime);
+        }
+        
+        int32 const PreviousCharges = Ability->GetCurrentCharges();
+        Ability->CommitCharges(Request.PredictionID);
+        int32 const NewCharges = Ability->GetCurrentCharges();
+        ServerResult.ChargesSpent = PreviousCharges - NewCharges;
+        
+        if (IsValid(ResourceHandlerRef))
+        {
+        	TMap<TSubclassOf<UResource>, float> Costs;
+        	ResourceHandlerRef->CommitAbilityCosts(Ability, Request.PredictionID);
+        	//TODO: Cost calculations!
+        	for (TTuple<TSubclassOf<UResource>, float> const& Cost : Costs)
+        	{
+        		ServerResult.AbilityCosts.Add(FReplicableAbilityCost(Cost.Key, Cost.Value));
+        	}
+        }
+        	
+        switch (Ability->GetCastType())
+        {
+        case EAbilityCastType::Instant :
+	        {
+        		Result.ActionTaken = ECastAction::Success;
+        		Ability->ServerTick(0, Result.PredictionParams, Result.BroadcastParams, Result.PredictionID);
+        		OnAbilityTick.Broadcast(Result);
+        		MulticastAbilityTick(Result);
+	        }
+        	break;
+        case EAbilityCastType::Channel :
+	        {
+        		Result.ActionTaken = ECastAction::Success;
+        		StartCast(Ability, Result.PredictionID);
+        		ServerResult.bActivatedCastBar = true;
+        		ServerResult.CastLength = FMath::Max(0.0f, CastingState.CastEndTime - CastingState.CastStartTime);
+        		ServerResult.bInterruptible = CastingState.bInterruptible;
+        		if (Ability->HasInitialTick())
+        		{
+        			Ability->ServerTick(0, Result.PredictionParams, Result.BroadcastParams, Result.PredictionID);
+        			OnAbilityTick.Broadcast(Result);
+        			MulticastAbilityTick(Result);
+        		}
+	        }
+        	break;
+        default :
+        	UE_LOG(LogTemp, Warning, TEXT("Defaulted on cast type for predicted ability."));
+        	return;
+        }
+
+		PredictedTickRecord.Add(FPredictedTick(Request.PredictionID, 0), true);
+        ClientPredictionResult(ServerResult);
+	}
+	else
+	{
+		if (CastingState.bIsCasting && IsValid(CastingState.CurrentCast) && CastingState.CurrentCast->GetClass() == Request.AbilityClass &&
+			CastingState.PredictionID == Request.PredictionID && CastingState.ElapsedTicks < Request.Tick)
+		{
+			ParamsAwaitingTicks.Add(FPredictedTick(Request.PredictionID, Request.Tick), Request.PredictionParams);
+			//TODO: If within a certain tolerance, maybe just perform the ability and increase next tick timer by the remaining time?
+			//This would help with race conditions between PlayerAbilityHandler and CMC.
+			return;
+		}
+		for (int i = 0; i < TicksAwaitingParams.Num(); i++)
+		{
+			if (TicksAwaitingParams[i].PredictionID == Request.PredictionID && TicksAwaitingParams[i].Tick == Request.Tick &&
+				IsValid(TicksAwaitingParams[i].Ability) && TicksAwaitingParams[i].Ability->GetClass() == Request.AbilityClass)
+			{
+				TicksAwaitingParams[i].PredictionParams = Request.PredictionParams;
+				TicksAwaitingParams[i].Ability->ServerTick(TicksAwaitingParams[i].Tick, TicksAwaitingParams[i].PredictionParams, TicksAwaitingParams[i].BroadcastParams, TicksAwaitingParams[i].PredictionID);
+				OnAbilityTick.Broadcast(TicksAwaitingParams[i]);
+				MulticastAbilityTick(TicksAwaitingParams[i]);
+				PredictedTickRecord.Add(FPredictedTick(TicksAwaitingParams[i].PredictionID, TicksAwaitingParams[i].Tick), true);
+				TicksAwaitingParams.RemoveAt(i);
+				return;
+			}
+		}
+	}
+}
+
+void UAbilityComponent::ClientPredictionResult_Implementation(FServerAbilityResult const& Result)
+{
+	FClientAbilityPrediction* OriginalPrediction = UnackedAbilityPredictions.Find(Result.PredictionID);
+	if (OriginalPrediction == nullptr)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Client did not have an ability prediction stored that matches server result with prediction ID %i."), Result.PredictionID);
+		return;
+	}
+	if (IsValid(ResourceHandlerRef))
+	{
+		ResourceHandlerRef->UpdatePredictedCostsFromServer(Result);
+	}
+	if (IsValid(OriginalPrediction->Ability))
+	{
+		OriginalPrediction->Ability->UpdatePredictionFromServer(Result);
+	}
+	if (CastingState.PredictionID <= Result.PredictionID)
+	{
+		CastingState.PredictionID = Result.PredictionID;
+		//TODO: This logic isn't quite right. If a cast wasn't active we would start a new cast regardless of if the server wants...
+		if (CastingState.bIsCasting && (!Result.bSuccess || !Result.bActivatedCastBar || Result.ClientStartTime + Result.CastLength < GameStateRef->GetServerWorldTimeSeconds()))
+		{
+			EndCast();
+		}
+		else
+		{
+			FCastingState const PreviousState = CastingState;
+			CastingState.bIsCasting = true;
+			CastingState.CastStartTime = Result.ClientStartTime;
+			CastingState.CastEndTime = CastingState.CastStartTime + Result.CastLength;
+			CastingState.CurrentCast = IsValid(OriginalPrediction->Ability) ? OriginalPrediction->Ability : ActiveAbilities.FindRef(Result.AbilityClass);
+			CastingState.bInterruptible = Result.bInterruptible;
+			//Check for any missed ticks. We will update the last missed tick (if any, this should be rare) after setting everything else.
+			float const TickInterval = Result.CastLength / CastingState.CurrentCast->GetNumberOfTicks();
+			int32 const ElapsedTicks = FMath::FloorToInt((GameStateRef->GetServerWorldTimeSeconds() - CastingState.CastStartTime) / TickInterval);
+			//First iteration of the tick timer will get time remaining until the next tick (to account for travel time). Subsequent ticks use regular interval.
+			GetWorld()->GetTimerManager().SetTimer(TickHandle, this, &UAbilityComponent::TickCurrentCast, TickInterval, true,
+				(CastingState.CastStartTime + (TickInterval * (ElapsedTicks + 1))) - GameStateRef->GetServerWorldTimeSeconds());
+			OnCastStateChanged.Broadcast(PreviousState, CastingState);
+			//Immediately perform the last missed tick if one happened during the wait time between ability prediction and confirmation.
+			if (ElapsedTicks > 0)
+			{
+				//Reduce tick by one since ticking the cast will increment it back up.
+				CastingState.ElapsedTicks = ElapsedTicks - 1;
+				TickCurrentCast();
+			}
+			else
+			{
+				CastingState.ElapsedTicks = ElapsedTicks;
+			}
+		}
+	}
+	if (GlobalCooldownState.PredictionID <= Result.PredictionID)
+	{
+		GlobalCooldownState.PredictionID = Result.PredictionID;
+		//TODO: This logic isn't quite right. If a global wasn't active we would start a new global regardless of if the server wants...
+		if (GlobalCooldownState.bGlobalCooldownActive && (!Result.bSuccess || !Result.bActivatedGlobal || Result.ClientStartTime + Result.GlobalLength < GetGameStateRef()->GetServerWorldTimeSeconds()))
+		{
+			EndGlobalCooldown();
+		}
+		else
+		{
+			FGlobalCooldown const PreviousState = GlobalCooldownState;
+			GlobalCooldownState.bGlobalCooldownActive = true;
+			GlobalCooldownState.StartTime = Result.ClientStartTime;
+			GlobalCooldownState.EndTime = GlobalCooldownState.StartTime + Result.GlobalLength;
+			GetWorld()->GetTimerManager().ClearTimer(GlobalCooldownHandle);
+			GetWorld()->GetTimerManager().SetTimer(GlobalCooldownHandle, this, &UAbilityComponent::EndGlobalCooldown, GlobalCooldownState.EndTime - GameStateRef->GetServerWorldTimeSeconds(), false);
+			OnGlobalCooldownChanged.Broadcast(PreviousState, GlobalCooldownState);
+		}
+	}
+	if (!Result.bSuccess)
+	{
+		OnAbilityMispredicted.Broadcast(Result.PredictionID);
+	}
+	UnackedAbilityPredictions.Remove(Result.PredictionID);
 }
 
 int32 UAbilityComponent::GenerateNewPredictionID()
@@ -324,6 +518,7 @@ void UAbilityComponent::TickCurrentCast()
 		{
 			TickEvent.PredictionParams = ParamsAwaitingTicks.FindRef(CurrentTick);
 			CastingState.CurrentCast->ServerTick(CastingState.ElapsedTicks, TickEvent.PredictionParams, TickEvent.BroadcastParams, CastingState.PredictionID);
+			PredictedTickRecord.Add(CurrentTick, true);
 			ParamsAwaitingTicks.Remove(CurrentTick);
 			bTickFired = true;
 		}
@@ -341,7 +536,7 @@ void UAbilityComponent::TickCurrentCast()
 		TickRequest.AbilityClass = CastingState.CurrentCast->GetClass();
 		CastingState.CurrentCast->PredictedTick(CastingState.ElapsedTicks, TickEvent.PredictionParams, CastingState.PredictionID);
 		TickRequest.PredictionParams = TickEvent.PredictionParams;
-		ServerHandlePredictedTick(TickRequest);
+		ServerPredictAbility(TickRequest);
 		bTickFired = true;
 	}
 	if (bTickFired)
@@ -355,32 +550,6 @@ void UAbilityComponent::TickCurrentCast()
 	if (CastingState.ElapsedTicks >= CastingState.CurrentCast->GetNumberOfTicks())
 	{
 		EndCast();
-	}
-}
-
-void UAbilityComponent::ServerHandlePredictedTick_Implementation(FAbilityRequest const& TickRequest)
-{
-	if (CastingState.bIsCasting && IsValid(CastingState.CurrentCast) && CastingState.CurrentCast->GetClass() == TickRequest.AbilityClass &&
-		CastingState.PredictionID == TickRequest.PredictionID && CastingState.ElapsedTicks < TickRequest.Tick)
-	{
-		FPredictedTick const Tick = FPredictedTick(TickRequest.PredictionID, TickRequest.Tick);
-		ParamsAwaitingTicks.Add(Tick, TickRequest.PredictionParams);
-		//TODO: If within a certain tolerance, maybe just perform the ability and increase next tick timer by the remaining time?
-		//This would help with race conditions between PlayerAbilityHandler and CMC.
-		return;
-	}
-	for (int i = 0; i < TicksAwaitingParams.Num(); i++)
-	{
-		if (TicksAwaitingParams[i].PredictionID == TickRequest.PredictionID && TicksAwaitingParams[i].Tick == TickRequest.Tick &&
-			IsValid(TicksAwaitingParams[i].Ability) && TicksAwaitingParams[i].Ability->GetClass() == TickRequest.AbilityClass)
-		{
-			TicksAwaitingParams[i].PredictionParams = TickRequest.PredictionParams;
-			TicksAwaitingParams[i].Ability->ServerTick(TicksAwaitingParams[i].Tick, TicksAwaitingParams[i].PredictionParams, TicksAwaitingParams[i].BroadcastParams, TicksAwaitingParams[i].PredictionID);
-			OnAbilityTick.Broadcast(TicksAwaitingParams[i]);
-			MulticastAbilityTick(TicksAwaitingParams[i]);
-			TicksAwaitingParams.RemoveAt(i);
-			return;
-		}
 	}
 }
 
@@ -537,7 +706,7 @@ void UAbilityComponent::RemoveGlobalCooldownModifier(FAbilityModCondition const&
 	}
 }
 
-FCombatModifier UAbilityComponent::ModifyGlobalCooldownFromStat(TSubclassOf<UCombatAbility> AbilityClass)
+FCombatModifier UAbilityComponent::ModifyGlobalCooldownFromStat(UCombatAbility* Ability)
 {
 	if (IsValid(StatHandlerRef) && StatHandlerRef->IsStatValid(GlobalCooldownLengthStatTag()))
 	{
@@ -552,7 +721,7 @@ float UAbilityComponent::CalculateGlobalCooldownLength(UCombatAbility* Ability)
 	{
 		return -1.0f;
 	}
-	if (Ability->HasStaticGlobalCooldown())
+	if (Ability->HasStaticGlobalCooldownLength())
 	{
 		return Ability->GetGlobalCooldownLength();
 	}
@@ -561,10 +730,11 @@ float UAbilityComponent::CalculateGlobalCooldownLength(UCombatAbility* Ability)
 	{
 		if (Mod.IsBound())
 		{
-			Mods.Add(Mod.Execute(Ability->GetClass()));
+			Mods.Add(Mod.Execute(Ability));
 		}
 	}
-	return FCombatModifier::ApplyModifiers(Mods, Ability->GetGlobalCooldownLength());
+	float const PingCompensation = bLocallyControlled ? 0.0f : FMath::Min(MaxPingCompensation, USaiyoraCombatLibrary::GetActorPing(GetOwner()));
+	return FMath::Max(MinimumGlobalCooldownLength, FCombatModifier::ApplyModifiers(Mods, Ability->GetGlobalCooldownLength()) - PingCompensation);
 }
 
 void UAbilityComponent::AddCastLengthModifier(FAbilityModCondition const& Modifier)
@@ -583,7 +753,7 @@ void UAbilityComponent::RemoveCastLengthModifier(FAbilityModCondition const& Mod
 	}
 }
 
-FCombatModifier UAbilityComponent::ModifyCastLengthFromStat(TSubclassOf<UCombatAbility> AbilityClass)
+FCombatModifier UAbilityComponent::ModifyCastLengthFromStat(UCombatAbility* Ability)
 {
 	if (IsValid(StatHandlerRef) && StatHandlerRef->IsStatValid(CastLengthStatTag()))
 	{
@@ -607,10 +777,58 @@ float UAbilityComponent::CalculateCastLength(UCombatAbility* Ability)
 	{
 		if (Mod.IsBound())
 		{
-			Mods.Add(Mod.Execute(Ability->GetClass()));
+			Mods.Add(Mod.Execute(Ability));
 		}
 	}
-	return FCombatModifier::ApplyModifiers(Mods, Ability->GetCastLength());
+	float const PingCompensation = bLocallyControlled ? 0.0f : FMath::Min(MaxPingCompensation, USaiyoraCombatLibrary::GetActorPing(GetOwner()));
+	return FMath::Max(MinimumCastLength, FCombatModifier::ApplyModifiers(Mods, Ability->GetCastLength()) - PingCompensation);
+}
+
+void UAbilityComponent::AddCooldownModifier(FAbilityModCondition const& Modifier)
+{
+	if (GetOwnerRole() == ROLE_Authority && Modifier.IsBound())
+	{
+		CooldownMods.AddUnique(Modifier);
+	}
+}
+
+void UAbilityComponent::RemoveCooldownModifier(FAbilityModCondition const& Modifier)
+{
+	if (GetOwnerRole() == ROLE_Authority && Modifier.IsBound())
+	{
+		CooldownMods.Remove(Modifier);
+	}
+}
+
+FCombatModifier UAbilityComponent::ModifyCooldownFromStat(UCombatAbility* Ability)
+{
+	if (IsValid(StatHandlerRef) && StatHandlerRef->IsStatValid(CooldownLengthStatTag()))
+	{
+		return FCombatModifier(StatHandlerRef->GetStatValue(CooldownLengthStatTag()), EModifierType::Multiplicative);
+	}
+	return FCombatModifier::InvalidMod;
+}
+
+float UAbilityComponent::CalculateCooldownLength(UCombatAbility* Ability, bool const bCompensatePing)
+{
+	if (!IsValid(Ability))
+	{
+		return -1.0f;
+	}
+	if (Ability->HasStaticCooldownLength())
+	{
+		return Ability->GetCooldownLength();
+	}
+	TArray<FCombatModifier> Mods;
+	for (FAbilityModCondition const& Mod : CooldownMods)
+	{
+		if (Mod.IsBound())
+		{
+			Mods.Add(Mod.Execute(Ability));
+		}
+	}
+	float const PingCompensation = (bLocallyControlled || !bCompensatePing) ? 0.0f : FMath::Min(MaxPingCompensation, USaiyoraCombatLibrary::GetActorPing(GetOwner()));
+	return FMath::Max(MinimumCooldownLength, FCombatModifier::ApplyModifiers(Mods, Ability->GetCooldownLength()) - PingCompensation);
 }
 
 #pragma endregion 
@@ -724,7 +942,12 @@ bool UAbilityComponent::CanUseAbility(UCombatAbility* Ability, ECastFailReason& 
 		OutFailReason = ECastFailReason::InvalidAbility;
 		return false;
 	}
-	if (!Ability->GetCastableWhileDead() && IsValid(DamageHandlerRef) && DamageHandlerRef->GetLifeStatus() != ELifeStatus::Alive)
+	if (Ability->GetCastType() == EAbilityCastType::None)
+	{
+		OutFailReason = ECastFailReason::InvalidCastType;
+		return false;
+	}
+	if (!Ability->IsCastableWhileDead() && IsValid(DamageHandlerRef) && DamageHandlerRef->GetLifeStatus() != ELifeStatus::Alive)
 	{
 		OutFailReason = ECastFailReason::Dead;
 		return false;

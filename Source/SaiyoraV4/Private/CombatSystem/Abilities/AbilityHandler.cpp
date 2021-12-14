@@ -136,7 +136,7 @@ void UAbilityHandler::InterruptCastOnDeath(AActor* Actor, ELifeStatus const Prev
 			case ELifeStatus::Alive :
 				break;
 			case ELifeStatus::Dead :
-				if (!GetCastingState().CurrentCast->GetCastableWhileDead())
+				if (!GetCastingState().CurrentCast->IsCastableWhileDead())
 				{
 					InterruptCurrentCast(GetOwner(), nullptr, true);
 					return;
@@ -421,7 +421,7 @@ bool UAbilityHandler::CheckCanUseAbility(UCombatAbility* Ability, TMap<TSubclass
 		OutFailReason = ECastFailReason::InvalidAbility;
 		return false;
 	}
-	if (!Ability->GetCastableWhileDead() && IsValid(DamageHandler) && DamageHandler->GetLifeStatus() != ELifeStatus::Alive)
+	if (!Ability->IsCastableWhileDead() && IsValid(DamageHandler) && DamageHandler->GetLifeStatus() != ELifeStatus::Alive)
 	{
 		OutFailReason = ECastFailReason::Dead;
 		return false;
