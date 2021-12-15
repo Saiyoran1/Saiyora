@@ -107,8 +107,10 @@ public:
     void SimulatedTick(int32 const TickNumber, FCombatParameters const& BroadcastParams);
     void CompleteCast();
     void UpdatePredictionFromServer(FServerAbilityResult const& Result);
-    void InterruptCast(FInterruptEvent const& InterruptEvent);
-    void ServerCancel(FCombatParameters& BroadcastParams); 
+    void ServerInterrupt(FInterruptEvent const& InterruptEvent);
+    void SimulatedInterrupt(FInterruptEvent const& InterruptEvent);
+    void PredictedCancel(FCombatParameters& PredictionParams, int32 const PredictionID = 0);
+    void ServerCancel(FCombatParameters const& PredictionParams, FCombatParameters& BroadcastParams, int32 const PredictionID = 0);
     void SimulatedCancel(FCombatParameters const& BroadcastParams);
     void AddRestrictedTag(FGameplayTag const RestrictedTag);
     void RemoveRestrictedTag(FGameplayTag const RestrictedTag);

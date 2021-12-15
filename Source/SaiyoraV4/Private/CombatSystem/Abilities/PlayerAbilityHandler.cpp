@@ -1012,16 +1012,16 @@ FCancelEvent UPlayerAbilityHandler::PredictCancelAbility()
 	Result.bSuccess = true;
 	if (GetOwnerRole() == ROLE_AutonomousProxy)
 	{
-		Result.CancelID = GenerateNewPredictionID();
+		Result.PredictionID = GenerateNewPredictionID();
 		FCancelRequest CancelRequest;
 		CancelRequest.CancelTime = Result.CancelTime;
-		CancelRequest.CancelID = Result.CancelID;
+		CancelRequest.CancelID = Result.PredictionID;
 		CancelRequest.CancelledCastID = Result.CancelledCastID;
-		CurrentPlayerCast->PredictedCancel(CancelRequest.PredictionParams, Result.CancelID);
+		CurrentPlayerCast->PredictedCancel(CancelRequest.PredictionParams, Result.PredictionID);
 		Result.PredictionParams = CancelRequest.PredictionParams;
 		ServerPredictCancelAbility(CancelRequest);
 		OnAbilityCancelled.Broadcast(Result);
-		CastingState.PredictionID = Result.CancelID;
+		CastingState.PredictionID = Result.PredictionID;
 		EndCast();
 		return Result;
 	}
@@ -1051,13 +1051,13 @@ void UPlayerAbilityHandler::ServerPredictCancelAbility_Implementation(FCancelReq
 	FCancelEvent Result;
 	Result.CancelledAbility = CurrentPlayerCast;
 	Result.CancelTime = GetGameStateRef()->GetServerWorldTimeSeconds();
-	Result.CancelID = CancelRequest.CancelID;
+	Result.PredictionID = CancelRequest.CancelID;
 	Result.CancelledCastStart = CastingState.CastStartTime;
 	Result.CancelledCastEnd = CastingState.CastEndTime;
 	Result.CancelledCastID = CastingState.PredictionID;
 	Result.ElapsedTicks = CastingState.ElapsedTicks;
 	Result.PredictionParams = CancelRequest.PredictionParams;
-	CurrentPlayerCast->ServerCancel(Result.PredictionParams, Result.BroadcastParams, Result.CancelID);
+	CurrentPlayerCast->ServerCancel(Result.PredictionParams, Result.BroadcastParams, Result.PredictionID);
 	OnAbilityCancelled.Broadcast(Result);
 	MulticastAbilityCancel(Result);
 	EndCast();
@@ -1097,7 +1097,7 @@ void UPlayerAbilityHandler::ClientInterruptCast_Implementation(FInterruptEvent c
 		//We have already moved on.
 		return;
 	}
-	CastingState.CurrentCast->InterruptCast(InterruptEvent);
+	CastingState.CurrentCast->ServerInterrupt(InterruptEvent);
 	OnAbilityInterrupted.Broadcast(InterruptEvent);
 	EndCast();
 }

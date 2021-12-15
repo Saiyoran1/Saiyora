@@ -627,7 +627,7 @@ FInterruptEvent UAbilityHandler::InterruptCurrentCast(AActor* AppliedBy, UObject
 	}
 	
 	Result.bSuccess = true;
-	Result.InterruptedAbility->InterruptCast(Result);
+	Result.InterruptedAbility->ServerInterrupt(Result);
 	OnAbilityInterrupted.Broadcast(Result);
 	MulticastAbilityInterrupt(Result);
 	EndCast();
@@ -728,7 +728,7 @@ void UAbilityHandler::MulticastAbilityInterrupt_Implementation(FInterruptEvent c
 	{
 		if (IsValid(InterruptEvent.InterruptedAbility))
 		{
-			InterruptEvent.InterruptedAbility->InterruptCast(InterruptEvent);
+			InterruptEvent.InterruptedAbility->ServerInterrupt(InterruptEvent);
 			OnAbilityInterrupted.Broadcast(InterruptEvent);
 		}
 	}

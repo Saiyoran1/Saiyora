@@ -37,6 +37,7 @@ public:
 	UAbilityComponent();
 	virtual void BeginPlay() override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual bool ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags) override;
 
 	AGameState* GetGameStateRef() const { return GameStateRef; }
 	UResourceHandler* GetResourceHandlerRef() const { return ResourceHandlerRef; }
@@ -54,9 +55,6 @@ private:
 	UDamageHandler* DamageHandlerRef = nullptr;
 	UPROPERTY()
 	UCrowdControlHandler* CrowdControlHandlerRef = nullptr;
-	
-	FCrowdControlCallback CcCallback;
-	FLifeStatusCallback DeathCallback;
 
 //Ability Management
 
@@ -107,6 +105,14 @@ public:
 	FAbilityEvent UseAbility(TSubclassOf<UCombatAbility> const AbilityClass);
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
 	bool CanUseAbility(UCombatAbility* Ability, ECastFailReason& OutFailReason) const;
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	void SubscribeToAbilityTicked(FAbilityCallback const& Callback);
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	void UnsubscribeFromAbilityTicked(FAbilityCallback const& Callback);
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	void SubscribeToAbilityMispredicted(FAbilityMispredictionCallback const& Callback);
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	void UnsubscribeFromAbilityMispredicted(FAbilityMispredictionCallback const& Callback);
 	void AddAbilityTagRestriction(UBuff* Source, FGameplayTag const Tag);
 	void RemoveAbilityTagRestriction(UBuff* Source, FGameplayTag const Tag);
 	void AddAbilityClassRestriction(UBuff* Source, TSubclassOf<UCombatAbility> const Class);
@@ -121,19 +127,72 @@ private:
 	int32 LastPredictionID = 0;
 	int32 GenerateNewPredictionID();
 	TMap<int32, FClientAbilityPrediction> UnackedAbilityPredictions;
-	TArray<FAbilityEvent> TicksAwaitingParams;
-	TMap<FPredictedTick, FCombatParameters> ParamsAwaitingTicks;
-	void RemoveExpiredTicks();
 	UFUNCTION(Server, Reliable, WithValidation)
 	void ServerPredictAbility(FAbilityRequest const& Request);
 	bool ServerPredictAbility_Validate(FAbilityRequest const& Request) { return true; }
 	UFUNCTION(Client, Reliable)
 	void ClientPredictionResult(FServerAbilityResult const& Result);
-	TMap<FPredictedTick, bool> PredictedTickRecord;
+	FTimerHandle TickHandle;
+	UFUNCTION()
+	void TickCurrentCast();
 	UFUNCTION(NetMulticast, Unreliable)
 	void MulticastAbilityTick(FAbilityEvent const& Event);
+	TMap<FPredictedTick, bool> PredictedTickRecord;
+	TArray<FAbilityEvent> TicksAwaitingParams;
+	TMap<FPredictedTick, FCombatParameters> ParamsAwaitingTicks;
+	void RemoveExpiredTicks();
 	FAbilityNotification OnAbilityTick;
 	FAbilityMispredictionNotification OnAbilityMispredicted;
+
+//Cancelling
+
+public:
+
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	FCancelEvent CancelCurrentCast();
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	void SubscribeToAbilityCancelled(FAbilityCancelCallback const& Callback);
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	void UnsubscribeFromAbilityCancelled(FAbilityCancelCallback const& Callback);
+		
+private:
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerCancelAbility(FCancelRequest const& Request);
+	bool ServerCancelAbility_Validate(FCancelRequest const& Request) { return true; }
+	UFUNCTION(NetMulticast, Unreliable)
+	void MulticastAbilityCancel(FCancelEvent const& Event);
+	FAbilityCancelNotification OnAbilityCancelled;
+
+//Interrupting
+
+public:
+
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+	FInterruptEvent InterruptCurrentCast(AActor* AppliedBy, UObject* InterruptSource, bool const bIgnoreRestrictions);
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	void SubscribeToAbilityInterrupted(FInterruptCallback const& Callback);
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	void UnsubscribeFromAbilityInterrupted(FInterruptCallback const& Callback);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+	void AddInterruptRestriction(FInterruptRestriction const& Restriction);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+	void RemoveInterruptRestriction(FInterruptRestriction const& Restriction);
+
+private:
+
+	UFUNCTION(NetMulticast, Unreliable)
+	void MulticastAbilityInterrupt(FInterruptEvent const& InterruptEvent);
+	UFUNCTION(Client, Reliable)
+	void ClientAbilityInterrupt(FInterruptEvent const& InterruptEvent);
+	TArray<FInterruptRestriction> InterruptRestrictions;
+	FCrowdControlCallback CcCallback;
+	UFUNCTION()
+	void InterruptCastOnCrowdControl(FCrowdControlStatus const& PreviousStatus, FCrowdControlStatus const& NewStatus);
+	FLifeStatusCallback DeathCallback;
+	UFUNCTION()
+	void InterruptCastOnDeath(AActor* Actor, ELifeStatus const PreviousStatus, ELifeStatus const NewStatus);
+	FInterruptNotification OnAbilityInterrupted;
 
 //Casting
 
@@ -164,9 +223,6 @@ private:
 	void OnRep_CastingState(FCastingState const& Previous) { OnCastStateChanged.Broadcast(Previous, CastingState); }
 	void StartCast(UCombatAbility* Ability, int32 const PredictionID = 0);
 	void EndCast();
-	FTimerHandle TickHandle;
-	UFUNCTION()
-	void TickCurrentCast();
 	TArray<FAbilityModCondition> CastLengthMods;
 	FAbilityModCondition StatCastLengthMod;
 	UFUNCTION()
@@ -196,8 +252,8 @@ public:
 private:
 
 	FGlobalCooldown GlobalCooldownState;
-	FTimerHandle GlobalCooldownHandle;
 	void StartGlobalCooldown(UCombatAbility* Ability, int32 const PredictionID = 0);
+	FTimerHandle GlobalCooldownHandle;
 	UFUNCTION()
 	void EndGlobalCooldown();
 	TArray<FAbilityModCondition> GlobalCooldownMods;
@@ -223,4 +279,19 @@ private:
 	FAbilityModCondition StatCooldownMod;
 	UFUNCTION()
 	FCombatModifier ModifyCooldownFromStat(UCombatAbility* Ability);
+
+//Costs
+//TODO: Costs. Need owning client to have accurate cost modifiers, and cost modifiers must behave like ability use restrictions, so no delegates.
+
+public:
+
+private:
+
+//Queueing
+//TODO: Queueing. Since I'm not crutching on inheritance, I need a way to not requeue abilities that I attempt to use FROM a queue (previously I did this with a bool param to the UsePlayerAbility function).
+
+public:
+
+private:
+
 };

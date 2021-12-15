@@ -86,7 +86,7 @@ struct FCancelEvent
     UPROPERTY(BlueprintReadOnly)
     UCombatAbility* CancelledAbility = nullptr;
     UPROPERTY()
-    int32 CancelID = 0;
+    int32 PredictionID = 0;
     UPROPERTY()
     int32 CancelledCastID = 0;
     UPROPERTY(BlueprintReadOnly)

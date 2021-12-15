@@ -7,6 +7,7 @@
 #include "SaiyoraCombatInterface.h"
 #include "StatHandler.h"
 #include "UnrealNetwork.h"
+#include "Engine/ActorChannel.h"
 #include "GameFramework/GameState.h"
 
 #pragma region Setup
@@ -66,6 +67,16 @@ void UAbilityComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME_CONDITION(UAbilityComponent, CastingState, COND_SkipOwner);
+}
+
+bool UAbilityComponent::ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags)
+{
+	bool bWroteSomething = Super::ReplicateSubobjects(Channel, Bunch, RepFlags);
+	TArray<UCombatAbility*> RepAbilities;
+	ActiveAbilities.GenerateValueArray(RepAbilities);
+	RepAbilities.Append(RecentlyRemovedAbilities);
+	bWroteSomething |= Channel->ReplicateSubobjectList(RepAbilities, *Bunch, *RepFlags);
+	return bWroteSomething;
 }
 
 #pragma endregion 
@@ -180,7 +191,6 @@ FAbilityEvent UAbilityComponent::UseAbility(TSubclassOf<UCombatAbility> const Ab
 				Result.Ability->PredictedTick(0, Result.PredictionParams);
 				Result.Ability->ServerTick(0, Result.PredictionParams, Result.BroadcastParams);
 				MulticastAbilityTick(Result);
-				OnAbilityTick.Broadcast(Result);
 			}
 			break;
 		case EAbilityCastType::Channel :
@@ -192,7 +202,6 @@ FAbilityEvent UAbilityComponent::UseAbility(TSubclassOf<UCombatAbility> const Ab
 					Result.Ability->PredictedTick(0, Result.PredictionParams);
 					Result.Ability->ServerTick(0, Result.PredictionParams, Result.BroadcastParams);
 					MulticastAbilityTick(Result);
-					OnAbilityTick.Broadcast(Result);
 				}
 			}
 			break;
@@ -306,7 +315,6 @@ void UAbilityComponent::ServerPredictAbility_Implementation(FAbilityRequest cons
 	        {
         		Result.ActionTaken = ECastAction::Success;
         		Ability->ServerTick(0, Result.PredictionParams, Result.BroadcastParams, Result.PredictionID);
-        		OnAbilityTick.Broadcast(Result);
         		MulticastAbilityTick(Result);
 	        }
         	break;
@@ -320,7 +328,6 @@ void UAbilityComponent::ServerPredictAbility_Implementation(FAbilityRequest cons
         		if (Ability->HasInitialTick())
         		{
         			Ability->ServerTick(0, Result.PredictionParams, Result.BroadcastParams, Result.PredictionID);
-        			OnAbilityTick.Broadcast(Result);
         			MulticastAbilityTick(Result);
         		}
 	        }
@@ -350,8 +357,8 @@ void UAbilityComponent::ServerPredictAbility_Implementation(FAbilityRequest cons
 			{
 				TicksAwaitingParams[i].PredictionParams = Request.PredictionParams;
 				TicksAwaitingParams[i].Ability->ServerTick(TicksAwaitingParams[i].Tick, TicksAwaitingParams[i].PredictionParams, TicksAwaitingParams[i].BroadcastParams, TicksAwaitingParams[i].PredictionID);
-				OnAbilityTick.Broadcast(TicksAwaitingParams[i]);
 				MulticastAbilityTick(TicksAwaitingParams[i]);
+				OnAbilityTick.Broadcast(TicksAwaitingParams[i]);
 				PredictedTickRecord.Add(FPredictedTick(TicksAwaitingParams[i].PredictionID, TicksAwaitingParams[i].Tick), true);
 				TicksAwaitingParams.RemoveAt(i);
 				return;
@@ -379,12 +386,7 @@ void UAbilityComponent::ClientPredictionResult_Implementation(FServerAbilityResu
 	if (CastingState.PredictionID <= Result.PredictionID)
 	{
 		CastingState.PredictionID = Result.PredictionID;
-		//TODO: This logic isn't quite right. If a cast wasn't active we would start a new cast regardless of if the server wants...
-		if (CastingState.bIsCasting && (!Result.bSuccess || !Result.bActivatedCastBar || Result.ClientStartTime + Result.CastLength < GameStateRef->GetServerWorldTimeSeconds()))
-		{
-			EndCast();
-		}
-		else
+		if (Result.bSuccess && Result.bActivatedCastBar && Result.ClientStartTime + Result.CastLength < GameStateRef->GetServerWorldTimeSeconds())
 		{
 			FCastingState const PreviousState = CastingState;
 			CastingState.bIsCasting = true;
@@ -411,16 +413,15 @@ void UAbilityComponent::ClientPredictionResult_Implementation(FServerAbilityResu
 				CastingState.ElapsedTicks = ElapsedTicks;
 			}
 		}
+		else if (CastingState.bIsCasting)
+		{
+			EndCast();
+		}
 	}
 	if (GlobalCooldownState.PredictionID <= Result.PredictionID)
 	{
 		GlobalCooldownState.PredictionID = Result.PredictionID;
-		//TODO: This logic isn't quite right. If a global wasn't active we would start a new global regardless of if the server wants...
-		if (GlobalCooldownState.bGlobalCooldownActive && (!Result.bSuccess || !Result.bActivatedGlobal || Result.ClientStartTime + Result.GlobalLength < GetGameStateRef()->GetServerWorldTimeSeconds()))
-		{
-			EndGlobalCooldown();
-		}
-		else
+		if (Result.bSuccess && Result.bActivatedGlobal && Result.ClientStartTime + Result.GlobalLength <  GameStateRef->GetServerWorldTimeSeconds())
 		{
 			FGlobalCooldown const PreviousState = GlobalCooldownState;
 			GlobalCooldownState.bGlobalCooldownActive = true;
@@ -430,12 +431,107 @@ void UAbilityComponent::ClientPredictionResult_Implementation(FServerAbilityResu
 			GetWorld()->GetTimerManager().SetTimer(GlobalCooldownHandle, this, &UAbilityComponent::EndGlobalCooldown, GlobalCooldownState.EndTime - GameStateRef->GetServerWorldTimeSeconds(), false);
 			OnGlobalCooldownChanged.Broadcast(PreviousState, GlobalCooldownState);
 		}
+		else if (GlobalCooldownState.bGlobalCooldownActive)
+		{
+			EndGlobalCooldown();
+		}
 	}
 	if (!Result.bSuccess)
 	{
 		OnAbilityMispredicted.Broadcast(Result.PredictionID);
 	}
 	UnackedAbilityPredictions.Remove(Result.PredictionID);
+}
+
+void UAbilityComponent::TickCurrentCast()
+{
+	if (!CastingState.bIsCasting || !IsValid(CastingState.CurrentCast))
+	{
+		return;
+	}
+	CastingState.ElapsedTicks++;
+	FAbilityEvent TickEvent;
+	TickEvent.Ability = CastingState.CurrentCast;
+	TickEvent.PredictionID = CastingState.PredictionID;
+	TickEvent.Tick = CastingState.ElapsedTicks;
+	TickEvent.ActionTaken = CastingState.ElapsedTicks >= CastingState.CurrentCast->GetNumberOfTicks() ? ECastAction::Complete : ECastAction::Tick;
+	bool bTickFired = false;
+	if (GetOwnerRole() == ROLE_Authority && bLocallyControlled)
+	{
+		CastingState.CurrentCast->PredictedTick(CastingState.ElapsedTicks, TickEvent.PredictionParams);
+		CastingState.CurrentCast->ServerTick(CastingState.ElapsedTicks, TickEvent.PredictionParams, TickEvent.BroadcastParams);
+		MulticastAbilityTick(TickEvent);
+	}
+	else if (GetOwnerRole() == ROLE_Authority)
+	{
+		RemoveExpiredTicks();
+		FPredictedTick const CurrentTick = FPredictedTick(CastingState.PredictionID, CastingState.ElapsedTicks);
+		if (ParamsAwaitingTicks.Contains(CurrentTick))
+		{
+			TickEvent.PredictionParams = ParamsAwaitingTicks.FindRef(CurrentTick);
+			CastingState.CurrentCast->ServerTick(CastingState.ElapsedTicks, TickEvent.PredictionParams, TickEvent.BroadcastParams, CastingState.PredictionID);
+			PredictedTickRecord.Add(CurrentTick, true);
+			ParamsAwaitingTicks.Remove(CurrentTick);
+			MulticastAbilityTick(TickEvent);
+		}
+		else
+		{
+			TicksAwaitingParams.Add(TickEvent);
+		}
+	}
+	else if (GetOwnerRole() == ROLE_AutonomousProxy)
+	{
+		FAbilityRequest TickRequest;
+		TickRequest.PredictionID = CastingState.PredictionID;
+		TickRequest.Tick = CastingState.ElapsedTicks;
+		TickRequest.AbilityClass = CastingState.CurrentCast->GetClass();
+		CastingState.CurrentCast->PredictedTick(CastingState.ElapsedTicks, TickEvent.PredictionParams, CastingState.PredictionID);
+		TickRequest.PredictionParams = TickEvent.PredictionParams;
+		ServerPredictAbility(TickRequest);
+		OnAbilityTick.Broadcast(TickEvent);
+	}
+	if (CastingState.ElapsedTicks >= CastingState.CurrentCast->GetNumberOfTicks())
+	{
+		EndCast();
+	}
+}
+
+void UAbilityComponent::RemoveExpiredTicks()
+{
+	for (int i = TicksAwaitingParams.Num() - 1; i >= 0; i--)
+	{
+		if ((TicksAwaitingParams[i].PredictionID == CastingState.PredictionID && TicksAwaitingParams[i].Tick < CastingState.ElapsedTicks - 1) ||
+			(TicksAwaitingParams[i].PredictionID < CastingState.PredictionID && CastingState.ElapsedTicks >= 1))
+		{
+			TicksAwaitingParams.RemoveAt(i);
+		}
+	}
+	TArray<FPredictedTick> ExpiredTicks;
+	for (TTuple<FPredictedTick, FCombatParameters> const& WaitingParams : ParamsAwaitingTicks)
+	{
+		if ((WaitingParams.Key.PredictionID == CastingState.PredictionID && WaitingParams.Key.TickNumber < CastingState.ElapsedTicks - 1) ||
+			(WaitingParams.Key.PredictionID < CastingState.PredictionID && CastingState.ElapsedTicks >= 1))
+		{
+			ExpiredTicks.Add(WaitingParams.Key);
+		}
+	}
+	for (FPredictedTick const& ExpiredTick : ExpiredTicks)
+	{
+		ParamsAwaitingTicks.Remove(ExpiredTick);
+	}
+}
+
+void UAbilityComponent::MulticastAbilityTick_Implementation(FAbilityEvent const& Event)
+{
+	if (IsValid(Event.Ability))
+	{
+		Event.Ability->SimulatedTick(Event.Tick, Event.BroadcastParams);
+	}
+	if (GetOwnerRole() != ROLE_AutonomousProxy)
+	{
+		//Auto proxy already fired this delegate for predicted tick.
+		OnAbilityTick.Broadcast(Event);
+	}
 }
 
 int32 UAbilityComponent::GenerateNewPredictionID()
@@ -454,6 +550,190 @@ int32 UAbilityComponent::GenerateNewPredictionID()
 }
 
 #pragma endregion
+#pragma region Cancelling
+
+FCancelEvent UAbilityComponent::CancelCurrentCast()
+{
+	FCancelEvent Result;
+	if (!bLocallyControlled)
+	{
+		Result.FailReason = ECancelFailReason::NetRole;
+		return Result;
+	}
+	if (!CastingState.bIsCasting || !IsValid(CastingState.CurrentCast))
+	{
+		Result.FailReason = ECancelFailReason::NotCasting;
+		return Result;
+	}
+	Result.PredictionID = GetOwnerRole() == ROLE_Authority ? 0 : GenerateNewPredictionID();
+	Result.CancelledCastID = CastingState.PredictionID;
+	Result.CancelledAbility = CastingState.CurrentCast;
+	Result.CancelTime = GameStateRef->GetServerWorldTimeSeconds();
+	Result.CancelledCastStart = CastingState.CastStartTime;
+	Result.CancelledCastEnd = CastingState.CastEndTime;
+	Result.ElapsedTicks = CastingState.ElapsedTicks;
+	Result.bSuccess = true;
+	CastingState.PredictionID = GetOwnerRole() == ROLE_Authority ? CastingState.PredictionID : Result.PredictionID;
+	CastingState.CurrentCast->PredictedCancel(Result.PredictionParams, Result.PredictionID);
+	if (GetOwnerRole() == ROLE_Authority)
+	{
+		CastingState.CurrentCast->ServerCancel(Result.PredictionParams, Result.BroadcastParams, Result.PredictionID);
+		MulticastAbilityCancel(Result);
+	}
+	else
+	{
+		FCancelRequest Request;
+		Request.CancelID = Result.PredictionID;
+		Request.CancelledCastID = Result.CancelledCastID;
+		Request.CancelTime = Result.CancelTime;
+		Request.PredictionParams = Result.PredictionParams;
+		ServerCancelAbility(Request);
+		OnAbilityCancelled.Broadcast(Result);
+	}
+	EndCast();
+	return Result;
+}
+
+void UAbilityComponent::ServerCancelAbility_Implementation(FCancelRequest const& Request)
+{
+	int32 const CastID = CastingState.PredictionID;
+	if (Request.CancelID > CastingState.PredictionID)
+	{
+		CastingState.PredictionID = Request.CancelID;
+	}
+	if (!CastingState.bIsCasting || !IsValid(CastingState.CurrentCast) || CastID != Request.CancelledCastID)
+	{
+		return;
+	}
+	FCancelEvent Result;
+	Result.CancelledAbility = CastingState.CurrentCast;
+	Result.CancelTime = GameStateRef->GetServerWorldTimeSeconds();
+	Result.PredictionID = Request.CancelID;
+	Result.CancelledCastStart = CastingState.CastStartTime;
+	Result.CancelledCastEnd = CastingState.CastEndTime;
+	Result.CancelledCastID = CastID;
+	Result.ElapsedTicks = CastingState.ElapsedTicks;
+	Result.PredictionParams = Request.PredictionParams;
+	CastingState.CurrentCast->ServerCancel(Result.PredictionParams, Result.BroadcastParams, Result.PredictionID);
+	MulticastAbilityCancel(Result);
+	EndCast();
+}
+
+void UAbilityComponent::MulticastAbilityCancel_Implementation(FCancelEvent const& Event)
+{
+	if (IsValid(Event.CancelledAbility))
+	{
+		Event.CancelledAbility->SimulatedCancel(Event.BroadcastParams);
+	}
+	if (GetOwnerRole() != ROLE_AutonomousProxy)
+	{
+		//Auto proxy already fired this delegate for predicted cancel.
+		OnAbilityCancelled.Broadcast(Event);
+	}
+}
+
+#pragma endregion
+#pragma region Interrupting
+
+FInterruptEvent UAbilityComponent::InterruptCurrentCast(AActor* AppliedBy, UObject* InterruptSource, bool const bIgnoreRestrictions)
+{
+	FInterruptEvent Result;
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		Result.FailReason = EInterruptFailReason::NetRole;
+		return Result;
+	}
+	if (!CastingState.bIsCasting || !IsValid(CastingState.CurrentCast))
+	{
+		Result.FailReason = EInterruptFailReason::NotCasting;
+		return Result;
+	}
+	Result.InterruptAppliedBy = AppliedBy;
+	Result.InterruptAppliedTo = GetOwner();
+	Result.InterruptSource = InterruptSource;
+	Result.InterruptedAbility = CastingState.CurrentCast;
+	Result.InterruptedCastStart = CastingState.CastStartTime;
+	Result.InterruptedCastEnd = CastingState.CastEndTime;
+	Result.ElapsedTicks = CastingState.ElapsedTicks;
+	Result.InterruptTime = GameStateRef->GetServerWorldTimeSeconds();
+	Result.CancelledCastID = CastingState.PredictionID;
+	if (!bIgnoreRestrictions)
+	{
+		if (!CastingState.CurrentCast->IsInterruptible())
+		{
+			Result.FailReason = EInterruptFailReason::Restricted;
+			return Result;
+		}
+		for (FInterruptRestriction const& Restriction : InterruptRestrictions)
+		{
+			if (Restriction.IsBound() && Restriction.Execute(Result))
+			{
+				Result.FailReason = EInterruptFailReason::Restricted;
+				return Result;
+			}
+		}
+	}
+	Result.bSuccess = true;
+	Result.InterruptedAbility->ServerInterrupt(Result);
+	MulticastAbilityInterrupt(Result);
+	if (!bLocallyControlled)
+	{
+		ClientAbilityInterrupt(Result);
+	}
+	EndCast();
+	return Result;
+}
+
+void UAbilityComponent::ClientAbilityInterrupt_Implementation(FInterruptEvent const& InterruptEvent)
+{
+	if (!CastingState.bIsCasting || CastingState.PredictionID > InterruptEvent.CancelledCastID || !IsValid(CastingState.CurrentCast) ||
+		!IsValid(InterruptEvent.InterruptedAbility) || CastingState.CurrentCast != InterruptEvent.InterruptedAbility)
+    {
+    	//We have already moved on.
+    	return;
+    }
+    InterruptEvent.InterruptedAbility->SimulatedInterrupt(InterruptEvent);
+    OnAbilityInterrupted.Broadcast(InterruptEvent);
+    EndCast();
+}
+
+void UAbilityComponent::MulticastAbilityInterrupt_Implementation(FInterruptEvent const& InterruptEvent)
+{
+	if (GetOwnerRole() == ROLE_SimulatedProxy && IsValid(InterruptEvent.InterruptedAbility))
+	{
+		InterruptEvent.InterruptedAbility->SimulatedInterrupt(InterruptEvent);
+	}
+	if (GetOwnerRole() != ROLE_AutonomousProxy)
+	{
+		OnAbilityInterrupted.Broadcast(InterruptEvent);
+	}
+}
+
+void UAbilityComponent::InterruptCastOnCrowdControl(FCrowdControlStatus const& PreviousStatus,
+	FCrowdControlStatus const& NewStatus)
+{
+	if (CastingState.bIsCasting && IsValid(CastingState.CurrentCast) && NewStatus.bActive == true)
+	{
+		if (CastingState.CurrentCast->GetRestrictedCrowdControls().Contains(NewStatus.CrowdControlType))
+		{
+			InterruptCurrentCast(NewStatus.DominantBuffInstance->GetHandler()->GetOwner(), NewStatus.DominantBuffInstance, true);
+		}
+	}
+}
+
+void UAbilityComponent::InterruptCastOnDeath(AActor* Actor, ELifeStatus const PreviousStatus,
+	ELifeStatus const NewStatus)
+{
+	if (CastingState.bIsCasting && IsValid(CastingState.CurrentCast) && NewStatus != ELifeStatus::Alive)
+	{
+		if (!CastingState.CurrentCast->IsCastableWhileDead())
+		{
+			InterruptCurrentCast(GetOwner(), nullptr, true);
+		}
+	}
+}
+
+#pragma endregion 
 #pragma region Casting
 
 void UAbilityComponent::StartCast(UCombatAbility* Ability, int32 const PredictionID)
@@ -489,93 +769,6 @@ void UAbilityComponent::EndCast()
     CastingState.CastEndTime = 0.0f;
     GetWorld()->GetTimerManager().ClearTimer(TickHandle);
     OnCastStateChanged.Broadcast(PreviousState, CastingState);
-}
-
-void UAbilityComponent::TickCurrentCast()
-{
-	if (!CastingState.bIsCasting || !IsValid(CastingState.CurrentCast))
-	{
-		return;
-	}
-	CastingState.ElapsedTicks++;
-	FAbilityEvent TickEvent;
-	TickEvent.Ability = CastingState.CurrentCast;
-	TickEvent.PredictionID = CastingState.PredictionID;
-	TickEvent.Tick = CastingState.ElapsedTicks;
-	TickEvent.ActionTaken = CastingState.ElapsedTicks >= CastingState.CurrentCast->GetNumberOfTicks() ? ECastAction::Complete : ECastAction::Tick;
-	bool bTickFired = false;
-	if (GetOwnerRole() == ROLE_Authority && bLocallyControlled)
-	{
-		CastingState.CurrentCast->PredictedTick(CastingState.ElapsedTicks, TickEvent.PredictionParams);
-		CastingState.CurrentCast->ServerTick(CastingState.ElapsedTicks, TickEvent.PredictionParams, TickEvent.BroadcastParams);
-		bTickFired = true;
-	}
-	else if (GetOwnerRole() == ROLE_Authority)
-	{
-		RemoveExpiredTicks();
-		FPredictedTick const CurrentTick = FPredictedTick(CastingState.PredictionID, CastingState.ElapsedTicks);
-		if (ParamsAwaitingTicks.Contains(CurrentTick))
-		{
-			TickEvent.PredictionParams = ParamsAwaitingTicks.FindRef(CurrentTick);
-			CastingState.CurrentCast->ServerTick(CastingState.ElapsedTicks, TickEvent.PredictionParams, TickEvent.BroadcastParams, CastingState.PredictionID);
-			PredictedTickRecord.Add(CurrentTick, true);
-			ParamsAwaitingTicks.Remove(CurrentTick);
-			bTickFired = true;
-		}
-		else
-		{
-			TicksAwaitingParams.Add(TickEvent);
-			bTickFired = false;
-		}
-	}
-	else if (GetOwnerRole() == ROLE_AutonomousProxy)
-	{
-		FAbilityRequest TickRequest;
-		TickRequest.PredictionID = CastingState.PredictionID;
-		TickRequest.Tick = CastingState.ElapsedTicks;
-		TickRequest.AbilityClass = CastingState.CurrentCast->GetClass();
-		CastingState.CurrentCast->PredictedTick(CastingState.ElapsedTicks, TickEvent.PredictionParams, CastingState.PredictionID);
-		TickRequest.PredictionParams = TickEvent.PredictionParams;
-		ServerPredictAbility(TickRequest);
-		bTickFired = true;
-	}
-	if (bTickFired)
-	{
-		OnAbilityTick.Broadcast(TickEvent);
-		if (GetOwnerRole() == ROLE_Authority)
-		{
-			MulticastAbilityTick(TickEvent);
-		}
-	}
-	if (CastingState.ElapsedTicks >= CastingState.CurrentCast->GetNumberOfTicks())
-	{
-		EndCast();
-	}
-}
-
-void UAbilityComponent::RemoveExpiredTicks()
-{
-	for (int i = TicksAwaitingParams.Num() - 1; i >= 0; i--)
-	{
-		if ((TicksAwaitingParams[i].PredictionID == CastingState.PredictionID && TicksAwaitingParams[i].Tick < CastingState.ElapsedTicks - 1) ||
-			(TicksAwaitingParams[i].PredictionID < CastingState.PredictionID && CastingState.ElapsedTicks >= 1))
-		{
-			TicksAwaitingParams.RemoveAt(i);
-		}
-	}
-	TArray<FPredictedTick> ExpiredTicks;
-	for (TTuple<FPredictedTick, FCombatParameters> const& WaitingParams : ParamsAwaitingTicks)
-	{
-		if ((WaitingParams.Key.PredictionID == CastingState.PredictionID && WaitingParams.Key.TickNumber < CastingState.ElapsedTicks - 1) ||
-			(WaitingParams.Key.PredictionID < CastingState.PredictionID && CastingState.ElapsedTicks >= 1))
-		{
-			ExpiredTicks.Add(WaitingParams.Key);
-		}
-	}
-	for (FPredictedTick const& ExpiredTick : ExpiredTicks)
-	{
-		ParamsAwaitingTicks.Remove(ExpiredTick);
-	}
 }
 
 #pragma endregion 
@@ -652,6 +845,70 @@ void UAbilityComponent::UnsubscribeFromAbilityRemoved(FAbilityInstanceCallback c
 	if (Callback.IsBound())
 	{
 		OnAbilityRemoved.Remove(Callback);
+	}
+}
+
+void UAbilityComponent::SubscribeToAbilityTicked(FAbilityCallback const& Callback)
+{
+	if (Callback.IsBound())
+	{
+		OnAbilityTick.AddUnique(Callback);
+	}
+}
+
+void UAbilityComponent::UnsubscribeFromAbilityTicked(FAbilityCallback const& Callback)
+{
+	if (Callback.IsBound())
+	{
+		OnAbilityTick.Remove(Callback);
+	}
+}
+
+void UAbilityComponent::SubscribeToAbilityCancelled(FAbilityCancelCallback const& Callback)
+{
+	if (Callback.IsBound())
+	{
+		OnAbilityCancelled.AddUnique(Callback);
+	}
+}
+
+void UAbilityComponent::UnsubscribeFromAbilityCancelled(FAbilityCancelCallback const& Callback)
+{
+	if (Callback.IsBound())
+	{
+		OnAbilityCancelled.Remove(Callback);
+	}
+}
+
+void UAbilityComponent::SubscribeToAbilityInterrupted(FInterruptCallback const& Callback)
+{
+	if (Callback.IsBound())
+	{
+		OnAbilityInterrupted.AddUnique(Callback);
+	}
+}
+
+void UAbilityComponent::UnsubscribeFromAbilityInterrupted(FInterruptCallback const& Callback)
+{
+	if (Callback.IsBound())
+	{
+		OnAbilityInterrupted.Remove(Callback);
+	}
+}
+
+void UAbilityComponent::SubscribeToAbilityMispredicted(FAbilityMispredictionCallback const& Callback)
+{
+	if (GetOwnerRole() == ROLE_AutonomousProxy && Callback.IsBound())
+	{
+		OnAbilityMispredicted.AddUnique(Callback);
+	}
+}
+
+void UAbilityComponent::UnsubscribeFromAbilityMispredicted(FAbilityMispredictionCallback const& Callback)
+{
+	if (GetOwnerRole() == ROLE_AutonomousProxy && Callback.IsBound())
+	{
+		OnAbilityMispredicted.Remove(Callback);
 	}
 }
 
@@ -968,6 +1225,22 @@ bool UAbilityComponent::CanUseAbility(UCombatAbility* Ability, ECastFailReason& 
 		return false;
 	}
 	return true;
+}
+
+void UAbilityComponent::AddInterruptRestriction(FInterruptRestriction const& Restriction)
+{
+	if (GetOwnerRole() == ROLE_Authority && Restriction.IsBound())
+	{
+		InterruptRestrictions.AddUnique(Restriction);
+	}
+}
+
+void UAbilityComponent::RemoveInterruptRestriction(FInterruptRestriction const& Restriction)
+{
+	if (GetOwnerRole() == ROLE_Authority && Restriction.IsBound())
+	{
+		InterruptRestrictions.Remove(Restriction);
+	}
 }
 
 #pragma endregion

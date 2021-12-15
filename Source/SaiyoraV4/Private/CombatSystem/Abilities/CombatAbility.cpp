@@ -699,7 +699,7 @@ void UCombatAbility::CompleteCast()
     OnCastComplete();
 }
 
-void UCombatAbility::InterruptCast(FInterruptEvent const& InterruptEvent)
+void UCombatAbility::ServerInterrupt(FInterruptEvent const& InterruptEvent)
 {
     OnCastInterrupted(InterruptEvent);
 }
