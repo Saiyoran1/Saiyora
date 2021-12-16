@@ -239,11 +239,8 @@ void UResource::UpdateCostPredictionFromServer(int32 const PredictionID, float c
     {
         return;
     }
-    if (ResourcePredictions.FindRef(PredictionID) != ServerCost)
-    {
-        ResourcePredictions.Add(PredictionID, ServerCost);
-        RecalculatePredictedResource(nullptr);
-    }
+    ResourcePredictions.Add(PredictionID, ServerCost);
+    RecalculatePredictedResource(nullptr);
 }
 
 void UResource::RecalculatePredictedResource(UObject* ChangeSource)

@@ -519,7 +519,7 @@ void UPlayerAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest 
 		GetResourceHandlerRef()->CommitAbilityCosts(PlayerAbility, Costs, Result.PredictionID);
 		for (TTuple<TSubclassOf<UResource>, float> const& Cost : Costs)
 		{
-			ServerResult.AbilityCosts.Add(FReplicableAbilityCost(Cost.Key, Cost.Value));
+			ServerResult.AbilityCosts.Add(FAbilityCost(Cost.Key, Cost.Value));
 		}
 	}
 
@@ -579,7 +579,7 @@ void UPlayerAbilityHandler::ClientSucceedPredictedAbility_Implementation(FServer
 	{
 		//Mispredicted costs in this context are resources that the client predicted expenditure of that didn't actually get spent on the server.
 		MispredictedCosts = OriginalPrediction->PredictedCostClasses;
-		for (FReplicableAbilityCost const& Cost : ServerResult.AbilityCosts)
+		for (FAbilityCost const& Cost : ServerResult.AbilityCosts)
 		{
 			MispredictedCosts.Remove(Cost.ResourceClass);
 		}

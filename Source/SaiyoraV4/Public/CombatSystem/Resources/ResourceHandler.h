@@ -70,4 +70,8 @@ public:
 	bool CheckAbilityCostsMet(TMap<TSubclassOf<UResource>, float> const& Costs) const;
 	void CommitAbilityCosts(UCombatAbility* Ability, int32 const PredictionID = 0);
 	void UpdatePredictedCostsFromServer(FServerAbilityResult const& ServerResult);
+
+private:
+
+	TMap<int32, FAbilityCostPrediction> CostPredictions;
 };

@@ -3,7 +3,7 @@
 #include "AbilityResourceCost.h"
 #include "AbilityHandler.h"
 
-void UAbilityResourceCost::Init(FAbilityCost const& InitInfo, TSubclassOf<UCombatAbility> const NewAbilityClass,
+void UAbilityResourceCost::Init(FDefaultAbilityCost const& InitInfo, TSubclassOf<UCombatAbility> const NewAbilityClass,
                                 UAbilityHandler* NewHandler)
 {
 	if (!IsValid(NewHandler) || !IsValid(NewAbilityClass) || !IsValid(InitInfo.ResourceClass))

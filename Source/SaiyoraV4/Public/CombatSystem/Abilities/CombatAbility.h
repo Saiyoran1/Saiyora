@@ -274,11 +274,11 @@ protected:
 //Costs
 public:
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cost")
-    FAbilityCost GetDefaultAbilityCost(TSubclassOf<UResource> const ResourceClass) const;
+    FDefaultAbilityCost GetDefaultAbilityCost(TSubclassOf<UResource> const ResourceClass) const;
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cost")
     float GetAbilityCost(TSubclassOf<UResource> const ResourceClass) const;
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cost")
-    void GetDefaultAbilityCosts(TArray<FAbilityCost>& OutCosts) const { OutCosts = DefaultAbilityCosts; }
+    void GetDefaultAbilityCosts(TArray<FDefaultAbilityCost>& OutCosts) const { OutCosts = DefaultAbilityCosts; }
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cost")
     void GetAbilityCosts(TMap<TSubclassOf<UResource>, float>& OutCosts) const;
     UFUNCTION(BlueprintCallable)
@@ -287,7 +287,7 @@ public:
     void RemoveCostModifier(TSubclassOf<UResource> const ResourceClass, int32 const ModifierID);
 private:
     UPROPERTY(EditDefaultsOnly, Category = "Cost")
-    TArray<FAbilityCost> DefaultAbilityCosts;
+    TArray<FDefaultAbilityCost> DefaultAbilityCosts;
     UPROPERTY()
     TMap<TSubclassOf<UResource>, class UAbilityResourceCost*> AbilityCosts;
     FGenericCallback CostModsCallback;

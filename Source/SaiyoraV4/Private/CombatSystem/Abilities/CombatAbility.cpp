@@ -78,11 +78,11 @@ void UCombatAbility::RemoveChargesPerCooldownModifier(int32 const ModifierID)
     ChargesPerCooldown->RemoveModifier(ModifierID);
 }
 
-FAbilityCost UCombatAbility::GetDefaultAbilityCost(TSubclassOf<UResource> const ResourceClass) const
+FDefaultAbilityCost UCombatAbility::GetDefaultAbilityCost(TSubclassOf<UResource> const ResourceClass) const
 {
     if (IsValid(ResourceClass))
     {
-        for (FAbilityCost const& Cost : DefaultAbilityCosts)
+        for (FDefaultAbilityCost const& Cost : DefaultAbilityCosts)
         {
             if (Cost.ResourceClass == ResourceClass)
             {
@@ -90,7 +90,7 @@ FAbilityCost UCombatAbility::GetDefaultAbilityCost(TSubclassOf<UResource> const 
             }
         }
     }
-    FAbilityCost const Invalid;
+    FDefaultAbilityCost const Invalid;
     return Invalid;
 }
 
@@ -598,7 +598,7 @@ void UCombatAbility::InitializeAbility(UAbilityComponent* AbilityComponent)
         }
 
         bool bAllStaticCosts = true;
-        for (FAbilityCost const& DefaultCost : DefaultAbilityCosts)
+        for (FDefaultAbilityCost const& DefaultCost : DefaultAbilityCosts)
         {
             if (IsValid(DefaultCost.ResourceClass))
             {

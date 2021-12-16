@@ -16,6 +16,7 @@ float const UAbilityComponent::MaxPingCompensation = 0.2f;
 float const UAbilityComponent::MinimumCastLength = 0.5f;
 float const UAbilityComponent::MinimumGlobalCooldownLength = 0.5f;
 float const UAbilityComponent::MinimumCooldownLength = 0.5f;
+float const UAbilityComponent::AbilityQueWindow = 0.2f;
 
 UAbilityComponent::UAbilityComponent()
 {
@@ -158,8 +159,10 @@ void UAbilityComponent::NotifyOfReplicatedAbilityRemoval(UCombatAbility* Removed
 
 FAbilityEvent UAbilityComponent::UseAbility(TSubclassOf<UCombatAbility> const AbilityClass)
 {
+	bool const bFromQueue = bUsingAbilityFromQueue;
+	bUsingAbilityFromQueue = false;
+	ExpireQueue();
 	FAbilityEvent Result;
-	//TODO: Clear queue.
 	if (!bLocallyControlled || !IsValid(AbilityClass))
 	{
 		Result.FailReason = ECastFailReason::NetRole;
@@ -168,6 +171,29 @@ FAbilityEvent UAbilityComponent::UseAbility(TSubclassOf<UCombatAbility> const Ab
 	Result.Ability = ActiveAbilities.FindRef(AbilityClass);
 	if (!CanUseAbility(Result.Ability, Result.FailReason))
 	{
+		if (!bFromQueue)
+		{
+			if (Result.FailReason == ECastFailReason::AlreadyCasting)
+			{
+				if (TryQueueAbility(AbilityClass))
+				{
+					Result.FailReason = ECastFailReason::Queued;
+				}
+				else
+				{
+					CancelCurrentCast();
+					bUsingAbilityFromQueue = true;
+					return UseAbility(AbilityClass);
+				}
+			}
+			else if (Result.FailReason == ECastFailReason::OnGlobalCooldown)
+			{
+				if (TryQueueAbility(AbilityClass))
+				{
+					Result.FailReason = ECastFailReason::Queued;
+				}
+			}
+		}
 		return Result;
 	}
 	int32 const PredictionID = GetOwnerRole() == ROLE_Authority ? 0 : GenerateNewPredictionID();
@@ -178,7 +204,6 @@ FAbilityEvent UAbilityComponent::UseAbility(TSubclassOf<UCombatAbility> const Ab
 	Result.Ability->CommitCharges(PredictionID);
 	if (IsValid(ResourceHandlerRef))
 	{
-		//TODO: For prediction, resource handler should keep a record of predicted costs, then ability handler can send the updated list of costs from server RPC.
 		ResourceHandlerRef->CommitAbilityCosts(Result.Ability, PredictionID);
 	}
 	if (GetOwnerRole() == ROLE_Authority)
@@ -290,7 +315,7 @@ void UAbilityComponent::ServerPredictAbility_Implementation(FAbilityRequest cons
         {
         	StartGlobalCooldown(Ability, Request.PredictionID);
         	ServerResult.bActivatedGlobal = true;
-        	ServerResult.GlobalLength = FMath::Max(0.0f, GlobalCooldownState.EndTime - GlobalCooldownState.StartTime);
+        	ServerResult.GlobalLength = CalculateGlobalCooldownLength(Ability, false);
         }
         
         int32 const PreviousCharges = Ability->GetCurrentCharges();
@@ -300,12 +325,12 @@ void UAbilityComponent::ServerPredictAbility_Implementation(FAbilityRequest cons
         
         if (IsValid(ResourceHandlerRef))
         {
-        	TMap<TSubclassOf<UResource>, float> Costs;
         	ResourceHandlerRef->CommitAbilityCosts(Ability, Request.PredictionID);
-        	//TODO: Cost calculations!
+        	TMap<TSubclassOf<UResource>, float> Costs;
+        	Ability->GetAbilityCosts(Costs);
         	for (TTuple<TSubclassOf<UResource>, float> const& Cost : Costs)
         	{
-        		ServerResult.AbilityCosts.Add(FReplicableAbilityCost(Cost.Key, Cost.Value));
+        		ServerResult.AbilityCosts.Add(FAbilityCost(Cost.Key, Cost.Value));
         	}
         }
         	
@@ -323,7 +348,7 @@ void UAbilityComponent::ServerPredictAbility_Implementation(FAbilityRequest cons
         		Result.ActionTaken = ECastAction::Success;
         		StartCast(Ability, Result.PredictionID);
         		ServerResult.bActivatedCastBar = true;
-        		ServerResult.CastLength = FMath::Max(0.0f, CastingState.CastEndTime - CastingState.CastStartTime);
+        		ServerResult.CastLength = CalculateCastLength(Ability, false);
         		ServerResult.bInterruptible = CastingState.bInterruptible;
         		if (Ability->HasInitialTick())
         		{
@@ -455,7 +480,6 @@ void UAbilityComponent::TickCurrentCast()
 	TickEvent.PredictionID = CastingState.PredictionID;
 	TickEvent.Tick = CastingState.ElapsedTicks;
 	TickEvent.ActionTaken = CastingState.ElapsedTicks >= CastingState.CurrentCast->GetNumberOfTicks() ? ECastAction::Complete : ECastAction::Tick;
-	bool bTickFired = false;
 	if (GetOwnerRole() == ROLE_Authority && bLocallyControlled)
 	{
 		CastingState.CurrentCast->PredictedTick(CastingState.ElapsedTicks, TickEvent.PredictionParams);
@@ -547,6 +571,51 @@ int32 UAbilityComponent::GenerateNewPredictionID()
 		UE_LOG(LogTemp, Warning, TEXT("PredictionID overflowed into the negatives."));
 	}
 	return LastPredictionID;
+}
+
+bool UAbilityComponent::TryQueueAbility(TSubclassOf<UCombatAbility> const AbilityClass)
+{
+	if (!bLocallyControlled || !IsValid(AbilityClass) || (!GlobalCooldownState.bGlobalCooldownActive && !CastingState.bIsCasting))
+	{
+		return false;
+	}
+	if (CastingState.bIsCasting && CastingState.CastEndTime == 0.0f)
+	{
+		return false;
+	}
+	if (AbilityClass->GetDefaultObject<UCombatAbility>()->HasGlobalCooldown() && GlobalCooldownState.bGlobalCooldownActive && GlobalCooldownState.EndTime == 0.0f)
+	{
+		return false;
+	}
+	float const GlobalTimeRemaining = AbilityClass->GetDefaultObject<UCombatAbility>()->HasGlobalCooldown() && GlobalCooldownState.bGlobalCooldownActive ?
+		GlobalCooldownState.EndTime - GameStateRef->GetServerWorldTimeSeconds() : 0.0f;
+	float const CastTimeRemaining = CastingState.bIsCasting ? CastingState.CastEndTime - GameStateRef->GetServerWorldTimeSeconds() : 0.0f;
+	if (GlobalTimeRemaining > AbilityQueWindow || CastTimeRemaining > AbilityQueWindow)
+	{
+		return false;
+	}
+	if (GlobalTimeRemaining == CastTimeRemaining)
+	{
+		QueueStatus = EQueueStatus::WaitForBoth;
+	}
+	else if (GlobalTimeRemaining > CastTimeRemaining)
+	{
+		QueueStatus = EQueueStatus::WaitForGlobal;
+	}
+	else
+	{
+		QueueStatus = EQueueStatus::WaitForCast;
+	}
+	QueuedAbility = AbilityClass;
+	GetWorld()->GetTimerManager().SetTimer(QueueExpirationHandle, this, &UAbilityComponent::ExpireQueue, AbilityQueWindow);
+	return true;
+}
+
+void UAbilityComponent::ExpireQueue()
+{
+	QueueStatus = EQueueStatus::Empty;
+	QueuedAbility = nullptr;
+	GetWorld()->GetTimerManager().ClearTimer(QueueExpirationHandle);
 }
 
 #pragma endregion
@@ -746,14 +815,18 @@ void UAbilityComponent::StartCast(UCombatAbility* Ability, int32 const Predictio
 		CastingState.PredictionID = PredictionID;
 	}
 	CastingState.CastStartTime = GameStateRef->GetServerWorldTimeSeconds();
-	float const CastLength = GetOwnerRole() == ROLE_Authority ? CalculateCastLength(Ability) : 0.0f;
-	CastingState.CastEndTime = GetOwnerRole() == ROLE_Authority ? CastingState.CastStartTime + CastLength : 0.0f;
 	CastingState.bInterruptible = Ability->IsInterruptible();
 	CastingState.ElapsedTicks = 0;
 	if (GetOwnerRole() == ROLE_Authority)
 	{
+		float const CastLength = CalculateCastLength(Ability, true);
+		CastingState.CastEndTime = CastingState.CastStartTime + CastLength;
 		GetWorld()->GetTimerManager().SetTimer(TickHandle, this, &UAbilityComponent::TickCurrentCast,
 			(CastLength / Ability->GetNumberOfTicks()), true);
+	}
+	else
+	{
+		CastingState.CastEndTime = 0.0f;
 	}
     OnCastStateChanged.Broadcast(PreviousState, CastingState);
 }
@@ -769,6 +842,18 @@ void UAbilityComponent::EndCast()
     CastingState.CastEndTime = 0.0f;
     GetWorld()->GetTimerManager().ClearTimer(TickHandle);
     OnCastStateChanged.Broadcast(PreviousState, CastingState);
+	if (bLocallyControlled)
+	{
+		if (QueueStatus == EQueueStatus::WaitForBoth)
+		{
+			QueueStatus = EQueueStatus::WaitForGlobal;
+		}
+		else if (QueueStatus == EQueueStatus::WaitForCast)
+		{
+			bUsingAbilityFromQueue = true;
+			UseAbility(QueuedAbility);
+		}
+	}
 }
 
 #pragma endregion 
@@ -785,7 +870,7 @@ void UAbilityComponent::StartGlobalCooldown(UCombatAbility* Ability, int32 const
 	GlobalCooldownState.StartTime = GetGameStateRef()->GetServerWorldTimeSeconds();
 	if (GetOwnerRole() == ROLE_Authority)
 	{
-		float const GlobalLength = GlobalCooldownState.StartTime + CalculateGlobalCooldownLength(Ability);
+		float const GlobalLength = CalculateGlobalCooldownLength(Ability, true);
 		GlobalCooldownState.EndTime = GlobalCooldownState.StartTime + GlobalLength;
 		GetWorld()->GetTimerManager().SetTimer(GlobalCooldownHandle, this, &UAbilityComponent::EndGlobalCooldown, GlobalLength, false);
 	}
@@ -808,7 +893,15 @@ void UAbilityComponent::EndGlobalCooldown()
 		OnGlobalCooldownChanged.Broadcast(PreviousGlobal, GlobalCooldownState);
 		if (bLocallyControlled)
 		{
-			//TODO: Check for queued ability.
+			if (QueueStatus == EQueueStatus::WaitForBoth)
+			{
+				QueueStatus = EQueueStatus::WaitForCast;
+			}
+			else if (QueueStatus == EQueueStatus::WaitForGlobal)
+			{
+				bUsingAbilityFromQueue = true;
+				UseAbility(QueuedAbility);
+			}
 		}
 	}
 }
@@ -972,7 +1065,7 @@ FCombatModifier UAbilityComponent::ModifyGlobalCooldownFromStat(UCombatAbility* 
 	return FCombatModifier::InvalidMod;
 }
 
-float UAbilityComponent::CalculateGlobalCooldownLength(UCombatAbility* Ability)
+float UAbilityComponent::CalculateGlobalCooldownLength(UCombatAbility* Ability, bool const bWithPingComp)
 {
 	if (!IsValid(Ability) || !Ability->HasGlobalCooldown())
 	{
@@ -990,7 +1083,7 @@ float UAbilityComponent::CalculateGlobalCooldownLength(UCombatAbility* Ability)
 			Mods.Add(Mod.Execute(Ability));
 		}
 	}
-	float const PingCompensation = bLocallyControlled ? 0.0f : FMath::Min(MaxPingCompensation, USaiyoraCombatLibrary::GetActorPing(GetOwner()));
+	float const PingCompensation = bWithPingComp ? FMath::Min(MaxPingCompensation, USaiyoraCombatLibrary::GetActorPing(GetOwner())) : 0.0f;
 	return FMath::Max(MinimumGlobalCooldownLength, FCombatModifier::ApplyModifiers(Mods, Ability->GetGlobalCooldownLength()) - PingCompensation);
 }
 
@@ -1019,7 +1112,7 @@ FCombatModifier UAbilityComponent::ModifyCastLengthFromStat(UCombatAbility* Abil
 	return FCombatModifier::InvalidMod;
 }
 
-float UAbilityComponent::CalculateCastLength(UCombatAbility* Ability)
+float UAbilityComponent::CalculateCastLength(UCombatAbility* Ability, bool const bWithPingComp)
 {
 	if (!IsValid(Ability) || Ability->GetCastType() != EAbilityCastType::Channel)
 	{
@@ -1037,7 +1130,7 @@ float UAbilityComponent::CalculateCastLength(UCombatAbility* Ability)
 			Mods.Add(Mod.Execute(Ability));
 		}
 	}
-	float const PingCompensation = bLocallyControlled ? 0.0f : FMath::Min(MaxPingCompensation, USaiyoraCombatLibrary::GetActorPing(GetOwner()));
+	float const PingCompensation = bWithPingComp ? FMath::Min(MaxPingCompensation, USaiyoraCombatLibrary::GetActorPing(GetOwner())) : 0.0f;
 	return FMath::Max(MinimumCastLength, FCombatModifier::ApplyModifiers(Mods, Ability->GetCastLength()) - PingCompensation);
 }
 
@@ -1066,7 +1159,7 @@ FCombatModifier UAbilityComponent::ModifyCooldownFromStat(UCombatAbility* Abilit
 	return FCombatModifier::InvalidMod;
 }
 
-float UAbilityComponent::CalculateCooldownLength(UCombatAbility* Ability, bool const bCompensatePing)
+float UAbilityComponent::CalculateCooldownLength(UCombatAbility* Ability, bool const bWithPingComp)
 {
 	if (!IsValid(Ability))
 	{
@@ -1084,7 +1177,7 @@ float UAbilityComponent::CalculateCooldownLength(UCombatAbility* Ability, bool c
 			Mods.Add(Mod.Execute(Ability));
 		}
 	}
-	float const PingCompensation = (bLocallyControlled || !bCompensatePing) ? 0.0f : FMath::Min(MaxPingCompensation, USaiyoraCombatLibrary::GetActorPing(GetOwner()));
+	float const PingCompensation = bWithPingComp ? FMath::Min(MaxPingCompensation, USaiyoraCombatLibrary::GetActorPing(GetOwner())) : 0.0f;
 	return FMath::Max(MinimumCooldownLength, FCombatModifier::ApplyModifiers(Mods, Ability->GetCooldownLength()) - PingCompensation);
 }
 
@@ -1209,6 +1302,11 @@ bool UAbilityComponent::CanUseAbility(UCombatAbility* Ability, ECastFailReason& 
 		OutFailReason = ECastFailReason::Dead;
 		return false;
 	}
+	OutFailReason = Ability->IsCastable();
+	if (OutFailReason != ECastFailReason::None)
+	{
+		return false;
+	}
 	if (Ability->HasGlobalCooldown() && GlobalCooldownState.bGlobalCooldownActive)
 	{
 		OutFailReason = ECastFailReason::OnGlobalCooldown;
@@ -1217,11 +1315,6 @@ bool UAbilityComponent::CanUseAbility(UCombatAbility* Ability, ECastFailReason& 
 	if (CastingState.bIsCasting)
 	{
 		OutFailReason = ECastFailReason::AlreadyCasting;
-		return false;
-	}
-	OutFailReason = Ability->IsCastable();
-	if (OutFailReason != ECastFailReason::None)
-	{
 		return false;
 	}
 	return true;

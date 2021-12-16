@@ -20,7 +20,7 @@ private:
 	UFUNCTION()
 	float RecalculateCost(TArray<FCombatModifier> const& SpecificMods, float const Base);
 public:
-	void Init(FAbilityCost const& InitInfo, TSubclassOf<UCombatAbility> const NewAbilityClass, UAbilityHandler* NewHandler);
+	void Init(FDefaultAbilityCost const& InitInfo, TSubclassOf<UCombatAbility> const NewAbilityClass, UAbilityHandler* NewHandler);
 	void SubscribeToCostChanged(FResourceCostCallback const& Callback);
 	void UnsubscribeFromCostChanged(FResourceCostCallback const& Callback);
 };

@@ -160,33 +160,52 @@ void UResourceHandler::CommitAbilityCosts(UCombatAbility* Ability, int32 const P
 	Ability->GetAbilityCosts(Costs);
 	for (TTuple<TSubclassOf<UResource>, float> const& Cost : Costs)
 	{
-		UResource* Resource = FindActiveResource(Cost.Key);
-		if (!IsValid(Resource))
+		if (IsValid(Cost.Key))
 		{
-			continue;
+			UResource* Resource = FindActiveResource(Cost.Key);
+			if (IsValid(Resource))
+			{
+				Resource->CommitAbilityCost(Ability, Cost.Value, PredictionID);
+			}
 		}
-		Resource->CommitAbilityCost(Ability, Cost.Value, PredictionID);
+	}
+	if (GetOwnerRole() == ROLE_AutonomousProxy)
+	{
+		FAbilityCostPrediction& Prediction = CostPredictions.Add(PredictionID);
+		Prediction.CostMap = Costs;
 	}
 }
 
-void UResourceHandler::UpdatePredictedCostsFromServer(FServerAbilityResult const& ServerResult, TArray<TSubclassOf<UResource>> const& MispredictedCosts)
+void UResourceHandler::UpdatePredictedCostsFromServer(FServerAbilityResult const& ServerResult)
 {
-	TArray<FReplicableAbilityCost> Costs = ServerResult.AbilityCosts;
-	for (TSubclassOf<UResource> const Class : MispredictedCosts)
+	FAbilityCostPrediction Prediction = CostPredictions.FindRef(ServerResult.PredictionID);
+	for (FAbilityCost const& Cost : ServerResult.AbilityCosts)
 	{
-		if (IsValid(Class))
+		if (IsValid(Cost.ResourceClass))
 		{
-			Costs.Add(FReplicableAbilityCost(Class, 0.0f));
+			if (Cost.Cost != Prediction.CostMap.FindRef(Cost.ResourceClass))
+			{
+				UResource* Resource = FindActiveResource(Cost.ResourceClass);
+				if (IsValid(Resource))
+				{
+					Resource->UpdateCostPredictionFromServer(ServerResult.PredictionID, Cost.Cost);
+				}
+			}
+			Prediction.CostMap.Remove(Cost.ResourceClass);
 		}
 	}
-	for (FReplicableAbilityCost const& Cost : Costs)
+	for (TTuple<TSubclassOf<UResource>, float> const& Misprediction : Prediction.CostMap)
 	{
-		UResource* Resource = FindActiveResource(Cost.ResourceClass);
-		if (IsValid(Resource))
+		if (IsValid(Misprediction.Key))
 		{
-			Resource->UpdateCostPredictionFromServer(ServerResult.PredictionID, Cost.Cost);
+			UResource* Resource = FindActiveResource(Misprediction.Key);
+			if (IsValid(Resource))
+			{
+				Resource->UpdateCostPredictionFromServer(ServerResult.PredictionID, 0.0f);
+			}
 		}
 	}
+	CostPredictions.Remove(ServerResult.PredictionID);
 }
 
 #pragma endregion 

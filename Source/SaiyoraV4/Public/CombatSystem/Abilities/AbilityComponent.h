@@ -33,6 +33,7 @@ public:
 	static const float MinimumCastLength;
 	static const float MinimumGlobalCooldownLength;
 	static const float MinimumCooldownLength;
+	static const float AbilityQueWindow;
 
 	UAbilityComponent();
 	virtual void BeginPlay() override;
@@ -227,7 +228,7 @@ private:
 	FAbilityModCondition StatCastLengthMod;
 	UFUNCTION()
 	FCombatModifier ModifyCastLengthFromStat(UCombatAbility* Ability);
-	float CalculateCastLength(UCombatAbility* Ability);
+	float CalculateCastLength(UCombatAbility* Ability, bool const bWithPingComp);
 	FCastingStateNotification OnCastStateChanged;
 
 //Global Cooldown
@@ -260,7 +261,7 @@ private:
 	FAbilityModCondition StatGlobalCooldownMod;
 	UFUNCTION()
 	FCombatModifier ModifyGlobalCooldownFromStat(UCombatAbility* Ability);
-	float CalculateGlobalCooldownLength(UCombatAbility* Ability);
+	float CalculateGlobalCooldownLength(UCombatAbility* Ability, bool const bWithPingComp);
 	FGlobalCooldownNotification OnGlobalCooldownChanged;
 
 //Cooldown
@@ -271,7 +272,7 @@ public:
 	void AddCooldownModifier(FAbilityModCondition const& Modifier);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
 	void RemoveCooldownModifier(FAbilityModCondition const& Modifier);
-	float CalculateCooldownLength(UCombatAbility* Ability, bool const bCompensatePing = false);
+	float CalculateCooldownLength(UCombatAbility* Ability, bool const bWithPingComp);
 
 private:
 
@@ -285,13 +286,27 @@ private:
 
 public:
 
+	void AddResourceCostModifier(TSubclassOf<UResource> const ResourceClass, FCombatModifier const& Modifier, TSubclassOf<UCombatAbility> const AbilityClass = nullptr);
+	void RemoveResourceCostModifier(UObject* Source, TSubclassOf<UResource> const ResourceClass, TSubclassOf<UCombatAbility> const AbilityClass = nullptr);
+
 private:
+
+	//Multimap of AbilityClass to ResourceClass to Mod combo struct.
+	//Don't use nullptr as a map key. Use a separate generic multimap.
+	//Don't replicate modifiers, just replicate the ability costs themselves.
+	TMultiMap<TSubclassOf<UCombatAbility>, FAbilityCostModifiers> ClassResourceCostMods;
+	TMultiMap<TSubclassOf<UResource>, FCombatModifier> GenericResourceCostMods;
 
 //Queueing
-//TODO: Queueing. Since I'm not crutching on inheritance, I need a way to not requeue abilities that I attempt to use FROM a queue (previously I did this with a bool param to the UsePlayerAbility function).
-
-public:
 
 private:
 
+	EQueueStatus QueueStatus = EQueueStatus::Empty;
+	TSubclassOf<UCombatAbility> QueuedAbility;
+	bool bUsingAbilityFromQueue = false;
+	bool TryQueueAbility(TSubclassOf<UCombatAbility> const AbilityClass);
+	FTimerHandle QueueExpirationHandle;
+	UFUNCTION()
+	void ExpireQueue();
+	
 };

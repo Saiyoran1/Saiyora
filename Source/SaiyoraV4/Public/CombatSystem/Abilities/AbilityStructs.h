@@ -9,7 +9,7 @@
 class UPlayerCombatAbility;
 
 USTRUCT(BlueprintType)
-struct FAbilityCost
+struct FDefaultAbilityCost
 {
     GENERATED_BODY();
 
@@ -23,17 +23,34 @@ struct FAbilityCost
 
 //This struct is exclusively used for ClientSucceed/ClientFail prediction RPCs from the server.
 USTRUCT()
-struct FReplicableAbilityCost
+struct FAbilityCost
 {
     GENERATED_BODY()
 
-    FReplicableAbilityCost();
-    FReplicableAbilityCost(TSubclassOf<UResource> const NewResourceClass, float const NewCost);
+    FAbilityCost();
+    FAbilityCost(TSubclassOf<UResource> const NewResourceClass, float const NewCost);
 
     UPROPERTY()
     TSubclassOf<UResource> ResourceClass;
     UPROPERTY()
     float Cost = 0.0f;
+};
+
+USTRUCT()
+struct FAbilityCostPrediction
+{
+    GENERATED_BODY()
+
+    UPROPERTY()
+    TMap<TSubclassOf<UResource>, float> CostMap;
+};
+
+USTRUCT()
+struct FAbilityCostModifiers
+{
+    GENERATED_BODY()
+
+    TMultiMap<TSubclassOf<UResource>, FCombatModifier> Modifiers;
 };
 
 USTRUCT()
@@ -251,7 +268,7 @@ struct FServerAbilityResult
     UPROPERTY()
     bool bInterruptible = false;
     UPROPERTY()
-    TArray<FReplicableAbilityCost> AbilityCosts;
+    TArray<FAbilityCost> AbilityCosts;
 };
 
 USTRUCT()
