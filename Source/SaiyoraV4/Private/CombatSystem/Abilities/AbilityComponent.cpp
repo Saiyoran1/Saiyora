@@ -105,6 +105,19 @@ UCombatAbility* UAbilityComponent::AddNewAbility(TSubclassOf<UCombatAbility> con
 	{
 		ActiveAbilities.Add(AbilityClass, NewAbility);
 		NewAbility->InitializeAbility(this);
+		if (AbilityUsageClassRestrictions.Contains(AbilityClass))
+		{
+			NewAbility->AddClassRestriction();
+		}
+		TArray<FGameplayTag> RestrictedTags;
+		AbilityUsageTagRestrictions.GenerateKeyArray(RestrictedTags);
+		for (FGameplayTag const Tag : RestrictedTags)
+		{
+			if (NewAbility->HasTag(Tag))
+			{
+				NewAbility->AddRestrictedTag(Tag);
+			}
+		}
 		OnAbilityAdded.Broadcast(NewAbility);
 	}
 	return NewAbility;
@@ -783,7 +796,9 @@ void UAbilityComponent::InterruptCastOnCrowdControl(FCrowdControlStatus const& P
 {
 	if (CastingState.bIsCasting && IsValid(CastingState.CurrentCast) && NewStatus.bActive == true)
 	{
-		if (CastingState.CurrentCast->GetRestrictedCrowdControls().Contains(NewStatus.CrowdControlType))
+		TSet<ECrowdControlType> RestrictedCcs;
+		CastingState.CurrentCast->GetRestrictedCrowdControls(RestrictedCcs);
+		if (RestrictedCcs.Contains(NewStatus.CrowdControlType))
 		{
 			InterruptCurrentCast(NewStatus.DominantBuffInstance->GetHandler()->GetOwner(), NewStatus.DominantBuffInstance, true);
 		}
@@ -1056,7 +1071,7 @@ void UAbilityComponent::RemoveGlobalCooldownModifier(FAbilityModCondition const&
 	}
 }
 
-FCombatModifier UAbilityComponent::ModifyGlobalCooldownFromStat(UCombatAbility* Ability)
+FCombatModifier UAbilityComponent::ModifyGlobalCooldownFromStat(UCombatAbility const* Ability)
 {
 	if (IsValid(StatHandlerRef) && StatHandlerRef->IsStatValid(GlobalCooldownLengthStatTag()))
 	{
@@ -1065,7 +1080,7 @@ FCombatModifier UAbilityComponent::ModifyGlobalCooldownFromStat(UCombatAbility* 
 	return FCombatModifier::InvalidMod;
 }
 
-float UAbilityComponent::CalculateGlobalCooldownLength(UCombatAbility* Ability, bool const bWithPingComp)
+float UAbilityComponent::CalculateGlobalCooldownLength(UCombatAbility const* Ability, bool const bWithPingComp) const
 {
 	if (!IsValid(Ability) || !Ability->HasGlobalCooldown())
 	{
@@ -1073,7 +1088,7 @@ float UAbilityComponent::CalculateGlobalCooldownLength(UCombatAbility* Ability, 
 	}
 	if (Ability->HasStaticGlobalCooldownLength())
 	{
-		return Ability->GetGlobalCooldownLength();
+		return Ability->GetDefaultGlobalCooldownLength();
 	}
 	TArray<FCombatModifier> Mods;
 	for (FAbilityModCondition const& Mod : GlobalCooldownMods)
@@ -1084,7 +1099,7 @@ float UAbilityComponent::CalculateGlobalCooldownLength(UCombatAbility* Ability, 
 		}
 	}
 	float const PingCompensation = bWithPingComp ? FMath::Min(MaxPingCompensation, USaiyoraCombatLibrary::GetActorPing(GetOwner())) : 0.0f;
-	return FMath::Max(MinimumGlobalCooldownLength, FCombatModifier::ApplyModifiers(Mods, Ability->GetGlobalCooldownLength()) - PingCompensation);
+	return FMath::Max(MinimumGlobalCooldownLength, FCombatModifier::ApplyModifiers(Mods, Ability->GetDefaultGlobalCooldownLength()) - PingCompensation);
 }
 
 void UAbilityComponent::AddCastLengthModifier(FAbilityModCondition const& Modifier)
@@ -1103,7 +1118,7 @@ void UAbilityComponent::RemoveCastLengthModifier(FAbilityModCondition const& Mod
 	}
 }
 
-FCombatModifier UAbilityComponent::ModifyCastLengthFromStat(UCombatAbility* Ability)
+FCombatModifier UAbilityComponent::ModifyCastLengthFromStat(UCombatAbility const* Ability)
 {
 	if (IsValid(StatHandlerRef) && StatHandlerRef->IsStatValid(CastLengthStatTag()))
 	{
@@ -1112,7 +1127,7 @@ FCombatModifier UAbilityComponent::ModifyCastLengthFromStat(UCombatAbility* Abil
 	return FCombatModifier::InvalidMod;
 }
 
-float UAbilityComponent::CalculateCastLength(UCombatAbility* Ability, bool const bWithPingComp)
+float UAbilityComponent::CalculateCastLength(UCombatAbility const* Ability, bool const bWithPingComp) const
 {
 	if (!IsValid(Ability) || Ability->GetCastType() != EAbilityCastType::Channel)
 	{
@@ -1120,7 +1135,7 @@ float UAbilityComponent::CalculateCastLength(UCombatAbility* Ability, bool const
 	}
 	if (Ability->HasStaticCastLength())
 	{
-		return Ability->GetCastLength();
+		return Ability->GetDefaultCastLength();
 	}
 	TArray<FCombatModifier> Mods;
 	for (FAbilityModCondition const& Mod : CastLengthMods)
@@ -1131,7 +1146,7 @@ float UAbilityComponent::CalculateCastLength(UCombatAbility* Ability, bool const
 		}
 	}
 	float const PingCompensation = bWithPingComp ? FMath::Min(MaxPingCompensation, USaiyoraCombatLibrary::GetActorPing(GetOwner())) : 0.0f;
-	return FMath::Max(MinimumCastLength, FCombatModifier::ApplyModifiers(Mods, Ability->GetCastLength()) - PingCompensation);
+	return FMath::Max(MinimumCastLength, FCombatModifier::ApplyModifiers(Mods, Ability->GetDefaultCastLength()) - PingCompensation);
 }
 
 void UAbilityComponent::AddCooldownModifier(FAbilityModCondition const& Modifier)
@@ -1150,7 +1165,7 @@ void UAbilityComponent::RemoveCooldownModifier(FAbilityModCondition const& Modif
 	}
 }
 
-FCombatModifier UAbilityComponent::ModifyCooldownFromStat(UCombatAbility* Ability)
+FCombatModifier UAbilityComponent::ModifyCooldownFromStat(UCombatAbility const* Ability)
 {
 	if (IsValid(StatHandlerRef) && StatHandlerRef->IsStatValid(CooldownLengthStatTag()))
 	{
@@ -1159,7 +1174,7 @@ FCombatModifier UAbilityComponent::ModifyCooldownFromStat(UCombatAbility* Abilit
 	return FCombatModifier::InvalidMod;
 }
 
-float UAbilityComponent::CalculateCooldownLength(UCombatAbility* Ability, bool const bWithPingComp)
+float UAbilityComponent::CalculateCooldownLength(UCombatAbility const* Ability, bool const bWithPingComp) const
 {
 	if (!IsValid(Ability))
 	{
@@ -1167,7 +1182,7 @@ float UAbilityComponent::CalculateCooldownLength(UCombatAbility* Ability, bool c
 	}
 	if (Ability->HasStaticCooldownLength())
 	{
-		return Ability->GetCooldownLength();
+		return Ability->GetDefaultCooldownLength();
 	}
 	TArray<FCombatModifier> Mods;
 	for (FAbilityModCondition const& Mod : CooldownMods)
@@ -1178,7 +1193,7 @@ float UAbilityComponent::CalculateCooldownLength(UCombatAbility* Ability, bool c
 		}
 	}
 	float const PingCompensation = bWithPingComp ? FMath::Min(MaxPingCompensation, USaiyoraCombatLibrary::GetActorPing(GetOwner())) : 0.0f;
-	return FMath::Max(MinimumCooldownLength, FCombatModifier::ApplyModifiers(Mods, Ability->GetCooldownLength()) - PingCompensation);
+	return FMath::Max(MinimumCooldownLength, FCombatModifier::ApplyModifiers(Mods, Ability->GetDefaultCooldownLength()) - PingCompensation);
 }
 
 #pragma endregion 

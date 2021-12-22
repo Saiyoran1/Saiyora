@@ -215,6 +215,7 @@ public:
 	void AddCastLengthModifier(FAbilityModCondition const& Modifier);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
 	void RemoveCastLengthModifier(FAbilityModCondition const& Modifier);
+	float CalculateCastLength(UCombatAbility const* Ability, bool const bWithPingComp) const;
 
 private:
 
@@ -227,8 +228,7 @@ private:
 	TArray<FAbilityModCondition> CastLengthMods;
 	FAbilityModCondition StatCastLengthMod;
 	UFUNCTION()
-	FCombatModifier ModifyCastLengthFromStat(UCombatAbility* Ability);
-	float CalculateCastLength(UCombatAbility* Ability, bool const bWithPingComp);
+	FCombatModifier ModifyCastLengthFromStat(UCombatAbility const* Ability);
 	FCastingStateNotification OnCastStateChanged;
 
 //Global Cooldown
@@ -249,6 +249,7 @@ public:
 	void AddGlobalCooldownModifier(FAbilityModCondition const& Modifier);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
 	void RemoveGlobalCooldownModifier(FAbilityModCondition const& Modifier);
+	float CalculateGlobalCooldownLength(UCombatAbility const* Ability, bool const bWithPingComp) const;
 
 private:
 
@@ -260,8 +261,7 @@ private:
 	TArray<FAbilityModCondition> GlobalCooldownMods;
 	FAbilityModCondition StatGlobalCooldownMod;
 	UFUNCTION()
-	FCombatModifier ModifyGlobalCooldownFromStat(UCombatAbility* Ability);
-	float CalculateGlobalCooldownLength(UCombatAbility* Ability, bool const bWithPingComp);
+	FCombatModifier ModifyGlobalCooldownFromStat(UCombatAbility const* Ability);
 	FGlobalCooldownNotification OnGlobalCooldownChanged;
 
 //Cooldown
@@ -272,30 +272,19 @@ public:
 	void AddCooldownModifier(FAbilityModCondition const& Modifier);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
 	void RemoveCooldownModifier(FAbilityModCondition const& Modifier);
-	float CalculateCooldownLength(UCombatAbility* Ability, bool const bWithPingComp);
+	float CalculateCooldownLength(UCombatAbility const* Ability, bool const bWithPingComp) const;
 
 private:
 
 	TArray<FAbilityModCondition> CooldownMods;
 	FAbilityModCondition StatCooldownMod;
 	UFUNCTION()
-	FCombatModifier ModifyCooldownFromStat(UCombatAbility* Ability);
+	FCombatModifier ModifyCooldownFromStat(UCombatAbility const* Ability);
 
-//Costs
-//TODO: Costs. Need owning client to have accurate cost modifiers, and cost modifiers must behave like ability use restrictions, so no delegates.
+//Cost
 
-public:
-
-	void AddResourceCostModifier(TSubclassOf<UResource> const ResourceClass, FCombatModifier const& Modifier, TSubclassOf<UCombatAbility> const AbilityClass = nullptr);
-	void RemoveResourceCostModifier(UObject* Source, TSubclassOf<UResource> const ResourceClass, TSubclassOf<UCombatAbility> const AbilityClass = nullptr);
-
-private:
-
-	//Multimap of AbilityClass to ResourceClass to Mod combo struct.
-	//Don't use nullptr as a map key. Use a separate generic multimap.
-	//Don't replicate modifiers, just replicate the ability costs themselves.
-	TMultiMap<TSubclassOf<UCombatAbility>, FAbilityCostModifiers> ClassResourceCostMods;
-	TMultiMap<TSubclassOf<UResource>, FCombatModifier> GenericResourceCostMods;
+	void AddGenericResourceCostModifier(TSubclassOf<UResource> const ResourceClass, UBuff* Source, FCombatModifier const& Modifier);
+	void RemoveGenericResourceCostModifier(TSubclassOf<UResource> const ResourceClass, UBuff* Source);
 
 //Queueing
 

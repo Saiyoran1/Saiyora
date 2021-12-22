@@ -515,7 +515,7 @@ void UAbilityHandler::StartCast(UCombatAbility* Ability)
 	CastingState.bIsCasting = true;
 	CastingState.CurrentCast = Ability;
 	CastingState.CastStartTime = GameStateRef->GetServerWorldTimeSeconds();
-	float const CastLength = Ability->GetCastLength();
+	float const CastLength = Ability->GetDefaultCastLength();
 	CastingState.CastEndTime = CastingState.CastStartTime + CastLength;
 	CastingState.bInterruptible = Ability->IsInterruptible();
 	GetWorld()->GetTimerManager().SetTimer(CastHandle, this, &UAbilityHandler::CompleteCast, CastLength, false);
@@ -959,7 +959,7 @@ void UAbilityHandler::StartGlobal(UCombatAbility* Ability)
 	FGlobalCooldown const PreviousGlobal = GlobalCooldownState;
 	GlobalCooldownState.bGlobalCooldownActive = true;
 	GlobalCooldownState.StartTime = GameStateRef->GetServerWorldTimeSeconds();
-	float const GlobalLength = Ability->GetGlobalCooldownLength();
+	float const GlobalLength = Ability->GetDefaultGlobalCooldownLength();
 	GlobalCooldownState.EndTime = GlobalCooldownState.StartTime + GlobalLength;
 	GetWorld()->GetTimerManager().SetTimer(GlobalCooldownHandle, this, &UAbilityHandler::EndGlobalCooldown, GlobalLength, false);
 	OnGlobalCooldownChanged.Broadcast(PreviousGlobal, GlobalCooldownState);

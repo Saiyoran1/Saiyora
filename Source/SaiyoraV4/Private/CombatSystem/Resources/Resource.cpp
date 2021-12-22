@@ -7,15 +7,6 @@
 
 #pragma region Initialization and Deactivation
 
-void UResource::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
-{
-    Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
-    DOREPLIFETIME(UResource, Handler);
-    DOREPLIFETIME(UResource, ResourceState);
-    DOREPLIFETIME(UResource, bDeactivated);
-}
-
 UWorld* UResource::GetWorld() const
 {
     if (!HasAnyFlags(RF_ClassDefaultObject))
@@ -23,6 +14,14 @@ UWorld* UResource::GetWorld() const
         return GetOuter()->GetWorld();
     }
     return nullptr;
+}
+
+void UResource::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+    Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+    DOREPLIFETIME(UResource, Handler);
+    DOREPLIFETIME(UResource, bDeactivated);
+    DOREPLIFETIME(UResource, ResourceState);
 }
 
 void UResource::PostNetReceive()
@@ -55,7 +54,7 @@ void UResource::InitializeResource(UResourceHandler* NewHandler, FResourceInitIn
     Handler = NewHandler;
     StatHandlerRef = ISaiyoraCombatInterface::Execute_GetStatHandler(Handler->GetOwner());
     ResourceState.Minimum = FMath::Max(0.0f, InitInfo.bHasCustomMinimum ? InitInfo.CustomMinValue : DefaultMinimum);
-    ResourceState.Maximum = FMath::Max(GetMinimum(), InitInfo.bHasCustomMaximum ? InitInfo.CustomMaxValue : DefaultMaximum);
+    ResourceState.Maximum = FMath::Max(ResourceState.Minimum, InitInfo.bHasCustomMaximum ? InitInfo.CustomMaxValue : DefaultMaximum);
     ResourceState.CurrentValue = FMath::Clamp(InitInfo.bHasCustomInitial ? InitInfo.CustomInitialValue : DefaultValue, ResourceState.Minimum, ResourceState.Maximum);
     ResourceState.PredictionID = 0;
     
@@ -104,6 +103,7 @@ void UResource::InitializeResource(UResourceHandler* NewHandler, FResourceInitIn
 void UResource::DeactivateResource()
 {
     PreDeactivateResource();
+    OnResourceChanged.Clear();
     bDeactivated = true;
 }
 

@@ -73,3 +73,11 @@ enum class ECancelFailReason : uint8
     NetRole = 1,
     NotCasting = 2,
 };
+
+UENUM(BlueprintType)
+enum class EChargeModificationType : uint8
+{
+    None = 0,
+    Additive = 1,
+    Override = 2,
+};

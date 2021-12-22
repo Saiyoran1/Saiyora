@@ -1,7 +1,6 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "AbilityEnums.h"
-#include "SaiyoraEnums.h"
 #include "SaiyoraStructs.h"
 #include "Resource.h"
 #include "AbilityStructs.generated.h"
@@ -21,9 +20,9 @@ struct FDefaultAbilityCost
     bool bStaticCost = false;
 };
 
-//This struct is exclusively used for ClientSucceed/ClientFail prediction RPCs from the server.
+//This struct is used for prediction confirmation RPCs from the server, as well as normal replicated ability costs.
 USTRUCT()
-struct FAbilityCost
+struct FAbilityCost : public FFastArraySerializerItem
 {
     GENERATED_BODY()
 
@@ -34,6 +33,33 @@ struct FAbilityCost
     TSubclassOf<UResource> ResourceClass;
     UPROPERTY()
     float Cost = 0.0f;
+
+    void PreReplicatedRemove(const struct FAbilityCostArray& InArraySerializer);
+    void PostReplicatedAdd(const struct FAbilityCostArray& InArraySerializer);
+    void PostReplicatedChange(const struct FAbilityCostArray& InArraySerializer);
+};
+
+USTRUCT()
+struct FAbilityCostArray: public FFastArraySerializer
+{
+    GENERATED_USTRUCT_BODY()
+
+    UPROPERTY()
+    TArray<FAbilityCost> Items;
+
+    bool NetDeltaSerialize(FNetDeltaSerializeInfo& DeltaParms)
+    {
+        return FFastArraySerializer::FastArrayDeltaSerialize<FAbilityCost, FAbilityCostArray>(Items, DeltaParms, *this);
+    }
+};
+
+template<>
+struct TStructOpsTypeTraits<FAbilityCost> : public TStructOpsTypeTraitsBase2<FAbilityCostArray>
+{
+    enum 
+    {
+        WithNetDeltaSerializer = true,
+   };
 };
 
 USTRUCT()
@@ -43,14 +69,6 @@ struct FAbilityCostPrediction
 
     UPROPERTY()
     TMap<TSubclassOf<UResource>, float> CostMap;
-};
-
-USTRUCT()
-struct FAbilityCostModifiers
-{
-    GENERATED_BODY()
-
-    TMultiMap<TSubclassOf<UResource>, FCombatModifier> Modifiers;
 };
 
 USTRUCT()
@@ -68,6 +86,8 @@ struct FAbilityCooldown
     float CooldownEndTime = 0.0f;
     UPROPERTY()
     int32 PredictionID = 0;
+    UPROPERTY()
+    int32 MaxCharges = 1;
 };
 
 USTRUCT(BlueprintType)
@@ -288,45 +308,23 @@ FORCEINLINE uint32 GetTypeHash(const FPredictedTick& Tick)
     return HashCombine(GetTypeHash(Tick.PredictionID), GetTypeHash(Tick.TickNumber));
 }
 
-USTRUCT()
-struct FTickResults
-{
-    GENERATED_BODY()
-
-    TMap<int32, FAbilityEvent> Results;
-};
-
-DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FAbilityModCondition, UCombatAbility*, Ability);
-DECLARE_DYNAMIC_DELEGATE_RetVal_TwoParams(FCombatModifier, FAbilityResourceModCondition, TSubclassOf<UCombatAbility>, AbilityClass, TSubclassOf<UResource>, ResourceClass);
-DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FAbilityRestriction, UCombatAbility*, Ability);
+DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FAbilityModCondition, UCombatAbility const*, Ability);
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FAbilityClassRestriction, TSubclassOf<UCombatAbility>, AbilityClass);
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FInterruptRestriction, FInterruptEvent const&, InterruptEvent);
-DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityInstanceCallback, UCombatAbility*, NewAbility);
+DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityInstanceCallback, UCombatAbility const*, NewAbility);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityCallback, FAbilityEvent const&, Event);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityCancelCallback, FCancelEvent const&, Event);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FInterruptCallback, FInterruptEvent const&, InterruptEvent);
-DECLARE_DYNAMIC_DELEGATE_ThreeParams(FAbilityChargeCallback, UCombatAbility*, Ability, int32 const, OldCharges, int32 const, NewCharges);
+DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityMispredictionCallback, int32 const, PredictionID);
 DECLARE_DYNAMIC_DELEGATE_TwoParams(FGlobalCooldownCallback, FGlobalCooldown const&, OldGlobalCooldown, FGlobalCooldown const&, NewGlobalCooldown);
 DECLARE_DYNAMIC_DELEGATE_TwoParams(FCastingStateCallback, FCastingState const&, OldState, FCastingState const&, NewState);
-DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityMispredictionCallback, int32 const, PredictionID);
-DECLARE_DYNAMIC_DELEGATE_ThreeParams(FAbilityBindingCallback, int32 const, AbilityBind, EActionBarType const, Bar, UCombatAbility*, Ability);
-DECLARE_DYNAMIC_DELEGATE_OneParam(FBarSwapCallback, ESaiyoraPlane const, NewPlane);
-//Spellbook delegate has no params because TSubclassOf in dynamic delegate causes compile errors :(
-DECLARE_DYNAMIC_DELEGATE(FSpellbookCallback);
-DECLARE_DYNAMIC_DELEGATE_OneParam(FSpecializationCallback, TSubclassOf<class UPlayerSpecialization>, NewSpecialization);
-DECLARE_DYNAMIC_DELEGATE_OneParam(FCastableCallback, ECastFailReason const, Castable);
+DECLARE_DYNAMIC_DELEGATE_ThreeParams(FAbilityChargeCallback, UCombatAbility const*, Ability, int32 const, OldCharges, int32 const, NewCharges);
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityInstanceNotification, UCombatAbility const*, NewAbility);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityNotification, FAbilityEvent const&, Event);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityCancelNotification, FCancelEvent const&, Event);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FInterruptNotification, FInterruptEvent const&, InterruptEvent);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FAbilityChargeNotification, UCombatAbility*, Ability, int32 const, OldCharges, int32 const, NewCharges);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityInstanceNotification, UCombatAbility*, NewAbility);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityMispredictionNotification, int32 const, PredictionID);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FGlobalCooldownNotification, FGlobalCooldown const&, OldGlobalCooldown, FGlobalCooldown const&, NewGlobalCooldown);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FCastingStateNotification, FCastingState const&, OldState, FCastingState const&, NewState);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityMispredictionNotification, int32 const, PredictionID);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FAbilityBindingNotification, int32 const, AbilityBind, EActionBarType const, Bar, UCombatAbility*, Ability);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FBarSwapNotification, EActionBarType const, NewBar);
-//Spellbook delegate has no params because TSubclassOf in dynamic delegate causes compile errors :(
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FSpellbookNotification);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FSpecializationNotification, TSubclassOf<class UPlayerSpecialization>, NewSpecialization);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FCastableNotification, ECastFailReason const, Castable);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FAbilityChargeNotification, UCombatAbility const*, Ability, int32 const, OldCharges, int32 const, NewCharges);

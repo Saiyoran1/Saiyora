@@ -1,20 +1,12 @@
 #include "CombatAbility.h"
-
 #include "AbilityComponent.h"
-#include "AbilityHandler.h"
-#include "AbilityResourceCost.h"
+#include "Buff.h"
 #include "ResourceHandler.h"
 #include "SaiyoraCombatLibrary.h"
 #include "UnrealNetwork.h"
 #include "Kismet/KismetSystemLibrary.h"
 
-void UCombatAbility::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const
-{
-    Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-    DOREPLIFETIME(UCombatAbility, OwningComponent);
-    DOREPLIFETIME(UCombatAbility, bDeactivated);
-    DOREPLIFETIME_CONDITION(UCombatAbility, AbilityCooldown, COND_Never);
-}
+#pragma region Setup
 
 UWorld* UCombatAbility::GetWorld() const
 {
@@ -25,58 +17,676 @@ UWorld* UCombatAbility::GetWorld() const
     return nullptr;
 }
 
-void UCombatAbility::CommitCharges(int32 const PredictionID)
+void UCombatAbility::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
-    //TODO: Charge prediction.
-    int32 const PreviousCharges = AbilityCooldown.CurrentCharges;
-    int32 const CurrentMaxCharges = GetMaxCharges();
-    AbilityCooldown.CurrentCharges = FMath::Clamp(PreviousCharges - GetChargeCost(), 0, CurrentMaxCharges);
-    if (!GetWorld()->GetTimerManager().IsTimerActive(CooldownHandle) && GetCurrentCharges() < CurrentMaxCharges)
+    Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+    DOREPLIFETIME(UCombatAbility, OwningComponent);
+    DOREPLIFETIME(UCombatAbility, bDeactivated);
+    DOREPLIFETIME_CONDITION(UCombatAbility, AbilityCooldown, COND_OwnerOnly);
+}
+
+void UCombatAbility::PostNetReceive()
+{
+    if (bInitialized || bDeactivated)
     {
-        StartCooldown();
+        return;
+    }
+    if (IsValid(OwningComponent))
+    {
+        OwningComponent->NotifyOfReplicatedAbility(this);
+    }
+}
+
+void UCombatAbility::InitializeAbility(UAbilityComponent* AbilityComponent)
+{
+    if (bInitialized || !IsValid(AbilityComponent) || AbilityComponent->GetOwnerRole() != ROLE_Authority)
+    {
+        return;
+    }
+    OwningComponent = AbilityComponent;
+    AbilityCooldown.MaxCharges = FMath::Max(1, DefaultMaxCharges);
+    AbilityCooldown.CurrentCharges = AbilityCooldown.MaxCharges;
+    ChargesPerCooldown = FMath::Max(0, DefaultChargesPerCooldown);
+    ChargeCost = FMath::Max(0, DefaultChargeCost);
+    //TODO: Initialize Costs
+    
+    SetupCustomCastRestrictions();
+    PreInitializeAbility();
+    bInitialized = true;
+    if (AbilityCosts.Num() == 0)
+    {
+        ResourceCostsMet = true;
+    }
+    else if (!IsValid(OwningComponent) || !IsValid(OwningComponent->GetResourceHandlerRef()))
+    {   
+        ResourceCostsMet = false;
+    }
+    else
+    {
+        TMap<TSubclassOf<UResource>, float> Costs;
+        GetAbilityCosts(Costs);
+        ResourceCostsMet = OwningComponent->GetResourceHandlerRef()->CheckAbilityCostsMet(Costs);
+    }
+    UpdateCastable();
+}
+
+void UCombatAbility::DeactivateAbility()
+{
+    PreDeactivateAbility();
+    if (GetWorld()->GetTimerManager().IsTimerActive(CooldownHandle))
+    {
+        GetWorld()->GetTimerManager().ClearTimer(CooldownHandle);
+    }
+    OnChargesChanged.Clear();
+    bDeactivated = true;
+}
+
+void UCombatAbility::OnRep_Deactivated(bool const Previous)
+{
+    if (bDeactivated && bInitialized)
+    {
+        PreDeactivateAbility();
+        OwningComponent->NotifyOfReplicatedAbilityRemoval(this);
+    }
+}
+
+#pragma endregion
+#pragma region Cooldown
+
+bool UCombatAbility::IsCooldownActive() const
+{
+    if (!IsValid(OwningComponent))
+    {
+        return false;
+    }
+    switch (OwningComponent->GetOwnerRole())
+    {
+        case ROLE_Authority :
+            return AbilityCooldown.OnCooldown;
+        case ROLE_AutonomousProxy :
+            return ClientCooldown.OnCooldown;
+        default :
+            return false;
+    }
+}
+
+float UCombatAbility::GetRemainingCooldown() const
+{
+    if (!IsValid(OwningComponent))
+    {
+        return 0.0f;
+    }
+    switch (OwningComponent->GetOwnerRole())
+    {
+        case ROLE_Authority :
+            return AbilityCooldown.OnCooldown ? FMath::Max(0.0f, AbilityCooldown.CooldownEndTime - OwningComponent->GetGameStateRef()->GetServerWorldTimeSeconds()) : 0.0f;
+        case ROLE_AutonomousProxy :
+            return ClientCooldown.OnCooldown && ClientCooldown.CooldownEndTime != 0.0f ? FMath::Max(0.0f, ClientCooldown.CooldownEndTime - OwningComponent->GetGameStateRef()->GetServerWorldTimeSeconds()) : 0.0f;
+        default :
+            return 0.0f;
+    }
+}
+
+float UCombatAbility::GetCurrentCooldownLength() const
+{
+    if (!IsValid(OwningComponent))
+    {
+        return 0.0f;
+    }
+    switch (OwningComponent->GetOwnerRole())
+    {
+        case ROLE_Authority :
+            return AbilityCooldown.OnCooldown ? FMath::Max(UAbilityComponent::MinimumCooldownLength, AbilityCooldown.CooldownEndTime - AbilityCooldown.CooldownStartTime) : 0.0f;
+        case ROLE_AutonomousProxy :
+            return ClientCooldown.OnCooldown && ClientCooldown.CooldownEndTime != 0.0f ? FMath::Max(UAbilityComponent::MinimumCooldownLength, ClientCooldown.CooldownEndTime - ClientCooldown.CooldownStartTime) : 0.0f;
+        default :
+            return 0.0f;
+    }
+}
+
+void UCombatAbility::ModifyCurrentCharges(int32 const Charges, EChargeModificationType const ModificationType)
+{
+    if (OwningComponent->GetOwnerRole() != ROLE_Authority || ModificationType == EChargeModificationType::None)
+    {
+        return;
+    }
+    int32 const PreviousCharges = AbilityCooldown.CurrentCharges;
+    switch (ModificationType)
+    {
+    case EChargeModificationType::Additive :
+        AbilityCooldown.CurrentCharges = FMath::Clamp(AbilityCooldown.CurrentCharges + Charges, 0, AbilityCooldown.MaxCharges);
+        break;
+    case EChargeModificationType::Override :
+        AbilityCooldown.CurrentCharges = FMath::Clamp(Charges, 0, AbilityCooldown.MaxCharges);
+        break;
+    default :
+        break;
     }
     if (PreviousCharges != AbilityCooldown.CurrentCharges)
     {
-        CheckChargeCostMet();
+        UpdateCastable();
+        if (AbilityCooldown.CurrentCharges == AbilityCooldown.MaxCharges && AbilityCooldown.OnCooldown)
+        {
+            CancelCooldown();
+        }
+        else if (AbilityCooldown.CurrentCharges < AbilityCooldown.MaxCharges && !AbilityCooldown.OnCooldown)
+        {
+            StartCooldown();
+        }
         OnChargesChanged.Broadcast(this, PreviousCharges, AbilityCooldown.CurrentCharges);
     }
 }
 
-int32 UCombatAbility::AddChargeCostModifier(FCombatModifier const& Modifier)
+void UCombatAbility::CommitCharges(int32 const PredictionID)
 {
-    if (Modifier.GetModType() == EModifierType::Invalid || !IsValid(ChargeCost) || !ChargeCost->IsModifiable())
+    if (OwningComponent->GetOwnerRole() == ROLE_Authority)
     {
-        return -1;
+        bool bUseLagCompensation = false;
+        if (PredictionID != 0)
+        {
+            AbilityCooldown.PredictionID = PredictionID;
+            bUseLagCompensation = true;
+        }
+        int32 const PreviousCharges = AbilityCooldown.CurrentCharges;
+        AbilityCooldown.CurrentCharges = FMath::Clamp(AbilityCooldown.CurrentCharges - ChargeCost, 0, AbilityCooldown.MaxCharges);
+        if (AbilityCooldown.CurrentCharges < AbilityCooldown.MaxCharges && !AbilityCooldown.OnCooldown)
+        {
+            StartCooldown(bUseLagCompensation);
+        }
+        if (PreviousCharges != AbilityCooldown.CurrentCharges)
+        {
+            OnChargesChanged.Broadcast(this, PreviousCharges, AbilityCooldown.CurrentCharges);
+        }
     }
-    return ChargeCost->AddModifier(Modifier);
+    else if (OwningComponent->GetOwnerRole() == ROLE_AutonomousProxy)
+    {
+        ChargePredictions.Add(PredictionID, ChargeCost);
+        RecalculatePredictedCooldown();
+    }
 }
 
-void UCombatAbility::RemoveChargeCostModifier(int32 const ModifierID)
+void UCombatAbility::StartCooldown(bool const bUseLagCompensation)
 {
-    if (ModifierID == -1 || !IsValid(ChargeCost))
+    float const CooldownLength = OwningComponent->CalculateCooldownLength(this, bUseLagCompensation);
+    GetWorld()->GetTimerManager().SetTimer(CooldownHandle, this, &UCombatAbility::CompleteCooldown, OwningComponent->CalculateCooldownLength(this, CooldownLength), false);
+    AbilityCooldown.OnCooldown = true;
+    AbilityCooldown.CooldownStartTime = OwningComponent->GetGameStateRef()->GetServerWorldTimeSeconds();
+    AbilityCooldown.CooldownEndTime = AbilityCooldown.CooldownStartTime + CooldownLength;
+}
+
+void UCombatAbility::CompleteCooldown()
+{
+    int32 const PreviousCharges = AbilityCooldown.CurrentCharges;
+    bool const bChargeCostPreviouslyMet = PreviousCharges >= ChargeCost;
+    AbilityCooldown.CurrentCharges = FMath::Clamp(AbilityCooldown.CurrentCharges + ChargesPerCooldown, 0, AbilityCooldown.MaxCharges);
+    if (PreviousCharges != AbilityCooldown.CurrentCharges)
+    {
+        if (!bChargeCostPreviouslyMet && AbilityCooldown.CurrentCharges >= ChargeCost)
+        {
+            UpdateCastable();
+        }
+        OnChargesChanged.Broadcast(this, PreviousCharges, AbilityCooldown.CurrentCharges);
+    }
+    if (AbilityCooldown.CurrentCharges < AbilityCooldown.MaxCharges)
+    {
+        StartCooldown();
+    }
+    else
+    {
+        AbilityCooldown.OnCooldown = false;
+        AbilityCooldown.CooldownStartTime = 0.0f;
+        AbilityCooldown.CooldownEndTime = 0.0f;
+    }
+}
+
+void UCombatAbility::CancelCooldown()
+{
+    AbilityCooldown.OnCooldown = false;
+    AbilityCooldown.CooldownStartTime = 0.0f;
+    AbilityCooldown.CooldownEndTime = 0.0f;
+    GetWorld()->GetTimerManager().ClearTimer(CooldownHandle);
+}
+
+void UCombatAbility::OnRep_AbilityCooldown(FAbilityCooldown const& PreviousState)
+{
+    if (PreviousState.PredictionID != AbilityCooldown.PredictionID)
+    {
+        TArray<int32> OldPredictionIDs;
+        for (TTuple <int32, int32> const& Prediction : ChargePredictions)
+        {
+            if (Prediction.Key <= AbilityCooldown.PredictionID)
+            {
+                OldPredictionIDs.AddUnique(Prediction.Key);
+            }
+        }
+        for (int32 const ID : OldPredictionIDs)
+        {
+            ChargePredictions.Remove(ID);
+        }
+    }
+    RecalculatePredictedCooldown();
+}
+
+void UCombatAbility::RecalculatePredictedCooldown()
+{
+    int32 const PreviousCharges = ClientCooldown.CurrentCharges;
+    bool const bChargeCostPreviouslyMet = ClientCooldown.CurrentCharges >= ChargeCost;
+    ClientCooldown = AbilityCooldown;
+    for (TTuple<int32, int32> const& Prediction : ChargePredictions)
+    {
+        ClientCooldown.CurrentCharges = FMath::Clamp(ClientCooldown.CurrentCharges - Prediction.Value, 0, AbilityCooldown.MaxCharges);
+    }
+    //Accept authority cooldown progress if server says we are on cd.
+    //If server is not on CD, but predicted charges are less than max, predict a CD has started but do not predict start/end time.
+    if (!ClientCooldown.OnCooldown && ClientCooldown.CurrentCharges < AbilityCooldown.MaxCharges)
+    {
+        ClientCooldown.OnCooldown = true;
+        ClientCooldown.CooldownStartTime = 0.0f;
+        ClientCooldown.CooldownEndTime = 0.0f;
+    }
+    if (PreviousCharges != ClientCooldown.CurrentCharges)
+    {
+        if (bChargeCostPreviouslyMet != (ClientCooldown.CurrentCharges >= ChargeCost))
+        {
+            UpdateCastable();
+        }
+        OnChargesChanged.Broadcast(this, PreviousCharges, ClientCooldown.CurrentCharges);
+    }
+}
+
+#pragma endregion
+#pragma region Cost
+
+#pragma endregion
+#pragma region Functionality
+
+void UCombatAbility::PredictedTick(int32 const TickNumber, FCombatParameters& PredictionParams,
+    int32 const PredictionID)
+{
+    PredictionParameters.ClearParams();
+    CurrentPredictionID = PredictionID;
+    OnPredictedTick(TickNumber);
+    PredictionParams = PredictionParameters;
+    CurrentPredictionID = 0;
+    PredictionParameters.ClearParams();
+}
+
+void UCombatAbility::ServerTick(int32 const TickNumber, FCombatParameters const& PredictionParams,
+    FCombatParameters& BroadcastParams, int32 const PredictionID)
+{
+    PredictionParameters.ClearParams();
+    BroadcastParameters.ClearParams();
+    PredictionParameters = PredictionParams;
+    CurrentPredictionID = PredictionID;
+    OnServerTick(TickNumber);
+    BroadcastParams = BroadcastParameters;
+    CurrentPredictionID = 0;
+    PredictionParameters.ClearParams();
+    BroadcastParameters.ClearParams();
+}
+
+void UCombatAbility::SimulatedTick(int32 const TickNumber, FCombatParameters const& BroadcastParams)
+{
+    BroadcastParameters.ClearParams();
+    BroadcastParameters = BroadcastParams;
+    OnSimulatedTick(TickNumber);
+    BroadcastParameters.ClearParams();
+}
+
+void UCombatAbility::PredictedCancel(FCombatParameters& PredictionParams, int32 const PredictionID)
+{
+    PredictionParameters.ClearParams();
+    CurrentPredictionID = PredictionID;
+    OnPredictedCancel();
+    PredictionParams = PredictionParameters;
+    CurrentPredictionID = PredictionID;
+    PredictionParameters.ClearParams();
+}
+
+void UCombatAbility::ServerCancel(FCombatParameters const& PredictionParams, FCombatParameters& BroadcastParams,
+    int32 const PredictionID)
+{
+    PredictionParameters.ClearParams();
+    BroadcastParameters.ClearParams();
+    PredictionParameters = PredictionParams;
+    CurrentPredictionID = PredictionID;
+    OnServerCancel();
+    BroadcastParams = BroadcastParameters;
+    CurrentPredictionID = PredictionID;
+    PredictionParameters.ClearParams();
+    BroadcastParameters.ClearParams();
+}
+
+void UCombatAbility::SimulatedCancel(FCombatParameters const& BroadcastParams)
+{
+    BroadcastParameters.ClearParams();
+    BroadcastParameters = BroadcastParams;
+    OnSimulatedCancel();
+    BroadcastParameters.ClearParams();
+}
+
+void UCombatAbility::ServerInterrupt(FInterruptEvent const& InterruptEvent)
+{
+    OnServerInterrupt(InterruptEvent);
+}
+
+void UCombatAbility::SimulatedInterrupt(FInterruptEvent const& InterruptEvent)
+{
+    OnSimulatedInterrupt(InterruptEvent);
+}
+
+void UCombatAbility::AddPredictionParameter(FCombatParameter const& Parameter)
+{
+    if (Parameter.ParamType == ECombatParamType::None)
     {
         return;
     }
-    ChargeCost->RemoveModifier(ModifierID);
+    PredictionParameters.Parameters.Add(Parameter);
 }
 
-int32 UCombatAbility::AddChargesPerCooldownModifier(FCombatModifier const& Modifier)
+FCombatParameter UCombatAbility::GetPredictionParamByName(FString const& Name)
 {
-    if (Modifier.GetModType() == EModifierType::Invalid || !IsValid(ChargesPerCooldown) || !ChargesPerCooldown->IsModifiable())
+    for (FCombatParameter const& Param : PredictionParameters.Parameters)
     {
-        return -1;
+        if (Param.ParamName == Name)
+        {
+            return Param;
+        }
     }
-    return ChargesPerCooldown->AddModifier(Modifier);
+    return FCombatParameter();
 }
 
-void UCombatAbility::RemoveChargesPerCooldownModifier(int32 const ModifierID)
+FCombatParameter UCombatAbility::GetPredictionParamByType(ECombatParamType const Type)
 {
-    if (ModifierID == -1 || !IsValid(ChargesPerCooldown))
+    for (FCombatParameter const& Param : PredictionParameters.Parameters)
+    {
+        if (Param.ParamType == Type)
+        {
+            return Param;
+        }
+    }
+    return FCombatParameter();
+}
+
+void UCombatAbility::AddBroadcastParameter(FCombatParameter const& Parameter)
+{
+    if (Parameter.ParamType == ECombatParamType::None)
     {
         return;
     }
-    ChargesPerCooldown->RemoveModifier(ModifierID);
+    BroadcastParameters.Parameters.Add(Parameter);
 }
+
+FCombatParameter UCombatAbility::GetBroadcastParamByName(FString const& Name)
+{
+    for (FCombatParameter const& Param : BroadcastParameters.Parameters)
+    {
+        if (Param.ParamName == Name)
+        {
+            return Param;
+        }
+    }
+    return FCombatParameter();
+}
+
+FCombatParameter UCombatAbility::GetBroadcastParamByType(ECombatParamType const Type)
+{
+    for (FCombatParameter const& Param : BroadcastParameters.Parameters)
+    {
+        if (Param.ParamType == Type)
+        {
+            return Param;
+        }
+    }
+    return FCombatParameter();
+}
+
+#pragma endregion 
+#pragma region Modifiers
+
+void UCombatAbility::AddMaxChargeModifier(UBuff* Source, FCombatModifier const& Modifier)
+{
+    if (OwningComponent->GetOwnerRole() != ROLE_Authority || bStaticMaxCharges || !IsValid(Source))
+    {
+        return;
+    }
+    MaxChargeModifiers.Add(Source, Modifier);
+    RecalculateMaxCharges();
+}
+
+void UCombatAbility::RemoveMaxChargeModifier(UBuff* Source)
+{
+    if (OwningComponent->GetOwnerRole() != ROLE_Authority || bStaticMaxCharges || !IsValid(Source))
+    {
+        return;
+    }
+    if (MaxChargeModifiers.Remove(Source) > 0)
+    {
+        RecalculateMaxCharges();
+    }
+}
+
+void UCombatAbility::RecalculateMaxCharges()
+{
+    int32 const PreviousMaxCharges = AbilityCooldown.MaxCharges;
+    int32 const PreviousCharges = AbilityCooldown.CurrentCharges;
+    TArray<FCombatModifier> Modifiers;
+    MaxChargeModifiers.GenerateValueArray(Modifiers);
+    AbilityCooldown.MaxCharges = FCombatModifier::ApplyModifiers(Modifiers, DefaultMaxCharges);
+    if (PreviousMaxCharges != AbilityCooldown.MaxCharges)
+    {
+        if (PreviousCharges == PreviousMaxCharges)
+        {
+            AbilityCooldown.CurrentCharges = AbilityCooldown.MaxCharges;
+        }
+        else
+        {
+            AbilityCooldown.CurrentCharges = FMath::Clamp(AbilityCooldown.CurrentCharges, 0, AbilityCooldown.MaxCharges);
+        }
+        if (AbilityCooldown.MaxCharges == AbilityCooldown.CurrentCharges && AbilityCooldown.OnCooldown)
+        {
+            CancelCooldown();
+        }
+        else if (AbilityCooldown.MaxCharges > AbilityCooldown.CurrentCharges && !AbilityCooldown.OnCooldown)
+        {
+            StartCooldown();
+        }
+    }
+    if (PreviousCharges != AbilityCooldown.CurrentCharges)
+    {
+        UpdateCastable();
+        OnChargesChanged.Broadcast(this, PreviousCharges, AbilityCooldown.CurrentCharges);
+    }
+}
+
+void UCombatAbility::AddChargeCostModifier(UBuff* Source, FCombatModifier const& Modifier)
+{
+    if (OwningComponent->GetOwnerRole() != ROLE_Authority || bStaticChargeCost || !IsValid(Source))
+    {
+        return;
+    }
+    ChargeCostModifiers.Add(Source, Modifier);
+    RecalculateChargeCost();
+}
+
+void UCombatAbility::RemoveChargeCostModifier(UBuff* Source)
+{
+    if (OwningComponent->GetOwnerRole() != ROLE_Authority || bStaticChargeCost || !IsValid(Source))
+    {
+        return;
+    }
+    if (ChargeCostModifiers.Remove(Source) > 0)
+    {
+        RecalculateChargeCost();
+    }
+}
+
+void UCombatAbility::RecalculateChargeCost()
+{
+    int32 const PreviousCost = ChargeCost;
+    TArray<FCombatModifier> Modifiers;
+    ChargeCostModifiers.GenerateValueArray(Modifiers);
+    ChargeCost = FCombatModifier::ApplyModifiers(Modifiers, DefaultChargeCost);
+    if (ChargeCost != PreviousCost)
+    {
+        UpdateCastable();
+    }
+}
+
+void UCombatAbility::AddChargesPerCooldownModifier(UBuff* Source, FCombatModifier const& Modifier)
+{
+    if (OwningComponent->GetOwnerRole() != ROLE_Authority || bStaticChargesPerCooldown || !IsValid(Source))
+    {
+        return;
+    }
+    ChargesPerCooldownModifiers.Add(Source, Modifier);
+    RecalculateChargesPerCooldown();
+}
+
+void UCombatAbility::RemoveChargesPerCooldownModifier(UBuff* Source)
+{
+    if (OwningComponent->GetOwnerRole() != ROLE_Authority || bStaticChargesPerCooldown || !IsValid(Source))
+    {
+        return;
+    }
+    if (ChargesPerCooldownModifiers.Remove(Source) > 0)
+    {
+        RecalculateChargesPerCooldown();
+    }
+}
+
+void UCombatAbility::RecalculateChargesPerCooldown()
+{
+    TArray<FCombatModifier> Modifiers;
+    ChargesPerCooldownModifiers.GenerateValueArray(Modifiers);
+    ChargesPerCooldown = FCombatModifier::ApplyModifiers(Modifiers, DefaultChargesPerCooldown);
+}
+
+#pragma endregion
+#pragma region Restrictions
+
+void UCombatAbility::UpdateCastable()
+{
+    if (!bInitialized)
+    {
+        Castable = ECastFailReason::InvalidAbility;
+    }
+    else if (GetCurrentCharges() < ChargeCost)
+    {
+        Castable = ECastFailReason::ChargesNotMet;
+    }
+    else if (!ResourceCostsMet)
+    {
+        Castable = ECastFailReason::CostsNotMet;
+    }
+    else if (!CustomCastRestrictions.Num() > 0)
+    {
+        Castable = ECastFailReason::AbilityConditionsNotMet;
+    }
+    else if (RestrictedTags.Num() > 0 || bClassRestricted)
+    {
+        Castable = ECastFailReason::CustomRestriction;
+    }
+    else
+    {
+        Castable = ECastFailReason::None;
+    }
+}
+
+void UCombatAbility::AddClassRestriction()
+{
+    if (!bClassRestricted)
+    {
+        bClassRestricted = true;
+        UpdateCastable();
+    }
+}
+
+void UCombatAbility::RemoveClassRestriction()
+{
+    if (bClassRestricted)
+    {
+        bClassRestricted = false;
+        UpdateCastable();
+    }
+}
+
+void UCombatAbility::AddRestrictedTag(FGameplayTag const RestrictedTag)
+{
+    if (!RestrictedTag.IsValid() || !AbilityTags.HasTag(RestrictedTag))
+    {
+        return;
+    }
+    int32 const PreviousRestrictions = RestrictedTags.Num();
+    RestrictedTags.Add(RestrictedTag);
+    if (PreviousRestrictions == 0 && RestrictedTags.Num() > 0)
+    {
+        UpdateCastable();
+    }
+}
+
+void UCombatAbility::RemoveRestrictedTag(FGameplayTag const RestrictedTag)
+{
+    if (!RestrictedTag.IsValid() || !AbilityTags.HasTag(RestrictedTag))
+    {
+        return;
+    }
+    int32 const PreviousRestrictions = RestrictedTags.Num();
+    RestrictedTags.Remove(RestrictedTag);
+    if (PreviousRestrictions > 0 && RestrictedTags.Num() == 0)
+    {
+        UpdateCastable();
+    }
+}
+
+void UCombatAbility::ActivateCastRestriction(FGameplayTag const RestrictionTag)
+{
+    if (!RestrictionTag.IsValid() || !RestrictionTag.MatchesTag(UAbilityComponent::AbilityRestrictionTag()) || RestrictionTag.MatchesTagExact(UAbilityComponent::AbilityRestrictionTag()))
+    {
+        return;
+    }
+    int32 const PreviousRestrictions = CustomCastRestrictions.Num();
+    CustomCastRestrictions.Add(RestrictionTag);
+    if (PreviousRestrictions == 0 && CustomCastRestrictions.Num() > 0)
+    {
+        UpdateCastable();
+    }
+}
+
+void UCombatAbility::DeactivateCastRestriction(FGameplayTag const RestrictionTag)
+{
+    if (!RestrictionTag.IsValid() || !RestrictionTag.MatchesTag(UAbilityComponent::AbilityRestrictionTag()) || RestrictionTag.MatchesTagExact(UAbilityComponent::AbilityRestrictionTag()))
+    {
+        return;
+    }
+    int32 const PreviousRestrictions = CustomCastRestrictions.Num();
+    CustomCastRestrictions.Remove(RestrictionTag);
+    if (PreviousRestrictions > 0 && CustomCastRestrictions.Num() == 0)
+    {
+        UpdateCastable();
+    }
+}
+
+#pragma endregion 
+#pragma region Subscriptions
+
+void UCombatAbility::SubscribeToChargesChanged(FAbilityChargeCallback const& Callback)
+{
+    if (Callback.IsBound())
+    {
+        OnChargesChanged.AddUnique(Callback);
+    }
+}
+
+void UCombatAbility::UnsubscribeFromChargesChanged(FAbilityChargeCallback const& Callback)
+{
+    if (Callback.IsBound())
+    {
+        OnChargesChanged.Remove(Callback);
+    }
+}
+
+#pragma endregion 
 
 FDefaultAbilityCost UCombatAbility::GetDefaultAbilityCost(TSubclassOf<UResource> const ResourceClass) const
 {
@@ -193,217 +803,6 @@ void UCombatAbility::CostMet(TSubclassOf<UResource> ResourceClass)
     }
 }
 
-float UCombatAbility::RecalculateCastLength(TArray<FCombatModifier> const& SpecificMods, float const BaseValue)
-{
-    if (!IsValid(OwningComponent))
-    {
-        return FCombatModifier::ApplyModifiers(SpecificMods, BaseValue);
-    }
-    TArray<FCombatModifier> Mods = SpecificMods;
-    OwningComponent->GetCastLengthModifiers(GetClass(), Mods);
-    return FCombatModifier::ApplyModifiers(Mods, BaseValue);
-}
-
-void UCombatAbility::ForceCastLengthRecalculation()
-{
-    if (IsValid(CastLength))
-    {
-        CastLength->RecalculateValue();
-    }
-}
-
-void UCombatAbility::AddBroadcastParameter(FCombatParameter const& Parameter)
-{
-    if (Parameter.ParamType == ECombatParamType::None)
-    {
-        return;
-    }
-    BroadcastParameters.Parameters.Add(Parameter);
-}
-
-FCombatParameter UCombatAbility::GetBroadcastParamByName(FString const& Name)
-{
-    for (FCombatParameter const& Param : BroadcastParameters.Parameters)
-    {
-        if (Param.ParamName == Name)
-        {
-            return Param;
-        }
-    }
-    return FCombatParameter();
-}
-
-FCombatParameter UCombatAbility::GetBroadcastParamByType(ECombatParamType const Type)
-{
-    for (FCombatParameter const& Param : BroadcastParameters.Parameters)
-    {
-        if (Param.ParamType == Type)
-        {
-            return Param;
-        }
-    }
-    return FCombatParameter();
-}
-
-void UCombatAbility::UpdateCastable()
-{
-    ECastFailReason const PreviousCastable = Castable;
-    if (!bInitialized)
-    {
-        Castable = ECastFailReason::InvalidAbility;
-    }
-    else if (!ChargeCostMet)
-    {
-        Castable = ECastFailReason::ChargesNotMet;
-    }
-    else if (!ResourceCostsMet)
-    {
-        Castable = ECastFailReason::CostsNotMet;
-    }
-    else if (!bCustomCastConditionsMet)
-    {
-        Castable = ECastFailReason::AbilityConditionsNotMet;
-    }
-    else if (bTagsRestricted || bClassRestricted)
-    {
-        Castable = ECastFailReason::CustomRestriction;
-    }
-    else
-    {
-        Castable = ECastFailReason::None;
-    }
-    if (PreviousCastable != Castable)
-    {
-        OnCastableChanged.Broadcast(Castable);
-    }
-}
-
-void UCombatAbility::InitialCastableChecks()
-{
-    if (AbilityCosts.Num() == 0)
-    {
-        ResourceCostsMet = true;
-    }
-    else if (!IsValid(OwningComponent) || !IsValid(OwningComponent->GetResourceHandlerRef()))
-    {   
-        ResourceCostsMet = false;
-    }
-    else
-    {
-        TMap<TSubclassOf<UResource>, float> Costs;
-        GetAbilityCosts(Costs);
-        ResourceCostsMet = OwningComponent->GetResourceHandlerRef()->CheckAbilityCostsMet(Costs);
-    }
-    //TODO: This triggers UpdateCastable multiple times, but I need the ChargeCost check to be a functions so I can override it in the child class.
-    //Need a better system.
-    CheckChargeCostMet();
-    bCustomCastConditionsMet = CustomCastRestrictions.Num() == 0;
-    bNoTagsRestricted = RestrictedTags.Num() == 0;
-    UpdateCastable();
-}
-
-void UCombatAbility::SubscribeToCastableChanged(FCastableCallback const& Callback)
-{
-    if (!Callback.IsBound())
-    {
-        return;
-    }
-    OnCastableChanged.AddUnique(Callback);
-}
-
-void UCombatAbility::UnsubscribeFromCastableChanged(FCastableCallback const& Callback)
-{
-    if (!Callback.IsBound())
-    {
-        return;
-    }
-    OnCastableChanged.Remove(Callback);
-}
-
-int32 UCombatAbility::AddGlobalCooldownModifier(FCombatModifier const& Modifier)
-{
-    if (Modifier.GetModType() == EModifierType::Invalid || !IsValid(GlobalCooldownLength) || !GlobalCooldownLength->IsModifiable())
-    {
-        return -1;
-    }
-    return GlobalCooldownLength->AddModifier(Modifier);
-}
-
-void UCombatAbility::RemoveGlobalCooldownModifier(int32 const ModifierID)
-{
-    if (ModifierID == -1 || !IsValid(GlobalCooldownLength))
-    {
-        return;
-    }
-    GlobalCooldownLength->RemoveModifier(ModifierID);
-}
-
-float UCombatAbility::RecalculateGcdLength(TArray<FCombatModifier> const& SpecificMods, float const BaseValue)
-{
-    if (!IsValid(OwningComponent))
-    {
-        return FCombatModifier::ApplyModifiers(SpecificMods, BaseValue);
-    }
-    TArray<FCombatModifier> Mods = SpecificMods;
-    OwningComponent->GetGlobalCooldownModifiers(GetClass(), Mods);
-    return FCombatModifier::ApplyModifiers(Mods, BaseValue);
-}
-
-void UCombatAbility::ForceGlobalCooldownRecalculation()
-{
-    if (IsValid(GlobalCooldownLength))
-    {
-        GlobalCooldownLength->RecalculateValue();
-    }
-}
-
-int32 UCombatAbility::AddCooldownModifier(FCombatModifier const& Modifier)
-{
-    if (Modifier.GetModType() == EModifierType::Invalid || !IsValid(CooldownLength) || !CooldownLength->IsModifiable())
-    {
-        return -1;
-    }
-    return CooldownLength->AddModifier(Modifier);
-}
-
-void UCombatAbility::RemoveCooldownModifier(int32 const ModifierID)
-{
-    if (ModifierID == -1 || !IsValid(CooldownLength))
-    {
-        return;
-    }
-    CooldownLength->RemoveModifier(ModifierID);
-}
-
-int32 UCombatAbility::AddMaxChargeModifier(FCombatModifier const& Modifier)
-{
-    if (Modifier.GetModType() == EModifierType::Invalid || !IsValid(MaxCharges) || !MaxCharges->IsModifiable())
-    {
-        return -1;
-    }
-    int32 const Previous = MaxCharges->GetValue();
-    int32 const ModID = MaxCharges->AddModifier(Modifier);
-    if (Previous != MaxCharges->GetValue())
-    {
-        AdjustCooldownFromMaxChargesChanged();
-    }
-    return ModID;
-}
-
-void UCombatAbility::RemoveMaxChargeModifier(int32 const ModifierID)
-{
-    if (ModifierID == -1 || !IsValid(MaxCharges))
-    {
-        return;
-    }
-    int32 const Previous = MaxCharges->GetValue();
-    MaxCharges->RemoveModifier(ModifierID);
-    if (Previous != MaxCharges->GetValue())
-    {
-        AdjustCooldownFromMaxChargesChanged();
-    }
-}
-
 void UCombatAbility::AdjustCooldownFromMaxChargesChanged()
 {
     if (OwningComponent->GetOwnerRole() == ROLE_Authority)
@@ -417,41 +816,6 @@ void UCombatAbility::AdjustCooldownFromMaxChargesChanged()
             AbilityCooldown.CurrentCharges = MaxCharges->GetValue();
             CancelCooldown();
         }
-    }
-}
-
-void UCombatAbility::CancelCooldown()
-{
-    AbilityCooldown.OnCooldown = false;
-    GetWorld()->GetTimerManager().ClearTimer(CooldownHandle);
-}
-
-float UCombatAbility::RecalculateCooldownLength(TArray<FCombatModifier> const& SpecificMods, float const BaseValue)
-{
-    if (!IsValid(OwningComponent))
-    {
-        return FCombatModifier::ApplyModifiers(SpecificMods, BaseValue);
-    }
-    TArray<FCombatModifier> Mods = SpecificMods;
-    OwningComponent->GetCooldownModifiers(GetClass(), Mods);
-    return FCombatModifier::ApplyModifiers(Mods, BaseValue);
-}
-
-void UCombatAbility::ForceCooldownLengthRecalculation()
-{
-    if (IsValid(CooldownLength))
-    {
-        CooldownLength->RecalculateValue();
-    }
-}
-
-void UCombatAbility::CheckChargeCostMet()
-{
-    bool const PreviouslyMet = ChargeCostMet;
-    ChargeCostMet = AbilityCooldown.CurrentCharges >= GetChargeCost();
-    if (PreviouslyMet != ChargeCostMet)
-    {
-        UpdateCastable();
     }
 }
 
@@ -483,191 +847,12 @@ void UCombatAbility::RemoveCostModifier(TSubclassOf<UResource> const ResourceCla
     Cost->RemoveModifier(ModifierID);
 }
 
-void UCombatAbility::StartCooldown()
-{
-    float const Cooldown = GetCooldownLength();
-    GetWorld()->GetTimerManager().SetTimer(CooldownHandle, this, &UCombatAbility::CompleteCooldown, Cooldown, false);
-    AbilityCooldown.OnCooldown = true;
-    AbilityCooldown.CooldownStartTime = OwningComponent->GetGameStateRef()->GetServerWorldTimeSeconds();
-    AbilityCooldown.CooldownEndTime = AbilityCooldown.CooldownStartTime + Cooldown;
-}
-
-void UCombatAbility::CompleteCooldown()
-{
-    int32 const PreviousCharges = AbilityCooldown.CurrentCharges;
-    int32 const CurrentMaxCharges = GetMaxCharges();
-    AbilityCooldown.CurrentCharges = FMath::Clamp(GetCurrentCharges() + GetChargesPerCooldown(), 0, CurrentMaxCharges);
-    if (PreviousCharges != AbilityCooldown.CurrentCharges)
-    {
-        CheckChargeCostMet();
-        OnChargesChanged.Broadcast(this, PreviousCharges, AbilityCooldown.CurrentCharges);
-    }
-    if (AbilityCooldown.CurrentCharges < CurrentMaxCharges)
-    {
-        StartCooldown();
-    }
-    else
-    {
-        AbilityCooldown.OnCooldown = false;
-    }
-}
-
 void UCombatAbility::CheckChargeCostOnCostUpdated(int32 const Previous, int32 const New)
 {
     if (Previous != New)
     {
         CheckChargeCostMet();
     }
-}
-
-void UCombatAbility::InitializeAbility(UAbilityComponent* AbilityComponent)
-{
-    if (bInitialized)
-    {
-        return;
-    }
-    if (!IsValid(AbilityComponent))
-    {
-        return;
-    }
-    OwningComponent = AbilityComponent;
-    bInitialized = true;
-    if (OwningComponent->GetOwnerRole() != ROLE_SimulatedProxy)
-    {
-        MaxCharges = NewObject<UModifiableIntValue>(OwningComponent->GetOwner());
-        if (IsValid(MaxCharges))
-        {
-            MaxCharges->Init(DefaultMaxCharges, !bStaticMaxCharges, true, 1);
-        }
-        AbilityCooldown.CurrentCharges = GetMaxCharges();
-    
-        ChargesPerCooldown = NewObject<UModifiableIntValue>(OwningComponent->GetOwner());
-        if (IsValid(ChargesPerCooldown))
-        {
-            ChargesPerCooldown->Init(DefaultChargesPerCooldown, !bStaticChargesPerCooldown, true, 0);
-        }
-    
-        ChargeCost = NewObject<UModifiableIntValue>(OwningComponent->GetOwner());
-        if (IsValid(ChargeCost))
-        {
-            ChargeCost->Init(DefaultChargeCost, !bStaticChargeCost, true, 0);
-        }
-        ChargeCostCallback.BindDynamic(this, &UCombatAbility::CheckChargeCostOnCostUpdated);
-        ChargeCost->SubscribeToValueChanged(ChargeCostCallback);
-    
-        CooldownLength = NewObject<UModifiableFloatValue>(OwningComponent->GetOwner());
-        if (IsValid(CooldownLength))
-        {
-            CooldownLength->Init(DefaultCooldown, !bStaticCooldownLength, true, UAbilityHandler::MinimumCooldownLength);
-            if (!bStaticCooldownLength)
-            {
-                CooldownRecalculation.BindDynamic(this, &UCombatAbility::RecalculateCooldownLength);
-                CooldownLength->SetRecalculationFunction(CooldownRecalculation);
-                CooldownModsCallback.BindDynamic(this, &UCombatAbility::ForceCooldownLengthRecalculation);
-                OwningComponent->SubscribeToCooldownModsChanged(CooldownModsCallback);
-            }
-        }
-
-        GlobalCooldownLength = NewObject<UModifiableFloatValue>(OwningComponent->GetOwner());
-        if (IsValid(GlobalCooldownLength))
-        {
-            GlobalCooldownLength->Init(DefaultGlobalCooldownLength, !bStaticGlobalCooldownLength, true, UAbilityHandler::MinimumGlobalCooldownLength);
-            if (!bStaticGlobalCooldownLength)
-            {
-                GcdRecalculation.BindDynamic(this, &UCombatAbility::RecalculateGcdLength);
-                GlobalCooldownLength->SetRecalculationFunction(GcdRecalculation);
-                GcdModsCallback.BindDynamic(this, &UCombatAbility::ForceGlobalCooldownRecalculation);
-                OwningComponent->SubscribeToGlobalCooldownModsChanged(GcdModsCallback);
-            }
-        }
-    
-        if (CastType == EAbilityCastType::Channel)
-        {
-            CastLength = NewObject<UModifiableFloatValue>(OwningComponent->GetOwner());
-            if (IsValid(CastLength))
-            {
-                CastLength->Init(DefaultCastTime, !bStaticCastTime, true, UAbilityHandler::MinimumCastLength);
-                if (!bStaticCastTime)
-                {
-                    CastLengthRecalculation.BindDynamic(this, &UCombatAbility::RecalculateCastLength);
-                    CastLength->SetRecalculationFunction(CastLengthRecalculation);
-                    CastModsCallback.BindDynamic(this, &UCombatAbility::ForceCastLengthRecalculation);
-                    OwningComponent->SubscribeToCastModsChanged(CastModsCallback);
-                }
-            }
-        }
-
-        bool bAllStaticCosts = true;
-        for (FDefaultAbilityCost const& DefaultCost : DefaultAbilityCosts)
-        {
-            if (IsValid(DefaultCost.ResourceClass))
-            {
-                UAbilityResourceCost* NewCost = AbilityCosts.Add(DefaultCost.ResourceClass, NewObject<UAbilityResourceCost>(OwningComponent->GetOwner()));
-                if (IsValid(NewCost))
-                {
-                    NewCost->Init(DefaultCost, GetClass(), OwningComponent);
-                    if (!DefaultCost.bStaticCost)
-                    {
-                        bAllStaticCosts = false;
-                        FResourceCostCallback CostCallback;
-                        CostCallback.BindDynamic(this, &UCombatAbility::CheckResourceCostOnCostUpdated);
-                        NewCost->SubscribeToCostChanged(CostCallback);
-                    }
-                }
-            }
-        }
-        if (!bAllStaticCosts)
-        {
-            CostModsCallback.BindDynamic(this, &UCombatAbility::ForceResourceCostRecalculations);
-            OwningComponent->SubscribeToCostModsChanged(CostModsCallback);
-        }
-        if (IsValid(OwningComponent->GetResourceHandlerRef()))
-        {
-            for (TTuple<TSubclassOf<UResource>, UAbilityResourceCost*> const& Cost : AbilityCosts)
-            {
-                UResource* Resource = OwningComponent->GetResourceHandlerRef()->FindActiveResource(Cost.Key);
-                if (IsValid(Resource))
-                {
-                    FResourceValueCallback OnResourceChanged;
-                    OnResourceChanged.BindDynamic(this, &UCombatAbility::CheckResourceCostOnResourceChanged);
-                    Resource->SubscribeToResourceChanged(OnResourceChanged);
-                }
-            }
-        }
-    
-        SetupCustomCastRestrictions();
-        InitialCastableChecks();
-    }
-    
-    OnInitialize();
-}
-
-void UCombatAbility::DeactivateAbility()
-{
-    if (GetWorld()->GetTimerManager().IsTimerActive(CooldownHandle))
-    {
-        GetWorld()->GetTimerManager().ClearTimer(CooldownHandle);
-    }
-    OnDeactivate();
-    bDeactivated = true;
-}
-
-int32 UCombatAbility::AddCastLengthModifier(FCombatModifier const& Modifier)
-{
-    if (Modifier.GetModType() == EModifierType::Invalid || CastType != EAbilityCastType::Channel || !IsValid(CastLength) || !CastLength->IsModifiable())
-    {
-        return -1;
-    }
-    return CastLength->AddModifier(Modifier);
-}
-
-void UCombatAbility::RemoveCastLengthModifier(int32 const ModifierID)
-{
-    if (ModifierID == -1 || !IsValid(CastLength))
-    {
-        return;
-    }
-    CastLength->RemoveModifier(ModifierID);
 }
 
 void UCombatAbility::ServerTick(int32 const TickNumber, FCombatParameters& BroadcastParams)
@@ -682,28 +867,6 @@ void UCombatAbility::ServerTick(int32 const TickNumber, FCombatParameters& Broad
     BroadcastParameters.ClearParams();
 }
 
-void UCombatAbility::SimulatedTick(int32 const TickNumber, FCombatParameters const& BroadcastParams)
-{
-    if (GetHandler()->GetOwnerRole() != ROLE_SimulatedProxy)
-    {
-        return;
-    }
-    BroadcastParameters.ClearParams();
-    BroadcastParameters = BroadcastParams;
-    OnSimulatedTick(TickNumber);
-    BroadcastParameters.ClearParams();
-}
-
-void UCombatAbility::CompleteCast()
-{
-    OnCastComplete();
-}
-
-void UCombatAbility::ServerInterrupt(FInterruptEvent const& InterruptEvent)
-{
-    OnCastInterrupted(InterruptEvent);
-}
-
 void UCombatAbility::ServerCancel(FCombatParameters& BroadcastParams)
 {
     if (GetHandler()->GetOwnerRole() != ROLE_Authority)
@@ -714,206 +877,4 @@ void UCombatAbility::ServerCancel(FCombatParameters& BroadcastParams)
     OnServerCancel();
     BroadcastParams = BroadcastParameters;
     BroadcastParameters.ClearParams();
-}
-
-void UCombatAbility::SimulatedCancel(FCombatParameters const& BroadcastParams)
-{
-    if (GetHandler()->GetOwnerRole() != ROLE_SimulatedProxy)
-    {
-        return;
-    }
-    BroadcastParameters.ClearParams();
-    BroadcastParameters = BroadcastParams;
-    OnSimulatedCancel();
-    BroadcastParameters.ClearParams();
-}
-
-void UCombatAbility::AddRestrictedTag(FGameplayTag const RestrictedTag)
-{
-    if (!RestrictedTag.IsValid() || !AbilityTags.HasTag(RestrictedTag))
-    {
-        return;
-    }
-    RestrictedTags.Add(RestrictedTag);
-    bool const bPreviouslyRestricted = bTagsRestricted;
-    bTagsRestricted = RestrictedTags.Num() > 0;
-    if (bTagsRestricted != bPreviouslyRestricted)
-    {
-        UpdateCastable();
-    }
-}
-
-void UCombatAbility::RemoveRestrictedTag(FGameplayTag const RestrictedTag)
-{
-    if (!RestrictedTag.IsValid() || !AbilityTags.HasTag(RestrictedTag))
-    {
-        return;
-    }
-    RestrictedTags.Remove(RestrictedTag);
-    bool const bPreviouslyRestricted = bTagsRestricted;
-    bTagsRestricted = RestrictedTags.Num() > 0;
-    if (bPreviouslyRestricted != bTagsRestricted)
-    {
-        UpdateCastable();
-    }
-}
-
-void UCombatAbility::AddClassRestriction()
-{
-    if (!bClassRestricted)
-    {
-        bClassRestricted = true;
-        UpdateCastable();
-    }
-}
-
-void UCombatAbility::RemoveClassRestriction()
-{
-    if (bClassRestricted)
-    {
-        bClassRestricted = false;
-        UpdateCastable();
-    }
-}
-
-void UCombatAbility::SubscribeToChargesChanged(FAbilityChargeCallback const& Callback)
-{
-    if (Callback.IsBound())
-    {
-        OnChargesChanged.AddUnique(Callback);
-    }
-}
-
-void UCombatAbility::UnsubscribeFromChargesChanged(FAbilityChargeCallback const& Callback)
-{
-    if (Callback.IsBound())
-    {
-        OnChargesChanged.Remove(Callback);
-    }
-}
-
-void UCombatAbility::ModifyCurrentCharges(int32 const Charges, bool const bAdditive)
-{
-    if (OwningComponent->GetOwnerRole() != ROLE_Authority)
-    {
-        return;
-    }
-    int32 const PreviousCharges = AbilityCooldown.CurrentCharges;
-    int32 const CurrentMaxCharges = GetMaxCharges();
-    if (bAdditive)
-    {
-        AbilityCooldown.CurrentCharges = FMath::Clamp(AbilityCooldown.CurrentCharges + Charges, 0, CurrentMaxCharges);
-    }
-    else
-    {
-        AbilityCooldown.CurrentCharges = FMath::Clamp(Charges, 0, CurrentMaxCharges);
-    }
-    if (PreviousCharges != AbilityCooldown.CurrentCharges)
-    {
-        CheckChargeCostMet();
-        OnChargesChanged.Broadcast(this, PreviousCharges, AbilityCooldown.CurrentCharges);
-        if (AbilityCooldown.CurrentCharges == CurrentMaxCharges && GetWorld()->GetTimerManager().IsTimerActive(CooldownHandle))
-        {
-            GetWorld()->GetTimerManager().ClearTimer(CooldownHandle);
-            AbilityCooldown.OnCooldown = false;
-            return;
-        }
-        if (AbilityCooldown.CurrentCharges < CurrentMaxCharges && !GetWorld()->GetTimerManager().IsTimerActive(CooldownHandle))
-        {
-            StartCooldown();
-        }
-    }
-}
-
-void UCombatAbility::ActivateCastRestriction(FGameplayTag const RestrictionTag)
-{
-    if (!RestrictionTag.IsValid() || !RestrictionTag.MatchesTag(UAbilityComponent::AbilityRestrictionTag()) || RestrictionTag.MatchesTagExact(UAbilityComponent::AbilityRestrictionTag()))
-    {
-        return;
-    }
-    CustomCastRestrictions.Add(RestrictionTag);
-    bool const bPreviouslyMet = bCustomCastConditionsMet;
-    bCustomCastConditionsMet = CustomCastRestrictions.Num() == 0;
-    if (bPreviouslyMet != bCustomCastConditionsMet)
-    {
-        UpdateCastable();
-    }
-}
-
-void UCombatAbility::DeactivateCastRestriction(FGameplayTag const RestrictionTag)
-{
-    if (!RestrictionTag.IsValid() || !RestrictionTag.MatchesTag(UAbilityComponent::AbilityRestrictionTag()) || RestrictionTag.MatchesTagExact(UAbilityComponent::AbilityRestrictionTag()))
-    {
-        return;
-    }
-    CustomCastRestrictions.Remove(RestrictionTag);
-    bool const bPreviouslyMet = bCustomCastConditionsMet;
-    bCustomCastConditionsMet = CustomCastRestrictions.Num() == 0;
-    if (bPreviouslyMet != bCustomCastConditionsMet)
-    {
-        UpdateCastable();
-    }
-}
-
-void UCombatAbility::OnRep_OwningComponent()
-{
-    if (!IsValid(OwningComponent) || bInitialized)
-    {
-        return;
-    }
-    OwningComponent->NotifyOfReplicatedAddedAbility(this);
-}
-
-void UCombatAbility::OnRep_Deactivated(bool const Previous)
-{
-    if (bDeactivated && !Previous)
-    {
-        OnDeactivate();
-        OwningComponent->NotifyOfReplicatedRemovedAbility(this);
-    }
-}
-
-void UCombatAbility::OnInitialize_Implementation()
-{
-    return;
-}
-
-void UCombatAbility::SetupCustomCastRestrictions_Implementation()
-{
-    return;
-}
-
-void UCombatAbility::OnDeactivate_Implementation()
-{
-    return;
-}
-
-void UCombatAbility::OnServerTick_Implementation(int32 const TickNumber)
-{
-    return;
-}
-
-void UCombatAbility::OnSimulatedTick_Implementation(int32)
-{
-    return;
-}
-
-void UCombatAbility::OnCastComplete_Implementation()
-{
-    return;
-}
-
-void UCombatAbility::OnServerCancel_Implementation()
-{
-    return;
-}
-
-void UCombatAbility::OnSimulatedCancel_Implementation()
-{
-    return;
-}
-
-void UCombatAbility::OnCastInterrupted_Implementation(FInterruptEvent const& InterruptEvent)
-{
-    return;
 }

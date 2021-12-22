@@ -19,9 +19,9 @@ class SAIYORAV4_API UResource : public UObject
 
 public:
 
+	virtual UWorld* GetWorld() const override;
 	virtual bool IsSupportedForNetworking() const override { return true; }
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
-	virtual UWorld* GetWorld() const override;
 	virtual void PostNetReceive() override;
 
 	void InitializeResource(UResourceHandler* NewHandler, FResourceInitInfo const& InitInfo);

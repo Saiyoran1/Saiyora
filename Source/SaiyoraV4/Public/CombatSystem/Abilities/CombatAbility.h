@@ -1,5 +1,7 @@
 #pragma once
 #include "CoreMinimal.h"
+
+#include "AbilityComponent.h"
 #include "UObject/NoExportTypes.h"
 #include "AbilityStructs.h"
 #include "CrowdControlEnums.h"
@@ -16,135 +18,133 @@ class SAIYORAV4_API UCombatAbility : public UObject
 	GENERATED_BODY()
 
 //Setup
+    
 public:
+
+    virtual UWorld* GetWorld() const override;
     virtual bool IsSupportedForNetworking() const override { return true; }
     virtual void GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const override;
-    virtual UWorld* GetWorld() const override;
+    virtual void PostNetReceive() override;
+    
     UFUNCTION(BlueprintCallable, BlueprintPure)
     UAbilityComponent* GetHandler() const { return OwningComponent; }
+    void InitializeAbility(UAbilityComponent* AbilityComponent);
     bool IsInitialized() const { return bInitialized; }
-    bool IsDeactivated() const { return bDeactivated; }
-    virtual void InitializeAbility(UAbilityComponent* AbilityComponent);
     void DeactivateAbility();
+    bool IsDeactivated() const { return bDeactivated; }
+    
 protected:
-    UPROPERTY(ReplicatedUsing = OnRep_OwningComponent)
+    
+    UFUNCTION(BlueprintNativeEvent)
+    void PreInitializeAbility();
+    virtual void PreInitializeAbility_Implementation() {}
+    UFUNCTION(BlueprintNativeEvent)
+    void PreDeactivateAbility();
+    virtual void PreDeactivateAbility_Implementation() {}
+    
+private:
+    
+    UPROPERTY(Replicated)
     UAbilityComponent* OwningComponent;
     bool bInitialized = false;
-    UFUNCTION(BlueprintNativeEvent)
-    void OnInitialize();
     UPROPERTY(ReplicatedUsing = OnRep_Deactivated)
-    bool bDeactivated = false;  
-    UFUNCTION(BlueprintNativeEvent)
-    void OnDeactivate();
-private: 
-    UFUNCTION()
-    void OnRep_OwningComponent();
+    bool bDeactivated = false; 
     UFUNCTION()
     void OnRep_Deactivated(bool const Previous);
+    
 //Basic Info
+    
 public:
-    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Info")
-    FName GetAbilityName() const { return AbilityName; }
-    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Info")
+    
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+    FName GetAbilityName() const { return Name; }
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
     FText GetAbilityDescription() const { return Description; }
-    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Info")
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
     UTexture2D* GetAbilityIcon() const { return Icon; }
-    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Info")
-    EDamageSchool GetAbilitySchool() const { return AbilitySchool; }
-    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Info")
-    ESaiyoraPlane GetAbilityPlane() const { return AbilityPlane; }
-    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Info")
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+    EDamageSchool GetAbilitySchool() const { return School; }
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+    ESaiyoraPlane GetAbilityPlane() const { return Plane; }
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
     void GetAbilityTags(FGameplayTagContainer& OutTags) const { OutTags.AppendTags(AbilityTags); }
-    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Info")
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
     bool HasTag(FGameplayTag const Tag) const { return AbilityTags.HasTag(Tag); }
+    
 private:
+    
     UPROPERTY(EditDefaultsOnly, Category = "Info")
-    FName AbilityName;
+    FName Name;
     UPROPERTY(EditDefaultsOnly, Category = "Info")
     FText Description;
     UPROPERTY(EditDefaultsOnly, Category = "Info")
     UTexture2D* Icon;
     UPROPERTY(EditDefaultsOnly, Category = "Info")
-    EDamageSchool AbilitySchool;
+    EDamageSchool School;
     UPROPERTY(EditDefaultsOnly, Category = "Info")
-    ESaiyoraPlane AbilityPlane;
+    ESaiyoraPlane Plane;
     UPROPERTY(EditDefaultsOnly, Category = "Info")
     FGameplayTagContainer AbilityTags;
-//Casting
+    
+//Restrictions
+    
 public:
+
     UFUNCTION(BlueprintCallable, BlueprintPure)
-    EAbilityCastType GetCastType() const { return CastType; }
-    UFUNCTION(BlueprintCallable, BlueprintPure)
-    float GetDefaultCastLength() const { return DefaultCastTime; }
-    UFUNCTION(BlueprintCallable, BlueprintPure)
-    float GetCastLength() const { return IsValid(CastLength) ? CastLength->GetValue() : DefaultCastTime; }
-    UFUNCTION(BlueprintCallable, BlueprintPure)
-    bool HasStaticCastLength() const { return bStaticCastTime; }
-    UFUNCTION(BlueprintCallable)
-    int32 AddCastLengthModifier(FCombatModifier const& Modifier);
-    UFUNCTION(BlueprintCallable)
-    void RemoveCastLengthModifier(int32 const ModifierID);
-    UFUNCTION(BlueprintCallable, BlueprintPure)
-    bool HasInitialTick() const { return bInitialTick; }
-    UFUNCTION(BlueprintCallable, BlueprintPure)
-    int32 GetNumberOfTicks() const { return NonInitialTicks; }
-    UFUNCTION(BlueprintCallable, BlueprintPure)
-    bool IsInterruptible() const { return bInterruptible; }
+    ECastFailReason IsCastable() const { return Castable; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
     bool IsCastableWhileDead() const { return bCastableWhileDead; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
-    TSet<ECrowdControlType> GetRestrictedCrowdControls() const { return RestrictedCrowdControls; }
-    UFUNCTION(BlueprintCallable, BlueprintPure)
-    bool CheckCustomCastConditionsMet() const { return bCustomCastConditionsMet; }
-    UFUNCTION(BlueprintCallable, BlueprintPure)
-    ECastFailReason IsCastable() const { return Castable; }
-    UFUNCTION(BlueprintCallable)
-    void SubscribeToCastableChanged(FCastableCallback const& Callback);
-    UFUNCTION(BlueprintCallable)
-    void UnsubscribeFromCastableChanged(FCastableCallback const& Callback);
-    void PredictedTick(int32 const TickNumber, FCombatParameters& PredictionParams, int32 const PredictionID = 0);
-    void ServerTick(int32 const TickNumber, FCombatParameters const& PredictionParams, FCombatParameters& BroadcastParams, int32 const PredictionID = 0);
-    void SimulatedTick(int32 const TickNumber, FCombatParameters const& BroadcastParams);
-    void CompleteCast();
-    void UpdatePredictionFromServer(FServerAbilityResult const& Result);
-    void ServerInterrupt(FInterruptEvent const& InterruptEvent);
-    void SimulatedInterrupt(FInterruptEvent const& InterruptEvent);
-    void PredictedCancel(FCombatParameters& PredictionParams, int32 const PredictionID = 0);
-    void ServerCancel(FCombatParameters const& PredictionParams, FCombatParameters& BroadcastParams, int32 const PredictionID = 0);
-    void SimulatedCancel(FCombatParameters const& BroadcastParams);
+    void GetRestrictedCrowdControls(TSet<ECrowdControlType>& OutCrowdControls) const { OutCrowdControls.Append(RestrictedCrowdControls); }
     void AddRestrictedTag(FGameplayTag const RestrictedTag);
     void RemoveRestrictedTag(FGameplayTag const RestrictedTag);
     void AddClassRestriction();
     void RemoveClassRestriction();
+    
 protected:
+    
     UFUNCTION(BlueprintNativeEvent)
     void SetupCustomCastRestrictions();
-    UFUNCTION(BlueprintCallable, Category = "Cast")
+    virtual void SetupCustomCastRestrictions_Implementation() {}
+    UFUNCTION(BlueprintCallable, Category = "Abilities", meta = (GameplayTagFilter="AbilityRestriction"))
     void ActivateCastRestriction(FGameplayTag const RestrictionTag);
-    UFUNCTION(BlueprintCallable, Category = "Cast")
+    UFUNCTION(BlueprintCallable, Category = "Abilities", meta = (GameplayTagFilter="AbilityRestriction"))
     void DeactivateCastRestriction(FGameplayTag const RestrictionTag);
-    UFUNCTION(BlueprintNativeEvent)
-    void OnServerTick(int32 const TickNumber);
-    UFUNCTION(BlueprintNativeEvent)
-    void OnSimulatedTick(int32 const TickNumber);
-    UFUNCTION(BlueprintNativeEvent)
-    void OnCastComplete();
-    UFUNCTION(BlueprintNativeEvent)
-    void OnCastInterrupted(FInterruptEvent const& InterruptEvent);
-    UFUNCTION(BlueprintNativeEvent)
-    void OnServerCancel();
-    UFUNCTION(BlueprintNativeEvent)
-    void OnSimulatedCancel();
-    FCombatParameters BroadcastParameters;
-    UFUNCTION(BlueprintCallable, Category = "Abilities")
-    void AddBroadcastParameter(FCombatParameter const& Parameter);
-    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-    FCombatParameter GetBroadcastParamByName(FString const& Name);
-    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-    FCombatParameter GetBroadcastParamByType(ECombatParamType const Type);
-    void UpdateCastable();
-    virtual void InitialCastableChecks();
+    
 private:
+    
+    ECastFailReason Castable = ECastFailReason::InvalidAbility;
+    void UpdateCastable();
+    UPROPERTY(EditDefaultsOnly, Category = "Restrictions")
+    bool bCastableWhileDead = false;
+    UPROPERTY(EditDefaultsOnly, Category = "Restrictions")
+    TSet<ECrowdControlType> RestrictedCrowdControls;
+    TSet<FGameplayTag> CustomCastRestrictions;
+    TSet<FGameplayTag> RestrictedTags;
+    bool bClassRestricted = false;
+
+//Cast
+
+public:
+
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+    EAbilityCastType GetCastType() const { return CastType; }
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+    float GetDefaultCastLength() const { return DefaultCastTime; }
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+    float GetCastLength() const { return !bStaticCastTime && IsValid(OwningComponent) && OwningComponent->GetOwnerRole() == ROLE_Authority ?
+        OwningComponent->CalculateCastLength(this, false) : DefaultCastTime; }
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+    bool HasStaticCastLength() const { return bStaticCastTime; }
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+    bool HasInitialTick() const { return bInitialTick; }
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+    int32 GetNumberOfTicks() const { return NonInitialTicks; }
+    UFUNCTION(BlueprintCallable, BlueprintPure)
+    bool IsInterruptible() const { return bInterruptible; }
+
+private:
+
     UPROPERTY(EditDefaultsOnly, Category = "Cast")
     EAbilityCastType CastType = EAbilityCastType::None;
     UPROPERTY(EditDefaultsOnly, Category = "Cast")
@@ -155,124 +155,139 @@ private:
     bool bInitialTick = true;
     UPROPERTY(EditDefaultsOnly, Category = "Cast")
     int32 NonInitialTicks = 0;
-    UPROPERTY(EditDefaultsOnly, Category = "Crowd Control")
+    UPROPERTY(EditDefaultsOnly, Category = "Cast")
     bool bInterruptible = true;
-    UPROPERTY(EditDefaultsOnly, Category = "Crowd Control")
-    bool bCastableWhileDead = false;
-    UPROPERTY(EditDefaultsOnly, Category = "Crowd Control")
-    TSet<ECrowdControlType> RestrictedCrowdControls;
-    bool bCustomCastConditionsMet = true;
-    TSet<FGameplayTag> CustomCastRestrictions;
-    bool bTagsRestricted = false;
-    TSet<FGameplayTag> RestrictedTags;
-    bool bClassRestricted = false;
-    ECastFailReason Castable = ECastFailReason::InvalidAbility;
-    FCastableNotification OnCastableChanged;
+ 
 //Global Cooldown
+    
 public:
-    UFUNCTION(BlueprintCallable, BlueprintPure)
+    
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
     bool HasGlobalCooldown() const { return bOnGlobalCooldown; }
-    UFUNCTION(BlueprintCallable, BlueprintPure)
-    float GetGlobalCooldownLength() const { return DefaultGlobalCooldownLength; }
-    UFUNCTION(BlueprintCallable, BlueprintPure)
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+    float GetDefaultGlobalCooldownLength() const { return DefaultGlobalCooldownLength; }
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+    float GetGlobalCooldownLength() const { return !bStaticGlobalCooldownLength && IsValid(OwningComponent) && OwningComponent->GetOwnerRole() == ROLE_Authority ?
+        OwningComponent->CalculateGlobalCooldownLength(this, false) : DefaultGlobalCooldownLength; }
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
     bool HasStaticGlobalCooldownLength() const { return bStaticGlobalCooldownLength; }
+    
 private:
+    
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
     bool bOnGlobalCooldown = true;
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
     float DefaultGlobalCooldownLength = 1.0f;
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
     bool bStaticGlobalCooldownLength = true;
+    
 //Cooldown
+    
 public:
-    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
-    float GetDefaultCooldown() const { return DefaultCooldown; }
-    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
-    float GetCooldownLength() const { return IsValid(CooldownLength) ? CooldownLength->GetValue() : DefaultCooldown; }
-    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
+    
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+    float GetDefaultCooldownLength() const { return DefaultCooldownLength; }
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+    float GetCooldownLength() const { return !bStaticCooldownLength && IsValid(OwningComponent) && OwningComponent->GetOwnerRole() == ROLE_Authority ?
+        OwningComponent->CalculateCooldownLength(this, false) : DefaultCooldownLength; }
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
     bool HasStaticCooldownLength() const { return bStaticCooldownLength; }
-    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
-    virtual bool GetCooldownActive() const { return AbilityCooldown.OnCooldown; }
-    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
-    virtual float GetRemainingCooldown() const { return AbilityCooldown.OnCooldown ? GetWorld()->GetTimerManager().GetTimerRemaining(CooldownHandle) : 0.0f; }
-    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
-    virtual float GetCurrentCooldownLength() const { return AbilityCooldown.OnCooldown ? AbilityCooldown.CooldownEndTime - AbilityCooldown.CooldownStartTime : 0.0f; }
-    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+    bool IsCooldownActive() const;
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+    float GetRemainingCooldown() const;
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+    float GetCurrentCooldownLength() const;
+    
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
     int32 GetDefaultMaxCharges() const { return DefaultMaxCharges; }
-    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
-    int32 GetMaxCharges() const { return IsValid(MaxCharges) ? MaxCharges->GetValue() : DefaultMaxCharges; }
-    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
-    bool GetHasStaticMaxCharges() const { return bStaticMaxCharges; }
-    UFUNCTION(BlueprintCallable)
-    int32 AddMaxChargeModifier(FCombatModifier const& Modifier);
-    UFUNCTION(BlueprintCallable)
-    void RemoveMaxChargeModifier(int32 const ModifierID);
-    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
-    int32 GetCurrentCharges() const { return AbilityCooldown.CurrentCharges; }
-    UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Cooldown")
-    void ModifyCurrentCharges(int32 const Charges, bool const bAdditive = true);
-    UFUNCTION(BlueprintCallable, Category = "Cooldown")
-    void SubscribeToChargesChanged(FAbilityChargeCallback const& Callback);
-    UFUNCTION(BlueprintCallable, Category = "Cooldown")
-    void UnsubscribeFromChargesChanged(FAbilityChargeCallback const& Callback);
-    void CommitCharges(int32 const PredictionID = 0);
-    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+    int32 GetMaxCharges() const { return AbilityCooldown.MaxCharges; }
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+    bool HasStaticMaxCharges() const { return bStaticMaxCharges; }
+    void AddMaxChargeModifier(UBuff* Source, FCombatModifier const& Modifier);
+    void RemoveMaxChargeModifier(UBuff* Source);
+    void RecalculateMaxCharges();
+
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
     int32 GetDefaultChargeCost() const { return DefaultChargeCost; }
-    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
-    int32 GetChargeCost() const { return IsValid(ChargeCost) ? ChargeCost->GetValue() : DefaultChargeCost; }
-    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+    int32 GetChargeCost() const { return ChargeCost; }
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
     bool HasStaticChargeCost() const { return bStaticChargeCost; }
-    UFUNCTION(BlueprintCallable)
-    int32 AddChargeCostModifier(FCombatModifier const& Modifier);
-    UFUNCTION(BlueprintCallable)
-    void RemoveChargeCostModifier(int32 const ModifierID);
-    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
+    void AddChargeCostModifier(UBuff* Source, FCombatModifier const& Modifier);
+    void RemoveChargeCostModifier(UBuff* Source);
+    void RecalculateChargeCost();
+
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
     int32 GetDefaultChargesPerCooldown() const { return DefaultChargesPerCooldown; }
-    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
-    int32 GetChargesPerCooldown() const { return IsValid(ChargesPerCooldown) ? ChargesPerCooldown->GetValue() : DefaultChargesPerCooldown; }
-    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cooldown")
-    bool GetHasStaticChargesPerCooldown() const { return bStaticChargesPerCooldown; }
-    UFUNCTION(BlueprintCallable)
-    int32 AddChargesPerCooldownModifier(FCombatModifier const& Modifier);
-    UFUNCTION(BlueprintCallable)
-    void RemoveChargesPerCooldownModifier(int32 const ModifierID);
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+    int32 GetChargesPerCooldown() const { return ChargesPerCooldown; }
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+    bool HasStaticChargesPerCooldown() const { return bStaticChargesPerCooldown; }
+    void AddChargesPerCooldownModifier(UBuff* Source, FCombatModifier const& Modifier);
+    void RemoveChargesPerCooldownModifier(UBuff* Source);
+    void RecalculateChargesPerCooldown();
+    
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+    int32 GetCurrentCharges() const { return AbilityCooldown.CurrentCharges; }
+    UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+    void ModifyCurrentCharges(int32 const Charges, EChargeModificationType const Modification = EChargeModificationType::Additive);
+    void CommitCharges(int32 const PredictionID = 0);
+    UFUNCTION(BlueprintCallable, Category = "Abilities")
+    void SubscribeToChargesChanged(FAbilityChargeCallback const& Callback);
+    UFUNCTION(BlueprintCallable, Category = "Abilities")
+    void UnsubscribeFromChargesChanged(FAbilityChargeCallback const& Callback);
+    
 private:
+
+    UPROPERTY(ReplicatedUsing=OnRep_AbilityCooldown)
+    FAbilityCooldown AbilityCooldown;
+    UFUNCTION()
+    void OnRep_AbilityCooldown(FAbilityCooldown const& PreviousState);
+    FTimerHandle CooldownHandle;
+    void StartCooldown(bool const bUseLagCompensation = false);
+    UFUNCTION()
+    void CompleteCooldown();
+    void CancelCooldown();
+    FAbilityCooldown ClientCooldown;
+    TMap<int32, int32> ChargePredictions;
+    void RecalculatePredictedCooldown();
+    FAbilityChargeNotification OnChargesChanged;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
+    float DefaultCooldownLength = 1.0f;
+    UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
+    bool bStaticCooldownLength = true;
+    
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
     int32 DefaultMaxCharges = 1;
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
     bool bStaticMaxCharges = true;
-
-    UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
-    int32 DefaultChargesPerCooldown = 1;
-    UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
-    bool bStaticChargesPerCooldown = true;
+    UPROPERTY()
+    TMap<UBuff*, FCombatModifier> MaxChargeModifiers;
 
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
     int32 DefaultChargeCost = 1;
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
     bool bStaticChargeCost = true;
+    UPROPERTY(ReplicatedUsing=OnRep_ChargeCost)
+    int32 ChargeCost = 1;
+    UPROPERTY()
+    TMap<UBuff*, FCombatModifier> ChargeCostModifiers;
 
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
-    float DefaultCooldown = 1.0f;
+    int32 DefaultChargesPerCooldown = 1;
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
-    bool bStaticCooldownLength = true;
-
-protected:
-    UPROPERTY(ReplicatedUsing=OnRep_AbilityCooldown)
-    FAbilityCooldown AbilityCooldown;
-    UFUNCTION()
-    virtual void OnRep_AbilityCooldown() { return; }
-    FTimerHandle CooldownHandle;
-    FAbilityChargeNotification OnChargesChanged;
-    void StartCooldown();
-    UFUNCTION()
-    void CompleteCooldown();
-    void CancelCooldown();
-    bool ChargeCostMet = false;
-    virtual void CheckChargeCostMet();
-    virtual void AdjustCooldownFromMaxChargesChanged();
+    bool bStaticChargesPerCooldown = true;
+    int32 ChargesPerCooldown = 1;
+    UPROPERTY()
+    TMap<UBuff*, FCombatModifier> ChargesPerCooldownModifiers;
+    
 //Costs
+    
 public:
+    
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cost")
     FDefaultAbilityCost GetDefaultAbilityCost(TSubclassOf<UResource> const ResourceClass) const;
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cost")
@@ -282,17 +297,17 @@ public:
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cost")
     void GetAbilityCosts(TMap<TSubclassOf<UResource>, float>& OutCosts) const;
     UFUNCTION(BlueprintCallable)
-    int32 AddCostModifier(TSubclassOf<UResource> const ResourceClass, FCombatModifier const& Modifier);
+    void AddCostModifier(TSubclassOf<UResource> const ResourceClass, UBuff* Source, FCombatModifier const& Modifier);
     UFUNCTION(BlueprintCallable)
-    void RemoveCostModifier(TSubclassOf<UResource> const ResourceClass, int32 const ModifierID);
+    void RemoveCostModifier(TSubclassOf<UResource> const ResourceClass, UBuff* Source);
+    
 private:
+    
     UPROPERTY(EditDefaultsOnly, Category = "Cost")
     TArray<FDefaultAbilityCost> DefaultAbilityCosts;
-    UPROPERTY()
-    TMap<TSubclassOf<UResource>, class UAbilityResourceCost*> AbilityCosts;
-    FGenericCallback CostModsCallback;
-    UFUNCTION()
-    void ForceResourceCostRecalculations();
+    UPROPERTY(Replicated)
+    FAbilityCostArray AbilityCosts;
+    //TODO: Costs and modifiers.
     UFUNCTION()
     void CheckResourceCostOnResourceChanged(UResource* Resource, UObject* ChangeSource, FResourceState const& PreviousState, FResourceState const& NewState);
     UFUNCTION()
@@ -300,5 +315,70 @@ private:
     void CostUnmet(TSubclassOf<UResource> ResourceClass);
     void CostMet(TSubclassOf<UResource> ResourceClass);
     TSet<TSubclassOf<UResource>> UnmetCosts;
-    bool ResourceCostsMet = false;
+
+//Functionality
+
+public:
+
+    int32 GetPredictionID() const { return CurrentPredictionID; }
+    void PredictedTick(int32 const TickNumber, FCombatParameters& PredictionParams, int32 const PredictionID = 0);
+    void ServerTick(int32 const TickNumber, FCombatParameters const& PredictionParams, FCombatParameters& BroadcastParams, int32 const PredictionID = 0);
+    void SimulatedTick(int32 const TickNumber, FCombatParameters const& BroadcastParams);
+    void PredictedCancel(FCombatParameters& PredictionParams, int32 const PredictionID = 0);
+    void ServerCancel(FCombatParameters const& PredictionParams, FCombatParameters& BroadcastParams, int32 const PredictionID = 0);
+    void SimulatedCancel(FCombatParameters const& BroadcastParams);
+    void ServerInterrupt(FInterruptEvent const& InterruptEvent);
+    void SimulatedInterrupt(FInterruptEvent const& InterruptEvent);
+    //TODO: Not sure where to categorize this.
+    void UpdatePredictionFromServer(FServerAbilityResult const& Result);
+    
+protected:
+
+    UFUNCTION(BlueprintNativeEvent)
+    void OnPredictedTick(int32 const TickNumber);
+    virtual void OnPredictedTick_Implementation(int32 const TickNumber) {}
+    UFUNCTION(BlueprintNativeEvent)
+    void OnServerTick(int32 const TickNumber);
+    virtual void OnServerTick_Implementation(int32 const TickNumber) {}
+    UFUNCTION(BlueprintNativeEvent)
+    void OnSimulatedTick(int32 const TickNumber);
+    virtual void OnSimulatedTick_Implementation(int32 const TickNumber) {}
+    UFUNCTION(BlueprintNativeEvent)
+    void OnPredictedCancel();
+    virtual void OnPredictedCancel_Implementation() {}
+    UFUNCTION(BlueprintNativeEvent)
+    void OnServerCancel();
+    virtual void OnServerCancel_Implementation() {}
+    UFUNCTION(BlueprintNativeEvent)
+    void OnSimulatedCancel();
+    virtual void OnSimulatedCancel_Implementation() {}
+    UFUNCTION(BlueprintNativeEvent)
+    void OnServerInterrupt(FInterruptEvent const& InterruptEvent);
+    virtual void OnServerInterrupt_Implementation(FInterruptEvent const& InterruptEvent) {}
+    UFUNCTION(BlueprintNativeEvent)
+    void OnSimulatedInterrupt(FInterruptEvent const& InterruptEvent);
+    virtual void OnSimulatedInterrupt_Implementation(FInterruptEvent const& InterruptEvent) {}
+    UFUNCTION(BlueprintNativeEvent)
+    void OnMisprediction(int32 const PredictionID, ECastFailReason const FailReason);
+    virtual void OnMisprediction_Implementation(int32 const PredictionID, ECastFailReason const FailReason) {}
+
+    UFUNCTION(BlueprintCallable, Category = "Abilities")
+    void AddPredictionParameter(FCombatParameter const& Parameter);
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+    FCombatParameter GetPredictionParamByName(FString const& Name);
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+    FCombatParameter GetPredictionParamByType(ECombatParamType const Type);
+
+    UFUNCTION(BlueprintCallable, Category = "Abilities")
+    void AddBroadcastParameter(FCombatParameter const& Parameter);
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+    FCombatParameter GetBroadcastParamByName(FString const& Name);
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+    FCombatParameter GetBroadcastParamByType(ECombatParamType const Type);
+
+private:
+
+    int32 CurrentPredictionID = 0;
+    FCombatParameters PredictionParameters;
+    FCombatParameters BroadcastParameters;
 };

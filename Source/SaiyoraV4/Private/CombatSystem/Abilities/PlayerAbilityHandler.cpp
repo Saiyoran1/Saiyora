@@ -506,7 +506,7 @@ void UPlayerAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest 
 	{
 		StartGlobal(PlayerAbility, true);
 		ServerResult.bActivatedGlobal = true;
-		ServerResult.GlobalLength = PlayerAbility->GetGlobalCooldownLength();
+		ServerResult.GlobalLength = PlayerAbility->GetDefaultGlobalCooldownLength();
 	}
 
 	int32 const PreviousCharges = PlayerAbility->GetCurrentCharges();
@@ -538,7 +538,7 @@ void UPlayerAbilityHandler::ServerPredictAbility_Implementation(FAbilityRequest 
 	case EAbilityCastType::Channel :
 		Result.ActionTaken = ECastAction::Success;
 		StartCast(PlayerAbility, Result.PredictionID);
-		ServerResult.CastLength = PlayerAbility->GetCastLength();
+		ServerResult.CastLength = PlayerAbility->GetDefaultCastLength();
 		ServerResult.bActivatedCastBar = true;
 		ServerResult.bInterruptible = CastingState.bInterruptible;
 		LastAckedClientID = AbilityRequest.PredictionID;
@@ -661,7 +661,7 @@ void UPlayerAbilityHandler::StartCast(UCombatAbility* Ability, int32 const Predi
 	CastingState.bIsCasting = true;
 	CastingState.CurrentCast = Ability;
 	CastingState.CastStartTime = GetGameStateRef()->GetServerWorldTimeSeconds();
-	float CastLength = Ability->GetCastLength();
+	float CastLength = Ability->GetDefaultCastLength();
 	CastingState.PredictionID = PredictionID;
 	float const PingCompensation = FMath::Clamp(USaiyoraCombatLibrary::GetActorPing(GetOwner()), 0.0f, MaxPingCompensation);
 	CastLength = FMath::Max(MinimumCastLength, CastLength - PingCompensation);
@@ -1114,7 +1114,7 @@ void UPlayerAbilityHandler::StartGlobal(UCombatAbility* Ability, bool const bPre
 	FGlobalCooldown const PreviousGlobal = GlobalCooldownState;
 	GlobalCooldownState.bGlobalCooldownActive = true;
 	GlobalCooldownState.StartTime = GetGameStateRef()->GetServerWorldTimeSeconds();
-	float GlobalLength = Ability->GetGlobalCooldownLength();
+	float GlobalLength = Ability->GetDefaultGlobalCooldownLength();
 	float const PingCompensation = FMath::Clamp(USaiyoraCombatLibrary::GetActorPing(GetOwner()), 0.0f, MaxPingCompensation);
 	GlobalLength = FMath::Max(MinimumGlobalCooldownLength, GlobalLength - PingCompensation);
 	GlobalCooldownState.EndTime = GlobalCooldownState.StartTime + GlobalLength;
