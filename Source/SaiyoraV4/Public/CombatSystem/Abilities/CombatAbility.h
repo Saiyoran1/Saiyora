@@ -273,6 +273,7 @@ private:
     bool bStaticChargeCost = true;
     UPROPERTY(ReplicatedUsing=OnRep_ChargeCost)
     int32 ChargeCost = 1;
+    //TODO: OnRep_ChargeCost client castable check.
     UPROPERTY()
     TMap<UBuff*, FCombatModifier> ChargeCostModifiers;
 
@@ -287,19 +288,15 @@ private:
 //Costs
     
 public:
-    
-    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cost")
-    FDefaultAbilityCost GetDefaultAbilityCost(TSubclassOf<UResource> const ResourceClass) const;
-    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cost")
-    float GetAbilityCost(TSubclassOf<UResource> const ResourceClass) const;
-    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cost")
-    void GetDefaultAbilityCosts(TArray<FDefaultAbilityCost>& OutCosts) const { OutCosts = DefaultAbilityCosts; }
-    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cost")
-    void GetAbilityCosts(TMap<TSubclassOf<UResource>, float>& OutCosts) const;
-    UFUNCTION(BlueprintCallable)
-    void AddCostModifier(TSubclassOf<UResource> const ResourceClass, UBuff* Source, FCombatModifier const& Modifier);
-    UFUNCTION(BlueprintCallable)
-    void RemoveCostModifier(TSubclassOf<UResource> const ResourceClass, UBuff* Source);
+
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+    void GetDefaultAbilityCosts(TArray<FDefaultAbilityCost>& OutCosts) const { OutCosts.Append(DefaultAbilityCosts); }
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+    void GetAbilityCosts(TArray<FAbilityCost>& OutCosts) const { OutCosts.Append(AbilityCosts.Items); }
+    UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+    void AddResourceCostModifier(TSubclassOf<UResource> const ResourceClass, FCombatModifier const& Modifier);
+    UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+    void RemoveResourceCostModifier(TSubclassOf<UResource> const ResourceClass, UBuff* Source);
     
 private:
     
@@ -307,13 +304,12 @@ private:
     TArray<FDefaultAbilityCost> DefaultAbilityCosts;
     UPROPERTY(Replicated)
     FAbilityCostArray AbilityCosts;
-    //TODO: Costs and modifiers.
+    TMultiMap<TSubclassOf<UResource>, FCombatModifier> ResourceCostModifiers;
+    FResourceValueCallback OnResourceChanged;
     UFUNCTION()
     void CheckResourceCostOnResourceChanged(UResource* Resource, UObject* ChangeSource, FResourceState const& PreviousState, FResourceState const& NewState);
-    UFUNCTION()
-    void CheckResourceCostOnCostUpdated(TSubclassOf<UResource> ResourceClass, float const NewCost);
-    void CostUnmet(TSubclassOf<UResource> ResourceClass);
-    void CostMet(TSubclassOf<UResource> ResourceClass);
+    void UpdateCost(TSubclassOf<UResource> const ResourceClass);
+    void CheckCostMet(TSubclassOf<UResource> const ResourceClass);
     TSet<TSubclassOf<UResource>> UnmetCosts;
 
 //Functionality
@@ -329,7 +325,6 @@ public:
     void SimulatedCancel(FCombatParameters const& BroadcastParams);
     void ServerInterrupt(FInterruptEvent const& InterruptEvent);
     void SimulatedInterrupt(FInterruptEvent const& InterruptEvent);
-    //TODO: Not sure where to categorize this.
     void UpdatePredictionFromServer(FServerAbilityResult const& Result);
     
 protected:
@@ -365,16 +360,16 @@ protected:
     UFUNCTION(BlueprintCallable, Category = "Abilities")
     void AddPredictionParameter(FCombatParameter const& Parameter);
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-    FCombatParameter GetPredictionParamByName(FString const& Name);
+    FCombatParameter GetPredictionParamByName(FString const& ParamName);
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-    FCombatParameter GetPredictionParamByType(ECombatParamType const Type);
+    FCombatParameter GetPredictionParamByType(ECombatParamType const ParamType);
 
     UFUNCTION(BlueprintCallable, Category = "Abilities")
     void AddBroadcastParameter(FCombatParameter const& Parameter);
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-    FCombatParameter GetBroadcastParamByName(FString const& Name);
+    FCombatParameter GetBroadcastParamByName(FString const& ParamName);
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-    FCombatParameter GetBroadcastParamByType(ECombatParamType const Type);
+    FCombatParameter GetBroadcastParamByType(ECombatParamType const ParamType);
 
 private:
 

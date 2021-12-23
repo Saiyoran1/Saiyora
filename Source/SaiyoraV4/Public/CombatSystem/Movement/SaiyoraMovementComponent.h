@@ -5,8 +5,6 @@
 #include "DamageStructs.h"
 #include "MovementEnums.h"
 #include "MovementStructs.h"
-#include "PlayerAbilityHandler.h"
-#include "PlayerCombatAbility.h"
 #include "SaiyoraRootMotionHandler.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "SaiyoraMovementComponent.generated.h"

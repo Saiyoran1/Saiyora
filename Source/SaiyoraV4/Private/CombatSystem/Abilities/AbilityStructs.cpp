@@ -1,5 +1,4 @@
 ﻿#include "AbilityStructs.h"
-#include "AbilityHandler.h"
 #include "StatHandler.h"
 
 FAbilityCost::FAbilityCost()

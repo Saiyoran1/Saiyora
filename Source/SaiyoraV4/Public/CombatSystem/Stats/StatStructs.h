@@ -70,7 +70,7 @@ private:
 };
 
 USTRUCT()
-struct FCombatStatArray : FFastArraySerializer
+struct FCombatStatArray : public FFastArraySerializer
 {
     GENERATED_BODY()
 

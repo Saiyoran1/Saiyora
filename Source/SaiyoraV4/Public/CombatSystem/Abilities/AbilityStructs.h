@@ -21,7 +21,7 @@ struct FDefaultAbilityCost
 };
 
 //This struct is used for prediction confirmation RPCs from the server, as well as normal replicated ability costs.
-USTRUCT()
+USTRUCT(BlueprintType)
 struct FAbilityCost : public FFastArraySerializerItem
 {
     GENERATED_BODY()
@@ -29,11 +29,12 @@ struct FAbilityCost : public FFastArraySerializerItem
     FAbilityCost();
     FAbilityCost(TSubclassOf<UResource> const NewResourceClass, float const NewCost);
 
-    UPROPERTY()
+    UPROPERTY(BlueprintReadOnly)
     TSubclassOf<UResource> ResourceClass;
-    UPROPERTY()
+    UPROPERTY(BlueprintReadOnly)
     float Cost = 0.0f;
 
+    //TODO: Client castable callbacks.
     void PreReplicatedRemove(const struct FAbilityCostArray& InArraySerializer);
     void PostReplicatedAdd(const struct FAbilityCostArray& InArraySerializer);
     void PostReplicatedChange(const struct FAbilityCostArray& InArraySerializer);
@@ -60,15 +61,6 @@ struct TStructOpsTypeTraits<FAbilityCost> : public TStructOpsTypeTraitsBase2<FAb
     {
         WithNetDeltaSerializer = true,
    };
-};
-
-USTRUCT()
-struct FAbilityCostPrediction
-{
-    GENERATED_BODY()
-
-    UPROPERTY()
-    TMap<TSubclassOf<UResource>, float> CostMap;
 };
 
 USTRUCT()

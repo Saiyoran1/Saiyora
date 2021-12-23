@@ -301,6 +301,14 @@ void UAbilityComponent::ServerPredictAbility_Implementation(FAbilityRequest cons
 		FServerAbilityResult ServerResult;
 		ServerResult.PredictionID = Request.PredictionID;
 		ServerResult.AbilityClass = Request.AbilityClass;
+		if (Request.PredictionID <= LastPredictionID)
+		{
+			ServerResult.FailReason = ECastFailReason::NetRole;
+			PredictedTickRecord.Add(FPredictedTick(Request.PredictionID, 0), false);
+			ClientPredictionResult(ServerResult);
+			return;
+		}
+		LastPredictionID = Request.PredictionID;
 		if (!IsValid(Request.AbilityClass))
 		{
 			ServerResult.FailReason = ECastFailReason::InvalidAbility;
@@ -339,12 +347,7 @@ void UAbilityComponent::ServerPredictAbility_Implementation(FAbilityRequest cons
         if (IsValid(ResourceHandlerRef))
         {
         	ResourceHandlerRef->CommitAbilityCosts(Ability, Request.PredictionID);
-        	TMap<TSubclassOf<UResource>, float> Costs;
-        	Ability->GetAbilityCosts(Costs);
-        	for (TTuple<TSubclassOf<UResource>, float> const& Cost : Costs)
-        	{
-        		ServerResult.AbilityCosts.Add(FAbilityCost(Cost.Key, Cost.Value));
-        	}
+        	Ability->GetAbilityCosts(ServerResult.AbilityCosts);
         }
         	
         switch (Ability->GetCastType())
@@ -629,6 +632,30 @@ void UAbilityComponent::ExpireQueue()
 	QueueStatus = EQueueStatus::Empty;
 	QueuedAbility = nullptr;
 	GetWorld()->GetTimerManager().ClearTimer(QueueExpirationHandle);
+}
+
+bool UAbilityComponent::UseAbilityFromPredictedMovement(FAbilityRequest const& Request)
+{
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(Request.AbilityClass) || Request.PredictionID == 0)
+	{
+		return false;
+	}
+	//Check to see if the ability handler has processed this cast already.
+	bool* PreviousResult = PredictedTickRecord.Find(FPredictedTick(Request.PredictionID, Request.Tick));
+	if (PreviousResult)
+	{
+		return *PreviousResult;
+	}
+	//Process the cast as normal.
+	ServerPredictAbility_Implementation(Request);
+	//Recheck for the newly created cast record.
+	PreviousResult = PredictedTickRecord.Find(FPredictedTick(Request.PredictionID, Request.Tick));
+	if (!PreviousResult)
+	{
+		//Tick still didn't happen, server tick timer hasn't passed yet.
+		return false;
+	}
+	return *PreviousResult;
 }
 
 #pragma endregion
@@ -1194,6 +1221,60 @@ float UAbilityComponent::CalculateCooldownLength(UCombatAbility const* Ability, 
 	}
 	float const PingCompensation = bWithPingComp ? FMath::Min(MaxPingCompensation, USaiyoraCombatLibrary::GetActorPing(GetOwner())) : 0.0f;
 	return FMath::Max(MinimumCooldownLength, FCombatModifier::ApplyModifiers(Mods, Ability->GetDefaultCooldownLength()) - PingCompensation);
+}
+
+void UAbilityComponent::AddGenericResourceCostModifier(TSubclassOf<UResource> const ResourceClass, FCombatModifier const& Modifier)
+{
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(ResourceClass) || !IsValid(Modifier.Source))
+	{
+		return;
+	}
+	for (TTuple<TSubclassOf<UCombatAbility>, UCombatAbility*> const& AbilityTuple : ActiveAbilities)
+	{
+		if (IsValid(AbilityTuple.Value))
+		{
+			TArray<FDefaultAbilityCost> Costs;
+			AbilityTuple.Value->GetDefaultAbilityCosts(Costs);
+			for (FDefaultAbilityCost const& Cost : Costs)
+			{
+				if (Cost.ResourceClass == ResourceClass)
+				{
+					if (!Cost.bStaticCost)
+					{
+						AbilityTuple.Value->AddResourceCostModifier(ResourceClass, Modifier);
+					}
+					break;
+				}
+			}
+		}
+	}
+}
+
+void UAbilityComponent::RemoveGenericResourceCostModifier(TSubclassOf<UResource> const ResourceClass, UBuff* Source)
+{
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(ResourceClass) || !IsValid(Source))
+	{
+		return;
+	}
+	for (TTuple<TSubclassOf<UCombatAbility>, UCombatAbility*> const& AbilityTuple : ActiveAbilities)
+	{
+		if (IsValid(AbilityTuple.Value))
+		{
+			TArray<FDefaultAbilityCost> Costs;
+			AbilityTuple.Value->GetDefaultAbilityCosts(Costs);
+			for (FDefaultAbilityCost const& Cost : Costs)
+			{
+				if (Cost.ResourceClass == ResourceClass)
+				{
+					if (!Cost.bStaticCost)
+					{
+						AbilityTuple.Value->RemoveResourceCostModifier(ResourceClass, Source);
+					}
+					break;
+				}
+			}
+		}
+	}
 }
 
 #pragma endregion 

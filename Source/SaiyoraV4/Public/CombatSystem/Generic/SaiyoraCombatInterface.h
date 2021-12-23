@@ -6,7 +6,7 @@
 class UThreatHandler;
 class UDamageHandler;
 class UBuffHandler;
-class UAbilityHandler;
+class UAbilityComponent;
 class UCrowdControlHandler;
 class UResourceHandler;
 class UStatHandler;
@@ -31,8 +31,8 @@ public:
 	UBuffHandler* GetBuffHandler() const;
 	virtual UBuffHandler* GetBuffHandler_Implementation() const { return nullptr; }
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Abilities")
-	UAbilityHandler* GetAbilityHandler() const;
-	virtual UAbilityHandler* GetAbilityHandler_Implementation() const { return nullptr; }
+	UAbilityComponent* GetAbilityComponent() const;
+	virtual UAbilityComponent* GetAbilityComponent_Implementation() const { return nullptr; }
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Crowd Control")
 	UCrowdControlHandler* GetCrowdControlHandler() const;
 	virtual UCrowdControlHandler* GetCrowdControlHandler_Implementation() const { return nullptr; }

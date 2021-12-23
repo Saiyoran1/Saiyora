@@ -48,26 +48,38 @@ void UCombatAbility::InitializeAbility(UAbilityComponent* AbilityComponent)
     AbilityCooldown.CurrentCharges = AbilityCooldown.MaxCharges;
     ChargesPerCooldown = FMath::Max(0, DefaultChargesPerCooldown);
     ChargeCost = FMath::Max(0, DefaultChargeCost);
-    //TODO: Initialize Costs
-    
+    OnResourceChanged.BindDynamic(this, &UCombatAbility::CheckResourceCostOnResourceChanged);
+    for (FDefaultAbilityCost const& DefaultCost : DefaultAbilityCosts)
+    {
+        if (IsValid(DefaultCost.ResourceClass))
+        {
+            FAbilityCost NewCost;
+            NewCost.ResourceClass = DefaultCost.ResourceClass;
+            NewCost.Cost = DefaultCost.Cost;
+            AbilityCosts.MarkItemDirty(AbilityCosts.Items.Add_GetRef(NewCost));
+            bool bCostMet = false;
+            if (IsValid(OwningComponent->GetResourceHandlerRef()))
+            {
+                UResource* Resource = OwningComponent->GetResourceHandlerRef()->FindActiveResource(DefaultCost.ResourceClass);
+                if (IsValid(Resource))
+                {
+                    if (Resource->GetCurrentValue() >= DefaultCost.Cost)
+                    {
+                         bCostMet = true;
+                    }
+                    Resource->SubscribeToResourceChanged(OnResourceChanged);
+                }
+            }
+            if (!bCostMet)
+            {
+                UnmetCosts.Add(DefaultCost.ResourceClass);
+            }
+        }
+    }
     SetupCustomCastRestrictions();
+    UpdateCastable();
     PreInitializeAbility();
     bInitialized = true;
-    if (AbilityCosts.Num() == 0)
-    {
-        ResourceCostsMet = true;
-    }
-    else if (!IsValid(OwningComponent) || !IsValid(OwningComponent->GetResourceHandlerRef()))
-    {   
-        ResourceCostsMet = false;
-    }
-    else
-    {
-        TMap<TSubclassOf<UResource>, float> Costs;
-        GetAbilityCosts(Costs);
-        ResourceCostsMet = OwningComponent->GetResourceHandlerRef()->CheckAbilityCostsMet(Costs);
-    }
-    UpdateCastable();
 }
 
 void UCombatAbility::DeactivateAbility()
@@ -297,6 +309,117 @@ void UCombatAbility::RecalculatePredictedCooldown()
 #pragma endregion
 #pragma region Cost
 
+void UCombatAbility::UpdateCost(TSubclassOf<UResource> const ResourceClass)
+{
+    bool bFoundDefault = false;
+    float BaseCost = 0.0f;
+    bool bStatic = false;
+    for (FDefaultAbilityCost const& DefaultCost : DefaultAbilityCosts)
+    {
+        if (DefaultCost.ResourceClass == ResourceClass)
+        {
+            bStatic = DefaultCost.bStaticCost;
+            bFoundDefault = true;
+            BaseCost = DefaultCost.Cost;
+        }
+    }
+    if (!bFoundDefault)
+    {
+        return;
+    }
+    TArray<FCombatModifier> CombatModifiers;
+    ResourceCostModifiers.MultiFind(ResourceClass, CombatModifiers);
+    for (FAbilityCost& Cost : AbilityCosts.Items)
+    {
+        if (Cost.ResourceClass == ResourceClass)
+        {
+            Cost.Cost = bStatic ? BaseCost : FCombatModifier::ApplyModifiers(CombatModifiers, BaseCost);
+            AbilityCosts.MarkItemDirty(Cost);
+            break;
+        }
+    }
+    CheckCostMet(ResourceClass);
+}
+
+void UCombatAbility::CheckCostMet(TSubclassOf<UResource> const ResourceClass)
+{
+    if (!IsValid(ResourceClass) || !IsValid(OwningComponent))
+    {
+        return;
+    }
+    bool bCostMet = false;
+    for (FAbilityCost const& Cost : AbilityCosts.Items)
+    {
+        if (Cost.ResourceClass == ResourceClass)
+        {
+            if (IsValid(OwningComponent->GetResourceHandlerRef()))
+            {
+                UResource* Resource = OwningComponent->GetResourceHandlerRef()->FindActiveResource(ResourceClass);
+                if (IsValid(Resource))
+                {
+                    if (Resource->GetCurrentValue() >= Cost.Cost)
+                    {
+                        bCostMet = true;
+                    }
+                }
+            }
+            break;
+        }
+    }
+    if (bCostMet)
+    {
+        if (UnmetCosts.Remove(ResourceClass) > 0 && UnmetCosts.Num() == 0)
+        {
+            UpdateCastable();
+        }
+    }
+    else
+    {
+        int32 const PreviousUnmet = UnmetCosts.Num();
+        UnmetCosts.Add(ResourceClass);
+        if (PreviousUnmet == 0 && UnmetCosts.Num() > 0)
+        {
+            UpdateCastable();
+        }
+    }
+}
+
+void UCombatAbility::CheckResourceCostOnResourceChanged(UResource* Resource, UObject* ChangeSource,
+    FResourceState const& PreviousState, FResourceState const& NewState)
+{
+    if (IsValid(Resource))
+    {
+        bool bCostMet = true;
+        for (FAbilityCost const& Cost : AbilityCosts.Items)
+        {
+            if (Cost.ResourceClass == Resource->GetClass())
+            {
+                if (NewState.CurrentValue < Cost.Cost)
+                {
+                    bCostMet = false;
+                }
+                break;
+            }
+        }
+        if (bCostMet)
+        {
+            if (UnmetCosts.Remove(Resource->GetClass()) > 0 && UnmetCosts.Num() == 0)
+            {
+                UpdateCastable();
+            }
+        }
+        else
+        {
+            int32 const PreviousUnmet = UnmetCosts.Num();
+            UnmetCosts.Add(Resource->GetClass());
+            if (PreviousUnmet == 0 && UnmetCosts.Num() > 0)
+            {
+                UpdateCastable();
+            }
+        }
+    }
+}
+
 #pragma endregion
 #pragma region Functionality
 
@@ -384,11 +507,11 @@ void UCombatAbility::AddPredictionParameter(FCombatParameter const& Parameter)
     PredictionParameters.Parameters.Add(Parameter);
 }
 
-FCombatParameter UCombatAbility::GetPredictionParamByName(FString const& Name)
+FCombatParameter UCombatAbility::GetPredictionParamByName(FString const& ParamName)
 {
     for (FCombatParameter const& Param : PredictionParameters.Parameters)
     {
-        if (Param.ParamName == Name)
+        if (Param.ParamName == ParamName)
         {
             return Param;
         }
@@ -396,11 +519,11 @@ FCombatParameter UCombatAbility::GetPredictionParamByName(FString const& Name)
     return FCombatParameter();
 }
 
-FCombatParameter UCombatAbility::GetPredictionParamByType(ECombatParamType const Type)
+FCombatParameter UCombatAbility::GetPredictionParamByType(ECombatParamType const ParamType)
 {
     for (FCombatParameter const& Param : PredictionParameters.Parameters)
     {
-        if (Param.ParamType == Type)
+        if (Param.ParamType == ParamType)
         {
             return Param;
         }
@@ -417,11 +540,11 @@ void UCombatAbility::AddBroadcastParameter(FCombatParameter const& Parameter)
     BroadcastParameters.Parameters.Add(Parameter);
 }
 
-FCombatParameter UCombatAbility::GetBroadcastParamByName(FString const& Name)
+FCombatParameter UCombatAbility::GetBroadcastParamByName(FString const& ParamName)
 {
     for (FCombatParameter const& Param : BroadcastParameters.Parameters)
     {
-        if (Param.ParamName == Name)
+        if (Param.ParamName == ParamName)
         {
             return Param;
         }
@@ -429,16 +552,29 @@ FCombatParameter UCombatAbility::GetBroadcastParamByName(FString const& Name)
     return FCombatParameter();
 }
 
-FCombatParameter UCombatAbility::GetBroadcastParamByType(ECombatParamType const Type)
+FCombatParameter UCombatAbility::GetBroadcastParamByType(ECombatParamType const ParamType)
 {
     for (FCombatParameter const& Param : BroadcastParameters.Parameters)
     {
-        if (Param.ParamType == Type)
+        if (Param.ParamType == ParamType)
         {
             return Param;
         }
     }
     return FCombatParameter();
+}
+
+void UCombatAbility::UpdatePredictionFromServer(FServerAbilityResult const& Result)
+{
+    if (AbilityCooldown.PredictionID < Result.PredictionID)
+    {
+        ChargePredictions.Add(Result.PredictionID, Result.ChargesSpent);
+        RecalculatePredictedCooldown();
+    }
+    if (!Result.bSuccess)
+    {
+        OnMisprediction(Result.PredictionID, Result.FailReason);
+    }
 }
 
 #pragma endregion 
@@ -562,6 +698,56 @@ void UCombatAbility::RecalculateChargesPerCooldown()
     ChargesPerCooldown = FCombatModifier::ApplyModifiers(Modifiers, DefaultChargesPerCooldown);
 }
 
+void UCombatAbility::AddResourceCostModifier(TSubclassOf<UResource> const ResourceClass, FCombatModifier const& Modifier)
+{
+    if (OwningComponent->GetOwnerRole() != ROLE_Authority || !IsValid(ResourceClass) || !IsValid(Modifier.Source))
+    {
+        return;
+    }
+    TArray<FCombatModifier*> Modifiers;
+    ResourceCostModifiers.MultiFindPointer(ResourceClass, Modifiers);
+    bool bFound = false;
+    for (FCombatModifier* Mod : Modifiers)
+    {
+        if (Mod->Source == Modifier.Source)
+        {
+            *Mod = Modifier;
+            bFound = true;
+            break;
+        }
+    }
+    if (!bFound)
+    {
+        ResourceCostModifiers.Add(ResourceClass, Modifier);
+    }
+    UpdateCost(ResourceClass);
+}
+
+void UCombatAbility::RemoveResourceCostModifier(TSubclassOf<UResource> const ResourceClass, UBuff* Source)
+{
+    if (OwningComponent->GetOwnerRole() != ROLE_Authority || !IsValid(ResourceClass) || !IsValid(Source))
+    {
+        return;
+    }
+    TArray<FCombatModifier*> Modifiers;
+    ResourceCostModifiers.MultiFindPointer(ResourceClass, Modifiers);
+    bool bFound = false;
+    for (FCombatModifier* Mod : Modifiers)
+    {
+        if (Mod->Source == Source)
+        {
+            ResourceCostModifiers.Remove(ResourceClass, *Mod);
+            bFound = true;
+            break;
+        }
+    }
+    if (!bFound)
+    {
+        return;
+    }
+    UpdateCost(ResourceClass);
+}
+
 #pragma endregion
 #pragma region Restrictions
 
@@ -575,11 +761,11 @@ void UCombatAbility::UpdateCastable()
     {
         Castable = ECastFailReason::ChargesNotMet;
     }
-    else if (!ResourceCostsMet)
+    else if (UnmetCosts.Num() > 0)
     {
         Castable = ECastFailReason::CostsNotMet;
     }
-    else if (!CustomCastRestrictions.Num() > 0)
+    else if (CustomCastRestrictions.Num() > 0)
     {
         Castable = ECastFailReason::AbilityConditionsNotMet;
     }
@@ -687,194 +873,3 @@ void UCombatAbility::UnsubscribeFromChargesChanged(FAbilityChargeCallback const&
 }
 
 #pragma endregion 
-
-FDefaultAbilityCost UCombatAbility::GetDefaultAbilityCost(TSubclassOf<UResource> const ResourceClass) const
-{
-    if (IsValid(ResourceClass))
-    {
-        for (FDefaultAbilityCost const& Cost : DefaultAbilityCosts)
-        {
-            if (Cost.ResourceClass == ResourceClass)
-            {
-                return Cost;
-            }
-        }
-    }
-    FDefaultAbilityCost const Invalid;
-    return Invalid;
-}
-
-float UCombatAbility::GetAbilityCost(TSubclassOf<UResource> const ResourceClass) const
-{
-    if (IsValid(ResourceClass))
-    {
-        UAbilityResourceCost* Cost = AbilityCosts.FindRef(ResourceClass);
-        if (IsValid(Cost))
-        {
-            return Cost->GetValue();
-        }
-    }
-    return 0.0f;
-}
-
-void UCombatAbility::GetAbilityCosts(TMap<TSubclassOf<UResource>, float>& OutCosts) const
-{
-    for (TTuple<TSubclassOf<UResource>, UAbilityResourceCost*> const& Cost : AbilityCosts)
-    {
-        if (IsValid(Cost.Key) && IsValid(Cost.Value))
-        {
-            OutCosts.Add(Cost.Key, Cost.Value->GetValue());
-        }
-    }
-}
-
-void UCombatAbility::ForceResourceCostRecalculations()
-{
-    for (TTuple<TSubclassOf<UResource>, UAbilityResourceCost*>& Cost : AbilityCosts)
-    {
-        if (IsValid(Cost.Value))
-        {
-            Cost.Value->RecalculateValue();
-        }
-    }
-}
-
-void UCombatAbility::CheckResourceCostOnResourceChanged(UResource* Resource, UObject* ChangeSource,
-    FResourceState const& PreviousState, FResourceState const& NewState)
-{
-    if (IsValid(Resource))
-    {
-        if (GetAbilityCost(Resource->GetClass()) > NewState.CurrentValue)
-        {
-            CostUnmet(Resource->GetClass());
-        }
-        else
-        {
-            CostMet(Resource->GetClass());
-        }
-    }
-}
-
-void UCombatAbility::CheckResourceCostOnCostUpdated(TSubclassOf<UResource> ResourceClass, float const NewCost)
-{
-    if (NewCost == 0.0f)
-    {
-        CostMet(ResourceClass);
-        return;
-    }
-    if (!IsValid(OwningComponent) || !IsValid(OwningComponent->GetResourceHandlerRef()))
-    {   
-        CostUnmet(ResourceClass);
-        return;
-    }
-    UResource* Resource = OwningComponent->GetResourceHandlerRef()->FindActiveResource(ResourceClass);
-    if (!IsValid(Resource))
-    {
-        CostUnmet(ResourceClass);
-        return;
-    }
-    if (Resource->GetCurrentValue() <= NewCost)
-    {
-        CostMet(ResourceClass);
-        return;
-    }
-    CostUnmet(ResourceClass);
-}
-
-void UCombatAbility::CostUnmet(TSubclassOf<UResource> ResourceClass)
-{
-    bool const bPreviouslyMet = ResourceCostsMet;
-    UnmetCosts.Add(ResourceClass);
-    ResourceCostsMet = UnmetCosts.Num() == 0;
-    if (bPreviouslyMet != ResourceCostsMet)
-    {
-        UpdateCastable();
-    }
-}
-
-void UCombatAbility::CostMet(TSubclassOf<UResource> ResourceClass)
-{
-    bool const bPreviouslyMet = ResourceCostsMet;
-    UnmetCosts.Remove(ResourceClass);
-    ResourceCostsMet = UnmetCosts.Num() == 0;
-    if (bPreviouslyMet != ResourceCostsMet)
-    {
-        UpdateCastable();
-    }
-}
-
-void UCombatAbility::AdjustCooldownFromMaxChargesChanged()
-{
-    if (OwningComponent->GetOwnerRole() == ROLE_Authority)
-    {
-        if (MaxCharges->GetValue() > AbilityCooldown.CurrentCharges && !AbilityCooldown.OnCooldown)
-        {
-            StartCooldown();
-        }
-        else if (MaxCharges->GetValue() <= AbilityCooldown.CurrentCharges && AbilityCooldown.OnCooldown)
-        {
-            AbilityCooldown.CurrentCharges = MaxCharges->GetValue();
-            CancelCooldown();
-        }
-    }
-}
-
-int32 UCombatAbility::AddCostModifier(TSubclassOf<UResource> const ResourceClass, FCombatModifier const& Modifier)
-{
-    if (!IsValid(ResourceClass) || Modifier.GetModType() == EModifierType::Invalid)
-    {
-        return -1;
-    }
-    UAbilityResourceCost* Cost = AbilityCosts.FindRef(ResourceClass);
-    if (!Cost || !IsValid(Cost) || !Cost->IsModifiable())
-    {
-        return -1;
-    }
-    return Cost->AddModifier(Modifier);
-}
-
-void UCombatAbility::RemoveCostModifier(TSubclassOf<UResource> const ResourceClass, int32 const ModifierID)
-{
-    if (!IsValid(ResourceClass) || ModifierID == -1)
-    {
-        return;
-    }
-    UAbilityResourceCost* Cost = AbilityCosts.FindRef(ResourceClass);
-    if (!Cost || !IsValid(Cost) || !Cost->IsModifiable())
-    {
-        return;
-    }
-    Cost->RemoveModifier(ModifierID);
-}
-
-void UCombatAbility::CheckChargeCostOnCostUpdated(int32 const Previous, int32 const New)
-{
-    if (Previous != New)
-    {
-        CheckChargeCostMet();
-    }
-}
-
-void UCombatAbility::ServerTick(int32 const TickNumber, FCombatParameters& BroadcastParams)
-{
-    if (GetHandler()->GetOwnerRole() != ROLE_Authority)
-    {
-        return;
-    }
-    BroadcastParameters.ClearParams();
-    OnServerTick(TickNumber);
-    BroadcastParams = BroadcastParameters;
-    BroadcastParameters.ClearParams();
-}
-
-void UCombatAbility::ServerCancel(FCombatParameters& BroadcastParams)
-{
-    if (GetHandler()->GetOwnerRole() != ROLE_Authority)
-    {
-        return;
-    }
-    BroadcastParameters.ClearParams();
-    OnServerCancel();
-    BroadcastParams = BroadcastParameters;
-    BroadcastParameters.ClearParams();
-}

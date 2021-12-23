@@ -133,72 +133,63 @@ void UResourceHandler::NotifyOfRemovedReplicatedResource(UResource* Resource)
 #pragma endregion 
 #pragma region Ability Costs
 
-bool UResourceHandler::CheckAbilityCostsMet(TMap<TSubclassOf<UResource>, float> const& Costs) const
-{
-	for (TTuple<TSubclassOf<UResource>, float> const& Cost : Costs)
-	{
-		UResource* Resource = FindActiveResource(Cost.Key);
-		if (!IsValid(Resource))
-		{
-			return false;
-		}
-		if (Resource->GetCurrentValue() < Cost.Value)
-		{
-			return false;
-		}
-	}
-	return true;
-}
-
 void UResourceHandler::CommitAbilityCosts(UCombatAbility* Ability, int32 const PredictionID)
 {
 	if (GetOwnerRole() == ROLE_SimulatedProxy || !IsValid(Ability))
 	{
 		return;
 	}
-	TMap<TSubclassOf<UResource>, float> Costs;
+	TArray<FAbilityCost> Costs;
 	Ability->GetAbilityCosts(Costs);
-	for (TTuple<TSubclassOf<UResource>, float> const& Cost : Costs)
+	for (FAbilityCost const& Cost : Costs)
 	{
-		if (IsValid(Cost.Key))
+		if (IsValid(Cost.ResourceClass))
 		{
-			UResource* Resource = FindActiveResource(Cost.Key);
+			UResource* Resource = FindActiveResource(Cost.ResourceClass);
 			if (IsValid(Resource))
 			{
-				Resource->CommitAbilityCost(Ability, Cost.Value, PredictionID);
+				Resource->CommitAbilityCost(Ability, Cost.Cost, PredictionID);
+			}
+			if (GetOwnerRole() == ROLE_AutonomousProxy)
+			{
+				CostPredictions.Add(PredictionID, Cost);
 			}
 		}
 	}
-	if (GetOwnerRole() == ROLE_AutonomousProxy)
-	{
-		FAbilityCostPrediction& Prediction = CostPredictions.Add(PredictionID);
-		Prediction.CostMap = Costs;
-	}
+	
 }
 
 void UResourceHandler::UpdatePredictedCostsFromServer(FServerAbilityResult const& ServerResult)
 {
-	FAbilityCostPrediction Prediction = CostPredictions.FindRef(ServerResult.PredictionID);
+	TArray<FAbilityCost> PredictedCosts;
+	CostPredictions.MultiFind(ServerResult.PredictionID, PredictedCosts);
 	for (FAbilityCost const& Cost : ServerResult.AbilityCosts)
 	{
 		if (IsValid(Cost.ResourceClass))
 		{
-			if (Cost.Cost != Prediction.CostMap.FindRef(Cost.ResourceClass))
+			for (FAbilityCost const& PredictedCost : PredictedCosts)
 			{
-				UResource* Resource = FindActiveResource(Cost.ResourceClass);
-				if (IsValid(Resource))
+				if (Cost.ResourceClass == PredictedCost.ResourceClass)
 				{
-					Resource->UpdateCostPredictionFromServer(ServerResult.PredictionID, Cost.Cost);
+					if (Cost.Cost != PredictedCost.Cost)
+					{
+						UResource* Resource = FindActiveResource(Cost.ResourceClass);
+						if (IsValid(Resource))
+						{
+							Resource->UpdateCostPredictionFromServer(ServerResult.PredictionID, Cost.Cost);
+						}
+					}
+					PredictedCosts.Remove(PredictedCost);
+					break;
 				}
 			}
-			Prediction.CostMap.Remove(Cost.ResourceClass);
 		}
 	}
-	for (TTuple<TSubclassOf<UResource>, float> const& Misprediction : Prediction.CostMap)
+	for (FAbilityCost const& Misprediction : PredictedCosts)
 	{
-		if (IsValid(Misprediction.Key))
+		if (IsValid(Misprediction.ResourceClass))
 		{
-			UResource* Resource = FindActiveResource(Misprediction.Key);
+			UResource* Resource = FindActiveResource(Misprediction.ResourceClass);
 			if (IsValid(Resource))
 			{
 				Resource->UpdateCostPredictionFromServer(ServerResult.PredictionID, 0.0f);

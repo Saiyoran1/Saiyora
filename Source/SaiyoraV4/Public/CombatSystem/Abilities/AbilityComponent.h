@@ -104,6 +104,7 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	FAbilityEvent UseAbility(TSubclassOf<UCombatAbility> const AbilityClass);
+	bool UseAbilityFromPredictedMovement(FAbilityRequest const& Request);
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
 	bool CanUseAbility(UCombatAbility* Ability, ECastFailReason& OutFailReason) const;
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
@@ -121,9 +122,7 @@ public:
 
 private:
 
-	UPROPERTY()
 	TMultiMap<FGameplayTag, UBuff*> AbilityUsageTagRestrictions;
-	UPROPERTY()
 	TMultiMap<TSubclassOf<UCombatAbility>, UBuff*> AbilityUsageClassRestrictions;
 	int32 LastPredictionID = 0;
 	int32 GenerateNewPredictionID();
@@ -283,7 +282,9 @@ private:
 
 //Cost
 
-	void AddGenericResourceCostModifier(TSubclassOf<UResource> const ResourceClass, UBuff* Source, FCombatModifier const& Modifier);
+public:
+
+	void AddGenericResourceCostModifier(TSubclassOf<UResource> const ResourceClass, FCombatModifier const& Modifier);
 	void RemoveGenericResourceCostModifier(TSubclassOf<UResource> const ResourceClass, UBuff* Source);
 
 //Queueing
