@@ -214,7 +214,7 @@ public:
 	void AddCastLengthModifier(FAbilityModCondition const& Modifier);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
 	void RemoveCastLengthModifier(FAbilityModCondition const& Modifier);
-	float CalculateCastLength(UCombatAbility const* Ability, bool const bWithPingComp) const;
+	float CalculateCastLength(UCombatAbility* Ability, bool const bWithPingComp) const;
 
 private:
 
@@ -227,7 +227,7 @@ private:
 	TArray<FAbilityModCondition> CastLengthMods;
 	FAbilityModCondition StatCastLengthMod;
 	UFUNCTION()
-	FCombatModifier ModifyCastLengthFromStat(UCombatAbility const* Ability);
+	FCombatModifier ModifyCastLengthFromStat(UCombatAbility* Ability);
 	FCastingStateNotification OnCastStateChanged;
 
 //Global Cooldown
@@ -248,7 +248,7 @@ public:
 	void AddGlobalCooldownModifier(FAbilityModCondition const& Modifier);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
 	void RemoveGlobalCooldownModifier(FAbilityModCondition const& Modifier);
-	float CalculateGlobalCooldownLength(UCombatAbility const* Ability, bool const bWithPingComp) const;
+	float CalculateGlobalCooldownLength(UCombatAbility* Ability, bool const bWithPingComp) const;
 
 private:
 
@@ -260,7 +260,7 @@ private:
 	TArray<FAbilityModCondition> GlobalCooldownMods;
 	FAbilityModCondition StatGlobalCooldownMod;
 	UFUNCTION()
-	FCombatModifier ModifyGlobalCooldownFromStat(UCombatAbility const* Ability);
+	FCombatModifier ModifyGlobalCooldownFromStat(UCombatAbility* Ability);
 	FGlobalCooldownNotification OnGlobalCooldownChanged;
 
 //Cooldown
@@ -271,14 +271,14 @@ public:
 	void AddCooldownModifier(FAbilityModCondition const& Modifier);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
 	void RemoveCooldownModifier(FAbilityModCondition const& Modifier);
-	float CalculateCooldownLength(UCombatAbility const* Ability, bool const bWithPingComp) const;
+	float CalculateCooldownLength(UCombatAbility* Ability, bool const bWithPingComp) const;
 
 private:
 
 	TArray<FAbilityModCondition> CooldownMods;
 	FAbilityModCondition StatCooldownMod;
 	UFUNCTION()
-	FCombatModifier ModifyCooldownFromStat(UCombatAbility const* Ability);
+	FCombatModifier ModifyCooldownFromStat(UCombatAbility* Ability);
 
 //Cost
 

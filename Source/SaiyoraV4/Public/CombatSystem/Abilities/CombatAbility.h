@@ -1,12 +1,13 @@
 #pragma once
 #include "CoreMinimal.h"
-
 #include "AbilityComponent.h"
-#include "UObject/NoExportTypes.h"
 #include "AbilityStructs.h"
+#include "UObject/NoExportTypes.h"
 #include "CrowdControlEnums.h"
 #include "DamageEnums.h"
 #include "SaiyoraObjects.h"
+#include "ResourceStructs.h"
+#include "Resource.h"
 #include "CombatAbility.generated.h"
 
 class UCrowdControl;
@@ -121,7 +122,14 @@ private:
     TSet<ECrowdControlType> RestrictedCrowdControls;
     TSet<FGameplayTag> CustomCastRestrictions;
     TSet<FGameplayTag> RestrictedTags;
+    UPROPERTY(ReplicatedUsing=OnRep_TagsRestricted)
+    bool bTagsRestricted = false;
+    UFUNCTION()
+    void OnRep_TagsRestricted() { UpdateCastable(); }
+    UPROPERTY(ReplicatedUsing=OnRep_ClassRestricted)
     bool bClassRestricted = false;
+    UFUNCTION()
+    void OnRep_ClassRestricted() { UpdateCastable(); }
 
 //Cast
 
@@ -132,7 +140,7 @@ public:
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
     float GetDefaultCastLength() const { return DefaultCastTime; }
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-    float GetCastLength() const { return !bStaticCastTime && IsValid(OwningComponent) && OwningComponent->GetOwnerRole() == ROLE_Authority ?
+    float GetCastLength() { return !bStaticCastTime && IsValid(OwningComponent) && OwningComponent->GetOwnerRole() == ROLE_Authority ?
         OwningComponent->CalculateCastLength(this, false) : DefaultCastTime; }
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
     bool HasStaticCastLength() const { return bStaticCastTime; }
@@ -167,7 +175,7 @@ public:
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
     float GetDefaultGlobalCooldownLength() const { return DefaultGlobalCooldownLength; }
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-    float GetGlobalCooldownLength() const { return !bStaticGlobalCooldownLength && IsValid(OwningComponent) && OwningComponent->GetOwnerRole() == ROLE_Authority ?
+    float GetGlobalCooldownLength() { return !bStaticGlobalCooldownLength && IsValid(OwningComponent) && OwningComponent->GetOwnerRole() == ROLE_Authority ?
         OwningComponent->CalculateGlobalCooldownLength(this, false) : DefaultGlobalCooldownLength; }
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
     bool HasStaticGlobalCooldownLength() const { return bStaticGlobalCooldownLength; }
@@ -188,7 +196,7 @@ public:
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
     float GetDefaultCooldownLength() const { return DefaultCooldownLength; }
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-    float GetCooldownLength() const { return !bStaticCooldownLength && IsValid(OwningComponent) && OwningComponent->GetOwnerRole() == ROLE_Authority ?
+    float GetCooldownLength() { return !bStaticCooldownLength && IsValid(OwningComponent) && OwningComponent->GetOwnerRole() == ROLE_Authority ?
         OwningComponent->CalculateCooldownLength(this, false) : DefaultCooldownLength; }
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
     bool HasStaticCooldownLength() const { return bStaticCooldownLength; }
@@ -273,7 +281,8 @@ private:
     bool bStaticChargeCost = true;
     UPROPERTY(ReplicatedUsing=OnRep_ChargeCost)
     int32 ChargeCost = 1;
-    //TODO: OnRep_ChargeCost client castable check.
+    UFUNCTION()
+    void OnRep_ChargeCost();
     UPROPERTY()
     TMap<UBuff*, FCombatModifier> ChargeCostModifiers;
 
@@ -297,6 +306,7 @@ public:
     void AddResourceCostModifier(TSubclassOf<UResource> const ResourceClass, FCombatModifier const& Modifier);
     UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
     void RemoveResourceCostModifier(TSubclassOf<UResource> const ResourceClass, UBuff* Source);
+    void UpdateCostFromReplication(FAbilityCost const& Cost, bool const bNewAdd = false);
     
 private:
     

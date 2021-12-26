@@ -5,7 +5,7 @@
 #include "Resource.h"
 #include "AbilityStructs.generated.h"
 
-class UPlayerCombatAbility;
+class UCombatAbility;
 
 USTRUCT(BlueprintType)
 struct FDefaultAbilityCost
@@ -34,10 +34,10 @@ struct FAbilityCost : public FFastArraySerializerItem
     UPROPERTY(BlueprintReadOnly)
     float Cost = 0.0f;
 
-    //TODO: Client castable callbacks.
-    void PreReplicatedRemove(const struct FAbilityCostArray& InArraySerializer);
     void PostReplicatedAdd(const struct FAbilityCostArray& InArraySerializer);
     void PostReplicatedChange(const struct FAbilityCostArray& InArraySerializer);
+
+    FORCEINLINE bool operator==(FAbilityCost const& Other) const { return Other.ResourceClass == ResourceClass && Other.Cost == Cost; }
 };
 
 USTRUCT()
@@ -47,6 +47,8 @@ struct FAbilityCostArray: public FFastArraySerializer
 
     UPROPERTY()
     TArray<FAbilityCost> Items;
+    UPROPERTY(NotReplicated)
+    UCombatAbility* OwningAbility;
 
     bool NetDeltaSerialize(FNetDeltaSerializeInfo& DeltaParms)
     {
@@ -55,7 +57,7 @@ struct FAbilityCostArray: public FFastArraySerializer
 };
 
 template<>
-struct TStructOpsTypeTraits<FAbilityCost> : public TStructOpsTypeTraitsBase2<FAbilityCostArray>
+struct TStructOpsTypeTraits<FAbilityCostArray> : public TStructOpsTypeTraitsBase2<FAbilityCostArray>
 {
     enum 
     {
@@ -288,9 +290,10 @@ struct FPredictedTick
 {
     GENERATED_BODY()
 
-    int32 PredictionID;
-    int32 TickNumber;
+    int32 PredictionID = 0;
+    int32 TickNumber = 0;
 
+    FPredictedTick();
     FPredictedTick(int32 const ID, int32 const Tick) { PredictionID = ID; TickNumber = Tick; }
     FORCEINLINE bool operator==(const FPredictedTick& Other) const { return Other.PredictionID == PredictionID && Other.TickNumber == TickNumber; }
 };
@@ -300,23 +303,23 @@ FORCEINLINE uint32 GetTypeHash(const FPredictedTick& Tick)
     return HashCombine(GetTypeHash(Tick.PredictionID), GetTypeHash(Tick.TickNumber));
 }
 
-DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FAbilityModCondition, UCombatAbility const*, Ability);
+DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FAbilityModCondition, UCombatAbility*, Ability);
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FAbilityClassRestriction, TSubclassOf<UCombatAbility>, AbilityClass);
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FInterruptRestriction, FInterruptEvent const&, InterruptEvent);
-DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityInstanceCallback, UCombatAbility const*, NewAbility);
+DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityInstanceCallback, UCombatAbility*, NewAbility);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityCallback, FAbilityEvent const&, Event);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityCancelCallback, FCancelEvent const&, Event);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FInterruptCallback, FInterruptEvent const&, InterruptEvent);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityMispredictionCallback, int32 const, PredictionID);
 DECLARE_DYNAMIC_DELEGATE_TwoParams(FGlobalCooldownCallback, FGlobalCooldown const&, OldGlobalCooldown, FGlobalCooldown const&, NewGlobalCooldown);
 DECLARE_DYNAMIC_DELEGATE_TwoParams(FCastingStateCallback, FCastingState const&, OldState, FCastingState const&, NewState);
-DECLARE_DYNAMIC_DELEGATE_ThreeParams(FAbilityChargeCallback, UCombatAbility const*, Ability, int32 const, OldCharges, int32 const, NewCharges);
+DECLARE_DYNAMIC_DELEGATE_ThreeParams(FAbilityChargeCallback, UCombatAbility*, Ability, int32 const, OldCharges, int32 const, NewCharges);
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityInstanceNotification, UCombatAbility const*, NewAbility);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityInstanceNotification, UCombatAbility*, NewAbility);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityNotification, FAbilityEvent const&, Event);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityCancelNotification, FCancelEvent const&, Event);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FInterruptNotification, FInterruptEvent const&, InterruptEvent);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityMispredictionNotification, int32 const, PredictionID);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FGlobalCooldownNotification, FGlobalCooldown const&, OldGlobalCooldown, FGlobalCooldown const&, NewGlobalCooldown);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FCastingStateNotification, FCastingState const&, OldState, FCastingState const&, NewState);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FAbilityChargeNotification, UCombatAbility const*, Ability, int32 const, OldCharges, int32 const, NewCharges);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FAbilityChargeNotification, UCombatAbility*, Ability, int32 const, OldCharges, int32 const, NewCharges);

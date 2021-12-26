@@ -63,13 +63,13 @@ float USaiyoraCombatLibrary::GetActorPing(AActor const* Actor)
 FCombatModifier USaiyoraCombatLibrary::MakeCombatModifier(UBuff* Source, EModifierType const ModifierType,
     float const ModifierValue, bool const bStackable)
 {
-    return FCombatModifier(ModifierValue, ModifierType, bStackable, Source);
+    return FCombatModifier(ModifierValue, ModifierType, Source, bStackable);
 }
 
 FCombatModifier USaiyoraCombatLibrary::MakeBuffFunctionCombatModifier(UBuffFunction* Source,
     EModifierType const ModifierType, float const ModifierValue, bool const bStackable)
 {
-    return FCombatModifier(ModifierValue, ModifierType, bStackable, Source->GetOwningBuff());
+    return FCombatModifier(ModifierValue, ModifierType, Source->GetOwningBuff(), bStackable);
 }
 
 bool USaiyoraCombatLibrary::ValidatePredictedLineTrace(TArray<FCombatParameter> const& PredictionParams)

@@ -19,6 +19,7 @@ struct FResourceState
 	UPROPERTY()
 	int32 PredictionID = 0;
 
+	FResourceState();
 	FResourceState(float const Min, float const Max, float const Value);
 };
 

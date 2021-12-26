@@ -1,10 +1,8 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
-
-#pragma once
+﻿#pragma once
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
 #include "MovementEnums.h"
-#include "PlayerCombatAbility.h"
+#include "CombatAbility.h"
 #include "SaiyoraStructs.h"
 #include "MovementStructs.generated.h"
 
@@ -30,7 +28,7 @@ struct FClientPendingCustomMove
 {
 	GENERATED_BODY()
 
-	TSubclassOf<UPlayerCombatAbility> AbilityClass;
+	TSubclassOf<UCombatAbility> AbilityClass;
 	int32 PredictionID = 0;
 	float OriginalTimestamp = 0.0f;
 	FCustomMoveParams MoveParams;
@@ -39,4 +37,4 @@ struct FClientPendingCustomMove
 	void Clear() { AbilityClass = nullptr; PredictionID = 0; OriginalTimestamp = 0.0f; MoveParams = FCustomMoveParams(); PredictionParams = FCombatParameters(); }
 };
 
-DECLARE_DYNAMIC_DELEGATE_RetVal_TwoParams(bool, FExternalMovementCondition, UObject*, Source, ESaiyoraCustomMove const, MoveType);
+DECLARE_DYNAMIC_DELEGATE_RetVal_TwoParams(bool, FExternalMovementRestriction, UObject*, Source, ESaiyoraCustomMove const, MoveType);

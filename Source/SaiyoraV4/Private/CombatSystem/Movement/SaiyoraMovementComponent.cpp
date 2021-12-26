@@ -11,7 +11,7 @@
 
 float const USaiyoraMovementComponent::MaxPingDelay = 0.2f;
 
-#pragma region Saved Moves
+#pragma region Move Structs
 
 bool USaiyoraMovementComponent::FSavedMove_Saiyora::CanCombineWith(const FSavedMovePtr& NewMove,
                                                                    ACharacter* InCharacter, float MaxDelta) const
@@ -74,9 +74,6 @@ void USaiyoraMovementComponent::UpdateFromCompressedFlags(uint8 Flags)
 	//Updates the CMC when replaying a client move or receiving the move on the server. Only affects flags.
 	bWantsCustomMove = (Flags & FSavedMove_Character::FLAG_Custom_1) != 0;
 }
-
-#pragma endregion
-#pragma region Network Data
 
 USaiyoraMovementComponent::FNetworkPredictionData_Client_Saiyora::FNetworkPredictionData_Client_Saiyora(
 	const UCharacterMovementComponent& ClientMovement) : Super(ClientMovement)
@@ -195,19 +192,16 @@ void USaiyoraMovementComponent::BeginPlay()
 {
 	Super::BeginPlay();
 	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("%s does not implement combat interface, but has Custom Movement Component."), *GetOwner()->GetActorLabel());
-	GameStateRef = Cast<ASaiyoraGameState>(GetWorld()->GetGameState());
+	GameStateRef = Cast<AGameState>(GetWorld()->GetGameState());
 	if (!IsValid(GameStateRef))
 	{
 		UE_LOG(LogTemp, Warning, (TEXT("Custom CMC encountered wrong Game State Ref!")));
 		return;
 	}
-	if (GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
-	{
-		OwnerAbilityHandler = Cast<UPlayerAbilityHandler>(ISaiyoraCombatInterface::Execute_GetAbilityHandler(GetOwner()));
-		OwnerCcHandler = ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(GetOwner());
-		OwnerDamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
-		OwnerStatHandler = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
-	}
+	OwnerAbilityHandler = ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwner());
+	OwnerCcHandler = ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(GetOwner());
+	OwnerDamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
+	OwnerStatHandler = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
 	if (GetOwnerRole() == ROLE_AutonomousProxy && IsValid(OwnerAbilityHandler))
 	{
 		OnPredictedAbility.BindDynamic(this, &USaiyoraMovementComponent::OnCustomMoveCastPredicted);
@@ -341,8 +335,8 @@ bool USaiyoraMovementComponent::ApplyCustomMove(FCustomMoveParams const& CustomM
 	{
 		return false;
 	}
-	UPlayerCombatAbility* PlayerAbilitySource = Cast<UPlayerCombatAbility>(Source);
-	if (!IsValid(PlayerAbilitySource) || PlayerAbilitySource->GetHandler()->GetOwner() != GetOwner() || PlayerAbilitySource->GetCurrentPredictionID() == 0)
+	UCombatAbility* AbilitySource = Cast<UCombatAbility>(Source);
+	if (!IsValid(AbilitySource) || AbilitySource->GetHandler()->GetOwner() != GetOwner() || AbilitySource->GetPredictionID() == 0)
 	{
 		//This move should NOT deal with prediction, and thus must be on the server.
 		if (GetOwnerRole() != ROLE_Authority)
@@ -363,7 +357,7 @@ bool USaiyoraMovementComponent::ApplyCustomMove(FCustomMoveParams const& CustomM
 				return false;
 			}
 			//If this move comes from another owner, we check external movement restrictions.
-			if (!IsValid(PlayerAbilitySource) || PlayerAbilitySource->GetHandler()->GetOwner() != GetOwner())
+			if (!IsValid(AbilitySource) || AbilitySource->GetHandler()->GetOwner() != GetOwner())
 			{
 				if (CheckExternalMoveRestricted(Source, CustomMove.MoveType))
 				{
@@ -379,7 +373,6 @@ bool USaiyoraMovementComponent::ApplyCustomMove(FCustomMoveParams const& CustomM
 		{
 			//Set timer to apply custom move after ping delay.
 			FTimerDelegate PingDelayDelegate;
-			//TODO: Investigate why I can't pass a ref to a struct into a timer delegate.
 			PingDelayDelegate.BindUObject(this, &USaiyoraMovementComponent::DelayedCustomMoveExecution, CustomMove);
 			FTimerHandle PingDelayHandle;
 			float const PingDelay = FMath::Min(MaxPingDelay, USaiyoraCombatLibrary::GetActorPing(GetOwner()));
@@ -394,18 +387,19 @@ bool USaiyoraMovementComponent::ApplyCustomMove(FCustomMoveParams const& CustomM
 	case ROLE_Authority :
 		{
 			//There are going to be 2 calls to predicted movement (one from the ability system, one from the Networked Move Data), so we need to check that this is the first call (the 2nd won't do anything).
-			if (ServerCompletedMovementIDs.Contains(PlayerAbilitySource->GetCurrentPredictionID()))
+			//TODO: Currently storing by predictionID, but really need to store by tick AND predictionID.
+			if (ServerCompletedMovementIDs.Contains(AbilitySource->GetPredictionID()))
 			{
 				return false;
 			}
-			ServerCompletedMovementIDs.Add(PlayerAbilitySource->GetCurrentPredictionID());
+			ServerCompletedMovementIDs.Add(AbilitySource->GetPredictionID());
 			Multicast_ExecuteCustomMoveNoOwner(CustomMove);
 			return true;
 		}
 	case ROLE_AutonomousProxy :
 		{
 			//Since we know this came from an ability, it can be predicted.
-			SetupCustomMovementPrediction(PlayerAbilitySource, CustomMove);
+			SetupCustomMovementPrediction(AbilitySource, CustomMove);
 			return true;
 		}
 	case ROLE_SimulatedProxy :
@@ -457,7 +451,7 @@ void USaiyoraMovementComponent::Client_ExecuteCustomMove_Implementation(FCustomM
 	ExecuteCustomMove(CustomMove);
 }
 
-void USaiyoraMovementComponent::SetupCustomMovementPrediction(UPlayerCombatAbility* Source, FCustomMoveParams const& CustomMove)
+void USaiyoraMovementComponent::SetupCustomMovementPrediction(UCombatAbility* Source, FCustomMoveParams const& CustomMove)
 {
 	if (GetOwnerRole() != ROLE_AutonomousProxy || CustomMove.MoveType == ESaiyoraCustomMove::None || !IsValid(Source) || !IsValid(OwnerAbilityHandler))
 	{
@@ -466,7 +460,7 @@ void USaiyoraMovementComponent::SetupCustomMovementPrediction(UPlayerCombatAbili
 	OwnerAbilityHandler->SubscribeToAbilityTicked(OnPredictedAbility);
 	PendingCustomMove.AbilityClass = Source->GetClass();
 	PendingCustomMove.MoveParams = CustomMove;
-	PendingCustomMove.PredictionID = Source->GetCurrentPredictionID();
+	PendingCustomMove.PredictionID = Source->GetPredictionID();
 	PendingCustomMove.OriginalTimestamp = GameStateRef->GetServerWorldTimeSeconds();
 }
 
@@ -522,7 +516,7 @@ void USaiyoraMovementComponent::CustomMoveFromFlag()
 	}
 }
 
-void USaiyoraMovementComponent::AbilityMispredicted(int32 const PredictionID, ECastFailReason const FailReason)
+void USaiyoraMovementComponent::AbilityMispredicted(int32 const PredictionID)
 {
 	CompletedCastStatus.Add(PredictionID, false);
 }
@@ -548,7 +542,7 @@ void USaiyoraMovementComponent::ExecuteTeleportToLocation(FCustomMoveParams cons
 	}
 }
 
-bool USaiyoraMovementComponent::LaunchPlayer(UPlayerCombatAbility* Source, FVector const& LaunchVector, bool const bStopMovement, bool const bIgnoreRestrictions)
+bool USaiyoraMovementComponent::LaunchPlayer(UObject* Source, FVector const& LaunchVector, bool const bStopMovement, bool const bIgnoreRestrictions)
 {
 	FCustomMoveParams LaunchParams;
 	LaunchParams.MoveType = ESaiyoraCustomMove::Launch;
@@ -581,8 +575,8 @@ bool USaiyoraMovementComponent::ApplyCustomRootMotionHandler(USaiyoraRootMotionH
 	{
 		return false;
 	}
-	UPlayerCombatAbility* PlayerAbilitySource = Cast<UPlayerCombatAbility>(Source);
-	if (!IsValid(PlayerAbilitySource) || PlayerAbilitySource->GetHandler()->GetOwner() != GetOwner() || PlayerAbilitySource->GetCurrentPredictionID() == 0)
+	UCombatAbility* AbilitySource = Cast<UCombatAbility>(Source);
+	if (!IsValid(AbilitySource) || AbilitySource->GetHandler()->GetOwner() != GetOwner() || AbilitySource->GetPredictionID() == 0)
 	{
 		//This root motion source should NOT deal with prediction, and thus must be on the server.
 		if (GetOwnerRole() != ROLE_Authority)
@@ -603,7 +597,7 @@ bool USaiyoraMovementComponent::ApplyCustomRootMotionHandler(USaiyoraRootMotionH
 				return false;
 			}
 			//If this move comes from another owner, we check external movement restrictions.
-			if (!IsValid(PlayerAbilitySource) || PlayerAbilitySource->GetHandler()->GetOwner() != GetOwner())
+			if (!IsValid(AbilitySource) || AbilitySource->GetHandler()->GetOwner() != GetOwner())
 			{
 				if (CheckExternalMoveRestricted(Source, ESaiyoraCustomMove::RootMotion))
 				{
@@ -643,17 +637,17 @@ bool USaiyoraMovementComponent::ApplyCustomRootMotionHandler(USaiyoraRootMotionH
 	case ROLE_Authority :
 		{
 			//There are going to be 2 calls to predicted movement (one from the ability system, one from the Networked Move Data), so we need to check that this is the first call (the 2nd won't do anything).
-			if (ServerCompletedMovementIDs.Contains(PlayerAbilitySource->GetCurrentPredictionID()))
+			if (ServerCompletedMovementIDs.Contains(AbilitySource->GetPredictionID()))
 			{
 				return false;
 			}
-			ServerCompletedMovementIDs.Add(PlayerAbilitySource->GetCurrentPredictionID());
+			ServerCompletedMovementIDs.Add(AbilitySource->GetPredictionID());
 			//We don't check custom restrictions since the move was self-initiated, but we do check for root.
 			if (!Handler->bIgnoreRestrictions && IsValid(OwnerCcHandler) && OwnerCcHandler->IsCrowdControlActive(ECrowdControlType::Root))
 			{
 				return false;
 			}
-			Handler->Init(this, PlayerAbilitySource->GetCurrentPredictionID(), Source);
+			Handler->Init(this, AbilitySource->GetPredictionID(), Source);
 			CurrentRootMotionHandlers.Add(Handler);
 			ReplicatedRootMotionHandlers.Add(Handler);
 			//No delayed apply here, since the client should already have predicted this.
@@ -670,8 +664,8 @@ bool USaiyoraMovementComponent::ApplyCustomRootMotionHandler(USaiyoraRootMotionH
 			//Since we know this came from an ability, it can be predicted.
 			FCustomMoveParams TempParams;
 			TempParams.MoveType = ESaiyoraCustomMove::RootMotion;
-			SetupCustomMovementPrediction(PlayerAbilitySource, TempParams);
-			Handler->Init(this, PlayerAbilitySource->GetCurrentPredictionID(), Source);
+			SetupCustomMovementPrediction(AbilitySource, TempParams);
+			Handler->Init(this, AbilitySource->GetPredictionID(), Source);
 			CurrentRootMotionHandlers.Add(Handler);
 			//Note that we don't add to rep arrays on auto proxy. There's no need.
 			Handler->Apply();
@@ -782,7 +776,7 @@ void USaiyoraMovementComponent::ApplyConstantForce(UObject* Source, ERootMotionA
 #pragma endregion
 #pragma region Restrictions
 
-void USaiyoraMovementComponent::AddExternalMovementRestriction(FExternalMovementCondition const& Restriction)
+void USaiyoraMovementComponent::AddExternalMovementRestriction(FExternalMovementRestriction const& Restriction)
 {
 	if (!Restriction.IsBound())
 	{
@@ -803,7 +797,7 @@ void USaiyoraMovementComponent::AddExternalMovementRestriction(FExternalMovement
 	}
 }
 
-void USaiyoraMovementComponent::RemoveExternalMovementRestriction(FExternalMovementCondition const& Restriction)
+void USaiyoraMovementComponent::RemoveExternalMovementRestriction(FExternalMovementRestriction const& Restriction)
 {
 	if (!Restriction.IsBound())
 	{
@@ -818,7 +812,7 @@ bool USaiyoraMovementComponent::CheckExternalMoveRestricted(UObject* Source, ESa
 	{
 		return true;
 	}
-	for (FExternalMovementCondition const& Restriction : MovementRestrictions)
+	for (FExternalMovementRestriction const& Restriction : MovementRestrictions)
 	{
 		if (Restriction.IsBound() && Restriction.Execute(Source, MoveType))
 		{

@@ -1,7 +1,6 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #pragma once
 #include "CoreMinimal.h"
+#include "CrowdControlStructs.h"
 #include "DamageStructs.h"
 #include "MovementEnums.h"
 #include "MovementStructs.h"
@@ -9,11 +8,20 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "SaiyoraMovementComponent.generated.h"
 
+class UAbilityComponent;
+class UCrowdControlHandler;
+class UDamageHandler;
+class AGameState;
+
 UCLASS(BlueprintType)
 class SAIYORAV4_API USaiyoraMovementComponent : public UCharacterMovementComponent
 {
 	GENERATED_BODY()
+
+//Custom Move Structs
+
 private:
+	
 	class FSavedMove_Saiyora : public FSavedMove_Character
 	{
 	public:
@@ -35,6 +43,7 @@ private:
 		FNetworkPredictionData_Client_Saiyora(const UCharacterMovementComponent& ClientMovement);
 		virtual FSavedMovePtr AllocateNewMove() override;
 	};
+	virtual FNetworkPredictionData_Client* GetPredictionData_Client() const override;
 
 	struct FSaiyoraNetworkMoveData : public FCharacterNetworkMoveData
 	{
@@ -51,34 +60,104 @@ private:
 		FSaiyoraNetworkMoveData CustomDefaultMoveData[3];
 	};
 
-	static const float MaxPingDelay;
-	
+//Setup
+
 public:
+	
 	USaiyoraMovementComponent(const FObjectInitializer& ObjectInitializer);
-	UPlayerAbilityHandler* GetOwnerAbilityHandler() const { return OwnerAbilityHandler; }
-	ASaiyoraGameState* GetGameStateRef() const { return GameStateRef; }
 	virtual bool ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
-private:
-	virtual void UpdateFromCompressedFlags(uint8 Flags) override;
-	virtual FNetworkPredictionData_Client* GetPredictionData_Client() const override;
-	virtual void OnMovementUpdated(float DeltaSeconds, const FVector& OldLocation, const FVector& OldVelocity) override;
 	virtual void InitializeComponent() override;
 	virtual void BeginPlay() override;
-	virtual void MoveAutonomous(float ClientTimeStamp, float DeltaTime, uint8 CompressedFlags, const FVector& NewAccel) override;
-	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
-
-	FSaiyoraNetworkMoveDataContainer CustomNetworkMoveDataContainer;
+	
+	UAbilityComponent* GetOwnerAbilityHandler() const { return OwnerAbilityHandler; }
+	AGameState* GetGameStateRef() const { return GameStateRef; }
+	
+private:
+	
 	UPROPERTY()
-	UPlayerAbilityHandler* OwnerAbilityHandler = nullptr;
+	UAbilityComponent* OwnerAbilityHandler = nullptr;
 	UPROPERTY()
-	class UCrowdControlHandler* OwnerCcHandler = nullptr;
+	UCrowdControlHandler* OwnerCcHandler = nullptr;
 	UPROPERTY()
-	class UDamageHandler* OwnerDamageHandler = nullptr;
+	UDamageHandler* OwnerDamageHandler = nullptr;
 	UPROPERTY()
 	UStatHandler* OwnerStatHandler = nullptr;
 	UPROPERTY()
-	ASaiyoraGameState* GameStateRef = nullptr;
+	AGameState* GameStateRef = nullptr;
+
+//Core Movement
+
+public:
+
+	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+
+private:
+
+	static const float MaxPingDelay;
+	FSaiyoraNetworkMoveDataContainer CustomNetworkMoveDataContainer;
+	uint8 bWantsCustomMove : 1;
+	//Client-side move struct, used for replaying the move without access to the original ability.
+	FClientPendingCustomMove PendingCustomMove;
+	//Ability request received by the server, used to activate an ability resulting in a custom move.
+	FAbilityRequest CustomMoveAbilityRequest;
+	TMap<int32, bool> CompletedCastStatus;
+	TSet<int32> ServerCompletedMovementIDs;
+	TArray<UObject*> CurrentTickServerCustomMoveSources;
+	virtual void MoveAutonomous(float ClientTimeStamp, float DeltaTime, uint8 CompressedFlags, const FVector& NewAccel) override;
+	bool ApplyCustomMove(FCustomMoveParams const& CustomMove, UObject* Source);
+	void SetupCustomMovementPrediction(UCombatAbility* Source, FCustomMoveParams const& CustomMove);
+	FAbilityCallback OnPredictedAbility;
+	UFUNCTION()
+	void OnCustomMoveCastPredicted(FAbilityEvent const& Event);
+	virtual void UpdateFromCompressedFlags(uint8 Flags) override;
+	UFUNCTION(NetMulticast, Unreliable)
+	void Multicast_ExecuteCustomMove(FCustomMoveParams const& CustomMove);
+	UFUNCTION(NetMulticast, Unreliable)
+	void Multicast_ExecuteCustomMoveNoOwner(FCustomMoveParams const& CustomMove);
+	UFUNCTION(Client, Unreliable)
+	void Client_ExecuteCustomMove(FCustomMoveParams const& CustomMove);
+	UFUNCTION()
+	void DelayedCustomMoveExecution(FCustomMoveParams CustomMove);
+	virtual void OnMovementUpdated(float DeltaSeconds, const FVector& OldLocation, const FVector& OldVelocity) override;
+	void CustomMoveFromFlag();
+	void ExecuteCustomMove(FCustomMoveParams const& CustomMove);
+	FAbilityMispredictionCallback OnMispredict;
+	UFUNCTION()
+	void AbilityMispredicted(int32 const PredictionID);
+
+//Custom Moves
+	
+public:
+	
+	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf="Source", HidePin="Source"))
+	bool TeleportToLocation(UObject* Source, FVector const& Target, FRotator const& DesiredRotation, bool const bStopMovement, bool const bIgnoreRestrictions);
+	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf="Source", HidePin="Source"))
+	bool LaunchPlayer(UObject* Source, FVector const& LaunchVector, bool const bStopMovement, bool const bIgnoreRestrictions);
+	
+private:
+	
+	void ExecuteTeleportToLocation(FCustomMoveParams const& CustomMove);
+	void ExecuteLaunchPlayer(FCustomMoveParams const& CustomMove);
+
+//Restrictions
+	
+public:
+	
+	UFUNCTION(BlueprintCallable, Category = "Movement")
+	void AddExternalMovementRestriction(FExternalMovementRestriction const& Restriction);
+	UFUNCTION(BlueprintCallable, Category = "Movement")
+	void RemoveExternalMovementRestriction(FExternalMovementRestriction const& Restriction);
+	
+private:
+	
+	bool CheckExternalMoveRestricted(UObject* Source, ESaiyoraCustomMove const MoveType);
+	TArray<FExternalMovementRestriction> MovementRestrictions;
+	virtual bool CanAttemptJump() const override;
+	virtual bool CanCrouchInCurrentState() const override;
+	virtual FVector ConsumeInputVector() override;
+	virtual float GetMaxAcceleration() const override;
+	virtual float GetMaxSpeed() const override;
 	FLifeStatusCallback OnDeath;
 	UFUNCTION()
 	void StopMotionOnOwnerDeath(AActor* Target, ELifeStatus const Previous, ELifeStatus const New);
@@ -86,8 +165,10 @@ private:
 	UFUNCTION()
 	void StopMotionOnRooted(FCrowdControlStatus const& Previous, FCrowdControlStatus const& New);
 
-	//Stats
+//Stats
+	
 public:
+	
 	static FGameplayTag MaxWalkSpeedStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.MaxWalkSpeed")), false); }
 	static FGameplayTag MaxCrouchSpeedStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.MaxCrouchSpeed")), false); }
 	static FGameplayTag GroundFrictionStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.GroundFriction")), false); }
@@ -96,7 +177,9 @@ public:
 	static FGameplayTag GravityScaleStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.GravityScale")), false); }
 	static FGameplayTag JumpZVelocityStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.JumpZVelocity")), false); }
 	static FGameplayTag AirControlStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.AirControl")), false); }
+	
 private:
+	
 	float DefaultMaxWalkSpeed = 0.0f;
 	UFUNCTION()
 	void OnMaxWalkSpeedStatChanged(FGameplayTag const& StatTag, float const NewValue);
@@ -122,48 +205,10 @@ private:
 	UFUNCTION()
 	void OnAirControlStatChanged(FGameplayTag const& StatTag, float const NewValue);
 
-	//Custom Movement
-
-	bool ApplyCustomMove(FCustomMoveParams const& CustomMove, UObject* Source);
-	void ExecuteCustomMove(FCustomMoveParams const& CustomMove);
-	UFUNCTION()
-	void DelayedCustomMoveExecution(FCustomMoveParams CustomMove);
-	UFUNCTION(NetMulticast, Unreliable)
-	void Multicast_ExecuteCustomMove(FCustomMoveParams const& CustomMove);
-	UFUNCTION(NetMulticast, Unreliable)
-	void Multicast_ExecuteCustomMoveNoOwner(FCustomMoveParams const& CustomMove);
-	UFUNCTION(Client, Unreliable)
-	void Client_ExecuteCustomMove(FCustomMoveParams const& CustomMove);
-	void SetupCustomMovementPrediction(UPlayerCombatAbility* Source, FCustomMoveParams const& CustomMove);
-	FAbilityCallback OnPredictedAbility;
-	UFUNCTION()
-	void OnCustomMoveCastPredicted(FAbilityEvent const& Event);
-	void CustomMoveFromFlag();
-	FAbilityMispredictionCallback OnMispredict;
-	UFUNCTION()
-	void AbilityMispredicted(int32 const PredictionID, ECastFailReason const FailReason);
-	TMap<int32, bool> CompletedCastStatus;
-	TSet<int32> ServerCompletedMovementIDs;
-	TArray<UObject*> CurrentTickServerCustomMoveSources;
-	uint8 bWantsCustomMove : 1;
-	//Client-side move struct, used for replaying the move without access to the original ability.
-	FClientPendingCustomMove PendingCustomMove;
-	//Ability request received by the server, used to activate an ability resulting in a custom move.
-	FAbilityRequest CustomMoveAbilityRequest;
+//Root Motion Sources
 	
 public:
-	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf="Source", HidePin="Source"))
-	bool TeleportToLocation(UObject* Source, FVector const& Target, FRotator const& DesiredRotation, bool const bStopMovement, bool const bIgnoreRestrictions);
-private:
-	void ExecuteTeleportToLocation(FCustomMoveParams const& CustomMove);
-public:
-	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf="Source", HidePin="Source"))
-	bool LaunchPlayer(UPlayerCombatAbility* Source, FVector const& LaunchVector, bool const bStopMovement, bool const bIgnoreRestrictions);
-private:
-	void ExecuteLaunchPlayer(FCustomMoveParams const& CustomMove);
-
-	//Root Motion Sources
-public:
+	
 	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf = "Source", HidePin = "Source"))
 	void ApplyJumpForce(UObject* Source, ERootMotionAccumulateMode const AccumulateMode, int32 const Priority, float const Duration, FRotator const& Rotation,
 		float const Distance, float const Height, bool const bFinishOnLanded, UCurveVector* PathOffsetCurve, UCurveFloat* TimeMappingCurve, bool const bIgnoreRestrictions);
@@ -173,31 +218,18 @@ public:
 	
 	void RemoveRootMotionHandler(USaiyoraRootMotionHandler* Handler);
 	void AddRootMotionHandlerFromReplication(USaiyoraRootMotionHandler* Handler);
+	
 private:
-	UFUNCTION()
-	void DelayedHandlerApplication(USaiyoraRootMotionHandler* Handler);
-	UPROPERTY()
-	TArray<UObject*> CurrentTickServerRootMotionSources;
-	bool ApplyCustomRootMotionHandler(USaiyoraRootMotionHandler* Handler, UObject* Source);
+	
 	UPROPERTY()
 	TArray<USaiyoraRootMotionHandler*> CurrentRootMotionHandlers;
 	UPROPERTY()
 	TArray<USaiyoraRootMotionHandler*> ReplicatedRootMotionHandlers;
 	UPROPERTY()
 	TArray<USaiyoraRootMotionHandler*> HandlersAwaitingPingDelay;
-	
-	//Restrictions
-public:
-	UFUNCTION(BlueprintCallable, Category = "Movement")
-	void AddExternalMovementRestriction(FExternalMovementCondition const& Restriction);
-	UFUNCTION(BlueprintCallable, Category = "Movement")
-	void RemoveExternalMovementRestriction(FExternalMovementCondition const& Restriction);
-private:
-	bool CheckExternalMoveRestricted(UObject* Source, ESaiyoraCustomMove const MoveType);
-	TArray<FExternalMovementCondition> MovementRestrictions;
-	virtual bool CanAttemptJump() const override;
-	virtual bool CanCrouchInCurrentState() const override;
-	virtual FVector ConsumeInputVector() override;
-	virtual float GetMaxAcceleration() const override;
-	virtual float GetMaxSpeed() const override;
+	UPROPERTY()
+	TArray<UObject*> CurrentTickServerRootMotionSources;
+	bool ApplyCustomRootMotionHandler(USaiyoraRootMotionHandler* Handler, UObject* Source);
+	UFUNCTION()
+	void DelayedHandlerApplication(USaiyoraRootMotionHandler* Handler);
 };

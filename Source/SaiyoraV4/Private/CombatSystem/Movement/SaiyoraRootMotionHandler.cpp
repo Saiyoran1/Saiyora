@@ -1,10 +1,9 @@
 ﻿#include "SaiyoraRootMotionHandler.h"
-#include "PlayerCombatAbility.h"
 #include "SaiyoraMovementComponent.h"
 #include "UnrealNetwork.h"
 #include "GameFramework/Character.h"
 
-void USaiyoraRootMotionHandler::OnMispredicted(int32 const PredictionID, ECastFailReason const FailReason)
+void USaiyoraRootMotionHandler::OnMispredicted(int32 const PredictionID)
 {
 	if (SourcePredictionID != 0 && PredictionID == SourcePredictionID)
 	{

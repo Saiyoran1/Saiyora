@@ -123,6 +123,11 @@ void UResource::OnRep_Deactivated()
 #pragma endregion
 #pragma region State
 
+float UResource::GetCurrentValue() const
+{
+    return Handler->GetOwnerRole() == ROLE_AutonomousProxy ? PredictedResourceValue : ResourceState.CurrentValue;
+}
+
 void UResource::ModifyResource(UObject* Source, float const Amount, bool const bIgnoreModifiers)
 {
     if (GetHandler()->GetOwnerRole() != ROLE_Authority || !bInitialized || bDeactivated)

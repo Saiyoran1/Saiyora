@@ -14,7 +14,7 @@ class SAIYORAV4_API USaiyoraRootMotionHandler : public UObject
 private:
 	FAbilityMispredictionCallback MispredictionCallback;
 	UFUNCTION()
-	void OnMispredicted(int32 const PredictionID, ECastFailReason const FailReason);
+	void OnMispredicted(int32 const PredictionID);
 	bool bInitialized = false;
 	UPROPERTY(ReplicatedUsing=OnRep_Finished)
 	bool bFinished = false;

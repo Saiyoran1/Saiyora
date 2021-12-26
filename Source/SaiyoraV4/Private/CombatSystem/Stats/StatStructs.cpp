@@ -29,6 +29,11 @@ FCombatStat::FCombatStat(FStatInfo const& InitInfo)
 	bInitialized = true;
 }
 
+FCombatStat::FCombatStat()
+{
+	//Needs to exist to prevent compile errors.
+}
+
 void FCombatStat::AddModifier(FCombatModifier const& Modifier)
 {
 	if (!Defaults.bModifiable || !IsValid(Modifier.Source))

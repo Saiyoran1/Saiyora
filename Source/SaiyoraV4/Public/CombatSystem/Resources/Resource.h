@@ -4,10 +4,10 @@
 #include "GameplayTagContainer.h"
 #include "StatStructs.h"
 #include "Styling/SlateBrush.h"
-#include "ResourceHandler.h"
 #include "Resource.generated.h"
 
 class UCombatAbility;
+class UResourceHandler;
 class UStatHandler;
 
 UCLASS(Blueprintable, Abstract)
@@ -88,7 +88,7 @@ private:
 public:
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resource")
-	float GetCurrentValue() const { return Handler->GetOwnerRole() == ROLE_AutonomousProxy ? PredictedResourceValue : ResourceState.CurrentValue; }
+	float GetCurrentValue() const;
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resource")
 	float GetMinimum() const { return ResourceState.Minimum; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resource")

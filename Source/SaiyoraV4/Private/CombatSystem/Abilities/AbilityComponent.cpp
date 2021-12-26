@@ -6,6 +6,7 @@
 #include "DamageHandler.h"
 #include "SaiyoraCombatInterface.h"
 #include "StatHandler.h"
+#include "ResourceHandler.h"
 #include "UnrealNetwork.h"
 #include "Engine/ActorChannel.h"
 #include "GameFramework/GameState.h"
@@ -1098,7 +1099,7 @@ void UAbilityComponent::RemoveGlobalCooldownModifier(FAbilityModCondition const&
 	}
 }
 
-FCombatModifier UAbilityComponent::ModifyGlobalCooldownFromStat(UCombatAbility const* Ability)
+FCombatModifier UAbilityComponent::ModifyGlobalCooldownFromStat(UCombatAbility* Ability)
 {
 	if (IsValid(StatHandlerRef) && StatHandlerRef->IsStatValid(GlobalCooldownLengthStatTag()))
 	{
@@ -1107,7 +1108,7 @@ FCombatModifier UAbilityComponent::ModifyGlobalCooldownFromStat(UCombatAbility c
 	return FCombatModifier::InvalidMod;
 }
 
-float UAbilityComponent::CalculateGlobalCooldownLength(UCombatAbility const* Ability, bool const bWithPingComp) const
+float UAbilityComponent::CalculateGlobalCooldownLength(UCombatAbility* Ability, bool const bWithPingComp) const
 {
 	if (!IsValid(Ability) || !Ability->HasGlobalCooldown())
 	{
@@ -1145,7 +1146,7 @@ void UAbilityComponent::RemoveCastLengthModifier(FAbilityModCondition const& Mod
 	}
 }
 
-FCombatModifier UAbilityComponent::ModifyCastLengthFromStat(UCombatAbility const* Ability)
+FCombatModifier UAbilityComponent::ModifyCastLengthFromStat(UCombatAbility* Ability)
 {
 	if (IsValid(StatHandlerRef) && StatHandlerRef->IsStatValid(CastLengthStatTag()))
 	{
@@ -1154,7 +1155,7 @@ FCombatModifier UAbilityComponent::ModifyCastLengthFromStat(UCombatAbility const
 	return FCombatModifier::InvalidMod;
 }
 
-float UAbilityComponent::CalculateCastLength(UCombatAbility const* Ability, bool const bWithPingComp) const
+float UAbilityComponent::CalculateCastLength(UCombatAbility* Ability, bool const bWithPingComp) const
 {
 	if (!IsValid(Ability) || Ability->GetCastType() != EAbilityCastType::Channel)
 	{
@@ -1192,7 +1193,7 @@ void UAbilityComponent::RemoveCooldownModifier(FAbilityModCondition const& Modif
 	}
 }
 
-FCombatModifier UAbilityComponent::ModifyCooldownFromStat(UCombatAbility const* Ability)
+FCombatModifier UAbilityComponent::ModifyCooldownFromStat(UCombatAbility* Ability)
 {
 	if (IsValid(StatHandlerRef) && StatHandlerRef->IsStatValid(CooldownLengthStatTag()))
 	{
@@ -1201,7 +1202,7 @@ FCombatModifier UAbilityComponent::ModifyCooldownFromStat(UCombatAbility const* 
 	return FCombatModifier::InvalidMod;
 }
 
-float UAbilityComponent::CalculateCooldownLength(UCombatAbility const* Ability, bool const bWithPingComp) const
+float UAbilityComponent::CalculateCooldownLength(UCombatAbility* Ability, bool const bWithPingComp) const
 {
 	if (!IsValid(Ability))
 	{
@@ -1307,7 +1308,7 @@ void UAbilityComponent::RemoveAbilityAcquisitionRestriction(FAbilityClassRestric
 
 void UAbilityComponent::AddAbilityTagRestriction(UBuff* Source, FGameplayTag const Tag)
 {
-	if (!IsValid(Source) || !Tag.IsValid() || !Tag.MatchesTag(AbilityRestrictionTag()) || Tag.MatchesTagExact(AbilityRestrictionTag()))
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(Source) || !Tag.IsValid() || !Tag.MatchesTag(AbilityRestrictionTag()) || Tag.MatchesTagExact(AbilityRestrictionTag()))
 	{
 		return;
 	}
@@ -1327,7 +1328,7 @@ void UAbilityComponent::AddAbilityTagRestriction(UBuff* Source, FGameplayTag con
 
 void UAbilityComponent::RemoveAbilityTagRestriction(UBuff* Source, FGameplayTag const Tag)
 {
-	if (!IsValid(Source) || !Tag.IsValid() || !Tag.MatchesTag(AbilityRestrictionTag()) || Tag.MatchesTagExact(AbilityRestrictionTag()))
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(Source) || !Tag.IsValid() || !Tag.MatchesTag(AbilityRestrictionTag()) || Tag.MatchesTagExact(AbilityRestrictionTag()))
 	{
 		return;
 	}
@@ -1345,11 +1346,11 @@ void UAbilityComponent::RemoveAbilityTagRestriction(UBuff* Source, FGameplayTag 
 
 void UAbilityComponent::AddAbilityClassRestriction(UBuff* Source, TSubclassOf<UCombatAbility> const Class)
 {
-	if (!IsValid(Source) || !IsValid(Class))
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(Source) || !IsValid(Class))
 	{
 		return;
 	}
-	bool const bAlreadyRestricted = AbilityUsageClassRestrictions.Num(Class);
+	bool const bAlreadyRestricted = AbilityUsageClassRestrictions.Num(Class) > 0;
 	AbilityUsageClassRestrictions.AddUnique(Class, Source);
 	if (!bAlreadyRestricted)
 	{
@@ -1365,7 +1366,7 @@ void UAbilityComponent::AddAbilityClassRestriction(UBuff* Source, TSubclassOf<UC
 
 void UAbilityComponent::RemoveAbilityClassRestriction(UBuff* Source, TSubclassOf<UCombatAbility> const Class)
 {
-	if (!IsValid(Source) || !IsValid(Class))
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(Source) || !IsValid(Class))
 	{
 		return;
 	}

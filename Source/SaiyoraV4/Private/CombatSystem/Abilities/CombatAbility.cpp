@@ -1,6 +1,7 @@
 #include "CombatAbility.h"
 #include "AbilityComponent.h"
 #include "Buff.h"
+#include "Resource.h"
 #include "ResourceHandler.h"
 #include "SaiyoraCombatLibrary.h"
 #include "UnrealNetwork.h"
@@ -23,6 +24,10 @@ void UCombatAbility::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& Out
     DOREPLIFETIME(UCombatAbility, OwningComponent);
     DOREPLIFETIME(UCombatAbility, bDeactivated);
     DOREPLIFETIME_CONDITION(UCombatAbility, AbilityCooldown, COND_OwnerOnly);
+    DOREPLIFETIME_CONDITION(UCombatAbility, bClassRestricted, COND_OwnerOnly);
+    DOREPLIFETIME_CONDITION(UCombatAbility, bTagsRestricted, COND_OwnerOnly);
+    DOREPLIFETIME_CONDITION(UCombatAbility, ChargeCost, COND_OwnerOnly);
+    DOREPLIFETIME_CONDITION(UCombatAbility, AbilityCosts, COND_OwnerOnly);
 }
 
 void UCombatAbility::PostNetReceive()
@@ -33,6 +38,11 @@ void UCombatAbility::PostNetReceive()
     }
     if (IsValid(OwningComponent))
     {
+        OnResourceChanged.BindDynamic(this, &UCombatAbility::CheckResourceCostOnResourceChanged);
+        SetupCustomCastRestrictions();
+        UpdateCastable();
+        PreInitializeAbility();
+        bInitialized = true;
         OwningComponent->NotifyOfReplicatedAbility(this);
     }
 }
@@ -48,6 +58,7 @@ void UCombatAbility::InitializeAbility(UAbilityComponent* AbilityComponent)
     AbilityCooldown.CurrentCharges = AbilityCooldown.MaxCharges;
     ChargesPerCooldown = FMath::Max(0, DefaultChargesPerCooldown);
     ChargeCost = FMath::Max(0, DefaultChargeCost);
+    AbilityCosts.OwningAbility = this;
     OnResourceChanged.BindDynamic(this, &UCombatAbility::CheckResourceCostOnResourceChanged);
     for (FDefaultAbilityCost const& DefaultCost : DefaultAbilityCosts)
     {
@@ -220,7 +231,7 @@ void UCombatAbility::CommitCharges(int32 const PredictionID)
 void UCombatAbility::StartCooldown(bool const bUseLagCompensation)
 {
     float const CooldownLength = OwningComponent->CalculateCooldownLength(this, bUseLagCompensation);
-    GetWorld()->GetTimerManager().SetTimer(CooldownHandle, this, &UCombatAbility::CompleteCooldown, OwningComponent->CalculateCooldownLength(this, CooldownLength), false);
+    GetWorld()->GetTimerManager().SetTimer(CooldownHandle, this, &UCombatAbility::CompleteCooldown, CooldownLength, false);
     AbilityCooldown.OnCooldown = true;
     AbilityCooldown.CooldownStartTime = OwningComponent->GetGameStateRef()->GetServerWorldTimeSeconds();
     AbilityCooldown.CooldownEndTime = AbilityCooldown.CooldownStartTime + CooldownLength;
@@ -304,6 +315,11 @@ void UCombatAbility::RecalculatePredictedCooldown()
         }
         OnChargesChanged.Broadcast(this, PreviousCharges, ClientCooldown.CurrentCharges);
     }
+}
+
+void UCombatAbility::OnRep_ChargeCost()
+{
+    UpdateCastable();
 }
 
 #pragma endregion
@@ -412,6 +428,42 @@ void UCombatAbility::CheckResourceCostOnResourceChanged(UResource* Resource, UOb
         {
             int32 const PreviousUnmet = UnmetCosts.Num();
             UnmetCosts.Add(Resource->GetClass());
+            if (PreviousUnmet == 0 && UnmetCosts.Num() > 0)
+            {
+                UpdateCastable();
+            }
+        }
+    }
+}
+
+void UCombatAbility::UpdateCostFromReplication(FAbilityCost const& Cost, bool const bNewAdd)
+{
+    if (IsValid(Cost.ResourceClass) && IsValid(OwningComponent))
+    {
+        bool bCostMet = false;
+        if (IsValid(OwningComponent->GetResourceHandlerRef()))
+        {
+            UResource* Resource = OwningComponent->GetResourceHandlerRef()->FindActiveResource(Cost.ResourceClass);
+            if (IsValid(Resource))
+            {
+                bCostMet = Resource->GetCurrentValue() >= Cost.Cost;
+                if (bNewAdd)
+                {
+                    Resource->SubscribeToResourceChanged(OnResourceChanged);
+                }
+            }
+        }
+        if (bCostMet)
+        {
+            if (UnmetCosts.Remove(Cost.ResourceClass) > 0 && UnmetCosts.Num() == 0)
+            {
+                UpdateCastable();
+            }
+        }
+        else
+        {
+            int32 const PreviousUnmet = UnmetCosts.Num();
+            UnmetCosts.Add(Cost.ResourceClass);
             if (PreviousUnmet == 0 && UnmetCosts.Num() > 0)
             {
                 UpdateCastable();
@@ -769,7 +821,7 @@ void UCombatAbility::UpdateCastable()
     {
         Castable = ECastFailReason::AbilityConditionsNotMet;
     }
-    else if (RestrictedTags.Num() > 0 || bClassRestricted)
+    else if (bTagsRestricted || bClassRestricted)
     {
         Castable = ECastFailReason::CustomRestriction;
     }
@@ -803,10 +855,10 @@ void UCombatAbility::AddRestrictedTag(FGameplayTag const RestrictedTag)
     {
         return;
     }
-    int32 const PreviousRestrictions = RestrictedTags.Num();
     RestrictedTags.Add(RestrictedTag);
-    if (PreviousRestrictions == 0 && RestrictedTags.Num() > 0)
+    if (!bTagsRestricted && RestrictedTags.Num() > 0)
     {
+        bTagsRestricted = true;
         UpdateCastable();
     }
 }
@@ -817,10 +869,10 @@ void UCombatAbility::RemoveRestrictedTag(FGameplayTag const RestrictedTag)
     {
         return;
     }
-    int32 const PreviousRestrictions = RestrictedTags.Num();
     RestrictedTags.Remove(RestrictedTag);
-    if (PreviousRestrictions > 0 && RestrictedTags.Num() == 0)
+    if (bTagsRestricted && RestrictedTags.Num() == 0)
     {
+        bTagsRestricted = false;
         UpdateCastable();
     }
 }

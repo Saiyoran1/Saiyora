@@ -37,6 +37,7 @@ struct FCombatStat : public FFastArraySerializerItem
     GENERATED_BODY()
 
     FCombatStat(FStatInfo const& InitInfo);
+    FCombatStat();
     void SubscribeToStatChanged(FStatCallback const& Callback);
     void UnsubscribeFromStatChanged(FStatCallback const& Callback);
     void AddModifier(FCombatModifier const& Modifier);

@@ -255,7 +255,7 @@ void UStatHandler::UnsubscribeFromStatChanged(FGameplayTag const StatTag, FStatC
 
 void UStatHandler::AddStatModifier(UBuff* Source, FGameplayTag const StatTag, FCombatModifier const& Modifier)
 {
-	if (GetOwnerRole() != ROLE_Authority || Modifier.Type() == EModifierType::Invalid ||
+	if (GetOwnerRole() != ROLE_Authority || Modifier.Type == EModifierType::Invalid ||
 		!StatTag.IsValid() || !StatTag.MatchesTag(GenericStatTag()) || StatTag.MatchesTagExact(GenericStatTag()) ||
 		!IsValid(Source) || Source->GetAppliedTo() != GetOwner())
 	{

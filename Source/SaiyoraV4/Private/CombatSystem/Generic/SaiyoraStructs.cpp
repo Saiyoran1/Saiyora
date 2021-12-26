@@ -3,12 +3,18 @@
 
 const FCombatModifier FCombatModifier::InvalidMod(0.0f, EModifierType::Invalid);
 
-FCombatModifier::FCombatModifier(float const BaseValue, EModifierType const ModifierType, bool const Stackable, int32 const InitialStacks)
+FCombatModifier::FCombatModifier()
+{
+    //Needs to exist to prevent compile errors.
+}
+
+FCombatModifier::FCombatModifier(float const BaseValue, EModifierType const ModifierType, UBuff* SourceBuff, bool const Stackable)
 {
     Value = BaseValue;
     Type = ModifierType;
-    bStackable = Stackable;
-    Stacks = InitialStacks;
+    Source = SourceBuff;
+    bStackable = IsValid(Source) && Source->IsStackable() && Stackable;
+    Stacks = Source->GetCurrentStacks();
 }
 
 float FCombatModifier::ApplyModifiers(TArray<FCombatModifier> const& ModArray, float const BaseValue)

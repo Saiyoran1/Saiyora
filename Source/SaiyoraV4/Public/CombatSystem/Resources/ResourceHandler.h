@@ -1,16 +1,13 @@
 #pragma once
 #include "CoreMinimal.h"
-
-#include "AbilityStructs.h"
-#include "AbilityStructs.h"
 #include "Components/ActorComponent.h"
 #include "ResourceStructs.h"
+#include "Resource.h"
+#include "AbilityStructs.h"
 #include "ResourceHandler.generated.h"
 
-struct FFinalAbilityCost;
 class UCombatAbility;
 class UStatHandler;
-class UResource;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class SAIYORAV4_API UResourceHandler : public UActorComponent

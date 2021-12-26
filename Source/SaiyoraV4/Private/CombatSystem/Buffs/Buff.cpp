@@ -3,7 +3,6 @@
 #include "UnrealNetwork.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "BuffHandler.h"
-#include "PlayerCombatAbility.h"
 #include "SaiyoraCombatInterface.h"
 #include "GameFramework/GameStateBase.h"
 
