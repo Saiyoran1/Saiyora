@@ -1105,7 +1105,7 @@ FCombatModifier UAbilityComponent::ModifyGlobalCooldownFromStat(UCombatAbility* 
 	{
 		return FCombatModifier(StatHandlerRef->GetStatValue(GlobalCooldownLengthStatTag()), EModifierType::Multiplicative);
 	}
-	return FCombatModifier::InvalidMod;
+	return FCombatModifier(0.0f, EModifierType::Invalid);
 }
 
 float UAbilityComponent::CalculateGlobalCooldownLength(UCombatAbility* Ability, bool const bWithPingComp) const
@@ -1152,7 +1152,7 @@ FCombatModifier UAbilityComponent::ModifyCastLengthFromStat(UCombatAbility* Abil
 	{
 		return FCombatModifier(StatHandlerRef->GetStatValue(CastLengthStatTag()), EModifierType::Multiplicative);
 	}
-	return FCombatModifier::InvalidMod;
+	return FCombatModifier(0.0f, EModifierType::Invalid);
 }
 
 float UAbilityComponent::CalculateCastLength(UCombatAbility* Ability, bool const bWithPingComp) const
@@ -1199,7 +1199,7 @@ FCombatModifier UAbilityComponent::ModifyCooldownFromStat(UCombatAbility* Abilit
 	{
 		return FCombatModifier(StatHandlerRef->GetStatValue(CooldownLengthStatTag()), EModifierType::Multiplicative);
 	}
-	return FCombatModifier::InvalidMod;
+	return FCombatModifier(0.0f, EModifierType::Invalid);
 }
 
 float UAbilityComponent::CalculateCooldownLength(UCombatAbility* Ability, bool const bWithPingComp) const

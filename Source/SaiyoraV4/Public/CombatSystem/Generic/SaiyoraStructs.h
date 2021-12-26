@@ -3,9 +3,6 @@
 #include "SaiyoraEnums.h"
 #include "SaiyoraStructs.generated.h"
 
-DECLARE_DYNAMIC_DELEGATE(FGenericCallback);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FGenericNotification);
-
 USTRUCT(BlueprintType)
 struct FCombatModifier
 {
@@ -13,7 +10,6 @@ struct FCombatModifier
 
     static float ApplyModifiers(TArray<FCombatModifier> const& ModArray, float const BaseValue);
     static int32 ApplyModifiers(TArray<FCombatModifier> const& ModArray, int32 const BaseValue);
-    static const FCombatModifier InvalidMod;
     FCombatModifier();
     FCombatModifier(float const BaseValue, EModifierType const ModifierType, class UBuff* SourceBuff = nullptr, bool const Stackable = false);
     UPROPERTY()
@@ -26,15 +22,9 @@ struct FCombatModifier
     UBuff* Source = nullptr;
     UPROPERTY()
     int32 Stacks = 0;
+
+    FORCEINLINE bool operator==(FCombatModifier const& Other) const { return Other.Type == Type && Other.Source == Source && Other.Value == Value; }
 };
-
-DECLARE_DYNAMIC_DELEGATE_RetVal_TwoParams(float, FFloatValueRecalculation, TArray<FCombatModifier>const&, Modifiers, float const, BaseValue);
-DECLARE_DYNAMIC_DELEGATE_ThreeParams(FFloatValueCallback, float const, Previous, float const, New, int32 const, PredictionID);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FFloatValueNotification, float const, Previous, float const, New, int32 const, PredictionID);
-
-DECLARE_DYNAMIC_DELEGATE_RetVal_TwoParams(int32, FIntValueRecalculation, TArray<FCombatModifier>const&, Modifiers, int32 const, BaseValue);
-DECLARE_DYNAMIC_DELEGATE_ThreeParams(FIntValueCallback, int32 const, Previous, int32 const, New, int32 const, PredictionID);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FIntValueNotification, int32 const, Previous, int32 const, New, int32 const, PredictionID);
 
 USTRUCT(BlueprintType)
 struct FCombatParameter

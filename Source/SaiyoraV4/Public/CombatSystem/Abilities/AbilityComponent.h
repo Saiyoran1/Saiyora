@@ -5,7 +5,7 @@
 #include "DamageStructs.h"
 #include "GameplayTagsManager.h"
 #include "GameFramework/GameState.h"
-
+#include "CombatAbility.h"
 #include "AbilityComponent.generated.h"
 
 class UCrowdControlHandler;
@@ -13,6 +13,66 @@ class UDamageHandler;
 class UStatHandler;
 class UResourceHandler;
 class AGameState;
+
+USTRUCT()
+struct FAbilityRequest
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	TSubclassOf<class UCombatAbility> AbilityClass;
+	UPROPERTY()
+	int32 PredictionID = 0;
+	UPROPERTY()
+	int32 Tick = 0;
+	UPROPERTY()
+	float ClientStartTime = 0.0f;
+	UPROPERTY()
+	FCombatParameters PredictionParams;
+
+	friend FArchive& operator<<(FArchive& Ar, FAbilityRequest& Request)
+	{
+		Ar << Request.AbilityClass;
+		Ar << Request.PredictionID;
+		Ar << Request.Tick;
+		Ar << Request.ClientStartTime;
+		Ar << Request.PredictionParams;
+		return Ar;
+	}
+
+	void Clear() { AbilityClass = nullptr; PredictionID = 0; Tick = 0; ClientStartTime = 0.0f; PredictionParams = FCombatParameters(); }
+};
+
+USTRUCT()
+struct FServerAbilityResult
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	bool bSuccess = false;
+	UPROPERTY()
+	ECastFailReason FailReason = ECastFailReason::None;
+	UPROPERTY()
+	int32 PredictionID = 0;
+	UPROPERTY()
+	TSubclassOf<class UCombatAbility> AbilityClass;
+	UPROPERTY()
+	float ClientStartTime = 0.0f;
+	UPROPERTY()
+	bool bActivatedGlobal = false;
+	UPROPERTY()
+	float GlobalLength = 0.0f;
+	UPROPERTY()
+	int32 ChargesSpent = 0;
+	UPROPERTY()
+	bool bActivatedCastBar = false;
+	UPROPERTY()
+	float CastLength = 0.0f;
+	UPROPERTY()
+	bool bInterruptible = false;
+	UPROPERTY()
+	TArray<FAbilityCost> AbilityCosts;
+};
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class SAIYORAV4_API UAbilityComponent : public UActorComponent
@@ -200,6 +260,8 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
 	bool IsCasting() const { return CastingState.bIsCasting; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+	UCombatAbility* GetCurrentCast() const { return CastingState.CurrentCast; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
 	bool IsInterruptible() const { return CastingState.bIsCasting && CastingState.bInterruptible; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")

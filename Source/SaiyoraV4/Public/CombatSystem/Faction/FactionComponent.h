@@ -20,6 +20,7 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Faction")
 	EFaction DefaultFaction = EFaction::None;
+	bool bIsLocalPlayer = false;
 
 	UPROPERTY()
 	TArray<UMeshComponent*> OwnerMeshes;

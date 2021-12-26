@@ -6,9 +6,9 @@
 #include "MovementStructs.h"
 #include "SaiyoraRootMotionHandler.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "AbilityComponent.h"
 #include "SaiyoraMovementComponent.generated.h"
 
-class UAbilityComponent;
 class UCrowdControlHandler;
 class UDamageHandler;
 class AGameState;

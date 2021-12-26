@@ -729,7 +729,7 @@ FCombatModifier UDamageHandler::ModifyDamageDoneFromStat(FDamageInfo const& Dama
 	{
 		return FCombatModifier(StatHandler->GetStatValue(DamageDoneStatTag()), EModifierType::Multiplicative);
 	}
-	return FCombatModifier::InvalidMod;
+	return FCombatModifier(0.0f, EModifierType::Invalid);
 }
 
 float UDamageHandler::GetModifiedOutgoingDamage(FDamageInfo const& DamageInfo, FDamageModCondition const& SourceMod) const
@@ -771,7 +771,7 @@ FCombatModifier UDamageHandler::ModifyHealingDoneFromStat(FDamageInfo const& Hea
 	{
 		return FCombatModifier(StatHandler->GetStatValue(HealingDoneStatTag()), EModifierType::Multiplicative);
 	}
-	return FCombatModifier::InvalidMod;
+	return FCombatModifier(0.0f, EModifierType::Invalid);
 }
 
 float UDamageHandler::GetModifiedOutgoingHealing(FDamageInfo const& HealingInfo, FDamageModCondition const& SourceMod) const
@@ -813,7 +813,7 @@ FCombatModifier UDamageHandler::ModifyDamageTakenFromStat(FDamageInfo const& Dam
 	{
 		return FCombatModifier(StatHandler->GetStatValue(DamageTakenStatTag()), EModifierType::Multiplicative);
 	}
-	return FCombatModifier::InvalidMod;
+	return FCombatModifier(0.0f, EModifierType::Invalid);
 }
 
 float UDamageHandler::GetModifiedIncomingDamage(FDamageInfo const& DamageInfo) const
@@ -851,7 +851,7 @@ FCombatModifier UDamageHandler::ModifyHealingTakenFromStat(FDamageInfo const& He
 	{
 		return FCombatModifier(StatHandler->GetStatValue(HealingTakenStatTag()), EModifierType::Multiplicative);
 	}
-	return FCombatModifier::InvalidMod;
+	return FCombatModifier(0.0f, EModifierType::Invalid);
 }
 
 float UDamageHandler::GetModifiedIncomingHealing(FDamageInfo const& HealingInfo) const

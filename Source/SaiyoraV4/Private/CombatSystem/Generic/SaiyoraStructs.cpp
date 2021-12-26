@@ -1,8 +1,6 @@
 #include "SaiyoraStructs.h"
 #include "Buff.h"
 
-const FCombatModifier FCombatModifier::InvalidMod(0.0f, EModifierType::Invalid);
-
 FCombatModifier::FCombatModifier()
 {
     //Needs to exist to prevent compile errors.

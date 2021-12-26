@@ -48,7 +48,7 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Stat")
 	UDataTable* InitialStats;
 	TMap<FGameplayTag, FStatInfo> StatDefaults;
-	UPROPERTY()
+	UPROPERTY(Replicated)
 	FCombatStatArray ReplicatedStats;
 	TMap<FGameplayTag, FCombatStat> NonReplicatedStats;
 	FGameplayTagContainer StaticStats;

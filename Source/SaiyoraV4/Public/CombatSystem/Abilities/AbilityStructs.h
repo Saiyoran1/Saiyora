@@ -3,9 +3,8 @@
 #include "AbilityEnums.h"
 #include "SaiyoraStructs.h"
 #include "Resource.h"
+#include "CoreUObject/Public/Templates/SubclassOf.h"
 #include "AbilityStructs.generated.h"
-
-class UCombatAbility;
 
 USTRUCT(BlueprintType)
 struct FDefaultAbilityCost
@@ -48,7 +47,7 @@ struct FAbilityCostArray: public FFastArraySerializer
     UPROPERTY()
     TArray<FAbilityCost> Items;
     UPROPERTY(NotReplicated)
-    UCombatAbility* OwningAbility;
+    class UCombatAbility* OwningAbility;
 
     bool NetDeltaSerialize(FNetDeltaSerializeInfo& DeltaParms)
     {
@@ -115,7 +114,7 @@ struct FCancelEvent
     UPROPERTY(BlueprintReadOnly)
     ECancelFailReason FailReason = ECancelFailReason::None;
     UPROPERTY(BlueprintReadOnly)
-    UCombatAbility* CancelledAbility = nullptr;
+    class UCombatAbility* CancelledAbility = nullptr;
     UPROPERTY()
     int32 PredictionID = 0;
     UPROPERTY()
@@ -163,7 +162,7 @@ struct FInterruptEvent
     UPROPERTY(BlueprintReadOnly)
     AActor* InterruptAppliedBy = nullptr;
     UPROPERTY(BlueprintReadOnly)
-    UCombatAbility* InterruptedAbility = nullptr;
+    class UCombatAbility* InterruptedAbility = nullptr;
     UPROPERTY()
     int32 CancelledCastID = 0;
     UPROPERTY(BlueprintReadOnly)
@@ -201,7 +200,7 @@ struct FCastingState
     UPROPERTY(BlueprintReadOnly)
     bool bIsCasting = false;
     UPROPERTY(BlueprintReadOnly)
-    UCombatAbility* CurrentCast = nullptr;
+    class UCombatAbility* CurrentCast = nullptr;
     UPROPERTY(NotReplicated)
     int32 PredictionID = 0;
     UPROPERTY(BlueprintReadOnly)
@@ -215,74 +214,14 @@ struct FCastingState
 };
 
 USTRUCT()
-struct FAbilityRequest
-{
-    GENERATED_BODY()
-
-    UPROPERTY()
-    TSubclassOf<UCombatAbility> AbilityClass;
-    UPROPERTY()
-    int32 PredictionID = 0;
-    UPROPERTY()
-    int32 Tick = 0;
-    UPROPERTY()
-    float ClientStartTime = 0.0f;
-    UPROPERTY()
-    FCombatParameters PredictionParams;
-
-    friend FArchive& operator<<(FArchive& Ar, FAbilityRequest& Request)
-    {
-        Ar << Request.AbilityClass;
-        Ar << Request.PredictionID;
-        Ar << Request.Tick;
-        Ar << Request.ClientStartTime;
-        Ar << Request.PredictionParams;
-        return Ar;
-    }
-
-    void Clear() { AbilityClass = nullptr; PredictionID = 0; Tick = 0; ClientStartTime = 0.0f; PredictionParams = FCombatParameters(); }
-};
-
-USTRUCT()
 struct FClientAbilityPrediction
 {
     GENERATED_BODY()
     
     UPROPERTY()
-    UCombatAbility* Ability = nullptr;
+    class UCombatAbility* Ability = nullptr;
     bool bPredictedGCD = false;
     bool bPredictedCastBar = false;
-};
-
-USTRUCT()
-struct FServerAbilityResult
-{
-    GENERATED_BODY()
-
-    UPROPERTY()
-    bool bSuccess = false;
-    UPROPERTY()
-    ECastFailReason FailReason = ECastFailReason::None;
-    UPROPERTY()
-    int32 PredictionID = 0;
-    UPROPERTY()
-    TSubclassOf<UCombatAbility> AbilityClass;
-    UPROPERTY()
-    float ClientStartTime = 0.0f;
-    UPROPERTY()
-    bool bActivatedGlobal = false;
-    UPROPERTY()
-    float GlobalLength = 0.0f;
-    UPROPERTY()
-    int32 ChargesSpent = 0;
-    UPROPERTY()
-    bool bActivatedCastBar = false;
-    UPROPERTY()
-    float CastLength = 0.0f;
-    UPROPERTY()
-    bool bInterruptible = false;
-    UPROPERTY()
-    TArray<FAbilityCost> AbilityCosts;
 };
 
 USTRUCT()
@@ -303,23 +242,23 @@ FORCEINLINE uint32 GetTypeHash(const FPredictedTick& Tick)
     return HashCombine(GetTypeHash(Tick.PredictionID), GetTypeHash(Tick.TickNumber));
 }
 
-DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FAbilityModCondition, UCombatAbility*, Ability);
-DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FAbilityClassRestriction, TSubclassOf<UCombatAbility>, AbilityClass);
+DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FAbilityModCondition, class UCombatAbility*, Ability);
+DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FAbilityClassRestriction, TSubclassOf<class UCombatAbility>, AbilityClass);
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FInterruptRestriction, FInterruptEvent const&, InterruptEvent);
-DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityInstanceCallback, UCombatAbility*, NewAbility);
+DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityInstanceCallback, class UCombatAbility*, NewAbility);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityCallback, FAbilityEvent const&, Event);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityCancelCallback, FCancelEvent const&, Event);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FInterruptCallback, FInterruptEvent const&, InterruptEvent);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityMispredictionCallback, int32 const, PredictionID);
 DECLARE_DYNAMIC_DELEGATE_TwoParams(FGlobalCooldownCallback, FGlobalCooldown const&, OldGlobalCooldown, FGlobalCooldown const&, NewGlobalCooldown);
 DECLARE_DYNAMIC_DELEGATE_TwoParams(FCastingStateCallback, FCastingState const&, OldState, FCastingState const&, NewState);
-DECLARE_DYNAMIC_DELEGATE_ThreeParams(FAbilityChargeCallback, UCombatAbility*, Ability, int32 const, OldCharges, int32 const, NewCharges);
+DECLARE_DYNAMIC_DELEGATE_ThreeParams(FAbilityChargeCallback, class UCombatAbility*, Ability, int32 const, OldCharges, int32 const, NewCharges);
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityInstanceNotification, UCombatAbility*, NewAbility);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityInstanceNotification, class UCombatAbility*, NewAbility);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityNotification, FAbilityEvent const&, Event);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityCancelNotification, FCancelEvent const&, Event);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FInterruptNotification, FInterruptEvent const&, InterruptEvent);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityMispredictionNotification, int32 const, PredictionID);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FGlobalCooldownNotification, FGlobalCooldown const&, OldGlobalCooldown, FGlobalCooldown const&, NewGlobalCooldown);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FCastingStateNotification, FCastingState const&, OldState, FCastingState const&, NewState);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FAbilityChargeNotification, UCombatAbility*, Ability, int32 const, OldCharges, int32 const, NewCharges);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FAbilityChargeNotification, class UCombatAbility*, Ability, int32 const, OldCharges, int32 const, NewCharges);

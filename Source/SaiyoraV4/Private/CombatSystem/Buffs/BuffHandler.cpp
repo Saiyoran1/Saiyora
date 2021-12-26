@@ -5,6 +5,7 @@
 #include "SaiyoraCombatInterface.h"
 #include "UnrealNetwork.h"
 #include "Engine/ActorChannel.h"
+#include "AbilityComponent.h"
 
 #pragma region Initialization
 

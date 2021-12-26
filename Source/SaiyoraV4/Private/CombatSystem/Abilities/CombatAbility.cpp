@@ -3,7 +3,6 @@
 #include "Buff.h"
 #include "Resource.h"
 #include "ResourceHandler.h"
-#include "SaiyoraCombatLibrary.h"
 #include "UnrealNetwork.h"
 #include "Kismet/KismetSystemLibrary.h"
 
@@ -131,6 +130,12 @@ bool UCombatAbility::IsCooldownActive() const
         default :
             return false;
     }
+}
+
+float UCombatAbility::GetCooldownLength()
+{
+    return !bStaticCooldownLength && IsValid(OwningComponent) && OwningComponent->GetOwnerRole() == ROLE_Authority ?
+        OwningComponent->CalculateCooldownLength(this, false) : DefaultCooldownLength;
 }
 
 float UCombatAbility::GetRemainingCooldown() const
@@ -798,6 +803,18 @@ void UCombatAbility::RemoveResourceCostModifier(TSubclassOf<UResource> const Res
         return;
     }
     UpdateCost(ResourceClass);
+}
+
+float UCombatAbility::GetCastLength()
+{
+    return !bStaticCastTime && IsValid(OwningComponent) && OwningComponent->GetOwnerRole() == ROLE_Authority ?
+        OwningComponent->CalculateCastLength(this, false) : DefaultCastTime;
+}
+
+float UCombatAbility::GetGlobalCooldownLength()
+{
+    return !bStaticGlobalCooldownLength && IsValid(OwningComponent) && OwningComponent->GetOwnerRole() == ROLE_Authority ?
+        OwningComponent->CalculateGlobalCooldownLength(this, false) : DefaultGlobalCooldownLength;
 }
 
 #pragma endregion

@@ -1,6 +1,5 @@
 #pragma once
 #include "CoreMinimal.h"
-#include "AbilityComponent.h"
 #include "AbilityStructs.h"
 #include "UObject/NoExportTypes.h"
 #include "CrowdControlEnums.h"
@@ -140,8 +139,7 @@ public:
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
     float GetDefaultCastLength() const { return DefaultCastTime; }
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-    float GetCastLength() { return !bStaticCastTime && IsValid(OwningComponent) && OwningComponent->GetOwnerRole() == ROLE_Authority ?
-        OwningComponent->CalculateCastLength(this, false) : DefaultCastTime; }
+    float GetCastLength();
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
     bool HasStaticCastLength() const { return bStaticCastTime; }
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
@@ -175,8 +173,7 @@ public:
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
     float GetDefaultGlobalCooldownLength() const { return DefaultGlobalCooldownLength; }
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-    float GetGlobalCooldownLength() { return !bStaticGlobalCooldownLength && IsValid(OwningComponent) && OwningComponent->GetOwnerRole() == ROLE_Authority ?
-        OwningComponent->CalculateGlobalCooldownLength(this, false) : DefaultGlobalCooldownLength; }
+    float GetGlobalCooldownLength();
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
     bool HasStaticGlobalCooldownLength() const { return bStaticGlobalCooldownLength; }
     
@@ -196,8 +193,7 @@ public:
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
     float GetDefaultCooldownLength() const { return DefaultCooldownLength; }
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-    float GetCooldownLength() { return !bStaticCooldownLength && IsValid(OwningComponent) && OwningComponent->GetOwnerRole() == ROLE_Authority ?
-        OwningComponent->CalculateCooldownLength(this, false) : DefaultCooldownLength; }
+    float GetCooldownLength();
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
     bool HasStaticCooldownLength() const { return bStaticCooldownLength; }
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
@@ -335,7 +331,7 @@ public:
     void SimulatedCancel(FCombatParameters const& BroadcastParams);
     void ServerInterrupt(FInterruptEvent const& InterruptEvent);
     void SimulatedInterrupt(FInterruptEvent const& InterruptEvent);
-    void UpdatePredictionFromServer(FServerAbilityResult const& Result);
+    void UpdatePredictionFromServer(struct FServerAbilityResult const& Result);
     
 protected:
 
