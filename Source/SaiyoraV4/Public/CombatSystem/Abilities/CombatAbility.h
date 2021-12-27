@@ -234,7 +234,7 @@ public:
     void RecalculateChargesPerCooldown();
     
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-    int32 GetCurrentCharges() const { return AbilityCooldown.CurrentCharges; }
+    int32 GetCurrentCharges() const;
     UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
     void ModifyCurrentCharges(int32 const Charges, EChargeModificationType const Modification = EChargeModificationType::Additive);
     void CommitCharges(int32 const PredictionID = 0);

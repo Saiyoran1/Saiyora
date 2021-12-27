@@ -87,9 +87,9 @@ void UCombatAbility::InitializeAbility(UAbilityComponent* AbilityComponent)
         }
     }
     SetupCustomCastRestrictions();
-    UpdateCastable();
     PreInitializeAbility();
     bInitialized = true;
+    UpdateCastable();
 }
 
 void UCombatAbility::DeactivateAbility()
@@ -114,6 +114,19 @@ void UCombatAbility::OnRep_Deactivated(bool const Previous)
 
 #pragma endregion
 #pragma region Cooldown
+
+int32 UCombatAbility::GetCurrentCharges() const
+{
+    switch (OwningComponent->GetOwnerRole())
+    {
+    case ROLE_Authority :
+        return AbilityCooldown.CurrentCharges;
+    case ROLE_AutonomousProxy :
+        return ClientCooldown.CurrentCharges;
+    default :
+        return 0;
+    }
+}
 
 bool UCombatAbility::IsCooldownActive() const
 {
@@ -223,6 +236,7 @@ void UCombatAbility::CommitCharges(int32 const PredictionID)
         }
         if (PreviousCharges != AbilityCooldown.CurrentCharges)
         {
+            UpdateCastable();
             OnChargesChanged.Broadcast(this, PreviousCharges, AbilityCooldown.CurrentCharges);
         }
     }
@@ -236,6 +250,7 @@ void UCombatAbility::CommitCharges(int32 const PredictionID)
 void UCombatAbility::StartCooldown(bool const bUseLagCompensation)
 {
     float const CooldownLength = OwningComponent->CalculateCooldownLength(this, bUseLagCompensation);
+    UE_LOG(LogTemp, Warning, TEXT("Cooldown Length was: %f"), CooldownLength);
     GetWorld()->GetTimerManager().SetTimer(CooldownHandle, this, &UCombatAbility::CompleteCooldown, CooldownLength, false);
     AbilityCooldown.OnCooldown = true;
     AbilityCooldown.CooldownStartTime = OwningComponent->GetGameStateRef()->GetServerWorldTimeSeconds();
@@ -298,7 +313,6 @@ void UCombatAbility::OnRep_AbilityCooldown(FAbilityCooldown const& PreviousState
 void UCombatAbility::RecalculatePredictedCooldown()
 {
     int32 const PreviousCharges = ClientCooldown.CurrentCharges;
-    bool const bChargeCostPreviouslyMet = ClientCooldown.CurrentCharges >= ChargeCost;
     ClientCooldown = AbilityCooldown;
     for (TTuple<int32, int32> const& Prediction : ChargePredictions)
     {
@@ -314,10 +328,7 @@ void UCombatAbility::RecalculatePredictedCooldown()
     }
     if (PreviousCharges != ClientCooldown.CurrentCharges)
     {
-        if (bChargeCostPreviouslyMet != (ClientCooldown.CurrentCharges >= ChargeCost))
-        {
-            UpdateCastable();
-        }
+        UpdateCastable();
         OnChargesChanged.Broadcast(this, PreviousCharges, ClientCooldown.CurrentCharges);
     }
 }
@@ -822,7 +833,7 @@ float UCombatAbility::GetGlobalCooldownLength()
 
 void UCombatAbility::UpdateCastable()
 {
-    if (!bInitialized)
+    if (!bInitialized || bDeactivated)
     {
         Castable = ECastFailReason::InvalidAbility;
     }

@@ -74,6 +74,8 @@ struct FServerAbilityResult
 	TArray<FAbilityCost> AbilityCosts;
 };
 
+DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FAbilityModCondition, UCombatAbility*, Ability);
+
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class SAIYORAV4_API UAbilityComponent : public UActorComponent
 {

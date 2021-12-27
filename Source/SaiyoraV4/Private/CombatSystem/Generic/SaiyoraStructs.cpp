@@ -12,7 +12,7 @@ FCombatModifier::FCombatModifier(float const BaseValue, EModifierType const Modi
     Type = ModifierType;
     Source = SourceBuff;
     bStackable = IsValid(Source) && Source->IsStackable() && Stackable;
-    Stacks = Source->GetCurrentStacks();
+    Stacks = IsValid(Source) ? Source->GetCurrentStacks() : 1;
 }
 
 float FCombatModifier::ApplyModifiers(TArray<FCombatModifier> const& ModArray, float const BaseValue)

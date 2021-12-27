@@ -64,7 +64,7 @@ private:
 public:
 	
 	void CommitAbilityCosts(UCombatAbility* Ability, int32 const PredictionID = 0);
-	void UpdatePredictedCostsFromServer(FServerAbilityResult const& ServerResult);
+	void UpdatePredictedCostsFromServer(struct FServerAbilityResult const& ServerResult);
 
 private:
 

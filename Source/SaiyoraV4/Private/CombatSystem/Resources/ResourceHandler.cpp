@@ -3,6 +3,7 @@
 #include "UnrealNetwork.h"
 #include "Engine/ActorChannel.h"
 #include "CombatAbility.h"
+#include "AbilityComponent.h"
 #include "SaiyoraCombatInterface.h"
 
 #pragma region Setup
@@ -167,11 +168,11 @@ void UResourceHandler::UpdatePredictedCostsFromServer(FServerAbilityResult const
 	{
 		if (IsValid(Cost.ResourceClass))
 		{
-			for (FAbilityCost const& PredictedCost : PredictedCosts)
+			for (int32 i = 0; i < PredictedCosts.Num(); i++)
 			{
-				if (Cost.ResourceClass == PredictedCost.ResourceClass)
+				if (IsValid(PredictedCosts[i].ResourceClass) && Cost.ResourceClass == PredictedCosts[i].ResourceClass)
 				{
-					if (Cost.Cost != PredictedCost.Cost)
+					if (Cost.Cost != PredictedCosts[i].Cost)
 					{
 						UResource* Resource = FindActiveResource(Cost.ResourceClass);
 						if (IsValid(Resource))
@@ -179,7 +180,7 @@ void UResourceHandler::UpdatePredictedCostsFromServer(FServerAbilityResult const
 							Resource->UpdateCostPredictionFromServer(ServerResult.PredictionID, Cost.Cost);
 						}
 					}
-					PredictedCosts.Remove(PredictedCost);
+					PredictedCosts.RemoveAt(i);
 					break;
 				}
 			}

@@ -242,7 +242,6 @@ FORCEINLINE uint32 GetTypeHash(const FPredictedTick& Tick)
     return HashCombine(GetTypeHash(Tick.PredictionID), GetTypeHash(Tick.TickNumber));
 }
 
-DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FAbilityModCondition, class UCombatAbility*, Ability);
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FAbilityClassRestriction, TSubclassOf<class UCombatAbility>, AbilityClass);
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FInterruptRestriction, FInterruptEvent const&, InterruptEvent);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityInstanceCallback, class UCombatAbility*, NewAbility);
