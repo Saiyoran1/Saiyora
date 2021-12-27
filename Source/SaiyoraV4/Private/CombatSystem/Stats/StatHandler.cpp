@@ -253,11 +253,11 @@ void UStatHandler::UnsubscribeFromStatChanged(FGameplayTag const StatTag, FStatC
 #pragma endregion
 #pragma region Modifiers
 
-void UStatHandler::AddStatModifier(UBuff* Source, FGameplayTag const StatTag, FCombatModifier const& Modifier)
+void UStatHandler::AddStatModifier(FGameplayTag const StatTag, FCombatModifier const& Modifier)
 {
 	if (GetOwnerRole() != ROLE_Authority || Modifier.Type == EModifierType::Invalid ||
 		!StatTag.IsValid() || !StatTag.MatchesTag(GenericStatTag()) || StatTag.MatchesTagExact(GenericStatTag()) ||
-		!IsValid(Source) || Source->GetAppliedTo() != GetOwner())
+		!IsValid(Modifier.Source) || Modifier.Source->GetAppliedTo() != GetOwner())
 	{
 		return;
 	}
@@ -297,7 +297,7 @@ void UStatHandler::AddStatModifier(UBuff* Source, FGameplayTag const StatTag, FC
 	}
 }
 
-void UStatHandler::RemoveStatModifier(UBuff* Source, FGameplayTag const StatTag)
+void UStatHandler::RemoveStatModifier(FGameplayTag const StatTag, UBuff* Source)
 {
 	if (GetOwnerRole() != ROLE_Authority || !StatTag.IsValid() || !StatTag.MatchesTag(GenericStatTag()) ||
 		StatTag.MatchesTagExact(GenericStatTag()) || !IsValid(Source) || Source->GetAppliedTo() != GetOwner())

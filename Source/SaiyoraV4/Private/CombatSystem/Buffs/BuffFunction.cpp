@@ -5,6 +5,8 @@
 #include "SaiyoraCombatInterface.h"
 #include "StatHandler.h"
 
+#pragma region Core Buff Function
+
 UBuffFunction* UBuffFunction::InstantiateBuffFunction(UBuff* Buff, TSubclassOf<UBuffFunction> const FunctionClass)
 {
     if (!IsValid(Buff) || !IsValid(FunctionClass))
@@ -55,7 +57,8 @@ void UCustomBuffFunction::SetupCustomBuffFunctions(UBuff* Buff,
     }
 }
 
-//Damage Over Time
+#pragma endregion 
+#pragma region Damage Over Time
 
 void UDamageOverTimeFunction::InitialTick()
 {
@@ -187,7 +190,8 @@ void UDamageOverTimeFunction::DamageOverTime(UBuff* Buff, float const Damage, ED
         bScalesWithStacks, bPartialTickOnExpire, bHasInitialTick, bUseSeparateInitialDamage, InitialDamage, InitialSchool, ThreatParams);
 }
 
-//Healing Over Time
+#pragma endregion 
+#pragma region Healing Over Time
 
 void UHealingOverTimeFunction::InitialTick()
 {
@@ -318,11 +322,32 @@ void UHealingOverTimeFunction::HealingOverTime(UBuff* Buff, float const Healing,
         bScalesWithStacks, bPartialTickOnExpire, bHasInitialTick, bUseSeparateInitialHealing, InitialHealing, InitialSchool, ThreatParams);
 }
 
-//Stat Modifiers
+#pragma endregion 
+#pragma region Stat Modifiers
+
+void UStatModifierFunction::StatModifiers(UBuff* Buff, TMap<FGameplayTag, FCombatModifier> const& Modifiers)
+{
+    if (!IsValid(Buff))
+    {
+        return;
+    }
+    UStatModifierFunction* NewStatModFunction = Cast<UStatModifierFunction>(InstantiateBuffFunction(Buff, StaticClass()));
+    if (!IsValid(NewStatModFunction))
+    {
+        return;
+    }
+    NewStatModFunction->SetModifierVars(Modifiers);
+}
 
 void UStatModifierFunction::SetModifierVars(TMap<FGameplayTag, FCombatModifier> const& Modifiers)
 {
-    StatMods = Modifiers;
+    for (TTuple<FGameplayTag, FCombatModifier> const& ModTuple : Modifiers)
+    {
+        if (ModTuple.Key.IsValid() && ModTuple.Key.MatchesTag(UStatHandler::GenericStatTag()) && !ModTuple.Key.MatchesTagExact(UStatHandler::GenericStatTag()) && ModTuple.Value.Type != EModifierType::Invalid)
+        {
+            StatMods.Add(ModTuple.Key, FCombatModifier(ModTuple.Value.Value, ModTuple.Value.Type, GetOwningBuff(), ModTuple.Value.bStackable));
+        }
+    }
 }
 
 void UStatModifierFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
@@ -338,7 +363,7 @@ void UStatModifierFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
     }
     for (TTuple<FGameplayTag, FCombatModifier> const& Mod : StatMods)
     {
-        TargetHandler->AddStatModifier(GetOwningBuff(), Mod.Key, Mod.Value);
+        TargetHandler->AddStatModifier(Mod.Key, Mod.Value);
     }
 }
 void UStatModifierFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
@@ -347,21 +372,9 @@ void UStatModifierFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
     {
         for (TTuple<FGameplayTag, FCombatModifier> const& Mod : StatMods)
         {
-            TargetHandler->RemoveStatModifier(GetOwningBuff(), Mod.Key);
+            TargetHandler->RemoveStatModifier(Mod.Key, GetOwningBuff());
         }
     }
 }
 
-void UStatModifierFunction::StatModifiers(UBuff* Buff, TMap<FGameplayTag, FCombatModifier> const& Modifiers)
-{
-    if (!IsValid(Buff))
-    {
-        return;
-    }
-    UStatModifierFunction* NewStatModFunction = Cast<UStatModifierFunction>(InstantiateBuffFunction(Buff, StaticClass()));
-    if (!IsValid(NewStatModFunction))
-    {
-        return;
-    }
-    NewStatModFunction->SetModifierVars(Modifiers);
-}
+#pragma endregion

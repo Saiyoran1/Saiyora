@@ -23,7 +23,6 @@ void UCombatAbility::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& Out
     DOREPLIFETIME(UCombatAbility, OwningComponent);
     DOREPLIFETIME(UCombatAbility, bDeactivated);
     DOREPLIFETIME_CONDITION(UCombatAbility, AbilityCooldown, COND_OwnerOnly);
-    DOREPLIFETIME_CONDITION(UCombatAbility, bClassRestricted, COND_OwnerOnly);
     DOREPLIFETIME_CONDITION(UCombatAbility, bTagsRestricted, COND_OwnerOnly);
     DOREPLIFETIME_CONDITION(UCombatAbility, ChargeCost, COND_OwnerOnly);
     DOREPLIFETIME_CONDITION(UCombatAbility, AbilityCosts, COND_OwnerOnly);
@@ -648,13 +647,13 @@ void UCombatAbility::UpdatePredictionFromServer(FServerAbilityResult const& Resu
 #pragma endregion 
 #pragma region Modifiers
 
-void UCombatAbility::AddMaxChargeModifier(UBuff* Source, FCombatModifier const& Modifier)
+void UCombatAbility::AddMaxChargeModifier(FCombatModifier const& Modifier)
 {
-    if (OwningComponent->GetOwnerRole() != ROLE_Authority || bStaticMaxCharges || !IsValid(Source))
+    if (OwningComponent->GetOwnerRole() != ROLE_Authority || bStaticMaxCharges || !IsValid(Modifier.Source))
     {
         return;
     }
-    MaxChargeModifiers.Add(Source, Modifier);
+    MaxChargeModifiers.Add(Modifier.Source, Modifier);
     RecalculateMaxCharges();
 }
 
@@ -703,13 +702,13 @@ void UCombatAbility::RecalculateMaxCharges()
     }
 }
 
-void UCombatAbility::AddChargeCostModifier(UBuff* Source, FCombatModifier const& Modifier)
+void UCombatAbility::AddChargeCostModifier(FCombatModifier const& Modifier)
 {
-    if (OwningComponent->GetOwnerRole() != ROLE_Authority || bStaticChargeCost || !IsValid(Source))
+    if (OwningComponent->GetOwnerRole() != ROLE_Authority || bStaticChargeCost || !IsValid(Modifier.Source))
     {
         return;
     }
-    ChargeCostModifiers.Add(Source, Modifier);
+    ChargeCostModifiers.Add(Modifier.Source, Modifier);
     RecalculateChargeCost();
 }
 
@@ -737,13 +736,13 @@ void UCombatAbility::RecalculateChargeCost()
     }
 }
 
-void UCombatAbility::AddChargesPerCooldownModifier(UBuff* Source, FCombatModifier const& Modifier)
+void UCombatAbility::AddChargesPerCooldownModifier(FCombatModifier const& Modifier)
 {
-    if (OwningComponent->GetOwnerRole() != ROLE_Authority || bStaticChargesPerCooldown || !IsValid(Source))
+    if (OwningComponent->GetOwnerRole() != ROLE_Authority || bStaticChargesPerCooldown || !IsValid(Modifier.Source))
     {
         return;
     }
-    ChargesPerCooldownModifiers.Add(Source, Modifier);
+    ChargesPerCooldownModifiers.Add(Modifier.Source, Modifier);
     RecalculateChargesPerCooldown();
 }
 
@@ -849,31 +848,13 @@ void UCombatAbility::UpdateCastable()
     {
         Castable = ECastFailReason::AbilityConditionsNotMet;
     }
-    else if (bTagsRestricted || bClassRestricted)
+    else if (bTagsRestricted)
     {
         Castable = ECastFailReason::CustomRestriction;
     }
     else
     {
         Castable = ECastFailReason::None;
-    }
-}
-
-void UCombatAbility::AddClassRestriction()
-{
-    if (!bClassRestricted)
-    {
-        bClassRestricted = true;
-        UpdateCastable();
-    }
-}
-
-void UCombatAbility::RemoveClassRestriction()
-{
-    if (bClassRestricted)
-    {
-        bClassRestricted = false;
-        UpdateCastable();
     }
 }
 
@@ -938,7 +919,7 @@ void UCombatAbility::DeactivateCastRestriction(FGameplayTag const RestrictionTag
 
 void UCombatAbility::SubscribeToChargesChanged(FAbilityChargeCallback const& Callback)
 {
-    if (Callback.IsBound())
+    if (OwningComponent->GetOwnerRole() != ROLE_SimulatedProxy && Callback.IsBound())
     {
         OnChargesChanged.AddUnique(Callback);
     }
@@ -946,7 +927,7 @@ void UCombatAbility::SubscribeToChargesChanged(FAbilityChargeCallback const& Cal
 
 void UCombatAbility::UnsubscribeFromChargesChanged(FAbilityChargeCallback const& Callback)
 {
-    if (Callback.IsBound())
+    if (OwningComponent->GetOwnerRole() != ROLE_SimulatedProxy && Callback.IsBound())
     {
         OnChargesChanged.Remove(Callback);
     }

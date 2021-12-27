@@ -20,8 +20,6 @@ struct FCombatModifier
     bool bStackable = true;
     UPROPERTY(NotReplicated)
     UBuff* Source = nullptr;
-    UPROPERTY()
-    int32 Stacks = 0;
 
     FORCEINLINE bool operator==(FCombatModifier const& Other) const { return Other.Type == Type && Other.Source == Source && Other.Value == Value; }
 };

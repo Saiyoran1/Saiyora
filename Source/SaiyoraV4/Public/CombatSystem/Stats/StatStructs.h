@@ -53,7 +53,6 @@ struct FCombatStat : public FFastArraySerializerItem
     float GetMinimum() const { return Defaults.MinClamp; }
     bool HasMaximum() const { return Defaults.bCappedHigh; }
     float GetMaximum() const { return Defaults.MaxClamp; }
-    void GetModifiers(TArray<FCombatModifier>& OutMods) const { OutMods.Append(Modifiers); }
 
     void PostReplicatedAdd(const struct FCombatStatArray& InArraySerializer);
     void PostReplicatedChange(const struct FCombatStatArray& InArraySerializer);
@@ -65,7 +64,7 @@ private:
     void RecalculateValue();
     UPROPERTY()
     FStatInfo Defaults;
-    TArray<FCombatModifier> Modifiers;
+    TMap<UBuff*, FCombatModifier> Modifiers;
     bool bInitialized = false;
     FStatNotification OnStatChanged;
 };

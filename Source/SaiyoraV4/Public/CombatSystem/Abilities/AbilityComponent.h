@@ -74,8 +74,6 @@ struct FServerAbilityResult
 	TArray<FAbilityCost> AbilityCosts;
 };
 
-DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FAbilityModCondition, UCombatAbility*, Ability);
-
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class SAIYORAV4_API UAbilityComponent : public UActorComponent
 {
@@ -124,7 +122,7 @@ private:
 public:
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
-	UCombatAbility* AddNewAbility(TSubclassOf<UCombatAbility> const AbilityClass, bool const bIgnoreRestrictions = false);
+	UCombatAbility* AddNewAbility(TSubclassOf<UCombatAbility> const AbilityClass);
 	void NotifyOfReplicatedAbility(UCombatAbility* NewAbility);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
 	void RemoveAbility(TSubclassOf<UCombatAbility> const AbilityClass);
@@ -141,10 +139,6 @@ public:
 	void SubscribeToAbilityRemoved(FAbilityInstanceCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void UnsubscribeFromAbilityRemoved(FAbilityInstanceCallback const& Callback);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
-	void AddAbilityAcquisitionRestriction(FAbilityClassRestriction const& Restriction);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
-	void RemoveAbilityAcquisitionRestriction(FAbilityClassRestriction const& Restriction);
 
 private:
 
@@ -152,7 +146,6 @@ private:
 	TSet<TSubclassOf<UCombatAbility>> DefaultAbilities;
 	UPROPERTY()
 	TMap<TSubclassOf<UCombatAbility>, UCombatAbility*> ActiveAbilities;
-	TArray<FAbilityClassRestriction> AbilityAcquisitionRestrictions;
 	FAbilityInstanceNotification OnAbilityAdded;
 	UPROPERTY()
 	TArray<UCombatAbility*> RecentlyRemovedAbilities;
@@ -236,10 +229,8 @@ public:
 	void SubscribeToAbilityInterrupted(FInterruptCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void UnsubscribeFromAbilityInterrupted(FInterruptCallback const& Callback);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
-	void AddInterruptRestriction(FInterruptRestriction const& Restriction);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
-	void RemoveInterruptRestriction(FInterruptRestriction const& Restriction);
+	void AddInterruptRestriction(UBuff* Source, FInterruptRestriction const& Restriction);
+	void RemoveInterruptRestriction(UBuff* Source);
 
 private:
 
@@ -247,7 +238,7 @@ private:
 	void MulticastAbilityInterrupt(FInterruptEvent const& InterruptEvent);
 	UFUNCTION(Client, Reliable)
 	void ClientAbilityInterrupt(FInterruptEvent const& InterruptEvent);
-	TArray<FInterruptRestriction> InterruptRestrictions;
+	TMap<UBuff*, FInterruptRestriction> InterruptRestrictions;
 	FCrowdControlCallback CcCallback;
 	UFUNCTION()
 	void InterruptCastOnCrowdControl(FCrowdControlStatus const& PreviousStatus, FCrowdControlStatus const& NewStatus);
@@ -274,10 +265,8 @@ public:
     void SubscribeToCastStateChanged(FCastingStateCallback const& Callback);
     UFUNCTION(BlueprintCallable, Category = "Abilities")
     void UnsubscribeFromCastStateChanged(FCastingStateCallback const& Callback);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
-	void AddCastLengthModifier(FAbilityModCondition const& Modifier);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
-	void RemoveCastLengthModifier(FAbilityModCondition const& Modifier);
+	void AddCastLengthModifier(UBuff* Source, FAbilityModCondition const& Modifier);
+	void RemoveCastLengthModifier(UBuff* Source);
 	float CalculateCastLength(UCombatAbility* Ability, bool const bWithPingComp) const;
 
 private:
@@ -288,10 +277,7 @@ private:
 	void OnRep_CastingState(FCastingState const& Previous) { OnCastStateChanged.Broadcast(Previous, CastingState); }
 	void StartCast(UCombatAbility* Ability, int32 const PredictionID = 0);
 	void EndCast();
-	TArray<FAbilityModCondition> CastLengthMods;
-	FAbilityModCondition StatCastLengthMod;
-	UFUNCTION()
-	FCombatModifier ModifyCastLengthFromStat(UCombatAbility* Ability);
+	TMap<UBuff*, FAbilityModCondition> CastLengthMods;
 	FCastingStateNotification OnCastStateChanged;
 
 //Global Cooldown
@@ -308,10 +294,8 @@ public:
 	void SubscribeToGlobalCooldownChanged(FGlobalCooldownCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void UnsubscribeFromGlobalCooldownChanged(FGlobalCooldownCallback const& Callback);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
-	void AddGlobalCooldownModifier(FAbilityModCondition const& Modifier);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
-	void RemoveGlobalCooldownModifier(FAbilityModCondition const& Modifier);
+	void AddGlobalCooldownModifier(UBuff* Source, FAbilityModCondition const& Modifier);
+	void RemoveGlobalCooldownModifier(UBuff* Source);
 	float CalculateGlobalCooldownLength(UCombatAbility* Ability, bool const bWithPingComp) const;
 
 private:
@@ -321,28 +305,20 @@ private:
 	FTimerHandle GlobalCooldownHandle;
 	UFUNCTION()
 	void EndGlobalCooldown();
-	TArray<FAbilityModCondition> GlobalCooldownMods;
-	FAbilityModCondition StatGlobalCooldownMod;
-	UFUNCTION()
-	FCombatModifier ModifyGlobalCooldownFromStat(UCombatAbility* Ability);
+	TMap<UBuff*, FAbilityModCondition> GlobalCooldownMods;
 	FGlobalCooldownNotification OnGlobalCooldownChanged;
 
 //Cooldown
 
 public:
 
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
-	void AddCooldownModifier(FAbilityModCondition const& Modifier);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
-	void RemoveCooldownModifier(FAbilityModCondition const& Modifier);
+	void AddCooldownModifier(UBuff* Source, FAbilityModCondition const& Modifier);
+	void RemoveCooldownModifier(UBuff* Source);
 	float CalculateCooldownLength(UCombatAbility* Ability, bool const bWithPingComp) const;
 
 private:
 
-	TArray<FAbilityModCondition> CooldownMods;
-	FAbilityModCondition StatCooldownMod;
-	UFUNCTION()
-	FCombatModifier ModifyCooldownFromStat(UCombatAbility* Ability);
+	TMap<UBuff*, FAbilityModCondition> CooldownMods;
 
 //Cost
 

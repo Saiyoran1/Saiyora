@@ -98,8 +98,6 @@ public:
     void GetRestrictedCrowdControls(TSet<ECrowdControlType>& OutCrowdControls) const { OutCrowdControls.Append(RestrictedCrowdControls); }
     void AddRestrictedTag(FGameplayTag const RestrictedTag);
     void RemoveRestrictedTag(FGameplayTag const RestrictedTag);
-    void AddClassRestriction();
-    void RemoveClassRestriction();
     
 protected:
     
@@ -125,10 +123,6 @@ private:
     bool bTagsRestricted = false;
     UFUNCTION()
     void OnRep_TagsRestricted() { UpdateCastable(); }
-    UPROPERTY(ReplicatedUsing=OnRep_ClassRestricted)
-    bool bClassRestricted = false;
-    UFUNCTION()
-    void OnRep_ClassRestricted() { UpdateCastable(); }
 
 //Cast
 
@@ -209,7 +203,7 @@ public:
     int32 GetMaxCharges() const { return AbilityCooldown.MaxCharges; }
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
     bool HasStaticMaxCharges() const { return bStaticMaxCharges; }
-    void AddMaxChargeModifier(UBuff* Source, FCombatModifier const& Modifier);
+    void AddMaxChargeModifier(FCombatModifier const& Modifier);
     void RemoveMaxChargeModifier(UBuff* Source);
     void RecalculateMaxCharges();
 
@@ -219,7 +213,7 @@ public:
     int32 GetChargeCost() const { return ChargeCost; }
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
     bool HasStaticChargeCost() const { return bStaticChargeCost; }
-    void AddChargeCostModifier(UBuff* Source, FCombatModifier const& Modifier);
+    void AddChargeCostModifier(FCombatModifier const& Modifier);
     void RemoveChargeCostModifier(UBuff* Source);
     void RecalculateChargeCost();
 
@@ -229,7 +223,7 @@ public:
     int32 GetChargesPerCooldown() const { return ChargesPerCooldown; }
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
     bool HasStaticChargesPerCooldown() const { return bStaticChargesPerCooldown; }
-    void AddChargesPerCooldownModifier(UBuff* Source, FCombatModifier const& Modifier);
+    void AddChargesPerCooldownModifier(FCombatModifier const& Modifier);
     void RemoveChargesPerCooldownModifier(UBuff* Source);
     void RecalculateChargesPerCooldown();
     

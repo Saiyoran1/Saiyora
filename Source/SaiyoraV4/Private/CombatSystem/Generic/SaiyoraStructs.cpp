@@ -12,7 +12,6 @@ FCombatModifier::FCombatModifier(float const BaseValue, EModifierType const Modi
     Type = ModifierType;
     Source = SourceBuff;
     bStackable = IsValid(Source) && Source->IsStackable() && Stackable;
-    Stacks = IsValid(Source) ? Source->GetCurrentStacks() : 1;
 }
 
 float FCombatModifier::ApplyModifiers(TArray<FCombatModifier> const& ModArray, float const BaseValue)
@@ -26,13 +25,13 @@ float FCombatModifier::ApplyModifiers(TArray<FCombatModifier> const& ModArray, f
         case EModifierType::Invalid :
             break;
         case EModifierType::Additive :
-            AddMod += Mod.Value * Mod.Stacks;
+            AddMod += Mod.Value * (IsValid(Mod.Source) && Mod.bStackable ? Mod.Source->GetCurrentStacks() : 1);
             break;
         case EModifierType::Multiplicative :
             //This means no negative multipliers.
             //If you want a 5% reduction as a modifier, you would use .95. At, for example, 2 stacks, this would become:
             //.95 - 1, which is -.05, then -.05 * 2, which is -.1, then -.1 + 1, which is .9, so a 10% reduction.
-            MultMod *= FMath::Max(0.0f, Mod.Stacks * (Mod.Value - 1.0f) + 1.0f);
+            MultMod *= FMath::Max(0.0f, (IsValid(Mod.Source) && Mod.bStackable ? Mod.Source->GetCurrentStacks() : 1) * (Mod.Value - 1.0f) + 1.0f);
             break;
         default :
             break;

@@ -37,15 +37,6 @@ void UAbilityComponent::BeginPlay()
 	StatHandlerRef = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
 	CrowdControlHandlerRef = ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(GetOwner());
 	DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
-	if (IsValid(StatHandlerRef))
-	{
-		StatCooldownMod.BindDynamic(this, &UAbilityComponent::ModifyCooldownFromStat);
-		AddCooldownModifier(StatCooldownMod);
-		StatGlobalCooldownMod.BindDynamic(this, &UAbilityComponent::ModifyGlobalCooldownFromStat);
-		AddGlobalCooldownModifier(StatGlobalCooldownMod);
-		StatCastLengthMod.BindDynamic(this, &UAbilityComponent::ModifyCastLengthFromStat);
-		AddCastLengthModifier(StatCastLengthMod);
-	}
 	if (GetOwnerRole() == ROLE_Authority)
 	{
 		if (IsValid(CrowdControlHandlerRef))
@@ -84,22 +75,11 @@ bool UAbilityComponent::ReplicateSubobjects(UActorChannel* Channel, FOutBunch* B
 #pragma endregion 
 #pragma region Ability Management
 
-UCombatAbility* UAbilityComponent::AddNewAbility(TSubclassOf<UCombatAbility> const AbilityClass,
-	bool const bIgnoreRestrictions)
+UCombatAbility* UAbilityComponent::AddNewAbility(TSubclassOf<UCombatAbility> const AbilityClass)
 {
 	if (GetOwnerRole() != ROLE_Authority || !IsValid(AbilityClass) || ActiveAbilities.Contains(AbilityClass))
 	{
 		return nullptr;
-	}
-	if (!bIgnoreRestrictions)
-	{
-		for (FAbilityClassRestriction const& Restriction : AbilityAcquisitionRestrictions)
-		{
-			if (Restriction.IsBound() && Restriction.Execute(AbilityClass))
-			{
-				return nullptr;
-			}
-		}
 	}
 	UCombatAbility* NewAbility = NewObject<UCombatAbility>(GetOwner(), AbilityClass);
 	if (IsValid(NewAbility))
@@ -108,7 +88,7 @@ UCombatAbility* UAbilityComponent::AddNewAbility(TSubclassOf<UCombatAbility> con
 		NewAbility->InitializeAbility(this);
 		if (AbilityUsageClassRestrictions.Contains(AbilityClass))
 		{
-			NewAbility->AddClassRestriction();
+			NewAbility->AddRestrictedTag(AbilityClassRestrictionTag());
 		}
 		TArray<FGameplayTag> RestrictedTags;
 		AbilityUsageTagRestrictions.GenerateKeyArray(RestrictedTags);
@@ -769,14 +749,14 @@ FInterruptEvent UAbilityComponent::InterruptCurrentCast(AActor* AppliedBy, UObje
 	Result.CancelledCastID = CastingState.PredictionID;
 	if (!bIgnoreRestrictions)
 	{
-		if (!CastingState.CurrentCast->IsInterruptible())
+		if (!CastingState.bInterruptible)
 		{
 			Result.FailReason = EInterruptFailReason::Restricted;
 			return Result;
 		}
-		for (FInterruptRestriction const& Restriction : InterruptRestrictions)
+		for (TTuple<UBuff*, FInterruptRestriction> const& Restriction : InterruptRestrictions)
 		{
-			if (Restriction.IsBound() && Restriction.Execute(Result))
+			if (Restriction.Value.IsBound() && Restriction.Value.Execute(Result))
 			{
 				Result.FailReason = EInterruptFailReason::Restricted;
 				return Result;
@@ -1050,7 +1030,7 @@ void UAbilityComponent::UnsubscribeFromAbilityMispredicted(FAbilityMisprediction
 
 void UAbilityComponent::SubscribeToGlobalCooldownChanged(FGlobalCooldownCallback const& Callback)
 {
-	if (Callback.IsBound())
+	if (GetOwnerRole() != ROLE_SimulatedProxy && Callback.IsBound())
 	{
 		OnGlobalCooldownChanged.AddUnique(Callback);
 	}
@@ -1058,7 +1038,7 @@ void UAbilityComponent::SubscribeToGlobalCooldownChanged(FGlobalCooldownCallback
 
 void UAbilityComponent::UnsubscribeFromGlobalCooldownChanged(FGlobalCooldownCallback const& Callback)
 {
-	if (Callback.IsBound())
+	if (GetOwnerRole() != ROLE_SimulatedProxy && Callback.IsBound())
 	{
 		OnGlobalCooldownChanged.Remove(Callback);
 	}
@@ -1083,29 +1063,20 @@ void UAbilityComponent::UnsubscribeFromCastStateChanged(FCastingStateCallback co
 #pragma endregion
 #pragma region Modifiers
 
-void UAbilityComponent::AddGlobalCooldownModifier(FAbilityModCondition const& Modifier)
+void UAbilityComponent::AddGlobalCooldownModifier(UBuff* Source, FAbilityModCondition const& Modifier)
 {
-	if (GetOwnerRole() == ROLE_Authority && Modifier.IsBound())
+	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Modifier.IsBound())
 	{
-		GlobalCooldownMods.AddUnique(Modifier);
+		GlobalCooldownMods.Add(Source, Modifier);
 	}
 }
 
-void UAbilityComponent::RemoveGlobalCooldownModifier(FAbilityModCondition const& Modifier)
+void UAbilityComponent::RemoveGlobalCooldownModifier(UBuff* Source)
 {
-	if (GetOwnerRole() == ROLE_Authority && Modifier.IsBound())
+	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
 	{
-		GlobalCooldownMods.Remove(Modifier);
+		GlobalCooldownMods.Remove(Source);
 	}
-}
-
-FCombatModifier UAbilityComponent::ModifyGlobalCooldownFromStat(UCombatAbility* Ability)
-{
-	if (IsValid(StatHandlerRef) && StatHandlerRef->IsStatValid(GlobalCooldownLengthStatTag()))
-	{
-		return FCombatModifier(StatHandlerRef->GetStatValue(GlobalCooldownLengthStatTag()), EModifierType::Multiplicative);
-	}
-	return FCombatModifier(0.0f, EModifierType::Invalid);
 }
 
 float UAbilityComponent::CalculateGlobalCooldownLength(UCombatAbility* Ability, bool const bWithPingComp) const
@@ -1119,40 +1090,35 @@ float UAbilityComponent::CalculateGlobalCooldownLength(UCombatAbility* Ability, 
 		return Ability->GetDefaultGlobalCooldownLength();
 	}
 	TArray<FCombatModifier> Mods;
-	for (FAbilityModCondition const& Mod : GlobalCooldownMods)
+	for (TTuple<UBuff*, FAbilityModCondition> const& Mod : GlobalCooldownMods)
 	{
-		if (Mod.IsBound())
+		if (Mod.Value.IsBound())
 		{
-			Mods.Add(Mod.Execute(Ability));
+			Mods.Add(Mod.Value.Execute(Ability));
 		}
+	}
+	if (IsValid(StatHandlerRef) && StatHandlerRef->IsStatValid(GlobalCooldownLengthStatTag()))
+	{
+		Mods.Add(FCombatModifier(StatHandlerRef->GetStatValue(GlobalCooldownLengthStatTag()), EModifierType::Multiplicative));
 	}
 	float const PingCompensation = bWithPingComp ? FMath::Min(MaxPingCompensation, USaiyoraCombatLibrary::GetActorPing(GetOwner())) : 0.0f;
 	return FMath::Max(MinimumGlobalCooldownLength, FCombatModifier::ApplyModifiers(Mods, Ability->GetDefaultGlobalCooldownLength()) - PingCompensation);
 }
 
-void UAbilityComponent::AddCastLengthModifier(FAbilityModCondition const& Modifier)
+void UAbilityComponent::AddCastLengthModifier(UBuff* Source, FAbilityModCondition const& Modifier)
 {
-	if (GetOwnerRole() == ROLE_Authority && Modifier.IsBound())
+	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Modifier.IsBound())
 	{
-		CastLengthMods.AddUnique(Modifier);
+		CastLengthMods.Add(Source, Modifier);
 	}
 }
 
-void UAbilityComponent::RemoveCastLengthModifier(FAbilityModCondition const& Modifier)
+void UAbilityComponent::RemoveCastLengthModifier(UBuff* Source)
 {
-	if (GetOwnerRole() == ROLE_Authority && Modifier.IsBound())
+	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
 	{
-		CastLengthMods.Remove(Modifier);
+		CastLengthMods.Remove(Source);
 	}
-}
-
-FCombatModifier UAbilityComponent::ModifyCastLengthFromStat(UCombatAbility* Ability)
-{
-	if (IsValid(StatHandlerRef) && StatHandlerRef->IsStatValid(CastLengthStatTag()))
-	{
-		return FCombatModifier(StatHandlerRef->GetStatValue(CastLengthStatTag()), EModifierType::Multiplicative);
-	}
-	return FCombatModifier(0.0f, EModifierType::Invalid);
 }
 
 float UAbilityComponent::CalculateCastLength(UCombatAbility* Ability, bool const bWithPingComp) const
@@ -1166,40 +1132,35 @@ float UAbilityComponent::CalculateCastLength(UCombatAbility* Ability, bool const
 		return Ability->GetDefaultCastLength();
 	}
 	TArray<FCombatModifier> Mods;
-	for (FAbilityModCondition const& Mod : CastLengthMods)
+	for (TTuple<UBuff*, FAbilityModCondition> const& Mod : CastLengthMods)
 	{
-		if (Mod.IsBound())
+		if (Mod.Value.IsBound())
 		{
-			Mods.Add(Mod.Execute(Ability));
+			Mods.Add(Mod.Value.Execute(Ability));
 		}
+	}
+	if (IsValid(StatHandlerRef) && StatHandlerRef->IsStatValid(CastLengthStatTag()))
+	{
+		Mods.Add(FCombatModifier(StatHandlerRef->GetStatValue(CastLengthStatTag()), EModifierType::Multiplicative));
 	}
 	float const PingCompensation = bWithPingComp ? FMath::Min(MaxPingCompensation, USaiyoraCombatLibrary::GetActorPing(GetOwner())) : 0.0f;
 	return FMath::Max(MinimumCastLength, FCombatModifier::ApplyModifiers(Mods, Ability->GetDefaultCastLength()) - PingCompensation);
 }
 
-void UAbilityComponent::AddCooldownModifier(FAbilityModCondition const& Modifier)
+void UAbilityComponent::AddCooldownModifier(UBuff* Source, FAbilityModCondition const& Modifier)
 {
-	if (GetOwnerRole() == ROLE_Authority && Modifier.IsBound())
+	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Modifier.IsBound())
 	{
-		CooldownMods.AddUnique(Modifier);
+		CooldownMods.Add(Source, Modifier);
 	}
 }
 
-void UAbilityComponent::RemoveCooldownModifier(FAbilityModCondition const& Modifier)
+void UAbilityComponent::RemoveCooldownModifier(UBuff* Source)
 {
-	if (GetOwnerRole() == ROLE_Authority && Modifier.IsBound())
+	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
 	{
-		CooldownMods.Remove(Modifier);
+		CooldownMods.Remove(Source);
 	}
-}
-
-FCombatModifier UAbilityComponent::ModifyCooldownFromStat(UCombatAbility* Ability)
-{
-	if (IsValid(StatHandlerRef) && StatHandlerRef->IsStatValid(CooldownLengthStatTag()))
-	{
-		return FCombatModifier(StatHandlerRef->GetStatValue(CooldownLengthStatTag()), EModifierType::Multiplicative);
-	}
-	return FCombatModifier(0.0f, EModifierType::Invalid);
 }
 
 float UAbilityComponent::CalculateCooldownLength(UCombatAbility* Ability, bool const bWithPingComp) const
@@ -1213,12 +1174,16 @@ float UAbilityComponent::CalculateCooldownLength(UCombatAbility* Ability, bool c
 		return Ability->GetDefaultCooldownLength();
 	}
 	TArray<FCombatModifier> Mods;
-	for (FAbilityModCondition const& Mod : CooldownMods)
+	for (TTuple<UBuff*, FAbilityModCondition> const& Mod : CooldownMods)
 	{
-		if (Mod.IsBound())
+		if (Mod.Value.IsBound())
 		{
-			Mods.Add(Mod.Execute(Ability));
+			Mods.Add(Mod.Value.Execute(Ability));
 		}
+	}
+	if (IsValid(StatHandlerRef) && StatHandlerRef->IsStatValid(CooldownLengthStatTag()))
+	{
+		Mods.Add(FCombatModifier(StatHandlerRef->GetStatValue(CooldownLengthStatTag()), EModifierType::Multiplicative));
 	}
 	float const PingCompensation = bWithPingComp ? FMath::Min(MaxPingCompensation, USaiyoraCombatLibrary::GetActorPing(GetOwner())) : 0.0f;
 	return FMath::Max(MinimumCooldownLength, FCombatModifier::ApplyModifiers(Mods, Ability->GetDefaultCooldownLength()) - PingCompensation);
@@ -1280,31 +1245,6 @@ void UAbilityComponent::RemoveGenericResourceCostModifier(TSubclassOf<UResource>
 
 #pragma endregion 
 #pragma region Restrictions
-
-void UAbilityComponent::AddAbilityAcquisitionRestriction(FAbilityClassRestriction const& Restriction)
-{
-	if (GetOwnerRole() == ROLE_Authority && Restriction.IsBound())
-	{
-		AbilityAcquisitionRestrictions.AddUnique(Restriction);
-		TArray<TSubclassOf<UCombatAbility>> ActiveAbilityClasses;
-		ActiveAbilities.GenerateKeyArray(ActiveAbilityClasses);
-		for (TSubclassOf<UCombatAbility> const AbilityClass : ActiveAbilityClasses)
-		{
-			if (Restriction.Execute(AbilityClass))
-			{
-				RemoveAbility(AbilityClass);
-			}
-		}
-	}
-}
-
-void UAbilityComponent::RemoveAbilityAcquisitionRestriction(FAbilityClassRestriction const& Restriction)
-{
-	if (GetOwnerRole() == ROLE_Authority && Restriction.IsBound())
-	{
-		AbilityAcquisitionRestrictions.Remove(Restriction);
-	}
-}
 
 void UAbilityComponent::AddAbilityTagRestriction(UBuff* Source, FGameplayTag const Tag)
 {
@@ -1417,19 +1357,19 @@ bool UAbilityComponent::CanUseAbility(UCombatAbility* Ability, ECastFailReason& 
 	return true;
 }
 
-void UAbilityComponent::AddInterruptRestriction(FInterruptRestriction const& Restriction)
+void UAbilityComponent::AddInterruptRestriction(UBuff* Source, FInterruptRestriction const& Restriction)
 {
-	if (GetOwnerRole() == ROLE_Authority && Restriction.IsBound())
+	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Restriction.IsBound())
 	{
-		InterruptRestrictions.AddUnique(Restriction);
+		InterruptRestrictions.Add(Source, Restriction);
 	}
 }
 
-void UAbilityComponent::RemoveInterruptRestriction(FInterruptRestriction const& Restriction)
+void UAbilityComponent::RemoveInterruptRestriction(UBuff* Source)
 {
-	if (GetOwnerRole() == ROLE_Authority && Restriction.IsBound())
+	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
 	{
-		InterruptRestrictions.Remove(Restriction);
+		InterruptRestrictions.Remove(Source);
 	}
 }
 

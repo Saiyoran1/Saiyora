@@ -40,30 +40,8 @@ void FCombatStat::AddModifier(FCombatModifier const& Modifier)
 	{
 		return;
 	}
-	bool bFound = false;
-	bool bChanged = false;
-	for (FCombatModifier& Mod : Modifiers)
-	{
-		if (IsValid(Mod.Source) && Mod.Source == Modifier.Source)
-		{
-			if (Mod.bStackable)
-			{
-				Mod.Stacks = Modifier.Stacks;
-				bChanged = true;
-			}
-			bFound = true;
-			break;
-		}
-	}
-	if (!bFound)
-	{
-		Modifiers.Add(Modifier);
-		bChanged = true;
-	}
-	if (bChanged)
-	{
-		RecalculateValue();
-	}
+	Modifiers.Add(Modifier.Source, Modifier);
+	RecalculateValue();
 }
 
 void FCombatStat::RemoveModifier(UBuff* Source)
@@ -72,20 +50,8 @@ void FCombatStat::RemoveModifier(UBuff* Source)
 	{
 		return;
 	}
-	int32 RemoveIndex = -1;
-	for (int i = 0; i < Modifiers.Num(); i++)
-	{
-		if (IsValid(Modifiers[i].Source) && Modifiers[i].Source == Source)
-		{
-			RemoveIndex = i;
-			break;
-		}
-	}
-	if (RemoveIndex != -1)
-	{
-		Modifiers.RemoveAt(RemoveIndex);
-		RecalculateValue();
-	}
+	Modifiers.Remove(Source);
+	RecalculateValue();
 }
 
 void FCombatStat::PostReplicatedAdd(const FCombatStatArray& InArraySerializer)
@@ -108,7 +74,9 @@ void FCombatStat::RecalculateValue()
 {
 	if (Defaults.bModifiable)
 	{
-		Value = FCombatModifier::ApplyModifiers(Modifiers, Defaults.DefaultValue);
+		TArray<FCombatModifier> Mods;
+		Modifiers.GenerateValueArray(Mods);
+		Value = FCombatModifier::ApplyModifiers(Mods, Defaults.DefaultValue);
 	}
 	else
 	{
