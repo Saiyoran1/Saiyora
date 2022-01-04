@@ -30,7 +30,7 @@ class UComplexAbilityModifierFunction : public UBuffFunction
 	virtual void OnApply(FBuffApplyEvent const& ApplyEvent) override;
 	virtual void OnRemove(FBuffRemoveEvent const& RemoveEvent) override;
 
-	UFUNCTION(BlueprintCallable, Category = "Buff Function", meta = (DefaultToSelf = "Buff", HidePin = "Buff", GameplayTagFilter = "Stat"))
+	UFUNCTION(BlueprintCallable, Category = "Buff Function", meta = (DefaultToSelf = "Buff", HidePin = "Buff"))
 	static void ComplexAbilityModifier(UBuff* Buff, EComplexAbilityModType const ModifierType, FAbilityModCondition const& Modifier);
 };
 

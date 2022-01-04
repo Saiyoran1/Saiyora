@@ -50,7 +50,7 @@ void UComplexAbilityModifierFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
 			break;
 		default :
 			break;
-	};
+	}
 }
 
 void UComplexAbilityModifierFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
