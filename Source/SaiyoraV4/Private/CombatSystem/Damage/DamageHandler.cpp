@@ -510,7 +510,7 @@ void UDamageHandler::SubscribeToIncomingDamage(FDamageEventCallback const& Callb
 	}
 }
 
-void UDamageHandler::UnsubscribeFromIncomingDamageSuccess(FDamageEventCallback const& Callback)
+void UDamageHandler::UnsubscribeFromIncomingDamage(FDamageEventCallback const& Callback)
 {
 	if (Callback.IsBound())
 	{
@@ -537,19 +537,19 @@ void UDamageHandler::UnsubscribeFromIncomingHealingSuccess(FDamageEventCallback 
 #pragma endregion
 #pragma region Restrictions
 
-void UDamageHandler::AddDeathRestriction(FDeathRestriction const& Restriction)
+void UDamageHandler::AddDeathRestriction(UBuff* Source, FDeathRestriction const& Restriction)
 {
-	if (GetOwnerRole() == ROLE_Authority && Restriction.IsBound())
+	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Restriction.IsBound())
 	{
-		DeathRestrictions.AddUnique(Restriction);
+		DeathRestrictions.Add(Source, Restriction);
 	}
 }
 
-void UDamageHandler::RemoveDeathRestriction(FDeathRestriction const& Restriction)
+void UDamageHandler::RemoveDeathRestriction(UBuff* Source)
 {
-	if (GetOwnerRole() == ROLE_Authority && Restriction.IsBound())
+	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
 	{
-		int32 const Removed = DeathRestrictions.Remove(Restriction);
+		int32 const Removed = DeathRestrictions.Remove(Source);
 		if (Removed > 0 && bHasPendingKillingBlow)
 		{
 			if (!CheckDeathRestricted(PendingKillingBlow))
@@ -562,9 +562,9 @@ void UDamageHandler::RemoveDeathRestriction(FDeathRestriction const& Restriction
 
 bool UDamageHandler::CheckDeathRestricted(FDamagingEvent const& DamageEvent)
 {
-	for (FDeathRestriction const& Restriction : DeathRestrictions)
+	for (TTuple<UBuff*, FDeathRestriction> const& Restriction : DeathRestrictions)
 	{
-		if (Restriction.IsBound() && Restriction.Execute(DamageEvent))
+		if (Restriction.Value.IsBound() && Restriction.Value.Execute(DamageEvent))
 		{
 			return true;
 		}
@@ -572,27 +572,27 @@ bool UDamageHandler::CheckDeathRestricted(FDamagingEvent const& DamageEvent)
 	return false;
 }
 
-void UDamageHandler::AddOutgoingDamageRestriction(FDamageRestriction const& Restriction)
+void UDamageHandler::AddOutgoingDamageRestriction(UBuff* Source, FDamageRestriction const& Restriction)
 {
-	if (GetOwnerRole() == ROLE_Authority && Restriction.IsBound())
+	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Restriction.IsBound())
 	{
-		OutgoingDamageRestrictions.AddUnique(Restriction);
+		OutgoingDamageRestrictions.Add(Source, Restriction);
 	}
 }
 
-void UDamageHandler::RemoveOutgoingDamageRestriction(FDamageRestriction const& Restriction)
+void UDamageHandler::RemoveOutgoingDamageRestriction(UBuff* Source)
 {
-	if (GetOwnerRole() == ROLE_Authority && Restriction.IsBound())
+	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
 	{
-		OutgoingDamageRestrictions.Remove(Restriction);
+		OutgoingDamageRestrictions.Remove(Source);
 	}
 }
 
 bool UDamageHandler::CheckOutgoingDamageRestricted(FDamageInfo const& DamageInfo)
 {
-	for (FDamageRestriction const& Restriction : OutgoingDamageRestrictions)
+	for (TTuple<UBuff*, FDamageRestriction> const& Restriction : OutgoingDamageRestrictions)
 	{
-		if (Restriction.IsBound() && Restriction.Execute(DamageInfo))
+		if (Restriction.Value.IsBound() && Restriction.Value.Execute(DamageInfo))
 		{
 			return true;
 		}
@@ -600,27 +600,27 @@ bool UDamageHandler::CheckOutgoingDamageRestricted(FDamageInfo const& DamageInfo
 	return false;
 }
 
-void UDamageHandler::AddOutgoingHealingRestriction(FDamageRestriction const& Restriction)
+void UDamageHandler::AddOutgoingHealingRestriction(UBuff* Source, FDamageRestriction const& Restriction)
 {
-	if (GetOwnerRole() == ROLE_Authority && Restriction.IsBound())
+	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Restriction.IsBound())
 	{
-		OutgoingHealingRestrictions.AddUnique(Restriction);
+		OutgoingHealingRestrictions.Add(Source, Restriction);
 	}
 }
 
-void UDamageHandler::RemoveOutgoingHealingRestriction(FDamageRestriction const& Restriction)
+void UDamageHandler::RemoveOutgoingHealingRestriction(UBuff* Source)
 {
-	if (GetOwnerRole() == ROLE_Authority && Restriction.IsBound())
+	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
 	{
-		OutgoingHealingRestrictions.RemoveSingleSwap(Restriction);
+		OutgoingHealingRestrictions.Remove(Source);
 	}
 }
 
 bool UDamageHandler::CheckOutgoingHealingRestricted(FDamageInfo const& HealingInfo)
 {
-	for (FDamageRestriction const& Restriction : OutgoingHealingRestrictions)
+	for (TTuple<UBuff*, FDamageRestriction> const& Restriction : OutgoingHealingRestrictions)
 	{
-		if (Restriction.IsBound() && Restriction.Execute(HealingInfo))
+		if (Restriction.Value.IsBound() && Restriction.Value.Execute(HealingInfo))
 		{
 			return true;
 		}
@@ -628,27 +628,27 @@ bool UDamageHandler::CheckOutgoingHealingRestricted(FDamageInfo const& HealingIn
 	return false;
 }
 
-void UDamageHandler::AddIncomingDamageRestriction(FDamageRestriction const& Restriction)
+void UDamageHandler::AddIncomingDamageRestriction(UBuff* Source, FDamageRestriction const& Restriction)
 {
-	if (GetOwnerRole() == ROLE_Authority && Restriction.IsBound())
+	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Restriction.IsBound())
 	{
-		IncomingDamageRestrictions.AddUnique(Restriction);
+		IncomingDamageRestrictions.Add(Source, Restriction);
 	}
 }
 
-void UDamageHandler::RemoveIncomingDamageRestriction(FDamageRestriction const& Restriction)
+void UDamageHandler::RemoveIncomingDamageRestriction(UBuff* Source)
 {
-	if (GetOwnerRole() == ROLE_Authority && Restriction.IsBound())
+	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
 	{
-		IncomingDamageRestrictions.Remove(Restriction);
+		IncomingDamageRestrictions.Remove(Source);
 	}
 }
 
 bool UDamageHandler::CheckIncomingDamageRestricted(FDamageInfo const& DamageInfo)
 {
-	for (FDamageRestriction const& Restriction : IncomingDamageRestrictions)
+	for (TTuple<UBuff*, FDamageRestriction> const& Restriction : IncomingDamageRestrictions)
 	{
-		if (Restriction.IsBound() && Restriction.Execute(DamageInfo))
+		if (Restriction.Value.IsBound() && Restriction.Value.Execute(DamageInfo))
 		{
 			return true;
 		}
@@ -656,27 +656,27 @@ bool UDamageHandler::CheckIncomingDamageRestricted(FDamageInfo const& DamageInfo
 	return false;
 }
 
-void UDamageHandler::AddIncomingHealingRestriction(FDamageRestriction const& Restriction)
+void UDamageHandler::AddIncomingHealingRestriction(UBuff* Source, FDamageRestriction const& Restriction)
 {
-	if (GetOwnerRole() == ROLE_Authority && Restriction.IsBound())
+	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Restriction.IsBound())
 	{
-		IncomingHealingRestrictions.AddUnique(Restriction);
+		IncomingHealingRestrictions.Add(Source, Restriction);
 	}
 }
 
-void UDamageHandler::RemoveIncomingHealingRestriction(FDamageRestriction const& Restriction)
+void UDamageHandler::RemoveIncomingHealingRestriction(UBuff* Source)
 {
-	if (GetOwnerRole() == ROLE_Authority && Restriction.IsBound())
+	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
 	{
-		IncomingHealingRestrictions.Remove(Restriction);
+		IncomingHealingRestrictions.Remove(Source);
 	}
 }
 
 bool UDamageHandler::CheckIncomingHealingRestricted(FDamageInfo const& HealingInfo)
 {
-	for (FDamageRestriction const& Restriction : IncomingHealingRestrictions)
+	for (TTuple<UBuff*, FDamageRestriction> const& Restriction : IncomingHealingRestrictions)
 	{
-		if (Restriction.IsBound() && Restriction.Execute(HealingInfo))
+		if (Restriction.Value.IsBound() && Restriction.Value.Execute(HealingInfo))
 		{
 			return true;
 		}

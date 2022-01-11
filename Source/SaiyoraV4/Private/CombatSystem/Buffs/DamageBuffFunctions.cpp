@@ -4,6 +4,8 @@
 #include "DamageHandler.h"
 #include "SaiyoraCombatInterface.h"
 
+#pragma region Damage Modifiers
+
 void UDamageModifierFunction::DamageModifier(UBuff* Buff, EDamageModifierType const ModifierType,
                                              FDamageModCondition const& Modifier)
 {
@@ -20,50 +22,46 @@ void UDamageModifierFunction::DamageModifier(UBuff* Buff, EDamageModifierType co
 }
 
 void UDamageModifierFunction::SetModifierVars(EDamageModifierType const ModifierType,
-	FDamageModCondition const& Modifier)
+                                              FDamageModCondition const& Modifier)
 {
-	ModType = ModifierType;
-	Mod = Modifier;
+	if (GetOwningBuff()->GetAppliedTo()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	{
+		TargetHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwningBuff()->GetAppliedTo());
+		ModType = ModifierType;
+		Mod = Modifier;
+	}
 }
 
 void UDamageModifierFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
 {
-	if (!GetOwningBuff()->GetAppliedTo()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	if (IsValid(TargetHandler))
 	{
-		return;
-	}
-	TargetHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwningBuff()->GetAppliedTo());
-	if (!IsValid(TargetHandler))
-	{
-		return;
-	}
-	switch (ModType)
-	{
-	case EDamageModifierType::IncomingDamage :
-		TargetHandler->AddIncomingDamageModifier(GetOwningBuff(), Mod);
-		break;
-	case EDamageModifierType::OutgoingDamage :
-		TargetHandler->AddOutgoingDamageModifier(GetOwningBuff(), Mod);
-		break;
-	case EDamageModifierType::IncomingHealing :
-		TargetHandler->AddIncomingHealingModifier(GetOwningBuff(), Mod);
-		break;
-	case EDamageModifierType::OutgoingHealing :
-		TargetHandler->AddOutgoingHealingModifier(GetOwningBuff(), Mod);
-		break;
-	default :
-		break;
+		switch (ModType)
+		{
+		case EDamageModifierType::IncomingDamage :
+			TargetHandler->AddIncomingDamageModifier(GetOwningBuff(), Mod);
+			break;
+		case EDamageModifierType::OutgoingDamage :
+			TargetHandler->AddOutgoingDamageModifier(GetOwningBuff(), Mod);
+			break;
+		case EDamageModifierType::IncomingHealing :
+			TargetHandler->AddIncomingHealingModifier(GetOwningBuff(), Mod);
+			break;
+		case EDamageModifierType::OutgoingHealing :
+			TargetHandler->AddOutgoingHealingModifier(GetOwningBuff(), Mod);
+			break;
+		default :
+			break;
+		}
 	}
 }
 
 void UDamageModifierFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
 {
-	if (!IsValid(TargetHandler))
+	if (IsValid(TargetHandler))
 	{
-		return;
-	}
-	switch (ModType)
-	{
+		switch (ModType)
+		{
 		case EDamageModifierType::IncomingDamage :
 			TargetHandler->RemoveIncomingDamageModifier(GetOwningBuff());
 			break;
@@ -78,5 +76,128 @@ void UDamageModifierFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
 			break;
 		default :
 			break;
+		}
 	}
 }
+
+#pragma endregion 
+#pragma region Damage Restrictions
+
+void UDamageRestrictionFunction::DamageRestriction(UBuff* Buff, EDamageModifierType const RestrictionType,
+                                                   FDamageRestriction const& Restriction)
+{
+	if (!IsValid(Buff) || RestrictionType == EDamageModifierType::None || !Restriction.IsBound())
+	{
+		return;
+	}
+	UDamageRestrictionFunction* NewDamageRestrictionFunction = Cast<UDamageRestrictionFunction>(InstantiateBuffFunction(Buff, StaticClass()));
+	if (!IsValid(NewDamageRestrictionFunction))
+	{
+		return;
+	}
+	NewDamageRestrictionFunction->SetRestrictionVars(RestrictionType, Restriction);
+}
+
+void UDamageRestrictionFunction::SetRestrictionVars(EDamageModifierType const RestrictionType,
+                                                    FDamageRestriction const& Restriction)
+{
+	if (GetOwningBuff()->GetAppliedTo()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	{
+		TargetHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwningBuff()->GetAppliedTo());
+		RestrictType = RestrictionType;
+		Restrict = Restriction;
+	}
+}
+
+void UDamageRestrictionFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
+{
+	
+	if (IsValid(TargetHandler))
+	{
+		switch (RestrictType)
+		{
+		case EDamageModifierType::IncomingDamage :
+			TargetHandler->AddIncomingDamageRestriction(GetOwningBuff(), Restrict);
+			break;
+		case EDamageModifierType::OutgoingDamage :
+			TargetHandler->AddOutgoingDamageRestriction(GetOwningBuff(), Restrict);
+			break;
+		case EDamageModifierType::IncomingHealing :
+			TargetHandler->AddIncomingHealingRestriction(GetOwningBuff(), Restrict);
+			break;
+		case EDamageModifierType::OutgoingHealing :
+			TargetHandler->AddOutgoingHealingRestriction(GetOwningBuff(), Restrict);
+			break;
+		default :
+			break;
+		}
+	}
+}
+
+void UDamageRestrictionFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
+{
+	if (IsValid(TargetHandler))
+	{
+		switch (RestrictType)
+		{
+		case EDamageModifierType::IncomingDamage :
+			TargetHandler->RemoveIncomingDamageRestriction(GetOwningBuff());
+			break;
+		case EDamageModifierType::OutgoingDamage :
+			TargetHandler->RemoveOutgoingDamageRestriction(GetOwningBuff());
+			break;
+		case EDamageModifierType::IncomingHealing :
+			TargetHandler->RemoveIncomingHealingRestriction(GetOwningBuff());
+			break;
+		case EDamageModifierType::OutgoingHealing :
+			TargetHandler->RemoveOutgoingHealingRestriction(GetOwningBuff());
+			break;
+		default :
+			break;
+		}
+	}
+}
+
+#pragma endregion
+#pragma region Death Restriction
+
+void UDeathRestrictionFunction::DeathRestriction(UBuff* Buff, FDeathRestriction const& Restriction)
+{
+	if (!IsValid(Buff) || !Restriction.IsBound())
+	{
+		return;
+	}
+	UDeathRestrictionFunction* NewDeathRestrictionFunction = Cast<UDeathRestrictionFunction>(InstantiateBuffFunction(Buff, StaticClass()));
+	if (!IsValid(NewDeathRestrictionFunction))
+	{
+		return;
+	}
+	NewDeathRestrictionFunction->SetRestrictionVars(Restriction);
+}
+
+void UDeathRestrictionFunction::SetRestrictionVars(FDeathRestriction const& Restriction)
+{
+	if (GetOwningBuff()->GetAppliedTo()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	{
+		TargetHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwningBuff()->GetAppliedTo());
+		Restrict = Restriction;
+	}
+}
+
+void UDeathRestrictionFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
+{
+	if (IsValid(TargetHandler))
+	{
+		TargetHandler->AddDeathRestriction(GetOwningBuff(), Restrict);
+	}
+}
+
+void UDeathRestrictionFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
+{
+	if (IsValid(TargetHandler))
+	{
+		TargetHandler->RemoveDeathRestriction(GetOwningBuff());
+	}
+}
+
+#pragma endregion

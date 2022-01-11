@@ -93,7 +93,7 @@ void USimpleAbilityModifierFunction::SimpleAbilityModifier(UBuff* Buff, TSubclas
 }
 
 void USimpleAbilityModifierFunction::SetModifierVars(TSubclassOf<UCombatAbility> const AbilityClass,
-	ESimpleAbilityModType const ModifierType, FCombatModifier const& Modifier)
+                                                     ESimpleAbilityModType const ModifierType, FCombatModifier const& Modifier)
 {
 	if (GetOwningBuff()->GetAppliedTo()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 	{
@@ -169,6 +169,60 @@ void USimpleAbilityModifierFunction::OnRemove(FBuffRemoveEvent const& RemoveEven
 				break;
 			default :
 				break;
+		}
+	}
+}
+
+#pragma endregion
+#pragma region Ability Class Restriction
+
+void UAbilityClassRestrictionFunction::AbilityClassRestrictions(UBuff* Buff, TSet<TSubclassOf<UCombatAbility>> const& AbilityClasses)
+{
+	if (!IsValid(Buff) || AbilityClasses.Num() == 0)
+	{
+		return;
+	}
+	UAbilityClassRestrictionFunction* NewAbilityRestrictionFunction = Cast<UAbilityClassRestrictionFunction>(InstantiateBuffFunction(Buff, StaticClass()));
+	if (!IsValid(NewAbilityRestrictionFunction))
+	{
+		return;
+	}
+	NewAbilityRestrictionFunction->SetRestrictionVars(AbilityClasses);
+}
+
+void UAbilityClassRestrictionFunction::SetRestrictionVars(TSet<TSubclassOf<UCombatAbility>> const& AbilityClasses)
+{
+	if (GetOwningBuff()->GetAppliedTo()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	{
+		TargetComponent = ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwningBuff()->GetAppliedTo());
+		RestrictClasses = AbilityClasses;
+	}
+}
+
+void UAbilityClassRestrictionFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
+{
+	if (IsValid(TargetComponent))
+	{
+		for (TSubclassOf<UCombatAbility> const AbilityClass : RestrictClasses)
+		{
+			if (IsValid(AbilityClass))
+			{
+				TargetComponent->AddAbilityClassRestriction(GetOwningBuff(), AbilityClass);
+			}
+		}
+	}
+}
+
+void UAbilityClassRestrictionFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
+{
+	if (IsValid(TargetComponent))
+	{
+		for (TSubclassOf<UCombatAbility> const AbilityClass : RestrictClasses)
+		{
+			if (IsValid(AbilityClass))
+			{
+				TargetComponent->RemoveAbilityClassRestriction(GetOwningBuff(), AbilityClass);
+			}
 		}
 	}
 }

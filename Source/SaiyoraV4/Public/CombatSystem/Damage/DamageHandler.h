@@ -70,10 +70,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Health")
 	void UnsubscribeFromLifeStatusChanged(FLifeStatusCallback const& Callback);
 
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Health")
-	void AddDeathRestriction(FDeathRestriction const& Restriction);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Health")
-	void RemoveDeathRestriction(FDeathRestriction const& Restriction);
+	void AddDeathRestriction(UBuff* Source, FDeathRestriction const& Restriction);
+	void RemoveDeathRestriction(UBuff* Source);
 
 private:
 
@@ -100,7 +98,7 @@ private:
 	FHealthChangeNotification OnHealthChanged;
 	FHealthChangeNotification OnMaxHealthChanged;
 	FLifeStatusNotification OnLifeStatusChanged;
-	TArray<FDeathRestriction> DeathRestrictions;
+	TMap<UBuff*, FDeathRestriction> DeathRestrictions;
 
 	void UpdateMaxHealth(float const NewMaxHealth);
 	FStatCallback MaxHealthStatCallback;
@@ -122,10 +120,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Damage")
 	void UnsubscribeFromKillingBlow(FDamageEventCallback const& Callback);
 
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Damage")
-   	void AddOutgoingDamageRestriction(FDamageRestriction const& Restriction);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Damage")
-   	void RemoveOutgoingDamageRestriction(FDamageRestriction const& Restriction);
+   	void AddOutgoingDamageRestriction(UBuff* Source, FDamageRestriction const& Restriction);
+   	void RemoveOutgoingDamageRestriction(UBuff* Source);
 	bool CheckOutgoingDamageRestricted(FDamageInfo const& DamageInfo);
     void AddOutgoingDamageModifier(UBuff* Source, FDamageModCondition const& Modifier);
    	void RemoveOutgoingDamageModifier(UBuff* Source);
@@ -137,7 +133,7 @@ private:
 	
 	FDamageEventNotification OnOutgoingDamage;
 	FDamageEventNotification OnKillingBlow;
-	TArray<FDamageRestriction> OutgoingDamageRestrictions;
+	TMap<UBuff*, FDamageRestriction> OutgoingDamageRestrictions;
 	TMap<UBuff*, FDamageModCondition> OutgoingDamageModifiers;
 
 	UFUNCTION(Client, Unreliable)
@@ -152,10 +148,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Healing")
    	void UnsubscribeFromOutgoingHealing(FDamageEventCallback const& Callback);
 
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Healing")
-   	void AddOutgoingHealingRestriction(FDamageRestriction const& Restriction);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Healing")
-   	void RemoveOutgoingHealingRestriction(FDamageRestriction const& Restriction);
+   	void AddOutgoingHealingRestriction(UBuff* Source, FDamageRestriction const& Restriction);
+   	void RemoveOutgoingHealingRestriction(UBuff* Source);
 	bool CheckOutgoingHealingRestricted(FDamageInfo const& HealingInfo);
    	void AddOutgoingHealingModifier(UBuff* Source, FDamageModCondition const& Modifier);
    	void RemoveOutgoingHealingModifier(UBuff* Source);
@@ -166,7 +160,7 @@ public:
 private:
 	
     FDamageEventNotification OnOutgoingHealing;
-    TArray<FDamageRestriction> OutgoingHealingRestrictions;
+    TMap<UBuff*, FDamageRestriction> OutgoingHealingRestrictions;
     TMap<UBuff*, FDamageModCondition> OutgoingHealingModifiers;
     
     UFUNCTION(Client, Unreliable)
@@ -186,12 +180,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Damage")
 	void SubscribeToIncomingDamage(FDamageEventCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Damage")
-	void UnsubscribeFromIncomingDamageSuccess(FDamageEventCallback const& Callback);
+	void UnsubscribeFromIncomingDamage(FDamageEventCallback const& Callback);
 
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Damage")
-	void AddIncomingDamageRestriction(FDamageRestriction const& Restriction);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Damage")
-	void RemoveIncomingDamageRestriction(FDamageRestriction const& Restriction);
+	void AddIncomingDamageRestriction(UBuff* Source, FDamageRestriction const& Restriction);
+	void RemoveIncomingDamageRestriction(UBuff* Source);
 	bool CheckIncomingDamageRestricted(FDamageInfo const& DamageInfo);
 	void AddIncomingDamageModifier(UBuff* Source, FDamageModCondition const& Modifier);
 	void RemoveIncomingDamageModifier(UBuff* Source);
@@ -206,7 +198,7 @@ private:
 	FDamagingEvent PendingKillingBlow;
 	
 	FDamageEventNotification OnIncomingDamage;
-	TArray<FDamageRestriction> IncomingDamageRestrictions;
+	TMap<UBuff*, FDamageRestriction> IncomingDamageRestrictions;
 	TMap<UBuff*, FDamageModCondition> IncomingDamageModifiers;
 
 	UFUNCTION(Client, Unreliable)
@@ -216,7 +208,7 @@ private:
 	UFUNCTION()
 	bool RestrictDamageBuffs(FBuffApplyEvent const& BuffEvent);
 
-	//Incoming Healing
+//Incoming Healing
 
 public:
 
@@ -232,10 +224,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Healing")
 	void UnsubscribeFromIncomingHealingSuccess(FDamageEventCallback const& Callback);
 
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Healing")
-	void AddIncomingHealingRestriction(FDamageRestriction const& Restriction);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Healing")
-	void RemoveIncomingHealingRestriction(FDamageRestriction const& Restriction);
+	void AddIncomingHealingRestriction(UBuff* Source, FDamageRestriction const& Restriction);
+	void RemoveIncomingHealingRestriction(UBuff* Source);
 	bool CheckIncomingHealingRestricted(FDamageInfo const& HealingInfo);
 	void AddIncomingHealingModifier(UBuff* Source, FDamageModCondition const& Modifier);
 	void RemoveIncomingHealingModifier(UBuff* Source);
@@ -247,7 +237,7 @@ private:
 	bool bCanEverReceiveHealing = true;
 	
 	FDamageEventNotification OnIncomingHealing;
-	TArray<FDamageRestriction> IncomingHealingRestrictions;
+	TMap<UBuff*, FDamageRestriction> IncomingHealingRestrictions;
 	TMap<UBuff*, FDamageModCondition> IncomingHealingModifiers;
 
 	UFUNCTION(Client, Unreliable)

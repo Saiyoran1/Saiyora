@@ -4,8 +4,6 @@
 #include "BuffFunction.h"
 #include "AbilityBuffFunctions.generated.h"
 
-//Buff functions that apply modifiers or restrictions to the ability system.
-
 UENUM(BlueprintType)
 enum class EComplexAbilityModType : uint8
 {
@@ -61,4 +59,22 @@ class USimpleAbilityModifierFunction : public UBuffFunction
 
 	UFUNCTION(BlueprintCallable, Category = "Buff Function", meta = (DefaultToSelf = "Buff", HidePin = "Buff"))
 	static void SimpleAbilityModifier(UBuff* Buff, TSubclassOf<UCombatAbility> const AbilityClass, ESimpleAbilityModType const ModifierType, FCombatModifier const& Modifier);
+};
+
+UCLASS()
+class UAbilityClassRestrictionFunction : public UBuffFunction
+{
+	GENERATED_BODY()
+
+	TSet<TSubclassOf<UCombatAbility>> RestrictClasses;
+	UPROPERTY()
+	UAbilityComponent* TargetComponent;
+
+	void SetRestrictionVars(TSet<TSubclassOf<UCombatAbility>> const& AbilityClasses);
+
+	virtual void OnApply(FBuffApplyEvent const& ApplyEvent) override;
+	virtual void OnRemove(FBuffRemoveEvent const& RemoveEvent) override;
+
+	UFUNCTION(BlueprintCallable, Category = "Buff Function", meta = (DefaultToSelf = "Buff", HidePin = "Buff"))
+	static void AbilityClassRestrictions(UBuff* Buff, TSet<TSubclassOf<UCombatAbility>> const& AbilityClasses);
 };
