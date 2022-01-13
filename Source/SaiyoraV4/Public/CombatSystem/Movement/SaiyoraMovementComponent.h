@@ -63,6 +63,8 @@ private:
 //Setup
 
 public:
+
+	static FGameplayTag GenericExternalMovementTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("ExternalMovement")), false); }
 	
 	USaiyoraMovementComponent(const FObjectInitializer& ObjectInitializer);
 	virtual bool ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags) override;

@@ -352,7 +352,7 @@ bool USaiyoraMovementComponent::ApplyCustomMove(FCustomMoveParams const& CustomM
 		//Check for roots and custom restrictions.
 		if (!CustomMove.bIgnoreRestrictions)
 		{
-			if (IsValid(OwnerCcHandler) && OwnerCcHandler->IsCrowdControlActive(ECrowdControlType::Root))
+			if (IsValid(OwnerCcHandler) && OwnerCcHandler->IsCrowdControlActive(UCrowdControlHandler::RootTag()))
 			{
 				return false;
 			}
@@ -592,7 +592,7 @@ bool USaiyoraMovementComponent::ApplyCustomRootMotionHandler(USaiyoraRootMotionH
 		//Check for roots and custom restrictions.
 		if (!Handler->bIgnoreRestrictions)
 		{
-			if (IsValid(OwnerCcHandler) && OwnerCcHandler->IsCrowdControlActive(ECrowdControlType::Root))
+			if (IsValid(OwnerCcHandler) && OwnerCcHandler->IsCrowdControlActive(UCrowdControlHandler::RootTag()))
 			{
 				return false;
 			}
@@ -643,7 +643,7 @@ bool USaiyoraMovementComponent::ApplyCustomRootMotionHandler(USaiyoraRootMotionH
 			}
 			ServerCompletedMovementIDs.Add(AbilitySource->GetPredictionID());
 			//We don't check custom restrictions since the move was self-initiated, but we do check for root.
-			if (!Handler->bIgnoreRestrictions && IsValid(OwnerCcHandler) && OwnerCcHandler->IsCrowdControlActive(ECrowdControlType::Root))
+			if (!Handler->bIgnoreRestrictions && IsValid(OwnerCcHandler) && OwnerCcHandler->IsCrowdControlActive(UCrowdControlHandler::RootTag()))
 			{
 				return false;
 			}
@@ -657,7 +657,7 @@ bool USaiyoraMovementComponent::ApplyCustomRootMotionHandler(USaiyoraRootMotionH
 	case ROLE_AutonomousProxy :
 		{
 			//We don't check for custom restrictions since the move was self-initiated, but we do check for root.
-			if (!Handler->bIgnoreRestrictions && IsValid(OwnerCcHandler) && OwnerCcHandler->IsCrowdControlActive(ECrowdControlType::Root))
+			if (!Handler->bIgnoreRestrictions && IsValid(OwnerCcHandler) && OwnerCcHandler->IsCrowdControlActive(UCrowdControlHandler::RootTag()))
 			{
 				return false;
 			}
@@ -846,7 +846,7 @@ void USaiyoraMovementComponent::StopMotionOnOwnerDeath(AActor* Target, ELifeStat
 void USaiyoraMovementComponent::StopMotionOnRooted(FCrowdControlStatus const& Previous, FCrowdControlStatus const& New)
 {
 	//TODO: Can add ping delay to root taking effect for auto proxies? How does this work with sim proxies?
-	if (New.CrowdControlType == ECrowdControlType::Root && New.bActive)
+	if (New.CrowdControlType == UCrowdControlHandler::RootTag() && New.bActive)
 	{
 		TArray<USaiyoraRootMotionHandler*> HandlersToRemove = CurrentRootMotionHandlers;
 		if (GetOwnerRole() == ROLE_Authority)
@@ -879,9 +879,7 @@ bool USaiyoraMovementComponent::CanAttemptJump() const
 	}
 	if (IsValid(OwnerCcHandler))
 	{
-		TSet<ECrowdControlType> ActiveCcs;
-		OwnerCcHandler->GetActiveCrowdControls(ActiveCcs);
-		if (ActiveCcs.Contains(ECrowdControlType::Stun) || ActiveCcs.Contains(ECrowdControlType::Incapacitate) || ActiveCcs.Contains(ECrowdControlType::Root))
+		if (OwnerCcHandler->IsCrowdControlActive(UCrowdControlHandler::StunTag()) || OwnerCcHandler->IsCrowdControlActive(UCrowdControlHandler::IncapacitateTag()) || OwnerCcHandler->IsCrowdControlActive(UCrowdControlHandler::RootTag()))
 		{
 			return false;
 		}
@@ -901,9 +899,7 @@ bool USaiyoraMovementComponent::CanCrouchInCurrentState() const
 	}
 	if (IsValid(OwnerCcHandler))
 	{
-		TSet<ECrowdControlType> ActiveCcs;
-		OwnerCcHandler->GetActiveCrowdControls(ActiveCcs);
-		if (ActiveCcs.Contains(ECrowdControlType::Stun) || ActiveCcs.Contains(ECrowdControlType::Incapacitate))
+		if (OwnerCcHandler->IsCrowdControlActive(UCrowdControlHandler::StunTag()) || OwnerCcHandler->IsCrowdControlActive(UCrowdControlHandler::IncapacitateTag()))
 		{
 			return false;
 		}
@@ -917,9 +913,12 @@ FVector USaiyoraMovementComponent::ConsumeInputVector()
 	{
 		return FVector::ZeroVector;
 	}
-	if (IsValid(OwnerCcHandler) && (OwnerCcHandler->IsCrowdControlActive(ECrowdControlType::Stun) || OwnerCcHandler->IsCrowdControlActive(ECrowdControlType::Incapacitate) || OwnerCcHandler->IsCrowdControlActive(ECrowdControlType::Root)))
+	if (IsValid(OwnerCcHandler))
 	{
-		return FVector::ZeroVector;
+		if (OwnerCcHandler->IsCrowdControlActive(UCrowdControlHandler::StunTag()) || OwnerCcHandler->IsCrowdControlActive(UCrowdControlHandler::IncapacitateTag()) || OwnerCcHandler->IsCrowdControlActive(UCrowdControlHandler::RootTag()))
+		{
+			return FVector::ZeroVector;
+		}
 	}
 	return Super::ConsumeInputVector();
 }
@@ -930,9 +929,12 @@ float USaiyoraMovementComponent::GetMaxAcceleration() const
 	{
 		return 0.0f;
 	}
-	if (IsValid(OwnerCcHandler) && (OwnerCcHandler->IsCrowdControlActive(ECrowdControlType::Stun) || OwnerCcHandler->IsCrowdControlActive(ECrowdControlType::Incapacitate) || OwnerCcHandler->IsCrowdControlActive(ECrowdControlType::Root)))
+	if (IsValid(OwnerCcHandler))
 	{
-		return 0.0f;
+		if (OwnerCcHandler->IsCrowdControlActive(UCrowdControlHandler::StunTag()) || OwnerCcHandler->IsCrowdControlActive(UCrowdControlHandler::IncapacitateTag()) || OwnerCcHandler->IsCrowdControlActive(UCrowdControlHandler::RootTag()))
+		{
+			return 0.0f;
+		}
 	}
 	return Super::GetMaxAcceleration();
 }
@@ -943,9 +945,12 @@ float USaiyoraMovementComponent::GetMaxSpeed() const
 	{
 		return 0.0f;
 	}
-	if (IsValid(OwnerCcHandler) && (OwnerCcHandler->IsCrowdControlActive(ECrowdControlType::Stun) || OwnerCcHandler->IsCrowdControlActive(ECrowdControlType::Incapacitate) || OwnerCcHandler->IsCrowdControlActive(ECrowdControlType::Root)))
+	if (IsValid(OwnerCcHandler))
 	{
-		return 0.0f;
+		if (OwnerCcHandler->IsCrowdControlActive(UCrowdControlHandler::StunTag()) || OwnerCcHandler->IsCrowdControlActive(UCrowdControlHandler::IncapacitateTag()) || OwnerCcHandler->IsCrowdControlActive(UCrowdControlHandler::RootTag()))
+		{
+			return 0.0f;
+		}
 	}
 	return Super::GetMaxSpeed();
 }

@@ -91,7 +91,7 @@ bool UDamageHandler::RestrictDamageBuffs(FBuffApplyEvent const& BuffEvent)
 	{
 		FGameplayTagContainer BuffTags;
 		Buff->GetBuffTags(BuffTags);
-		if (BuffTags.HasTag(BuffFunctionDamageTag()))
+		if (BuffTags.HasTag(GenericDamageTag()))
 		{
 			return true;
 		}
@@ -106,7 +106,7 @@ bool UDamageHandler::RestrictHealingBuffs(FBuffApplyEvent const& BuffEvent)
 	{
 		FGameplayTagContainer BuffFunctionTags;
 		Buff->GetBuffTags(BuffFunctionTags);
-		if (BuffFunctionTags.HasTag(BuffFunctionHealingTag()))
+		if (BuffFunctionTags.HasTag(GenericHealingTag()))
 		{
 			return true;
 		}

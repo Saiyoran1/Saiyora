@@ -22,16 +22,6 @@ public:
 	static FGameplayTag RootTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("CrowdControl.Root")), false); }
 	static FGameplayTag SilenceTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("CrowdControl.Silence")), false); }
 	static FGameplayTag DisarmTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("CrowdControl.Disarm")), false); }
-	static FGameplayTag GenericCcImmunityTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("CcImmunity")), false); }
-	static FGameplayTag StunImmunityTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("CcImmunity.Stun")), false); }
-	static FGameplayTag IncapImmunityTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("CcImmunity.Incap")), false); }
-	static FGameplayTag RootImmunityTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("CcImmunity.Root")), false); }
-	static FGameplayTag SilenceImmunityTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("CcImmunity.Silence")), false); }
-	static FGameplayTag DisarmImmunityTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("CcImmunity.Disarm")), false); }
-	static FGameplayTag CcTypeToTag(ECrowdControlType const CcType);
-	static FGameplayTag CcTypeToImmunity(ECrowdControlType const CcType);
-	static ECrowdControlType CcTagToType(FGameplayTag const& CcTag);
-	static ECrowdControlType CcImmunityToType(FGameplayTag const& ImmunityTag);
 	
 	UCrowdControlHandler();
 	virtual void InitializeComponent() override;
@@ -54,18 +44,16 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Crowd Control")
 	void UnsubscribeFromCrowdControlChanged(FCrowdControlCallback const& Callback);
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Crowd Control")
-	bool IsCrowdControlActive(ECrowdControlType const CcType) const;
+	bool IsCrowdControlActive(FGameplayTag const CcTag) const;
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Crowd Control")
-	FCrowdControlStatus GetCrowdControlStatus(ECrowdControlType const CcType) const;
+	FCrowdControlStatus GetCrowdControlStatus(FGameplayTag const CcTag) const { return *GetCcStructConst(CcTag); }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Crowd Control")
-	void GetActiveCrowdControls(TSet<ECrowdControlType>& OutCcs) const;
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, BlueprintPure, Category = "Crowd Control")
-	bool IsImmuneToCrowdControl(ECrowdControlType const CcType) const;
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, BlueprintPure, Category = "Crowd Control")
-	void GetImmunedCrowdControls(TSet<ECrowdControlType>& OutImmunes) const;
+	void GetActiveCrowdControls(FGameplayTagContainer& OutCcs) const;
 	
 private:
 
+	FCrowdControlStatus* GetCcStruct(FGameplayTag const CcTag);
+	FCrowdControlStatus const* GetCcStructConst(FGameplayTag const CcTag) const;
 	UPROPERTY(ReplicatedUsing=OnRep_StunStatus)
 	FCrowdControlStatus StunStatus;
 	UFUNCTION()
@@ -86,28 +74,28 @@ private:
 	FCrowdControlStatus DisarmStatus;
 	UFUNCTION()
 	void OnRep_DisarmStatus(FCrowdControlStatus const& Previous);
-	FCrowdControlStatus* GetCcStruct(ECrowdControlType const CcType);
-	FCrowdControlStatus const* GetCcStructConst(ECrowdControlType const CcType) const;
 	FCrowdControlNotification OnCrowdControlChanged;
 	FBuffEventCallback OnBuffApplied;
 	UFUNCTION()
-	void CheckAppliedBuffForCcOrImmunity(FBuffApplyEvent const& BuffEvent);
+	void CheckAppliedBuffForCc(FBuffApplyEvent const& BuffEvent);
 	FBuffRemoveCallback OnBuffRemoved;
 	UFUNCTION()
-	void CheckRemovedBuffForCcOrImmunity(FBuffRemoveEvent const& RemoveEvent);
+	void CheckRemovedBuffForCc(FBuffRemoveEvent const& RemoveEvent);
 	FDamageEventCallback OnDamageTaken;
 	UFUNCTION()
 	void RemoveIncapacitatesOnDamageTaken(FDamagingEvent const& DamageEvent);
 
 //Immunities
 
+public:
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Crowd Control")
+	bool IsImmuneToCrowdControl(FGameplayTag const CcTag) const { return DefaultCrowdControlImmunities.HasTagExact(CcTag); }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Crowd Control")
+	void GetImmunedCrowdControls(FGameplayTagContainer& OutImmunes) const { OutImmunes = DefaultCrowdControlImmunities; }
+
 private:
 	
-	UPROPERTY(EditAnywhere, Category = "Crowd Control", meta = (AllowPrivateAccess = true))
-	TSet<ECrowdControlType> DefaultCrowdControlImmunities;
-	TMap<ECrowdControlType, int32> CrowdControlImmunities;
-	void PurgeCcOfType(ECrowdControlType const CcType);
-	FBuffRestriction BuffCcRestriction;
-	UFUNCTION()
-	bool CheckBuffRestrictedByCcImmunity(FBuffApplyEvent const& BuffEvent);
+	UPROPERTY(EditAnywhere, Category = "Crowd Control", meta = (AllowPrivateAccess = true, GameplayTagFilter = "CrowdControl"))
+	FGameplayTagContainer DefaultCrowdControlImmunities;
 };

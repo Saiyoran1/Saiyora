@@ -804,9 +804,9 @@ void UAbilityComponent::InterruptCastOnCrowdControl(FCrowdControlStatus const& P
 {
 	if (CastingState.bIsCasting && IsValid(CastingState.CurrentCast) && NewStatus.bActive == true)
 	{
-		TSet<ECrowdControlType> RestrictedCcs;
+		FGameplayTagContainer RestrictedCcs;
 		CastingState.CurrentCast->GetRestrictedCrowdControls(RestrictedCcs);
-		if (RestrictedCcs.Contains(NewStatus.CrowdControlType))
+		if (RestrictedCcs.HasTagExact(NewStatus.CrowdControlType))
 		{
 			InterruptCurrentCast(NewStatus.DominantBuffInstance->GetHandler()->GetOwner(), NewStatus.DominantBuffInstance, true);
 		}

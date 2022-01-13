@@ -6,6 +6,11 @@
 #include "UnrealNetwork.h"
 #include "Engine/ActorChannel.h"
 #include "AbilityComponent.h"
+#include "CrowdControlHandler.h"
+#include "DamageHandler.h"
+#include "SaiyoraMovementComponent.h"
+#include "StatHandler.h"
+#include "ThreatHandler.h"
 
 #pragma region Initialization
 
@@ -19,6 +24,15 @@ void UBuffHandler::BeginPlay()
 {
 	Super::BeginPlay();
 	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("%s does not implement combat interface, but has Buff Handler."), *GetOwner()->GetActorLabel());
+	if (GetOwnerRole() == ROLE_Authority)
+	{
+		PlaneComponentRef = ISaiyoraCombatInterface::Execute_GetPlaneComponent(GetOwner());
+		DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
+		StatHandlerRef = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
+		ThreatHandlerRef = ISaiyoraCombatInterface::Execute_GetThreatHandler(GetOwner());
+		MovementComponentRef = nullptr; //TODO: Get Movement Component Ref.
+		CcHandlerRef = ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(GetOwner());
+	}
 }
 
 void UBuffHandler::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -65,7 +79,7 @@ FBuffApplyEvent UBuffHandler::ApplyBuff(TSubclassOf<UBuff> const BuffClass, AAct
 	}
 	Event.OriginPlane = IsValid(GeneratorPlane) ? GeneratorPlane->GetCurrentPlane() : ESaiyoraPlane::None;
     Event.AppliedTo = GetOwner();
-	Event.TargetPlane = IsValid(PlaneComponent) ? PlaneComponent->GetCurrentPlane() : ESaiyoraPlane::None;
+	Event.TargetPlane = IsValid(PlaneComponentRef) ? PlaneComponentRef->GetCurrentPlane() : ESaiyoraPlane::None;
 	Event.AppliedXPlane = UPlaneComponent::CheckForXPlane(Event.OriginPlane, Event.TargetPlane);
     Event.Source = Source;
     Event.BuffClass = BuffClass;
@@ -443,6 +457,39 @@ bool UBuffHandler::CheckIncomingBuffRestricted(FBuffApplyEvent const& BuffEvent)
 			return true;
 		}
 	}
+	FGameplayTagContainer BuffTags;
+	BuffEvent.BuffClass.GetDefaultObject()->GetBuffTags(BuffTags);
+	if (!BuffEvent.BuffClass.GetDefaultObject()->CanBeAppliedWhileDead() && IsValid(DamageHandlerRef) && DamageHandlerRef->GetLifeStatus() != ELifeStatus::Alive)
+	{
+		return true;
+	}
+	for (FGameplayTag const Tag : BuffTags)
+	{
+		if (Tag.MatchesTagExact(UDamageHandler::GenericDamageTag()) && (!IsValid(DamageHandlerRef) || !DamageHandlerRef->CanEverReceiveDamage()))
+		{
+			return true;
+		}
+		if (Tag.MatchesTagExact(UDamageHandler::GenericHealingTag()) && (!IsValid(DamageHandlerRef) || !DamageHandlerRef->CanEverReceiveHealing()))
+		{
+			return true;
+		}
+		if (Tag.MatchesTag(UStatHandler::GenericStatTag()) && !Tag.MatchesTagExact(UStatHandler::GenericStatTag()) && (!IsValid(StatHandlerRef) || !StatHandlerRef->IsStatModifiable(Tag)))
+		{
+			return true;
+		}
+		if (Tag.MatchesTag(UCrowdControlHandler::GenericCrowdControlTag()) && !Tag.MatchesTagExact(UCrowdControlHandler::GenericCrowdControlTag()) && (!IsValid(CcHandlerRef) || CcHandlerRef->IsImmuneToCrowdControl(Tag)))
+		{
+			return true;
+		}
+		if (Tag.MatchesTag(UThreatHandler::GenericThreatTag()) && (!IsValid(ThreatHandlerRef) || !ThreatHandlerRef->HasThreatTable()))
+		{
+			return true;
+		}
+		if (Tag.MatchesTagExact(USaiyoraMovementComponent::GenericExternalMovementTag()) && !IsValid(MovementComponentRef))
+		{
+			return true;
+		}
+	}
 	return false;
 }
 
@@ -467,6 +514,15 @@ bool UBuffHandler::CheckOutgoingBuffRestricted(FBuffApplyEvent const& BuffEvent)
 	for (TTuple<UBuff*, FBuffRestriction> const& Restriction : OutgoingBuffRestrictions)
 	{
 		if (Restriction.Value.IsBound() && Restriction.Value.Execute(BuffEvent))
+		{
+			return true;
+		}
+	}
+	FGameplayTagContainer BuffTags;
+	BuffEvent.BuffClass.GetDefaultObject()->GetBuffTags(BuffTags);
+	for (FGameplayTag const Tag : BuffTags)
+	{
+		if (Tag.MatchesTag(UThreatHandler::GenericThreatTag()) && (!IsValid(ThreatHandlerRef) || !ThreatHandlerRef->CanBeInThreatTable()))
 		{
 			return true;
 		}

@@ -64,8 +64,7 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Display Information")
 	FLinearColor ProgressColor;
 	UPROPERTY(EditDefaultsOnly, Category = "Display Information")
-	EBuffType BuffType = EBuffType::Buff;
-	
+	EBuffType BuffType = EBuffType::Buff;	
 
 //Application
 
@@ -81,6 +80,8 @@ public:
 	bool HasFiniteDuration() const { return bFiniteDuration; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
 	void GetBuffTags(FGameplayTagContainer& OutContainer) const { OutContainer.AppendTags(BuffTags); }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	bool CanBeAppliedWhileDead() const { return bIgnoreDeath; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
 	int32 GetInitialStacks() const { return CreationEvent.NewStacks; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
@@ -126,6 +127,8 @@ private:
 	float MaximumDuration = 1.0f;
 	UPROPERTY(EditDefaultsOnly, Category = "Application Behavior")
 	FGameplayTagContainer BuffTags;
+	UPROPERTY(EditDefaultsOnly, Category = "Application Behavior")
+	bool bIgnoreDeath = false;
 	UPROPERTY(ReplicatedUsing = OnRep_CreationEvent)
 	FBuffApplyEvent CreationEvent;
 	UFUNCTION()

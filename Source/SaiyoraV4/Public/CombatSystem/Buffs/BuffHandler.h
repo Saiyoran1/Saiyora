@@ -3,8 +3,6 @@
 #include "Components/ActorComponent.h"
 #include "BuffHandler.generated.h"
 
-class UPlaneComponent;
-
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class SAIYORAV4_API UBuffHandler : public UActorComponent
 {
@@ -20,8 +18,18 @@ public:
 private:
 
 	UPROPERTY()
-	UPlaneComponent* PlaneComponent;
-
+	class UPlaneComponent* PlaneComponentRef;
+	UPROPERTY()
+	class UDamageHandler* DamageHandlerRef;
+	UPROPERTY()
+	class UStatHandler* StatHandlerRef;
+	UPROPERTY()
+	class UCrowdControlHandler* CcHandlerRef;
+	UPROPERTY()
+	class UThreatHandler* ThreatHandlerRef;
+	UPROPERTY()
+	class USaiyoraMovementComponent* MovementComponentRef;
+	
 //Incoming Buffs
 
 public:

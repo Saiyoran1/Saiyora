@@ -17,11 +17,11 @@ UCrowdControlHandler::UCrowdControlHandler()
 void UCrowdControlHandler::InitializeComponent()
 {
 	Super::InitializeComponent();
-	StunStatus.CrowdControlType = ECrowdControlType::Stun;
-	IncapStatus.CrowdControlType = ECrowdControlType::Incapacitate;
-	RootStatus.CrowdControlType = ECrowdControlType::Root;
-	SilenceStatus.CrowdControlType = ECrowdControlType::Silence;
-	DisarmStatus.CrowdControlType = ECrowdControlType::Disarm;
+	StunStatus.CrowdControlType = StunTag();
+	IncapStatus.CrowdControlType = IncapacitateTag();
+	RootStatus.CrowdControlType = RootTag();
+	SilenceStatus.CrowdControlType = SilenceTag();
+	DisarmStatus.CrowdControlType = DisarmTag();
 }
 
 void UCrowdControlHandler::BeginPlay()
@@ -32,16 +32,10 @@ void UCrowdControlHandler::BeginPlay()
 	{
 		BuffHandler = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwner());
 		checkf(IsValid(BuffHandler), TEXT("%s does not have a valid Buff Handler, which CC Handler depends on."), *GetOwner()->GetActorLabel());
-		BuffCcRestriction.BindDynamic(this, &UCrowdControlHandler::CheckBuffRestrictedByCcImmunity);
-		BuffHandler->AddIncomingBuffRestriction(BuffCcRestriction);
-		OnBuffApplied.BindDynamic(this, &UCrowdControlHandler::CheckAppliedBuffForCcOrImmunity);
+		OnBuffApplied.BindDynamic(this, &UCrowdControlHandler::CheckAppliedBuffForCc);
 		BuffHandler->SubscribeToIncomingBuff(OnBuffApplied);
-		OnBuffRemoved.BindDynamic(this, &UCrowdControlHandler::CheckRemovedBuffForCcOrImmunity);
+		OnBuffRemoved.BindDynamic(this, &UCrowdControlHandler::CheckRemovedBuffForCc);
 		BuffHandler->SubscribeToIncomingBuffRemove(OnBuffRemoved);
-		for (ECrowdControlType const CcType : DefaultCrowdControlImmunities)
-		{
-			CrowdControlImmunities.Add(CcType, 1);
-		}
 		DamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
 		if (IsValid(DamageHandler))
 		{
@@ -63,105 +57,6 @@ void UCrowdControlHandler::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty
 }
 
 #pragma endregion
-#pragma region Conversions
-
-FGameplayTag UCrowdControlHandler::CcTypeToTag(ECrowdControlType const CcType)
-{
-	switch (CcType)
-	{
-	case ECrowdControlType::Stun :
-		return StunTag();
-	case ECrowdControlType::Incapacitate :
-		return IncapacitateTag();
-	case ECrowdControlType::Root :
-		return RootTag();
-	case ECrowdControlType::Silence :
-		return SilenceTag();
-	case ECrowdControlType::Disarm :
-		return DisarmTag();
-	default :
-		return FGameplayTag();
-	}
-}
-
-FGameplayTag UCrowdControlHandler::CcTypeToImmunity(ECrowdControlType const CcType)
-{
-	switch (CcType)
-	{
-		case ECrowdControlType::Stun :
-			return StunImmunityTag();
-		case ECrowdControlType::Incapacitate :
-			return IncapImmunityTag();
-		case ECrowdControlType::Root :
-			return RootImmunityTag();
-		case ECrowdControlType::Silence :
-			return SilenceImmunityTag();
-		case ECrowdControlType::Disarm :
-			return DisarmImmunityTag();
-		default :
-			return FGameplayTag();
-	}
-}
-
-ECrowdControlType UCrowdControlHandler::CcTagToType(FGameplayTag const& CcTag)
-{
-	if (!CcTag.IsValid() || !CcTag.MatchesTag(GenericCrowdControlTag()) || CcTag.MatchesTagExact(GenericCrowdControlTag()))
-	{
-		return ECrowdControlType::None;
-	}
-	if (CcTag.MatchesTagExact(StunTag()))
-	{
-		return ECrowdControlType::Stun;
-	}
-	if (CcTag.MatchesTagExact(IncapacitateTag()))
-	{
-		return ECrowdControlType::Incapacitate;
-	}
-	if (CcTag.MatchesTagExact(RootTag()))
-	{
-		return ECrowdControlType::Root;
-	}
-	if (CcTag.MatchesTagExact(SilenceTag()))
-	{
-		return ECrowdControlType::Silence;
-	}
-	if (CcTag.MatchesTagExact(DisarmTag()))
-	{
-		return ECrowdControlType::Disarm;
-	}
-	return ECrowdControlType::None;
-}
-
-ECrowdControlType UCrowdControlHandler::CcImmunityToType(FGameplayTag const& ImmunityTag)
-{
-	if (!ImmunityTag.IsValid() || !ImmunityTag.MatchesTag(GenericCcImmunityTag()) || ImmunityTag.MatchesTagExact(GenericCcImmunityTag()))
-	{
-		return ECrowdControlType::None;
-	}
-	if (ImmunityTag.MatchesTagExact(StunImmunityTag()))
-	{
-		return ECrowdControlType::Stun;
-	}
-	if (ImmunityTag.MatchesTagExact(IncapImmunityTag()))
-	{
-		return ECrowdControlType::Incapacitate;
-	}
-	if (ImmunityTag.MatchesTagExact(RootImmunityTag()))
-	{
-		return ECrowdControlType::Root;
-	}
-	if (ImmunityTag.MatchesTagExact(SilenceImmunityTag()))
-	{
-		return ECrowdControlType::Silence;
-	}
-	if (ImmunityTag.MatchesTagExact(DisarmImmunityTag()))
-	{
-		return ECrowdControlType::Disarm;
-	}
-	return ECrowdControlType::None;
-}
-
-#pragma endregion 
 #pragma region Subscriptions
 
 void UCrowdControlHandler::SubscribeToCrowdControlChanged(FCrowdControlCallback const& Callback)
@@ -185,9 +80,9 @@ void UCrowdControlHandler::UnsubscribeFromCrowdControlChanged(FCrowdControlCallb
 #pragma endregion
 #pragma region Status
 
-bool UCrowdControlHandler::IsCrowdControlActive(ECrowdControlType const CcType) const
+bool UCrowdControlHandler::IsCrowdControlActive(FGameplayTag const CcTag) const
 {
-	FCrowdControlStatus const* CcStruct = GetCcStructConst(CcType);
+	FCrowdControlStatus const* CcStruct = GetCcStructConst(CcTag);
 	if (CcStruct)
 	{
 		return CcStruct->bActive;
@@ -195,93 +90,89 @@ bool UCrowdControlHandler::IsCrowdControlActive(ECrowdControlType const CcType) 
 	return false;
 }
 
-FCrowdControlStatus UCrowdControlHandler::GetCrowdControlStatus(ECrowdControlType const CcType) const
-{
-	FCrowdControlStatus const* CcStruct = GetCcStructConst(CcType);
-	if (CcStruct)
-	{
-		return *CcStruct;
-	}
-	return FCrowdControlStatus();
-}
-
-void UCrowdControlHandler::GetActiveCrowdControls(TSet<ECrowdControlType>& OutCcs) const
+void UCrowdControlHandler::GetActiveCrowdControls(FGameplayTagContainer& OutCcs) const
 {
 	if (StunStatus.bActive)
 	{
-		OutCcs.Add(ECrowdControlType::Stun);
+		OutCcs.AddTag(StunTag());
 	}
 	if (IncapStatus.bActive)
 	{
-		OutCcs.Add(ECrowdControlType::Incapacitate);
+		OutCcs.AddTag(IncapacitateTag());
 	}
 	if (RootStatus.bActive)
 	{
-		OutCcs.Add(ECrowdControlType::Root);
+		OutCcs.AddTag(RootTag());
 	}
 	if (SilenceStatus.bActive)
 	{
-		OutCcs.Add(ECrowdControlType::Silence);
+		OutCcs.AddTag(SilenceTag());
 	}
 	if (DisarmStatus.bActive)
 	{
-		OutCcs.Add(ECrowdControlType::Disarm);
+		OutCcs.AddTag(DisarmTag());
 	}
 }
 
-FCrowdControlStatus* UCrowdControlHandler::GetCcStruct(ECrowdControlType const CcType)
+FCrowdControlStatus* UCrowdControlHandler::GetCcStruct(FGameplayTag const CcTag)
 {
-	switch (CcType)
+	if (!CcTag.IsValid() || !CcTag.MatchesTag(GenericCrowdControlTag()) || CcTag.MatchesTagExact(GenericCrowdControlTag()))
 	{
-	case ECrowdControlType::Stun :
-		return &StunStatus;
-	case ECrowdControlType::Incapacitate :
-		return &IncapStatus;
-	case ECrowdControlType::Root :
-		return &RootStatus;
-	case ECrowdControlType::Silence :
-		return &SilenceStatus;
-	case ECrowdControlType::Disarm :
-		return &DisarmStatus;
-	default :
 		return nullptr;
 	}
+	if (CcTag.MatchesTagExact(StunTag()))
+	{
+		return &StunStatus;
+	}
+	if (CcTag.MatchesTagExact(IncapacitateTag()))
+	{
+		return &IncapStatus;
+	}
+	if (CcTag.MatchesTagExact(RootTag()))
+	{
+		return &RootStatus;
+	}
+	if (CcTag.MatchesTagExact(SilenceTag()))
+	{
+		return &SilenceStatus;
+	}
+	if (CcTag.MatchesTagExact(DisarmTag()))
+	{
+		return &DisarmStatus;
+	}
+	return nullptr;
 }
 
-FCrowdControlStatus const* UCrowdControlHandler::GetCcStructConst(ECrowdControlType const CcType) const
+FCrowdControlStatus const* UCrowdControlHandler::GetCcStructConst(FGameplayTag const CcTag) const
 {
-	switch (CcType)
+	if (!CcTag.IsValid() || !CcTag.MatchesTag(GenericCrowdControlTag()) || CcTag.MatchesTagExact(GenericCrowdControlTag()))
 	{
-	case ECrowdControlType::Stun :
-		return &StunStatus;
-	case ECrowdControlType::Incapacitate :
-		return &IncapStatus;
-	case ECrowdControlType::Root :
-		return &RootStatus;
-	case ECrowdControlType::Silence :
-		return &SilenceStatus;
-	case ECrowdControlType::Disarm :
-		return &DisarmStatus;
-	default :
 		return nullptr;
 	}
+	if (CcTag.MatchesTagExact(StunTag()))
+	{
+		return &StunStatus;
+	}
+	if (CcTag.MatchesTagExact(IncapacitateTag()))
+	{
+		return &IncapStatus;
+	}
+	if (CcTag.MatchesTagExact(RootTag()))
+	{
+		return &RootStatus;
+	}
+	if (CcTag.MatchesTagExact(SilenceTag()))
+	{
+		return &SilenceStatus;
+	}
+	if (CcTag.MatchesTagExact(DisarmTag()))
+	{
+		return &DisarmStatus;
+	}
+	return nullptr;
 }
 
-void UCrowdControlHandler::PurgeCcOfType(ECrowdControlType const CcType)
-{
-	FCrowdControlStatus* CcStruct = GetCcStruct(CcType);
-	if (!CcStruct)
-	{
-		return;
-	}
-	TArray<UBuff*> NonMutableBuffs = CcStruct->Sources;
-	for (UBuff* Buff : NonMutableBuffs)
-	{
-		BuffHandler->RemoveBuff(Buff, EBuffExpireReason::Dispel);
-	}
-}
-
-void UCrowdControlHandler::CheckAppliedBuffForCcOrImmunity(FBuffApplyEvent const& BuffEvent)
+void UCrowdControlHandler::CheckAppliedBuffForCc(FBuffApplyEvent const& BuffEvent)
 {
 	if (BuffEvent.ActionTaken == EBuffApplyAction::Failed || BuffEvent.ActionTaken == EBuffApplyAction::Stacked || !IsValid(BuffEvent.AffectedBuff))
 	{
@@ -291,12 +182,11 @@ void UCrowdControlHandler::CheckAppliedBuffForCcOrImmunity(FBuffApplyEvent const
 	BuffEvent.AffectedBuff->GetBuffTags(BuffTags);
 	if (BuffEvent.ActionTaken == EBuffApplyAction::NewBuff)
 	{
-		TArray<ECrowdControlType> NewImmunities;
 		for (FGameplayTag const& Tag : BuffTags)
 		{
-			if (Tag.MatchesTag(GenericCrowdControlTag()) && !Tag.MatchesTagExact(GenericCrowdControlTag()))
+			if (Tag.IsValid() && Tag.MatchesTag(GenericCrowdControlTag()) && !Tag.MatchesTagExact(GenericCrowdControlTag()))
 			{
-				FCrowdControlStatus* CcStruct = GetCcStruct(CcTagToType(Tag));
+				FCrowdControlStatus* CcStruct = GetCcStruct(Tag);
 				if (CcStruct)
 				{
 					FCrowdControlStatus const Previous = *CcStruct;
@@ -306,31 +196,15 @@ void UCrowdControlHandler::CheckAppliedBuffForCcOrImmunity(FBuffApplyEvent const
 					}
 				}
 			}
-			else if (Tag.MatchesTag(GenericCcImmunityTag()) && !Tag.MatchesTagExact(GenericCcImmunityTag()))
-			{
-				int32& CurrentNum = CrowdControlImmunities.FindOrAdd(CcImmunityToType(Tag));
-				CurrentNum++;
-				if (CurrentNum == 1)
-				{
-					NewImmunities.Add(CcImmunityToType(Tag));
-				}
-			}
-		}
-		if (NewImmunities.Num() > 0)
-		{
-			for (ECrowdControlType const CcType : NewImmunities)
-			{
-				PurgeCcOfType(CcType);
-			}
 		}
 	}
 	else if (BuffEvent.ActionTaken == EBuffApplyAction::Refreshed || BuffEvent.ActionTaken == EBuffApplyAction::StackedAndRefreshed)
 	{
 		for (FGameplayTag const& Tag : BuffTags)
 		{
-			if (Tag.MatchesTag(GenericCrowdControlTag()) && !Tag.MatchesTagExact(GenericCrowdControlTag()))
+			if (Tag.IsValid() && Tag.MatchesTag(GenericCrowdControlTag()) && !Tag.MatchesTagExact(GenericCrowdControlTag()))
 			{
-				FCrowdControlStatus* CcStruct = GetCcStruct(CcTagToType(Tag));
+				FCrowdControlStatus* CcStruct = GetCcStruct(Tag);
 				if (CcStruct)
 				{
 					FCrowdControlStatus const Previous = *CcStruct;
@@ -344,7 +218,7 @@ void UCrowdControlHandler::CheckAppliedBuffForCcOrImmunity(FBuffApplyEvent const
 	}
 }
 
-void UCrowdControlHandler::CheckRemovedBuffForCcOrImmunity(FBuffRemoveEvent const& RemoveEvent)
+void UCrowdControlHandler::CheckRemovedBuffForCc(FBuffRemoveEvent const& RemoveEvent)
 {
 	if (!RemoveEvent.Result || !IsValid(RemoveEvent.RemovedBuff))
 	{
@@ -354,9 +228,9 @@ void UCrowdControlHandler::CheckRemovedBuffForCcOrImmunity(FBuffRemoveEvent cons
 	RemoveEvent.RemovedBuff->GetBuffTags(BuffTags);
 	for (FGameplayTag const& Tag : BuffTags)
 	{
-		if (Tag.MatchesTag(GenericCrowdControlTag()) && !Tag.MatchesTagExact(GenericCrowdControlTag()))
+		if (Tag.IsValid() && Tag.MatchesTag(GenericCrowdControlTag()) && !Tag.MatchesTagExact(GenericCrowdControlTag()))
 		{
-			FCrowdControlStatus* CcStruct = GetCcStruct(CcTagToType(Tag));
+			FCrowdControlStatus* CcStruct = GetCcStruct(Tag);
 			if (CcStruct)
 			{
 				FCrowdControlStatus const Previous = *CcStruct;
@@ -364,14 +238,6 @@ void UCrowdControlHandler::CheckRemovedBuffForCcOrImmunity(FBuffRemoveEvent cons
 				{
 					OnCrowdControlChanged.Broadcast(Previous, *CcStruct);
 				}
-			}
-		}
-		else if (Tag.MatchesTag(GenericCcImmunityTag()) && !Tag.MatchesTagExact(GenericCcImmunityTag()))
-		{
-			int32* CurrentNum = CrowdControlImmunities.Find(CcImmunityToType(Tag));
-			if (CurrentNum)
-			{
-				*CurrentNum -= 1;
 			}
 		}
 	}
@@ -407,45 +273,11 @@ void UCrowdControlHandler::RemoveIncapacitatesOnDamageTaken(FDamagingEvent const
 	//Currently any non-zero and non-DoT damage will break all incaps.
 	if (DamageEvent.Result.AmountDealt > 0.0f && DamageEvent.Info.HitStyle != EDamageHitStyle::Chronic)
 	{
-		PurgeCcOfType(ECrowdControlType::Incapacitate);
-	}
-}
-
-#pragma endregion 
-#pragma region Immunity
-
-bool UCrowdControlHandler::IsImmuneToCrowdControl(ECrowdControlType const CcType) const
-{
-	return CrowdControlImmunities.FindRef(CcType) > 0;
-}
-
-void UCrowdControlHandler::GetImmunedCrowdControls(TSet<ECrowdControlType>& OutImmunes) const
-{
-	for (TTuple<ECrowdControlType, int32> const& CcTuple : CrowdControlImmunities)
-	{
-		if (CcTuple.Value > 0)
+		for(UBuff* Cc : IncapStatus.Sources)
 		{
-			OutImmunes.Add(CcTuple.Key);
+			BuffHandler->RemoveBuff(Cc, EBuffExpireReason::Dispel);
 		}
 	}
-}
-
-bool UCrowdControlHandler::CheckBuffRestrictedByCcImmunity(FBuffApplyEvent const& BuffEvent)
-{
-	if (!IsValid(BuffEvent.BuffClass))
-	{
-		return false;
-	}
-	FGameplayTagContainer BuffTags;
-	BuffEvent.BuffClass.GetDefaultObject()->GetBuffTags(BuffTags);
-	for (TTuple<ECrowdControlType, int32> const& Immunity : CrowdControlImmunities)
-	{
-		if (Immunity.Value > 0 && BuffTags.HasTagExact(CcTypeToTag(Immunity.Key)))
-		{
-			return true;
-		}
-	}
-	return false;
 }
 
 #pragma endregion 

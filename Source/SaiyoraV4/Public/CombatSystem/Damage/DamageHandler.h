@@ -28,8 +28,8 @@ public:
 	static FGameplayTag HealingDoneStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.HealingDone")), false); }
 	static FGameplayTag HealingTakenStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.HealingTaken")), false); }
 	static FGameplayTag MaxHealthStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.MaxHealth")), false); }
-	static FGameplayTag BuffFunctionDamageTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Buff.Damage")), false); }
-	static FGameplayTag BuffFunctionHealingTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Buff.Healing")), false); }
+	static FGameplayTag GenericDamageTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Damage")), false); }
+	static FGameplayTag GenericHealingTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Healing")), false); }
 
 private:
 	

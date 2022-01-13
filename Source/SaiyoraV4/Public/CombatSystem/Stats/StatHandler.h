@@ -34,6 +34,8 @@ public:
 	bool IsStatValid(FGameplayTag const StatTag) const;
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stat", meta = (GameplayTagFilter = "Stat"))
 	float GetStatValue(FGameplayTag const StatTag) const;
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stat", meta = (GameplayTagFilter = "Stat"))
+	bool IsStatModifiable(FGameplayTag const StatTag) const;
 	UFUNCTION(BlueprintCallable, Category = "Stat", meta = (GameplayTagFilter = "Stat"))
 	void SubscribeToStatChanged(FGameplayTag const StatTag, FStatCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Stat", meta = (GameplayTagFilter = "Stat"))

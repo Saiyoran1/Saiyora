@@ -2,7 +2,6 @@
 #include "CoreMinimal.h"
 #include "AbilityStructs.h"
 #include "UObject/NoExportTypes.h"
-#include "CrowdControlEnums.h"
 #include "DamageEnums.h"
 #include "ResourceStructs.h"
 #include "Resource.h"
@@ -94,7 +93,7 @@ public:
     UFUNCTION(BlueprintCallable, BlueprintPure)
     bool IsCastableWhileDead() const { return bCastableWhileDead; }
     UFUNCTION(BlueprintCallable, BlueprintPure)
-    void GetRestrictedCrowdControls(TSet<ECrowdControlType>& OutCrowdControls) const { OutCrowdControls.Append(RestrictedCrowdControls); }
+    void GetRestrictedCrowdControls(FGameplayTagContainer& OutCrowdControls) const { OutCrowdControls = RestrictedCrowdControls; }
     void AddRestrictedTag(FGameplayTag const RestrictedTag);
     void RemoveRestrictedTag(FGameplayTag const RestrictedTag);
     
@@ -114,8 +113,8 @@ private:
     void UpdateCastable();
     UPROPERTY(EditDefaultsOnly, Category = "Restrictions")
     bool bCastableWhileDead = false;
-    UPROPERTY(EditDefaultsOnly, Category = "Restrictions")
-    TSet<ECrowdControlType> RestrictedCrowdControls;
+    UPROPERTY(EditDefaultsOnly, Category = "Restrictions", meta = (GameplayTagFilter = "CrowdControl"))
+    FGameplayTagContainer RestrictedCrowdControls;
     TSet<FGameplayTag> CustomCastRestrictions;
     TSet<FGameplayTag> RestrictedTags;
     UPROPERTY(ReplicatedUsing=OnRep_TagsRestricted)

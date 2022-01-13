@@ -141,6 +141,22 @@ float UStatHandler::GetStatValue(FGameplayTag const StatTag) const
 	return DefaultValue;
 }
 
+bool UStatHandler::IsStatModifiable(FGameplayTag const StatTag) const
+{
+	if (!StatTag.IsValid() || !StatTag.MatchesTag(GenericStatTag()) || StatTag.MatchesTagExact(GenericStatTag()))
+	{
+		return false;
+	}
+	for (TTuple<FGameplayTag, FStatInfo> const& DefaultInfo : StatDefaults)
+	{
+		if (DefaultInfo.Key.MatchesTagExact(StatTag))
+		{
+			return DefaultInfo.Value.bModifiable;
+		}
+	}
+	return false;
+}
+
 bool UStatHandler::CheckBuffStatMods(FBuffApplyEvent const& BuffEvent)
 {
 	if (!IsValid(BuffEvent.BuffClass))

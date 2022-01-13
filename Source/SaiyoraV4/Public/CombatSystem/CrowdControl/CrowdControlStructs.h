@@ -1,6 +1,6 @@
 #pragma once
 #include "CoreMinimal.h"
-#include "CrowdControlEnums.h"
+#include "GameplayTagContainer.h"
 #include "CrowdControlStructs.generated.h"
 
 class UBuff;
@@ -13,7 +13,7 @@ struct FCrowdControlStatus
     UPROPERTY(NotReplicated)
     TArray<UBuff*> Sources;
     UPROPERTY(BlueprintReadOnly)
-    ECrowdControlType CrowdControlType;
+    FGameplayTag CrowdControlType;
     UPROPERTY(BlueprintReadOnly)
     bool bActive = false;
     UPROPERTY(BlueprintReadOnly)
