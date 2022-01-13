@@ -57,10 +57,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Buff")
 	void UnsubscribeFromIncomingBuffRemove(FBuffRemoveCallback const& Callback);
 
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Buff")
-	void AddIncomingBuffRestriction(FBuffRestriction const& Restriction);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Buff")
-	void RemoveIncomingBuffRestriction(FBuffRestriction const& Restriction);
+	void AddIncomingBuffRestriction(UBuff* Source, FBuffRestriction const& Restriction);
+	void RemoveIncomingBuffRestriction(UBuff* Source);
 	bool CheckIncomingBuffRestricted(FBuffApplyEvent const& BuffEvent);
 	
 	void NotifyOfNewIncomingBuff(FBuffApplyEvent const& ApplicationEvent);
@@ -82,7 +80,7 @@ private:
 	TArray<UBuff*> RecentlyRemoved;
 	FBuffEventNotification OnIncomingBuffApplied;
 	FBuffRemoveNotification OnIncomingBuffRemoved;
-	TArray<FBuffRestriction> IncomingBuffRestrictions;
+	TMap<UBuff*, FBuffRestriction> IncomingBuffRestrictions;
 
 //Outgoing Buffs
 
@@ -106,10 +104,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Buffs")
 	void UnsubscribeFromOutgoingBuffRemove(FBuffRemoveCallback const& Callback);
 
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Buffs")
-	void AddOutgoingBuffRestriction(FBuffRestriction const& Restriction);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Buffs")
-	void RemoveOutgoingBuffRestriction(FBuffRestriction const& Restriction);
+	void AddOutgoingBuffRestriction(UBuff* Source, FBuffRestriction const& Restriction);
+	void RemoveOutgoingBuffRestriction(UBuff* Source);
 	bool CheckOutgoingBuffRestricted(FBuffApplyEvent const& BuffEvent);
 
 	void NotifyOfNewOutgoingBuff(FBuffApplyEvent const& ApplicationEvent);
@@ -121,5 +117,5 @@ private:
 	TArray<UBuff*> OutgoingBuffs;
 	FBuffEventNotification OnOutgoingBuffApplied;
 	FBuffRemoveNotification OnOutgoingBuffRemoved;
-	TArray<FBuffRestriction> OutgoingBuffRestrictions;
+	TMap<UBuff*, FBuffRestriction> OutgoingBuffRestrictions;
 };

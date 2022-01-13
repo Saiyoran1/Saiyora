@@ -1,10 +1,5 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
 #pragma once
 
-/**
- * 
- */
 UENUM(BlueprintType)
 enum class ESaiyoraPlane : uint8
 {
@@ -21,14 +16,6 @@ enum class EModifierType : uint8
  Invalid = 0,
  Additive = 1,
  Multiplicative = 2,
-};
-
-UENUM()
-enum class EReplicationNeeds : uint8
-{
- NotReplicated = 0,
- OwnerOnly = 1,
- AllClients = 2,
 };
 
 UENUM(BlueprintType)

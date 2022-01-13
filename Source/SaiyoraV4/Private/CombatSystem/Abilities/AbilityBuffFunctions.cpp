@@ -7,7 +7,7 @@
 
 void UComplexAbilityModifierFunction::ComplexAbilityModifier(UBuff* Buff, EComplexAbilityModType const ModifierType, FAbilityModCondition const& Modifier)
 {
-	if (!IsValid(Buff) || ModifierType == EComplexAbilityModType::None || !Modifier.IsBound())
+	if (!IsValid(Buff) || ModifierType == EComplexAbilityModType::None || !Modifier.IsBound() || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
 	{
 		return;
 	}
@@ -80,7 +80,7 @@ void UComplexAbilityModifierFunction::OnRemove(FBuffRemoveEvent const& RemoveEve
 void USimpleAbilityModifierFunction::SimpleAbilityModifier(UBuff* Buff, TSubclassOf<UCombatAbility> const AbilityClass,
 	ESimpleAbilityModType const ModifierType, FCombatModifier const& Modifier)
 {
-	if (!IsValid(Buff) || !IsValid(AbilityClass) || ModifierType == ESimpleAbilityModType::None || Modifier.Type == EModifierType::Invalid)
+	if (!IsValid(Buff) || !IsValid(AbilityClass) || ModifierType == ESimpleAbilityModType::None || Modifier.Type == EModifierType::Invalid || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
 	{
 		return;
 	}
@@ -178,7 +178,7 @@ void USimpleAbilityModifierFunction::OnRemove(FBuffRemoveEvent const& RemoveEven
 
 void UAbilityClassRestrictionFunction::AbilityClassRestrictions(UBuff* Buff, TSet<TSubclassOf<UCombatAbility>> const& AbilityClasses)
 {
-	if (!IsValid(Buff) || AbilityClasses.Num() == 0)
+	if (!IsValid(Buff) || AbilityClasses.Num() == 0 || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
 	{
 		return;
 	}
@@ -224,6 +224,106 @@ void UAbilityClassRestrictionFunction::OnRemove(FBuffRemoveEvent const& RemoveEv
 				TargetComponent->RemoveAbilityClassRestriction(GetOwningBuff(), AbilityClass);
 			}
 		}
+	}
+}
+
+#pragma endregion
+#pragma region Ability Tag Restriction
+
+void UAbilityTagRestrictionFunction::AbilityTagRestrictions(UBuff* Buff, FGameplayTagContainer const& RestrictedTags)
+{
+	if (!IsValid(Buff) || RestrictedTags.IsEmpty() || !RestrictedTags.IsValid() || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
+	{
+		return;
+	}
+	UAbilityTagRestrictionFunction* NewAbilityRestrictionFunction = Cast<UAbilityTagRestrictionFunction>(InstantiateBuffFunction(Buff, StaticClass()));
+	if (!IsValid(NewAbilityRestrictionFunction))
+	{
+		return;
+	}
+	NewAbilityRestrictionFunction->SetRestrictionVars(RestrictedTags);
+}
+
+void UAbilityTagRestrictionFunction::SetRestrictionVars(FGameplayTagContainer const& RestrictedTags)
+{
+	if (GetOwningBuff()->GetAppliedTo()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	{
+		TargetComponent = ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwningBuff()->GetAppliedTo());
+		RestrictTags = RestrictedTags;
+	}
+}
+
+void UAbilityTagRestrictionFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
+{
+	if (IsValid(TargetComponent))
+	{
+		TArray<FGameplayTag> Tags;
+		RestrictTags.GetGameplayTagArray(Tags);
+		for (FGameplayTag const Tag : Tags)
+		{
+			if (Tag.IsValid())
+			{
+				TargetComponent->AddAbilityTagRestriction(GetOwningBuff(), Tag);
+			}
+		}
+	}
+}
+
+void UAbilityTagRestrictionFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
+{
+	if (IsValid(TargetComponent))
+	{
+		TArray<FGameplayTag> Tags;
+		RestrictTags.GetGameplayTagArray(Tags);
+		for (FGameplayTag const Tag : Tags)
+		{
+			if (Tag.IsValid())
+			{
+				TargetComponent->RemoveAbilityTagRestriction(GetOwningBuff(), Tag);
+			}
+		}
+	}
+}
+
+#pragma endregion 
+#pragma region Interrupt Restriction
+
+void UInterruptRestrictionFunction::InterruptRestriction(UBuff* Buff, FInterruptRestriction const& Restriction)
+{
+	if (!IsValid(Buff) || !Restriction.IsBound() || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
+	{
+		return;
+	}
+	UInterruptRestrictionFunction* NewInterruptRestrictionFunction = Cast<UInterruptRestrictionFunction>(InstantiateBuffFunction(Buff, StaticClass()));
+	if (!IsValid(NewInterruptRestrictionFunction))
+	{
+		return;
+	}
+	NewInterruptRestrictionFunction->SetRestrictionVars(Restriction);
+}
+
+void UInterruptRestrictionFunction::SetRestrictionVars(FInterruptRestriction const& Restriction)
+{
+	if (GetOwningBuff()->GetAppliedTo()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	{
+		TargetComponent = ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwningBuff()->GetAppliedTo());
+		Restrict = Restriction;
+	}
+}
+
+void UInterruptRestrictionFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
+{
+	if (IsValid(TargetComponent))
+	{
+		TargetComponent->AddInterruptRestriction(GetOwningBuff(), Restrict);
+	}
+}
+
+void UInterruptRestrictionFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
+{
+	if (IsValid(TargetComponent))
+	{
+		TargetComponent->RemoveInterruptRestriction(GetOwningBuff());
 	}
 }
 

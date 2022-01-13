@@ -78,3 +78,39 @@ class UAbilityClassRestrictionFunction : public UBuffFunction
 	UFUNCTION(BlueprintCallable, Category = "Buff Function", meta = (DefaultToSelf = "Buff", HidePin = "Buff"))
 	static void AbilityClassRestrictions(UBuff* Buff, TSet<TSubclassOf<UCombatAbility>> const& AbilityClasses);
 };
+
+UCLASS()
+class UAbilityTagRestrictionFunction : public UBuffFunction
+{
+	GENERATED_BODY()
+
+	FGameplayTagContainer RestrictTags;
+	UPROPERTY()
+	UAbilityComponent* TargetComponent;
+
+	void SetRestrictionVars(FGameplayTagContainer const& RestrictedTags);
+
+	virtual void OnApply(FBuffApplyEvent const& ApplyEvent) override;
+	virtual void OnRemove(FBuffRemoveEvent const& RemoveEvent) override;
+
+	UFUNCTION(BlueprintCallable, Category = "Buff Function", meta = (DefaultToSelf = "Buff", HidePin = "Buff"))
+	static void AbilityTagRestrictions(UBuff* Buff, FGameplayTagContainer const& RestrictedTags);
+};
+
+UCLASS()
+class UInterruptRestrictionFunction : public UBuffFunction
+{
+	GENERATED_BODY()
+
+	FInterruptRestriction Restrict;
+	UPROPERTY()
+	UAbilityComponent* TargetComponent;
+
+	void SetRestrictionVars(FInterruptRestriction const& Restriction);
+
+	virtual void OnApply(FBuffApplyEvent const& ApplyEvent) override;
+	virtual void OnRemove(FBuffRemoveEvent const& RemoveEvent) override;
+
+	UFUNCTION(BlueprintCallable, Category = "Buff Function", meta = (DefaultToSelf = "Buff", HidePin = "Buff"))
+	static void InterruptRestriction(UBuff* Buff, FInterruptRestriction const& Restriction);
+};

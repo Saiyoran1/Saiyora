@@ -4,6 +4,8 @@
 #include "PlaneStructs.h"
 #include "PlaneComponent.generated.h"
 
+class UBuff;
+
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class SAIYORAV4_API UPlaneComponent : public UActorComponent
 {
@@ -36,16 +38,14 @@ public:
 	ESaiyoraPlane GetCurrentPlane() const { return PlaneStatus.CurrentPlane; }
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Plane")
 	ESaiyoraPlane PlaneSwap(bool const bIgnoreRestrictions, UObject* Source, bool const bToSpecificPlane, ESaiyoraPlane const TargetPlane = ESaiyoraPlane::None);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Plane")
-	void AddPlaneSwapRestriction(FPlaneSwapRestriction const& Restriction);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Plane")
-	void RemovePlaneSwapRestriction(FPlaneSwapRestriction const& Restriction);
 	UFUNCTION(BlueprintCallable, Category = "Plane")
 	void SubscribeToPlaneSwap(FPlaneSwapCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Plane")
 	void UnsubscribeFromPlaneSwap(FPlaneSwapCallback const& Callback);
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Plane")
 	static bool CheckForXPlane(ESaiyoraPlane const FromPlane, ESaiyoraPlane const ToPlane);
+	void AddPlaneSwapRestriction(UBuff* Source, FPlaneSwapRestriction const& Restriction);
+	void RemovePlaneSwapRestriction(UBuff* Source);
 	
 private:
 	
@@ -58,7 +58,7 @@ private:
 	UFUNCTION()
 	void OnRep_PlaneStatus(FPlaneStatus const PreviousStatus);
 	FPlaneSwapNotification OnPlaneSwapped;
-	TArray<FPlaneSwapRestriction> PlaneSwapRestrictions;
+	TMap<UBuff*, FPlaneSwapRestriction> PlaneSwapRestrictions;
 	UFUNCTION()
 	void UpdateOwnerCustomRendering();
 };

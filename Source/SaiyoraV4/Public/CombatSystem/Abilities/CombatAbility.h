@@ -4,7 +4,6 @@
 #include "UObject/NoExportTypes.h"
 #include "CrowdControlEnums.h"
 #include "DamageEnums.h"
-#include "SaiyoraObjects.h"
 #include "ResourceStructs.h"
 #include "Resource.h"
 #include "CombatAbility.generated.h"

@@ -57,4 +57,67 @@ void UCustomBuffFunction::SetupCustomBuffFunctions(UBuff* Buff,
     }
 }
 
+#pragma endregion
+#pragma region Buff Restriction
+
+void UBuffRestrictionFunction::BuffRestriction(UBuff* Buff, EBuffRestrictionType const RestrictionType, FBuffRestriction const& Restriction)
+{
+    if (!IsValid(Buff) || !Restriction.IsBound() || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
+    {
+        return;
+    }
+    UBuffRestrictionFunction* NewBuffRestrictionFunction = Cast<UBuffRestrictionFunction>(InstantiateBuffFunction(Buff, StaticClass()));
+    if (!IsValid(NewBuffRestrictionFunction))
+    {
+        return;
+    }
+    NewBuffRestrictionFunction->SetRestrictionVars(RestrictionType, Restriction);
+}
+
+void UBuffRestrictionFunction::SetRestrictionVars(EBuffRestrictionType const RestrictionType, FBuffRestriction const& Restriction)
+{
+    if (GetOwningBuff()->GetAppliedTo()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+    {
+        TargetComponent = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwningBuff()->GetAppliedTo());
+        RestrictType = RestrictionType;
+        Restrict = Restriction;
+    }
+}
+
+void UBuffRestrictionFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
+{
+    if (IsValid(TargetComponent))
+    {
+        switch (RestrictType)
+        {
+            case EBuffRestrictionType::Outgoing :
+                TargetComponent->AddOutgoingBuffRestriction(GetOwningBuff(), Restrict);
+                break;
+            case EBuffRestrictionType::Incoming :
+                TargetComponent->AddIncomingBuffRestriction(GetOwningBuff(), Restrict);
+                break;
+            default :
+                break;
+        }
+    }
+}
+
+void UBuffRestrictionFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
+{
+    if (IsValid(TargetComponent))
+    {
+        switch (RestrictType)
+        {
+        case EBuffRestrictionType::Outgoing :
+            TargetComponent->RemoveOutgoingBuffRestriction(GetOwningBuff());
+            break;
+        case EBuffRestrictionType::Incoming :
+            TargetComponent->RemoveIncomingBuffRestriction(GetOwningBuff());
+            break;
+        default :
+            break;
+        }
+    }
+}
+
 #pragma endregion 

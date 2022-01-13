@@ -1,4 +1,6 @@
 #include "PlaneComponent.h"
+
+#include "Buff.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraCombatLibrary.h"
 #include "UnrealNetwork.h"
@@ -59,9 +61,9 @@ ESaiyoraPlane UPlaneComponent::PlaneSwap(bool const bIgnoreRestrictions, UObject
 	}
 	if (!bIgnoreRestrictions)
 	{
-		for (FPlaneSwapRestriction const& Restriction : PlaneSwapRestrictions)
+		for (TTuple<UBuff*, FPlaneSwapRestriction> const& Restriction : PlaneSwapRestrictions)
 		{
-			if (Restriction.IsBound() && Restriction.Execute(this, Source, bToSpecificPlane, TargetPlane))
+			if (Restriction.Value.IsBound() && Restriction.Value.Execute(this, Source, bToSpecificPlane, TargetPlane))
 			{
 				return PlaneStatus.CurrentPlane;
 			}
@@ -152,19 +154,19 @@ void UPlaneComponent::UpdateOwnerCustomRendering()
 #pragma endregion
 #pragma region Restrictions
 
-void UPlaneComponent::AddPlaneSwapRestriction(FPlaneSwapRestriction const& Restriction)
+void UPlaneComponent::AddPlaneSwapRestriction(UBuff* Source, FPlaneSwapRestriction const& Restriction)
 {
-	if (GetOwnerRole() == ROLE_Authority && bCanEverPlaneSwap && Restriction.IsBound())
+	if (GetOwnerRole() == ROLE_Authority && bCanEverPlaneSwap && IsValid(Source) && Restriction.IsBound())
 	{
-		PlaneSwapRestrictions.AddUnique(Restriction);
+		PlaneSwapRestrictions.Add(Source, Restriction);
 	}
 }
 
-void UPlaneComponent::RemovePlaneSwapRestriction(FPlaneSwapRestriction const& Restriction)
+void UPlaneComponent::RemovePlaneSwapRestriction(UBuff* Source)
 {
-	if (GetOwnerRole() == ROLE_Authority && bCanEverPlaneSwap && Restriction.IsBound())
+	if (GetOwnerRole() == ROLE_Authority && bCanEverPlaneSwap && IsValid(Source))
 	{
-		PlaneSwapRestrictions.Remove(Restriction);
+		PlaneSwapRestrictions.Remove(Source);
 	}
 }
 

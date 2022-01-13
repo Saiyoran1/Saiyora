@@ -418,27 +418,27 @@ void UBuffHandler::UnsubscribeFromOutgoingBuffRemove(FBuffRemoveCallback const& 
 #pragma endregion
 #pragma region Restrictions
 
-void UBuffHandler::AddIncomingBuffRestriction(FBuffRestriction const& Restriction)
+void UBuffHandler::AddIncomingBuffRestriction(UBuff* Source, FBuffRestriction const& Restriction)
 {
-	if (GetOwnerRole() == ROLE_Authority && Restriction.IsBound())
+	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Restriction.IsBound())
 	{
-		IncomingBuffRestrictions.AddUnique(Restriction);
+		IncomingBuffRestrictions.Add(Source, Restriction);
 	}
 }
 
-void UBuffHandler::RemoveIncomingBuffRestriction(FBuffRestriction const& Restriction)
+void UBuffHandler::RemoveIncomingBuffRestriction(UBuff* Source)
 {
-	if (GetOwnerRole() == ROLE_Authority && Restriction.IsBound())
+	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
 	{
-		IncomingBuffRestrictions.Remove(Restriction);
+		IncomingBuffRestrictions.Remove(Source);
 	}
 }
 
 bool UBuffHandler::CheckIncomingBuffRestricted(FBuffApplyEvent const& BuffEvent)
 {
-	for (FBuffRestriction const& Restriction : IncomingBuffRestrictions)
+	for (TTuple<UBuff*, FBuffRestriction> const& Restriction : IncomingBuffRestrictions)
 	{
-		if (Restriction.IsBound() && Restriction.Execute(BuffEvent))
+		if (Restriction.Value.IsBound() && Restriction.Value.Execute(BuffEvent))
 		{
 			return true;
 		}
@@ -446,27 +446,27 @@ bool UBuffHandler::CheckIncomingBuffRestricted(FBuffApplyEvent const& BuffEvent)
 	return false;
 }
 
-void UBuffHandler::AddOutgoingBuffRestriction(FBuffRestriction const& Restriction)
+void UBuffHandler::AddOutgoingBuffRestriction(UBuff* Source, FBuffRestriction const& Restriction)
 {
-	if (GetOwnerRole() == ROLE_Authority && Restriction.IsBound())
+	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Restriction.IsBound())
 	{
-		OutgoingBuffRestrictions.AddUnique(Restriction);
+		OutgoingBuffRestrictions.Add(Source, Restriction);
 	}
 }
 
-void UBuffHandler::RemoveOutgoingBuffRestriction(FBuffRestriction const& Restriction)
+void UBuffHandler::RemoveOutgoingBuffRestriction(UBuff* Source)
 {
-	if (GetOwnerRole() == ROLE_Authority && Restriction.IsBound())
+	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
 	{
-		OutgoingBuffRestrictions.Remove(Restriction);
+		OutgoingBuffRestrictions.Remove(Source);
 	}
 }
 
 bool UBuffHandler::CheckOutgoingBuffRestricted(FBuffApplyEvent const& BuffEvent)
 {
-	for (FBuffRestriction const& Restriction : OutgoingBuffRestrictions)
+	for (TTuple<UBuff*, FBuffRestriction> const& Restriction : OutgoingBuffRestrictions)
 	{
-		if (Restriction.IsBound() && Restriction.Execute(BuffEvent))
+		if (Restriction.Value.IsBound() && Restriction.Value.Execute(BuffEvent))
 		{
 			return true;
 		}

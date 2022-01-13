@@ -2,6 +2,8 @@
 #include "BuffStructs.h"
 #include "BuffFunction.generated.h"
 
+class UBuffHandler;
+
 UCLASS(Abstract)
 class SAIYORAV4_API UBuffFunction : public UObject
 {
@@ -63,4 +65,23 @@ protected:
 	void CustomRemove(FBuffRemoveEvent const& RemoveEvent);
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "Cleanup"))
 	void CustomCleanup();
+};
+
+UCLASS()
+class UBuffRestrictionFunction : public UBuffFunction
+{
+	GENERATED_BODY()
+
+	EBuffRestrictionType RestrictType;
+	FBuffRestriction Restrict;
+	UPROPERTY()
+	UBuffHandler* TargetComponent;
+
+	void SetRestrictionVars(EBuffRestrictionType const RestrictionType, FBuffRestriction const& Restriction);
+
+	virtual void OnApply(FBuffApplyEvent const& ApplyEvent) override;
+	virtual void OnRemove(FBuffRemoveEvent const& RemoveEvent) override;
+
+	UFUNCTION(BlueprintCallable, Category = "Buff Function", meta = (DefaultToSelf = "Buff", HidePin = "Buff"))
+	static void BuffRestriction(UBuff* Buff, EBuffRestrictionType const RestrictionType, FBuffRestriction const& Restriction);
 };

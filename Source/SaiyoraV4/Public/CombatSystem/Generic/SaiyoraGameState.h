@@ -3,9 +3,6 @@
 #include "GameFramework/GameState.h"
 #include "SaiyoraGameState.generated.h"
 
-class UCombatComponent;
-class UCombatGroup;
-
 UCLASS()
 class SAIYORAV4_API ASaiyoraGameState : public AGameState
 {

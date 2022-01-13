@@ -54,3 +54,11 @@ enum class EBuffParamType : uint8
  SpellSchoolEnum = 4,
  SpellClass = 5,
 };
+
+UENUM(BlueprintType)
+enum class EBuffRestrictionType : uint8
+{
+ None,
+ Outgoing,
+ Incoming
+};
