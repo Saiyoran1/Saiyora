@@ -315,6 +315,7 @@ private:
 public:
 
     int32 GetPredictionID() const { return CurrentPredictionID; }
+    int32 GetCurrentTick() const { return CurrentTick; }
     void PredictedTick(int32 const TickNumber, FCombatParameters& PredictionParams, int32 const PredictionID = 0);
     void ServerTick(int32 const TickNumber, FCombatParameters const& PredictionParams, FCombatParameters& BroadcastParams, int32 const PredictionID = 0);
     void SimulatedTick(int32 const TickNumber, FCombatParameters const& BroadcastParams);
@@ -372,6 +373,7 @@ protected:
 private:
 
     int32 CurrentPredictionID = 0;
+    int32 CurrentTick = 0;
     FCombatParameters PredictionParameters;
     FCombatParameters BroadcastParameters;
 };

@@ -174,6 +174,99 @@ void USimpleAbilityModifierFunction::OnRemove(FBuffRemoveEvent const& RemoveEven
 }
 
 #pragma endregion
+#pragma region Ability Cost Modifier
+
+void UAbilityCostModifierFunction::AbilityCostModifier(UBuff* Buff, TSubclassOf<UResource> const ResourceClass,
+	TSubclassOf<UCombatAbility> const AbilityClass, FCombatModifier const& Modifier)
+{
+	if (!IsValid(Buff) || !IsValid(ResourceClass) || Modifier.Type == EModifierType::Invalid || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
+	{
+		return;
+	}
+	UAbilityCostModifierFunction* NewAbilityModifierFunction = Cast<UAbilityCostModifierFunction>(InstantiateBuffFunction(Buff, StaticClass()));
+	if (!IsValid(NewAbilityModifierFunction))
+	{
+		return;
+	}
+	NewAbilityModifierFunction->SetModifierVars(ResourceClass, AbilityClass, Modifier);
+}
+
+void UAbilityCostModifierFunction::SetModifierVars(TSubclassOf<UResource> const ResourceClass, TSubclassOf<UCombatAbility> const AbilityClass, FCombatModifier const& Modifier)
+{
+	if (GetOwningBuff()->GetAppliedTo()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	{
+		TargetHandler = ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwningBuff()->GetAppliedTo());
+		if (IsValid(TargetHandler))
+		{
+			Resource = ResourceClass;
+			Ability = AbilityClass;
+			Mod = FCombatModifier(Modifier.Value, Modifier.Type, GetOwningBuff(), Modifier.bStackable);
+			if (IsValid(Ability))
+			{
+				TargetAbility = TargetHandler->FindActiveAbility(Ability);
+			}
+		}
+	}
+}
+
+void UAbilityCostModifierFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
+{
+	if (IsValid(TargetHandler))
+	{
+		if (IsValid(Ability))
+		{
+			if (IsValid(TargetAbility))
+			{
+				TargetAbility->AddResourceCostModifier(Resource, Mod);
+			}
+		}
+		else
+		{
+			TargetHandler->AddGenericResourceCostModifier(Resource, Mod);
+		}
+	}
+}
+
+void UAbilityCostModifierFunction::OnStack(FBuffApplyEvent const& ApplyEvent)
+{
+	if (Mod.bStackable)
+	{
+		if (IsValid(TargetHandler))
+		{
+			if (IsValid(Ability))
+			{
+				if (IsValid(TargetAbility))
+				{
+					TargetAbility->AddResourceCostModifier(Resource, Mod);
+				}
+			}
+			else
+			{
+				TargetHandler->AddGenericResourceCostModifier(Resource, Mod);
+			}
+		}
+	}
+}
+
+void UAbilityCostModifierFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
+{
+	if (IsValid(TargetHandler))
+	{
+		if (IsValid(Ability))
+		{
+			if (IsValid(TargetAbility))
+			{
+				TargetAbility->RemoveResourceCostModifier(Resource, GetOwningBuff());
+			}
+		}
+		else
+		{
+			TargetHandler->RemoveGenericResourceCostModifier(Resource, GetOwningBuff());
+		}
+	}
+}
+
+#pragma endregion
 #pragma region Ability Class Restriction
 
 void UAbilityClassRestrictionFunction::AbilityClassRestrictions(UBuff* Buff, TSet<TSubclassOf<UCombatAbility>> const& AbilityClasses)
@@ -327,4 +420,4 @@ void UInterruptRestrictionFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent
 	}
 }
 
-#pragma endregion
+#pragma endregion 

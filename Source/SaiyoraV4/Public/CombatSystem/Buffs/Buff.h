@@ -98,7 +98,7 @@ public:
 	ESaiyoraPlane GetInitialTargetPlane() const { return CreationEvent.TargetPlane; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
 	void GetInitialParameters(TArray<FCombatParameter>& OutParams) const { OutParams.Append(CreationEvent.CombatParams); }
-	void InitializeBuff(FBuffApplyEvent& Event, UBuffHandler* NewHandler, EBuffApplicationOverrideType const StackOverrideType,
+	void InitializeBuff(FBuffApplyEvent& Event, UBuffHandler* NewHandler, bool const bIgnoreRestrictions, EBuffApplicationOverrideType const StackOverrideType,
 		int32 const OverrideStacks, EBuffApplicationOverrideType const RefreshOverrideType, float const OverrideDuration);
 	void ApplyEvent(FBuffApplyEvent& ApplicationEvent, EBuffApplicationOverrideType const StackOverrideType,
 		int32 const OverrideStacks, EBuffApplicationOverrideType const RefreshOverrideType, float const OverrideDuration);
@@ -133,6 +133,7 @@ private:
 	FBuffApplyEvent CreationEvent;
 	UFUNCTION()
 	void OnRep_CreationEvent();
+	bool bIgnoringRestrictions = false;
 
 //Expiration
 

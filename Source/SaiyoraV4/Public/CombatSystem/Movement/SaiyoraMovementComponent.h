@@ -104,7 +104,7 @@ private:
 	//Ability request received by the server, used to activate an ability resulting in a custom move.
 	FAbilityRequest CustomMoveAbilityRequest;
 	TMap<int32, bool> CompletedCastStatus;
-	TSet<int32> ServerCompletedMovementIDs;
+	TSet<FPredictedTick> ServerCompletedMovementIDs;
 	TArray<UObject*> CurrentTickServerCustomMoveSources;
 	virtual void MoveAutonomous(float ClientTimeStamp, float DeltaTime, uint8 CompressedFlags, const FVector& NewAccel) override;
 	bool ApplyCustomMove(FCustomMoveParams const& CustomMove, UObject* Source);

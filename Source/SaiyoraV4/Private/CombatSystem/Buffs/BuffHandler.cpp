@@ -104,7 +104,7 @@ FBuffApplyEvent UBuffHandler::ApplyBuff(TSubclassOf<UBuff> const BuffClass, AAct
 	else
 	{
 		Event.AffectedBuff = NewObject<UBuff>(GetOwner(), Event.BuffClass);
-		Event.AffectedBuff->InitializeBuff(Event, this, StackOverrideType, OverrideStacks, RefreshOverrideType, OverrideDuration);
+		Event.AffectedBuff->InitializeBuff(Event, this, IgnoreRestrictions, StackOverrideType, OverrideStacks, RefreshOverrideType, OverrideDuration);
 	}
     return Event;
 }

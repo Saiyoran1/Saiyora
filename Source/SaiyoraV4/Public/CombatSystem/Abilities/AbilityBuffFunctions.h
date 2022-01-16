@@ -62,6 +62,29 @@ class USimpleAbilityModifierFunction : public UBuffFunction
 };
 
 UCLASS()
+class UAbilityCostModifierFunction : public UBuffFunction
+{
+	GENERATED_BODY()
+
+	FCombatModifier Mod;
+	TSubclassOf<UResource> Resource;
+	TSubclassOf<UCombatAbility> Ability;
+	UPROPERTY()
+	class UAbilityComponent* TargetHandler;
+	UPROPERTY()
+	class UCombatAbility* TargetAbility;
+
+	void SetModifierVars(TSubclassOf<UResource> const ResourceClass, TSubclassOf<UCombatAbility> const AbilityClass, FCombatModifier const& Modifier);
+
+	virtual void OnApply(FBuffApplyEvent const& ApplyEvent) override;
+	virtual void OnStack(FBuffApplyEvent const& ApplyEvent) override;
+	virtual void OnRemove(FBuffRemoveEvent const& RemoveEvent) override;
+
+	UFUNCTION(BlueprintCallable, Category = "Buff Function", meta = (DefaultToSelf = "Buff", HidePin = "Buff"))
+	static void AbilityCostModifier(UBuff* Buff, TSubclassOf<UResource> const ResourceClass, TSubclassOf<UCombatAbility> const AbilityClass, FCombatModifier const& Modifier);
+};
+
+UCLASS()
 class UAbilityClassRestrictionFunction : public UBuffFunction
 {
 	GENERATED_BODY()

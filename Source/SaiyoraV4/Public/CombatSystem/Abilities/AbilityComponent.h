@@ -3,7 +3,6 @@
 #include "AbilityStructs.h"
 #include "CrowdControlStructs.h"
 #include "DamageStructs.h"
-#include "GameplayTagsManager.h"
 #include "GameFramework/GameState.h"
 #include "CombatAbility.h"
 #include "AbilityComponent.generated.h"

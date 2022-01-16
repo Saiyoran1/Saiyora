@@ -37,8 +37,6 @@ private:
 	UPROPERTY()
 	UDamageHandler* DamageHandlerRef;
 	UPROPERTY()
-	UBuffHandler* BuffHandlerRef;
-	UPROPERTY()
 	UPlaneComponent* PlaneCompRef;
 	UPROPERTY()
 	UFactionComponent* FactionCompRef;
@@ -76,25 +74,17 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Threat")
 	void UnsubscribeFromCombatStatusChanged(FCombatStatusCallback const& Callback);
 
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
-	void AddIncomingThreatRestriction(FThreatRestriction const& Restriction);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
-	void RemoveIncomingThreatRestriction(FThreatRestriction const& Restriction);
+	void AddIncomingThreatRestriction(UBuff* Source, FThreatRestriction const& Restriction);
+	void RemoveIncomingThreatRestriction(UBuff* Source);
 	bool CheckIncomingThreatRestricted(FThreatEvent const& Event);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
-	void AddOutgoingThreatRestriction(FThreatRestriction const& Restriction);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
-	void RemoveOutgoingThreatRestriction(FThreatRestriction const& Restriction);
+	void AddOutgoingThreatRestriction(UBuff* Source, FThreatRestriction const& Restriction);
+	void RemoveOutgoingThreatRestriction(UBuff* Source);
 	bool CheckOutgoingThreatRestricted(FThreatEvent const& Event);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
-	void AddIncomingThreatModifier(FThreatModCondition const& Modifier);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
-	void RemoveIncomingThreatModifier(FThreatModCondition const& Modifier);
+	void AddIncomingThreatModifier(UBuff* Source, FThreatModCondition const& Modifier);
+	void RemoveIncomingThreatModifier(UBuff* Source);
 	float GetModifiedIncomingThreat(FThreatEvent const& ThreatEvent) const;
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
-	void AddOutgoingThreatModifier(FThreatModCondition const& Modifier);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
-	void RemoveOutgoingThreatModifier(FThreatModCondition const& Modifier);
+	void AddOutgoingThreatModifier(UBuff* Source, FThreatModCondition const& Modifier);
+	void RemoveOutgoingThreatModifier(UBuff* Source);
 	float GetModifiedOutgoingThreat(FThreatEvent const& ThreatEvent, FThreatModCondition const& SourceModifier) const;
 
 	void NotifyOfTargeting(UThreatHandler* TargetingComponent);
@@ -120,10 +110,10 @@ private:
 	void RemoveFromThreatTable(AActor* Actor);
 	void ClearThreatTable();
 	void RemoveThreat(float const Amount, AActor* AppliedBy);
-	TArray<FThreatModCondition> OutgoingThreatMods;
-	TArray<FThreatModCondition> IncomingThreatMods;
-	TArray<FThreatRestriction> OutgoingThreatRestrictions;
-	TArray<FThreatRestriction> IncomingThreatRestrictions;
+	TMap<UBuff*, FThreatModCondition> OutgoingThreatMods;
+	TMap<UBuff*, FThreatModCondition> IncomingThreatMods;
+	TMap<UBuff*, FThreatRestriction> OutgoingThreatRestrictions;
+	TMap<UBuff*, FThreatRestriction> IncomingThreatRestrictions;
 	UPROPERTY(ReplicatedUsing=OnRep_CurrentTarget)
 	AActor* CurrentTarget = nullptr;
 	UFUNCTION()
@@ -145,9 +135,6 @@ private:
 	FLifeStatusCallback OwnerLifeStatusCallback;
 	UFUNCTION()
 	void OnOwnerLifeStatusChanged(AActor* Actor, ELifeStatus const PreviousStatus, ELifeStatus const NewStatus);
-	FBuffRestriction ThreatBuffRestriction;
-	UFUNCTION()
-	bool CheckBuffForThreat(FBuffApplyEvent const& BuffEvent);
 	
 //Threat Actions
 

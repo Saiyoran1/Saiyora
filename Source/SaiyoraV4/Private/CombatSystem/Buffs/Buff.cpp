@@ -28,7 +28,7 @@ void UBuff::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimePro
     DOREPLIFETIME(UBuff, RemovalReason);
 }
 
-void UBuff::InitializeBuff(FBuffApplyEvent& Event, UBuffHandler* NewHandler, EBuffApplicationOverrideType const StackOverrideType,
+void UBuff::InitializeBuff(FBuffApplyEvent& Event, UBuffHandler* NewHandler, bool const bIgnoreRestrictions, EBuffApplicationOverrideType const StackOverrideType,
         int32 const OverrideStacks, EBuffApplicationOverrideType const RefreshOverrideType, float const OverrideDuration)
 {
     if (Status != EBuffStatus::Spawning || !IsValid(NewHandler))
@@ -84,6 +84,7 @@ void UBuff::InitializeBuff(FBuffApplyEvent& Event, UBuffHandler* NewHandler, EBu
         ExpireTime = 0.0f;
     }
     CreationEvent = Event;
+    bIgnoringRestrictions = bIgnoreRestrictions;
     SetupCommonBuffFunctions();
     Status = EBuffStatus::Active;
     Handler->NotifyOfNewIncomingBuff(CreationEvent);
@@ -251,6 +252,10 @@ void UBuff::CompleteExpireTimer()
 
 FBuffRemoveEvent UBuff::TerminateBuff(EBuffExpireReason const TerminationReason)
 {
+    if (bIgnoringRestrictions && TerminationReason == EBuffExpireReason::Dispel)
+    {
+        return FBuffRemoveEvent();
+    }
     if (bFiniteDuration)
     {
         GetWorld()->GetTimerManager().ClearTimer(ExpireHandle);

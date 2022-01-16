@@ -495,9 +495,11 @@ void UCombatAbility::PredictedTick(int32 const TickNumber, FCombatParameters& Pr
 {
     PredictionParameters.ClearParams();
     CurrentPredictionID = PredictionID;
+    CurrentTick = TickNumber;
     OnPredictedTick(TickNumber);
     PredictionParams = PredictionParameters;
     CurrentPredictionID = 0;
+    CurrentTick = 0;
     PredictionParameters.ClearParams();
 }
 
@@ -508,9 +510,11 @@ void UCombatAbility::ServerTick(int32 const TickNumber, FCombatParameters const&
     BroadcastParameters.ClearParams();
     PredictionParameters = PredictionParams;
     CurrentPredictionID = PredictionID;
+    CurrentTick = TickNumber;
     OnServerTick(TickNumber);
     BroadcastParams = BroadcastParameters;
     CurrentPredictionID = 0;
+    CurrentTick = 0;
     PredictionParameters.ClearParams();
     BroadcastParameters.ClearParams();
 }
@@ -519,7 +523,9 @@ void UCombatAbility::SimulatedTick(int32 const TickNumber, FCombatParameters con
 {
     BroadcastParameters.ClearParams();
     BroadcastParameters = BroadcastParams;
+    CurrentTick = TickNumber;
     OnSimulatedTick(TickNumber);
+    CurrentTick = 0;
     BroadcastParameters.ClearParams();
 }
 

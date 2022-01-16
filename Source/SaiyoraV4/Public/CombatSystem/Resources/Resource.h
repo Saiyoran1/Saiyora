@@ -95,10 +95,8 @@ public:
 	float GetMaximum() const { return ResourceState.Maximum; }
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Resource")
 	void ModifyResource(UObject* Source, float const Amount, bool const bIgnoreModifiers);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Resource")
-	void AddResourceDeltaModifier(FResourceDeltaModifier const& Modifier);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Resource")
-	void RemoveResourceDeltaModifier(FResourceDeltaModifier const& Modifier);
+	void AddResourceDeltaModifier(UBuff* Source, FResourceDeltaModifier const& Modifier);
+	void RemoveResourceDeltaModifier(UBuff* Source);
 	UFUNCTION(BlueprintCallable, Category = "Resource")
 	void SubscribeToResourceChanged(FResourceValueCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Resource")
@@ -123,7 +121,7 @@ private:
 	UFUNCTION()
 	void UpdateMaximumFromStatBind(FGameplayTag const& StatTag, float const NewValue);
 	void SetResourceValue(float const NewValue, UObject* Source, int32 const PredictionID = 0);
-	TArray<FResourceDeltaModifier> ResourceDeltaMods;
+	TMap<UBuff*, FResourceDeltaModifier> ResourceDeltaMods;
 	FResourceValueNotification OnResourceChanged;
 	
 //Ability Costs

@@ -388,11 +388,11 @@ bool USaiyoraMovementComponent::ApplyCustomMove(FCustomMoveParams const& CustomM
 		{
 			//There are going to be 2 calls to predicted movement (one from the ability system, one from the Networked Move Data), so we need to check that this is the first call (the 2nd won't do anything).
 			//TODO: Currently storing by predictionID, but really need to store by tick AND predictionID.
-			if (ServerCompletedMovementIDs.Contains(AbilitySource->GetPredictionID()))
+			if (ServerCompletedMovementIDs.Contains(FPredictedTick(AbilitySource->GetPredictionID(), AbilitySource->GetCurrentTick())))
 			{
 				return false;
 			}
-			ServerCompletedMovementIDs.Add(AbilitySource->GetPredictionID());
+			ServerCompletedMovementIDs.Add(FPredictedTick(AbilitySource->GetPredictionID(), AbilitySource->GetCurrentTick()));
 			Multicast_ExecuteCustomMoveNoOwner(CustomMove);
 			return true;
 		}
@@ -493,7 +493,7 @@ void USaiyoraMovementComponent::CustomMoveFromFlag()
 	if (GetOwnerRole() == ROLE_Authority && !PawnOwner->IsLocallyControlled())
 	{
 		//If we are the server, and have an auto proxy, check that this move hasn't already been sent (duplicating cast IDs), and can actually be performed.
-		if (ServerCompletedMovementIDs.Contains(CustomMoveAbilityRequest.PredictionID) || !IsValid(OwnerAbilityHandler))
+		if (ServerCompletedMovementIDs.Contains(FPredictedTick(CustomMoveAbilityRequest.PredictionID, CustomMoveAbilityRequest.Tick)) || !IsValid(OwnerAbilityHandler))
 		{
 			return;
 		}
@@ -501,7 +501,7 @@ void USaiyoraMovementComponent::CustomMoveFromFlag()
 		if (bCompleted)
 		{
 			//Document that this prediction ID has already been used, so duplicate moves with this ID do not get re-used.
-			ServerCompletedMovementIDs.Add(CustomMoveAbilityRequest.PredictionID);
+			ServerCompletedMovementIDs.Add(FPredictedTick(CustomMoveAbilityRequest.PredictionID, CustomMoveAbilityRequest.Tick));
 		}
 		return;
 	}
@@ -637,11 +637,11 @@ bool USaiyoraMovementComponent::ApplyCustomRootMotionHandler(USaiyoraRootMotionH
 	case ROLE_Authority :
 		{
 			//There are going to be 2 calls to predicted movement (one from the ability system, one from the Networked Move Data), so we need to check that this is the first call (the 2nd won't do anything).
-			if (ServerCompletedMovementIDs.Contains(AbilitySource->GetPredictionID()))
+			if (ServerCompletedMovementIDs.Contains(FPredictedTick(AbilitySource->GetPredictionID(), AbilitySource->GetCurrentTick())))
 			{
 				return false;
 			}
-			ServerCompletedMovementIDs.Add(AbilitySource->GetPredictionID());
+			ServerCompletedMovementIDs.Add(FPredictedTick(AbilitySource->GetPredictionID(), AbilitySource->GetCurrentTick()));
 			//We don't check custom restrictions since the move was self-initiated, but we do check for root.
 			if (!Handler->bIgnoreRestrictions && IsValid(OwnerCcHandler) && OwnerCcHandler->IsCrowdControlActive(UCrowdControlHandler::RootTag()))
 			{

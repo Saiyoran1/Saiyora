@@ -1,4 +1,5 @@
 #include "Resource.h"
+#include "Buff.h"
 #include "ResourceHandler.h"
 #include "StatHandler.h"
 #include "UnrealNetwork.h"
@@ -138,11 +139,11 @@ void UResource::ModifyResource(UObject* Source, float const Amount, bool const b
     if (!bIgnoreModifiers)
     {
         TArray<FCombatModifier> Mods;
-        for (FResourceDeltaModifier const& Mod : ResourceDeltaMods)
+        for (TTuple<UBuff*, FResourceDeltaModifier> const& Mod : ResourceDeltaMods)
         {
-            if (Mod.IsBound())
+            if (Mod.Value.IsBound())
             {
-                Mods.Add(Mod.Execute(this, Source, Amount));
+                Mods.Add(Mod.Value.Execute(this, Source, Amount));
             }
         }
         Delta = FCombatModifier::ApplyModifiers(Mods, Delta);
@@ -298,19 +299,19 @@ void UResource::UnsubscribeFromResourceChanged(FResourceValueCallback const& Cal
 #pragma endregion
 #pragma region Modifiers
 
-void UResource::AddResourceDeltaModifier(FResourceDeltaModifier const& Modifier)
+void UResource::AddResourceDeltaModifier(UBuff* Source, FResourceDeltaModifier const& Modifier)
 {
-    if (Modifier.IsBound())
+    if (GetHandler()->GetOwnerRole() == ROLE_Authority && IsValid(Source) && Modifier.IsBound())
     {
-        ResourceDeltaMods.AddUnique(Modifier);
+        ResourceDeltaMods.Add(Source, Modifier);
     }
 }
 
-void UResource::RemoveResourceDeltaModifier(FResourceDeltaModifier const& Modifier)
+void UResource::RemoveResourceDeltaModifier(UBuff* Source)
 {
-    if (Modifier.IsBound())
+    if (GetHandler()->GetOwnerRole() == ROLE_Authority && IsValid(Source))
     {
-        ResourceDeltaMods.Remove(Modifier);
+        ResourceDeltaMods.Remove(Source);
     }
 }
 

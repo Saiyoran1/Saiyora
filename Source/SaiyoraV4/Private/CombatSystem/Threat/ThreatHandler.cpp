@@ -28,7 +28,6 @@ void UThreatHandler::InitializeComponent()
 		TargetLifeStatusCallback.BindDynamic(this, &UThreatHandler::OnTargetLifeStatusChanged);
 		ThreatFromIncomingHealingCallback.BindDynamic(this, &UThreatHandler::OnTargetHealingTaken);
 		ThreatFromOutgoingHealingCallback.BindDynamic(this, &UThreatHandler::OnTargetHealingDone);
-		ThreatBuffRestriction.BindDynamic(this, &UThreatHandler::CheckBuffForThreat);
 	}
 }
 
@@ -42,19 +41,6 @@ void UThreatHandler::BeginPlay()
 	{
 		FactionCompRef = ISaiyoraCombatInterface::Execute_GetFactionComponent(GetOwner());
 		checkf(IsValid(FactionCompRef), TEXT("%s does not have a valid Faction Component, which Threat Handler depends on."), *GetOwner()->GetActorLabel());
-		
-		BuffHandlerRef = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwner());
-		if (IsValid(BuffHandlerRef))
-		{
-			if (!bCanBeInThreatTable)
-			{
-				BuffHandlerRef->AddOutgoingBuffRestriction(ThreatBuffRestriction);
-			}
-			if (!bHasThreatTable)
-			{
-				BuffHandlerRef->AddIncomingBuffRestriction(ThreatBuffRestriction);
-			}
-		}
 		DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
 		if (IsValid(DamageHandlerRef))
 		{
@@ -96,22 +82,6 @@ void UThreatHandler::OnOwnerLifeStatusChanged(AActor* Actor, ELifeStatus const P
 	{
 		ClearThreatTable();
 	}
-}
-
-bool UThreatHandler::CheckBuffForThreat(FBuffApplyEvent const& BuffEvent)
-{
-	if (!IsValid(BuffEvent.BuffClass))
-	{
-		return false;
-	}
-	UBuff* DefaultBuff = BuffEvent.BuffClass.GetDefaultObject();
-	if (!IsValid(DefaultBuff))
-	{
-		return false;
-	}
-	FGameplayTagContainer BuffTags;	
-	DefaultBuff->GetBuffTags(BuffTags);
-	return BuffTags.HasTag(GenericThreatTag());
 }
 
 #pragma endregion 
@@ -600,27 +570,27 @@ void UThreatHandler::UnsubscribeFromCombatStatusChanged(FCombatStatusCallback co
 #pragma endregion
 #pragma region Restrictions
 
-void UThreatHandler::AddIncomingThreatRestriction(FThreatRestriction const& Restriction)
+void UThreatHandler::AddIncomingThreatRestriction(UBuff* Source, FThreatRestriction const& Restriction)
 {
-	if (GetOwnerRole() == ROLE_Authority && Restriction.IsBound())
+	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Restriction.IsBound())
 	{
-		IncomingThreatRestrictions.AddUnique(Restriction);
+		IncomingThreatRestrictions.Add(Source, Restriction);
 	}
 }
 
-void UThreatHandler::RemoveIncomingThreatRestriction(FThreatRestriction const& Restriction)
+void UThreatHandler::RemoveIncomingThreatRestriction(UBuff* Source)
 {
-	if (GetOwnerRole() == ROLE_Authority && Restriction.IsBound())
+	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
 	{
-		IncomingThreatRestrictions.Remove(Restriction);
+		IncomingThreatRestrictions.Remove(Source);
 	}
 }
 
 bool UThreatHandler::CheckIncomingThreatRestricted(FThreatEvent const& Event)
 {
-	for (FThreatRestriction const& Restriction : IncomingThreatRestrictions)
+	for (TTuple<UBuff*, FThreatRestriction> const& Restriction : IncomingThreatRestrictions)
 	{
-		if (Restriction.IsBound() && Restriction.Execute(Event))
+		if (Restriction.Value.IsBound() && Restriction.Value.Execute(Event))
 		{
 			return true;
 		}
@@ -628,27 +598,27 @@ bool UThreatHandler::CheckIncomingThreatRestricted(FThreatEvent const& Event)
 	return false;
 }
 
-void UThreatHandler::AddOutgoingThreatRestriction(FThreatRestriction const& Restriction)
+void UThreatHandler::AddOutgoingThreatRestriction(UBuff* Source, FThreatRestriction const& Restriction)
 {
-	if (GetOwnerRole() == ROLE_Authority && Restriction.IsBound())
+	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Restriction.IsBound())
 	{
-		OutgoingThreatRestrictions.AddUnique(Restriction);
+		OutgoingThreatRestrictions.Add(Source, Restriction);
 	}
 }
 
-void UThreatHandler::RemoveOutgoingThreatRestriction(FThreatRestriction const& Restriction)
+void UThreatHandler::RemoveOutgoingThreatRestriction(UBuff* Source)
 {
-	if (GetOwnerRole() == ROLE_Authority && Restriction.IsBound())
+	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
 	{
-		OutgoingThreatRestrictions.Remove(Restriction);
+		OutgoingThreatRestrictions.Remove(Source);
 	}
 }
 
 bool UThreatHandler::CheckOutgoingThreatRestricted(FThreatEvent const& Event)
 {
-	for (FThreatRestriction const& Restriction : OutgoingThreatRestrictions)
+	for (TTuple<UBuff*, FThreatRestriction> const& Restriction : OutgoingThreatRestrictions)
 	{
-		if (Restriction.IsBound() && Restriction.Execute(Event))
+		if (Restriction.Value.IsBound() && Restriction.Value.Execute(Event))
 		{
 			return true;
 		}
@@ -659,59 +629,59 @@ bool UThreatHandler::CheckOutgoingThreatRestricted(FThreatEvent const& Event)
 #pragma endregion
 #pragma region Modifiers
 
-void UThreatHandler::AddIncomingThreatModifier(FThreatModCondition const& Modifier)
+void UThreatHandler::AddIncomingThreatModifier(UBuff* Source, FThreatModCondition const& Modifier)
 {
-	if (GetOwnerRole() == ROLE_Authority && Modifier.IsBound())
+	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Modifier.IsBound())
 	{
-		IncomingThreatMods.AddUnique(Modifier);
+		IncomingThreatMods.Add(Source, Modifier);
 	}
 }
 
-void UThreatHandler::RemoveIncomingThreatModifier(FThreatModCondition const& Modifier)
+void UThreatHandler::RemoveIncomingThreatModifier(UBuff* Source)
 {
-	if (GetOwnerRole() == ROLE_Authority && Modifier.IsBound())
+	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
 	{
-		IncomingThreatMods.Remove(Modifier);
+		IncomingThreatMods.Remove(Source);
 	}
 }
 
 float UThreatHandler::GetModifiedIncomingThreat(FThreatEvent const& ThreatEvent) const
 {
 	TArray<FCombatModifier> Mods;
-	for (FThreatModCondition const& Modifier : IncomingThreatMods)
+	for (TTuple<UBuff*, FThreatModCondition> const& Modifier : IncomingThreatMods)
 	{
-		if (Modifier.IsBound())
+		if (Modifier.Value.IsBound())
 		{
-			Mods.Add(Modifier.Execute(ThreatEvent));
+			Mods.Add(Modifier.Value.Execute(ThreatEvent));
 		}
 	}
 	return FCombatModifier::ApplyModifiers(Mods, ThreatEvent.Threat);
 }
 
-void UThreatHandler::AddOutgoingThreatModifier(FThreatModCondition const& Modifier)
+void UThreatHandler::AddOutgoingThreatModifier(UBuff* Source, FThreatModCondition const& Modifier)
 {
-	if (GetOwnerRole() == ROLE_Authority && Modifier.IsBound())
+	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Modifier.IsBound())
 	{
-		OutgoingThreatMods.AddUnique(Modifier);
+		OutgoingThreatMods.Add(Source, Modifier);
 	}
 }
 
-void UThreatHandler::RemoveOutgoingThreatModifier(FThreatModCondition const& Modifier)
+void UThreatHandler::RemoveOutgoingThreatModifier(UBuff* Source)
 {
-	if (GetOwnerRole() == ROLE_Authority && Modifier.IsBound())
+	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
 	{
-		OutgoingThreatMods.Remove(Modifier);
+		OutgoingThreatMods.Remove(Source);
 	}
 }
 
 float UThreatHandler::GetModifiedOutgoingThreat(FThreatEvent const& ThreatEvent, FThreatModCondition const& SourceModifier) const
 {
 	TArray<FCombatModifier> Mods;
-	for (FThreatModCondition const& Modifier : OutgoingThreatMods)
+	for (TTuple<UBuff*, FThreatModCondition> const& Modifier : OutgoingThreatMods)
 	{
-		if (Modifier.IsBound())
+		if (Modifier.Value.IsBound())
 		{
-			Mods.Add(Modifier.Execute(ThreatEvent));
+			Mods.Add(Modifier.Value.Execute(ThreatEvent));
 		}
 	}
 	if (SourceModifier.IsBound())
