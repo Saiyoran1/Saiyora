@@ -1248,7 +1248,7 @@ void UAbilityComponent::RemoveGenericResourceCostModifier(TSubclassOf<UResource>
 
 void UAbilityComponent::AddAbilityTagRestriction(UBuff* Source, FGameplayTag const Tag)
 {
-	if (GetOwnerRole() != ROLE_Authority || !IsValid(Source) || !Tag.IsValid() || !Tag.MatchesTag(AbilityRestrictionTag()) || Tag.MatchesTagExact(AbilityRestrictionTag()))
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(Source) || !Tag.IsValid() || Tag.MatchesTagExact(AbilityClassRestrictionTag()))
 	{
 		return;
 	}
@@ -1268,7 +1268,7 @@ void UAbilityComponent::AddAbilityTagRestriction(UBuff* Source, FGameplayTag con
 
 void UAbilityComponent::RemoveAbilityTagRestriction(UBuff* Source, FGameplayTag const Tag)
 {
-	if (GetOwnerRole() != ROLE_Authority || !IsValid(Source) || !Tag.IsValid() || !Tag.MatchesTag(AbilityRestrictionTag()) || Tag.MatchesTagExact(AbilityRestrictionTag()))
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(Source) || !Tag.IsValid() || Tag.MatchesTagExact(AbilityClassRestrictionTag()))
 	{
 		return;
 	}

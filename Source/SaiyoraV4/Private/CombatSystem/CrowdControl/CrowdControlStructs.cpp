@@ -62,6 +62,7 @@ void FCrowdControlStatus::SetNewDominantBuff(UBuff* NewDominant)
     {
         DominantBuffClass = nullptr;
         EndTime = 0.0f;
+        bActive = false;
     }
 }
 
