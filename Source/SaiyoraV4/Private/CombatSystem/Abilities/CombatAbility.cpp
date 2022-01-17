@@ -866,7 +866,7 @@ void UCombatAbility::UpdateCastable()
 
 void UCombatAbility::AddRestrictedTag(FGameplayTag const RestrictedTag)
 {
-    if (!RestrictedTag.IsValid() || !AbilityTags.HasTag(RestrictedTag))
+    if (!RestrictedTag.IsValid() || (!RestrictedTag.MatchesTagExact(UAbilityComponent::AbilityClassRestrictionTag()) && !AbilityTags.HasTag(RestrictedTag)))
     {
         return;
     }
@@ -880,7 +880,7 @@ void UCombatAbility::AddRestrictedTag(FGameplayTag const RestrictedTag)
 
 void UCombatAbility::RemoveRestrictedTag(FGameplayTag const RestrictedTag)
 {
-    if (!RestrictedTag.IsValid() || !AbilityTags.HasTag(RestrictedTag))
+    if (!RestrictedTag.IsValid() || (!RestrictedTag.MatchesTagExact(UAbilityComponent::AbilityClassRestrictionTag()) && !AbilityTags.HasTag(RestrictedTag)))
     {
         return;
     }

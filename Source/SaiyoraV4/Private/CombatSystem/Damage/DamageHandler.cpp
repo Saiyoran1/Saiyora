@@ -26,8 +26,6 @@ void UDamageHandler::InitializeComponent()
 	if (GetOwnerRole() == ROLE_Authority)
 	{
 		MaxHealthStatCallback.BindDynamic(this, &UDamageHandler::ReactToMaxHealthStat);
-		DamageBuffRestriction.BindDynamic(this, &UDamageHandler::RestrictDamageBuffs);
-		HealingBuffRestriction.BindDynamic(this, &UDamageHandler::RestrictHealingBuffs);
 	}
 }
 
@@ -45,7 +43,6 @@ void UDamageHandler::BeginPlay()
 		UE_LOG(LogTemp, Warning, TEXT("Owner of DamageHandler doesn't implement combat interface?"));
 	}
 	StatHandler = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
-	BuffHandler = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwner());
 	
 	if (GetOwnerRole() == ROLE_Authority)
 	{
@@ -56,18 +53,6 @@ void UDamageHandler::BeginPlay()
 			{
 				UpdateMaxHealth(StatHandler->GetStatValue(MaxHealthStatTag()));
 				StatHandler->SubscribeToStatChanged(MaxHealthStatTag(), MaxHealthStatCallback);
-			}
-		}
-		//Add buff restrictions for damage and healing interactions that are not enabled.
-		if (IsValid(BuffHandler))
-		{
-			if (!bHasHealth || !bCanEverReceiveDamage)
-			{
-				BuffHandler->AddIncomingBuffRestriction(DamageBuffRestriction);
-			}
-			if (!bHasHealth || !bCanEverReceiveHealing)
-			{	
-				BuffHandler->AddIncomingBuffRestriction(HealingBuffRestriction);
 			}
 		}
 		LifeStatus = ELifeStatus::Alive;
@@ -82,36 +67,6 @@ void UDamageHandler::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& Out
 	DOREPLIFETIME(UDamageHandler, CurrentHealth);
 	DOREPLIFETIME(UDamageHandler, MaxHealth);
 	DOREPLIFETIME(UDamageHandler, LifeStatus);
-}
-
-bool UDamageHandler::RestrictDamageBuffs(FBuffApplyEvent const& BuffEvent)
-{
-	UBuff const* Buff = BuffEvent.BuffClass.GetDefaultObject();
-	if (IsValid(Buff))
-	{
-		FGameplayTagContainer BuffTags;
-		Buff->GetBuffTags(BuffTags);
-		if (BuffTags.HasTag(GenericDamageTag()))
-		{
-			return true;
-		}
-	}
-	return false;
-}
-
-bool UDamageHandler::RestrictHealingBuffs(FBuffApplyEvent const& BuffEvent)
-{
-	UBuff const* Buff = BuffEvent.BuffClass.GetDefaultObject();
-	if (IsValid(Buff))
-	{
-		FGameplayTagContainer BuffFunctionTags;
-		Buff->GetBuffTags(BuffFunctionTags);
-		if (BuffFunctionTags.HasTag(GenericHealingTag()))
-		{
-			return true;
-		}
-	}
-	return false;
 }
 
 #pragma endregion 

@@ -50,18 +50,6 @@ void UStatHandler::BeginPlay()
 {
 	Super::BeginPlay();
 	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("%s does not implement combat interface, but has Stat Handler."), *GetOwner()->GetActorLabel());
-	if (GetOwnerRole() == ROLE_Authority)
-	{
-		BuffHandler = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwner());
-		if (IsValid(BuffHandler))
-		{
-			//Setup a restriction on buffs that modify stats that this component has determined can not be modified.
-			//TODO: Do I really need to do this? Design decision based on whether I should be immune to buffs that modify these stats, or just immune to the stat modifications themselves.
-			FBuffRestriction BuffStatModCondition;
-			BuffStatModCondition.BindDynamic(this, &UStatHandler::CheckBuffStatMods);
-			BuffHandler->AddIncomingBuffRestriction(BuffStatModCondition);
-		}
-	}
 }
 
 void UStatHandler::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -153,26 +141,6 @@ bool UStatHandler::IsStatModifiable(FGameplayTag const StatTag) const
 		{
 			return DefaultInfo.Value.bModifiable;
 		}
-	}
-	return false;
-}
-
-bool UStatHandler::CheckBuffStatMods(FBuffApplyEvent const& BuffEvent)
-{
-	if (!IsValid(BuffEvent.BuffClass))
-	{
-		return false;
-	}
-	UBuff const* Default = BuffEvent.BuffClass.GetDefaultObject();
-	if (!IsValid(Default))
-	{
-		return false;
-	}
-	FGameplayTagContainer BuffTags;
-	Default->GetBuffTags(BuffTags);
-	if (BuffTags.HasAnyExact(StaticStats))
-	{
-		return true;
 	}
 	return false;
 }

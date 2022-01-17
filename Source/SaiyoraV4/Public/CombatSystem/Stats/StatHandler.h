@@ -19,13 +19,6 @@ public:
 	virtual void BeginPlay() override;
 	virtual void GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
-private:
-
-	UPROPERTY()
-	class UBuffHandler* BuffHandler;
-	UFUNCTION()
-	bool CheckBuffStatMods(FBuffApplyEvent const& BuffEvent);
-
 //Stats
 
 public:

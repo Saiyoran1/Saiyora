@@ -36,8 +36,6 @@ private:
 	UPROPERTY()
 	UStatHandler* StatHandler = nullptr;
 	UPROPERTY()
-	UBuffHandler* BuffHandler = nullptr;
-	UPROPERTY()
 	UPlaneComponent* PlaneComponent = nullptr;
 	UPROPERTY()
 	APawn* OwnerAsPawn = nullptr;
@@ -204,10 +202,6 @@ private:
 	UFUNCTION(Client, Unreliable)
     void ClientNotifyOfIncomingDamage(FDamagingEvent const& DamageEvent);
 
-	FBuffRestriction DamageBuffRestriction;
-	UFUNCTION()
-	bool RestrictDamageBuffs(FBuffApplyEvent const& BuffEvent);
-
 //Incoming Healing
 
 public:
@@ -242,8 +236,4 @@ private:
 
 	UFUNCTION(Client, Unreliable)
     void ClientNotifyOfIncomingHealing(FDamagingEvent const& HealingEvent);
-
-	FBuffRestriction HealingBuffRestriction;
-	UFUNCTION()
-	bool RestrictHealingBuffs(FBuffApplyEvent const& BuffEvent);
 };
