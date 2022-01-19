@@ -17,7 +17,7 @@ UResourceHandler::UResourceHandler()
 void UResourceHandler::BeginPlay()
 {
 	Super::BeginPlay();
-	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("%s does not implement combat interface, but has Resource Handler."), *GetOwner()->GetActorLabel());
+	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Resource Handler."));
 	
 	if (GetOwnerRole() == ROLE_Authority)
 	{

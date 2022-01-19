@@ -23,7 +23,7 @@ UBuffHandler::UBuffHandler()
 void UBuffHandler::BeginPlay()
 {
 	Super::BeginPlay();
-	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("%s does not implement combat interface, but has Buff Handler."), *GetOwner()->GetActorLabel());
+	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Buff Handler."));
 	if (GetOwnerRole() == ROLE_Authority)
 	{
 		PlaneComponentRef = ISaiyoraCombatInterface::Execute_GetPlaneComponent(GetOwner());

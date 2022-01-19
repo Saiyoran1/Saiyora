@@ -32,7 +32,7 @@ void UDamageHandler::InitializeComponent()
 void UDamageHandler::BeginPlay()
 {
 	Super::BeginPlay();
-	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("%s does not implement combat interface, but has Damage Handler."), *GetOwner()->GetActorLabel());
+	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Damage Handler."));
 	OwnerAsPawn = Cast<APawn>(GetOwner());
 	if (!IsValid(OwnerAsPawn))
 	{

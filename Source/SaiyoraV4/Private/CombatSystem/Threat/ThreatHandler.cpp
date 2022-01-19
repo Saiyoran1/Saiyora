@@ -35,12 +35,12 @@ void UThreatHandler::BeginPlay()
 {
 	Super::BeginPlay();
 	
-	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("%s does not implement combat interface, but has Threat Handler."), *GetOwner()->GetActorLabel());
+	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Threat Handler."));
 	
 	if (GetOwnerRole() == ROLE_Authority)
 	{
 		FactionCompRef = ISaiyoraCombatInterface::Execute_GetFactionComponent(GetOwner());
-		checkf(IsValid(FactionCompRef), TEXT("%s does not have a valid Faction Component, which Threat Handler depends on."), *GetOwner()->GetActorLabel());
+		checkf(IsValid(FactionCompRef), TEXT("Owner does not have a valid Faction Component, which Threat Handler depends on."));
 		DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
 		if (IsValid(DamageHandlerRef))
 		{

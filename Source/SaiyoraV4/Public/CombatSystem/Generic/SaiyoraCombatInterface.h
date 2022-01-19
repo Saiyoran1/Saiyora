@@ -12,6 +12,7 @@ class UResourceHandler;
 class UStatHandler;
 class UPlaneComponent;
 class UFactionComponent;
+class USaiyoraMovementComponent;
 
 UINTERFACE(Blueprintable)
 class USaiyoraCombatInterface : public UInterface
@@ -24,6 +25,7 @@ class SAIYORAV4_API ISaiyoraCombatInterface
 	GENERATED_BODY()
 	
 public:
+	
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Damage")
 	UDamageHandler* GetDamageHandler() const;
 	virtual UDamageHandler* GetDamageHandler_Implementation() const { return nullptr; }
@@ -51,4 +53,7 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Threat")
 	UThreatHandler* GetThreatHandler() const;
 	virtual UThreatHandler* GetThreatHandler_Implementation() const { return nullptr; }
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Movement")
+	USaiyoraMovementComponent* GetCustomMovementComponent() const;
+	virtual USaiyoraMovementComponent* GetCustomMovementComponent_Implementation() const { return nullptr; }
 };

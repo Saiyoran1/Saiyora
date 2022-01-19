@@ -25,14 +25,19 @@ UAbilityComponent::UAbilityComponent()
 	SetIsReplicatedByDefault(true);
 }
 
+bool UAbilityComponent::IsLocallyControlled() const
+{
+	APawn* OwnerAsPawn = Cast<APawn>(GetOwner());
+	return IsValid(OwnerAsPawn) && OwnerAsPawn->IsLocallyControlled();
+}
+
+
 void UAbilityComponent::BeginPlay()
 {
 	Super::BeginPlay();
-	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("%s does not implement combat interface, but has Ability Handler."), *GetOwner()->GetActorLabel());
+	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Ability Handler."));
 	GameStateRef = GetWorld()->GetGameState<AGameState>();
-	checkf(IsValid(GameStateRef), TEXT("%s got an invalid Game State Ref in Ability Handler."), *GetOwner()->GetActorLabel());
-	APawn* OwnerAsPawn = Cast<APawn>(GetOwner());
-	bLocallyControlled = IsValid(OwnerAsPawn) && OwnerAsPawn->IsLocallyControlled();
+	checkf(IsValid(GameStateRef), TEXT("Got an invalid Game State Ref in Ability Handler."));
 	ResourceHandlerRef = ISaiyoraCombatInterface::Execute_GetResourceHandler(GetOwner());
 	StatHandlerRef = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
 	CrowdControlHandlerRef = ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(GetOwner());
@@ -157,7 +162,7 @@ FAbilityEvent UAbilityComponent::UseAbility(TSubclassOf<UCombatAbility> const Ab
 	bUsingAbilityFromQueue = false;
 	ExpireQueue();
 	FAbilityEvent Result;
-	if (!bLocallyControlled || !IsValid(AbilityClass))
+	if (!IsLocallyControlled() || !IsValid(AbilityClass))
 	{
 		Result.FailReason = ECastFailReason::NetRole;
 		return Result;
@@ -190,15 +195,15 @@ FAbilityEvent UAbilityComponent::UseAbility(TSubclassOf<UCombatAbility> const Ab
 		}
 		return Result;
 	}
-	int32 const PredictionID = GetOwnerRole() == ROLE_Authority ? 0 : GenerateNewPredictionID();
+	Result.PredictionID = GetOwnerRole() == ROLE_Authority ? 0 : GenerateNewPredictionID();
 	if (Result.Ability->HasGlobalCooldown())
 	{
-		StartGlobalCooldown(Result.Ability, PredictionID);
+		StartGlobalCooldown(Result.Ability, Result.PredictionID);
 	}
-	Result.Ability->CommitCharges(PredictionID);
+	Result.Ability->CommitCharges(Result.PredictionID);
 	if (IsValid(ResourceHandlerRef))
 	{
-		ResourceHandlerRef->CommitAbilityCosts(Result.Ability, PredictionID);
+		ResourceHandlerRef->CommitAbilityCosts(Result.Ability, Result.PredictionID);
 	}
 	if (GetOwnerRole() == ROLE_Authority)
 	{
@@ -233,14 +238,14 @@ FAbilityEvent UAbilityComponent::UseAbility(TSubclassOf<UCombatAbility> const Ab
 	{
 		FAbilityRequest Request;
 		Request.AbilityClass = Result.Ability->GetClass();
-		Request.PredictionID = PredictionID;
+		Request.PredictionID = Result.PredictionID;
 		Request.ClientStartTime = GameStateRef->GetServerWorldTimeSeconds();
 		switch (Result.Ability->GetCastType())
 		{
 			case EAbilityCastType::Instant :
 				{
 					Result.ActionTaken = ECastAction::Success;
-					Result.Ability->PredictedTick(0, Result.PredictionParams, PredictionID);
+					Result.Ability->PredictedTick(0, Result.PredictionParams, Result.PredictionID);
 					Request.PredictionParams = Result.PredictionParams;
 					OnAbilityTick.Broadcast(Result);
 					break;
@@ -265,7 +270,7 @@ FAbilityEvent UAbilityComponent::UseAbility(TSubclassOf<UCombatAbility> const Ab
 		Prediction.Ability = Result.Ability;
 		Prediction.bPredictedGCD = Result.Ability->HasGlobalCooldown();
 		Prediction.bPredictedCastBar = Result.Ability->GetCastType() == EAbilityCastType::Channel;
-		UnackedAbilityPredictions.Add(PredictionID, Prediction);
+		UnackedAbilityPredictions.Add(Result.PredictionID, Prediction);
 		ServerPredictAbility(Request);
 	}
 	return Result;
@@ -307,6 +312,7 @@ void UAbilityComponent::ServerPredictAbility_Implementation(FAbilityRequest cons
         //This should probably be manually calculated using ping value and server time, instead of trusting the client.
         //TODO: Update this once I've got Ping worked out and am confident in it being accurate.
         ServerResult.ClientStartTime = Request.ClientStartTime;
+		ServerResult.bSuccess = true;
 		
 		FAbilityEvent Result;
 		Result.Ability = Ability;
@@ -408,7 +414,7 @@ void UAbilityComponent::ClientPredictionResult_Implementation(FServerAbilityResu
 	if (CastingState.PredictionID <= Result.PredictionID)
 	{
 		CastingState.PredictionID = Result.PredictionID;
-		if (Result.bSuccess && Result.bActivatedCastBar && Result.ClientStartTime + Result.CastLength < GameStateRef->GetServerWorldTimeSeconds())
+		if (Result.bSuccess && Result.bActivatedCastBar && Result.ClientStartTime + Result.CastLength > GameStateRef->GetServerWorldTimeSeconds())
 		{
 			FCastingState const PreviousState = CastingState;
 			CastingState.bIsCasting = true;
@@ -477,7 +483,7 @@ void UAbilityComponent::TickCurrentCast()
 	TickEvent.PredictionID = CastingState.PredictionID;
 	TickEvent.Tick = CastingState.ElapsedTicks;
 	TickEvent.ActionTaken = CastingState.ElapsedTicks >= CastingState.CurrentCast->GetNumberOfTicks() ? ECastAction::Complete : ECastAction::Tick;
-	if (GetOwnerRole() == ROLE_Authority && bLocallyControlled)
+	if (GetOwnerRole() == ROLE_Authority && IsLocallyControlled())
 	{
 		CastingState.CurrentCast->PredictedTick(CastingState.ElapsedTicks, TickEvent.PredictionParams);
 		CastingState.CurrentCast->ServerTick(CastingState.ElapsedTicks, TickEvent.PredictionParams, TickEvent.BroadcastParams);
@@ -572,7 +578,7 @@ int32 UAbilityComponent::GenerateNewPredictionID()
 
 bool UAbilityComponent::TryQueueAbility(TSubclassOf<UCombatAbility> const AbilityClass)
 {
-	if (!bLocallyControlled || !IsValid(AbilityClass) || (!GlobalCooldownState.bGlobalCooldownActive && !CastingState.bIsCasting))
+	if (!IsLocallyControlled() || !IsValid(AbilityClass) || (!GlobalCooldownState.bGlobalCooldownActive && !CastingState.bIsCasting))
 	{
 		return false;
 	}
@@ -645,7 +651,7 @@ bool UAbilityComponent::UseAbilityFromPredictedMovement(FAbilityRequest const& R
 FCancelEvent UAbilityComponent::CancelCurrentCast()
 {
 	FCancelEvent Result;
-	if (!bLocallyControlled)
+	if (!IsLocallyControlled())
 	{
 		Result.FailReason = ECancelFailReason::NetRole;
 		return Result;
@@ -766,7 +772,7 @@ FInterruptEvent UAbilityComponent::InterruptCurrentCast(AActor* AppliedBy, UObje
 	Result.bSuccess = true;
 	Result.InterruptedAbility->ServerInterrupt(Result);
 	MulticastAbilityInterrupt(Result);
-	if (!bLocallyControlled)
+	if (!IsLocallyControlled())
 	{
 		ClientAbilityInterrupt(Result);
 	}
@@ -865,7 +871,7 @@ void UAbilityComponent::EndCast()
     CastingState.CastEndTime = 0.0f;
     GetWorld()->GetTimerManager().ClearTimer(TickHandle);
     OnCastStateChanged.Broadcast(PreviousState, CastingState);
-	if (bLocallyControlled)
+	if (IsLocallyControlled())
 	{
 		if (QueueStatus == EQueueStatus::WaitForBoth)
 		{
@@ -914,7 +920,7 @@ void UAbilityComponent::EndGlobalCooldown()
 		GlobalCooldownState.EndTime = 0.0f;
 		GetWorld()->GetTimerManager().ClearTimer(GlobalCooldownHandle);
 		OnGlobalCooldownChanged.Broadcast(PreviousGlobal, GlobalCooldownState);
-		if (bLocallyControlled)
+		if (IsLocallyControlled())
 		{
 			if (QueueStatus == EQueueStatus::WaitForBoth)
 			{

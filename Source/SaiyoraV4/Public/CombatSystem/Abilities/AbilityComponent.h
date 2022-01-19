@@ -104,7 +104,7 @@ public:
 
 private:
 
-	bool bLocallyControlled = false;
+	bool IsLocallyControlled() const;
 	UPROPERTY()
 	AGameState* GameStateRef = nullptr;
 	UPROPERTY()

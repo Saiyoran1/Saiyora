@@ -249,7 +249,6 @@ void UCombatAbility::CommitCharges(int32 const PredictionID)
 void UCombatAbility::StartCooldown(bool const bUseLagCompensation)
 {
     float const CooldownLength = OwningComponent->CalculateCooldownLength(this, bUseLagCompensation);
-    UE_LOG(LogTemp, Warning, TEXT("Cooldown Length was: %f"), CooldownLength);
     GetWorld()->GetTimerManager().SetTimer(CooldownHandle, this, &UCombatAbility::CompleteCooldown, CooldownLength, false);
     AbilityCooldown.OnCooldown = true;
     AbilityCooldown.CooldownStartTime = OwningComponent->GetGameStateRef()->GetServerWorldTimeSeconds();

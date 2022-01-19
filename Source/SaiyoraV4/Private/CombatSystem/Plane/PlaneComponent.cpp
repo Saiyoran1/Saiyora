@@ -31,7 +31,7 @@ void UPlaneComponent::InitializeComponent()
 void UPlaneComponent::BeginPlay()
 {
 	Super::BeginPlay();
-	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("%s does not implement combat interface, but has Plane Component."), *GetOwner()->GetActorLabel());
+	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Plane Component."));
 	APlayerController* LocalPC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
 	if (IsValid(LocalPC))
 	{

@@ -191,7 +191,7 @@ void USaiyoraMovementComponent::InitializeComponent()
 void USaiyoraMovementComponent::BeginPlay()
 {
 	Super::BeginPlay();
-	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("%s does not implement combat interface, but has Custom Movement Component."), *GetOwner()->GetActorLabel());
+	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Custom Movement Component."));
 	GameStateRef = Cast<AGameState>(GetWorld()->GetGameState());
 	if (!IsValid(GameStateRef))
 	{
@@ -469,8 +469,7 @@ void USaiyoraMovementComponent::OnCustomMoveCastPredicted(FAbilityEvent const& E
 	OwnerAbilityHandler->UnsubscribeFromAbilityTicked(OnPredictedAbility);
 	CompletedCastStatus.Add(Event.PredictionID, true);
 	if (!IsValid(PendingCustomMove.AbilityClass) || PendingCustomMove.AbilityClass != Event.Ability->GetClass()
-		|| PendingCustomMove.PredictionID != Event.PredictionID || PendingCustomMove.MoveParams.MoveType == ESaiyoraCustomMove::None
-			|| Event.Tick != 0)
+		|| PendingCustomMove.PredictionID != Event.PredictionID || PendingCustomMove.MoveParams.MoveType == ESaiyoraCustomMove::None)
 	{
 		PendingCustomMove.Clear();
 		return;
