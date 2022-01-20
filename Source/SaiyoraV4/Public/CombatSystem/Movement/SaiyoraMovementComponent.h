@@ -2,13 +2,14 @@
 #include "CoreMinimal.h"
 #include "CrowdControlStructs.h"
 #include "DamageStructs.h"
-#include "MovementEnums.h"
 #include "MovementStructs.h"
 #include "SaiyoraRootMotionHandler.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "AbilityComponent.h"
+#include "BuffStructs.h"
 #include "SaiyoraMovementComponent.generated.h"
 
+class UBuffHandler;
 class UCrowdControlHandler;
 class UDamageHandler;
 class AGameState;
@@ -64,7 +65,8 @@ private:
 
 public:
 
-	static FGameplayTag GenericExternalMovementTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("ExternalMovement")), false); }
+	static FGameplayTag GenericExternalMovementTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Movement")), false); }
+	static FGameplayTag GenericMovementRestrictionTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Movement.Restriction")), false); }
 	
 	USaiyoraMovementComponent(const FObjectInitializer& ObjectInitializer);
 	virtual bool ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags) override;
@@ -85,6 +87,8 @@ private:
 	UDamageHandler* OwnerDamageHandler = nullptr;
 	UPROPERTY()
 	UStatHandler* OwnerStatHandler = nullptr;
+	UPROPERTY()
+	UBuffHandler* OwnerBuffHandler = nullptr;
 	UPROPERTY()
 	AGameState* GameStateRef = nullptr;
 
@@ -144,17 +148,14 @@ private:
 
 //Restrictions
 	
-public:
-	
-	UFUNCTION(BlueprintCallable, Category = "Movement")
-	void AddExternalMovementRestriction(FExternalMovementRestriction const& Restriction);
-	UFUNCTION(BlueprintCallable, Category = "Movement")
-	void RemoveExternalMovementRestriction(FExternalMovementRestriction const& Restriction);
-	
 private:
-	
-	bool CheckExternalMoveRestricted(UObject* Source, ESaiyoraCustomMove const MoveType);
-	TArray<FExternalMovementRestriction> MovementRestrictions;
+
+	UPROPERTY()
+	TArray<UBuff*> MovementRestrictions;
+	UPROPERTY(ReplicatedUsing=OnRep_MovementRestricted)
+	bool bMovementRestricted = false;
+	UFUNCTION()
+	void OnRep_MovementRestricted();
 	virtual bool CanAttemptJump() const override;
 	virtual bool CanCrouchInCurrentState() const override;
 	virtual FVector ConsumeInputVector() override;
@@ -166,6 +167,12 @@ private:
 	FCrowdControlCallback OnRooted;
 	UFUNCTION()
 	void StopMotionOnRooted(FCrowdControlStatus const& Previous, FCrowdControlStatus const& New);
+	FBuffEventCallback OnBuffApplied;
+	UFUNCTION()
+	void ApplyMoveRestrictionFromBuff(FBuffApplyEvent const& ApplyEvent);
+	FBuffRemoveCallback OnBuffRemoved;
+	UFUNCTION()
+	void RemoveMoveRestrictionFromBuff(FBuffRemoveEvent const& RemoveEvent);
 
 //Stats
 	

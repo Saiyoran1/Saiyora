@@ -34,10 +34,6 @@ void UDamageHandler::BeginPlay()
 	Super::BeginPlay();
 	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Damage Handler."));
 	OwnerAsPawn = Cast<APawn>(GetOwner());
-	if (!IsValid(OwnerAsPawn))
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Owner of DamageHandler is not a pawn?"));
-	}
 	if (!GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Owner of DamageHandler doesn't implement combat interface?"));
@@ -204,7 +200,7 @@ FDamagingEvent UDamageHandler::ApplyDamage(float const Amount, AActor* AppliedBy
 		}
 	}
 	OnIncomingDamage.Broadcast(DamageEvent);
-	if (!OwnerAsPawn->IsLocallyControlled())
+	if (IsValid(OwnerAsPawn) && !OwnerAsPawn->IsLocallyControlled())
 	{
 		ClientNotifyOfIncomingDamage(DamageEvent);
 	}
@@ -229,7 +225,7 @@ void UDamageHandler::NotifyOfOutgoingDamage(FDamagingEvent const& DamageEvent)
 		{
 			OnKillingBlow.Broadcast(DamageEvent);
 		}
-		if (!OwnerAsPawn->IsLocallyControlled())
+		if (IsValid(OwnerAsPawn) && !OwnerAsPawn->IsLocallyControlled())
 		{
 			ClientNotifyOfOutgoingDamage(DamageEvent);
 		}
@@ -325,7 +321,7 @@ FDamagingEvent UDamageHandler::ApplyHealing(float const Amount, AActor* AppliedB
 	HealingEvent.Result.AmountDealt = CurrentHealth - HealingEvent.Result.PreviousHealth;
 	HealingEvent.Result.KillingBlow = false;
 	OnIncomingHealing.Broadcast(HealingEvent);
-	if (!OwnerAsPawn->IsLocallyControlled())
+	if (IsValid(OwnerAsPawn) && !OwnerAsPawn->IsLocallyControlled())
 	{
 		ClientNotifyOfIncomingHealing(HealingEvent);
 	}
@@ -341,7 +337,7 @@ void UDamageHandler::NotifyOfOutgoingHealing(FDamagingEvent const& HealingEvent)
 	if (GetOwnerRole() == ROLE_Authority)
 	{
 		OnOutgoingHealing.Broadcast(HealingEvent);
-		if (!OwnerAsPawn->IsLocallyControlled())
+		if (IsValid(OwnerAsPawn) && !OwnerAsPawn->IsLocallyControlled())
 		{
 			ClientNotifyOfOutgoingHealing(HealingEvent);
 		}

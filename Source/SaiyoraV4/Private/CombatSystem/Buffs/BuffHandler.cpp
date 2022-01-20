@@ -30,7 +30,7 @@ void UBuffHandler::BeginPlay()
 		DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
 		StatHandlerRef = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
 		ThreatHandlerRef = ISaiyoraCombatInterface::Execute_GetThreatHandler(GetOwner());
-		MovementComponentRef = nullptr; //TODO: Get Movement Component Ref.
+		MovementComponentRef = ISaiyoraCombatInterface::Execute_GetCustomMovementComponent(GetOwner());
 		CcHandlerRef = ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(GetOwner());
 	}
 }

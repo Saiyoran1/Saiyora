@@ -362,6 +362,8 @@ protected:
     FCombatParameter GetPredictionParamByName(FString const& ParamName);
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
     FCombatParameter GetPredictionParamByType(ECombatParamType const ParamType);
+    UFUNCTION(BlueprintCallable, Category = "Abilities")
+    void GetPredictionParams(TArray<FCombatParameter>& OutParams) const { OutParams = PredictionParameters.Parameters; }
 
     UFUNCTION(BlueprintCallable, Category = "Abilities")
     void AddBroadcastParameter(FCombatParameter const& Parameter);
@@ -369,6 +371,8 @@ protected:
     FCombatParameter GetBroadcastParamByName(FString const& ParamName);
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
     FCombatParameter GetBroadcastParamByType(ECombatParamType const ParamType);
+    UFUNCTION(BlueprintCallable, Category = "Abilities")
+    void GetBroadcastParams(TArray<FCombatParameter>& OutParams) const { OutParams = BroadcastParameters.Parameters; }
 
 private:
 

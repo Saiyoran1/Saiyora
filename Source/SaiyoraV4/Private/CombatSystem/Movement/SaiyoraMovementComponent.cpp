@@ -1,4 +1,6 @@
 #include "Movement/SaiyoraMovementComponent.h"
+
+#include "Buff.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraCombatLibrary.h"
 #include "UnrealNetwork.h"
@@ -172,7 +174,7 @@ bool USaiyoraMovementComponent::ReplicateSubobjects(UActorChannel* Channel, FOut
 void USaiyoraMovementComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	return;
+	DOREPLIFETIME(USaiyoraMovementComponent, bMovementRestricted);
 }
 
 void USaiyoraMovementComponent::InitializeComponent()
@@ -202,6 +204,7 @@ void USaiyoraMovementComponent::BeginPlay()
 	OwnerCcHandler = ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(GetOwner());
 	OwnerDamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
 	OwnerStatHandler = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
+	OwnerBuffHandler = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwner());
 	if (GetOwnerRole() == ROLE_AutonomousProxy && IsValid(OwnerAbilityHandler))
 	{
 		OnPredictedAbility.BindDynamic(this, &USaiyoraMovementComponent::OnCustomMoveCastPredicted);
@@ -278,6 +281,13 @@ void USaiyoraMovementComponent::BeginPlay()
 			OwnerStatHandler->SubscribeToStatChanged(AirControlStatTag(), AirControlStatCallback);
 		}
 	}
+	if (IsValid(OwnerBuffHandler) && GetOwnerRole() == ROLE_Authority)
+	{
+		OnBuffApplied.BindDynamic(this, &USaiyoraMovementComponent::ApplyMoveRestrictionFromBuff);
+		OwnerBuffHandler->SubscribeToIncomingBuff(OnBuffApplied);
+		OnBuffRemoved.BindDynamic(this, &USaiyoraMovementComponent::RemoveMoveRestrictionFromBuff);
+		OwnerBuffHandler->SubscribeToIncomingBuffRemove(OnBuffRemoved);
+	}
 }
 
 #pragma endregion
@@ -335,6 +345,13 @@ bool USaiyoraMovementComponent::ApplyCustomMove(FCustomMoveParams const& CustomM
 	{
 		return false;
 	}
+	if (!CustomMove.bIgnoreRestrictions)
+	{
+		if ((IsValid(OwnerCcHandler) && OwnerCcHandler->IsCrowdControlActive(UCrowdControlHandler::RootTag())) || bMovementRestricted)
+		{
+			return false;
+		}
+	}
 	UCombatAbility* AbilitySource = Cast<UCombatAbility>(Source);
 	if (!IsValid(AbilitySource) || AbilitySource->GetHandler()->GetOwner() != GetOwner() || AbilitySource->GetPredictionID() == 0)
 	{
@@ -349,22 +366,6 @@ bool USaiyoraMovementComponent::ApplyCustomMove(FCustomMoveParams const& CustomM
 			return false;
 		}
 		CurrentTickServerCustomMoveSources.Add(Source);
-		//Check for roots and custom restrictions.
-		if (!CustomMove.bIgnoreRestrictions)
-		{
-			if (IsValid(OwnerCcHandler) && OwnerCcHandler->IsCrowdControlActive(UCrowdControlHandler::RootTag()))
-			{
-				return false;
-			}
-			//If this move comes from another owner, we check external movement restrictions.
-			if (!IsValid(AbilitySource) || AbilitySource->GetHandler()->GetOwner() != GetOwner())
-			{
-				if (CheckExternalMoveRestricted(Source, CustomMove.MoveType))
-				{
-					return false;
-				}
-			}
-		}
 		if (PawnOwner->IsLocallyControlled())
 		{
 			Multicast_ExecuteCustomMove(CustomMove);
@@ -574,6 +575,13 @@ bool USaiyoraMovementComponent::ApplyCustomRootMotionHandler(USaiyoraRootMotionH
 	{
 		return false;
 	}
+	if (!Handler->bIgnoreRestrictions)
+	{
+		if ((IsValid(OwnerCcHandler) && OwnerCcHandler->IsCrowdControlActive(UCrowdControlHandler::RootTag())) || bMovementRestricted)
+		{
+			return false;
+		}
+	}
 	UCombatAbility* AbilitySource = Cast<UCombatAbility>(Source);
 	if (!IsValid(AbilitySource) || AbilitySource->GetHandler()->GetOwner() != GetOwner() || AbilitySource->GetPredictionID() == 0)
 	{
@@ -588,22 +596,6 @@ bool USaiyoraMovementComponent::ApplyCustomRootMotionHandler(USaiyoraRootMotionH
 			return false;
 		}
 		CurrentTickServerRootMotionSources.Add(Source);
-		//Check for roots and custom restrictions.
-		if (!Handler->bIgnoreRestrictions)
-		{
-			if (IsValid(OwnerCcHandler) && OwnerCcHandler->IsCrowdControlActive(UCrowdControlHandler::RootTag()))
-			{
-				return false;
-			}
-			//If this move comes from another owner, we check external movement restrictions.
-			if (!IsValid(AbilitySource) || AbilitySource->GetHandler()->GetOwner() != GetOwner())
-			{
-				if (CheckExternalMoveRestricted(Source, ESaiyoraCustomMove::RootMotion))
-				{
-					return false;
-				}
-			}
-		}
 		//For locally controlled player, we just apply instantly and replicate the handler to other clients.
 		if (PawnOwner->IsLocallyControlled())
 		{
@@ -775,50 +767,66 @@ void USaiyoraMovementComponent::ApplyConstantForce(UObject* Source, ERootMotionA
 #pragma endregion
 #pragma region Restrictions
 
-void USaiyoraMovementComponent::AddExternalMovementRestriction(FExternalMovementRestriction const& Restriction)
+void USaiyoraMovementComponent::ApplyMoveRestrictionFromBuff(FBuffApplyEvent const& ApplyEvent)
 {
-	if (!Restriction.IsBound())
+	if (!IsValid(ApplyEvent.AffectedBuff))
 	{
 		return;
 	}
-	MovementRestrictions.AddUnique(Restriction);
-	TArray<USaiyoraRootMotionHandler*> HandlersToRemove = CurrentRootMotionHandlers;
-	if (GetOwnerRole() == ROLE_Authority)
+	FGameplayTagContainer BuffTags;
+	ApplyEvent.AffectedBuff->GetBuffTags(BuffTags);
+	if (BuffTags.HasTagExact(GenericMovementRestrictionTag()))
 	{
-		HandlersToRemove.Append(HandlersAwaitingPingDelay);
-	}
-	for (USaiyoraRootMotionHandler* Handler : HandlersToRemove)
-	{
-		if (!Handler->bIgnoreRestrictions && Restriction.Execute(Handler->GetSource(), ESaiyoraCustomMove::RootMotion))
+		bool const bPreviouslyRestricted = bMovementRestricted;
+		MovementRestrictions.AddUnique(ApplyEvent.AffectedBuff);
+		if (!bPreviouslyRestricted && MovementRestrictions.Num() > 0)
 		{
-			Handler->CancelRootMotion();
+			bMovementRestricted = true;
+			TArray<USaiyoraRootMotionHandler*> HandlersToRemove = CurrentRootMotionHandlers;
+			HandlersToRemove.Append(HandlersAwaitingPingDelay);
+			for (USaiyoraRootMotionHandler* Handler : HandlersToRemove)
+			{
+				if (!Handler->bIgnoreRestrictions)
+				{
+					Handler->CancelRootMotion();
+				}
+			}
 		}
 	}
 }
 
-void USaiyoraMovementComponent::RemoveExternalMovementRestriction(FExternalMovementRestriction const& Restriction)
+void USaiyoraMovementComponent::RemoveMoveRestrictionFromBuff(FBuffRemoveEvent const& RemoveEvent)
 {
-	if (!Restriction.IsBound())
+	if (!IsValid(RemoveEvent.RemovedBuff))
 	{
 		return;
 	}
-	MovementRestrictions.RemoveSingleSwap(Restriction);
-}
-
-bool USaiyoraMovementComponent::CheckExternalMoveRestricted(UObject* Source, ESaiyoraCustomMove const MoveType)
-{
-	if (!IsValid(Source) || MoveType == ESaiyoraCustomMove::None)
+	FGameplayTagContainer BuffTags;
+	RemoveEvent.RemovedBuff->GetBuffTags(BuffTags);
+	if (BuffTags.HasTagExact(GenericMovementRestrictionTag()))
 	{
-		return true;
-	}
-	for (FExternalMovementRestriction const& Restriction : MovementRestrictions)
-	{
-		if (Restriction.IsBound() && Restriction.Execute(Source, MoveType))
+		bool const bPreviouslyRestricted = bMovementRestricted;
+		MovementRestrictions.Remove(RemoveEvent.RemovedBuff);
+		if (bPreviouslyRestricted && MovementRestrictions.Num() == 0)
 		{
-			return true;
+			bMovementRestricted = false;
 		}
 	}
-	return false;
+}
+
+void USaiyoraMovementComponent::OnRep_MovementRestricted()
+{
+	if (bMovementRestricted)
+	{
+		TArray<USaiyoraRootMotionHandler*> Handlers = CurrentRootMotionHandlers;
+		for (USaiyoraRootMotionHandler* Handler : Handlers)
+		{
+			if (!Handler->bIgnoreRestrictions)
+			{
+				Handler->CancelRootMotion();
+			}
+		}
+	}
 }
 
 void USaiyoraMovementComponent::StopMotionOnOwnerDeath(AActor* Target, ELifeStatus const Previous,

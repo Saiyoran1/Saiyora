@@ -36,5 +36,3 @@ struct FClientPendingCustomMove
 
 	void Clear() { AbilityClass = nullptr; PredictionID = 0; OriginalTimestamp = 0.0f; MoveParams = FCustomMoveParams(); PredictionParams = FCombatParameters(); }
 };
-
-DECLARE_DYNAMIC_DELEGATE_RetVal_TwoParams(bool, FExternalMovementRestriction, UObject*, Source, ESaiyoraCustomMove const, MoveType);
