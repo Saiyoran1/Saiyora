@@ -1,5 +1,6 @@
 #pragma once
 #include "BuffStructs.h"
+#include "DamageStructs.h"
 #include "Components/ActorComponent.h"
 #include "BuffHandler.generated.h"
 
@@ -89,6 +90,9 @@ private:
 	FBuffEventNotification OnIncomingBuffApplied;
 	FBuffRemoveNotification OnIncomingBuffRemoved;
 	TMap<UBuff*, FBuffRestriction> IncomingBuffRestrictions;
+	FLifeStatusCallback OnDeath;
+	UFUNCTION()
+	void RemoveBuffsOnOwnerDeath(AActor* Actor, ELifeStatus const PreviousStatus, ELifeStatus const NewStatus);
 
 //Outgoing Buffs
 

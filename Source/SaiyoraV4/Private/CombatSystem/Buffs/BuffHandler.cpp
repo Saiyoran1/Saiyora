@@ -28,6 +28,11 @@ void UBuffHandler::BeginPlay()
 	{
 		PlaneComponentRef = ISaiyoraCombatInterface::Execute_GetPlaneComponent(GetOwner());
 		DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
+		if (GetOwnerRole() == ROLE_Authority && IsValid(DamageHandlerRef))
+		{
+			OnDeath.BindDynamic(this, &UBuffHandler::RemoveBuffsOnOwnerDeath);
+			DamageHandlerRef->SubscribeToLifeStatusChanged(OnDeath);
+		}
 		StatHandlerRef = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
 		ThreatHandlerRef = ISaiyoraCombatInterface::Execute_GetThreatHandler(GetOwner());
 		MovementComponentRef = ISaiyoraCombatInterface::Execute_GetCustomMovementComponent(GetOwner());
@@ -220,6 +225,39 @@ void UBuffHandler::NotifyOfOutgoingBuffRemoval(FBuffRemoveEvent const& RemoveEve
 void UBuffHandler::PostRemoveCleanup(UBuff* Buff)
 {
 	RecentlyRemoved.Remove(Buff);	
+}
+
+void UBuffHandler::RemoveBuffsOnOwnerDeath(AActor* Actor, ELifeStatus const PreviousStatus, ELifeStatus const NewStatus)
+{
+	if (NewStatus != ELifeStatus::Alive)
+	{
+		TArray<UBuff*> BuffsToRemove;
+		for (UBuff* Buff : Buffs)
+		{
+			if (!Buff->CanBeAppliedWhileDead())
+			{
+				BuffsToRemove.Add(Buff);
+			}
+		}
+		for (UBuff* Debuff : Debuffs)
+		{
+			if (!Debuff->CanBeAppliedWhileDead())
+			{
+				BuffsToRemove.Add(Debuff);
+			}
+		}
+		for (UBuff* HiddenBuff : HiddenBuffs)
+		{
+			if (!HiddenBuff->CanBeAppliedWhileDead())
+			{
+				BuffsToRemove.Add(HiddenBuff);
+			}
+		}
+		for (UBuff* BuffToRemove : BuffsToRemove)
+		{
+			RemoveBuff(BuffToRemove, EBuffExpireReason::Death);
+		}
+	}
 }
 
 #pragma endregion 
