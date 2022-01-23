@@ -107,13 +107,13 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
 	UBuff* FindExistingOutgoingBuff(TSubclassOf<UBuff> const BuffClass, bool const bSpecificTarget = false, AActor* BuffTarget = nullptr) const;
 
-	UFUNCTION(BlueprintCallable, Category = "Buffs")
+	UFUNCTION(BlueprintCallable, Category = "Buff")
 	void SubscribeToOutgoingBuff(FBuffEventCallback const& Callback);
-	UFUNCTION(BlueprintCallable, Category = "Buffs")
+	UFUNCTION(BlueprintCallable, Category = "Buff")
 	void UnsubscribeFromOutgoingBuff(FBuffEventCallback const& Callback);
-	UFUNCTION(BlueprintCallable, Category = "Buffs")
+	UFUNCTION(BlueprintCallable, Category = "Buff")
 	void SubscribeToOutgoingBuffRemove(FBuffRemoveCallback const& Callback);
-	UFUNCTION(BlueprintCallable, Category = "Buffs")
+	UFUNCTION(BlueprintCallable, Category = "Buff")
 	void UnsubscribeFromOutgoingBuffRemove(FBuffRemoveCallback const& Callback);
 
 	void AddOutgoingBuffRestriction(UBuff* Source, FBuffRestriction const& Restriction);

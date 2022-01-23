@@ -92,7 +92,7 @@ struct FThreatFromDamage
 	GENERATED_BODY()
 
 	UPROPERTY(BlueprintReadWrite, Category = "Threat")
-	bool GeneratesThreat = false;
+	bool GeneratesThreat = true;
 	UPROPERTY(BlueprintReadWrite, Category = "Threat")
 	bool SeparateBaseThreat = false;
 	UPROPERTY(BlueprintReadWrite, Category = "Threat")
