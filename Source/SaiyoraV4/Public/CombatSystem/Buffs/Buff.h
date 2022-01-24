@@ -75,9 +75,13 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
 	bool IsStackable() const { return bStackable; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	int32 GetMaxStacks() const { return MaximumStacks; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
 	bool IsRefreshable() const { return bRefreshable; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
 	bool HasFiniteDuration() const { return bFiniteDuration; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	float GetMaxDuration() const { return MaximumDuration; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
 	void GetBuffTags(FGameplayTagContainer& OutContainer) const { OutContainer.AppendTags(BuffTags); }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")

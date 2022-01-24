@@ -143,7 +143,7 @@ void UBuff::ApplyEvent(FBuffApplyEvent& ApplicationEvent, EBuffApplicationOverri
     ApplicationEvent.AffectedBuff = this;
     ApplicationEvent.PreviousStacks = GetCurrentStacks();
     bool bStacked = false;
-    if (bStackable && CurrentStacks < MaximumStacks)
+    if ((bStackable && CurrentStacks < MaximumStacks) || StackOverrideType != EBuffApplicationOverrideType::None)
     {
         switch (StackOverrideType)
         {
@@ -166,7 +166,7 @@ void UBuff::ApplyEvent(FBuffApplyEvent& ApplicationEvent, EBuffApplicationOverri
     ApplicationEvent.NewApplyTime = GameStateRef->GetServerWorldTimeSeconds();
     ApplicationEvent.PreviousDuration = GetRemainingTime();
     bool bRefreshed = false;
-    if (bFiniteDuration && bRefreshable && GetRemainingTime() < MaximumDuration)
+    if (bFiniteDuration && ((bRefreshable && GetRemainingTime() < MaximumDuration) || RefreshOverrideType != EBuffApplicationOverrideType::None))
     {
         LastApplyTime = ApplicationEvent.NewApplyTime;
         switch (RefreshOverrideType)
