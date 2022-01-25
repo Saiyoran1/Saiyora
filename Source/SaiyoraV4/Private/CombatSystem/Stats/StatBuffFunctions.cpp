@@ -44,6 +44,21 @@ void UStatModifierFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
 		}
 	}
 }
+
+void UStatModifierFunction::OnStack(FBuffApplyEvent const& ApplyEvent)
+{
+	if (IsValid(TargetHandler))
+	{
+		for (TTuple<FGameplayTag, FCombatModifier> const& Mod : StatMods)
+		{
+			if (Mod.Value.bStackable)
+			{
+				TargetHandler->AddStatModifier(Mod.Key, Mod.Value);
+			}
+		}
+	}
+}
+
 void UStatModifierFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
 {
 	if (IsValid(TargetHandler))
