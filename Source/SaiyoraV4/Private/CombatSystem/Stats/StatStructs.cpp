@@ -62,6 +62,7 @@ void FCombatStat::PostReplicatedAdd(const FCombatStatArray& InArraySerializer)
 	{
 		SubscribeToStatChanged(Callback);
 	}
+	bInitialized = true;
 	OnStatChanged.Broadcast(Defaults.StatTag, Value);
 }
 
