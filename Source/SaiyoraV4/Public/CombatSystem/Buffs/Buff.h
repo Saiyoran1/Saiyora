@@ -171,7 +171,7 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
 	float GetRemainingTime() const { return bFiniteDuration ? FMath::Max(0.0f, ExpireTime - GameStateRef->GetServerWorldTimeSeconds()) : 0.0f; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
-	float GetLastApplicationTime() const { return LastApplyTime; }
+	float GetLastRefreshTime() const { return LastRefreshTime; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
 	float GetExpirationTime() const { return ExpireTime; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
@@ -193,7 +193,7 @@ private:
 
 	EBuffStatus Status = EBuffStatus::Spawning;
 	int32 CurrentStacks = 0;
-	float LastApplyTime = 0.0f;
+	float LastRefreshTime = 0.0f;
 	float ExpireTime = 0.0f;
 	UPROPERTY(ReplicatedUsing = OnRep_LastApplyEvent)
 	FBuffApplyEvent LastApplyEvent;

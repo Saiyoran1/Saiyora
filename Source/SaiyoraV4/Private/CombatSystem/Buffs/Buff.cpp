@@ -55,8 +55,8 @@ void UBuff::InitializeBuff(FBuffApplyEvent& Event, UBuffHandler* NewHandler, boo
         break;
     }
     Event.NewStacks = CurrentStacks;
-    LastApplyTime = GameStateRef->GetServerWorldTimeSeconds();
-    Event.NewApplyTime = LastApplyTime;
+    LastRefreshTime = GameStateRef->GetServerWorldTimeSeconds();
+    Event.NewApplyTime = LastRefreshTime;
     Event.PreviousDuration = 0.0f;
     if (bFiniteDuration)
     {
@@ -75,7 +75,7 @@ void UBuff::InitializeBuff(FBuffApplyEvent& Event, UBuffHandler* NewHandler, boo
             Event.NewDuration = FMath::Clamp(DefaultInitialDuration, MinimumBuffDuration, MaximumDuration);
             break;
         }
-        ExpireTime = LastApplyTime + Event.NewDuration;
+        ExpireTime = LastRefreshTime + Event.NewDuration;
         ResetExpireTimer();
     }
     else
@@ -107,8 +107,8 @@ void UBuff::OnRep_CreationEvent()
     }
     GameStateRef = GetWorld()->GetGameState();
     CurrentStacks = CreationEvent.NewStacks;
-    LastApplyTime = CreationEvent.NewApplyTime;
-    ExpireTime = CreationEvent.NewDuration + LastApplyTime;
+    LastRefreshTime = CreationEvent.NewApplyTime;
+    ExpireTime = CreationEvent.NewDuration + LastRefreshTime;
     SetupCommonBuffFunctions();
     Status = EBuffStatus::Active;
     if (IsValid(CreationEvent.AppliedTo) && CreationEvent.AppliedTo->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
@@ -168,20 +168,20 @@ void UBuff::ApplyEvent(FBuffApplyEvent& ApplicationEvent, EBuffApplicationOverri
     bool bRefreshed = false;
     if (bFiniteDuration && ((bRefreshable && GetRemainingTime() < MaximumDuration) || RefreshOverrideType != EBuffApplicationOverrideType::None))
     {
-        LastApplyTime = ApplicationEvent.NewApplyTime;
+        LastRefreshTime = ApplicationEvent.NewApplyTime;
         switch (RefreshOverrideType)
         {
             case EBuffApplicationOverrideType::None :
-                ExpireTime = LastApplyTime + FMath::Clamp(GetWorld()->GetTimerManager().GetTimerRemaining(ExpireHandle) + DefaultDurationPerApply, MinimumBuffDuration, MaximumDuration);
+                ExpireTime = LastRefreshTime + FMath::Clamp(GetWorld()->GetTimerManager().GetTimerRemaining(ExpireHandle) + DefaultDurationPerApply, MinimumBuffDuration, MaximumDuration);
                 break;
             case EBuffApplicationOverrideType::Normal :
-                ExpireTime = LastApplyTime + FMath::Clamp(OverrideDuration, MinimumBuffDuration, MaximumDuration);
+                ExpireTime = LastRefreshTime + FMath::Clamp(OverrideDuration, MinimumBuffDuration, MaximumDuration);
                 break;
             case EBuffApplicationOverrideType::Additive :
-                ExpireTime = LastApplyTime + FMath::Clamp(GetWorld()->GetTimerManager().GetTimerRemaining(ExpireHandle) + OverrideDuration, MinimumBuffDuration, MaximumDuration);
+                ExpireTime = LastRefreshTime + FMath::Clamp(GetWorld()->GetTimerManager().GetTimerRemaining(ExpireHandle) + OverrideDuration, MinimumBuffDuration, MaximumDuration);
                 break;
             default :
-                ExpireTime = LastApplyTime + FMath::Clamp(GetWorld()->GetTimerManager().GetTimerRemaining(ExpireHandle) + DefaultDurationPerApply, MinimumBuffDuration, MaximumDuration);
+                ExpireTime = LastRefreshTime + FMath::Clamp(GetWorld()->GetTimerManager().GetTimerRemaining(ExpireHandle) + DefaultDurationPerApply, MinimumBuffDuration, MaximumDuration);
                 break;
         }
         ResetExpireTimer();
@@ -218,8 +218,11 @@ void UBuff::OnRep_LastApplyEvent()
         return;
     }
     CurrentStacks = LastApplyEvent.NewStacks;
-    LastApplyTime = LastApplyEvent.NewApplyTime;
-    ExpireTime = LastApplyEvent.NewDuration + LastApplyTime;
+    if (LastApplyEvent.ActionTaken == EBuffApplyAction::Refreshed || LastApplyEvent.ActionTaken == EBuffApplyAction::StackedAndRefreshed)
+    {
+        LastRefreshTime = LastApplyEvent.NewApplyTime;
+        ExpireTime = LastApplyEvent.NewDuration + LastRefreshTime;
+    }
     for (UBuffFunction* Function : BuffFunctions)
     {
         if (LastApplyEvent.ActionTaken == EBuffApplyAction::Stacked || LastApplyEvent.ActionTaken == EBuffApplyAction::StackedAndRefreshed)
@@ -241,7 +244,7 @@ void UBuff::OnRep_LastApplyEvent()
 void UBuff::ResetExpireTimer()
 {
     GetWorld()->GetTimerManager().ClearTimer(ExpireHandle);
-    GetWorld()->GetTimerManager().SetTimer(ExpireHandle, this, &UBuff::CompleteExpireTimer, FMath::Max(MinimumBuffDuration, ExpireTime - LastApplyTime));
+    GetWorld()->GetTimerManager().SetTimer(ExpireHandle, this, &UBuff::CompleteExpireTimer, FMath::Max(MinimumBuffDuration, ExpireTime - LastRefreshTime));
 }
 
 void UBuff::CompleteExpireTimer()
