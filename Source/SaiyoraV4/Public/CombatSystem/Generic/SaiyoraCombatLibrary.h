@@ -1,4 +1,5 @@
 #pragma once
+#include "PredictableProjectile.h"
 #include "SaiyoraEnums.h"
 #include "SaiyoraStructs.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
@@ -27,6 +28,13 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Validation")
 	static bool ValidatePredictedLineTrace(TArray<FCombatParameter> const& PredictionParams);
+
+	UFUNCTION(BlueprintCallable, Category = "Projectile", meta = (Hidden = "Source", DefaultToSelf = "Source"))
+	static APredictableProjectile* PredictProjectile(class UCombatAbility* Source, TSubclassOf<APredictableProjectile> const ProjectileClass,
+		FTransform const& SpawnTransform, FCombatParameter& OutLocation, FCombatParameter& OutRotation, FCombatParameter& OutClass);
+
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Projectile", meta = (Hidden = "Source", DefaultToSelf = "Source"))
+	static void HandlePredictedProjectiles(class UCombatAbility* Source, FCombatParameters const& PredictionParams, TArray<APredictableProjectile*>& OutProjectiles);
 };
 
 
