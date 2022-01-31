@@ -1,9 +1,12 @@
 #include "SaiyoraCombatLibrary.h"
 
 #include "AbilityComponent.h"
+#include "AnimInstanceProxy.h"
 #include "SaiyoraPlayerController.h"
 #include "Buff.h"
 #include "BuffFunction.h"
+#include "Hitbox.h"
+#include "Kismet/KismetSystemLibrary.h"
 
 float USaiyoraCombatLibrary::GetActorPing(AActor const* Actor)
 {
@@ -32,10 +35,52 @@ FCombatModifier USaiyoraCombatLibrary::MakeBuffFunctionCombatModifier(UBuffFunct
     return FCombatModifier(ModifierValue, ModifierType, Source->GetOwningBuff(), bStackable);
 }
 
-bool USaiyoraCombatLibrary::ValidatePredictedLineTrace(TArray<FCombatParameter> const& PredictionParams)
+bool USaiyoraCombatLibrary::ValidatePredictedLineTrace(FHitscanTraceServer const& ServerTraceInfo)
 {
-    //TODO: Line trace sanity checking.
-    return true;
+    if (!IsValid(ServerTraceInfo.Instigator) || !IsValid(ServerTraceInfo.PredictionInfo.HitTarget) ||
+        ServerTraceInfo.Instigator == ServerTraceInfo.PredictionInfo.HitTarget ||
+        ServerTraceInfo.ActorsToIgnore.Contains(ServerTraceInfo.PredictionInfo.HitTarget))
+    {
+        return false;
+    }
+    //TODO: Validate origin location.
+    bool bDidHit = false;
+    TArray<UBoxHitbox*> HitboxComponents;
+    ServerTraceInfo.PredictionInfo.HitTarget->GetComponents<UBoxHitbox>(HitboxComponents);
+    for (UBoxHitbox* Hitbox : HitboxComponents)
+    {
+        Hitbox->RewindByTime(GetActorPing(ServerTraceInfo.Instigator));
+    }
+    FVector const TraceEnd = ServerTraceInfo.PredictionInfo.AimLocation + (ServerTraceInfo.TraceLength * ServerTraceInfo.PredictionInfo.AimDirection);
+    if (ServerTraceInfo.bMultiTrace)
+    {
+        TArray<FHitResult> Results;
+        UKismetSystemLibrary::LineTraceMulti(ServerTraceInfo.Instigator, ServerTraceInfo.PredictionInfo.AimLocation, TraceEnd,
+            ServerTraceInfo.TraceChannel, false, ServerTraceInfo.ActorsToIgnore, EDrawDebugTrace::ForDuration, Results, false, FLinearColor::Blue);
+        for (FHitResult const& Hit : Results)
+        {
+            if (IsValid(Hit.GetActor()) && Hit.GetActor() == ServerTraceInfo.PredictionInfo.HitTarget)
+            {
+                bDidHit = true;
+                break;
+            }
+        }
+    }
+    else
+    {
+        FHitResult Result;
+        UKismetSystemLibrary::LineTraceSingle(ServerTraceInfo.Instigator, ServerTraceInfo.PredictionInfo.AimLocation, TraceEnd,
+            ServerTraceInfo.TraceChannel, false, ServerTraceInfo.ActorsToIgnore, EDrawDebugTrace::ForDuration, Result, false, FLinearColor::Blue);
+        if (IsValid(Result.GetActor()) && Result.GetActor() == ServerTraceInfo.PredictionInfo.HitTarget)
+        {
+            bDidHit = true;
+        }
+    }
+    for (UBoxHitbox* Hitbox : HitboxComponents)
+    {
+        Hitbox->Unrewind();
+    }
+    return bDidHit;
 }
 
 APredictableProjectile* USaiyoraCombatLibrary::PredictProjectile(UCombatAbility* Source, TSubclassOf<APredictableProjectile> const ProjectileClass, FTransform const& SpawnTransform,

@@ -1,4 +1,6 @@
 #include "SaiyoraPlayerController.h"
+
+#include "PredictableProjectile.h"
 #include "SaiyoraGameState.h"
 
 void ASaiyoraPlayerController::AcknowledgePossession(APawn* P)
@@ -72,3 +74,43 @@ bool ASaiyoraPlayerController::ServerFinalPingBounce_Validate(float const Server
 {
     return true;
 }
+
+#pragma region Projectile Management
+
+void ASaiyoraPlayerController::NewFakeProjectile(APredictableProjectile* NewProjectile)
+{
+    if (!IsValid(NewProjectile) || !NewProjectile->IsFake() || NewProjectile->GetSourceInfo().Owner != GetPawn() || NewProjectile->GetSourceInfo().ID == 0)
+    {
+        return;
+    }
+    FakeProjectiles.Add(NewProjectile->GetSourceInfo().ID, NewProjectile);
+}
+
+void ASaiyoraPlayerController::NewReplicatedProjectile(APredictableProjectile* NewProjectile)
+{
+    if (!IsValid(NewProjectile) || NewProjectile->IsFake() || NewProjectile->GetSourceInfo().Owner != GetPawn() || NewProjectile->GetSourceInfo().ID == 0)
+    {
+        return;
+    }
+    APredictableProjectile* Match = FakeProjectiles.FindRef(NewProjectile->GetSourceInfo().ID);
+    if (!IsValid(Match))
+    {
+        return;
+    }
+    if (Match->HasPredictedHit())
+    {
+        NewProjectile->SetHidden(true);
+    }
+    else
+    {
+        Match->Destroy();
+    }
+}
+
+void ASaiyoraPlayerController::PredictFakeProjectileHit(APredictableProjectile* FakeProjectile,
+    FHitResult const& HitResult)
+{
+    //TODO: Notify server the client thinks he got a hit?
+}
+
+#pragma endregion

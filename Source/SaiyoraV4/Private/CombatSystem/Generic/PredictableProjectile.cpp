@@ -65,25 +65,13 @@ void APredictableProjectile::OnRep_SourceInfo()
 {
 	if (IsValid(SourceInfo.Owner) && SourceInfo.Owner->IsLocallyControlled())
 	{
-		APredictableProjectile* Match = FindMatchingFakeProjectile();
-		if (IsValid(Match))
-		{
-			Match->Destroy();
-		}
+		
 	}
 }
 
 void APredictableProjectile::OnRep_FinalHit()
 {
 	UE_LOG(LogTemp, Warning, TEXT("Final Hit was received."));
-}
-
-APredictableProjectile* APredictableProjectile::FindMatchingFakeProjectile() const
-{
-	//TODO: Fix this function.
-	/*APredictableProjectile* Potential = FakeProjectiles.FindRef(SourceInfo.ID);
-	return IsValid(Potential) && Matches(Potential) ? Potential : nullptr;*/
-	return nullptr;
 }
 
 void APredictableProjectile::DeleteOnMisprediction(int32 const PredictionID)

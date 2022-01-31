@@ -19,15 +19,15 @@ public:
 
 	//Modifier
 
-	UFUNCTION(BlueprintCallable, Category = "Modifier", meta = (DefaultToSelf = "Source", HidePin = "Source", NativeMakeFunc))
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Modifier", meta = (DefaultToSelf = "Source", HidePin = "Source", NativeMakeFunc))
 	static FCombatModifier MakeCombatModifier(class UBuff* Source, enum EModifierType const ModifierType, float const ModifierValue, bool const bStackable);
-	UFUNCTION(BlueprintCallable, Category = "Modifier", meta = (DefaultToSelf = "Source", HidePin = "Source", NativeMakeFunc))
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Modifier", meta = (DefaultToSelf = "Source", HidePin = "Source", NativeMakeFunc))
 	static FCombatModifier MakeBuffFunctionCombatModifier(class UBuffFunction* Source, enum EModifierType const ModifierType, float const ModifierValue, bool const bStackable);
 
 	//Validation
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Validation")
-	static bool ValidatePredictedLineTrace(TArray<FCombatParameter> const& PredictionParams);
+	static bool ValidatePredictedLineTrace(FHitscanTraceServer const& ServerTraceInfo);
 
 	UFUNCTION(BlueprintCallable, Category = "Projectile", meta = (Hidden = "Source", DefaultToSelf = "Source"))
 	static APredictableProjectile* PredictProjectile(class UCombatAbility* Source, TSubclassOf<APredictableProjectile> const ProjectileClass,

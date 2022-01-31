@@ -3,6 +3,7 @@
 #include "SaiyoraPlayerController.generated.h"
 
 class ASaiyoraGameState;
+class APredictableProjectile;
 
 DECLARE_DYNAMIC_DELEGATE_OneParam(FPingCallback, float, NewPing);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPingNotification, float, NewPing);
@@ -48,4 +49,17 @@ public:
 	void SubscribeToPingChanged(FPingCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Ping")
 	void UnsubscribeFromPingChanged(FPingCallback const& Callback);
+
+//Projectile Manager
+
+public:
+
+	void NewFakeProjectile(APredictableProjectile* NewProjectile);
+	void NewReplicatedProjectile(APredictableProjectile* NewProjectile);
+	void PredictFakeProjectileHit(APredictableProjectile* FakeProjectile, FHitResult const& HitResult);
+
+private:
+
+	UPROPERTY()
+	TMap<int32, APredictableProjectile*> FakeProjectiles;
 };

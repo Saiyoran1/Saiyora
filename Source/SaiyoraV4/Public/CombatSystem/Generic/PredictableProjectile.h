@@ -19,11 +19,6 @@ struct FProjectileSource
 	ASaiyoraPlayerCharacter* Owner;
 	UPROPERTY()
 	int32 ID;
-
-	FORCEINLINE bool operator==(FProjectileSource const& Other) const
-	{
-		return Other.SourceClass == SourceClass && Other.SourceTick == SourceTick && Other.Owner == Owner && Other.ID == ID;
-	}
 };
 
 UCLASS(Abstract, Blueprintable)
@@ -39,6 +34,8 @@ public:
 	APredictableProjectile(const class FObjectInitializer& ObjectInitializer);
 	int32 InitializeClient(UCombatAbility* Source);
 	void InitializeServer(UCombatAbility* Source, int32 const ClientID, float const PingComp);
+	bool IsFake() const { return bIsFake; }
+	bool HasPredictedHit() const { return PredictedHit.Key; }
 	
 private:
 
@@ -57,8 +54,7 @@ private:
 	FHitResult FinalHit;
 	UFUNCTION()
 	void OnRep_FinalHit();
-	APredictableProjectile* FindMatchingFakeProjectile() const;
-	bool Matches(APredictableProjectile const* Other) const { return Other->GetSourceInfo() == SourceInfo; }
+	TTuple<bool, FHitResult> PredictedHit;
 	FAbilityMispredictionCallback OnMisprediction;
 	UFUNCTION()
 	void DeleteOnMisprediction(int32 const PredictionID);

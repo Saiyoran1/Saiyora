@@ -262,3 +262,39 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityMispredictionNotification, i
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FGlobalCooldownNotification, FGlobalCooldown const&, OldGlobalCooldown, FGlobalCooldown const&, NewGlobalCooldown);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FCastingStateNotification, FCastingState const&, OldState, FCastingState const&, NewState);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FAbilityChargeNotification, class UCombatAbility*, Ability, int32 const, OldCharges, int32 const, NewCharges);
+
+//Predicted Traces/Projectiles
+
+USTRUCT(BlueprintType)
+struct FHitscanTracePrediction
+{
+    GENERATED_BODY()
+
+    UPROPERTY(BlueprintReadWrite)
+    int32 TraceIDNumber;
+    UPROPERTY(BlueprintReadWrite)
+    FVector AimLocation;
+    UPROPERTY(BlueprintReadWrite)
+    FVector AimDirection;
+    UPROPERTY(BlueprintReadWrite)
+    AActor* HitTarget;
+};
+
+USTRUCT(BlueprintType)
+struct FHitscanTraceServer
+{
+    GENERATED_BODY()
+
+    UPROPERTY(BlueprintReadWrite)
+    AActor* Instigator;
+    UPROPERTY(BlueprintReadWrite)
+    FHitscanTracePrediction PredictionInfo;
+    UPROPERTY(BlueprintReadWrite)
+    bool bMultiTrace;
+    UPROPERTY(BlueprintReadWrite)
+    float TraceLength;
+    UPROPERTY(BlueprintReadWrite)
+    TEnumAsByte<ETraceTypeQuery> TraceChannel;
+    UPROPERTY(BlueprintReadWrite)
+    TArray<AActor*> ActorsToIgnore;
+};
