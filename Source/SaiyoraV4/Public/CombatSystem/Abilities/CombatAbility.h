@@ -26,6 +26,8 @@ public:
     
     UFUNCTION(BlueprintCallable, BlueprintPure)
     UAbilityComponent* GetHandler() const { return OwningComponent; }
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+    class ASaiyoraGameMode* GetGameModeRef() const { return GameModeRef; }
     void InitializeAbility(UAbilityComponent* AbilityComponent);
     bool IsInitialized() const { return bInitialized; }
     void DeactivateAbility();
@@ -49,6 +51,8 @@ private:
     bool bDeactivated = false; 
     UFUNCTION()
     void OnRep_Deactivated(bool const Previous);
+    UPROPERTY()
+    class ASaiyoraGameMode* GameModeRef;
     
 //Basic Info
     
@@ -316,12 +320,12 @@ public:
 
     int32 GetPredictionID() const { return CurrentPredictionID; }
     int32 GetCurrentTick() const { return CurrentTick; }
-    void PredictedTick(int32 const TickNumber, FCombatParameters& PredictionParams, int32 const PredictionID = 0);
-    void ServerTick(int32 const TickNumber, FCombatParameters const& PredictionParams, FCombatParameters& BroadcastParams, int32 const PredictionID = 0);
-    void SimulatedTick(int32 const TickNumber, FCombatParameters const& BroadcastParams);
-    void PredictedCancel(FCombatParameters& PredictionParams, int32 const PredictionID = 0);
-    void ServerCancel(FCombatParameters const& PredictionParams, FCombatParameters& BroadcastParams, int32 const PredictionID = 0);
-    void SimulatedCancel(FCombatParameters const& BroadcastParams);
+    void PredictedTick(int32 const TickNumber, TArray<FAbilityTarget>& Targeting, int32 const PredictionID = 0);
+    void ServerTick(int32 const TickNumber, TArray<FAbilityTarget>& Targeting, int32 const PredictionID = 0);
+    void SimulatedTick(int32 const TickNumber, TArray<FAbilityTarget> const& Targeting);
+    void PredictedCancel(TArray<FAbilityTarget>& Targeting, int32 const PredictionID = 0);
+    void ServerCancel(TArray<FAbilityTarget>& Targeting, int32 const PredictionID = 0);
+    void SimulatedCancel(TArray<FAbilityTarget> const& Targeting);
     void ServerInterrupt(FInterruptEvent const& InterruptEvent);
     void SimulatedInterrupt(FInterruptEvent const& InterruptEvent);
     void UpdatePredictionFromServer(struct FServerAbilityResult const& Result);
@@ -357,27 +361,19 @@ protected:
     virtual void OnMisprediction_Implementation(int32 const PredictionID, ECastFailReason const FailReason) {}
 
     UFUNCTION(BlueprintCallable, Category = "Abilities")
-    void AddPredictionParameter(FCombatParameter const& Parameter);
-    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-    FCombatParameter GetPredictionParamByName(FString const& ParamName);
-    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-    FCombatParameter GetPredictionParamByType(ECombatParamType const ParamType);
+    void AddTarget(FAbilityTarget const& Target) { CurrentTargets.Add(Target); }
     UFUNCTION(BlueprintCallable, Category = "Abilities")
-    void GetPredictionParams(TArray<FCombatParameter>& OutParams) const { OutParams = PredictionParameters.Parameters; }
-
+    void RemoveTargetByID(int32 const ID);
     UFUNCTION(BlueprintCallable, Category = "Abilities")
-    void AddBroadcastParameter(FCombatParameter const& Parameter);
+    void RemoveTarget(AActor* Target);
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-    FCombatParameter GetBroadcastParamByName(FString const& ParamName);
+    void GetTargets(TArray<FAbilityTarget>& OutTargets) const { OutTargets = CurrentTargets; }
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-    FCombatParameter GetBroadcastParamByType(ECombatParamType const ParamType);
-    UFUNCTION(BlueprintCallable, Category = "Abilities")
-    void GetBroadcastParams(TArray<FCombatParameter>& OutParams) const { OutParams = BroadcastParameters.Parameters; }
-
+    bool GetTargetByID(int32 const ID, FAbilityTarget& OutTarget) const;
+    
 private:
 
     int32 CurrentPredictionID = 0;
     int32 CurrentTick = 0;
-    FCombatParameters PredictionParameters;
-    FCombatParameters BroadcastParameters;
+    TArray<FAbilityTarget> CurrentTargets;
 };

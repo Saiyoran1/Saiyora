@@ -32,7 +32,7 @@ struct FClientPendingCustomMove
 	int32 PredictionID = 0;
 	float OriginalTimestamp = 0.0f;
 	FCustomMoveParams MoveParams;
-	FCombatParameters PredictionParams;
+	TArray<FAbilityTarget> Targets;
 
-	void Clear() { AbilityClass = nullptr; PredictionID = 0; OriginalTimestamp = 0.0f; MoveParams = FCustomMoveParams(); PredictionParams = FCombatParameters(); }
+	void Clear() { AbilityClass = nullptr; PredictionID = 0; OriginalTimestamp = 0.0f; MoveParams = FCustomMoveParams(); Targets.Empty(); }
 };

@@ -84,6 +84,36 @@ struct FAbilityCooldown
 };
 
 USTRUCT(BlueprintType)
+struct FAbilityTarget
+{
+    GENERATED_BODY()
+
+    UPROPERTY(BlueprintReadWrite)
+    int32 IDNumber = 0;
+    UPROPERTY(BlueprintReadWrite)
+    AActor* HitTarget;
+    UPROPERTY(BlueprintReadWrite)
+    FVector_NetQuantize100 AimLocation;
+    UPROPERTY(BlueprintReadWrite)
+    FVector_NetQuantizeNormal AimDirection;
+    UPROPERTY(BlueprintReadWrite)
+    bool bUseSeparateOrigin = false;
+    UPROPERTY(BlueprintReadWrite)
+    FVector_NetQuantize100 Origin;
+    
+    friend FArchive& operator<<(FArchive& Ar, FAbilityTarget& Target)
+    {
+        Ar << Target.IDNumber;
+        Ar << Target.HitTarget;
+        Ar << Target.AimLocation;
+        Ar << Target.AimDirection;
+        Ar << Target.bUseSeparateOrigin;
+        Ar << Target.Origin;
+        return Ar;
+    }
+};
+
+USTRUCT(BlueprintType)
 struct FAbilityEvent
 {
     GENERATED_BODY()
@@ -98,10 +128,8 @@ struct FAbilityEvent
     ECastFailReason FailReason = ECastFailReason::None;
     UPROPERTY()
     int32 PredictionID = 0;
-    UPROPERTY(BlueprintReadOnly)
-    FCombatParameters PredictionParams;
-    UPROPERTY(BlueprintReadOnly)
-    FCombatParameters BroadcastParams;
+    UPROPERTY()
+    TArray<FAbilityTarget> Targets;
 };
 
 USTRUCT(BlueprintType)
@@ -127,10 +155,8 @@ struct FCancelEvent
     float CancelTime = 0.0f;
     UPROPERTY(BlueprintReadOnly)
     int32 ElapsedTicks = 0;
-    UPROPERTY(BlueprintReadOnly)
-    FCombatParameters PredictionParams;
-    UPROPERTY(BlueprintReadOnly)
-    FCombatParameters BroadcastParams;
+    UPROPERTY()
+    TArray<FAbilityTarget> Targets;
 };
 
 USTRUCT()
@@ -145,7 +171,7 @@ struct FCancelRequest
     UPROPERTY()
     float CancelTime = 0.0f;
     UPROPERTY()
-    FCombatParameters PredictionParams;
+    TArray<FAbilityTarget> Targets;
 };
 
 USTRUCT(BlueprintType)
@@ -262,39 +288,3 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityMispredictionNotification, i
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FGlobalCooldownNotification, FGlobalCooldown const&, OldGlobalCooldown, FGlobalCooldown const&, NewGlobalCooldown);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FCastingStateNotification, FCastingState const&, OldState, FCastingState const&, NewState);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FAbilityChargeNotification, class UCombatAbility*, Ability, int32 const, OldCharges, int32 const, NewCharges);
-
-//Predicted Traces/Projectiles
-
-USTRUCT(BlueprintType)
-struct FHitscanTracePrediction
-{
-    GENERATED_BODY()
-
-    UPROPERTY(BlueprintReadWrite)
-    int32 TraceIDNumber;
-    UPROPERTY(BlueprintReadWrite)
-    FVector AimLocation;
-    UPROPERTY(BlueprintReadWrite)
-    FVector AimDirection;
-    UPROPERTY(BlueprintReadWrite)
-    AActor* HitTarget;
-};
-
-USTRUCT(BlueprintType)
-struct FHitscanTraceServer
-{
-    GENERATED_BODY()
-
-    UPROPERTY(BlueprintReadWrite)
-    AActor* Instigator;
-    UPROPERTY(BlueprintReadWrite)
-    FHitscanTracePrediction PredictionInfo;
-    UPROPERTY(BlueprintReadWrite)
-    bool bMultiTrace;
-    UPROPERTY(BlueprintReadWrite)
-    float TraceLength;
-    UPROPERTY(BlueprintReadWrite)
-    TEnumAsByte<ETraceTypeQuery> TraceChannel;
-    UPROPERTY(BlueprintReadWrite)
-    TArray<AActor*> ActorsToIgnore;
-};

@@ -3,6 +3,7 @@
 #include "Buff.h"
 #include "Resource.h"
 #include "ResourceHandler.h"
+#include "SaiyoraGameMode.h"
 #include "UnrealNetwork.h"
 #include "Kismet/KismetSystemLibrary.h"
 
@@ -52,6 +53,7 @@ void UCombatAbility::InitializeAbility(UAbilityComponent* AbilityComponent)
         return;
     }
     OwningComponent = AbilityComponent;
+    GameModeRef = Cast<ASaiyoraGameMode>(GetWorld()->GetAuthGameMode());
     AbilityCooldown.MaxCharges = FMath::Max(1, DefaultMaxCharges);
     AbilityCooldown.CurrentCharges = AbilityCooldown.MaxCharges;
     ChargesPerCooldown = FMath::Max(0, DefaultChargesPerCooldown);
@@ -489,75 +491,64 @@ void UCombatAbility::UpdateCostFromReplication(FAbilityCost const& Cost, bool co
 #pragma endregion
 #pragma region Functionality
 
-void UCombatAbility::PredictedTick(int32 const TickNumber, FCombatParameters& PredictionParams,
-    int32 const PredictionID)
+void UCombatAbility::PredictedTick(int32 const TickNumber, TArray<FAbilityTarget>& Targets, int32 const PredictionID)
 {
-    PredictionParameters.ClearParams();
     CurrentPredictionID = PredictionID;
     CurrentTick = TickNumber;
+    CurrentTargets.Empty();
     OnPredictedTick(TickNumber);
-    PredictionParams = PredictionParameters;
-    CurrentPredictionID = 0;
+    Targets = CurrentTargets;
+    CurrentTargets.Empty();
     CurrentTick = 0;
-    PredictionParameters.ClearParams();
+    CurrentPredictionID = 0;
 }
 
-void UCombatAbility::ServerTick(int32 const TickNumber, FCombatParameters const& PredictionParams,
-    FCombatParameters& BroadcastParams, int32 const PredictionID)
+void UCombatAbility::ServerTick(int32 const TickNumber, TArray<FAbilityTarget>& Targets, int32 const PredictionID)
 {
-    PredictionParameters.ClearParams();
-    BroadcastParameters.ClearParams();
-    PredictionParameters = PredictionParams;
     CurrentPredictionID = PredictionID;
     CurrentTick = TickNumber;
+    CurrentTargets = Targets;
     OnServerTick(TickNumber);
-    BroadcastParams = BroadcastParameters;
+    Targets = CurrentTargets;
+    CurrentTargets.Empty();
+    CurrentTick = 0;
     CurrentPredictionID = 0;
-    CurrentTick = 0;
-    PredictionParameters.ClearParams();
-    BroadcastParameters.ClearParams();
 }
 
-void UCombatAbility::SimulatedTick(int32 const TickNumber, FCombatParameters const& BroadcastParams)
+void UCombatAbility::SimulatedTick(int32 const TickNumber, TArray<FAbilityTarget> const& Targets)
 {
-    BroadcastParameters.ClearParams();
-    BroadcastParameters = BroadcastParams;
     CurrentTick = TickNumber;
+    CurrentTargets = Targets;
     OnSimulatedTick(TickNumber);
+    CurrentTargets.Empty();
     CurrentTick = 0;
-    BroadcastParameters.ClearParams();
 }
 
-void UCombatAbility::PredictedCancel(FCombatParameters& PredictionParams, int32 const PredictionID)
+void UCombatAbility::PredictedCancel(TArray<FAbilityTarget>& Targets, int32 const PredictionID)
 {
-    PredictionParameters.ClearParams();
     CurrentPredictionID = PredictionID;
+    CurrentTargets.Empty();
     OnPredictedCancel();
-    PredictionParams = PredictionParameters;
-    CurrentPredictionID = PredictionID;
-    PredictionParameters.ClearParams();
+    Targets = CurrentTargets;
+    CurrentTargets.Empty();
+    CurrentPredictionID = 0;
 }
 
-void UCombatAbility::ServerCancel(FCombatParameters const& PredictionParams, FCombatParameters& BroadcastParams,
-    int32 const PredictionID)
+void UCombatAbility::ServerCancel(TArray<FAbilityTarget>& Targets, int32 const PredictionID)
 {
-    PredictionParameters.ClearParams();
-    BroadcastParameters.ClearParams();
-    PredictionParameters = PredictionParams;
     CurrentPredictionID = PredictionID;
+    CurrentTargets = Targets;
     OnServerCancel();
-    BroadcastParams = BroadcastParameters;
-    CurrentPredictionID = PredictionID;
-    PredictionParameters.ClearParams();
-    BroadcastParameters.ClearParams();
+    Targets = CurrentTargets;
+    CurrentTargets.Empty();
+    CurrentPredictionID = 0;
 }
 
-void UCombatAbility::SimulatedCancel(FCombatParameters const& BroadcastParams)
+void UCombatAbility::SimulatedCancel(TArray<FAbilityTarget> const& Targets)
 {
-    BroadcastParameters.ClearParams();
-    BroadcastParameters = BroadcastParams;
+    CurrentTargets = Targets;
     OnSimulatedCancel();
-    BroadcastParameters.ClearParams();
+    CurrentTargets.Empty();
 }
 
 void UCombatAbility::ServerInterrupt(FInterruptEvent const& InterruptEvent)
@@ -570,72 +561,6 @@ void UCombatAbility::SimulatedInterrupt(FInterruptEvent const& InterruptEvent)
     OnSimulatedInterrupt(InterruptEvent);
 }
 
-void UCombatAbility::AddPredictionParameter(FCombatParameter const& Parameter)
-{
-    if (Parameter.ParamType == ECombatParamType::None)
-    {
-        return;
-    }
-    PredictionParameters.Parameters.Add(Parameter);
-}
-
-FCombatParameter UCombatAbility::GetPredictionParamByName(FString const& ParamName)
-{
-    for (FCombatParameter const& Param : PredictionParameters.Parameters)
-    {
-        if (Param.ParamName == ParamName)
-        {
-            return Param;
-        }
-    }
-    return FCombatParameter();
-}
-
-FCombatParameter UCombatAbility::GetPredictionParamByType(ECombatParamType const ParamType)
-{
-    for (FCombatParameter const& Param : PredictionParameters.Parameters)
-    {
-        if (Param.ParamType == ParamType)
-        {
-            return Param;
-        }
-    }
-    return FCombatParameter();
-}
-
-void UCombatAbility::AddBroadcastParameter(FCombatParameter const& Parameter)
-{
-    if (Parameter.ParamType == ECombatParamType::None)
-    {
-        return;
-    }
-    BroadcastParameters.Parameters.Add(Parameter);
-}
-
-FCombatParameter UCombatAbility::GetBroadcastParamByName(FString const& ParamName)
-{
-    for (FCombatParameter const& Param : BroadcastParameters.Parameters)
-    {
-        if (Param.ParamName == ParamName)
-        {
-            return Param;
-        }
-    }
-    return FCombatParameter();
-}
-
-FCombatParameter UCombatAbility::GetBroadcastParamByType(ECombatParamType const ParamType)
-{
-    for (FCombatParameter const& Param : BroadcastParameters.Parameters)
-    {
-        if (Param.ParamType == ParamType)
-        {
-            return Param;
-        }
-    }
-    return FCombatParameter();
-}
-
 void UCombatAbility::UpdatePredictionFromServer(FServerAbilityResult const& Result)
 {
     if (AbilityCooldown.PredictionID < Result.PredictionID)
@@ -646,6 +571,43 @@ void UCombatAbility::UpdatePredictionFromServer(FServerAbilityResult const& Resu
     if (!Result.bSuccess)
     {
         OnMisprediction(Result.PredictionID, Result.FailReason);
+    }
+}
+
+bool UCombatAbility::GetTargetByID(int32 const ID, FAbilityTarget& OutTarget) const
+{
+    for (FAbilityTarget const& Target : CurrentTargets)
+    {
+        if (Target.IDNumber == ID)
+        {
+            OutTarget = Target;
+            return true;
+        }
+    }
+    return false;
+}
+
+void UCombatAbility::RemoveTargetByID(int32 const ID)
+{
+    for (int i = 0; i < CurrentTargets.Num(); i++)
+    {
+        if (CurrentTargets[i].IDNumber == ID)
+        {
+            CurrentTargets.RemoveAt(i);
+            return;
+        }
+    }
+}
+
+void UCombatAbility::RemoveTarget(AActor* Target)
+{
+    for (int i = 0; i < CurrentTargets.Num(); i++)
+    {
+        if (CurrentTargets[i].HitTarget == Target)
+        {
+            CurrentTargets.RemoveAt(i);
+            return;
+        }
     }
 }
 

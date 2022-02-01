@@ -1,5 +1,4 @@
 #include "Movement/SaiyoraMovementComponent.h"
-
 #include "Buff.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraCombatLibrary.h"
@@ -99,7 +98,7 @@ void USaiyoraMovementComponent::FSaiyoraNetworkMoveData::ClientFillNetworkMoveDa
 		CustomMoveAbilityRequest.AbilityClass = CastMove->SavedPendingCustomMove.AbilityClass;
 		CustomMoveAbilityRequest.PredictionID = CastMove->SavedPendingCustomMove.PredictionID;
 		CustomMoveAbilityRequest.Tick = 0;
-		CustomMoveAbilityRequest.PredictionParams = CastMove->SavedPendingCustomMove.PredictionParams;
+		CustomMoveAbilityRequest.Targets = CastMove->SavedPendingCustomMove.Targets;
 		CustomMoveAbilityRequest.ClientStartTime = CastMove->SavedPendingCustomMove.OriginalTimestamp;
 	}
 }
@@ -475,7 +474,7 @@ void USaiyoraMovementComponent::OnCustomMoveCastPredicted(FAbilityEvent const& E
 		PendingCustomMove.Clear();
 		return;
 	}
-	PendingCustomMove.PredictionParams = Event.PredictionParams;
+	PendingCustomMove.Targets = Event.Targets;
 	bWantsCustomMove = true;
 }
 

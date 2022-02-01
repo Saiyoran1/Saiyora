@@ -86,20 +86,10 @@ struct FCombatParameter
     }
 };
 
-USTRUCT(BlueprintType)
-struct FCombatParameters
+USTRUCT()
+struct FRewindRecord
 {
     GENERATED_BODY()
 
-    UPROPERTY(BlueprintReadWrite, Category = "Abilities")
-    TArray<FCombatParameter> Parameters;
-
-    bool HasParams() const { return Parameters.Num() > 0; }
-    void ClearParams() { Parameters.Empty(); }
-
-    friend FArchive& operator<<(FArchive& Ar, FCombatParameters& Parameters)
-    {
-        Ar << Parameters.Parameters;
-        return Ar;
-    }
+    TArray<TTuple<float, FTransform>> Transforms;
 };

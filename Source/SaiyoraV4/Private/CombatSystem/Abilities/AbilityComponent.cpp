@@ -212,8 +212,8 @@ FAbilityEvent UAbilityComponent::UseAbility(TSubclassOf<UCombatAbility> const Ab
 		case EAbilityCastType::Instant :
 			{
 				Result.ActionTaken = ECastAction::Success;
-				Result.Ability->PredictedTick(0, Result.PredictionParams);
-				Result.Ability->ServerTick(0, Result.PredictionParams, Result.BroadcastParams);
+				Result.Ability->PredictedTick(0, Result.Targets);
+				Result.Ability->ServerTick(0, Result.Targets);
 				MulticastAbilityTick(Result);
 			}
 			break;
@@ -223,8 +223,8 @@ FAbilityEvent UAbilityComponent::UseAbility(TSubclassOf<UCombatAbility> const Ab
 				StartCast(Result.Ability);
 				if (Result.Ability->HasInitialTick())
 				{
-					Result.Ability->PredictedTick(0, Result.PredictionParams);
-					Result.Ability->ServerTick(0, Result.PredictionParams, Result.BroadcastParams);
+					Result.Ability->PredictedTick(0, Result.Targets);
+					Result.Ability->ServerTick(0, Result.Targets);
 					MulticastAbilityTick(Result);
 				}
 			}
@@ -245,8 +245,8 @@ FAbilityEvent UAbilityComponent::UseAbility(TSubclassOf<UCombatAbility> const Ab
 			case EAbilityCastType::Instant :
 				{
 					Result.ActionTaken = ECastAction::Success;
-					Result.Ability->PredictedTick(0, Result.PredictionParams, Result.PredictionID);
-					Request.PredictionParams = Result.PredictionParams;
+					Result.Ability->PredictedTick(0, Result.Targets);
+					Request.Targets = Result.Targets;
 					OnAbilityTick.Broadcast(Result);
 					break;
 				}
@@ -256,8 +256,8 @@ FAbilityEvent UAbilityComponent::UseAbility(TSubclassOf<UCombatAbility> const Ab
 					StartCast(Result.Ability, Result.PredictionID);
                     if (Result.Ability->HasInitialTick())
                     {
-                    	Result.Ability->PredictedTick(0, Result.PredictionParams, Result.PredictionID);
-                    	Request.PredictionParams = Result.PredictionParams;
+                    	Result.Ability->PredictedTick(0, Result.Targets);
+                    	Request.Targets = Result.Targets;
                     	OnAbilityTick.Broadcast(Result);
                     }
                     break;
@@ -317,7 +317,7 @@ void UAbilityComponent::ServerPredictAbility_Implementation(FAbilityRequest cons
 		FAbilityEvent Result;
 		Result.Ability = Ability;
 		Result.PredictionID = Request.PredictionID;
-		Result.PredictionParams = Request.PredictionParams;
+		Result.Targets = Request.Targets;
         
         if (Ability->HasGlobalCooldown())
         {
@@ -342,7 +342,7 @@ void UAbilityComponent::ServerPredictAbility_Implementation(FAbilityRequest cons
         case EAbilityCastType::Instant :
 	        {
         		Result.ActionTaken = ECastAction::Success;
-        		Ability->ServerTick(0, Result.PredictionParams, Result.BroadcastParams, Result.PredictionID);
+        		Ability->ServerTick(0, Result.Targets, Result.PredictionID);
         		MulticastAbilityTick(Result);
 	        }
         	break;
@@ -355,7 +355,7 @@ void UAbilityComponent::ServerPredictAbility_Implementation(FAbilityRequest cons
         		ServerResult.bInterruptible = CastingState.bInterruptible;
         		if (Ability->HasInitialTick())
         		{
-        			Ability->ServerTick(0, Result.PredictionParams, Result.BroadcastParams, Result.PredictionID);
+        			Ability->ServerTick(0, Result.Targets, Result.PredictionID);
         			MulticastAbilityTick(Result);
         		}
 	        }
@@ -373,7 +373,10 @@ void UAbilityComponent::ServerPredictAbility_Implementation(FAbilityRequest cons
 		if (CastingState.bIsCasting && IsValid(CastingState.CurrentCast) && CastingState.CurrentCast->GetClass() == Request.AbilityClass &&
 			CastingState.PredictionID == Request.PredictionID && CastingState.ElapsedTicks < Request.Tick)
 		{
-			ParamsAwaitingTicks.Add(FPredictedTick(Request.PredictionID, Request.Tick), Request.PredictionParams);
+			for (FAbilityTarget const& Target : Request.Targets)
+			{
+				ParamsAwaitingTicks.Add(FPredictedTick(Request.PredictionID, Request.Tick), Target);
+			}
 			//TODO: If within a certain tolerance, maybe just perform the ability and increase next tick timer by the remaining time?
 			//This would help with race conditions between PlayerAbilityHandler and CMC.
 			return;
@@ -383,8 +386,8 @@ void UAbilityComponent::ServerPredictAbility_Implementation(FAbilityRequest cons
 			if (TicksAwaitingParams[i].PredictionID == Request.PredictionID && TicksAwaitingParams[i].Tick == Request.Tick &&
 				IsValid(TicksAwaitingParams[i].Ability) && TicksAwaitingParams[i].Ability->GetClass() == Request.AbilityClass)
 			{
-				TicksAwaitingParams[i].PredictionParams = Request.PredictionParams;
-				TicksAwaitingParams[i].Ability->ServerTick(TicksAwaitingParams[i].Tick, TicksAwaitingParams[i].PredictionParams, TicksAwaitingParams[i].BroadcastParams, TicksAwaitingParams[i].PredictionID);
+				TicksAwaitingParams[i].Targets = Request.Targets;
+				TicksAwaitingParams[i].Ability->ServerTick(TicksAwaitingParams[i].Tick, TicksAwaitingParams[i].Targets, TicksAwaitingParams[i].PredictionID);
 				MulticastAbilityTick(TicksAwaitingParams[i]);
 				OnAbilityTick.Broadcast(TicksAwaitingParams[i]);
 				PredictedTickRecord.Add(FPredictedTick(TicksAwaitingParams[i].PredictionID, TicksAwaitingParams[i].Tick), true);
@@ -485,8 +488,8 @@ void UAbilityComponent::TickCurrentCast()
 	TickEvent.ActionTaken = CastingState.ElapsedTicks >= CastingState.CurrentCast->GetNumberOfTicks() ? ECastAction::Complete : ECastAction::Tick;
 	if (GetOwnerRole() == ROLE_Authority && IsLocallyControlled())
 	{
-		CastingState.CurrentCast->PredictedTick(CastingState.ElapsedTicks, TickEvent.PredictionParams);
-		CastingState.CurrentCast->ServerTick(CastingState.ElapsedTicks, TickEvent.PredictionParams, TickEvent.BroadcastParams);
+		CastingState.CurrentCast->PredictedTick(CastingState.ElapsedTicks, TickEvent.Targets);
+		CastingState.CurrentCast->ServerTick(CastingState.ElapsedTicks, TickEvent.Targets);
 		MulticastAbilityTick(TickEvent);
 	}
 	else if (GetOwnerRole() == ROLE_Authority)
@@ -495,8 +498,8 @@ void UAbilityComponent::TickCurrentCast()
 		FPredictedTick const CurrentTick = FPredictedTick(CastingState.PredictionID, CastingState.ElapsedTicks);
 		if (ParamsAwaitingTicks.Contains(CurrentTick))
 		{
-			TickEvent.PredictionParams = ParamsAwaitingTicks.FindRef(CurrentTick);
-			CastingState.CurrentCast->ServerTick(CastingState.ElapsedTicks, TickEvent.PredictionParams, TickEvent.BroadcastParams, CastingState.PredictionID);
+			ParamsAwaitingTicks.MultiFind(CurrentTick, TickEvent.Targets);
+			CastingState.CurrentCast->ServerTick(CastingState.ElapsedTicks, TickEvent.Targets, CastingState.PredictionID);
 			PredictedTickRecord.Add(CurrentTick, true);
 			ParamsAwaitingTicks.Remove(CurrentTick);
 			MulticastAbilityTick(TickEvent);
@@ -512,8 +515,8 @@ void UAbilityComponent::TickCurrentCast()
 		TickRequest.PredictionID = CastingState.PredictionID;
 		TickRequest.Tick = CastingState.ElapsedTicks;
 		TickRequest.AbilityClass = CastingState.CurrentCast->GetClass();
-		CastingState.CurrentCast->PredictedTick(CastingState.ElapsedTicks, TickEvent.PredictionParams, CastingState.PredictionID);
-		TickRequest.PredictionParams = TickEvent.PredictionParams;
+		CastingState.CurrentCast->PredictedTick(CastingState.ElapsedTicks, TickEvent.Targets, CastingState.PredictionID);
+		TickRequest.Targets = TickEvent.Targets;
 		ServerPredictAbility(TickRequest);
 		OnAbilityTick.Broadcast(TickEvent);
 	}
@@ -534,12 +537,14 @@ void UAbilityComponent::RemoveExpiredTicks()
 		}
 	}
 	TArray<FPredictedTick> ExpiredTicks;
-	for (TTuple<FPredictedTick, FCombatParameters> const& WaitingParams : ParamsAwaitingTicks)
+	TArray<FPredictedTick> WaitingParams;
+	ParamsAwaitingTicks.GetKeys(WaitingParams);
+	for (FPredictedTick const& WaitingParam : WaitingParams)
 	{
-		if ((WaitingParams.Key.PredictionID == CastingState.PredictionID && WaitingParams.Key.TickNumber < CastingState.ElapsedTicks - 1) ||
-			(WaitingParams.Key.PredictionID < CastingState.PredictionID && CastingState.ElapsedTicks >= 1))
+		if ((WaitingParam.PredictionID == CastingState.PredictionID && WaitingParam.TickNumber < CastingState.ElapsedTicks - 1) ||
+			(WaitingParam.PredictionID < CastingState.PredictionID && CastingState.ElapsedTicks >= 1))
 		{
-			ExpiredTicks.Add(WaitingParams.Key);
+			ExpiredTicks.Add(WaitingParam);
 		}
 	}
 	for (FPredictedTick const& ExpiredTick : ExpiredTicks)
@@ -552,7 +557,7 @@ void UAbilityComponent::MulticastAbilityTick_Implementation(FAbilityEvent const&
 {
 	if (IsValid(Event.Ability))
 	{
-		Event.Ability->SimulatedTick(Event.Tick, Event.BroadcastParams);
+		Event.Ability->SimulatedTick(Event.Tick, Event.Targets);
 	}
 	if (GetOwnerRole() != ROLE_AutonomousProxy)
 	{
@@ -670,10 +675,10 @@ FCancelEvent UAbilityComponent::CancelCurrentCast()
 	Result.ElapsedTicks = CastingState.ElapsedTicks;
 	Result.bSuccess = true;
 	CastingState.PredictionID = GetOwnerRole() == ROLE_Authority ? CastingState.PredictionID : Result.PredictionID;
-	CastingState.CurrentCast->PredictedCancel(Result.PredictionParams, Result.PredictionID);
+	CastingState.CurrentCast->PredictedCancel(Result.Targets, Result.PredictionID);
 	if (GetOwnerRole() == ROLE_Authority)
 	{
-		CastingState.CurrentCast->ServerCancel(Result.PredictionParams, Result.BroadcastParams, Result.PredictionID);
+		CastingState.CurrentCast->ServerCancel(Result.Targets, Result.PredictionID);
 		MulticastAbilityCancel(Result);
 	}
 	else
@@ -682,7 +687,7 @@ FCancelEvent UAbilityComponent::CancelCurrentCast()
 		Request.CancelID = Result.PredictionID;
 		Request.CancelledCastID = Result.CancelledCastID;
 		Request.CancelTime = Result.CancelTime;
-		Request.PredictionParams = Result.PredictionParams;
+		Request.Targets = Result.Targets;
 		ServerCancelAbility(Request);
 		OnAbilityCancelled.Broadcast(Result);
 	}
@@ -709,8 +714,8 @@ void UAbilityComponent::ServerCancelAbility_Implementation(FCancelRequest const&
 	Result.CancelledCastEnd = CastingState.CastEndTime;
 	Result.CancelledCastID = CastID;
 	Result.ElapsedTicks = CastingState.ElapsedTicks;
-	Result.PredictionParams = Request.PredictionParams;
-	CastingState.CurrentCast->ServerCancel(Result.PredictionParams, Result.BroadcastParams, Result.PredictionID);
+	Result.Targets = Request.Targets;
+	CastingState.CurrentCast->ServerCancel(Result.Targets, Result.PredictionID);
 	MulticastAbilityCancel(Result);
 	EndCast();
 }
@@ -719,7 +724,7 @@ void UAbilityComponent::MulticastAbilityCancel_Implementation(FCancelEvent const
 {
 	if (IsValid(Event.CancelledAbility))
 	{
-		Event.CancelledAbility->SimulatedCancel(Event.BroadcastParams);
+		Event.CancelledAbility->SimulatedCancel(Event.Targets);
 	}
 	if (GetOwnerRole() != ROLE_AutonomousProxy)
 	{
