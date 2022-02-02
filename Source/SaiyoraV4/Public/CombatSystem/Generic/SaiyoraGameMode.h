@@ -19,6 +19,9 @@ public:
 	bool ValidateLineTraceTarget(AActor* Shooter, FAbilityTarget const& Target, float const TraceLength, TEnumAsByte<ETraceTypeQuery> const TraceChannel, TArray<AActor*> const ActorsToIgnore);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities", meta = (AutoCreateRefTerm = "ActorsToIgnore"))
 	bool ValidateMultiLineTraceTarget(AActor* Shooter, FAbilityTarget const& Target, float const TraceLength, TEnumAsByte<ETraceTypeQuery> const TraceChannel, TArray<AActor*> const ActorsToIgnore);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities", meta = (AutoCreateRefTerm = "ActorsToIgnore"))
+	void ValidateMultiLineTraceTargets(AActor* Shooter, UPARAM(ref) TArray<FAbilityTarget>& Targets, float const TraceLength, TEnumAsByte<ETraceTypeQuery> const TraceChannel,
+		TArray<AActor*> const ActorsToIgnore);
 
 private:
 

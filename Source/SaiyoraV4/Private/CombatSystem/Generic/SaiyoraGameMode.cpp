@@ -152,7 +152,6 @@ bool ASaiyoraGameMode::ValidateLineTraceTarget(AActor* Shooter, FAbilityTarget c
 	{
 		TArray<UHitbox*> HitboxComponents;
 		Target.HitTarget->GetComponents<UHitbox>(HitboxComponents);
-	
 		for (UHitbox* Hitbox : HitboxComponents)
 		{
 			ReturnTransforms.Add(Hitbox, RewindHitbox(Hitbox, USaiyoraCombatLibrary::GetActorPing(Shooter)));
@@ -193,7 +192,6 @@ bool ASaiyoraGameMode::ValidateMultiLineTraceTarget(AActor* Shooter, FAbilityTar
 	{
 		TArray<UHitbox*> HitboxComponents;
 		Target.HitTarget->GetComponents<UHitbox>(HitboxComponents);
-	
 		for (UHitbox* Hitbox : HitboxComponents)
 		{
 			ReturnTransforms.Add(Hitbox, RewindHitbox(Hitbox, USaiyoraCombatLibrary::GetActorPing(Shooter)));
@@ -219,6 +217,70 @@ bool ASaiyoraGameMode::ValidateMultiLineTraceTarget(AActor* Shooter, FAbilityTar
 		ReturnTransform.Key->SetWorldTransform(ReturnTransform.Value);
 	}
 	return bDidHit;
+}
+
+void ASaiyoraGameMode::ValidateMultiLineTraceTargets(AActor* Shooter, TArray<FAbilityTarget>& Targets, float const TraceLength, TEnumAsByte<ETraceTypeQuery> const TraceChannel, TArray<AActor*> const ActorsToIgnore)
+{
+	if (!IsValid(Shooter) || Shooter->GetLocalRole() != ROLE_Authority ||  TraceLength <= 0.0f)
+	{
+		return;
+	}
+	for (int i = Targets.Num() - 1; i >= 0; i--)
+	{
+		if (!IsValid(Targets[i].HitTarget) || Targets[i].HitTarget == Shooter || ActorsToIgnore.Contains(Targets[i].HitTarget))
+		{
+			Targets.RemoveAt(i);
+		}
+	}
+	if (Targets.Num() == 0)
+	{
+		return;
+	}
+	//TODO: Validate aim location and origin (if using separate origin).
+	float const Ping = USaiyoraCombatLibrary::GetActorPing(Shooter);
+	//Get target's hitboxes, rewind them, and store their actual transforms for un-rewinding.
+	TMap<UHitbox*, FTransform> ReturnTransforms;
+	//If listen server (ping 0), skip rewinding.
+	if (Ping > 0.0f)
+	{
+		for (FAbilityTarget const& Target : Targets)
+		{
+			TArray<UHitbox*> HitboxComponents;
+			Target.HitTarget->GetComponents<UHitbox>(HitboxComponents);
+			for (UHitbox* Hitbox : HitboxComponents)
+			{
+				ReturnTransforms.Add(Hitbox, RewindHitbox(Hitbox, USaiyoraCombatLibrary::GetActorPing(Shooter)));
+			}
+		}
+	}
+	//Trace against the rewound hitboxes.
+	FVector const TraceEnd = Targets[0].AimLocation + (TraceLength * Targets[0].AimDirection.GetSafeNormal());
+	TArray<FHitResult> Results;
+	UKismetSystemLibrary::LineTraceMulti(Shooter, Targets[0].bUseSeparateOrigin ? Targets[0].Origin : Targets[0].AimLocation, TraceEnd,
+		TraceChannel, false, ActorsToIgnore, EDrawDebugTrace::ForDuration, Results, false, FLinearColor::Blue);
+	//Search through the hit results for valid targets. Remove those hit results to prevent excess iteration for successive targets.
+	for (int i = Targets.Num() - 1; i >= 0; i--)
+	{
+		bool bDidHit = false;
+		for (int j = 0; j < Results.Num(); j++)
+		{
+			if (Results[j].GetActor() == Targets[i].HitTarget)
+			{
+				Results.RemoveAt(j);
+				bDidHit = true;
+				break;
+			}
+		}
+		if (!bDidHit)
+		{
+			Targets.RemoveAt(i);
+		}
+	}
+	//Return all rewound hitboxes to their actual transforms.
+	for (TTuple<UHitbox*, FTransform> const& ReturnTransform : ReturnTransforms)
+	{
+		ReturnTransform.Key->SetWorldTransform(ReturnTransform.Value);
+	}
 }
 
 #pragma endregion
