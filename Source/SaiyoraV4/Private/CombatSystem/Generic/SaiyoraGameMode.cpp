@@ -134,7 +134,7 @@ FTransform ASaiyoraGameMode::RewindHitbox(UHitbox* Hitbox, float const Ping)
 #pragma endregion 
 #pragma region Trace Validation
 
-bool ASaiyoraGameMode::ValidateLineTraceTarget(AActor* Shooter, FAbilityTarget const& Target, float const TraceLength,
+/*bool ASaiyoraGameMode::ValidateLineTraceTarget(AActor* Shooter, FAbilityOrigin const& Target, float const TraceLength,
 	TEnumAsByte<ETraceTypeQuery> const TraceChannel, TArray<AActor*> const ActorsToIgnore)
 {
 	if (!IsValid(Shooter) || Shooter->GetLocalRole() != ROLE_Authority || !IsValid(Target.HitTarget) || Shooter == Target.HitTarget
@@ -174,7 +174,7 @@ bool ASaiyoraGameMode::ValidateLineTraceTarget(AActor* Shooter, FAbilityTarget c
 	return bDidHit;
 }
 
-bool ASaiyoraGameMode::ValidateMultiLineTraceTarget(AActor* Shooter, FAbilityTarget const& Target,
+bool ASaiyoraGameMode::ValidateMultiLineTraceTarget(AActor* Shooter, FAbilityOrigin const& Target,
 	float const TraceLength, TEnumAsByte<ETraceTypeQuery> const TraceChannel, TArray<AActor*> const ActorsToIgnore)
 {
 	if (!IsValid(Shooter) || Shooter->GetLocalRole() != ROLE_Authority || !IsValid(Target.HitTarget) || Shooter == Target.HitTarget
@@ -219,7 +219,7 @@ bool ASaiyoraGameMode::ValidateMultiLineTraceTarget(AActor* Shooter, FAbilityTar
 	return bDidHit;
 }
 
-void ASaiyoraGameMode::ValidateMultiLineTraceTargets(AActor* Shooter, TArray<FAbilityTarget>& Targets, float const TraceLength, TEnumAsByte<ETraceTypeQuery> const TraceChannel, TArray<AActor*> const ActorsToIgnore)
+void ASaiyoraGameMode::ValidateMultiLineTraceTargets(AActor* Shooter, TArray<FAbilityOrigin>& Targets, float const TraceLength, TEnumAsByte<ETraceTypeQuery> const TraceChannel, TArray<AActor*> const ActorsToIgnore)
 {
 	if (!IsValid(Shooter) || Shooter->GetLocalRole() != ROLE_Authority ||  TraceLength <= 0.0f)
 	{
@@ -243,7 +243,7 @@ void ASaiyoraGameMode::ValidateMultiLineTraceTargets(AActor* Shooter, TArray<FAb
 	//If listen server (ping 0), skip rewinding.
 	if (Ping > 0.0f)
 	{
-		for (FAbilityTarget const& Target : Targets)
+		for (FAbilityOrigin const& Target : Targets)
 		{
 			TArray<UHitbox*> HitboxComponents;
 			Target.HitTarget->GetComponents<UHitbox>(HitboxComponents);
@@ -281,6 +281,6 @@ void ASaiyoraGameMode::ValidateMultiLineTraceTargets(AActor* Shooter, TArray<FAb
 	{
 		ReturnTransform.Key->SetWorldTransform(ReturnTransform.Value);
 	}
-}
+}*/
 
 #pragma endregion

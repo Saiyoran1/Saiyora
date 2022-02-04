@@ -12,5 +12,5 @@ class SAIYORAV4_API UAbilityFunctionLibrary : public UBlueprintFunctionLibrary
 public:
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities", meta = (NativeMakeFunc))
-	static FAbilityTarget MakeAbilityTarget(int32 const IDNumber, FVector const& Origin, FVector const& AimLocation, FVector const& AimDirection, AActor* HitTarget);
+	static FAbilityOrigin MakeAbilityOrigin(FVector const& AimLocation, FVector const& AimDirection, FVector const& Origin);
 };

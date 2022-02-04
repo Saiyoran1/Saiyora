@@ -320,12 +320,12 @@ public:
 
     int32 GetPredictionID() const { return CurrentPredictionID; }
     int32 GetCurrentTick() const { return CurrentTick; }
-    void PredictedTick(int32 const TickNumber, TArray<FAbilityTarget>& Targeting, int32 const PredictionID = 0);
-    void ServerTick(int32 const TickNumber, TArray<FAbilityTarget>& Targeting, int32 const PredictionID = 0);
-    void SimulatedTick(int32 const TickNumber, TArray<FAbilityTarget> const& Targeting);
-    void PredictedCancel(TArray<FAbilityTarget>& Targeting, int32 const PredictionID = 0);
-    void ServerCancel(TArray<FAbilityTarget>& Targeting, int32 const PredictionID = 0);
-    void SimulatedCancel(TArray<FAbilityTarget> const& Targeting);
+    void PredictedTick(int32 const TickNumber, FAbilityOrigin& Origin, TArray<FAbilityTargetSet>& Targets, int32 const PredictionID = 0);
+    void ServerTick(int32 const TickNumber, FAbilityOrigin& Origin, TArray<FAbilityTargetSet>& Targets, int32 const PredictionID = 0);
+    void SimulatedTick(int32 const TickNumber, FAbilityOrigin const& Origin, TArray<FAbilityTargetSet> const& Targets);
+    void PredictedCancel(FAbilityOrigin& Origin, TArray<FAbilityTargetSet>& Targets, int32 const PredictionID = 0);
+    void ServerCancel(FAbilityOrigin& Origin, TArray<FAbilityTargetSet>& Targets, int32 const PredictionID = 0);
+    void SimulatedCancel(FAbilityOrigin const& Origin, TArray<FAbilityTargetSet> const& Targets);
     void ServerInterrupt(FInterruptEvent const& InterruptEvent);
     void SimulatedInterrupt(FInterruptEvent const& InterruptEvent);
     void UpdatePredictionFromServer(struct FServerAbilityResult const& Result);
@@ -361,19 +361,33 @@ protected:
     virtual void OnMisprediction_Implementation(int32 const PredictionID, ECastFailReason const FailReason) {}
 
     UFUNCTION(BlueprintCallable, Category = "Abilities")
-    void AddTarget(FAbilityTarget const& Target) { CurrentTargets.Add(Target); }
+    void AddTargetSet(FAbilityTargetSet const& TargetSet) { CurrentTargets.Add(TargetSet); }
     UFUNCTION(BlueprintCallable, Category = "Abilities")
-    void RemoveTargetByID(int32 const ID);
+    void AddTargetsAsSet(TArray<AActor*> const& Targets, int32 const SetID) { CurrentTargets.Add(FAbilityTargetSet(SetID, Targets)); }
+    UFUNCTION(BlueprintCallable, Category = "Abilities")
+    void AddTarget(AActor* Target, int32 const SetID);
     UFUNCTION(BlueprintCallable, Category = "Abilities")
     void RemoveTarget(AActor* Target);
+    UFUNCTION(BlueprintCallable, Category = "Abilities")
+    void RemoveTargetFromAllSets(AActor* Target);
+    UFUNCTION(BlueprintCallable, Category = "Abilities")
+    void RemoveTargetSet(int32 const SetID);
+    UFUNCTION(BlueprintCallable, Category = "Abilities")
+    void RemoveTargetFromSet(AActor* Target, int32 const SetID);
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-    void GetTargets(TArray<FAbilityTarget>& OutTargets) const { OutTargets = CurrentTargets; }
+    void GetTargets(TArray<FAbilityTargetSet>& OutTargets) const { OutTargets = CurrentTargets; }
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-    bool GetTargetByID(int32 const ID, FAbilityTarget& OutTarget) const;
+    bool GetTargetSetByID(int32 const ID, FAbilityTargetSet& OutTargetSet) const;
+
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
+    void GetAbilityOrigin(FAbilityOrigin& OutOrigin) const { OutOrigin = AbilityOrigin; }
+    UFUNCTION(BlueprintCallable, Category = "Abilities")
+    void SetAbilityOrigin(FAbilityOrigin const& Origin) { AbilityOrigin = Origin; }
     
 private:
 
     int32 CurrentPredictionID = 0;
     int32 CurrentTick = 0;
-    TArray<FAbilityTarget> CurrentTargets;
+    TArray<FAbilityTargetSet> CurrentTargets;
+    FAbilityOrigin AbilityOrigin;
 };

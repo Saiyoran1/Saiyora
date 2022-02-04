@@ -99,6 +99,7 @@ void USaiyoraMovementComponent::FSaiyoraNetworkMoveData::ClientFillNetworkMoveDa
 		CustomMoveAbilityRequest.PredictionID = CastMove->SavedPendingCustomMove.PredictionID;
 		CustomMoveAbilityRequest.Tick = 0;
 		CustomMoveAbilityRequest.Targets = CastMove->SavedPendingCustomMove.Targets;
+		CustomMoveAbilityRequest.Origin = CastMove->SavedPendingCustomMove.Origin;
 		CustomMoveAbilityRequest.ClientStartTime = CastMove->SavedPendingCustomMove.OriginalTimestamp;
 	}
 }
@@ -475,6 +476,7 @@ void USaiyoraMovementComponent::OnCustomMoveCastPredicted(FAbilityEvent const& E
 		return;
 	}
 	PendingCustomMove.Targets = Event.Targets;
+	PendingCustomMove.Origin = Event.Origin;
 	bWantsCustomMove = true;
 }
 

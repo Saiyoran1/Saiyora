@@ -30,6 +30,28 @@ void FAbilityCost::PostReplicatedChange(const FAbilityCostArray& InArraySerializ
 	}
 }
 
+FAbilityTargetSet::FAbilityTargetSet()
+{
+	//Needs to exist to prevent compile errors;
+}
+
+FAbilityTargetSet::FAbilityTargetSet(int32 const SetID, TArray<AActor*> const& Targets)
+{
+	this->SetID = SetID;
+	this->Targets = Targets;
+}
+
+FAbilityParams::FAbilityParams()
+{
+	//Needs to exist to prevent compile errors;
+}
+
+FAbilityParams::FAbilityParams(FAbilityOrigin const& InOrigin, TArray<FAbilityTargetSet> const& InTargets)
+{
+	this->Origin = InOrigin;
+	this->Targets = InTargets;
+}
+
 FPredictedTick::FPredictedTick()
 {
 	//Needs to exist to prevent compile errors.

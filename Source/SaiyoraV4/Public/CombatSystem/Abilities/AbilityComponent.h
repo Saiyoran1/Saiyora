@@ -27,7 +27,9 @@ struct FAbilityRequest
 	UPROPERTY()
 	float ClientStartTime = 0.0f;
 	UPROPERTY()
-	TArray<FAbilityTarget> Targets;
+	FAbilityOrigin Origin;
+	UPROPERTY()
+	TArray<FAbilityTargetSet> Targets;
 
 	friend FArchive& operator<<(FArchive& Ar, FAbilityRequest& Request)
 	{
@@ -35,6 +37,7 @@ struct FAbilityRequest
 		Ar << Request.PredictionID;
 		Ar << Request.Tick;
 		Ar << Request.ClientStartTime;
+		Ar << Request.Origin;
 		Ar << Request.Targets;
 		return Ar;
 	}
@@ -193,7 +196,7 @@ private:
 	void MulticastAbilityTick(FAbilityEvent const& Event);
 	TMap<FPredictedTick, bool> PredictedTickRecord;
 	TArray<FAbilityEvent> TicksAwaitingParams;
-	TMultiMap<FPredictedTick, FAbilityTarget> ParamsAwaitingTicks;
+	TMap<FPredictedTick, FAbilityParams> ParamsAwaitingTicks;
 	void RemoveExpiredTicks();
 	FAbilityNotification OnAbilityTick;
 	FAbilityMispredictionNotification OnAbilityMispredicted;

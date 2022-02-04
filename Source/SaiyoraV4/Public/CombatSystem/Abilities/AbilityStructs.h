@@ -84,33 +84,59 @@ struct FAbilityCooldown
 };
 
 USTRUCT(BlueprintType)
-struct FAbilityTarget
+struct FAbilityOrigin
 {
     GENERATED_BODY()
 
-    UPROPERTY(BlueprintReadWrite)
-    int32 IDNumber = 0;
-    UPROPERTY(BlueprintReadWrite)
-    AActor* HitTarget;
     UPROPERTY(BlueprintReadWrite)
     FVector_NetQuantize100 AimLocation;
     UPROPERTY(BlueprintReadWrite)
     FVector_NetQuantizeNormal AimDirection;
     UPROPERTY(BlueprintReadWrite)
-    bool bUseSeparateOrigin = false;
-    UPROPERTY(BlueprintReadWrite)
     FVector_NetQuantize100 Origin;
+
+    void Clear() { AimLocation = FVector::ZeroVector; AimDirection = FVector::ZeroVector; Origin = FVector::ZeroVector; }
     
-    friend FArchive& operator<<(FArchive& Ar, FAbilityTarget& Target)
+    friend FArchive& operator<<(FArchive& Ar, FAbilityOrigin& Origin)
     {
-        Ar << Target.IDNumber;
-        Ar << Target.HitTarget;
-        Ar << Target.AimLocation;
-        Ar << Target.AimDirection;
-        Ar << Target.bUseSeparateOrigin;
-        Ar << Target.Origin;
+        Ar << Origin.AimLocation;
+        Ar << Origin.AimDirection;
+        Ar << Origin.Origin;
         return Ar;
     }
+};
+
+USTRUCT(BlueprintType)
+struct FAbilityTargetSet
+{
+    GENERATED_BODY()
+    
+    UPROPERTY(BlueprintReadWrite)
+    int32 SetID = 0;
+    UPROPERTY(BlueprintReadWrite)
+    TArray<AActor*> Targets;
+
+    FAbilityTargetSet();
+    FAbilityTargetSet(int32 const SetID, TArray<AActor*> const& Targets);
+
+    friend FArchive& operator<<(FArchive& Ar, FAbilityTargetSet& TargetSet)
+    {
+        Ar << TargetSet.SetID;
+        Ar << TargetSet.Targets;
+        return Ar;
+    }
+};
+
+USTRUCT()
+struct FAbilityParams
+{
+    GENERATED_BODY()
+
+    FAbilityOrigin Origin;
+    TArray<FAbilityTargetSet> Targets;
+
+    FAbilityParams();
+    FAbilityParams(FAbilityOrigin const& InOrigin, TArray<FAbilityTargetSet> const& InTargets);
 };
 
 USTRUCT(BlueprintType)
@@ -128,8 +154,10 @@ struct FAbilityEvent
     ECastFailReason FailReason = ECastFailReason::None;
     UPROPERTY()
     int32 PredictionID = 0;
-    UPROPERTY()
-    TArray<FAbilityTarget> Targets;
+    UPROPERTY(BlueprintReadOnly)
+    FAbilityOrigin Origin;
+    UPROPERTY(BlueprintReadOnly)
+    TArray<FAbilityTargetSet> Targets;
 };
 
 USTRUCT(BlueprintType)
@@ -155,8 +183,10 @@ struct FCancelEvent
     float CancelTime = 0.0f;
     UPROPERTY(BlueprintReadOnly)
     int32 ElapsedTicks = 0;
-    UPROPERTY()
-    TArray<FAbilityTarget> Targets;
+    UPROPERTY(BlueprintReadOnly)
+    FAbilityOrigin Origin;
+    UPROPERTY(BlueprintReadOnly)
+    TArray<FAbilityTargetSet> Targets;
 };
 
 USTRUCT()
@@ -171,7 +201,9 @@ struct FCancelRequest
     UPROPERTY()
     float CancelTime = 0.0f;
     UPROPERTY()
-    TArray<FAbilityTarget> Targets;
+    FAbilityOrigin Origin;
+    UPROPERTY()
+    TArray<FAbilityTargetSet> Targets;
 };
 
 USTRUCT(BlueprintType)

@@ -491,63 +491,79 @@ void UCombatAbility::UpdateCostFromReplication(FAbilityCost const& Cost, bool co
 #pragma endregion
 #pragma region Functionality
 
-void UCombatAbility::PredictedTick(int32 const TickNumber, TArray<FAbilityTarget>& Targets, int32 const PredictionID)
+void UCombatAbility::PredictedTick(int32 const TickNumber, FAbilityOrigin& Origin, TArray<FAbilityTargetSet>& Targets, int32 const PredictionID)
 {
     CurrentPredictionID = PredictionID;
     CurrentTick = TickNumber;
     CurrentTargets.Empty();
+    AbilityOrigin = Origin;
     OnPredictedTick(TickNumber);
+    Origin = AbilityOrigin;
+    AbilityOrigin.Clear();
     Targets = CurrentTargets;
     CurrentTargets.Empty();
     CurrentTick = 0;
     CurrentPredictionID = 0;
 }
 
-void UCombatAbility::ServerTick(int32 const TickNumber, TArray<FAbilityTarget>& Targets, int32 const PredictionID)
+void UCombatAbility::ServerTick(int32 const TickNumber, FAbilityOrigin& Origin, TArray<FAbilityTargetSet>& Targets, int32 const PredictionID)
 {
     CurrentPredictionID = PredictionID;
     CurrentTick = TickNumber;
     CurrentTargets = Targets;
+    AbilityOrigin = Origin;
     OnServerTick(TickNumber);
+    Origin = AbilityOrigin;
+    AbilityOrigin.Clear();
     Targets = CurrentTargets;
     CurrentTargets.Empty();
     CurrentTick = 0;
     CurrentPredictionID = 0;
 }
 
-void UCombatAbility::SimulatedTick(int32 const TickNumber, TArray<FAbilityTarget> const& Targets)
+void UCombatAbility::SimulatedTick(int32 const TickNumber, FAbilityOrigin const& Origin, TArray<FAbilityTargetSet> const& Targets)
 {
     CurrentTick = TickNumber;
     CurrentTargets = Targets;
+    AbilityOrigin = Origin;
     OnSimulatedTick(TickNumber);
+    AbilityOrigin.Clear();
     CurrentTargets.Empty();
     CurrentTick = 0;
 }
 
-void UCombatAbility::PredictedCancel(TArray<FAbilityTarget>& Targets, int32 const PredictionID)
+void UCombatAbility::PredictedCancel(FAbilityOrigin& Origin, TArray<FAbilityTargetSet>& Targets, int32 const PredictionID)
 {
     CurrentPredictionID = PredictionID;
     CurrentTargets.Empty();
+    AbilityOrigin = Origin;
     OnPredictedCancel();
+    Origin = AbilityOrigin;
+    AbilityOrigin.Clear();
     Targets = CurrentTargets;
     CurrentTargets.Empty();
     CurrentPredictionID = 0;
 }
 
-void UCombatAbility::ServerCancel(TArray<FAbilityTarget>& Targets, int32 const PredictionID)
+void UCombatAbility::ServerCancel(FAbilityOrigin& Origin, TArray<FAbilityTargetSet>& Targets, int32 const PredictionID)
 {
     CurrentPredictionID = PredictionID;
     CurrentTargets = Targets;
+    AbilityOrigin = Origin;
     OnServerCancel();
+    Origin = AbilityOrigin;
+    AbilityOrigin.Clear();
     Targets = CurrentTargets;
     CurrentTargets.Empty();
     CurrentPredictionID = 0;
 }
 
-void UCombatAbility::SimulatedCancel(TArray<FAbilityTarget> const& Targets)
+void UCombatAbility::SimulatedCancel(FAbilityOrigin const& Origin, TArray<FAbilityTargetSet> const& Targets)
 {
     CurrentTargets = Targets;
+    AbilityOrigin = Origin;
     OnSimulatedCancel();
+    AbilityOrigin.Clear();
     CurrentTargets.Empty();
 }
 
@@ -574,26 +590,13 @@ void UCombatAbility::UpdatePredictionFromServer(FServerAbilityResult const& Resu
     }
 }
 
-bool UCombatAbility::GetTargetByID(int32 const ID, FAbilityTarget& OutTarget) const
+void UCombatAbility::AddTarget(AActor* Target, int32 const SetID)
 {
-    for (FAbilityTarget const& Target : CurrentTargets)
+    for (FAbilityTargetSet& Set : CurrentTargets)
     {
-        if (Target.IDNumber == ID)
+        if (Set.SetID == SetID)
         {
-            OutTarget = Target;
-            return true;
-        }
-    }
-    return false;
-}
-
-void UCombatAbility::RemoveTargetByID(int32 const ID)
-{
-    for (int i = 0; i < CurrentTargets.Num(); i++)
-    {
-        if (CurrentTargets[i].IDNumber == ID)
-        {
-            CurrentTargets.RemoveAt(i);
+            Set.Targets.Add(Target);
             return;
         }
     }
@@ -601,14 +604,76 @@ void UCombatAbility::RemoveTargetByID(int32 const ID)
 
 void UCombatAbility::RemoveTarget(AActor* Target)
 {
+    if (!IsValid(Target))
+    {
+        return;
+    }
+    for (FAbilityTargetSet& Set : CurrentTargets)
+    {
+        for (int i = 0; i < Set.Targets.Num(); i++)
+        {
+            if (Set.Targets[i] == Target)
+            {
+                Set.Targets.RemoveAt(i);
+                return;
+            }
+        }
+    }
+}
+
+void UCombatAbility::RemoveTargetFromAllSets(AActor* Target)
+{
+    if (!IsValid(Target))
+    {
+        return;
+    }
+    for (FAbilityTargetSet& Set : CurrentTargets)
+    {
+        for (int i = Set.Targets.Num() - 1; i >= 0; i--)
+        {
+            if (Set.Targets[i] == Target)
+            {
+                Set.Targets.RemoveAt(i);
+            }
+        }
+    }
+}
+
+void UCombatAbility::RemoveTargetSet(int32 const SetID)
+{
     for (int i = 0; i < CurrentTargets.Num(); i++)
     {
-        if (CurrentTargets[i].HitTarget == Target)
+        if (CurrentTargets[i].SetID == SetID)
         {
             CurrentTargets.RemoveAt(i);
             return;
         }
     }
+}
+
+void UCombatAbility::RemoveTargetFromSet(AActor* Target, int32 const SetID)
+{
+    for (FAbilityTargetSet& Set : CurrentTargets)
+    {
+        if (Set.SetID == SetID)
+        {
+            Set.Targets.Remove(Target);
+            return;
+        }
+    }
+}
+
+bool UCombatAbility::GetTargetSetByID(int32 const ID, FAbilityTargetSet& OutTargetSet) const
+{
+    for (FAbilityTargetSet const& Set : CurrentTargets)
+    {
+        if (Set.SetID == ID)
+        {
+            OutTargetSet = Set;
+            return true;
+        }
+    }
+    return false;
 }
 
 #pragma endregion 
