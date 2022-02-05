@@ -1,11 +1,13 @@
 #include "SaiyoraGameMode.h"
 #include "Hitbox.h"
 #include "SaiyoraCombatLibrary.h"
+#include "SaiyoraPlayerCharacter.h"
 #include "GameFramework/GameStateBase.h"
 #include "Kismet/KismetSystemLibrary.h"
 
 const float ASaiyoraGameMode::MaxLagCompensation = 0.3f;
 const float ASaiyoraGameMode::SnapshotInterval = 0.03f;
+const float ASaiyoraGameMode::CamTraceLength = 10000.0f;
 
 #pragma region Setup
 
@@ -134,13 +136,19 @@ FTransform ASaiyoraGameMode::RewindHitbox(UHitbox* Hitbox, float const Ping)
 #pragma endregion 
 #pragma region Trace Validation
 
-/*bool ASaiyoraGameMode::ValidateLineTraceTarget(AActor* Shooter, FAbilityOrigin const& Target, float const TraceLength,
-	TEnumAsByte<ETraceTypeQuery> const TraceChannel, TArray<AActor*> const ActorsToIgnore)
+bool ASaiyoraGameMode::ValidateLineTraceTarget(AActor* Shooter, FAbilityOrigin const& Origin, AActor* Target, float const TraceLength,
+	TEnumAsByte<ETraceTypeQuery> const TraceChannel, TArray<AActor*> const& ActorsToIgnore)
 {
-	if (!IsValid(Shooter) || Shooter->GetLocalRole() != ROLE_Authority || !IsValid(Target.HitTarget) || Shooter == Target.HitTarget
-		|| ActorsToIgnore.Contains(Target.HitTarget) || TraceLength <= 0.0f)
+	if (!IsValid(Shooter) || Shooter->GetLocalRole() != ROLE_Authority || !IsValid(Target) || Shooter == Target
+		|| ActorsToIgnore.Contains(Target) || TraceLength <= 0.0f)
 	{
 		return false;
+	}
+	APawn* ShooterAsPawn = Cast<APawn>(Shooter);
+	if (IsValid(ShooterAsPawn) && ShooterAsPawn->IsLocallyControlled())
+	{
+		//If the prediction was done locally, we don't need to validate.
+		return true;
 	}
 	//TODO: Validate aim location and origin (if using separate origin).
 	bool bDidHit = false;
@@ -151,20 +159,29 @@ FTransform ASaiyoraGameMode::RewindHitbox(UHitbox* Hitbox, float const Ping)
 	if (Ping > 0.0f)
 	{
 		TArray<UHitbox*> HitboxComponents;
-		Target.HitTarget->GetComponents<UHitbox>(HitboxComponents);
+		Target->GetComponents<UHitbox>(HitboxComponents);
 		for (UHitbox* Hitbox : HitboxComponents)
 		{
 			ReturnTransforms.Add(Hitbox, RewindHitbox(Hitbox, USaiyoraCombatLibrary::GetActorPing(Shooter)));
 		}
 	}
-	//Trace against the rewound hitboxes.
-	FVector const TraceEnd = Target.AimLocation + (TraceLength * Target.AimDirection.GetSafeNormal());
+	//Trace from the camera for a very large distance to find what we were aiming at.
+	//TODO: Math to find distance and angle from origin point so that we can calculate the max distance we can trace before we outrange the origin.
+	FVector const CamTraceEnd = Origin.AimLocation + (CamTraceLength * Origin.AimDirection.GetSafeNormal());
 	FHitResult Result;
-	UKismetSystemLibrary::LineTraceSingle(Shooter, Target.bUseSeparateOrigin ? Target.Origin : Target.AimLocation, TraceEnd,
+	UKismetSystemLibrary::LineTraceSingle(Shooter, Origin.AimLocation, CamTraceEnd,
 		TraceChannel, false, ActorsToIgnore, EDrawDebugTrace::ForDuration, Result, false, FLinearColor::Blue);
-	if (IsValid(Result.GetActor()) && Result.GetActor() == Target.HitTarget)
+	if (IsValid(Result.GetActor()) && Result.GetActor() == Target)
 	{
-		bDidHit = true;
+		//If the aim trace was successful (we were aiming at the target), check that a trace from the aim origin isn't blocked and is within range.
+		FVector OriginTraceEnd = Origin.Origin + (TraceLength * (Result.ImpactPoint - Origin.Origin).GetSafeNormal());
+		FHitResult OriginResult;
+		UKismetSystemLibrary::LineTraceSingle(Shooter, Origin.Origin, OriginTraceEnd, TraceChannel, false, ActorsToIgnore,
+			EDrawDebugTrace::ForDuration, OriginResult, false, FLinearColor::Green);
+		if (IsValid(OriginResult.GetActor()) && OriginResult.GetActor() == Target && FVector::DotProduct(Origin.AimDirection, (OriginResult.ImpactPoint - Origin.Origin)) > 0.0f)
+		{
+			bDidHit = true;
+		}
 	}
 	//Return all rewound hitboxes to their actual transforms.
 	for (TTuple<UHitbox*, FTransform> const& ReturnTransform : ReturnTransforms)
@@ -173,7 +190,7 @@ FTransform ASaiyoraGameMode::RewindHitbox(UHitbox* Hitbox, float const Ping)
 	}
 	return bDidHit;
 }
-
+/*
 bool ASaiyoraGameMode::ValidateMultiLineTraceTarget(AActor* Shooter, FAbilityOrigin const& Target,
 	float const TraceLength, TEnumAsByte<ETraceTypeQuery> const TraceChannel, TArray<AActor*> const ActorsToIgnore)
 {

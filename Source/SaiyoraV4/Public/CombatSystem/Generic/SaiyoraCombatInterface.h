@@ -23,6 +23,8 @@ class USaiyoraCombatInterface : public UInterface
 class SAIYORAV4_API ISaiyoraCombatInterface
 {
 	GENERATED_BODY()
+
+//Component Getters
 	
 public:
 	
@@ -56,4 +58,19 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Movement")
 	USaiyoraMovementComponent* GetCustomMovementComponent() const;
 	virtual USaiyoraMovementComponent* GetCustomMovementComponent_Implementation() const { return nullptr; }
+
+//Socket Getters
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Damage")
+	USceneComponent* GetFloatingHealthSocket(FName& SocketName) const;
+	virtual USceneComponent* GetFloatingHealthSocket_Implementation(FName& SocketName) const { return nullptr; }
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Damage")
+	USceneComponent* GetDamageEffectSocket(FName& SocketName) const;
+	virtual USceneComponent* GetDamageEffectSocket_Implementation(FName& SocketName) const { return nullptr; }
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Abilities")
+	USceneComponent* GetAbilityOriginSocket(FName& SocketName) const;
+	virtual USceneComponent* GetAbilityOriginSocket_Implementation(FName& SocketName) const { return nullptr; }
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Abilities")
+	USceneComponent* GetAimSocket(FName& SocketName) const;
+	virtual USceneComponent* GetAimSocket_Implementation(FName& SocketName) const { return nullptr; }
 };
