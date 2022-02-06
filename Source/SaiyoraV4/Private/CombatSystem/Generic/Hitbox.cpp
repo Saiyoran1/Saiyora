@@ -1,4 +1,6 @@
 #include "CombatSystem/Generic/Hitbox.h"
+
+#include "AbilityFunctionLibrary.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraGameMode.h"
 #include "Faction/FactionComponent.h"
@@ -27,11 +29,12 @@ void UHitbox::BeginPlay()
 	}
 	if (GetOwnerRole() == ROLE_Authority)
 	{
-		GameModeRef = Cast<ASaiyoraGameMode>(GetWorld()->GetAuthGameMode());
+		/*GameModeRef = Cast<ASaiyoraGameMode>(GetWorld()->GetAuthGameMode());
 		if (IsValid(GameModeRef))
 		{
 			GameModeRef->RegisterNewHitbox(this);
-		}
+		}*/
+		UAbilityFunctionLibrary::RegisterNewHitbox(this);
 	}
 }
 
