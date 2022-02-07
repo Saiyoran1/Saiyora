@@ -17,12 +17,18 @@ public:
 	static FAbilityOrigin MakeAbilityOrigin(FVector const& AimLocation, FVector const& AimDirection, FVector const& Origin);
 	
 	UFUNCTION(BlueprintCallable, Category = "Abilities", meta = (AutoCreateRefTerm = "ActorsToIgnore"))
-    static bool PredictLineTrace(AActor* Shooter, float const TraceLength, TEnumAsByte<ETraceTypeQuery> const TraceChannel,
+    static bool PredictLineTrace(AActor* Shooter, float const TraceLength, bool const bHostile,
     	TArray<AActor*> const& ActorsToIgnore, int32 const TargetSetID, FHitResult& Result, FAbilityOrigin& OutOrigin, FAbilityTargetSet& OutTargetSet);
-
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities", meta = (AutoCreateRefTerm = "ActorsToIgnore"))
 	static bool ValidateLineTraceTarget(AActor* Shooter, FAbilityOrigin const& Origin, AActor* Target, float const TraceLength,
-		TEnumAsByte<ETraceTypeQuery> const TraceChannel, TArray<AActor*> const& ActorsToIgnore);
+		bool const bHostile, TArray<AActor*> const& ActorsToIgnore);
+
+	UFUNCTION(BlueprintCallable, Category = "Abilities", meta = (AutoCreateRefTerm = "ActorsToIgnore"))
+	static bool PredictMultiLineTrace(AActor* Shooter, float const TraceLength, bool const bHostile, TArray<AActor*> const& ActorsToIgnore,
+		int32 const TargetSetID, TArray<FHitResult>& Results, FAbilityOrigin& OutOrigin, FAbilityTargetSet& OutTargetSet);
+	UFUNCTION(BlueprintCallable, Category = "Abilities", meta = (AutoCreateRefTerm = "ActorsToIgnore"))
+	static TArray<AActor*> ValidateLineTraceMulti(AActor* Shooter, FAbilityOrigin const& Origin, TArray<AActor*> const& Targets,
+		float const TraceLength, bool const bHostile, TArray<AActor*> const& ActorsToIgnore);
 
 private:
 
