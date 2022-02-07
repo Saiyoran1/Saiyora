@@ -92,6 +92,7 @@ bool UCrowdControlHandler::IsCrowdControlActive(FGameplayTag const CcTag) const
 
 void UCrowdControlHandler::GetActiveCrowdControls(FGameplayTagContainer& OutCcs) const
 {
+	OutCcs.Reset();
 	if (StunStatus.bActive)
 	{
 		OutCcs.AddTag(StunTag());

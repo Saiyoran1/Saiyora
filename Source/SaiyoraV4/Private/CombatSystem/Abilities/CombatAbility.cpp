@@ -665,6 +665,8 @@ void UCombatAbility::RemoveTargetFromSet(AActor* Target, int32 const SetID)
 
 bool UCombatAbility::GetTargetSetByID(int32 const ID, FAbilityTargetSet& OutTargetSet) const
 {
+    OutTargetSet.Targets.Empty();
+    OutTargetSet.SetID = 0;
     for (FAbilityTargetSet const& Set : CurrentTargets)
     {
         if (Set.SetID == ID)

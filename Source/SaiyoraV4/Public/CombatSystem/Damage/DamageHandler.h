@@ -96,6 +96,7 @@ private:
 	FHealthChangeNotification OnHealthChanged;
 	FHealthChangeNotification OnMaxHealthChanged;
 	FLifeStatusNotification OnLifeStatusChanged;
+	UPROPERTY()
 	TMap<UBuff*, FDeathRestriction> DeathRestrictions;
 
 	void UpdateMaxHealth(float const NewMaxHealth);
@@ -131,7 +132,9 @@ private:
 	
 	FDamageEventNotification OnOutgoingDamage;
 	FDamageEventNotification OnKillingBlow;
+	UPROPERTY()
 	TMap<UBuff*, FDamageRestriction> OutgoingDamageRestrictions;
+	UPROPERTY()
 	TMap<UBuff*, FDamageModCondition> OutgoingDamageModifiers;
 
 	UFUNCTION(Client, Unreliable)
@@ -158,7 +161,9 @@ public:
 private:
 	
     FDamageEventNotification OnOutgoingHealing;
+	UPROPERTY()
     TMap<UBuff*, FDamageRestriction> OutgoingHealingRestrictions;
+	UPROPERTY()
     TMap<UBuff*, FDamageModCondition> OutgoingHealingModifiers;
     
     UFUNCTION(Client, Unreliable)
@@ -196,7 +201,9 @@ private:
 	FDamagingEvent PendingKillingBlow;
 	
 	FDamageEventNotification OnIncomingDamage;
+	UPROPERTY()
 	TMap<UBuff*, FDamageRestriction> IncomingDamageRestrictions;
+	UPROPERTY()
 	TMap<UBuff*, FDamageModCondition> IncomingDamageModifiers;
 
 	UFUNCTION(Client, Unreliable)
@@ -231,7 +238,9 @@ private:
 	bool bCanEverReceiveHealing = true;
 	
 	FDamageEventNotification OnIncomingHealing;
+	UPROPERTY()
 	TMap<UBuff*, FDamageRestriction> IncomingHealingRestrictions;
+	UPROPERTY()
 	TMap<UBuff*, FDamageModCondition> IncomingHealingModifiers;
 
 	UFUNCTION(Client, Unreliable)

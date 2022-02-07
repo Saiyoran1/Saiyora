@@ -265,6 +265,7 @@ void UBuffHandler::RemoveBuffsOnOwnerDeath(AActor* Actor, ELifeStatus const Prev
 
 void UBuffHandler::GetBuffsOfClass(TSubclassOf<UBuff> const BuffClass, TArray<UBuff*>& OutBuffs) const
 {
+	OutBuffs.Empty();
 	if (!IsValid(BuffClass))
 	{
 		return;
@@ -295,6 +296,7 @@ void UBuffHandler::GetBuffsOfClass(TSubclassOf<UBuff> const BuffClass, TArray<UB
 
 void UBuffHandler::GetBuffsAppliedByActor(AActor* Actor, TArray<UBuff*>& OutBuffs) const
 {
+	OutBuffs.Empty();
 	if (!IsValid(Actor))
 	{
 		return;
@@ -324,6 +326,7 @@ void UBuffHandler::GetBuffsAppliedByActor(AActor* Actor, TArray<UBuff*>& OutBuff
 
 void UBuffHandler::GetOutgoingBuffsOfClass(TSubclassOf<UBuff> const BuffClass, TArray<UBuff*>& OutBuffs) const
 {
+	OutBuffs.Empty();
 	if (!IsValid(BuffClass))
 	{
 		return;
@@ -339,6 +342,7 @@ void UBuffHandler::GetOutgoingBuffsOfClass(TSubclassOf<UBuff> const BuffClass, T
 
 void UBuffHandler::GetBuffsAppliedToActor(AActor* Target, TArray<UBuff*>& OutBuffs) const
 {
+	OutBuffs.Empty();
 	if (!IsValid(Target))
 	{
 		return;

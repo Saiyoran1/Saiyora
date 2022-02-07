@@ -69,7 +69,7 @@ public:
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
     ESaiyoraPlane GetAbilityPlane() const { return Plane; }
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-    void GetAbilityTags(FGameplayTagContainer& OutTags) const { OutTags.AppendTags(AbilityTags); }
+    void GetAbilityTags(FGameplayTagContainer& OutTags) const { OutTags = AbilityTags; }
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
     bool HasTag(FGameplayTag const Tag) const { return AbilityTags.HasTag(Tag); }
     
@@ -291,9 +291,9 @@ private:
 public:
 
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-    void GetDefaultAbilityCosts(TArray<FDefaultAbilityCost>& OutCosts) const { OutCosts.Append(DefaultAbilityCosts); }
+    void GetDefaultAbilityCosts(TArray<FDefaultAbilityCost>& OutCosts) const { OutCosts = DefaultAbilityCosts; }
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-    void GetAbilityCosts(TArray<FAbilityCost>& OutCosts) const { OutCosts.Append(AbilityCosts.Items); }
+    void GetAbilityCosts(TArray<FAbilityCost>& OutCosts) const { OutCosts = AbilityCosts.Items; }
     UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
     void AddResourceCostModifier(TSubclassOf<UResource> const ResourceClass, FCombatModifier const& Modifier);
     UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
@@ -375,12 +375,12 @@ protected:
     UFUNCTION(BlueprintCallable, Category = "Abilities")
     void RemoveTargetFromSet(AActor* Target, int32 const SetID);
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-    void GetTargets(TArray<FAbilityTargetSet>& OutTargets) const { OutTargets = CurrentTargets; }
+    void GetTargets(TArray<FAbilityTargetSet>& OutTargets) const { OutTargets.Empty(); OutTargets = CurrentTargets; }
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
     bool GetTargetSetByID(int32 const ID, FAbilityTargetSet& OutTargetSet) const;
 
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-    void GetAbilityOrigin(FAbilityOrigin& OutOrigin) const { OutOrigin = AbilityOrigin; }
+    void GetAbilityOrigin(FAbilityOrigin& OutOrigin) const { OutOrigin.Clear(); OutOrigin = AbilityOrigin; }
     UFUNCTION(BlueprintCallable, Category = "Abilities")
     void SetAbilityOrigin(FAbilityOrigin const& Origin) { AbilityOrigin = Origin; }
     

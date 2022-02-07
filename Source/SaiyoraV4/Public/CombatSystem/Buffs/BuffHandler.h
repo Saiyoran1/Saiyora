@@ -45,11 +45,11 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buffs")
 	bool CanEverReceiveBuffs() const { return bCanEverReceiveBuffs; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
-	void GetBuffs(TArray<UBuff*>& OutBuffs) const { OutBuffs.Append(Buffs); }
+	void GetBuffs(TArray<UBuff*>& OutBuffs) const { OutBuffs = Buffs; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
-	void GetDebuffs(TArray<UBuff*>& OutDebuffs) const { OutDebuffs.Append(Debuffs); }
+	void GetDebuffs(TArray<UBuff*>& OutDebuffs) const { OutDebuffs = Debuffs; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
-	void GetHiddenBuffs(TArray<UBuff*>& OutHiddenBuffs) const { OutHiddenBuffs.Append(HiddenBuffs); }
+	void GetHiddenBuffs(TArray<UBuff*>& OutHiddenBuffs) const { OutHiddenBuffs = HiddenBuffs; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
 	void GetBuffsOfClass(TSubclassOf<UBuff> const BuffClass, TArray<UBuff*>& OutBuffs) const;
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
@@ -99,7 +99,7 @@ private:
 public:
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
-	void GetOutgoingBuffs(TArray<UBuff*>& OutBuffs) const { OutBuffs.Append(OutgoingBuffs); }
+	void GetOutgoingBuffs(TArray<UBuff*>& OutBuffs) const { OutBuffs = OutgoingBuffs; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
 	void GetOutgoingBuffsOfClass(TSubclassOf<UBuff> const BuffClass, TArray<UBuff*>& OutBuffs) const;
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")

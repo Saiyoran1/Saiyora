@@ -1339,6 +1339,7 @@ void UAbilityComponent::RemoveAbilityClassRestriction(UBuff* Source, TSubclassOf
 
 bool UAbilityComponent::CanUseAbility(UCombatAbility* Ability, ECastFailReason& OutFailReason) const
 {
+	OutFailReason = ECastFailReason::None;
 	if (!IsValid(Ability))
 	{
 		OutFailReason = ECastFailReason::InvalidAbility;

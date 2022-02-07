@@ -30,7 +30,7 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resource")
 	UResource* FindActiveResource(TSubclassOf<UResource> const ResourceClass) const;
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resource")
-	void GetActiveResources(TArray<UResource*>& OutResources) const { return OutResources.Append(ActiveResources); }
+	void GetActiveResources(TArray<UResource*>& OutResources) const { OutResources = ActiveResources; }
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Resources")
 	void AddNewResource(TSubclassOf<UResource> const ResourceClass, FResourceInitInfo const& InitInfo);
 	void NotifyOfReplicatedResource(UResource* Resource);

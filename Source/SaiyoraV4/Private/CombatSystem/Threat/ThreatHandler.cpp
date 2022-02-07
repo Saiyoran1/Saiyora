@@ -486,6 +486,7 @@ float UThreatHandler::GetActorThreatValue(AActor* Actor) const
 
 void UThreatHandler::GetActorsInThreatTable(TArray<AActor*>& OutActors) const
 {
+	OutActors.Empty();
 	for (FThreatTarget const& Target : ThreatTable)
 	{
 		if (IsValid(Target.Target))

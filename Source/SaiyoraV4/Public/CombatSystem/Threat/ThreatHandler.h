@@ -110,9 +110,13 @@ private:
 	void RemoveFromThreatTable(AActor* Actor);
 	void ClearThreatTable();
 	void RemoveThreat(float const Amount, AActor* AppliedBy);
+	UPROPERTY()
 	TMap<UBuff*, FThreatModCondition> OutgoingThreatMods;
+	UPROPERTY()
 	TMap<UBuff*, FThreatModCondition> IncomingThreatMods;
+	UPROPERTY()
 	TMap<UBuff*, FThreatRestriction> OutgoingThreatRestrictions;
+	UPROPERTY()
 	TMap<UBuff*, FThreatRestriction> IncomingThreatRestrictions;
 	UPROPERTY(ReplicatedUsing=OnRep_CurrentTarget)
 	AActor* CurrentTarget = nullptr;

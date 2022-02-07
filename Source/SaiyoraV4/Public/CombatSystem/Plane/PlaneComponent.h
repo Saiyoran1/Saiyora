@@ -58,6 +58,7 @@ private:
 	UFUNCTION()
 	void OnRep_PlaneStatus(FPlaneStatus const PreviousStatus);
 	FPlaneSwapNotification OnPlaneSwapped;
+	UPROPERTY()
 	TMap<UBuff*, FPlaneSwapRestriction> PlaneSwapRestrictions;
 	UFUNCTION()
 	void UpdateOwnerCustomRendering();

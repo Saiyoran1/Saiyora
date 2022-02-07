@@ -83,7 +83,7 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
 	float GetMaxDuration() const { return MaximumDuration; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
-	void GetBuffTags(FGameplayTagContainer& OutContainer) const { OutContainer.AppendTags(BuffTags); }
+	void GetBuffTags(FGameplayTagContainer& OutContainer) const { OutContainer = BuffTags; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
 	bool CanBeAppliedWhileDead() const { return bIgnoreDeath; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
@@ -101,7 +101,7 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
 	ESaiyoraPlane GetInitialTargetPlane() const { return CreationEvent.TargetPlane; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
-	void GetInitialParameters(TArray<FCombatParameter>& OutParams) const { OutParams.Append(CreationEvent.CombatParams); }
+	void GetInitialParameters(TArray<FCombatParameter>& OutParams) const { OutParams = CreationEvent.CombatParams; }
 	void InitializeBuff(FBuffApplyEvent& Event, UBuffHandler* NewHandler, bool const bIgnoreRestrictions, EBuffApplicationOverrideType const StackOverrideType,
 		int32 const OverrideStacks, EBuffApplicationOverrideType const RefreshOverrideType, float const OverrideDuration);
 	void ApplyEvent(FBuffApplyEvent& ApplicationEvent, EBuffApplicationOverrideType const StackOverrideType,
@@ -181,7 +181,7 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
 	ESaiyoraPlane GetLastTargetPlane() const { return LastApplyEvent.ActionTaken == EBuffApplyAction::Failed ? CreationEvent.TargetPlane : LastApplyEvent.TargetPlane; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
-	void GetLastApplicationParameters(TArray<FCombatParameter>& OutParams) const { LastApplyEvent.ActionTaken == EBuffApplyAction::Failed ? OutParams.Append(CreationEvent.CombatParams) : OutParams.Append(LastApplyEvent.CombatParams); }
+	void GetLastApplicationParameters(TArray<FCombatParameter>& OutParams) const { LastApplyEvent.ActionTaken == EBuffApplyAction::Failed ? OutParams = CreationEvent.CombatParams : OutParams = LastApplyEvent.CombatParams; }
 	int32 GetLastPredictionID() const { return LastApplyEvent.ActionTaken == EBuffApplyAction::Failed ? CreationEvent.PredictionID : LastApplyEvent.PredictionID; }
 
 	UFUNCTION(BlueprintCallable, Category = "Buffs")
