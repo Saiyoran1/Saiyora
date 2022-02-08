@@ -20,7 +20,7 @@ public:
     static bool PredictLineTrace(class ASaiyoraPlayerCharacter* Shooter, float const TraceLength, bool const bHostile,
     	TArray<AActor*> const& ActorsToIgnore, int32 const TargetSetID, FHitResult& Result, FAbilityOrigin& OutOrigin, FAbilityTargetSet& OutTargetSet);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities", meta = (AutoCreateRefTerm = "ActorsToIgnore"))
-	static bool ValidateLineTraceTarget(class ASaiyoraPlayerCharacter* Shooter, FAbilityOrigin const& Origin, AActor* Target, float const TraceLength,
+	static bool ValidateLineTrace(class ASaiyoraPlayerCharacter* Shooter, FAbilityOrigin const& Origin, AActor* Target, float const TraceLength,
 		bool const bHostile, TArray<AActor*> const& ActorsToIgnore);
 
 	UFUNCTION(BlueprintCallable, Category = "Abilities", meta = (AutoCreateRefTerm = "ActorsToIgnore"))
@@ -34,14 +34,28 @@ public:
 	static bool PredictSphereTrace(class ASaiyoraPlayerCharacter* Shooter, float const TraceLength, float const TraceRadius, bool const bHostile,
 		TArray<AActor*> const& ActorsToIgnore, int32 const TargetSetID, FHitResult& Result, FAbilityOrigin& OutOrigin, FAbilityTargetSet& OutTargetSet);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities", meta = (AutoCreateRefTerm = "ActorsToIgnore"))
-	static bool ValidateSphereTraceTarget(class ASaiyoraPlayerCharacter* Shooter, FAbilityOrigin const& Origin, AActor* Target, float const TraceLength,
+	static bool ValidateSphereTrace(class ASaiyoraPlayerCharacter* Shooter, FAbilityOrigin const& Origin, AActor* Target, float const TraceLength,
+		float const TraceRadius, bool const bHostile, TArray<AActor*> const& ActorsToIgnore);
+
+	UFUNCTION(BlueprintCallable, Category = "Abilities", meta = (AutoCreateRefTerm = "ActorsToIgnore"))
+	static bool PredictMultiSphereTrace(class ASaiyoraPlayerCharacter* Shooter, float const TraceLength, float const TraceRadius, bool const bHostile,
+		TArray<AActor*> const& ActorsToIgnore, int32 const TargetSetID, TArray<FHitResult>& Results, FAbilityOrigin& OutOrigin, FAbilityTargetSet& OutTargetSet);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities", meta = (AutoCreateRefTerm = "ActorsToIgnore"))
+	static TArray<AActor*> ValidateMultiSphereTrace(class ASaiyoraPlayerCharacter* Shooter, FAbilityOrigin const& Origin, TArray<AActor*> const& Targets, float const TraceLength,
 		float const TraceRadius, bool const bHostile, TArray<AActor*> const& ActorsToIgnore);
 
 	UFUNCTION(BlueprintCallable, Category = "Abilities", meta = (AutoCreateRefTerm = "ActorsToIgnore"))
 	static bool PredictSphereSightTrace(class ASaiyoraPlayerCharacter* Shooter, float const TraceLength, float const TraceRadius, bool const bHostile,
 		TArray<AActor*> const& ActorsToIgnore, int32 const TargetSetID, FHitResult& Result, FAbilityOrigin& OutOrigin, FAbilityTargetSet& OutTargetSet);
 	UFUNCTION(BlueprintCallable, Category = "Abilities", meta = (AutoCreateRefTerm = "ActorsToIgnore"))
-	static bool ValidateSphereSightTraceTarget(class ASaiyoraPlayerCharacter* Shooter, FAbilityOrigin const& Origin, AActor* Target, float const TraceLength,
+	static bool ValidateSphereSightTrace(class ASaiyoraPlayerCharacter* Shooter, FAbilityOrigin const& Origin, AActor* Target, float const TraceLength,
+		float const TraceRadius, bool const bHostile, TArray<AActor*> const& ActorsToIgnore);
+
+	UFUNCTION(BlueprintCallable, Category = "Abilities", meta = (AutoCreateRefTerm = "ActorsToIgnore"))
+	static bool PredictMultiSphereSightTrace(class ASaiyoraPlayerCharacter* Shooter, float const TraceLength, float const TraceRadius, bool const bHostile,
+		TArray<AActor*> const& ActorsToIgnore, int32 const TargetSetID, TArray<FHitResult>& Results, FAbilityOrigin& OutOrigin, FAbilityTargetSet& OutTargetSet);
+	UFUNCTION(BlueprintCallable, Category = "Abilities", meta = (AutoCreateRefTerm = "ActorsToIgnore"))
+	static TArray<AActor*> ValidateMultiSphereSightTrace(class ASaiyoraPlayerCharacter* Shooter, FAbilityOrigin const& Origin, TArray<AActor*> const& Targets, float const TraceLength,
 		float const TraceRadius, bool const bHostile, TArray<AActor*> const& ActorsToIgnore);
 
 private:
@@ -50,6 +64,7 @@ private:
 	static const float CamTraceLength;
 	static const float MaxLagCompensation;
 	static const float SnapshotInterval;
+	static const float RewindTraceRadius;
 	UFUNCTION()
 	static void CreateSnapshot();
 	static FTimerHandle SnapshotHandle;
