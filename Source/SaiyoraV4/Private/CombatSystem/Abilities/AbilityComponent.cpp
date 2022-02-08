@@ -594,11 +594,11 @@ bool UAbilityComponent::TryQueueAbility(TSubclassOf<UCombatAbility> const Abilit
 	{
 		return false;
 	}
-	if (CastingState.bIsCasting && CastingState.CastEndTime == 0.0f)
+	if (CastingState.bIsCasting && CastingState.CastEndTime == -1.0f)
 	{
 		return false;
 	}
-	if (AbilityClass->GetDefaultObject<UCombatAbility>()->HasGlobalCooldown() && GlobalCooldownState.bGlobalCooldownActive && GlobalCooldownState.EndTime == 0.0f)
+	if (AbilityClass->GetDefaultObject<UCombatAbility>()->HasGlobalCooldown() && GlobalCooldownState.bGlobalCooldownActive && GlobalCooldownState.EndTime == -1.0f)
 	{
 		return false;
 	}
