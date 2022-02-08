@@ -261,9 +261,9 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
 	bool IsInterruptible() const { return CastingState.bIsCasting && CastingState.bInterruptible; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-    float GetCurrentCastLength() const { return CastingState.bIsCasting && CastingState.CastEndTime != 0.0f ? FMath::Max(0.0f, CastingState.CastEndTime - CastingState.CastStartTime) : 0.0f; }
+    float GetCurrentCastLength() const { return CastingState.bIsCasting && CastingState.CastEndTime != -1.0f ? FMath::Max(0.0f, CastingState.CastEndTime - CastingState.CastStartTime) : -1.0f; }
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-    float GetCastTimeRemaining() const { return CastingState.bIsCasting && CastingState.CastEndTime != 0.0f ? FMath::Max(0.0f, CastingState.CastEndTime - GameStateRef->GetServerWorldTimeSeconds()) : 0.0f; }
+    float GetCastTimeRemaining() const { return CastingState.bIsCasting && CastingState.CastEndTime != -1.0f ? FMath::Max(0.0f, CastingState.CastEndTime - GameStateRef->GetServerWorldTimeSeconds()) : -1.0f; }
     UFUNCTION(BlueprintCallable, Category = "Abilities")
     void SubscribeToCastStateChanged(FCastingStateCallback const& Callback);
     UFUNCTION(BlueprintCallable, Category = "Abilities")
@@ -290,9 +290,9 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
 	bool IsGlobalCooldownActive() const { return GlobalCooldownState.bGlobalCooldownActive; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-	float GetCurrentGlobalCooldownLength() const { return GlobalCooldownState.bGlobalCooldownActive && GlobalCooldownState.EndTime != 0.0f ? FMath::Max(0.0f, GlobalCooldownState.EndTime - GlobalCooldownState.StartTime) : 0.0f; }
+	float GetCurrentGlobalCooldownLength() const { return GlobalCooldownState.bGlobalCooldownActive && GlobalCooldownState.EndTime != -1.0f ? FMath::Max(0.0f, GlobalCooldownState.EndTime - GlobalCooldownState.StartTime) : -1.0f; }
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities")
-	float GetGlobalCooldownTimeRemaining() const { return GlobalCooldownState.bGlobalCooldownActive && GlobalCooldownState.EndTime != 0.0f ? FMath::Max(0.0f, GlobalCooldownState.EndTime - GameStateRef->GetServerWorldTimeSeconds()) : 0.0f; }
+	float GetGlobalCooldownTimeRemaining() const { return GlobalCooldownState.bGlobalCooldownActive && GlobalCooldownState.EndTime != -1.0f ? FMath::Max(0.0f, GlobalCooldownState.EndTime - GameStateRef->GetServerWorldTimeSeconds()) : -1.0f; }
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void SubscribeToGlobalCooldownChanged(FGlobalCooldownCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Abilities")

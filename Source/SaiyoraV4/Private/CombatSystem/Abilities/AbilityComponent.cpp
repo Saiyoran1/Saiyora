@@ -456,7 +456,7 @@ void UAbilityComponent::ClientPredictionResult_Implementation(FServerAbilityResu
 	if (GlobalCooldownState.PredictionID <= Result.PredictionID)
 	{
 		GlobalCooldownState.PredictionID = Result.PredictionID;
-		if (Result.bSuccess && Result.bActivatedGlobal && Result.ClientStartTime + Result.GlobalLength <  GameStateRef->GetServerWorldTimeSeconds())
+		if (Result.bSuccess && Result.bActivatedGlobal && Result.ClientStartTime + Result.GlobalLength > GameStateRef->GetServerWorldTimeSeconds())
 		{
 			FGlobalCooldown const PreviousState = GlobalCooldownState;
 			GlobalCooldownState.bGlobalCooldownActive = true;
@@ -868,7 +868,7 @@ void UAbilityComponent::StartCast(UCombatAbility* Ability, int32 const Predictio
 	}
 	else
 	{
-		CastingState.CastEndTime = 0.0f;
+		CastingState.CastEndTime = -1.0f;
 	}
     OnCastStateChanged.Broadcast(PreviousState, CastingState);
 }
@@ -918,7 +918,7 @@ void UAbilityComponent::StartGlobalCooldown(UCombatAbility* Ability, int32 const
 	}
 	else
 	{
-		GlobalCooldownState.EndTime = 0.0f;
+		GlobalCooldownState.EndTime = -1.0f;
 	}
 	OnGlobalCooldownChanged.Broadcast(PreviousState, GlobalCooldownState);
 }
