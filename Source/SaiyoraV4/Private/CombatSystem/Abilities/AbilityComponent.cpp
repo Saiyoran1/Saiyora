@@ -23,6 +23,7 @@ UAbilityComponent::UAbilityComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
 	SetIsReplicatedByDefault(true);
+	bWantsInitializeComponent = true;
 }
 
 bool UAbilityComponent::IsLocallyControlled() const
@@ -31,27 +32,31 @@ bool UAbilityComponent::IsLocallyControlled() const
 	return IsValid(OwnerAsPawn) && OwnerAsPawn->IsLocallyControlled();
 }
 
-
-void UAbilityComponent::BeginPlay()
+void UAbilityComponent::InitializeComponent()
 {
-	Super::BeginPlay();
 	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Ability Handler."));
-	GameStateRef = GetWorld()->GetGameState<AGameState>();
-	checkf(IsValid(GameStateRef), TEXT("Got an invalid Game State Ref in Ability Handler."));
 	ResourceHandlerRef = ISaiyoraCombatInterface::Execute_GetResourceHandler(GetOwner());
 	StatHandlerRef = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
 	CrowdControlHandlerRef = ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(GetOwner());
 	DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
+	CcCallback.BindDynamic(this, &UAbilityComponent::InterruptCastOnCrowdControl);
+	DeathCallback.BindDynamic(this, &UAbilityComponent::InterruptCastOnDeath);
+}
+
+void UAbilityComponent::BeginPlay()
+{
+	Super::BeginPlay();
+	
+	GameStateRef = GetWorld()->GetGameState<AGameState>();
+	checkf(IsValid(GameStateRef), TEXT("Got an invalid Game State Ref in Ability Handler."));
 	if (GetOwnerRole() == ROLE_Authority)
 	{
 		if (IsValid(CrowdControlHandlerRef))
 		{
-			CcCallback.BindDynamic(this, &UAbilityComponent::InterruptCastOnCrowdControl);
 			CrowdControlHandlerRef->SubscribeToCrowdControlChanged(CcCallback);
 		}
 		if (IsValid(DamageHandlerRef))
 		{
-			DeathCallback.BindDynamic(this, &UAbilityComponent::InterruptCastOnDeath);
 			DamageHandlerRef->SubscribeToLifeStatusChanged(DeathCallback);
 		}
 		for (TSubclassOf<UCombatAbility> const AbilityClass : DefaultAbilities)
@@ -114,7 +119,6 @@ void UAbilityComponent::NotifyOfReplicatedAbility(UCombatAbility* NewAbility)
 	if (IsValid(NewAbility) && !ActiveAbilities.Contains(NewAbility->GetClass()))
 	{
 		ActiveAbilities.Add(NewAbility->GetClass(), NewAbility);
-		NewAbility->InitializeAbility(this);
 		OnAbilityAdded.Broadcast(NewAbility);
 	}
 }

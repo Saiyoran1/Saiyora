@@ -17,29 +17,31 @@ UCrowdControlHandler::UCrowdControlHandler()
 void UCrowdControlHandler::InitializeComponent()
 {
 	Super::InitializeComponent();
+	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Crowd Control Handler."));
+	BuffHandler = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwner());
+	DamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
+	OnBuffApplied.BindDynamic(this, &UCrowdControlHandler::CheckAppliedBuffForCc);
+	OnBuffRemoved.BindDynamic(this, &UCrowdControlHandler::CheckRemovedBuffForCc);
+	OnDamageTaken.BindDynamic(this, &UCrowdControlHandler::RemoveIncapacitatesOnDamageTaken);
 	StunStatus.CrowdControlType = StunTag();
 	IncapStatus.CrowdControlType = IncapacitateTag();
 	RootStatus.CrowdControlType = RootTag();
 	SilenceStatus.CrowdControlType = SilenceTag();
 	DisarmStatus.CrowdControlType = DisarmTag();
+	
 }
 
 void UCrowdControlHandler::BeginPlay()
 {
 	Super::BeginPlay();
-	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Crowd Control Handler."));
+	
 	if (GetOwnerRole() == ROLE_Authority)
 	{
-		BuffHandler = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwner());
 		checkf(IsValid(BuffHandler), TEXT("Owner does not have a valid Buff Handler, which CC Handler depends on."));
-		OnBuffApplied.BindDynamic(this, &UCrowdControlHandler::CheckAppliedBuffForCc);
 		BuffHandler->SubscribeToIncomingBuff(OnBuffApplied);
-		OnBuffRemoved.BindDynamic(this, &UCrowdControlHandler::CheckRemovedBuffForCc);
 		BuffHandler->SubscribeToIncomingBuffRemove(OnBuffRemoved);
-		DamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
 		if (IsValid(DamageHandler))
 		{
-			OnDamageTaken.BindDynamic(this, &UCrowdControlHandler::RemoveIncapacitatesOnDamageTaken);
 			DamageHandler->SubscribeToIncomingDamage(OnDamageTaken);
 		}
 	}

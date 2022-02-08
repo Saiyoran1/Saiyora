@@ -12,12 +12,12 @@ UResourceHandler::UResourceHandler()
 {
 	PrimaryComponentTick.bCanEverTick = false;
 	SetIsReplicatedByDefault(true);
+	bWantsInitializeComponent = true;
 }
 
 void UResourceHandler::BeginPlay()
 {
 	Super::BeginPlay();
-	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Resource Handler."));
 	
 	if (GetOwnerRole() == ROLE_Authority)
 	{
@@ -26,6 +26,11 @@ void UResourceHandler::BeginPlay()
 			AddNewResource(InitInfo.Key, InitInfo.Value);
 		}
 	}
+}
+
+void UResourceHandler::InitializeComponent()
+{
+	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Resource Handler."));
 }
 
 void UResourceHandler::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const

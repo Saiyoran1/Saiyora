@@ -180,6 +180,26 @@ void USaiyoraMovementComponent::GetLifetimeReplicatedProps(TArray<FLifetimePrope
 void USaiyoraMovementComponent::InitializeComponent()
 {
 	Super::InitializeComponent();
+	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Custom Movement Component."));
+	OwnerAbilityHandler = ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwner());
+	OwnerCcHandler = ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(GetOwner());
+	OwnerDamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
+	OwnerStatHandler = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
+	OwnerBuffHandler = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwner());
+	OnPredictedAbility.BindDynamic(this, &USaiyoraMovementComponent::OnCustomMoveCastPredicted);
+	OnMispredict.BindDynamic(this, &USaiyoraMovementComponent::AbilityMispredicted);
+	OnDeath.BindDynamic(this, &USaiyoraMovementComponent::StopMotionOnOwnerDeath);
+	OnRooted.BindDynamic(this, &USaiyoraMovementComponent::StopMotionOnRooted);
+	MaxWalkSpeedStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnMaxWalkSpeedStatChanged);
+	MaxCrouchSpeedStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnMaxCrouchSpeedStatChanged);
+	GroundFrictionStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnGroundFrictionStatChanged);
+	BrakingDecelerationStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnBrakingDecelerationStatChanged);
+	MaxAccelerationStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnMaxAccelerationStatChanged);
+	GravityScaleStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnGravityScaleStatChanged);
+	JumpVelocityStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnJumpVelocityStatChanged);
+	AirControlStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnAirControlStatChanged);
+	OnBuffApplied.BindDynamic(this, &USaiyoraMovementComponent::ApplyMoveRestrictionFromBuff);
+	OnBuffRemoved.BindDynamic(this, &USaiyoraMovementComponent::RemoveMoveRestrictionFromBuff);
 	DefaultMaxWalkSpeed = MaxWalkSpeed;
 	DefaultCrouchSpeed = MaxWalkSpeedCrouched;
 	DefaultGroundFriction = GroundFriction;
@@ -193,33 +213,24 @@ void USaiyoraMovementComponent::InitializeComponent()
 void USaiyoraMovementComponent::BeginPlay()
 {
 	Super::BeginPlay();
-	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Custom Movement Component."));
+	
 	GameStateRef = Cast<AGameState>(GetWorld()->GetGameState());
 	if (!IsValid(GameStateRef))
 	{
 		UE_LOG(LogTemp, Warning, (TEXT("Custom CMC encountered wrong Game State Ref!")));
 		return;
 	}
-	OwnerAbilityHandler = ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwner());
-	OwnerCcHandler = ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(GetOwner());
-	OwnerDamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
-	OwnerStatHandler = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
-	OwnerBuffHandler = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwner());
 	if (GetOwnerRole() == ROLE_AutonomousProxy && IsValid(OwnerAbilityHandler))
 	{
-		OnPredictedAbility.BindDynamic(this, &USaiyoraMovementComponent::OnCustomMoveCastPredicted);
 		//Do not sub OnPredictedAbility, this will be added and removed only when custom moves are predicted.
-		OnMispredict.BindDynamic(this, &USaiyoraMovementComponent::AbilityMispredicted);
 		OwnerAbilityHandler->SubscribeToAbilityMispredicted(OnMispredict);
 	}
 	if (IsValid(OwnerDamageHandler))
 	{
-		OnDeath.BindDynamic(this, &USaiyoraMovementComponent::StopMotionOnOwnerDeath);
 		OwnerDamageHandler->SubscribeToLifeStatusChanged(OnDeath);
 	}
 	if (IsValid(OwnerCcHandler))
 	{
-		OnRooted.BindDynamic(this, &USaiyoraMovementComponent::StopMotionOnRooted);
 		OwnerCcHandler->SubscribeToCrowdControlChanged(OnRooted);
 	}
 	if (IsValid(OwnerStatHandler))
@@ -227,65 +238,47 @@ void USaiyoraMovementComponent::BeginPlay()
 		if (OwnerStatHandler->IsStatValid(MaxWalkSpeedStatTag()))
 		{
 			MaxWalkSpeed = FMath::Max(DefaultMaxWalkSpeed * OwnerStatHandler->GetStatValue(MaxWalkSpeedStatTag()), 0.0f);
-			FStatCallback MaxWalkSpeedStatCallback;
-			MaxWalkSpeedStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnMaxWalkSpeedStatChanged);
 			OwnerStatHandler->SubscribeToStatChanged(MaxWalkSpeedStatTag(), MaxWalkSpeedStatCallback);
 		}
 		if (OwnerStatHandler->IsStatValid(MaxCrouchSpeedStatTag()))
 		{
 			MaxWalkSpeedCrouched = FMath::Max(DefaultCrouchSpeed * OwnerStatHandler->GetStatValue(MaxCrouchSpeedStatTag()), 0.0f);
-			FStatCallback MaxCrouchSpeedStatCallback;
-			MaxCrouchSpeedStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnMaxCrouchSpeedStatChanged);
 			OwnerStatHandler->SubscribeToStatChanged(MaxCrouchSpeedStatTag(), MaxCrouchSpeedStatCallback);
 		}
 		if (OwnerStatHandler->IsStatValid(GroundFrictionStatTag()))
 		{
 			GroundFriction = FMath::Max(DefaultGroundFriction * OwnerStatHandler->GetStatValue(GroundFrictionStatTag()), 0.0f);
-			FStatCallback GroundFrictionStatCallback;
-			GroundFrictionStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnGroundFrictionStatChanged);
 			OwnerStatHandler->SubscribeToStatChanged(GroundFrictionStatTag(), GroundFrictionStatCallback);
 		}
 		if (OwnerStatHandler->IsStatValid(BrakingDecelerationStatTag()))
 		{
 			BrakingDecelerationWalking = FMath::Max(DefaultBrakingDeceleration * OwnerStatHandler->GetStatValue(BrakingDecelerationStatTag()), 0.0f);
-			FStatCallback BrakingDecelerationStatCallback;
-			BrakingDecelerationStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnBrakingDecelerationStatChanged);
 			OwnerStatHandler->SubscribeToStatChanged(BrakingDecelerationStatTag(), BrakingDecelerationStatCallback);
 		}
 		if (OwnerStatHandler->IsStatValid(MaxAccelerationStatTag()))
 		{
 			MaxAcceleration = FMath::Max(DefaultMaxAcceleration * OwnerStatHandler->GetStatValue(MaxAccelerationStatTag()), 0.0f);
-			FStatCallback MaxAccelerationStatCallback;
-			MaxAccelerationStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnMaxAccelerationStatChanged);
 			OwnerStatHandler->SubscribeToStatChanged(MaxAccelerationStatTag(), MaxAccelerationStatCallback);
 		}
 		if (OwnerStatHandler->IsStatValid(GravityScaleStatTag()))
 		{
 			GravityScale = FMath::Max(DefaultGravityScale * OwnerStatHandler->GetStatValue(GravityScaleStatTag()), 0.0f);
-			FStatCallback GravityScaleStatCallback;
-			GravityScaleStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnGravityScaleStatChanged);
 			OwnerStatHandler->SubscribeToStatChanged(GravityScaleStatTag(), GravityScaleStatCallback);
 		}
 		if (OwnerStatHandler->IsStatValid(JumpZVelocityStatTag()))
 		{
 			JumpZVelocity = FMath::Max(DefaultJumpZVelocity * OwnerStatHandler->GetStatValue(JumpZVelocityStatTag()), 0.0f);
-			FStatCallback JumpVelocityStatCallback;
-			JumpVelocityStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnJumpVelocityStatChanged);
 			OwnerStatHandler->SubscribeToStatChanged(JumpZVelocityStatTag(), JumpVelocityStatCallback);
 		}
 		if (OwnerStatHandler->IsStatValid(AirControlStatTag()))
 		{
 			AirControl = FMath::Max(DefaultAirControl * OwnerStatHandler->GetStatValue(AirControlStatTag()), 0.0f);
-			FStatCallback AirControlStatCallback;
-			AirControlStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnAirControlStatChanged);
 			OwnerStatHandler->SubscribeToStatChanged(AirControlStatTag(), AirControlStatCallback);
 		}
 	}
 	if (IsValid(OwnerBuffHandler) && GetOwnerRole() == ROLE_Authority)
 	{
-		OnBuffApplied.BindDynamic(this, &USaiyoraMovementComponent::ApplyMoveRestrictionFromBuff);
 		OwnerBuffHandler->SubscribeToIncomingBuff(OnBuffApplied);
-		OnBuffRemoved.BindDynamic(this, &USaiyoraMovementComponent::RemoveMoveRestrictionFromBuff);
 		OwnerBuffHandler->SubscribeToIncomingBuffRemove(OnBuffRemoved);
 	}
 }

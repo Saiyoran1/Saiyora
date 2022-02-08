@@ -21,39 +21,32 @@ UThreatHandler::UThreatHandler()
 
 void UThreatHandler::InitializeComponent()
 {
-	if (GetOwnerRole() == ROLE_Authority)
-	{
-		OwnerLifeStatusCallback.BindDynamic(this, &UThreatHandler::OnOwnerLifeStatusChanged);
-		ThreatFromDamageCallback.BindDynamic(this, &UThreatHandler::OnOwnerDamageTaken);
-		TargetLifeStatusCallback.BindDynamic(this, &UThreatHandler::OnTargetLifeStatusChanged);
-		ThreatFromIncomingHealingCallback.BindDynamic(this, &UThreatHandler::OnTargetHealingTaken);
-		ThreatFromOutgoingHealingCallback.BindDynamic(this, &UThreatHandler::OnTargetHealingDone);
-	}
+	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Threat Handler."));
+	FactionCompRef = ISaiyoraCombatInterface::Execute_GetFactionComponent(GetOwner());
+	checkf(IsValid(FactionCompRef), TEXT("Owner does not have a valid Faction Component, which Threat Handler depends on."));
+	DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
+	PlaneCompRef = ISaiyoraCombatInterface::Execute_GetPlaneComponent(GetOwner());
+	OwnerLifeStatusCallback.BindDynamic(this, &UThreatHandler::OnOwnerLifeStatusChanged);
+	ThreatFromDamageCallback.BindDynamic(this, &UThreatHandler::OnOwnerDamageTaken);
+	TargetLifeStatusCallback.BindDynamic(this, &UThreatHandler::OnTargetLifeStatusChanged);
+	ThreatFromIncomingHealingCallback.BindDynamic(this, &UThreatHandler::OnTargetHealingTaken);
+	ThreatFromOutgoingHealingCallback.BindDynamic(this, &UThreatHandler::OnTargetHealingDone);
 }
 
 void UThreatHandler::BeginPlay()
 {
 	Super::BeginPlay();
 	
-	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Threat Handler."));
-	
-	if (GetOwnerRole() == ROLE_Authority)
+	if (GetOwnerRole() == ROLE_Authority && IsValid(DamageHandlerRef))
 	{
-		FactionCompRef = ISaiyoraCombatInterface::Execute_GetFactionComponent(GetOwner());
-		checkf(IsValid(FactionCompRef), TEXT("Owner does not have a valid Faction Component, which Threat Handler depends on."));
-		DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
-		if (IsValid(DamageHandlerRef))
+		if (DamageHandlerRef->HasHealth())
 		{
-			if (DamageHandlerRef->HasHealth())
-			{
-				DamageHandlerRef->SubscribeToLifeStatusChanged(OwnerLifeStatusCallback);
-			}
-			if (DamageHandlerRef->CanEverReceiveDamage())
-			{
-				DamageHandlerRef->SubscribeToIncomingDamage(ThreatFromDamageCallback);
-			}
+			DamageHandlerRef->SubscribeToLifeStatusChanged(OwnerLifeStatusCallback);
 		}
-		PlaneCompRef = ISaiyoraCombatInterface::Execute_GetPlaneComponent(GetOwner());
+		if (DamageHandlerRef->CanEverReceiveDamage())
+		{
+			DamageHandlerRef->SubscribeToIncomingDamage(ThreatFromDamageCallback);
+		}
 	}
 }
 

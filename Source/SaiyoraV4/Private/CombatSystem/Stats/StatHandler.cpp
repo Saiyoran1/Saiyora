@@ -16,31 +16,35 @@ UStatHandler::UStatHandler()
 
 void UStatHandler::InitializeComponent()
 {
+	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Stat Handler."));
 	ReplicatedStats.Handler = this;
-	TArray<FStatInfo*> InitialStatArray;
-	InitialStats->GetAllRows<FStatInfo>(nullptr, InitialStatArray);
-	for (FStatInfo const* InitInfo : InitialStatArray)
+	if (IsValid(InitialStats))
 	{
-		if (!InitInfo || !InitInfo->StatTag.MatchesTag(GenericStatTag()) || InitInfo->StatTag.MatchesTagExact(GenericStatTag()))
+		TArray<FStatInfo*> InitialStatArray;
+		InitialStats->GetAllRows<FStatInfo>(nullptr, InitialStatArray);
+		for (FStatInfo const* InitInfo : InitialStatArray)
 		{
-			continue;
-		}
-		StatDefaults.Add(InitInfo->StatTag, *InitInfo);
-		if (GetOwnerRole() == ROLE_Authority)
-		{
-			if (!InitInfo->bModifiable)
+			if (!InitInfo || !InitInfo->StatTag.MatchesTag(GenericStatTag()) || InitInfo->StatTag.MatchesTagExact(GenericStatTag()))
 			{
-				StaticStats.AddTag(InitInfo->StatTag);
 				continue;
 			}
-			if (InitInfo->bShouldReplicate)
+			StatDefaults.Add(InitInfo->StatTag, *InitInfo);
+			if (GetOwnerRole() == ROLE_Authority)
 			{
-				FCombatStat& NewStat = ReplicatedStats.Items.Add_GetRef(FCombatStat(*InitInfo));
-				ReplicatedStats.MarkItemDirty(NewStat);
-			}
-			else
-			{
-				NonReplicatedStats.Add(InitInfo->StatTag, FCombatStat(*InitInfo));
+				if (!InitInfo->bModifiable)
+				{
+					StaticStats.AddTag(InitInfo->StatTag);
+					continue;
+				}
+				if (InitInfo->bShouldReplicate)
+				{
+					FCombatStat& NewStat = ReplicatedStats.Items.Add_GetRef(FCombatStat(*InitInfo));
+					ReplicatedStats.MarkItemDirty(NewStat);
+				}
+				else
+				{
+					NonReplicatedStats.Add(InitInfo->StatTag, FCombatStat(*InitInfo));
+				}
 			}
 		}
 	}
@@ -49,7 +53,6 @@ void UStatHandler::InitializeComponent()
 void UStatHandler::BeginPlay()
 {
 	Super::BeginPlay();
-	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Stat Handler."));
 }
 
 void UStatHandler::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const

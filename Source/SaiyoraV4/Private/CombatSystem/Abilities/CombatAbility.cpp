@@ -38,6 +38,12 @@ void UCombatAbility::PostNetReceive()
     if (IsValid(OwningComponent))
     {
         OnResourceChanged.BindDynamic(this, &UCombatAbility::CheckResourceCostOnResourceChanged);
+        OnResourceAdded.BindDynamic(this, &UCombatAbility::SetupCostCheckingForNewResource);
+        AbilityCosts.OwningAbility = this;
+        for (FAbilityCost const& Cost : AbilityCosts.Items)
+        {
+            UpdateCostFromReplication(Cost, true);
+        }
         SetupCustomCastRestrictions();
         UpdateCastable();
         PreInitializeAbility();
@@ -80,6 +86,10 @@ void UCombatAbility::InitializeAbility(UAbilityComponent* AbilityComponent)
                     }
                     Resource->SubscribeToResourceChanged(OnResourceChanged);
                 }
+                else
+                {
+                    UninitializedResources.Add(DefaultCost.ResourceClass);
+                }
             }
             if (!bCostMet)
             {
@@ -87,10 +97,30 @@ void UCombatAbility::InitializeAbility(UAbilityComponent* AbilityComponent)
             }
         }
     }
+    if (UninitializedResources.Num() > 0)
+    {
+        OnResourceAdded.BindDynamic(this, &UCombatAbility::SetupCostCheckingForNewResource);
+        OwningComponent->GetResourceHandlerRef()->SubscribeToResourceAdded(OnResourceAdded);
+    }
     SetupCustomCastRestrictions();
     PreInitializeAbility();
     bInitialized = true;
     UpdateCastable();
+}
+
+void UCombatAbility::SetupCostCheckingForNewResource(UResource* Resource)
+{
+    if (UninitializedResources.Contains(Resource->GetClass()))
+    {
+        CheckResourceCostOnResourceChanged(Resource, nullptr, FResourceState(),
+            FResourceState(Resource->GetMinimum(), Resource->GetMaximum(), Resource->GetCurrentValue()));
+        Resource->SubscribeToResourceChanged(OnResourceChanged);
+        UninitializedResources.Remove(Resource->GetClass());
+        if (UninitializedResources.Num() <= 0)
+        {
+            OwningComponent->GetResourceHandlerRef()->UnsubscribeFromResourceAdded(OnResourceAdded);
+        }
+    }
 }
 
 void UCombatAbility::DeactivateAbility()
@@ -421,14 +451,14 @@ void UCombatAbility::CheckResourceCostOnResourceChanged(UResource* Resource, UOb
 {
     if (IsValid(Resource))
     {
-        bool bCostMet = true;
+        bool bCostMet = false;
         for (FAbilityCost const& Cost : AbilityCosts.Items)
         {
             if (Cost.ResourceClass == Resource->GetClass())
             {
-                if (NewState.CurrentValue < Cost.Cost)
+                if (NewState.CurrentValue >= Cost.Cost)
                 {
-                    bCostMet = false;
+                    bCostMet = true;
                 }
                 break;
             }
@@ -466,6 +496,14 @@ void UCombatAbility::UpdateCostFromReplication(FAbilityCost const& Cost, bool co
                 if (bNewAdd)
                 {
                     Resource->SubscribeToResourceChanged(OnResourceChanged);
+                }
+            }
+            else if (bNewAdd)
+            {
+                UninitializedResources.Add(Cost.ResourceClass);
+                if (UninitializedResources.Num() == 1)
+                {
+                    OwningComponent->GetResourceHandlerRef()->SubscribeToResourceAdded(OnResourceAdded);
                 }
             }
         }

@@ -96,6 +96,6 @@ public:
 
 private:
 	
-	UPROPERTY(EditAnywhere, Category = "Crowd Control", meta = (AllowPrivateAccess = true, GameplayTagFilter = "CrowdControl"))
+	UPROPERTY(EditAnywhere, Category = "Crowd Control", meta = (AllowPrivateAccess = true, Categories = "CrowdControl"))
 	FGameplayTagContainer DefaultCrowdControlImmunities;
 };

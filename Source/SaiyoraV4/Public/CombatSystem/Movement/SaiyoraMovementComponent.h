@@ -190,27 +190,35 @@ public:
 private:
 	
 	float DefaultMaxWalkSpeed = 0.0f;
+	FStatCallback MaxWalkSpeedStatCallback;
 	UFUNCTION()
 	void OnMaxWalkSpeedStatChanged(FGameplayTag const& StatTag, float const NewValue);
 	float DefaultCrouchSpeed = 0.0f;
+	FStatCallback MaxCrouchSpeedStatCallback;
 	UFUNCTION()
 	void OnMaxCrouchSpeedStatChanged(FGameplayTag const& StatTag, float const NewValue);
 	float DefaultGroundFriction = 0.0f;
+	FStatCallback GroundFrictionStatCallback;
 	UFUNCTION()
 	void OnGroundFrictionStatChanged(FGameplayTag const& StatTag, float const NewValue);
 	float DefaultBrakingDeceleration = 0.0f;
+	FStatCallback BrakingDecelerationStatCallback;
 	UFUNCTION()
 	void OnBrakingDecelerationStatChanged(FGameplayTag const& StatTag, float const NewValue);
 	float DefaultMaxAcceleration = 0.0f;
+	FStatCallback MaxAccelerationStatCallback;
 	UFUNCTION()
 	void OnMaxAccelerationStatChanged(FGameplayTag const& StatTag, float const NewValue);
 	float DefaultGravityScale = 0.0f;
+	FStatCallback GravityScaleStatCallback;
 	UFUNCTION()
 	void OnGravityScaleStatChanged(FGameplayTag const& StatTag, float const NewValue);
 	float DefaultJumpZVelocity = 0.0f;
+	FStatCallback JumpVelocityStatCallback;
 	UFUNCTION()
 	void OnJumpVelocityStatChanged(FGameplayTag const& StatTag, float const NewValue);
 	float DefaultAirControl = 0.0f;
+	FStatCallback AirControlStatCallback;
 	UFUNCTION()
 	void OnAirControlStatChanged(FGameplayTag const& StatTag, float const NewValue);
 

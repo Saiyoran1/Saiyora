@@ -18,26 +18,29 @@ UBuffHandler::UBuffHandler()
 {
 	PrimaryComponentTick.bCanEverTick = false;
 	SetIsReplicatedByDefault(true);
+	bWantsInitializeComponent = true;
 }
 
 void UBuffHandler::BeginPlay()
 {
 	Super::BeginPlay();
-	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Buff Handler."));
-	if (GetOwnerRole() == ROLE_Authority)
+	
+	if (GetOwnerRole() == ROLE_Authority && IsValid(DamageHandlerRef))
 	{
-		PlaneComponentRef = ISaiyoraCombatInterface::Execute_GetPlaneComponent(GetOwner());
-		DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
-		if (GetOwnerRole() == ROLE_Authority && IsValid(DamageHandlerRef))
-		{
-			OnDeath.BindDynamic(this, &UBuffHandler::RemoveBuffsOnOwnerDeath);
-			DamageHandlerRef->SubscribeToLifeStatusChanged(OnDeath);
-		}
-		StatHandlerRef = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
-		ThreatHandlerRef = ISaiyoraCombatInterface::Execute_GetThreatHandler(GetOwner());
-		MovementComponentRef = ISaiyoraCombatInterface::Execute_GetCustomMovementComponent(GetOwner());
-		CcHandlerRef = ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(GetOwner());
+		DamageHandlerRef->SubscribeToLifeStatusChanged(OnDeath);
 	}
+}
+
+void UBuffHandler::InitializeComponent()
+{
+	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Buff Handler."));
+	PlaneComponentRef = ISaiyoraCombatInterface::Execute_GetPlaneComponent(GetOwner());
+	DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
+	StatHandlerRef = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
+	ThreatHandlerRef = ISaiyoraCombatInterface::Execute_GetThreatHandler(GetOwner());
+	MovementComponentRef = ISaiyoraCombatInterface::Execute_GetCustomMovementComponent(GetOwner());
+	CcHandlerRef = ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(GetOwner());
+	OnDeath.BindDynamic(this, &UBuffHandler::RemoveBuffsOnOwnerDeath);
 }
 
 void UBuffHandler::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

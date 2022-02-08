@@ -310,9 +310,13 @@ private:
     FResourceValueCallback OnResourceChanged;
     UFUNCTION()
     void CheckResourceCostOnResourceChanged(UResource* Resource, UObject* ChangeSource, FResourceState const& PreviousState, FResourceState const& NewState);
+    FResourceInstanceCallback OnResourceAdded;
+    UFUNCTION()
+    void SetupCostCheckingForNewResource(UResource* Resource);
     void UpdateCost(TSubclassOf<UResource> const ResourceClass);
     void CheckCostMet(TSubclassOf<UResource> const ResourceClass);
     TSet<TSubclassOf<UResource>> UnmetCosts;
+    TSet<TSubclassOf<UResource>> UninitializedResources;
 
 //Functionality
 

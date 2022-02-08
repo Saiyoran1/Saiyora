@@ -17,29 +17,22 @@ UDamageHandler::UDamageHandler()
 
 void UDamageHandler::InitializeComponent()
 {
+	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Damage Handler."));
+	StatHandler = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
 	if (bHasHealth)
 	{
 		MaxHealth = DefaultMaxHealth;
 		CurrentHealth = MaxHealth;
 	}
 	LifeStatus = ELifeStatus::Invalid;
-	if (GetOwnerRole() == ROLE_Authority)
-	{
-		MaxHealthStatCallback.BindDynamic(this, &UDamageHandler::ReactToMaxHealthStat);
-	}
+	MaxHealthStatCallback.BindDynamic(this, &UDamageHandler::ReactToMaxHealthStat);
 }
 
 void UDamageHandler::BeginPlay()
 {
 	Super::BeginPlay();
-	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Damage Handler."));
-	OwnerAsPawn = Cast<APawn>(GetOwner());
-	if (!GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Owner of DamageHandler doesn't implement combat interface?"));
-	}
-	StatHandler = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
 	
+	OwnerAsPawn = Cast<APawn>(GetOwner());
 	if (GetOwnerRole() == ROLE_Authority)
 	{
 		//Bind Max Health stat, create damage and healing modifiers from stats.
