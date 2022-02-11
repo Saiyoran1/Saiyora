@@ -381,7 +381,6 @@ bool USaiyoraMovementComponent::ApplyCustomMove(FCustomMoveParams const& CustomM
 	case ROLE_Authority :
 		{
 			//There are going to be 2 calls to predicted movement (one from the ability system, one from the Networked Move Data), so we need to check that this is the first call (the 2nd won't do anything).
-			//TODO: Currently storing by predictionID, but really need to store by tick AND predictionID.
 			if (ServerCompletedMovementIDs.Contains(FPredictedTick(AbilitySource->GetPredictionID(), AbilitySource->GetCurrentTick())))
 			{
 				return false;
