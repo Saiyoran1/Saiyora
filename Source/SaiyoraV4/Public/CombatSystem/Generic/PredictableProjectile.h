@@ -21,6 +21,15 @@ struct FProjectileSource
 	int32 ID;
 };
 
+UENUM()
+enum class EProjectileHostility : uint8
+{
+	None,
+	Player,
+	Enemy,
+	Both
+};
+
 UCLASS(Abstract, Blueprintable)
 class SAIYORAV4_API APredictableProjectile : public AActor
 {
@@ -32,16 +41,16 @@ public:
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	APredictableProjectile(const class FObjectInitializer& ObjectInitializer);
-	int32 InitializeClient(UCombatAbility* Source);
-	void InitializeServer(UCombatAbility* Source, int32 const ClientID, float const PingComp);
+	void InitializeProjectile(UCombatAbility* Source);
 	bool IsFake() const { return bIsFake; }
 	bool HasPredictedHit() const { return PredictedHit.Key; }
+	void Replace();
 	
 private:
 
 	static int32 ProjectileID;
-
-	int32 GenerateProjectileID();
+	static FPredictedTick PredictionScope;
+	int32 GenerateProjectileID(FPredictedTick const& Scope);
 
 	UPROPERTY(EditAnywhere)
 	UProjectileMovementComponent* ProjectileMovement;

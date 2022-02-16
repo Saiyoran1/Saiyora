@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "CoreMinimal.h"
 #include "AbilityStructs.h"
+#include "PredictableProjectile.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "AbilityFunctionLibrary.generated.h"
 
@@ -15,6 +16,8 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities", meta = (NativeMakeFunc))
 	static FAbilityOrigin MakeAbilityOrigin(FVector const& AimLocation, FVector const& AimDirection, FVector const& Origin);
+
+//Trace Prediction
 	
 	UFUNCTION(BlueprintCallable, Category = "Abilities", meta = (AutoCreateRefTerm = "ActorsToIgnore"))
     static bool PredictLineTrace(class ASaiyoraPlayerCharacter* Shooter, float const TraceLength, bool const bHostile,
@@ -58,6 +61,18 @@ public:
 	static TArray<AActor*> ValidateMultiSphereSightTrace(class ASaiyoraPlayerCharacter* Shooter, FAbilityOrigin const& Origin, TArray<AActor*> const& Targets, float const TraceLength,
 		float const TraceRadius, bool const bHostile, TArray<AActor*> const& ActorsToIgnore);
 
+//Projectile Prediction
+
+	void RegisterClientProjectile(APredictableProjectile* Projectile);
+	void ReplaceProjectile(APredictableProjectile* ServerProjectile);
+
+	UFUNCTION(BlueprintCallable, Category = "Abilities", meta = (DefaultToSelf = "Ability", Hidden = "Ability"))
+	static APredictableProjectile* PredictProjectile(UCombatAbility* Ability, class ASaiyoraPlayerCharacter* Shooter, TSubclassOf<APredictableProjectile> const ProjectileClass,
+		FAbilityOrigin& OutOrigin);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities", meta = (DefaultToSelf = "Ability", Hidden = "Ability"))
+	static APredictableProjectile* ValidateProjectile(UCombatAbility* Ability, class ASaiyoraPlayerCharacter* Shooter, TSubclassOf<APredictableProjectile> const ProjectileClass,
+		FAbilityOrigin const& Origin);
+
 private:
 
 	static TMap<class UHitbox*, FRewindRecord> Snapshots;
@@ -69,4 +84,5 @@ private:
 	static void CreateSnapshot();
 	static FTimerHandle SnapshotHandle;
 	static FTransform RewindHitbox(UHitbox* Hitbox, float const Ping);
+	static TMultiMap<FPredictedTick, APredictableProjectile*> FakeProjectiles;
 };

@@ -1099,3 +1099,110 @@ TArray<AActor*> UAbilityFunctionLibrary::ValidateMultiSphereSightTrace(ASaiyoraP
 }
 
 #pragma endregion
+#pragma region Projectiles
+
+void UAbilityFunctionLibrary::RegisterClientProjectile(APredictableProjectile* Projectile)
+{
+	if (!IsValid(Projectile) || Projectile->GetOwner()->GetLocalRole() != ROLE_AutonomousProxy || !Projectile->IsFake())
+	{
+		return;
+	}
+	FakeProjectiles.Add(Projectile->GetSourceInfo().SourceTick, Projectile);
+}
+
+void UAbilityFunctionLibrary::ReplaceProjectile(APredictableProjectile* ServerProjectile)
+{
+	if (!IsValid(ServerProjectile) || ServerProjectile->IsFake())
+	{
+		return;
+	}
+	TArray<APredictableProjectile*> MatchingProjectiles;
+	FakeProjectiles.MultiFind(ServerProjectile->GetSourceInfo().SourceTick, MatchingProjectiles);
+	for (APredictableProjectile* Proj : MatchingProjectiles)
+	{
+		if (IsValid(Proj) && Proj->GetSourceInfo().ID == ServerProjectile->GetSourceInfo().ID)
+		{
+			Proj->Replace();
+			return;
+		}
+	}
+}
+
+APredictableProjectile* UAbilityFunctionLibrary::PredictProjectile(UCombatAbility* Ability,
+	ASaiyoraPlayerCharacter* Shooter, TSubclassOf<APredictableProjectile> const ProjectileClass, FAbilityOrigin& OutOrigin)
+{
+	if (!IsValid(Ability) || !IsValid(Shooter) || !Shooter->IsLocallyControlled() || !IsValid(ProjectileClass))
+	{
+		return nullptr;
+	}
+	FName AimSocket;
+	USceneComponent* AimComponent = ISaiyoraCombatInterface::Execute_GetAimSocket(Shooter, AimSocket);
+	FName OriginSocket;
+	USceneComponent* OriginComponent = ISaiyoraCombatInterface::Execute_GetAbilityOriginSocket(Shooter, OriginSocket);
+	if (IsValid(AimComponent))
+	{
+		OutOrigin.AimLocation = AimComponent->GetSocketLocation(AimSocket);
+		OutOrigin.AimDirection = AimComponent->GetForwardVector();
+		OutOrigin.Origin = IsValid(OriginComponent) ? OriginComponent->GetSocketLocation(OriginSocket) : OutOrigin.AimLocation;
+	}
+	else if (IsValid(OriginComponent))
+	{
+		OutOrigin.Origin = OriginComponent->GetSocketLocation(OriginSocket);
+		OutOrigin.AimLocation = OutOrigin.Origin;
+		OutOrigin.AimDirection = OriginComponent->GetForwardVector();
+	}
+	else
+	{
+		OutOrigin.Origin = Shooter->GetActorLocation();
+		OutOrigin.AimLocation = Shooter->GetActorLocation();
+		OutOrigin.AimDirection = Shooter->GetActorForwardVector();
+	}
+	FTransform SpawnTransform;
+	SpawnTransform.SetLocation(OutOrigin.Origin);
+	FVector const ProjectileGoal = OutOrigin.AimLocation + OutOrigin.AimDirection * CamTraceLength;
+	//TODO: Probably do a trace here, which will require rewinding on the server.
+	SpawnTransform.SetRotation((ProjectileGoal - OutOrigin.Origin).Rotation().Quaternion());
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.Owner = Shooter;
+	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	APredictableProjectile* NewProjectile = Shooter->GetWorld()->SpawnActor<APredictableProjectile>(ProjectileClass, SpawnTransform, SpawnParams);
+	if (!IsValid(NewProjectile))
+	{
+		return nullptr;
+	}
+	NewProjectile->InitializeProjectile(Ability);
+	return NewProjectile;
+}
+
+APredictableProjectile* UAbilityFunctionLibrary::ValidateProjectile(UCombatAbility* Ability,
+	ASaiyoraPlayerCharacter* Shooter, TSubclassOf<APredictableProjectile> const ProjectileClass,
+	FAbilityOrigin const& Origin)
+{
+	if (!IsValid(Ability) || !IsValid(Shooter) || Shooter->GetLocalRole() != ROLE_Authority || !IsValid(ProjectileClass))
+	{
+		//TODO: If this fails, we probably need some way to let the client know his projectile isn't real...
+		//Potentially spawn a "dummy" projectile that is invisible, that will replace the client projectile with nothing then destroy itself.
+		return nullptr;
+	}
+	//TODO: Validate aim location.
+	FTransform SpawnTransform;
+	SpawnTransform.SetLocation(Origin.Origin);
+	FVector const ProjectileGoal = Origin.AimLocation + Origin.AimDirection * CamTraceLength;
+	//TODO: Probably do a trace here, which will require rewinding on the server.
+	SpawnTransform.SetRotation((ProjectileGoal - Origin.Origin).Rotation().Quaternion());
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.Owner = Shooter;
+	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	APredictableProjectile* NewProjectile = Shooter->GetWorld()->SpawnActor<APredictableProjectile>(ProjectileClass, SpawnTransform, SpawnParams);
+	if (!IsValid(NewProjectile))
+	{
+		//TODO: Failure?
+		return nullptr;
+	}
+	NewProjectile->InitializeProjectile(Ability);
+	//TODO: Get all snapshots between now and ping/max lag comp ago, rewind to the oldest one, tick delta between snapshot and next snapshot.
+	//If at any point we get a hit, unrewind and return.
+	return NewProjectile;
+}
+
+#pragma endregion 

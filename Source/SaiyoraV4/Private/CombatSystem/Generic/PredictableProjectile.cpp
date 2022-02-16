@@ -14,38 +14,31 @@ APredictableProjectile::APredictableProjectile(const class FObjectInitializer& O
 	SetReplicatingMovement(true);
 }
 
-int32 APredictableProjectile::InitializeClient(UCombatAbility* Source)
+void APredictableProjectile::InitializeProjectile(UCombatAbility* Source)
 {
 	if (!IsValid(Source))
 	{
-		return 0;
-	}
-	bIsFake = true;
-	SourceInfo.Owner = Cast<ASaiyoraPlayerCharacter>(GetOwner());
-	SourceInfo.SourceClass = Source->GetClass();
-	SourceInfo.SourceTick = FPredictedTick(Source->GetPredictionID(), Source->GetCurrentTick());
-	SourceInfo.ID = GenerateProjectileID();
-	OnMisprediction.BindDynamic(this, &APredictableProjectile::DeleteOnMisprediction);
-	Source->GetHandler()->SubscribeToAbilityMispredicted(OnMisprediction);
-	return SourceInfo.ID;
-}
-
-void APredictableProjectile::InitializeServer(UCombatAbility* Source, int32 const ClientID, float const PingComp)
-{
-	if (!IsValid(Source) || ClientID == 0)
-	{
 		return;
 	}
-	bIsFake = false;
+	bIsFake = Source->GetHandler()->GetOwnerRole() == ROLE_Authority ? false : true;
 	SourceInfo.Owner = Cast<ASaiyoraPlayerCharacter>(GetOwner());
 	SourceInfo.SourceClass = Source->GetClass();
 	SourceInfo.SourceTick = FPredictedTick(Source->GetPredictionID(), Source->GetCurrentTick());
-	SourceInfo.ID = ClientID;
-	//TODO: Tick actor forward by delta time.
+	SourceInfo.ID = GenerateProjectileID(SourceInfo.SourceTick);
+	if (Source->GetHandler()->GetOwnerRole() == ROLE_AutonomousProxy)
+	{
+		OnMisprediction.BindDynamic(this, &APredictableProjectile::DeleteOnMisprediction);
+		Source->GetHandler()->SubscribeToAbilityMispredicted(OnMisprediction);
+	}
 }
 
-int32 APredictableProjectile::GenerateProjectileID()
+int32 APredictableProjectile::GenerateProjectileID(FPredictedTick const& Scope)
 {
+	if (!(Scope == PredictionScope))
+	{
+		ProjectileID = 0;
+		PredictionScope = Scope;
+	}
 	ProjectileID++;
 	if (ProjectileID == 0)
 	{
