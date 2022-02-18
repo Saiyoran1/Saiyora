@@ -5,6 +5,7 @@
 #include "Kismet/GameplayStatics.h"
 
 int32 APredictableProjectile::ProjectileID = 0;
+FPredictedTick APredictableProjectile::PredictionScope = FPredictedTick();
 
 APredictableProjectile::APredictableProjectile(const class FObjectInitializer& ObjectInitializer)
 {
@@ -30,6 +31,11 @@ void APredictableProjectile::InitializeProjectile(UCombatAbility* Source)
 		OnMisprediction.BindDynamic(this, &APredictableProjectile::DeleteOnMisprediction);
 		Source->GetHandler()->SubscribeToAbilityMispredicted(OnMisprediction);
 	}
+}
+
+void APredictableProjectile::Replace()
+{
+	//TODO
 }
 
 int32 APredictableProjectile::GenerateProjectileID(FPredictedTick const& Scope)

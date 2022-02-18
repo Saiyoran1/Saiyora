@@ -80,6 +80,7 @@ private:
 	static const float MaxLagCompensation;
 	static const float SnapshotInterval;
 	static const float RewindTraceRadius;
+	static const float AimToleranceDegrees;
 	UFUNCTION()
 	static void CreateSnapshot();
 	static FTimerHandle SnapshotHandle;

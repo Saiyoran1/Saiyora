@@ -10,8 +10,10 @@ float const UAbilityFunctionLibrary::SnapshotInterval = 0.03f;
 float const UAbilityFunctionLibrary::CamTraceLength = 10000.0f;
 float const UAbilityFunctionLibrary::MaxLagCompensation = 0.3f;
 float const UAbilityFunctionLibrary::RewindTraceRadius = 300.0f;
+float const UAbilityFunctionLibrary::AimToleranceDegrees = 30.0f;
 FTimerHandle UAbilityFunctionLibrary::SnapshotHandle = FTimerHandle();
 TMap<UHitbox*, FRewindRecord> UAbilityFunctionLibrary::Snapshots = TMap<UHitbox*, FRewindRecord>();
+TMultiMap<FPredictedTick, APredictableProjectile*> UAbilityFunctionLibrary::FakeProjectiles = TMultiMap<FPredictedTick, APredictableProjectile*>();
 
 FAbilityOrigin UAbilityFunctionLibrary::MakeAbilityOrigin(FVector const& AimLocation, FVector const& AimDirection, FVector const& Origin)
 {
@@ -1159,9 +1161,28 @@ APredictableProjectile* UAbilityFunctionLibrary::PredictProjectile(UCombatAbilit
 	}
 	FTransform SpawnTransform;
 	SpawnTransform.SetLocation(OutOrigin.Origin);
-	FVector const ProjectileGoal = OutOrigin.AimLocation + OutOrigin.AimDirection * CamTraceLength;
-	//TODO: Probably do a trace here, which will require rewinding on the server.
-	SpawnTransform.SetRotation((ProjectileGoal - OutOrigin.Origin).Rotation().Quaternion());
+	//Choose very far point straight from the camera as the default aim target.
+	FVector const VisTraceEnd = OutOrigin.AimLocation + OutOrigin.AimDirection * CamTraceLength;
+	//Get a vector representing aiming from the origin to this aim target.
+	FVector const OriginAimDirection = (VisTraceEnd - OutOrigin.Origin).GetSafeNormal();
+	TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes;
+	ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_GameTraceChannel10));
+	ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_GameTraceChannel11));
+	TArray<FHitResult> VisTraceHits;
+	FVector VisTraceResult = VisTraceEnd;
+	//Trace against both friendly and enemy hitbox objects to find what we're aiming at along the line from the camera.
+	UKismetSystemLibrary::LineTraceMultiForObjects(Shooter, OutOrigin.AimLocation, VisTraceEnd, ObjectTypes, false, TArray<AActor*>(), EDrawDebugTrace::None, VisTraceHits, true);
+	for (FHitResult const& VisTraceHit : VisTraceHits)
+	{
+		//Of all the things in the line, we are looking for the first instance of a target within a 30 degree cone of the original aim vector.
+		if (FMath::Acos(FVector::DotProduct((VisTraceHit.ImpactPoint - OutOrigin.Origin).GetSafeNormal(), OriginAimDirection)) < AimToleranceDegrees)
+		{
+			VisTraceResult = VisTraceHit.ImpactPoint;
+			break;
+		}
+	}
+	//If we didn't find anything along the line that fits in the cone, just use the unaltered aim direction.
+	SpawnTransform.SetRotation((VisTraceResult - OutOrigin.Origin).Rotation().Quaternion());
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.Owner = Shooter;
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
@@ -1184,12 +1205,57 @@ APredictableProjectile* UAbilityFunctionLibrary::ValidateProjectile(UCombatAbili
 		//Potentially spawn a "dummy" projectile that is invisible, that will replace the client projectile with nothing then destroy itself.
 		return nullptr;
 	}
+	float const Ping = USaiyoraCombatLibrary::GetActorPing(Shooter);
+	//Get target's hitboxes, rewind them, and store their actual transforms for un-rewinding.
+	TMap<UHitbox*, FTransform> ReturnTransforms;
+	//If listen server (ping 0), skip rewinding.
+	if (Ping > 0.0f)
+	{
+		//Do a big trace in front of the camera to rewind all targets that could potentially intercept the trace.
+		FVector const RewindTraceEnd = Origin.AimLocation + CamTraceLength * Origin.AimDirection;
+		TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes;
+		ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_GameTraceChannel10));
+		ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_GameTraceChannel11));
+		TArray<FHitResult> RewindTraceResults;
+		UKismetSystemLibrary::SphereTraceMultiForObjects(Shooter, Origin.AimLocation, RewindTraceEnd, RewindTraceRadius, ObjectTypes, false,
+			TArray<AActor*>(), EDrawDebugTrace::ForDuration, RewindTraceResults, true, FLinearColor::White);
+		for (FHitResult const& Hit : RewindTraceResults)
+		{
+			if (IsValid(Hit.GetActor()))
+			{
+				TArray<UHitbox*> HitboxComponents;
+				Hit.GetActor()->GetComponents<UHitbox>(HitboxComponents);
+				for (UHitbox* Hitbox : HitboxComponents)
+				{
+					ReturnTransforms.Add(Hitbox, RewindHitbox(Hitbox, Ping));
+				}
+			}
+		}
+	}
 	//TODO: Validate aim location.
 	FTransform SpawnTransform;
 	SpawnTransform.SetLocation(Origin.Origin);
-	FVector const ProjectileGoal = Origin.AimLocation + Origin.AimDirection * CamTraceLength;
-	//TODO: Probably do a trace here, which will require rewinding on the server.
-	SpawnTransform.SetRotation((ProjectileGoal - Origin.Origin).Rotation().Quaternion());
+	//Choose very far point straight from the camera as the default aim target.
+	FVector const VisTraceEnd = Origin.AimLocation + Origin.AimDirection * CamTraceLength;
+	//Get a vector representing aiming from the origin to this aim target.
+	FVector const OriginAimDirection = (VisTraceEnd - Origin.Origin).GetSafeNormal();
+	TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes;
+	ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_GameTraceChannel10));
+	ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_GameTraceChannel11));
+	TArray<FHitResult> VisTraceHits;
+	FVector VisTraceResult = VisTraceEnd;
+	//Trace against both friendly and enemy hitbox objects to find what we're aiming at along the line from the camera.
+	UKismetSystemLibrary::LineTraceMultiForObjects(Shooter, Origin.AimLocation, VisTraceEnd, ObjectTypes, false, TArray<AActor*>(), EDrawDebugTrace::None, VisTraceHits, true);
+	for (FHitResult const& VisTraceHit : VisTraceHits)
+	{
+		//Of all the things in the line, we are looking for the first instance of a target within a 30 degree cone of the original aim vector.
+		if (FMath::Acos(FVector::DotProduct((VisTraceHit.ImpactPoint - Origin.Origin).GetSafeNormal(), OriginAimDirection)) < AimToleranceDegrees)
+		{
+			VisTraceResult = VisTraceHit.ImpactPoint;
+			break;
+		}
+	}
+	SpawnTransform.SetRotation((VisTraceResult - Origin.Origin).Rotation().Quaternion());
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.Owner = Shooter;
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
@@ -1200,8 +1266,60 @@ APredictableProjectile* UAbilityFunctionLibrary::ValidateProjectile(UCombatAbili
 		return nullptr;
 	}
 	NewProjectile->InitializeProjectile(Ability);
-	//TODO: Get all snapshots between now and ping/max lag comp ago, rewind to the oldest one, tick delta between snapshot and next snapshot.
-	//If at any point we get a hit, unrewind and return.
+	//Case A: 213ms
+	//Case B: 12ms
+	if (Ping > 0.0f)
+	{
+		//Calculate how many 50ms steps we need to go through before we'd arrive less than 50ms from current time.
+		int32 const Steps = FMath::Floor(Ping / .05f);
+		if (Steps == 0)
+		{
+			//Ping was less than 50ms, we can just do one step against the already rewound hitboxes.
+			NewProjectile->Tick(Ping);
+			//Unrewind after tick.
+			for (TTuple<UHitbox*, FTransform> const& ReturnTransform : ReturnTransforms)
+			{
+				ReturnTransform.Key->SetWorldTransform(ReturnTransform.Value);
+			}
+		}
+		else
+		{
+			//Only concerned with rewinding hitboxes hit with our initial rewind trace, otherwise performance costs could get crazy.
+			TArray<UHitbox*> RelevantHitboxes;
+			ReturnTransforms.GetKeys(RelevantHitboxes);
+			for (int i = 0; i < Steps; i++)
+			{
+				//Don't need to rewind for the first loop iteration since we are already rewound.
+				if (i != 0)
+				{
+					ReturnTransforms.Empty();
+					for (UHitbox* Hitbox : RelevantHitboxes)
+					{
+						ReturnTransforms.Add(Hitbox, RewindHitbox(Hitbox, (Ping - (i * .05f))));
+					}
+				}
+				//Tick the projectile through 50ms against rewound targets.
+				NewProjectile->Tick(.05f);
+				//Unrewind all targets to set up for next rewind.
+				for (TTuple<UHitbox*, FTransform> const& ReturnTransform : ReturnTransforms)
+				{
+					ReturnTransform.Key->SetWorldTransform(ReturnTransform.Value);
+				}
+			}
+			//Partial step for any remainder less than 50ms at the end.
+			float const LastStepMs = Ping - (Steps * .05f);
+			ReturnTransforms.Empty();
+			for (UHitbox* Hitbox : RelevantHitboxes)
+			{
+				ReturnTransforms.Add(Hitbox, RewindHitbox(Hitbox, LastStepMs));
+			}
+			NewProjectile->Tick(LastStepMs);
+			for (TTuple<UHitbox*, FTransform> const& ReturnTransform : ReturnTransforms)
+			{
+				ReturnTransform.Key->SetWorldTransform(ReturnTransform.Value);
+			}
+		}
+	}
 	return NewProjectile;
 }
 
