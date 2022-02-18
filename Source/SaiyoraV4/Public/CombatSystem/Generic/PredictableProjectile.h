@@ -45,6 +45,7 @@ public:
 	bool IsFake() const { return bIsFake; }
 	bool HasPredictedHit() const { return PredictedHit.Key; }
 	void Replace();
+	virtual void PostNetInit() override;
 	
 private:
 

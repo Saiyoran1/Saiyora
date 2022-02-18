@@ -1,5 +1,6 @@
 ﻿#include "PredictableProjectile.h"
 #include "AbilityComponent.h"
+#include "AbilityFunctionLibrary.h"
 #include "UnrealNetwork.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
@@ -30,12 +31,19 @@ void APredictableProjectile::InitializeProjectile(UCombatAbility* Source)
 	{
 		OnMisprediction.BindDynamic(this, &APredictableProjectile::DeleteOnMisprediction);
 		Source->GetHandler()->SubscribeToAbilityMispredicted(OnMisprediction);
+		UAbilityFunctionLibrary::RegisterClientProjectile(this);
 	}
 }
 
 void APredictableProjectile::Replace()
 {
 	//TODO
+	UE_LOG(LogTemp, Warning, TEXT("Successfully replacing projectile!"));
+}
+
+void APredictableProjectile::PostNetInit()
+{
+	UAbilityFunctionLibrary::ReplaceProjectile(this);
 }
 
 int32 APredictableProjectile::GenerateProjectileID(FPredictedTick const& Scope)

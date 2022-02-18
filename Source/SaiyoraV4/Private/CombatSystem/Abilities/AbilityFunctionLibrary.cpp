@@ -1299,6 +1299,7 @@ APredictableProjectile* UAbilityFunctionLibrary::ValidateProjectile(UCombatAbili
 					}
 				}
 				//Tick the projectile through 50ms against rewound targets.
+				UKismetSystemLibrary::DrawDebugSphere(Shooter, NewProjectile->GetActorLocation(), 100.0f, 12, FLinearColor::White, 5.0f, 1);
 				NewProjectile->Tick(.05f);
 				//Unrewind all targets to set up for next rewind.
 				for (TTuple<UHitbox*, FTransform> const& ReturnTransform : ReturnTransforms)

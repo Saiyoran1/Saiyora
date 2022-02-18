@@ -63,13 +63,13 @@ public:
 
 //Projectile Prediction
 
-	void RegisterClientProjectile(APredictableProjectile* Projectile);
-	void ReplaceProjectile(APredictableProjectile* ServerProjectile);
+	static void RegisterClientProjectile(APredictableProjectile* Projectile);
+	static void ReplaceProjectile(APredictableProjectile* ServerProjectile);
 
-	UFUNCTION(BlueprintCallable, Category = "Abilities", meta = (DefaultToSelf = "Ability", Hidden = "Ability"))
+	UFUNCTION(BlueprintCallable, Category = "Abilities", meta = (DefaultToSelf = "Ability", HidePin = "Ability"))
 	static APredictableProjectile* PredictProjectile(UCombatAbility* Ability, class ASaiyoraPlayerCharacter* Shooter, TSubclassOf<APredictableProjectile> const ProjectileClass,
 		FAbilityOrigin& OutOrigin);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities", meta = (DefaultToSelf = "Ability", Hidden = "Ability"))
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities", meta = (DefaultToSelf = "Ability", HidePin = "Ability"))
 	static APredictableProjectile* ValidateProjectile(UCombatAbility* Ability, class ASaiyoraPlayerCharacter* Shooter, TSubclassOf<APredictableProjectile> const ProjectileClass,
 		FAbilityOrigin const& Origin);
 
