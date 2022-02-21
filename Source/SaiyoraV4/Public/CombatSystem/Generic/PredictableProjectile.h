@@ -45,13 +45,13 @@ public:
 	bool IsFake() const { return bIsFake; }
 	bool HasPredictedHit() const { return PredictedHit.Key; }
 	void Replace();
-	virtual void PostNetInit() override;
+	virtual void PostNetReceive() override;
 	
 private:
 
 	static int32 ProjectileID;
 	static FPredictedTick PredictionScope;
-	int32 GenerateProjectileID(FPredictedTick const& Scope);
+	static int32 GenerateProjectileID(FPredictedTick const& Scope);
 
 	UPROPERTY(EditAnywhere)
 	UProjectileMovementComponent* ProjectileMovement;
@@ -68,6 +68,7 @@ private:
 	FAbilityMispredictionCallback OnMisprediction;
 	UFUNCTION()
 	void DeleteOnMisprediction(int32 const PredictionID);
+	bool bReplaced = false;
 };
 
 USTRUCT()

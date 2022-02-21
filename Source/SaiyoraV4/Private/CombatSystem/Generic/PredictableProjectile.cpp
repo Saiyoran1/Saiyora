@@ -41,9 +41,13 @@ void APredictableProjectile::Replace()
 	UE_LOG(LogTemp, Warning, TEXT("Successfully replacing projectile!"));
 }
 
-void APredictableProjectile::PostNetInit()
+void APredictableProjectile::PostNetReceive()
 {
-	UAbilityFunctionLibrary::ReplaceProjectile(this);
+	if (!bReplaced)
+	{
+		UAbilityFunctionLibrary::ReplaceProjectile(this);
+		bReplaced = true;
+	}
 }
 
 int32 APredictableProjectile::GenerateProjectileID(FPredictedTick const& Scope)

@@ -55,4 +55,6 @@ FAbilityParams::FAbilityParams(FAbilityOrigin const& InOrigin, TArray<FAbilityTa
 FPredictedTick::FPredictedTick()
 {
 	//Needs to exist to prevent compile errors.
+	this->PredictionID = 0;
+	this->TickNumber = 0;
 }
