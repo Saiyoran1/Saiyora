@@ -21,15 +21,6 @@ struct FProjectileSource
 	int32 ID;
 };
 
-UENUM()
-enum class EProjectileHostility : uint8
-{
-	None,
-	Player,
-	Enemy,
-	Both
-};
-
 UCLASS(Abstract, Blueprintable)
 class SAIYORAV4_API APredictableProjectile : public AActor
 {
@@ -43,9 +34,7 @@ public:
 	APredictableProjectile(const class FObjectInitializer& ObjectInitializer);
 	void InitializeProjectile(UCombatAbility* Source);
 	bool IsFake() const { return bIsFake; }
-	bool HasPredictedHit() const { return PredictedHit.Key; }
 	void Replace();
-	virtual void PostNetReceive() override;
 	
 private:
 
@@ -53,6 +42,8 @@ private:
 	static FPredictedTick PredictionScope;
 	static int32 GenerateProjectileID(FPredictedTick const& Scope);
 
+	UPROPERTY()
+	class ASaiyoraGameState* GameState;
 	UPROPERTY(EditAnywhere)
 	UProjectileMovementComponent* ProjectileMovement;
 	bool bIsFake = false;
@@ -60,11 +51,6 @@ private:
 	FProjectileSource SourceInfo;
 	UFUNCTION()
 	void OnRep_SourceInfo();
-	UPROPERTY(ReplicatedUsing=OnRep_FinalHit)
-	FHitResult FinalHit;
-	UFUNCTION()
-	void OnRep_FinalHit();
-	TTuple<bool, FHitResult> PredictedHit;
 	FAbilityMispredictionCallback OnMisprediction;
 	UFUNCTION()
 	void DeleteOnMisprediction(int32 const PredictionID);

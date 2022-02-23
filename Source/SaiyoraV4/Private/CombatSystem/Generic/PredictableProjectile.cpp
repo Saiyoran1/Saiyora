@@ -1,6 +1,7 @@
 ﻿#include "PredictableProjectile.h"
 #include "AbilityComponent.h"
 #include "AbilityFunctionLibrary.h"
+#include "SaiyoraGameState.h"
 #include "UnrealNetwork.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
@@ -22,6 +23,11 @@ void APredictableProjectile::InitializeProjectile(UCombatAbility* Source)
 	{
 		return;
 	}
+	GameState = GetWorld()->GetGameState<ASaiyoraGameState>();
+	if (!IsValid(GameState))
+	{
+		return;
+	}
 	bIsFake = Source->GetHandler()->GetOwnerRole() == ROLE_Authority ? false : true;
 	SourceInfo.Owner = Cast<ASaiyoraPlayerCharacter>(GetOwner());
 	SourceInfo.SourceClass = Source->GetClass();
@@ -31,7 +37,7 @@ void APredictableProjectile::InitializeProjectile(UCombatAbility* Source)
 	{
 		OnMisprediction.BindDynamic(this, &APredictableProjectile::DeleteOnMisprediction);
 		Source->GetHandler()->SubscribeToAbilityMispredicted(OnMisprediction);
-		UAbilityFunctionLibrary::RegisterClientProjectile(this);
+		GameState->RegisterClientProjectile(this);
 	}
 }
 
@@ -39,15 +45,6 @@ void APredictableProjectile::Replace()
 {
 	//TODO
 	UE_LOG(LogTemp, Warning, TEXT("Successfully replacing projectile!"));
-}
-
-void APredictableProjectile::PostNetReceive()
-{
-	if (!bReplaced)
-	{
-		UAbilityFunctionLibrary::ReplaceProjectile(this);
-		bReplaced = true;
-	}
 }
 
 int32 APredictableProjectile::GenerateProjectileID(FPredictedTick const& Scope)
@@ -69,20 +66,20 @@ void APredictableProjectile::GetLifetimeReplicatedProps(TArray<FLifetimeProperty
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME_CONDITION(APredictableProjectile, SourceInfo, COND_OwnerOnly);
-	DOREPLIFETIME(APredictableProjectile, FinalHit);
 }
 
 void APredictableProjectile::OnRep_SourceInfo()
 {
-	if (IsValid(SourceInfo.Owner) && SourceInfo.Owner->IsLocallyControlled())
+	if (IsValid(SourceInfo.Owner) && SourceInfo.Owner->IsLocallyControlled() && !bReplaced)
 	{
-		
+		GameState = GetWorld()->GetGameState<ASaiyoraGameState>();
+		if (!IsValid(GameState))
+		{
+			return;
+		}
+		GameState->ReplaceProjectile(this);
+		bReplaced = true;
 	}
-}
-
-void APredictableProjectile::OnRep_FinalHit()
-{
-	UE_LOG(LogTemp, Warning, TEXT("Final Hit was received."));
 }
 
 void APredictableProjectile::DeleteOnMisprediction(int32 const PredictionID)

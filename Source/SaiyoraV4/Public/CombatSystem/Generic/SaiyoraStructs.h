@@ -85,11 +85,3 @@ struct FCombatParameter
         return Ar;
     }
 };
-
-USTRUCT()
-struct FRewindRecord
-{
-    GENERATED_BODY()
-
-    TArray<TTuple<float, FTransform>> Transforms;
-};

@@ -1,6 +1,6 @@
 #include "CombatSystem/Generic/Hitbox.h"
-#include "AbilityFunctionLibrary.h"
 #include "SaiyoraCombatInterface.h"
+#include "SaiyoraGameState.h"
 #include "Faction/FactionComponent.h"
 
 UHitbox::UHitbox()
@@ -27,7 +27,11 @@ void UHitbox::BeginPlay()
 	}
 	if (GetOwnerRole() == ROLE_Authority)
 	{
-		UAbilityFunctionLibrary::RegisterNewHitbox(this);
+		GameState = GetWorld()->GetGameState<ASaiyoraGameState>();
+		if (IsValid(GameState))
+		{
+			GameState->RegisterNewHitbox(this);
+		}
 	}
 }
 

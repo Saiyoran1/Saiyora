@@ -12,8 +12,6 @@ class SAIYORAV4_API UAbilityFunctionLibrary : public UBlueprintFunctionLibrary
 
 public:
 
-	static void RegisterNewHitbox(class UHitbox* Hitbox);
-
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Abilities", meta = (NativeMakeFunc))
 	static FAbilityOrigin MakeAbilityOrigin(FVector const& AimLocation, FVector const& AimDirection, FVector const& Origin);
 
@@ -63,9 +61,6 @@ public:
 
 //Projectile Prediction
 
-	static void RegisterClientProjectile(APredictableProjectile* Projectile);
-	static void ReplaceProjectile(APredictableProjectile* ServerProjectile);
-
 	UFUNCTION(BlueprintCallable, Category = "Abilities", meta = (DefaultToSelf = "Ability", HidePin = "Ability"))
 	static APredictableProjectile* PredictProjectile(UCombatAbility* Ability, class ASaiyoraPlayerCharacter* Shooter, TSubclassOf<APredictableProjectile> const ProjectileClass,
 		FAbilityOrigin& OutOrigin);
@@ -75,15 +70,13 @@ public:
 
 private:
 
-	static TMap<class UHitbox*, FRewindRecord> Snapshots;
 	static const float CamTraceLength;
-	static const float MaxLagCompensation;
-	static const float SnapshotInterval;
 	static const float RewindTraceRadius;
 	static const float AimToleranceDegrees;
-	UFUNCTION()
-	static void CreateSnapshot();
-	static FTimerHandle SnapshotHandle;
-	static FTransform RewindHitbox(UHitbox* Hitbox, float const Ping);
-	static TMultiMap<FPredictedTick, APredictableProjectile*> FakeProjectiles;
+
+//Helpers
+
+	static void RewindRelevantHitboxes(class ASaiyoraPlayerCharacter* Shooter, FAbilityOrigin const& Origin, TArray<AActor*> const& Targets,
+		TArray<AActor*> const& ActorsToIgnore, TMap<class UHitbox*, FTransform>& ReturnTransforms);
+	static void UnrewindHitboxes(TMap<class UHitbox*, FTransform> const& ReturnTransforms);
 };

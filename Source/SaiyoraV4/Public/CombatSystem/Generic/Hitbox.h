@@ -18,4 +18,6 @@ public:
 private:
 
 	void UpdateFactionCollision(EFaction const NewFaction);
+	UPROPERTY()
+	class ASaiyoraGameState* GameState;
 };

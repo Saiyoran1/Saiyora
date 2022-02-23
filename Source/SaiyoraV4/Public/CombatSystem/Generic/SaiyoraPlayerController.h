@@ -49,17 +49,4 @@ public:
 	void SubscribeToPingChanged(FPingCallback const& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Ping")
 	void UnsubscribeFromPingChanged(FPingCallback const& Callback);
-
-//Projectile Manager
-
-public:
-
-	void NewFakeProjectile(APredictableProjectile* NewProjectile);
-	void NewReplicatedProjectile(APredictableProjectile* NewProjectile);
-	void PredictFakeProjectileHit(APredictableProjectile* FakeProjectile, FHitResult const& HitResult);
-
-private:
-
-	UPROPERTY()
-	TMap<int32, APredictableProjectile*> FakeProjectiles;
 };
