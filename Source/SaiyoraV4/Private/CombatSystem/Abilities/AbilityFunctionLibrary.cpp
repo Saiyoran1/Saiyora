@@ -849,6 +849,10 @@ APredictableProjectile* UAbilityFunctionLibrary::PredictProjectile(UCombatAbilit
 		OutOrigin.AimLocation = Shooter->GetActorLocation();
 		OutOrigin.AimDirection = Shooter->GetActorForwardVector();
 	}
+	if (Shooter->GetLocalRole() == ROLE_Authority)
+	{
+		return nullptr;
+	}
 	FTransform SpawnTransform;
 	SpawnTransform.SetLocation(OutOrigin.Origin);
 	//Choose very far point straight from the camera as the default aim target.
