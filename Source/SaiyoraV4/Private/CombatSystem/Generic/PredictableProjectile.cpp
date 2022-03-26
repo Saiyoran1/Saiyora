@@ -33,6 +33,7 @@ void APredictableProjectile::InitializeProjectile(UCombatAbility* Source)
 	SourceInfo.SourceClass = Source->GetClass();
 	SourceInfo.SourceTick = FPredictedTick(Source->GetPredictionID(), Source->GetCurrentTick());
 	SourceInfo.ID = GenerateProjectileID(SourceInfo.SourceTick);
+	SourceInfo.SourceAbility = Source;
 	if (Source->GetHandler()->GetOwnerRole() == ROLE_AutonomousProxy)
 	{
 		OnMisprediction.BindDynamic(this, &APredictableProjectile::DeleteOnMisprediction);

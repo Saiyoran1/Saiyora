@@ -19,6 +19,8 @@ struct FProjectileSource
 	ASaiyoraPlayerCharacter* Owner;
 	UPROPERTY()
 	int32 ID;
+	UPROPERTY(NotReplicated)
+	UCombatAbility* SourceAbility;
 };
 
 UCLASS(Abstract, Blueprintable)
@@ -35,6 +37,11 @@ public:
 	void InitializeProjectile(UCombatAbility* Source);
 	bool IsFake() const { return bIsFake; }
 	void Replace();
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Projectile")
+	UCombatAbility* GetSource() const { return SourceInfo.SourceAbility; }
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Projectile")
+	ASaiyoraPlayerCharacter* GetOwningPlayer() const { return SourceInfo.Owner; }
 	
 private:
 
