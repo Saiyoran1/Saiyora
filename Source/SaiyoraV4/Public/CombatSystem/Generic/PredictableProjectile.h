@@ -36,12 +36,22 @@ public:
 	APredictableProjectile(const class FObjectInitializer& ObjectInitializer);
 	void InitializeProjectile(UCombatAbility* Source);
 	bool IsFake() const { return bIsFake; }
-	void Replace();
+	bool Replace();
+	void UpdateLocallyDestroyed(bool const bLocallyDestroyed);
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Projectile")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Projectile")
 	UCombatAbility* GetSource() const { return SourceInfo.SourceAbility; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category="Projectile")
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Projectile")
 	ASaiyoraPlayerCharacter* GetOwningPlayer() const { return SourceInfo.Owner; }
+	UFUNCTION(BlueprintCallable, Category = "Projectile")
+	void DestroyProjectile();
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Projectile")
+	bool IsDestroyed() const { return bDestroyed || bClientDestroyed; }
+
+protected:
+
+	UFUNCTION(BlueprintImplementableEvent)
+	void OnDestroy();
 	
 private:
 
@@ -62,6 +72,16 @@ private:
 	UFUNCTION()
 	void DeleteOnMisprediction(int32 const PredictionID);
 	bool bReplaced = false;
+	UPROPERTY(ReplicatedUsing=OnRep_Destroyed)
+	bool bDestroyed = false;
+	UFUNCTION()
+	void OnRep_Destroyed();
+	bool bClientDestroyed = false;
+	FTimerHandle DestroyHandle;
+	FTimerDelegate DestroyDelegate;
+	UFUNCTION()
+	void DelayedDestroy();
+	void HideProjectile();
 };
 
 USTRUCT()

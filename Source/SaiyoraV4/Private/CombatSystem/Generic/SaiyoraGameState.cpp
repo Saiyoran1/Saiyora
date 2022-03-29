@@ -172,7 +172,8 @@ void ASaiyoraGameState::ReplaceProjectile(APredictableProjectile* ServerProjecti
 	{
 		if (IsValid(Proj) && Proj->GetClass() == ServerProjectile->GetClass() && Proj->GetSourceInfo().ID == ServerProjectile->GetSourceInfo().ID)
 		{
-			Proj->Replace();
+			bool const bLocallyDestroyed = Proj->Replace();
+			ServerProjectile->UpdateLocallyDestroyed(bLocallyDestroyed);
 			FakeProjectiles.RemoveSingle(ServerProjectile->GetSourceInfo().SourceTick, Proj);
 			return;
 		}

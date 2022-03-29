@@ -1,6 +1,5 @@
 ﻿#include "PredictableProjectile.h"
 #include "AbilityComponent.h"
-#include "AbilityFunctionLibrary.h"
 #include "SaiyoraGameState.h"
 #include "UnrealNetwork.h"
 #include "GameFramework/ProjectileMovementComponent.h"
@@ -40,12 +39,7 @@ void APredictableProjectile::InitializeProjectile(UCombatAbility* Source)
 		Source->GetHandler()->SubscribeToAbilityMispredicted(OnMisprediction);
 		GameState->RegisterClientProjectile(this);
 	}
-}
-
-void APredictableProjectile::Replace()
-{
-	//TODO
-	UE_LOG(LogTemp, Warning, TEXT("Successfully replacing projectile!"));
+	DestroyDelegate.BindUObject(this, &APredictableProjectile::DelayedDestroy);
 }
 
 int32 APredictableProjectile::GenerateProjectileID(FPredictedTick const& Scope)
@@ -67,6 +61,7 @@ void APredictableProjectile::GetLifetimeReplicatedProps(TArray<FLifetimeProperty
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME_CONDITION(APredictableProjectile, SourceInfo, COND_OwnerOnly);
+	DOREPLIFETIME(APredictableProjectile, bDestroyed);
 }
 
 void APredictableProjectile::OnRep_SourceInfo()
@@ -90,3 +85,78 @@ void APredictableProjectile::DeleteOnMisprediction(int32 const PredictionID)
 		Destroy();
 	}
 }
+
+#pragma region Destroy
+
+bool APredictableProjectile::Replace()
+{
+	Destroy();
+	return bClientDestroyed;
+}
+
+void APredictableProjectile::UpdateLocallyDestroyed(bool const bLocallyDestroyed)
+{
+	if (bLocallyDestroyed)
+	{
+		bClientDestroyed = true;
+		HideProjectile();
+	}
+}
+
+void APredictableProjectile::DestroyProjectile()
+{
+	if (!IsValid(SourceInfo.Owner))
+	{
+		return;
+	}
+	if (SourceInfo.Owner->HasAuthority())
+	{
+		if (!bDestroyed)
+		{
+			bDestroyed = true;
+			GetWorld()->GetTimerManager().SetTimer(DestroyHandle, DestroyDelegate, 1.0f, false);
+			HideProjectile();
+			OnDestroy();
+		}
+	}
+	else
+	{
+		if (!bClientDestroyed)
+		{
+			bClientDestroyed = true;
+			HideProjectile();
+			OnDestroy();
+		}
+	}
+}
+
+void APredictableProjectile::OnRep_Destroyed()
+{
+	if (bDestroyed)
+	{
+		if (!bClientDestroyed)
+		{
+			OnDestroy();
+			HideProjectile();
+		}
+		Destroy();
+	}
+}
+
+void APredictableProjectile::DelayedDestroy()
+{
+	Destroy();
+}
+
+void APredictableProjectile::HideProjectile()
+{
+	TArray<UPrimitiveComponent*> PrimitiveComponents;
+	GetComponents<UPrimitiveComponent>(PrimitiveComponents);
+	for (UPrimitiveComponent* Comp : PrimitiveComponents)
+	{
+		Comp->SetVisibility(false, true);
+		Comp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	}
+}
+
+#pragma endregion 
