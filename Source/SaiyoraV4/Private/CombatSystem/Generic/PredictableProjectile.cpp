@@ -16,6 +16,12 @@ APredictableProjectile::APredictableProjectile(const class FObjectInitializer& O
 	SetReplicatingMovement(true);
 }
 
+void APredictableProjectile::PostNetReceiveLocationAndRotation()
+{
+	Super::PostNetReceiveLocationAndRotation();
+	ProjectileMovement->MoveInterpolationTarget(GetActorLocation(), GetActorRotation());
+}
+
 void APredictableProjectile::InitializeProjectile(UCombatAbility* Source)
 {
 	if (!IsValid(Source))
@@ -114,7 +120,7 @@ void APredictableProjectile::DestroyProjectile()
 		if (!bDestroyed)
 		{
 			bDestroyed = true;
-			GetWorld()->GetTimerManager().SetTimer(DestroyHandle, DestroyDelegate, 1.0f, false);
+			GetWorld()->GetTimerManager().SetTimer(DestroyHandle, DestroyDelegate, 2.0f, false);
 			HideProjectile();
 			OnDestroy();
 		}

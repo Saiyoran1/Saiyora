@@ -34,7 +34,9 @@ public:
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	APredictableProjectile(const class FObjectInitializer& ObjectInitializer);
+	virtual void PostNetReceiveLocationAndRotation() override;
 	void InitializeProjectile(UCombatAbility* Source);
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Projectile")
 	bool IsFake() const { return bIsFake; }
 	bool Replace();
 	void UpdateLocallyDestroyed(bool const bLocallyDestroyed);
@@ -61,7 +63,7 @@ private:
 
 	UPROPERTY()
 	class ASaiyoraGameState* GameState;
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	UProjectileMovementComponent* ProjectileMovement;
 	bool bIsFake = false;
 	UPROPERTY(ReplicatedUsing=OnRep_SourceInfo)
