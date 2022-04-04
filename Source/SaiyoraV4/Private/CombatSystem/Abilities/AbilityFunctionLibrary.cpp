@@ -227,7 +227,7 @@ bool UAbilityFunctionLibrary::PredictMultiLineTrace(ASaiyoraPlayerCharacter* Sho
 	//For the actual multi-trace, we use a channel that hitboxes will overlap instead of block (PlayerFriendlyOverlap or PlayerHostileOverlap) so that we get multiple results.
 	ETraceTypeQuery const TraceChannel = UEngineTypes::ConvertToTraceType(bHostile ? ECC_GameTraceChannel2 : ECC_GameTraceChannel1);
 	UKismetSystemLibrary::LineTraceMulti(Shooter, OutOrigin.Origin, OriginTraceEnd, TraceChannel, false,
-		ActorsToIgnore, EDrawDebugTrace::None, Results, true, FLinearColor::Yellow);
+		ActorsToIgnore, EDrawDebugTrace::ForDuration, Results, true, FLinearColor::Yellow);
 
 	OutTargetSet.SetID = TargetSetID;
 	for (FHitResult const& Result : Results)
@@ -857,27 +857,7 @@ APredictableProjectile* UAbilityFunctionLibrary::PredictProjectile(UCombatAbilit
 	SpawnTransform.SetLocation(OutOrigin.Origin);
 	//Choose very far point straight from the camera as the default aim target.
 	FVector const VisTraceEnd = OutOrigin.AimLocation + OutOrigin.AimDirection * CamTraceLength;
-	//Get a vector representing aiming from the origin to this aim target.
-	FVector const OriginAimDirection = (VisTraceEnd - OutOrigin.Origin).GetSafeNormal();
-	TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes;
-	ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_GameTraceChannel10));
-	ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_GameTraceChannel11));
-	TArray<FHitResult> VisTraceHits;
-	FVector VisTraceResult = VisTraceEnd;
-	//Trace against both friendly and enemy hitbox objects to find what we're aiming at along the line from the camera.
-	UKismetSystemLibrary::LineTraceMultiForObjects(Shooter, OutOrigin.AimLocation, VisTraceEnd, ObjectTypes, false, TArray<AActor*>(), EDrawDebugTrace::None, VisTraceHits, true);
-	for (FHitResult const& VisTraceHit : VisTraceHits)
-	{
-		//Of all the things in the line, we are looking for the first instance of a target within a 10 degree cone of the original aim vector.
-		float const Angle = UKismetMathLibrary::DegAcos(FVector::DotProduct((VisTraceHit.ImpactPoint - OutOrigin.Origin).GetSafeNormal(), OriginAimDirection));
-		if (Angle < AimToleranceDegrees)
-		{
-			VisTraceResult = VisTraceHit.ImpactPoint;
-			break;
-		}
-	}
-	//If we didn't find anything along the line that fits in the cone, just use the unaltered aim direction.
-	SpawnTransform.SetRotation((VisTraceResult - OutOrigin.Origin).Rotation().Quaternion());
+	SpawnTransform.SetRotation((VisTraceEnd - OutOrigin.Origin).Rotation().Quaternion());
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.Owner = Shooter;
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
@@ -933,26 +913,7 @@ APredictableProjectile* UAbilityFunctionLibrary::ValidateProjectile(UCombatAbili
 	SpawnTransform.SetLocation(Origin.Origin);
 	//Choose very far point straight from the camera as the default aim target.
 	FVector const VisTraceEnd = Origin.AimLocation + Origin.AimDirection * CamTraceLength;
-	//Get a vector representing aiming from the origin to this aim target.
-	FVector const OriginAimDirection = (VisTraceEnd - Origin.Origin).GetSafeNormal();
-	TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes;
-	ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_GameTraceChannel10));
-	ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_GameTraceChannel11));
-	TArray<FHitResult> VisTraceHits;
-	FVector VisTraceResult = VisTraceEnd;
-	//Trace against both friendly and enemy hitbox objects to find what we're aiming at along the line from the camera.
-	UKismetSystemLibrary::LineTraceMultiForObjects(Shooter, Origin.AimLocation, VisTraceEnd, ObjectTypes, false, TArray<AActor*>(), EDrawDebugTrace::None, VisTraceHits, true);
-	for (FHitResult const& VisTraceHit : VisTraceHits)
-	{
-		//Of all the things in the line, we are looking for the first instance of a target within a 30 degree cone of the original aim vector.
-		float const Angle = UKismetMathLibrary::DegAcos(FVector::DotProduct((VisTraceHit.ImpactPoint - Origin.Origin).GetSafeNormal(), OriginAimDirection));
-		if (Angle < AimToleranceDegrees)
-		{
-			VisTraceResult = VisTraceHit.ImpactPoint;
-			break;
-		}
-	}
-	SpawnTransform.SetRotation((VisTraceResult - Origin.Origin).Rotation().Quaternion());
+	SpawnTransform.SetRotation((VisTraceEnd - Origin.Origin).Rotation().Quaternion());
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.Owner = Shooter;
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
