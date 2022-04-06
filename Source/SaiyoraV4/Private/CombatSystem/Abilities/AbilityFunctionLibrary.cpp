@@ -10,7 +10,7 @@
 
 float const UAbilityFunctionLibrary::CamTraceLength = 10000.0f;
 float const UAbilityFunctionLibrary::RewindTraceRadius = 300.0f;
-float const UAbilityFunctionLibrary::AimToleranceDegrees = 10.0f;
+float const UAbilityFunctionLibrary::AimToleranceDegrees = 30.0f;
 
 FAbilityOrigin UAbilityFunctionLibrary::MakeAbilityOrigin(FVector const& AimLocation, FVector const& AimDirection, FVector const& Origin)
 {
@@ -213,28 +213,49 @@ bool UAbilityFunctionLibrary::PredictMultiLineTrace(ASaiyoraPlayerCharacter* Sho
 		OutOrigin.AimDirection = Shooter->GetActorForwardVector();
 	}
 
-	FVector const CamTraceEnd = OutOrigin.AimLocation + (CamTraceLength * OutOrigin.AimDirection);
-	FHitResult CamTraceResult;
-	//For the target trace, we use a channel that hitboxes will block (PlayerFriendly or PlayerHostile) so that we aim at the first thing in the center of the screen.
-	ETraceTypeQuery const CamChannel = UEngineTypes::ConvertToTraceType(bHostile ? ECC_GameTraceChannel4 : ECC_GameTraceChannel3);
-	UKismetSystemLibrary::LineTraceSingle(Shooter, OutOrigin.AimLocation, CamTraceEnd, CamChannel, false,
-		ActorsToIgnore, EDrawDebugTrace::None, CamTraceResult, true, FLinearColor::Green);
+	//Choose max range point straight from the camera as the default aim target.
+	FVector AimTarget = OutOrigin.AimLocation + OutOrigin.AimDirection * TraceLength;
+	//Trace from the camera forward to the default aim target, looking for anything that would block visibility that we could be aiming at.
+	FHitResult VisTraceResult;
+	UKismetSystemLibrary::LineTraceSingle(Shooter, OutOrigin.AimLocation, AimTarget, UEngineTypes::ConvertToTraceType(ECC_Visibility), false,
+		TArray<AActor*>(), EDrawDebugTrace::None, VisTraceResult, true);
+	if (VisTraceResult.bBlockingHit)
+	{
+		//If there is something in the direction we're aiming, check if its within an allowed cone to prevent firing off at strange angles.
+		float const Angle = UKismetMathLibrary::DegAcos(FVector::DotProduct((VisTraceResult.ImpactPoint - OutOrigin.Origin).GetSafeNormal(), OutOrigin.AimDirection));
+		if (Angle < AimToleranceDegrees)
+		{
+			AimTarget = VisTraceResult.ImpactPoint;
+		}
+	}
+	
+	TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes;
+	ObjectTypes.Add(bHostile ? UEngineTypes::ConvertToObjectType(ECC_GameTraceChannel11) : UEngineTypes::ConvertToObjectType(ECC_GameTraceChannel10));
+	TArray<FHitResult> HitboxTraceHits;
+	//Trace against either friendly or enemy hitbox objects to find what we're aiming at along the line from the camera.
+	UKismetSystemLibrary::LineTraceMultiForObjects(Shooter, OutOrigin.AimLocation, AimTarget, ObjectTypes, false,
+		TArray<AActor*>(), EDrawDebugTrace::None, HitboxTraceHits, true);
+	if (HitboxTraceHits.Num() > 0)
+	{
+		//Find the last thing in the line we were aiming at. If the angle to this last impact point is within a small cone of our original aim direction, we use that as our aim target.
+		float const Angle = UKismetMathLibrary::DegAcos(FVector::DotProduct((HitboxTraceHits.Last().ImpactPoint - OutOrigin.Origin).GetSafeNormal(), OutOrigin.AimDirection));
+		if (Angle < AimToleranceDegrees)
+		{
+			AimTarget = OutOrigin.Origin + (HitboxTraceHits.Last().ImpactPoint - OutOrigin.Origin).GetSafeNormal() * TraceLength;
+		}
+	}
 
-	//If we hit something and it was in front of the origin, use that as our trace target, otherwise use the end of the trace.
-	FVector const OriginTraceEnd = OutOrigin.Origin + TraceLength *
-			(((CamTraceResult.bBlockingHit && FVector::DotProduct((CamTraceResult.ImpactPoint - OutOrigin.Origin), OutOrigin.AimDirection) > 0.0f)
-				? CamTraceResult.ImpactPoint : CamTraceResult.TraceEnd) - OutOrigin.Origin).GetSafeNormal();
 	//For the actual multi-trace, we use a channel that hitboxes will overlap instead of block (PlayerFriendlyOverlap or PlayerHostileOverlap) so that we get multiple results.
 	ETraceTypeQuery const TraceChannel = UEngineTypes::ConvertToTraceType(bHostile ? ECC_GameTraceChannel2 : ECC_GameTraceChannel1);
-	UKismetSystemLibrary::LineTraceMulti(Shooter, OutOrigin.Origin, OriginTraceEnd, TraceChannel, false,
-		ActorsToIgnore, EDrawDebugTrace::ForDuration, Results, true, FLinearColor::Yellow);
+	UKismetSystemLibrary::LineTraceMulti(Shooter, OutOrigin.Origin, AimTarget, TraceChannel, false,
+		ActorsToIgnore, EDrawDebugTrace::None, Results, true, FLinearColor::Yellow);
 
 	OutTargetSet.SetID = TargetSetID;
 	for (FHitResult const& Result : Results)
 	{
 		if (IsValid(Result.GetActor()))
 		{
-			OutTargetSet.Targets.Add(Result.GetActor());
+			OutTargetSet.Targets.AddUnique(Result.GetActor());
 		}
 	}
 	
@@ -257,24 +278,46 @@ TArray<AActor*> UAbilityFunctionLibrary::ValidateMultiLineTrace(ASaiyoraPlayerCh
 	//TODO: Validate aim location and origin (if using separate origin).
 	TMap<UHitbox*, FTransform> ReturnTransforms;
 	RewindRelevantHitboxes(Shooter, Origin, Targets, ActorsToIgnore, ReturnTransforms);
-	//Trace from the camera for a very large distance to find what we were aiming at.
 	//TODO: Math to find distance and angle from origin point so that we can calculate the max distance we can trace before we outrange the origin.
-	FVector const CamTraceEnd = Origin.AimLocation + (CamTraceLength * Origin.AimDirection.GetSafeNormal());
-	FHitResult CamTraceResult;
-	ETraceTypeQuery const CamChannel = UEngineTypes::ConvertToTraceType(bHostile ? ECC_GameTraceChannel4 : ECC_GameTraceChannel3);
-	UKismetSystemLibrary::LineTraceSingle(Shooter, Origin.AimLocation, CamTraceEnd,
-		CamChannel, false, ActorsToIgnore, EDrawDebugTrace::None, CamTraceResult, true, FLinearColor::Green);
+	
+	//Choose max range point straight from the camera as the default aim target.
+	FVector AimTarget = Origin.AimLocation + Origin.AimDirection * TraceLength;
+	//Trace from the camera forward to the default aim target, looking for anything that would block visibility that we could be aiming at.
+	FHitResult VisTraceResult;
+	UKismetSystemLibrary::LineTraceSingle(Shooter, Origin.AimLocation, AimTarget, UEngineTypes::ConvertToTraceType(ECC_Visibility), false,
+		TArray<AActor*>(), EDrawDebugTrace::None, VisTraceResult, true);
+	if (VisTraceResult.bBlockingHit)
+	{
+		//If there is something in the direction we're aiming, check if its within an allowed cone to prevent firing off at strange angles.
+		float const Angle = UKismetMathLibrary::DegAcos(FVector::DotProduct((VisTraceResult.ImpactPoint - Origin.Origin).GetSafeNormal(), Origin.AimDirection));
+		if (Angle < AimToleranceDegrees)
+		{
+			AimTarget = VisTraceResult.ImpactPoint;
+		}
+	}
+	
+	TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes;
+	ObjectTypes.Add(bHostile ? UEngineTypes::ConvertToObjectType(ECC_GameTraceChannel11) : UEngineTypes::ConvertToObjectType(ECC_GameTraceChannel10));
+	TArray<FHitResult> HitboxTraceHits;
+	//Trace against either friendly or enemy hitbox objects to find what we're aiming at along the line from the camera.
+	UKismetSystemLibrary::LineTraceMultiForObjects(Shooter, Origin.AimLocation, AimTarget, ObjectTypes, false,
+		TArray<AActor*>(), EDrawDebugTrace::None, HitboxTraceHits, true);
+	if (HitboxTraceHits.Num() > 0)
+	{
+		//Find the last thing in the line we were aiming at. If the angle to this last impact point is within a small cone of our original aim direction, we use that as our aim target.
+		float const Angle = UKismetMathLibrary::DegAcos(FVector::DotProduct((HitboxTraceHits.Last().ImpactPoint - Origin.Origin).GetSafeNormal(), Origin.AimDirection));
+		if (Angle < AimToleranceDegrees)
+		{
+			AimTarget = Origin.Origin + (HitboxTraceHits.Last().ImpactPoint - Origin.Origin).GetSafeNormal() * TraceLength;
+		}
+	}
 
-	//If we hit something and it was in front of the origin, use that as our trace target, otherwise use the end of the trace.
-	FVector const OriginTraceEnd = Origin.Origin + TraceLength *
-			(((CamTraceResult.bBlockingHit && FVector::DotProduct((CamTraceResult.ImpactPoint - Origin.Origin), Origin.AimDirection) > 0.0f)
-				? CamTraceResult.ImpactPoint : CamTraceResult.TraceEnd) - Origin.Origin).GetSafeNormal();
 	TArray<FHitResult> Results;
 	//For the actual multi-trace, we use a channel that hitboxes will overlap instead of block (PlayerFriendlyOverlap or PlayerHostileOverlap) so that we get multiple results.
 	ETraceTypeQuery const TraceChannel = UEngineTypes::ConvertToTraceType(bHostile ? ECC_GameTraceChannel2 : ECC_GameTraceChannel1);
-	UKismetSystemLibrary::LineTraceMulti(Shooter, Origin.Origin, OriginTraceEnd, TraceChannel, false,
+	UKismetSystemLibrary::LineTraceMulti(Shooter, Origin.Origin, AimTarget, TraceChannel, false,
 		ActorsToIgnore, EDrawDebugTrace::None, Results, true, FLinearColor::Yellow);
-	
+
 	for (FHitResult const& Result : Results)
 	{
 		if (IsValid(Result.GetActor()) && Targets.Contains(Result.GetActor()))
@@ -856,8 +899,21 @@ APredictableProjectile* UAbilityFunctionLibrary::PredictProjectile(UCombatAbilit
 	FTransform SpawnTransform;
 	SpawnTransform.SetLocation(OutOrigin.Origin);
 	//Choose very far point straight from the camera as the default aim target.
-	FVector const VisTraceEnd = OutOrigin.AimLocation + OutOrigin.AimDirection * CamTraceLength;
-	SpawnTransform.SetRotation((VisTraceEnd - OutOrigin.Origin).Rotation().Quaternion());
+	FVector AimTarget = OutOrigin.AimLocation + OutOrigin.AimDirection * CamTraceLength;
+	//Trace from the camera forward to the default aim target, looking for anything that would block visibility that we could be aiming at.
+	FHitResult VisTraceResult;
+	UKismetSystemLibrary::LineTraceSingle(Shooter, OutOrigin.AimLocation, AimTarget, UEngineTypes::ConvertToTraceType(ECC_Visibility), false,
+		TArray<AActor*>(), EDrawDebugTrace::None, VisTraceResult, true);
+	if (VisTraceResult.bBlockingHit)
+	{
+		//If there is something in the direction we're aiming, check if its within an allowed cone to prevent firing off at strange angles.
+		float const Angle = UKismetMathLibrary::DegAcos(FVector::DotProduct((VisTraceResult.ImpactPoint - OutOrigin.Origin).GetSafeNormal(), OutOrigin.AimDirection));
+		if (Angle < AimToleranceDegrees)
+		{
+			AimTarget = VisTraceResult.ImpactPoint;
+		}
+	}
+	SpawnTransform.SetRotation((AimTarget - OutOrigin.Origin).Rotation().Quaternion());
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.Owner = Shooter;
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
@@ -912,8 +968,21 @@ APredictableProjectile* UAbilityFunctionLibrary::ValidateProjectile(UCombatAbili
 	FTransform SpawnTransform;
 	SpawnTransform.SetLocation(Origin.Origin);
 	//Choose very far point straight from the camera as the default aim target.
-	FVector const VisTraceEnd = Origin.AimLocation + Origin.AimDirection * CamTraceLength;
-	SpawnTransform.SetRotation((VisTraceEnd - Origin.Origin).Rotation().Quaternion());
+	FVector AimTarget = Origin.AimLocation + Origin.AimDirection * CamTraceLength;
+	//Trace from the camera forward to the default aim target, looking for anything that would block visibility that we could be aiming at.
+	FHitResult VisTraceResult;
+	UKismetSystemLibrary::LineTraceSingle(Shooter, Origin.AimLocation, AimTarget, UEngineTypes::ConvertToTraceType(ECC_Visibility), false,
+		TArray<AActor*>(), EDrawDebugTrace::None, VisTraceResult, true);
+	if (VisTraceResult.bBlockingHit)
+	{
+		//If there is something in the direction we're aiming, check if its within an allowed cone to prevent firing off at strange angles.
+		float const Angle = UKismetMathLibrary::DegAcos(FVector::DotProduct((VisTraceResult.ImpactPoint - Origin.Origin).GetSafeNormal(), Origin.AimDirection));
+		if (Angle < AimToleranceDegrees)
+		{
+			AimTarget = VisTraceResult.ImpactPoint;
+		}
+	}
+	SpawnTransform.SetRotation((AimTarget - Origin.Origin).Rotation().Quaternion());
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.Owner = Shooter;
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
@@ -924,8 +993,6 @@ APredictableProjectile* UAbilityFunctionLibrary::ValidateProjectile(UCombatAbili
 		return nullptr;
 	}
 	NewProjectile->InitializeProjectile(Ability);
-	//Case A: 213ms
-	//Case B: 12ms
 	if (Ping > 0.0f && IsValid(GameState))
 	{
 		UProjectileMovementComponent* MoveComp = NewProjectile->FindComponentByClass<UProjectileMovementComponent>();

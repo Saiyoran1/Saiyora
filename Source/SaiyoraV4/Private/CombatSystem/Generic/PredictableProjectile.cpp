@@ -18,8 +18,8 @@ APredictableProjectile::APredictableProjectile(const class FObjectInitializer& O
 
 void APredictableProjectile::PostNetReceiveLocationAndRotation()
 {
-	Super::PostNetReceiveLocationAndRotation();
-	ProjectileMovement->MoveInterpolationTarget(GetActorLocation(), GetActorRotation());
+    ProjectileMovement->MoveInterpolationTarget(GetActorLocation(), GetActorRotation());
+    Super::PostNetReceiveLocationAndRotation();
 }
 
 void APredictableProjectile::InitializeProjectile(UCombatAbility* Source)
