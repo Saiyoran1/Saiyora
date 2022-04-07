@@ -79,4 +79,5 @@ private:
 	static void RewindRelevantHitboxes(class ASaiyoraPlayerCharacter* Shooter, FAbilityOrigin const& Origin, TArray<AActor*> const& Targets,
 		TArray<AActor*> const& ActorsToIgnore, TMap<class UHitbox*, FTransform>& ReturnTransforms);
 	static void UnrewindHitboxes(TMap<class UHitbox*, FTransform> const& ReturnTransforms);
+	static float GetCameraTraceMaxRange(FVector const& CameraLoc, FVector const& AimDir, FVector const& OriginLoc, float const TraceRange);
 };
