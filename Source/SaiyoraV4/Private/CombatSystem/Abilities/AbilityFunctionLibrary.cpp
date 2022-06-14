@@ -21,6 +21,23 @@ FAbilityOrigin UAbilityFunctionLibrary::MakeAbilityOrigin(FVector const& AimLoca
 	return Target;
 }
 
+float UAbilityFunctionLibrary::GetCameraTraceMaxRange(FVector const& CameraLoc, FVector const& AimDir, FVector const& OriginLoc,
+    float const TraceRange)
+{
+	float const CamToOriginLength = (OriginLoc - CameraLoc).Size();
+	float const CamAngle = UKismetMathLibrary::DegAcos(FVector::DotProduct((OriginLoc - CameraLoc).GetSafeNormal(), AimDir));
+	//Law of sines: sin(A)/A = sin(B)/B
+	//sin(CamAngle)/TraceRange = sin(B)/CamToOriginLength
+	//B = arcsin((sin(CamAngle) * CamToOriginLength)/TraceRange)
+	float const TargetAngle = UKismetMathLibrary::DegAsin((UKismetMathLibrary::DegSin(CamAngle) * CamToOriginLength) / TraceRange);
+	float const OriginAngle = 180.0f - (CamAngle + TargetAngle);
+	//sin(OriginAngle)/x = sin(CamAngle)/TraceRange
+	//sin(OriginAngle) * TraceRange / x = sin(CamAngle)
+	//sin(OriginAngle) * TraceRange = x * sin(CamAngle)
+	//x = (sin(OriginAngle) * TraceRange) / sin(CamAngle)
+	return (UKismetMathLibrary::DegSin(OriginAngle) * TraceRange) / UKismetMathLibrary::DegSin(CamAngle);
+}
+
 #pragma region Snapshotting
 
 void UAbilityFunctionLibrary::RewindRelevantHitboxes(ASaiyoraPlayerCharacter* Shooter, FAbilityOrigin const& Origin, TArray<AActor*> const& Targets,
@@ -73,23 +90,6 @@ void UAbilityFunctionLibrary::UnrewindHitboxes(TMap<UHitbox*, FTransform> const&
 			ReturnTransform.Key->SetWorldTransform(ReturnTransform.Value);
 		}
 	}
-}
-
-float UAbilityFunctionLibrary::GetCameraTraceMaxRange(FVector const& CameraLoc, FVector const& AimDir, FVector const& OriginLoc,
-	float const TraceRange)
-{
-	float const CamToOriginLength = (OriginLoc - CameraLoc).Size();
-	float const CamAngle = UKismetMathLibrary::DegAcos(FVector::DotProduct((OriginLoc - CameraLoc).GetSafeNormal(), AimDir));
-	//Law of sines: sin(A)/A = sin(B)/B
-	//sin(CamAngle)/TraceRange = sin(B)/CamToOriginLength
-	//B = arcsin((sin(CamAngle) * CamToOriginLength)/TraceRange)
-	float const TargetAngle = UKismetMathLibrary::DegAsin((UKismetMathLibrary::DegSin(CamAngle) * CamToOriginLength) / TraceRange);
-	float const OriginAngle = 180.0f - (CamAngle + TargetAngle);
-	//sin(OriginAngle)/x = sin(CamAngle)/TraceRange
-	//sin(OriginAngle) * TraceRange / x = sin(CamAngle)
-	//sin(OriginAngle) * TraceRange = x * sin(CamAngle)
-	//x = (sin(OriginAngle) * TraceRange) / sin(CamAngle)
-	return (UKismetMathLibrary::DegSin(OriginAngle) * TraceRange) / UKismetMathLibrary::DegSin(CamAngle);
 }
 
 #pragma endregion 
