@@ -6,6 +6,15 @@
 #include "CoreUObject/Public/Templates/SubclassOf.h"
 #include "AbilityStructs.generated.h"
 
+USTRUCT()
+struct FAbilityTags
+{
+    GENERATED_BODY()
+
+    static const FGameplayTag GenericAbilityRestriction;
+    static const FGameplayTag AbilityClassRestriction;
+};
+
 USTRUCT(BlueprintType)
 struct FDefaultAbilityCost
 {

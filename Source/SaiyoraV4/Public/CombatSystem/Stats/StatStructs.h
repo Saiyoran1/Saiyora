@@ -1,9 +1,35 @@
 #pragma once
 #include "CoreMinimal.h"
-#include "GameplayTagContainer.h"
 #include "Engine/DataTable.h"
 #include "SaiyoraStructs.h"
 #include "StatStructs.generated.h"
+
+USTRUCT()
+struct FStatTags
+{
+    GENERATED_BODY()
+
+    static const FGameplayTag GenericStat;
+    
+    static const FGameplayTag DamageDone;
+    static const FGameplayTag DamageTaken;
+    static const FGameplayTag HealingDone;
+    static const FGameplayTag HealingTaken;
+    static const FGameplayTag MaxHealth;
+
+    static const FGameplayTag GlobalCooldownLength;
+    static const FGameplayTag CastLength;
+    static const FGameplayTag CooldownLength;
+
+    static const FGameplayTag MaxWalkSpeed;
+    static const FGameplayTag MaxCrouchSpeed;
+    static const FGameplayTag GroundFriction; 
+    static const FGameplayTag BrakingDeceleration; 
+    static const FGameplayTag MaxAcceleration;
+    static const FGameplayTag GravityScale;
+    static const FGameplayTag JumpZVelocity;
+    static const FGameplayTag AirControl;
+};
 
 DECLARE_DYNAMIC_DELEGATE_TwoParams(FStatCallback, FGameplayTag const&, StatTag, float const, NewValue);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FStatNotification, FGameplayTag const&, StatTag, float const, NewValue);
@@ -37,7 +63,7 @@ struct FCombatStat : public FFastArraySerializerItem
     GENERATED_BODY()
 
     FCombatStat(FStatInfo const& InitInfo);
-    FCombatStat();
+    FCombatStat() {}
     void SubscribeToStatChanged(FStatCallback const& Callback);
     void UnsubscribeFromStatChanged(FStatCallback const& Callback);
     void AddModifier(FCombatModifier const& Modifier);

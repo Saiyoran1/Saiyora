@@ -16,13 +16,6 @@ class SAIYORAV4_API UCrowdControlHandler : public UActorComponent
 
 public:
 	
-	static FGameplayTag GenericCrowdControlTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("CrowdControl")), false); }
-	static FGameplayTag StunTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("CrowdControl.Stun")), false); }
-	static FGameplayTag IncapacitateTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("CrowdControl.Incapacitate")), false); }
-	static FGameplayTag RootTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("CrowdControl.Root")), false); }
-	static FGameplayTag SilenceTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("CrowdControl.Silence")), false); }
-	static FGameplayTag DisarmTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("CrowdControl.Disarm")), false); }
-	
 	UCrowdControlHandler();
 	virtual void InitializeComponent() override;
 	virtual void BeginPlay() override;

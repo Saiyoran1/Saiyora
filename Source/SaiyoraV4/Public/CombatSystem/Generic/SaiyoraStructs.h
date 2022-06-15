@@ -1,7 +1,16 @@
 #pragma once
 #include "CoreMinimal.h"
+#include "GameplayTagContainer.h"
 #include "SaiyoraEnums.h"
 #include "SaiyoraStructs.generated.h"
+
+USTRUCT()
+struct FDungeonTags
+{
+    GENERATED_BODY()
+
+    static const FGameplayTag GenericBoss;
+};
 
 USTRUCT(BlueprintType)
 struct FCombatModifier

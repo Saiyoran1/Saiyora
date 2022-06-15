@@ -12,8 +12,6 @@ class SAIYORAV4_API UStatHandler : public UActorComponent
 	
 public:
 	
-	static FGameplayTag GenericStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat")), false); }
-	
 	UStatHandler();
 	virtual void InitializeComponent() override;
 	virtual void BeginPlay() override;

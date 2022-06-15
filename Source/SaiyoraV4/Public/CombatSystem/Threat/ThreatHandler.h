@@ -19,11 +19,6 @@ class SAIYORAV4_API UThreatHandler : public UActorComponent
 
 public:
 	
-	static FGameplayTag GenericThreatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Threat")), false); }
-	static FGameplayTag FixateTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Threat.Fixate")), false); }
-	static FGameplayTag BlingTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Threat.Blind")), false); }
-	static FGameplayTag FadeTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Threat.Fade")), false); }
-	static FGameplayTag MisdirectTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Threat.Misdirect")), false); }
 	static float GlobalHealingThreatModifier;
 	static float GlobalTauntThreatPercentage;
 	

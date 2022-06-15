@@ -268,7 +268,6 @@ void ASaiyoraGameState::ReplaceProjectile(APredictableProjectile* ServerProjecti
 #pragma endregion
 #pragma region Dungeon Status
 
-const FGameplayTag ASaiyoraGameState::GenericBossTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Boss")), false);
 const float ASaiyoraGameState::MINIMUMTIMELIMIT = 1.0f;
 
 bool ASaiyoraGameState::AreDungeonRequirementsMet()
@@ -405,7 +404,7 @@ void ASaiyoraGameState::DepleteDungeonFromTimer()
 
 bool ASaiyoraGameState::IsBossKilled(const FGameplayTag BossTag) const
 {
-	if (!BossTag.IsValid() || !BossTag.MatchesTag(GenericBossTag) || BossTag.MatchesTagExact(GenericBossTag))
+	if (!BossTag.IsValid() || !BossTag.MatchesTag(FDungeonTags::GenericBoss) || BossTag.MatchesTagExact(FDungeonTags::GenericBoss))
 	{
 		return false;
 	}
@@ -476,7 +475,7 @@ void ASaiyoraGameState::ReportTrashDeath(const int32 KillCount)
 void ASaiyoraGameState::ReportBossDeath(const FGameplayTag BossTag)
 {
 	if (!HasAuthority() || DungeonProgress.DungeonPhase != EDungeonPhase::InProgress ||
-		!BossTag.IsValid() || !BossTag.MatchesTag(GenericBossTag) || BossTag.MatchesTagExact(GenericBossTag))
+		!BossTag.IsValid() || !BossTag.MatchesTag(FDungeonTags::GenericBoss) || BossTag.MatchesTagExact(FDungeonTags::GenericBoss))
 	{
 		return;
 	}

@@ -6,6 +6,18 @@
 
 class UBuff;
 
+USTRUCT()
+struct FThreatTags
+{
+	GENERATED_BODY()
+
+	static const FGameplayTag GenericThreat;
+	static const FGameplayTag Fixate;
+	static const FGameplayTag Blind;
+	static const FGameplayTag Fade;
+	static const FGameplayTag Misdirect;
+};
+
 USTRUCT(BlueprintType)
 struct FThreatEvent
 {

@@ -85,12 +85,6 @@ class SAIYORAV4_API UAbilityComponent : public UActorComponent
 
 public:
 
-	static FGameplayTag AbilityRestrictionTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("AbilityRestriction")), false); }
-	static FGameplayTag AbilityClassRestrictionTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("AbilityRestriction.Class")), false); }
-	static FGameplayTag GlobalCooldownLengthStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.GlobalCooldownLength")), false); }
-	static FGameplayTag CastLengthStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.CastLength")), false); }
-	static FGameplayTag CooldownLengthStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.CooldownLength")), false); }
-
 	static const float MaxPingCompensation;
 	static const float MinimumCastLength;
 	static const float MinimumGlobalCooldownLength;

@@ -24,7 +24,7 @@ void UStatHandler::InitializeComponent()
 		InitialStats->GetAllRows<FStatInfo>(nullptr, InitialStatArray);
 		for (FStatInfo const* InitInfo : InitialStatArray)
 		{
-			if (!InitInfo || !InitInfo->StatTag.MatchesTag(GenericStatTag()) || InitInfo->StatTag.MatchesTagExact(GenericStatTag()))
+			if (!InitInfo || !InitInfo->StatTag.MatchesTag(FStatTags::GenericStat) || InitInfo->StatTag.MatchesTagExact(FStatTags::GenericStat))
 			{
 				continue;
 			}
@@ -66,7 +66,7 @@ void UStatHandler::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLi
 
 bool UStatHandler::IsStatValid(FGameplayTag const StatTag) const
 {
-	if (!StatTag.IsValid() || !StatTag.MatchesTag(GenericStatTag()) || StatTag.MatchesTagExact(GenericStatTag()))
+	if (!StatTag.IsValid() || !StatTag.MatchesTag(FStatTags::GenericStat) || StatTag.MatchesTagExact(FStatTags::GenericStat))
 	{
 		return false;
 	}
@@ -82,7 +82,7 @@ bool UStatHandler::IsStatValid(FGameplayTag const StatTag) const
 
 float UStatHandler::GetStatValue(FGameplayTag const StatTag) const
 {
-	if (!StatTag.IsValid() || !StatTag.MatchesTag(GenericStatTag()) || StatTag.MatchesTagExact(GenericStatTag()))
+	if (!StatTag.IsValid() || !StatTag.MatchesTag(FStatTags::GenericStat) || StatTag.MatchesTagExact(FStatTags::GenericStat))
 	{
 		return -1.0f;
 	}
@@ -134,7 +134,7 @@ float UStatHandler::GetStatValue(FGameplayTag const StatTag) const
 
 bool UStatHandler::IsStatModifiable(FGameplayTag const StatTag) const
 {
-	if (!StatTag.IsValid() || !StatTag.MatchesTag(GenericStatTag()) || StatTag.MatchesTagExact(GenericStatTag()))
+	if (!StatTag.IsValid() || !StatTag.MatchesTag(FStatTags::GenericStat) || StatTag.MatchesTagExact(FStatTags::GenericStat))
 	{
 		return false;
 	}
@@ -153,7 +153,7 @@ bool UStatHandler::IsStatModifiable(FGameplayTag const StatTag) const
 
 void UStatHandler::SubscribeToStatChanged(FGameplayTag const StatTag, FStatCallback const& Callback)
 {
-	if (!Callback.IsBound() || !StatTag.IsValid() || !StatTag.MatchesTag(GenericStatTag()) || StatTag.MatchesTagExact(GenericStatTag()))
+	if (!Callback.IsBound() || !StatTag.IsValid() || !StatTag.MatchesTag(FStatTags::GenericStat) || StatTag.MatchesTagExact(FStatTags::GenericStat))
 	{
 		return;
 	}
@@ -196,7 +196,7 @@ void UStatHandler::SubscribeToStatChanged(FGameplayTag const StatTag, FStatCallb
 
 void UStatHandler::UnsubscribeFromStatChanged(FGameplayTag const StatTag, FStatCallback const& Callback)
 {
-	if (!Callback.IsBound() || !StatTag.IsValid() || !StatTag.MatchesTag(GenericStatTag()) || StatTag.MatchesTagExact(GenericStatTag()))
+	if (!Callback.IsBound() || !StatTag.IsValid() || !StatTag.MatchesTag(FStatTags::GenericStat) || StatTag.MatchesTagExact(FStatTags::GenericStat))
 	{
 		return;
 	}
@@ -243,7 +243,7 @@ void UStatHandler::UnsubscribeFromStatChanged(FGameplayTag const StatTag, FStatC
 void UStatHandler::AddStatModifier(FGameplayTag const StatTag, FCombatModifier const& Modifier)
 {
 	if (GetOwnerRole() != ROLE_Authority || Modifier.Type == EModifierType::Invalid ||
-		!StatTag.IsValid() || !StatTag.MatchesTag(GenericStatTag()) || StatTag.MatchesTagExact(GenericStatTag()) ||
+		!StatTag.IsValid() || !StatTag.MatchesTag(FStatTags::GenericStat) || StatTag.MatchesTagExact(FStatTags::GenericStat) ||
 		!IsValid(Modifier.Source) || Modifier.Source->GetAppliedTo() != GetOwner())
 	{
 		return;
@@ -286,8 +286,8 @@ void UStatHandler::AddStatModifier(FGameplayTag const StatTag, FCombatModifier c
 
 void UStatHandler::RemoveStatModifier(FGameplayTag const StatTag, UBuff* Source)
 {
-	if (GetOwnerRole() != ROLE_Authority || !StatTag.IsValid() || !StatTag.MatchesTag(GenericStatTag()) ||
-		StatTag.MatchesTagExact(GenericStatTag()) || !IsValid(Source) || Source->GetAppliedTo() != GetOwner())
+	if (GetOwnerRole() != ROLE_Authority || !StatTag.IsValid() || !StatTag.MatchesTag(FStatTags::GenericStat) ||
+		StatTag.MatchesTagExact(FStatTags::GenericStat) || !IsValid(Source) || Source->GetAppliedTo() != GetOwner())
 	{
 		return;
 	}

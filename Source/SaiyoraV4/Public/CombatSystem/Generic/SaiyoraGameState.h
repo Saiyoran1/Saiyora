@@ -186,8 +186,6 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FOnDungeonCompleted OnDungeonCompleted;
 
-	static const FGameplayTag GenericBossTag;
-
 protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Dungeon Requirements", meta = (ClampMin = "1"))

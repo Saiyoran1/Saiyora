@@ -5,6 +5,19 @@
 
 class UBuff;
 
+USTRUCT()
+struct FCcTags
+{
+	GENERATED_BODY()
+
+	static const FGameplayTag GenericCrowdControl;
+	static const FGameplayTag Stun;
+	static const FGameplayTag Incapacitate;
+	static const FGameplayTag Root;
+	static const FGameplayTag Silence;
+	static const FGameplayTag Disarm;
+};
+
 USTRUCT(BlueprintType)
 struct FCrowdControlStatus
 {

@@ -1,4 +1,4 @@
-﻿// Fill out your copyright notice in the Description page of Project Settings.
+﻿#include "Movement/MovementStructs.h"
 
-
-#include "Movement/MovementStructs.h"
+const FGameplayTag FMovementTags::GenericExternalMovement = FGameplayTag::RequestGameplayTag(FName(TEXT("Movement")), false);
+const FGameplayTag FMovementTags::GenericMovementRestriction = FGameplayTag::RequestGameplayTag(FName(TEXT("Movement.Restriction")), false);

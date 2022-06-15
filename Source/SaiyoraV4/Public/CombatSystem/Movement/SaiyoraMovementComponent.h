@@ -64,9 +64,6 @@ private:
 //Setup
 
 public:
-
-	static FGameplayTag GenericExternalMovementTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Movement")), false); }
-	static FGameplayTag GenericMovementRestrictionTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Movement.Restriction")), false); }
 	
 	USaiyoraMovementComponent(const FObjectInitializer& ObjectInitializer);
 	virtual bool ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags) override;
@@ -175,17 +172,6 @@ private:
 	void RemoveMoveRestrictionFromBuff(FBuffRemoveEvent const& RemoveEvent);
 
 //Stats
-	
-public:
-	
-	static FGameplayTag MaxWalkSpeedStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.MaxWalkSpeed")), false); }
-	static FGameplayTag MaxCrouchSpeedStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.MaxCrouchSpeed")), false); }
-	static FGameplayTag GroundFrictionStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.GroundFriction")), false); }
-	static FGameplayTag BrakingDecelerationStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.BrakingDeceleration")), false); }
-	static FGameplayTag MaxAccelerationStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.MaxAcceleration")), false); }
-	static FGameplayTag GravityScaleStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.GravityScale")), false); }
-	static FGameplayTag JumpZVelocityStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.JumpZVelocity")), false); }
-	static FGameplayTag AirControlStatTag() { return FGameplayTag::RequestGameplayTag(FName(TEXT("Stat.AirControl")), false); }
 	
 private:
 	

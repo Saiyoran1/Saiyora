@@ -3,8 +3,16 @@
 #include "GameplayTagContainer.h"
 #include "MovementEnums.h"
 #include "CombatAbility.h"
-#include "SaiyoraStructs.h"
 #include "MovementStructs.generated.h"
+
+USTRUCT()
+struct FMovementTags
+{
+	GENERATED_BODY()
+
+	static const FGameplayTag GenericExternalMovement; 
+	static const FGameplayTag GenericMovementRestriction;
+};
 
 USTRUCT()
 struct FCustomMoveParams

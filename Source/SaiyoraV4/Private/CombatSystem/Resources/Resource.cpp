@@ -60,7 +60,7 @@ void UResource::InitializeResource(UResourceHandler* NewHandler, FResourceInitIn
     ResourceState.PredictionID = 0;
     
     //Bind the resource minimum to a stat if needed.
-    if (MinimumBindStat.IsValid() && MinimumBindStat.MatchesTag(UStatHandler::GenericStatTag()) && !MinimumBindStat.MatchesTagExact(UStatHandler::GenericStatTag()))
+    if (MinimumBindStat.IsValid() && MinimumBindStat.MatchesTag(FStatTags::GenericStat) && !MinimumBindStat.MatchesTagExact(FStatTags::GenericStat))
     {
         if (IsValid(StatHandlerRef) && StatHandlerRef->IsStatValid(MinimumBindStat))
         {
@@ -79,7 +79,7 @@ void UResource::InitializeResource(UResourceHandler* NewHandler, FResourceInitIn
     }
 
     //Bind the resource maximum to a stat if needed.
-    if (MaximumBindStat.IsValid() && MaximumBindStat.MatchesTag(UStatHandler::GenericStatTag()))
+    if (MaximumBindStat.IsValid() && MaximumBindStat.MatchesTag(FStatTags::GenericStat))
     {
         if (IsValid(StatHandlerRef) && StatHandlerRef->IsStatValid(MaximumBindStat))
         {

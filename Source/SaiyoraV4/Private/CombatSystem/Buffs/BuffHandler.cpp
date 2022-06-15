@@ -510,27 +510,27 @@ bool UBuffHandler::CheckIncomingBuffRestricted(FBuffApplyEvent const& BuffEvent)
 	}
 	for (FGameplayTag const Tag : BuffTags)
 	{
-		if (Tag.MatchesTagExact(UDamageHandler::GenericDamageTag()) && (!IsValid(DamageHandlerRef) || !DamageHandlerRef->CanEverReceiveDamage()))
+		if (Tag.MatchesTagExact(FDamageTags::GenericDamage) && (!IsValid(DamageHandlerRef) || !DamageHandlerRef->CanEverReceiveDamage()))
 		{
 			return true;
 		}
-		if (Tag.MatchesTagExact(UDamageHandler::GenericHealingTag()) && (!IsValid(DamageHandlerRef) || !DamageHandlerRef->CanEverReceiveHealing()))
+		if (Tag.MatchesTagExact(FDamageTags::GenericHealing) && (!IsValid(DamageHandlerRef) || !DamageHandlerRef->CanEverReceiveHealing()))
 		{
 			return true;
 		}
-		if (Tag.MatchesTag(UStatHandler::GenericStatTag()) && !Tag.MatchesTagExact(UStatHandler::GenericStatTag()) && (!IsValid(StatHandlerRef) || !StatHandlerRef->IsStatModifiable(Tag)))
+		if (Tag.MatchesTag(FStatTags::GenericStat) && !Tag.MatchesTagExact(FStatTags::GenericStat) && (!IsValid(StatHandlerRef) || !StatHandlerRef->IsStatModifiable(Tag)))
 		{
 			return true;
 		}
-		if (Tag.MatchesTag(UCrowdControlHandler::GenericCrowdControlTag()) && !Tag.MatchesTagExact(UCrowdControlHandler::GenericCrowdControlTag()) && (!IsValid(CcHandlerRef) || CcHandlerRef->IsImmuneToCrowdControl(Tag)))
+		if (Tag.MatchesTag(FCcTags::GenericCrowdControl) && !Tag.MatchesTagExact(FCcTags::GenericCrowdControl) && (!IsValid(CcHandlerRef) || CcHandlerRef->IsImmuneToCrowdControl(Tag)))
 		{
 			return true;
 		}
-		if (Tag.MatchesTag(UThreatHandler::GenericThreatTag()) && (!IsValid(ThreatHandlerRef) || !ThreatHandlerRef->HasThreatTable()))
+		if (Tag.MatchesTag(FThreatTags::GenericThreat) && (!IsValid(ThreatHandlerRef) || !ThreatHandlerRef->HasThreatTable()))
 		{
 			return true;
 		}
-		if (Tag.MatchesTagExact(USaiyoraMovementComponent::GenericExternalMovementTag()) && !IsValid(MovementComponentRef))
+		if (Tag.MatchesTagExact(FMovementTags::GenericExternalMovement) && !IsValid(MovementComponentRef))
 		{
 			return true;
 		}
@@ -567,7 +567,7 @@ bool UBuffHandler::CheckOutgoingBuffRestricted(FBuffApplyEvent const& BuffEvent)
 	BuffEvent.BuffClass.GetDefaultObject()->GetBuffTags(BuffTags);
 	for (FGameplayTag const Tag : BuffTags)
 	{
-		if (Tag.MatchesTag(UThreatHandler::GenericThreatTag()) && (!IsValid(ThreatHandlerRef) || !ThreatHandlerRef->CanBeInThreatTable()))
+		if (Tag.MatchesTag(FThreatTags::GenericThreat) && (!IsValid(ThreatHandlerRef) || !ThreatHandlerRef->CanBeInThreatTable()))
 		{
 			return true;
 		}

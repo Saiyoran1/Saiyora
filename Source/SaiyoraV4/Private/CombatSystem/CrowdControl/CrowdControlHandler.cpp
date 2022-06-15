@@ -23,11 +23,11 @@ void UCrowdControlHandler::InitializeComponent()
 	OnBuffApplied.BindDynamic(this, &UCrowdControlHandler::CheckAppliedBuffForCc);
 	OnBuffRemoved.BindDynamic(this, &UCrowdControlHandler::CheckRemovedBuffForCc);
 	OnDamageTaken.BindDynamic(this, &UCrowdControlHandler::RemoveIncapacitatesOnDamageTaken);
-	StunStatus.CrowdControlType = StunTag();
-	IncapStatus.CrowdControlType = IncapacitateTag();
-	RootStatus.CrowdControlType = RootTag();
-	SilenceStatus.CrowdControlType = SilenceTag();
-	DisarmStatus.CrowdControlType = DisarmTag();
+	StunStatus.CrowdControlType = FCcTags::Stun;
+	IncapStatus.CrowdControlType = FCcTags::Incapacitate;
+	RootStatus.CrowdControlType = FCcTags::Root;
+	SilenceStatus.CrowdControlType = FCcTags::Silence;
+	DisarmStatus.CrowdControlType = FCcTags::Disarm;
 	
 }
 
@@ -97,49 +97,49 @@ void UCrowdControlHandler::GetActiveCrowdControls(FGameplayTagContainer& OutCcs)
 	OutCcs.Reset();
 	if (StunStatus.bActive)
 	{
-		OutCcs.AddTag(StunTag());
+		OutCcs.AddTag(FCcTags::Stun);
 	}
 	if (IncapStatus.bActive)
 	{
-		OutCcs.AddTag(IncapacitateTag());
+		OutCcs.AddTag(FCcTags::Incapacitate);
 	}
 	if (RootStatus.bActive)
 	{
-		OutCcs.AddTag(RootTag());
+		OutCcs.AddTag(FCcTags::Root);
 	}
 	if (SilenceStatus.bActive)
 	{
-		OutCcs.AddTag(SilenceTag());
+		OutCcs.AddTag(FCcTags::Silence);
 	}
 	if (DisarmStatus.bActive)
 	{
-		OutCcs.AddTag(DisarmTag());
+		OutCcs.AddTag(FCcTags::Disarm);
 	}
 }
 
 FCrowdControlStatus* UCrowdControlHandler::GetCcStruct(FGameplayTag const CcTag)
 {
-	if (!CcTag.IsValid() || !CcTag.MatchesTag(GenericCrowdControlTag()) || CcTag.MatchesTagExact(GenericCrowdControlTag()))
+	if (!CcTag.IsValid() || !CcTag.MatchesTag(FCcTags::GenericCrowdControl) || CcTag.MatchesTagExact(FCcTags::GenericCrowdControl))
 	{
 		return nullptr;
 	}
-	if (CcTag.MatchesTagExact(StunTag()))
+	if (CcTag.MatchesTagExact(FCcTags::Stun))
 	{
 		return &StunStatus;
 	}
-	if (CcTag.MatchesTagExact(IncapacitateTag()))
+	if (CcTag.MatchesTagExact(FCcTags::Incapacitate))
 	{
 		return &IncapStatus;
 	}
-	if (CcTag.MatchesTagExact(RootTag()))
+	if (CcTag.MatchesTagExact(FCcTags::Root))
 	{
 		return &RootStatus;
 	}
-	if (CcTag.MatchesTagExact(SilenceTag()))
+	if (CcTag.MatchesTagExact(FCcTags::Silence))
 	{
 		return &SilenceStatus;
 	}
-	if (CcTag.MatchesTagExact(DisarmTag()))
+	if (CcTag.MatchesTagExact(FCcTags::Disarm))
 	{
 		return &DisarmStatus;
 	}
@@ -148,27 +148,27 @@ FCrowdControlStatus* UCrowdControlHandler::GetCcStruct(FGameplayTag const CcTag)
 
 FCrowdControlStatus const* UCrowdControlHandler::GetCcStructConst(FGameplayTag const CcTag) const
 {
-	if (!CcTag.IsValid() || !CcTag.MatchesTag(GenericCrowdControlTag()) || CcTag.MatchesTagExact(GenericCrowdControlTag()))
+	if (!CcTag.IsValid() || !CcTag.MatchesTag(FCcTags::GenericCrowdControl) || CcTag.MatchesTagExact(FCcTags::GenericCrowdControl))
 	{
 		return nullptr;
 	}
-	if (CcTag.MatchesTagExact(StunTag()))
+	if (CcTag.MatchesTagExact(FCcTags::Stun))
 	{
 		return &StunStatus;
 	}
-	if (CcTag.MatchesTagExact(IncapacitateTag()))
+	if (CcTag.MatchesTagExact(FCcTags::Incapacitate))
 	{
 		return &IncapStatus;
 	}
-	if (CcTag.MatchesTagExact(RootTag()))
+	if (CcTag.MatchesTagExact(FCcTags::Root))
 	{
 		return &RootStatus;
 	}
-	if (CcTag.MatchesTagExact(SilenceTag()))
+	if (CcTag.MatchesTagExact(FCcTags::Silence))
 	{
 		return &SilenceStatus;
 	}
-	if (CcTag.MatchesTagExact(DisarmTag()))
+	if (CcTag.MatchesTagExact(FCcTags::Disarm))
 	{
 		return &DisarmStatus;
 	}
@@ -187,7 +187,7 @@ void UCrowdControlHandler::CheckAppliedBuffForCc(FBuffApplyEvent const& BuffEven
 	{
 		for (FGameplayTag const& Tag : BuffTags)
 		{
-			if (Tag.IsValid() && Tag.MatchesTag(GenericCrowdControlTag()) && !Tag.MatchesTagExact(GenericCrowdControlTag()))
+			if (Tag.IsValid() && Tag.MatchesTag(FCcTags::GenericCrowdControl) && !Tag.MatchesTagExact(FCcTags::GenericCrowdControl))
 			{
 				FCrowdControlStatus* CcStruct = GetCcStruct(Tag);
 				if (CcStruct)
@@ -205,7 +205,7 @@ void UCrowdControlHandler::CheckAppliedBuffForCc(FBuffApplyEvent const& BuffEven
 	{
 		for (FGameplayTag const& Tag : BuffTags)
 		{
-			if (Tag.IsValid() && Tag.MatchesTag(GenericCrowdControlTag()) && !Tag.MatchesTagExact(GenericCrowdControlTag()))
+			if (Tag.IsValid() && Tag.MatchesTag(FCcTags::GenericCrowdControl) && !Tag.MatchesTagExact(FCcTags::GenericCrowdControl))
 			{
 				FCrowdControlStatus* CcStruct = GetCcStruct(Tag);
 				if (CcStruct)
@@ -231,7 +231,7 @@ void UCrowdControlHandler::CheckRemovedBuffForCc(FBuffRemoveEvent const& RemoveE
 	RemoveEvent.RemovedBuff->GetBuffTags(BuffTags);
 	for (FGameplayTag const& Tag : BuffTags)
 	{
-		if (Tag.IsValid() && Tag.MatchesTag(GenericCrowdControlTag()) && !Tag.MatchesTagExact(GenericCrowdControlTag()))
+		if (Tag.IsValid() && Tag.MatchesTag(FCcTags::GenericCrowdControl) && !Tag.MatchesTagExact(FCcTags::GenericCrowdControl))
 		{
 			FCrowdControlStatus* CcStruct = GetCcStruct(Tag);
 			if (CcStruct)
