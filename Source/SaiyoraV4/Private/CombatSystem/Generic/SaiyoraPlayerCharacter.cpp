@@ -5,6 +5,7 @@
 #include "FactionComponent.h"
 #include "PlaneComponent.h"
 #include "ResourceHandler.h"
+#include "SaiyoraGameState.h"
 #include "SaiyoraMovementComponent.h"
 #include "StatHandler.h"
 #include "ThreatHandler.h"
@@ -28,4 +29,14 @@ void ASaiyoraPlayerCharacter::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
 	CustomMovementComponent = Cast<USaiyoraMovementComponent>(Super::GetMovementComponent());
+}
+
+void ASaiyoraPlayerCharacter::BeginPlay()
+{
+	Super::BeginPlay();
+	GameStateRef = GetWorld()->GetGameState<ASaiyoraGameState>();
+	if (GameStateRef)
+	{
+		GameStateRef->InitPlayer(this);
+	}
 }

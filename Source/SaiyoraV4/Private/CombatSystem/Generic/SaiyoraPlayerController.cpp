@@ -1,5 +1,4 @@
 #include "SaiyoraPlayerController.h"
-
 #include "PredictableProjectile.h"
 #include "SaiyoraGameState.h"
 

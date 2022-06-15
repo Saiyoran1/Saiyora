@@ -1,26 +1,18 @@
 #include "SaiyoraGameState.h"
 #include "Hitbox.h"
 #include "PredictableProjectile.h"
+#include "SaiyoraGameMode.h"
 #include "SaiyoraStructs.h"
+#include "UnrealNetwork.h"
 #include "Kismet/KismetSystemLibrary.h"
 
 float const ASaiyoraGameState::SnapshotInterval = .03f;
 float const ASaiyoraGameState::MaxLagCompensation = .3f;
 
-void ASaiyoraGameState::UpdateClientWorldTime(float const ServerTime)
-{
-    WorldTime = ServerTime;
-}
-
 ASaiyoraGameState::ASaiyoraGameState()
 {
     PrimaryActorTick.bCanEverTick = true;
     PrimaryActorTick.bStartWithTickEnabled = true;
-}
-
-float ASaiyoraGameState::GetServerWorldTimeSeconds() const
-{
-    return WorldTime;
 }
 
 void ASaiyoraGameState::Tick(float DeltaSeconds)
@@ -29,6 +21,101 @@ void ASaiyoraGameState::Tick(float DeltaSeconds)
     WorldTime += DeltaSeconds;
 }
 
+void ASaiyoraGameState::BeginPlay()
+{
+	Super::BeginPlay();
+	if (HasAuthority())
+	{
+		const FDungeonProgress PreviousProgress = DungeonProgress;
+		DungeonProgress.DungeonPhase = EDungeonPhase::WaitingToStart;
+		DungeonProgress.PhaseStartTime = WorldTime;
+		for (const TTuple<FGameplayTag, FString>& BossInfo : BossRequirements)
+		{
+			DungeonProgress.BossesKilled.Add(FBossKillStatus(BossInfo.Key, BossInfo.Value));
+		}
+		OnRep_DungeonProgress(PreviousProgress);
+	}
+}
+
+void ASaiyoraGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(ASaiyoraGameState, DungeonProgress);
+	DOREPLIFETIME(ASaiyoraGameState, ReadyPlayers);
+}
+
+#pragma region Time
+
+float ASaiyoraGameState::GetServerWorldTimeSeconds() const
+{
+	return WorldTime;
+}
+
+void ASaiyoraGameState::UpdateClientWorldTime(float const ServerTime)
+{
+	WorldTime = ServerTime;
+}
+
+void ASaiyoraGameState::InitPlayer(ASaiyoraPlayerCharacter* Player)
+{
+	if (!Player || GroupPlayers.Contains(Player))
+	{
+		return;
+	}
+	GroupPlayers.Add(Player);
+	OnPlayerAdded.Broadcast(Player);
+}
+
+void ASaiyoraGameState::UpdatePlayerReadyStatus(ASaiyoraPlayerCharacter* Player, const bool bReady)
+{
+	if (!HasAuthority() || !Player || DungeonProgress.DungeonPhase != EDungeonPhase::WaitingToStart)
+	{
+		return;
+	}
+	const TArray<ASaiyoraPlayerCharacter*> PreviousReadyPlayers = ReadyPlayers;
+	if (bReady)
+	{
+		if (ReadyPlayers.Contains(Player))
+		{
+			return;
+		}
+		ReadyPlayers.Add(Player);
+		OnRep_ReadyPlayers(PreviousReadyPlayers);
+		if (ReadyPlayers.Num() == GroupPlayers.Num())
+		{
+			StartCountdown();
+		}
+	}
+	else
+	{
+		if (ReadyPlayers.Remove(Player) > 0)
+		{
+			OnRep_ReadyPlayers(PreviousReadyPlayers);
+		}
+	}
+}
+
+void ASaiyoraGameState::OnRep_ReadyPlayers(const TArray<ASaiyoraPlayerCharacter*>& PreviousReadyPlayers)
+{
+	TArray<ASaiyoraPlayerCharacter*> UncheckedPlayers = PreviousReadyPlayers;
+	for (ASaiyoraPlayerCharacter* Player : ReadyPlayers)
+	{
+		if (PreviousReadyPlayers.Contains(Player))
+		{
+			UncheckedPlayers.Remove(Player);
+		}
+		else
+		{
+			OnPlayerReadyChanged.Broadcast(Player, true);
+		}
+	}
+	for (const ASaiyoraPlayerCharacter* Player : UncheckedPlayers)
+	{
+		OnPlayerReadyChanged.Broadcast(Player, false);
+	}
+}
+
+#pragma endregion 
 #pragma region Snapshotting
 
 void ASaiyoraGameState::RegisterNewHitbox(UHitbox* Hitbox)
@@ -181,3 +268,237 @@ void ASaiyoraGameState::ReplaceProjectile(APredictableProjectile* ServerProjecti
 }
 
 #pragma endregion
+#pragma region Dungeon Status
+
+const FGameplayTag ASaiyoraGameState::GenericBossTag = FGameplayTag::RequestGameplayTag(FName(TEXT("Boss")), false);
+const float ASaiyoraGameState::MINIMUMTIMELIMIT = 1.0f;
+
+bool ASaiyoraGameState::AreDungeonRequirementsMet()
+{
+	if (DungeonProgress.DungeonPhase == EDungeonPhase::Completed)
+	{
+		return true;
+	}
+	if (DungeonProgress.DungeonPhase != EDungeonPhase::InProgress)
+	{
+		return false;
+	}
+	if (DungeonProgress.KillCount < KillCountRequirement)
+	{
+		return false;
+	}
+	for (const TTuple<FGameplayTag, FString> BossInfo : BossRequirements)
+	{
+		if (!IsBossKilled(BossInfo.Key))
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+void ASaiyoraGameState::OnRep_DungeonProgress(const FDungeonProgress& PreviousProgress)
+{
+	if (PreviousProgress.DungeonPhase != DungeonProgress.DungeonPhase)
+	{
+		OnDungeonPhaseChanged.Broadcast(PreviousProgress.DungeonPhase, DungeonProgress.DungeonPhase);
+	}
+	if (PreviousProgress.KillCount != DungeonProgress.KillCount)
+	{
+		OnKillCountChanged.Broadcast(DungeonProgress.KillCount);
+	}
+	if (PreviousProgress.DeathCount != DungeonProgress.DeathCount)
+	{
+		OnDeathCountChanged.Broadcast(DungeonProgress.DeathCount);
+	}
+	TArray<FBossKillStatus> PreviousBosses = PreviousProgress.BossesKilled;
+	for (const FBossKillStatus& BossKillStatus : DungeonProgress.BossesKilled)
+	{
+		if (BossKillStatus.bKilled)
+		{
+			for (int i = 0; i < PreviousBosses.Num(); i++)
+			{
+				if (PreviousBosses[i].BossTag == BossKillStatus.BossTag)
+				{
+					if (!PreviousBosses[i].bKilled)
+					{
+						OnBossKilled.Broadcast(BossKillStatus.BossTag, BossKillStatus.DisplayName);
+					}
+					PreviousBosses.RemoveAt(i);
+					break;
+				}
+			}
+		}
+	}
+	if (PreviousProgress.bDepleted != DungeonProgress.bDepleted && DungeonProgress.bDepleted)
+	{
+		OnDungeonDepleted.Broadcast();
+	}
+	if (PreviousProgress.CompletionTime != DungeonProgress.CompletionTime && DungeonProgress.CompletionTime >= 0.0f)
+	{
+		OnDungeonCompleted.Broadcast(DungeonProgress.CompletionTime);
+	}
+}
+
+void ASaiyoraGameState::StartCountdown()
+{
+	if (!HasAuthority() || DungeonProgress.DungeonPhase != EDungeonPhase::WaitingToStart)
+	{
+		return;
+	}
+	const FDungeonProgress PreviousProgress = DungeonProgress;
+	DungeonProgress.DungeonPhase = EDungeonPhase::Countdown;
+	DungeonProgress.PhaseStartTime = WorldTime;
+	OnRep_DungeonProgress(PreviousProgress);
+	if (CountdownLength > 0.0f)
+	{
+		FTimerDelegate CountdownDelegate;
+		CountdownDelegate.BindUObject(this, &ASaiyoraGameState::EndCountdown);
+		GetWorld()->GetTimerManager().SetTimer(PhaseTimerHandle, CountdownDelegate, CountdownLength, false);
+	}
+	else
+	{
+		//Skip the countdown phase entirely.
+		EndCountdown();
+	}
+}
+
+void ASaiyoraGameState::EndCountdown()
+{
+	if (!HasAuthority() || DungeonProgress.DungeonPhase != EDungeonPhase::Countdown)
+	{
+		return;
+	}
+	const FDungeonProgress PreviousProgress = DungeonProgress;
+	DungeonProgress.DungeonPhase = EDungeonPhase::InProgress;
+	DungeonProgress.PhaseStartTime = WorldTime;
+	if (AreDungeonRequirementsMet())
+	{
+		//Instantly complete dungeon if all requirements are met.
+		CompleteDungeon();
+	}
+	else
+	{
+		FTimerDelegate DepletionDelegate;
+		DepletionDelegate.BindUObject(this, &ASaiyoraGameState::DepleteDungeonFromTimer);
+		GetWorld()->GetTimerManager().SetTimer(PhaseTimerHandle, DepletionDelegate, FMath::Max(MINIMUMTIMELIMIT, TimeLimit), false);
+	}
+	OnRep_DungeonProgress(PreviousProgress);
+}
+
+void ASaiyoraGameState::CompleteDungeon()
+{
+	DungeonProgress.CompletionTime = GetElapsedDungeonTime();
+	DungeonProgress.DungeonPhase = EDungeonPhase::Completed;
+	DungeonProgress.PhaseStartTime = WorldTime;
+	GetWorld()->GetTimerManager().ClearTimer(PhaseTimerHandle);
+}
+
+void ASaiyoraGameState::DepleteDungeonFromTimer()
+{
+	if (!HasAuthority() || DungeonProgress.DungeonPhase != EDungeonPhase::InProgress)
+	{
+		return;
+	}
+	const FDungeonProgress PreviousProgress = DungeonProgress;
+	DungeonProgress.bDepleted = true;
+	OnRep_DungeonProgress(PreviousProgress);
+}
+
+bool ASaiyoraGameState::IsBossKilled(const FGameplayTag BossTag) const
+{
+	if (!BossTag.IsValid() || !BossTag.MatchesTag(GenericBossTag) || BossTag.MatchesTagExact(GenericBossTag))
+	{
+		return false;
+	}
+	for (const FBossKillStatus& KillStatus : DungeonProgress.BossesKilled)
+	{
+		if (KillStatus.BossTag.MatchesTagExact(BossTag))
+		{
+			return KillStatus.bKilled;
+		}
+	}
+	return false;
+}
+
+float ASaiyoraGameState::GetElapsedDungeonTime() const
+{
+	if (DungeonProgress.DungeonPhase == EDungeonPhase::InProgress)
+	{
+		return (WorldTime - DungeonProgress.PhaseStartTime) + (DeathPenaltySeconds * DungeonProgress.DeathCount);
+	}
+	if (DungeonProgress.DungeonPhase == EDungeonPhase::Completed)
+	{
+		return DungeonProgress.CompletionTime;
+	}	
+	return 0.0f;
+}
+
+void ASaiyoraGameState::ReportPlayerDeath()
+{
+	if (!HasAuthority() || DungeonProgress.DungeonPhase != EDungeonPhase::InProgress)
+	{
+		return;
+	}
+	const FDungeonProgress PreviousProgress = DungeonProgress;
+	DungeonProgress.DeathCount++;
+	if (!DungeonProgress.bDepleted)
+	{
+		const float TimeRemaining = GetWorld()->GetTimerManager().GetTimerRemaining(PhaseTimerHandle);
+		GetWorld()->GetTimerManager().ClearTimer(PhaseTimerHandle);
+		if (TimeRemaining <= DeathPenaltySeconds)
+		{
+			DungeonProgress.bDepleted = true;
+		}
+		else
+		{
+			FTimerDelegate DepletionDelegate;
+			DepletionDelegate.BindUObject(this, &ASaiyoraGameState::DepleteDungeonFromTimer);
+			GetWorld()->GetTimerManager().SetTimer(PhaseTimerHandle, DepletionDelegate, TimeRemaining - DeathPenaltySeconds, false);
+		}
+	}
+	OnRep_DungeonProgress(PreviousProgress);
+}
+
+void ASaiyoraGameState::ReportTrashDeath(const int32 KillCount)
+{
+	if (!HasAuthority() || DungeonProgress.DungeonPhase != EDungeonPhase::InProgress || KillCount <= 0)
+	{
+		return;
+	}
+	const FDungeonProgress PreviousProgress = DungeonProgress;
+	DungeonProgress.KillCount += KillCount;
+	if (AreDungeonRequirementsMet())
+	{
+		CompleteDungeon();
+	}
+	OnRep_DungeonProgress(PreviousProgress);
+}
+
+void ASaiyoraGameState::ReportBossDeath(const FGameplayTag BossTag)
+{
+	if (!HasAuthority() || DungeonProgress.DungeonPhase != EDungeonPhase::InProgress ||
+		!BossTag.IsValid() || !BossTag.MatchesTag(GenericBossTag) || BossTag.MatchesTagExact(GenericBossTag))
+	{
+		return;
+	}
+	for (FBossKillStatus& KillStatus : DungeonProgress.BossesKilled)
+	{
+		if (KillStatus.BossTag.MatchesTagExact(BossTag))
+		{
+			if (!KillStatus.bKilled)
+			{
+				const FDungeonProgress PreviousProgress = DungeonProgress;
+				KillStatus.bKilled = true;
+				if (AreDungeonRequirementsMet())
+				{
+					CompleteDungeon();
+				}
+				OnRep_DungeonProgress(PreviousProgress);
+			}
+			break;
+		}
+	}
+}
+
+#pragma endregion 
