@@ -1,8 +1,6 @@
 #include "SaiyoraGameState.h"
 #include "Hitbox.h"
 #include "PredictableProjectile.h"
-#include "SaiyoraGameMode.h"
-#include "SaiyoraStructs.h"
 #include "UnrealNetwork.h"
 #include "Kismet/KismetSystemLibrary.h"
 
