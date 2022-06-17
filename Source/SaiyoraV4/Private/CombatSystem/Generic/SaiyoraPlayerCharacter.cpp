@@ -35,8 +35,53 @@ void ASaiyoraPlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 	GameStateRef = GetWorld()->GetGameState<ASaiyoraGameState>();
-	if (GameStateRef)
+	//Initialize character called here, with valid GameState.
+	InitializeCharacter();
+}
+
+void ASaiyoraPlayerCharacter::PossessedBy(AController* NewController)
+{
+	Super::PossessedBy(NewController);
+	//Initialize character called here with valid controller, on the server.
+	InitializeCharacter();
+}
+
+void ASaiyoraPlayerCharacter::OnRep_Controller()
+{
+	Super::OnRep_Controller();
+	//Initialize character called here with valid controller, on client.
+	InitializeCharacter();
+}
+
+void ASaiyoraPlayerCharacter::OnRep_PlayerState()
+{
+	Super::OnRep_PlayerState();
+	//Initialize character called here with valid player state, on client.
+	InitializeCharacter();
+}
+
+void ASaiyoraPlayerCharacter::InitializeCharacter()
+{
+	if (bInitialized)
 	{
-		GameStateRef->InitPlayer(this);
+		return;
 	}
+	if (!GameStateRef || !GetPlayerState() || (GetLocalRole() != ROLE_SimulatedProxy && !GetController()))
+	{
+		return;
+	}
+	if (!PlayerControllerRef)
+	{
+		PlayerControllerRef = Cast<ASaiyoraPlayerController>(GetController());
+		if (!PlayerControllerRef)
+		{
+			return;
+		}
+	}
+	if (IsLocallyControlled())
+	{
+		CreateUserInterface();
+	}
+	GameStateRef->InitPlayer(this);
+	bInitialized = true;
 }

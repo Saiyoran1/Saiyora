@@ -54,65 +54,6 @@ void ASaiyoraGameState::UpdateClientWorldTime(float const ServerTime)
 	WorldTime = ServerTime;
 }
 
-void ASaiyoraGameState::InitPlayer(ASaiyoraPlayerCharacter* Player)
-{
-	if (!Player || GroupPlayers.Contains(Player))
-	{
-		return;
-	}
-	GroupPlayers.Add(Player);
-	OnPlayerAdded.Broadcast(Player);
-}
-
-void ASaiyoraGameState::UpdatePlayerReadyStatus(ASaiyoraPlayerCharacter* Player, const bool bReady)
-{
-	if (!HasAuthority() || !Player || DungeonProgress.DungeonPhase != EDungeonPhase::WaitingToStart)
-	{
-		return;
-	}
-	const TArray<ASaiyoraPlayerCharacter*> PreviousReadyPlayers = ReadyPlayers;
-	if (bReady)
-	{
-		if (ReadyPlayers.Contains(Player))
-		{
-			return;
-		}
-		ReadyPlayers.Add(Player);
-		OnRep_ReadyPlayers(PreviousReadyPlayers);
-		if (ReadyPlayers.Num() == GroupPlayers.Num())
-		{
-			StartCountdown();
-		}
-	}
-	else
-	{
-		if (ReadyPlayers.Remove(Player) > 0)
-		{
-			OnRep_ReadyPlayers(PreviousReadyPlayers);
-		}
-	}
-}
-
-void ASaiyoraGameState::OnRep_ReadyPlayers(const TArray<ASaiyoraPlayerCharacter*>& PreviousReadyPlayers)
-{
-	TArray<ASaiyoraPlayerCharacter*> UncheckedPlayers = PreviousReadyPlayers;
-	for (ASaiyoraPlayerCharacter* Player : ReadyPlayers)
-	{
-		if (PreviousReadyPlayers.Contains(Player))
-		{
-			UncheckedPlayers.Remove(Player);
-		}
-		else
-		{
-			OnPlayerReadyChanged.Broadcast(Player, true);
-		}
-	}
-	for (const ASaiyoraPlayerCharacter* Player : UncheckedPlayers)
-	{
-		OnPlayerReadyChanged.Broadcast(Player, false);
-	}
-}
-
 #pragma endregion 
 #pragma region Snapshotting
 
@@ -495,6 +436,68 @@ void ASaiyoraGameState::ReportBossDeath(const FGameplayTag BossTag)
 			}
 			break;
 		}
+	}
+}
+
+#pragma endregion 
+#pragma region Player Handling
+
+void ASaiyoraGameState::InitPlayer(ASaiyoraPlayerCharacter* Player)
+{
+	if (!Player || GroupPlayers.Contains(Player))
+	{
+		return;
+	}
+	GroupPlayers.Add(Player);
+	OnPlayerAdded.Broadcast(Player);
+}
+
+void ASaiyoraGameState::UpdatePlayerReadyStatus(ASaiyoraPlayerCharacter* Player, const bool bReady)
+{
+	if (!HasAuthority() || !Player || DungeonProgress.DungeonPhase != EDungeonPhase::WaitingToStart)
+	{
+		return;
+	}
+	const TArray<ASaiyoraPlayerCharacter*> PreviousReadyPlayers = ReadyPlayers;
+	if (bReady)
+	{
+		if (ReadyPlayers.Contains(Player))
+		{
+			return;
+		}
+		ReadyPlayers.Add(Player);
+		OnRep_ReadyPlayers(PreviousReadyPlayers);
+		if (ReadyPlayers.Num() == GroupPlayers.Num())
+		{
+			StartCountdown();
+		}
+	}
+	else
+	{
+		if (ReadyPlayers.Remove(Player) > 0)
+		{
+			OnRep_ReadyPlayers(PreviousReadyPlayers);
+		}
+	}
+}
+
+void ASaiyoraGameState::OnRep_ReadyPlayers(const TArray<ASaiyoraPlayerCharacter*>& PreviousReadyPlayers)
+{
+	TArray<ASaiyoraPlayerCharacter*> UncheckedPlayers = PreviousReadyPlayers;
+	for (ASaiyoraPlayerCharacter* Player : ReadyPlayers)
+	{
+		if (PreviousReadyPlayers.Contains(Player))
+		{
+			UncheckedPlayers.Remove(Player);
+		}
+		else
+		{
+			OnPlayerReadyChanged.Broadcast(Player, true);
+		}
+	}
+	for (const ASaiyoraPlayerCharacter* Player : UncheckedPlayers)
+	{
+		OnPlayerReadyChanged.Broadcast(Player, false);
 	}
 }
 

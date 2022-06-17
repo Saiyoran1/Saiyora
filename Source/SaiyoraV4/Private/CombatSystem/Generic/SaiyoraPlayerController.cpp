@@ -5,38 +5,28 @@
 void ASaiyoraPlayerController::AcknowledgePossession(APawn* P)
 {
     Super::AcknowledgePossession(P);
-    
-    if (IsValid(P) && GetLocalRole() != ROLE_Authority && IsLocalPlayerController())
+    if (GetPawn())
     {
-        OnClientPossess(P);
+        PlayerCharacterRef = Cast<ASaiyoraPlayerCharacter>(GetPawn());
+    }
+}
+
+void ASaiyoraPlayerController::OnPossess(APawn* InPawn)
+{
+    Super::OnPossess(InPawn);
+    if (GetPawn())
+    {
+        PlayerCharacterRef = Cast<ASaiyoraPlayerCharacter>(GetPawn());
     }
 }
 
 void ASaiyoraPlayerController::BeginPlay()
 {
     Super::BeginPlay();
-
     GameStateRef = Cast<ASaiyoraGameState>(GetWorld()->GetGameState());
-    
     if (IsLocalController())
     {
         GetWorld()->GetTimerManager().SetTimer(WorldTimeRequestHandle, this, &ASaiyoraPlayerController::RequestWorldTime, 1.0f, true);
-    }
-}
-
-void ASaiyoraPlayerController::SubscribeToPingChanged(FPingCallback const& Callback)
-{
-    if (Callback.IsBound())
-    {
-        OnPingChanged.AddUnique(Callback);
-    }
-}
-
-void ASaiyoraPlayerController::UnsubscribeFromPingChanged(FPingCallback const& Callback)
-{
-    if (Callback.IsBound())
-    {
-        OnPingChanged.Remove(Callback);
     }
 }
 

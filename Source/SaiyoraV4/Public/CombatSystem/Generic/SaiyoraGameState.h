@@ -110,7 +110,7 @@ public:
 	FOnPlayerReadyChanged OnPlayerReadyChanged;
 	
 private:
-
+	
 	UPROPERTY()
 	TArray<class ASaiyoraPlayerCharacter*> GroupPlayers;
 	UPROPERTY(ReplicatedUsing=OnRep_ReadyPlayers)

@@ -14,6 +14,9 @@ public:
 	ASaiyoraPlayerCharacter(const class FObjectInitializer& ObjectInitializer);
 	virtual void PostInitializeComponents() override;
 	virtual void BeginPlay() override;
+	virtual void PossessedBy(AController* NewController) override;
+	virtual void OnRep_Controller() override;
+	virtual void OnRep_PlayerState() override;
 
 	virtual USaiyoraMovementComponent* GetCustomMovementComponent_Implementation() const override { return CustomMovementComponent; }
 	virtual UFactionComponent* GetFactionComponent_Implementation() const override { return FactionComponent; }
@@ -28,8 +31,18 @@ public:
 
 	UFUNCTION(BlueprintPure)
 	class ASaiyoraGameState* GetSaiyoraGameState() const { return GameStateRef; }
+	UFUNCTION(BlueprintPure)
+	class ASaiyoraPlayerController* GetSaiyoraPlayerController() const { return PlayerControllerRef; }
+
+protected:
+
+	UFUNCTION(BlueprintImplementableEvent)
+	void CreateUserInterface();
 
 private:
+
+	bool bInitialized = false;
+	void InitializeCharacter();
 	
 	UPROPERTY()
 	USaiyoraMovementComponent* CustomMovementComponent;
@@ -54,4 +67,6 @@ private:
 
 	UPROPERTY()
 	class ASaiyoraGameState* GameStateRef;
+	UPROPERTY()
+	class ASaiyoraPlayerController* PlayerControllerRef;
 };
