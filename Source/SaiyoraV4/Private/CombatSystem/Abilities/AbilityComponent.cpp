@@ -98,7 +98,7 @@ UCombatAbility* UAbilityComponent::AddNewAbility(TSubclassOf<UCombatAbility> con
 		NewAbility->InitializeAbility(this);
 		if (AbilityUsageClassRestrictions.Contains(AbilityClass))
 		{
-			NewAbility->AddRestrictedTag(FAbilityTags::AbilityClassRestriction);
+			NewAbility->AddRestrictedTag(FSaiyoraCombatTags::Get().AbilityClassRestriction);
 		}
 		TArray<FGameplayTag> RestrictedTags;
 		AbilityUsageTagRestrictions.GenerateKeyArray(RestrictedTags);
@@ -1116,9 +1116,9 @@ float UAbilityComponent::CalculateGlobalCooldownLength(UCombatAbility* Ability, 
 			Mods.Add(Mod.Value.Execute(Ability));
 		}
 	}
-	if (IsValid(StatHandlerRef) && StatHandlerRef->IsStatValid(FStatTags::GlobalCooldownLength))
+	if (IsValid(StatHandlerRef) && StatHandlerRef->IsStatValid(FSaiyoraCombatTags::Get().Stat_GlobalCooldownLength))
 	{
-		Mods.Add(FCombatModifier(StatHandlerRef->GetStatValue(FStatTags::GlobalCooldownLength), EModifierType::Multiplicative));
+		Mods.Add(FCombatModifier(StatHandlerRef->GetStatValue(FSaiyoraCombatTags::Get().Stat_GlobalCooldownLength), EModifierType::Multiplicative));
 	}
 	float const PingCompensation = bWithPingComp ? FMath::Min(MaxPingCompensation, USaiyoraCombatLibrary::GetActorPing(GetOwner())) : 0.0f;
 	return FMath::Max(MinimumGlobalCooldownLength, FCombatModifier::ApplyModifiers(Mods, Ability->GetDefaultGlobalCooldownLength()) - PingCompensation);
@@ -1158,9 +1158,9 @@ float UAbilityComponent::CalculateCastLength(UCombatAbility* Ability, bool const
 			Mods.Add(Mod.Value.Execute(Ability));
 		}
 	}
-	if (IsValid(StatHandlerRef) && StatHandlerRef->IsStatValid(FStatTags::CastLength))
+	if (IsValid(StatHandlerRef) && StatHandlerRef->IsStatValid(FSaiyoraCombatTags::Get().Stat_CastLength))
 	{
-		Mods.Add(FCombatModifier(StatHandlerRef->GetStatValue(FStatTags::CastLength), EModifierType::Multiplicative));
+		Mods.Add(FCombatModifier(StatHandlerRef->GetStatValue(FSaiyoraCombatTags::Get().Stat_CastLength), EModifierType::Multiplicative));
 	}
 	float const PingCompensation = bWithPingComp ? FMath::Min(MaxPingCompensation, USaiyoraCombatLibrary::GetActorPing(GetOwner())) : 0.0f;
 	return FMath::Max(MinimumCastLength, FCombatModifier::ApplyModifiers(Mods, Ability->GetDefaultCastLength()) - PingCompensation);
@@ -1200,9 +1200,9 @@ float UAbilityComponent::CalculateCooldownLength(UCombatAbility* Ability, bool c
 			Mods.Add(Mod.Value.Execute(Ability));
 		}
 	}
-	if (IsValid(StatHandlerRef) && StatHandlerRef->IsStatValid(FStatTags::CooldownLength))
+	if (IsValid(StatHandlerRef) && StatHandlerRef->IsStatValid(FSaiyoraCombatTags::Get().Stat_CooldownLength))
 	{
-		Mods.Add(FCombatModifier(StatHandlerRef->GetStatValue(FStatTags::CooldownLength), EModifierType::Multiplicative));
+		Mods.Add(FCombatModifier(StatHandlerRef->GetStatValue(FSaiyoraCombatTags::Get().Stat_CooldownLength), EModifierType::Multiplicative));
 	}
 	float const PingCompensation = bWithPingComp ? FMath::Min(MaxPingCompensation, USaiyoraCombatLibrary::GetActorPing(GetOwner())) : 0.0f;
 	return FMath::Max(MinimumCooldownLength, FCombatModifier::ApplyModifiers(Mods, Ability->GetDefaultCooldownLength()) - PingCompensation);
@@ -1267,7 +1267,7 @@ void UAbilityComponent::RemoveGenericResourceCostModifier(TSubclassOf<UResource>
 
 void UAbilityComponent::AddAbilityTagRestriction(UBuff* Source, FGameplayTag const Tag)
 {
-	if (GetOwnerRole() != ROLE_Authority || !IsValid(Source) || !Tag.IsValid() || Tag.MatchesTagExact(FAbilityTags::AbilityClassRestriction))
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(Source) || !Tag.IsValid() || Tag.MatchesTagExact(FSaiyoraCombatTags::Get().AbilityRestriction))
 	{
 		return;
 	}
@@ -1287,7 +1287,7 @@ void UAbilityComponent::AddAbilityTagRestriction(UBuff* Source, FGameplayTag con
 
 void UAbilityComponent::RemoveAbilityTagRestriction(UBuff* Source, FGameplayTag const Tag)
 {
-	if (GetOwnerRole() != ROLE_Authority || !IsValid(Source) || !Tag.IsValid() || Tag.MatchesTagExact(FAbilityTags::AbilityClassRestriction))
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(Source) || !Tag.IsValid() || Tag.MatchesTagExact(FSaiyoraCombatTags::Get().AbilityRestriction))
 	{
 		return;
 	}
@@ -1317,7 +1317,7 @@ void UAbilityComponent::AddAbilityClassRestriction(UBuff* Source, TSubclassOf<UC
 		{
 			if (IsValid(AbilityPair.Key) && IsValid(AbilityPair.Value) && AbilityPair.Key == Class)
 			{
-				AbilityPair.Value->AddRestrictedTag(FAbilityTags::AbilityClassRestriction);
+				AbilityPair.Value->AddRestrictedTag(FSaiyoraCombatTags::Get().AbilityClassRestriction);
 			}
 		}
 	}
@@ -1335,7 +1335,7 @@ void UAbilityComponent::RemoveAbilityClassRestriction(UBuff* Source, TSubclassOf
 		{
 			if (IsValid(AbilityPair.Key) && IsValid(AbilityPair.Value) && AbilityPair.Key == Class)
 			{
-				AbilityPair.Value->RemoveRestrictedTag(FAbilityTags::AbilityClassRestriction);
+				AbilityPair.Value->RemoveRestrictedTag(FSaiyoraCombatTags::Get().AbilityClassRestriction);
 			}
 		}
 	}

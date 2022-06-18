@@ -26,7 +26,7 @@ void UStatModifierFunction::SetModifierVars(TMap<FGameplayTag, FCombatModifier> 
 		TargetHandler = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwningBuff()->GetAppliedTo());
 		for (TTuple<FGameplayTag, FCombatModifier> const& ModTuple : Modifiers)
 		{
-			if (ModTuple.Key.IsValid() && ModTuple.Key.MatchesTag(FStatTags::GenericStat) && !ModTuple.Key.MatchesTagExact(FStatTags::GenericStat) && ModTuple.Value.Type != EModifierType::Invalid)
+			if (ModTuple.Key.IsValid() && ModTuple.Key.MatchesTag(FSaiyoraCombatTags::Get().Stat) && !ModTuple.Key.MatchesTagExact(FSaiyoraCombatTags::Get().Stat) && ModTuple.Value.Type != EModifierType::Invalid)
 			{
 				StatMods.Add(ModTuple.Key, FCombatModifier(ModTuple.Value.Value, ModTuple.Value.Type, GetOwningBuff(), ModTuple.Value.bStackable));
 			}

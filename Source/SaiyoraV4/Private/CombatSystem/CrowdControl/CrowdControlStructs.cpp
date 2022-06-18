@@ -1,13 +1,6 @@
 #include "CrowdControlStructs.h"
 #include "Buff.h"
 
-const FGameplayTag FCcTags::GenericCrowdControl = FGameplayTag::RequestGameplayTag(FName(TEXT("CrowdControl")), false);
-const FGameplayTag FCcTags::Stun = FGameplayTag::RequestGameplayTag(FName(TEXT("CrowdControl.Stun")), false);
-const FGameplayTag FCcTags::Incapacitate = FGameplayTag::RequestGameplayTag(FName(TEXT("CrowdControl.Incapacitate")), false);
-const FGameplayTag FCcTags::Root = FGameplayTag::RequestGameplayTag(FName(TEXT("CrowdControl.Root")), false);
-const FGameplayTag FCcTags::Silence = FGameplayTag::RequestGameplayTag(FName(TEXT("CrowdControl.Silence")), false);
-const FGameplayTag FCcTags::Disarm = FGameplayTag::RequestGameplayTag(FName(TEXT("CrowdControl.Disarm")), false);
-
 bool FCrowdControlStatus::AddNewBuff(UBuff* Source)
 {
     if (!IsValid(Source) || Sources.Contains(Source))

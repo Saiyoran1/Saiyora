@@ -932,7 +932,7 @@ void UCombatAbility::UpdateCastable()
 
 void UCombatAbility::AddRestrictedTag(FGameplayTag const RestrictedTag)
 {
-    if (!RestrictedTag.IsValid() || (!RestrictedTag.MatchesTagExact(FAbilityTags::AbilityClassRestriction) && !AbilityTags.HasTag(RestrictedTag)))
+    if (!RestrictedTag.IsValid() || (!RestrictedTag.MatchesTagExact(FSaiyoraCombatTags::Get().AbilityClassRestriction) && !AbilityTags.HasTag(RestrictedTag)))
     {
         return;
     }
@@ -946,7 +946,7 @@ void UCombatAbility::AddRestrictedTag(FGameplayTag const RestrictedTag)
 
 void UCombatAbility::RemoveRestrictedTag(FGameplayTag const RestrictedTag)
 {
-    if (!RestrictedTag.IsValid() || (!RestrictedTag.MatchesTagExact(FAbilityTags::AbilityClassRestriction) && !AbilityTags.HasTag(RestrictedTag)))
+    if (!RestrictedTag.IsValid() || (!RestrictedTag.MatchesTagExact(FSaiyoraCombatTags::Get().AbilityClassRestriction) && !AbilityTags.HasTag(RestrictedTag)))
     {
         return;
     }
@@ -960,7 +960,7 @@ void UCombatAbility::RemoveRestrictedTag(FGameplayTag const RestrictedTag)
 
 void UCombatAbility::ActivateCastRestriction(FGameplayTag const RestrictionTag)
 {
-    if (!RestrictionTag.IsValid() || !RestrictionTag.MatchesTag(FAbilityTags::GenericAbilityRestriction) || RestrictionTag.MatchesTagExact(FAbilityTags::GenericAbilityRestriction))
+    if (!RestrictionTag.IsValid() || !RestrictionTag.MatchesTag(FSaiyoraCombatTags::Get().AbilityRestriction) || RestrictionTag.MatchesTagExact(FSaiyoraCombatTags::Get().AbilityRestriction))
     {
         return;
     }
@@ -974,7 +974,7 @@ void UCombatAbility::ActivateCastRestriction(FGameplayTag const RestrictionTag)
 
 void UCombatAbility::DeactivateCastRestriction(FGameplayTag const RestrictionTag)
 {
-    if (!RestrictionTag.IsValid() || !RestrictionTag.MatchesTag(FAbilityTags::GenericAbilityRestriction) || RestrictionTag.MatchesTagExact(FAbilityTags::GenericAbilityRestriction))
+    if (!RestrictionTag.IsValid() || !RestrictionTag.MatchesTag(FSaiyoraCombatTags::Get().AbilityRestriction) || RestrictionTag.MatchesTagExact(FSaiyoraCombatTags::Get().AbilityRestriction))
     {
         return;
     }

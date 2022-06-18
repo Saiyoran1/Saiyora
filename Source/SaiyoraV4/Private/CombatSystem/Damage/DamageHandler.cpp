@@ -38,10 +38,10 @@ void UDamageHandler::BeginPlay()
 		//Bind Max Health stat, create damage and healing modifiers from stats.
 		if (IsValid(StatHandler))
 		{
-			if (bHasHealth && !bStaticMaxHealth && StatHandler->IsStatValid(FStatTags::MaxHealth))
+			if (bHasHealth && !bStaticMaxHealth && StatHandler->IsStatValid(FSaiyoraCombatTags::Get().Stat_MaxHealth))
 			{
-				UpdateMaxHealth(StatHandler->GetStatValue(FStatTags::MaxHealth));
-				StatHandler->SubscribeToStatChanged(FStatTags::MaxHealth, MaxHealthStatCallback);
+				UpdateMaxHealth(StatHandler->GetStatValue(FSaiyoraCombatTags::Get().Stat_MaxHealth));
+				StatHandler->SubscribeToStatChanged(FSaiyoraCombatTags::Get().Stat_MaxHealth, MaxHealthStatCallback);
 			}
 		}
 		LifeStatus = ELifeStatus::Alive;
@@ -83,7 +83,7 @@ void UDamageHandler::UpdateMaxHealth(float const NewMaxHealth)
 
 void UDamageHandler::ReactToMaxHealthStat(FGameplayTag const& StatTag, float const NewValue)
 {
-	if (StatTag.IsValid() && StatTag.MatchesTagExact(FStatTags::MaxHealth))
+	if (StatTag.IsValid() && StatTag.MatchesTagExact(FSaiyoraCombatTags::Get().Stat_MaxHealth))
 	{
 		UpdateMaxHealth(NewValue);
 	}
@@ -661,9 +661,9 @@ float UDamageHandler::GetModifiedOutgoingDamage(FDamageInfo const& DamageInfo, F
 	{
 		Mods.Add(SourceMod.Execute(DamageInfo));
 	}
-	if (IsValid(StatHandler) && StatHandler->IsStatValid(FStatTags::DamageDone))
+	if (IsValid(StatHandler) && StatHandler->IsStatValid(FSaiyoraCombatTags::Get().Stat_DamageDone))
 	{
-		Mods.Add(FCombatModifier(StatHandler->GetStatValue(FStatTags::DamageDone), EModifierType::Multiplicative));
+		Mods.Add(FCombatModifier(StatHandler->GetStatValue(FSaiyoraCombatTags::Get().Stat_DamageDone), EModifierType::Multiplicative));
 	}
 	return FCombatModifier::ApplyModifiers(Mods, DamageInfo.Value);
 }
@@ -698,9 +698,9 @@ float UDamageHandler::GetModifiedOutgoingHealing(FDamageInfo const& HealingInfo,
 	{
 		Mods.Add(SourceMod.Execute(HealingInfo));
 	}
-	if (IsValid(StatHandler) && StatHandler->IsStatValid(FStatTags::HealingDone))
+	if (IsValid(StatHandler) && StatHandler->IsStatValid(FSaiyoraCombatTags::Get().Stat_HealingDone))
 	{
-		Mods.Add(FCombatModifier(StatHandler->GetStatValue(FStatTags::HealingDone), EModifierType::Multiplicative));
+		Mods.Add(FCombatModifier(StatHandler->GetStatValue(FSaiyoraCombatTags::Get().Stat_HealingDone), EModifierType::Multiplicative));
 	}
 	return FCombatModifier::ApplyModifiers(Mods, HealingInfo.Value);
 }
@@ -731,9 +731,9 @@ float UDamageHandler::GetModifiedIncomingDamage(FDamageInfo const& DamageInfo) c
 			Mods.Add(Modifier.Value.Execute(DamageInfo));
 		}
 	}
-	if (IsValid(StatHandler) && StatHandler->IsStatValid(FStatTags::DamageTaken))
+	if (IsValid(StatHandler) && StatHandler->IsStatValid(FSaiyoraCombatTags::Get().Stat_DamageTaken))
 	{
-		Mods.Add(FCombatModifier(StatHandler->GetStatValue(FStatTags::DamageTaken), EModifierType::Multiplicative));
+		Mods.Add(FCombatModifier(StatHandler->GetStatValue(FSaiyoraCombatTags::Get().Stat_DamageTaken), EModifierType::Multiplicative));
 	}
 	return FCombatModifier::ApplyModifiers(Mods, DamageInfo.Value);
 }
@@ -764,9 +764,9 @@ float UDamageHandler::GetModifiedIncomingHealing(FDamageInfo const& HealingInfo)
 			Mods.Add(Modifier.Value.Execute(HealingInfo));
 		}
 	}
-	if (IsValid(StatHandler) && StatHandler->IsStatValid(FStatTags::HealingTaken))
+	if (IsValid(StatHandler) && StatHandler->IsStatValid(FSaiyoraCombatTags::Get().Stat_HealingTaken))
 	{
-		Mods.Add(FCombatModifier(StatHandler->GetStatValue(FStatTags::HealingTaken), EModifierType::Multiplicative));
+		Mods.Add(FCombatModifier(StatHandler->GetStatValue(FSaiyoraCombatTags::Get().Stat_HealingTaken), EModifierType::Multiplicative));
 	}
 	return FCombatModifier::ApplyModifiers(Mods, HealingInfo.Value);
 }

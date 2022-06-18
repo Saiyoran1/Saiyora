@@ -16,11 +16,11 @@ struct FProjectileSource
 	UPROPERTY()
 	FPredictedTick SourceTick;
 	UPROPERTY()
-	ASaiyoraPlayerCharacter* Owner;
+	ASaiyoraPlayerCharacter* Owner = nullptr;
 	UPROPERTY()
-	int32 ID;
+	int32 ID = 0;
 	UPROPERTY(NotReplicated)
-	UCombatAbility* SourceAbility;
+	UCombatAbility* SourceAbility = nullptr;
 };
 
 UCLASS(Abstract, Blueprintable)

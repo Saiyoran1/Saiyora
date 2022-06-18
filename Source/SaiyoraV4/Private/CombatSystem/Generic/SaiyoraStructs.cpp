@@ -1,12 +1,7 @@
 #include "SaiyoraStructs.h"
 #include "Buff.h"
 
-const FGameplayTag FDungeonTags::GenericBoss = FGameplayTag::RequestGameplayTag(FName(TEXT("Boss")), false);
-
-FCombatModifier::FCombatModifier()
-{
-    //Needs to exist to prevent compile errors.
-}
+FSaiyoraCombatTags FSaiyoraCombatTags::SaiyoraCombatTags;
 
 FCombatModifier::FCombatModifier(float const BaseValue, EModifierType const ModifierType, UBuff* SourceBuff, bool const Stackable)
 {

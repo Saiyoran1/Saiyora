@@ -345,7 +345,7 @@ void ASaiyoraGameState::DepleteDungeonFromTimer()
 
 bool ASaiyoraGameState::IsBossKilled(const FGameplayTag BossTag) const
 {
-	if (!BossTag.IsValid() || !BossTag.MatchesTag(FDungeonTags::GenericBoss) || BossTag.MatchesTagExact(FDungeonTags::GenericBoss))
+	if (!BossTag.IsValid() || !BossTag.MatchesTag(FSaiyoraCombatTags::Get().DungeonBoss) || BossTag.MatchesTagExact(FSaiyoraCombatTags::Get().DungeonBoss))
 	{
 		return false;
 	}
@@ -416,7 +416,7 @@ void ASaiyoraGameState::ReportTrashDeath(const int32 KillCount)
 void ASaiyoraGameState::ReportBossDeath(const FGameplayTag BossTag)
 {
 	if (!HasAuthority() || DungeonProgress.DungeonPhase != EDungeonPhase::InProgress ||
-		!BossTag.IsValid() || !BossTag.MatchesTag(FDungeonTags::GenericBoss) || BossTag.MatchesTagExact(FDungeonTags::GenericBoss))
+		!BossTag.IsValid() || !BossTag.MatchesTag(FSaiyoraCombatTags::Get().DungeonBoss) || BossTag.MatchesTagExact(FSaiyoraCombatTags::Get().DungeonBoss))
 	{
 		return;
 	}

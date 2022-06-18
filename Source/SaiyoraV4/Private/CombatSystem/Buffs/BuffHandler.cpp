@@ -510,27 +510,27 @@ bool UBuffHandler::CheckIncomingBuffRestricted(FBuffApplyEvent const& BuffEvent)
 	}
 	for (FGameplayTag const Tag : BuffTags)
 	{
-		if (Tag.MatchesTagExact(FDamageTags::GenericDamage) && (!IsValid(DamageHandlerRef) || !DamageHandlerRef->CanEverReceiveDamage()))
+		if (Tag.MatchesTagExact(FSaiyoraCombatTags::Get().Damage) && (!IsValid(DamageHandlerRef) || !DamageHandlerRef->CanEverReceiveDamage()))
 		{
 			return true;
 		}
-		if (Tag.MatchesTagExact(FDamageTags::GenericHealing) && (!IsValid(DamageHandlerRef) || !DamageHandlerRef->CanEverReceiveHealing()))
+		if (Tag.MatchesTagExact(FSaiyoraCombatTags::Get().Healing) && (!IsValid(DamageHandlerRef) || !DamageHandlerRef->CanEverReceiveHealing()))
 		{
 			return true;
 		}
-		if (Tag.MatchesTag(FStatTags::GenericStat) && !Tag.MatchesTagExact(FStatTags::GenericStat) && (!IsValid(StatHandlerRef) || !StatHandlerRef->IsStatModifiable(Tag)))
+		if (Tag.MatchesTag(FSaiyoraCombatTags::Get().Stat) && !Tag.MatchesTagExact(FSaiyoraCombatTags::Get().Stat) && (!IsValid(StatHandlerRef) || !StatHandlerRef->IsStatModifiable(Tag)))
 		{
 			return true;
 		}
-		if (Tag.MatchesTag(FCcTags::GenericCrowdControl) && !Tag.MatchesTagExact(FCcTags::GenericCrowdControl) && (!IsValid(CcHandlerRef) || CcHandlerRef->IsImmuneToCrowdControl(Tag)))
+		if (Tag.MatchesTag(FSaiyoraCombatTags::Get().CrowdControl) && !Tag.MatchesTagExact(FSaiyoraCombatTags::Get().CrowdControl) && (!IsValid(CcHandlerRef) || CcHandlerRef->IsImmuneToCrowdControl(Tag)))
 		{
 			return true;
 		}
-		if (Tag.MatchesTag(FThreatTags::GenericThreat) && (!IsValid(ThreatHandlerRef) || !ThreatHandlerRef->HasThreatTable()))
+		if (Tag.MatchesTag(FSaiyoraCombatTags::Get().Threat) && (!IsValid(ThreatHandlerRef) || !ThreatHandlerRef->HasThreatTable()))
 		{
 			return true;
 		}
-		if (Tag.MatchesTagExact(FMovementTags::GenericExternalMovement) && !IsValid(MovementComponentRef))
+		if (Tag.MatchesTagExact(FSaiyoraCombatTags::Get().ExternalMovement) && !IsValid(MovementComponentRef))
 		{
 			return true;
 		}
@@ -567,7 +567,7 @@ bool UBuffHandler::CheckOutgoingBuffRestricted(FBuffApplyEvent const& BuffEvent)
 	BuffEvent.BuffClass.GetDefaultObject()->GetBuffTags(BuffTags);
 	for (FGameplayTag const Tag : BuffTags)
 	{
-		if (Tag.MatchesTag(FThreatTags::GenericThreat) && (!IsValid(ThreatHandlerRef) || !ThreatHandlerRef->CanBeInThreatTable()))
+		if (Tag.MatchesTag(FSaiyoraCombatTags::Get().Threat) && (!IsValid(ThreatHandlerRef) || !ThreatHandlerRef->CanBeInThreatTable()))
 		{
 			return true;
 		}

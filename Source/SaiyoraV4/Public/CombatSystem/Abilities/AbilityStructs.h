@@ -6,15 +6,6 @@
 #include "CoreUObject/Public/Templates/SubclassOf.h"
 #include "AbilityStructs.generated.h"
 
-USTRUCT()
-struct FAbilityTags
-{
-    GENERATED_BODY()
-
-    static const FGameplayTag GenericAbilityRestriction;
-    static const FGameplayTag AbilityClassRestriction;
-};
-
 USTRUCT(BlueprintType)
 struct FDefaultAbilityCost
 {
@@ -56,7 +47,7 @@ struct FAbilityCostArray: public FFastArraySerializer
     UPROPERTY()
     TArray<FAbilityCost> Items;
     UPROPERTY(NotReplicated)
-    class UCombatAbility* OwningAbility;
+    class UCombatAbility* OwningAbility = nullptr;
 
     bool NetDeltaSerialize(FNetDeltaSerializeInfo& DeltaParms)
     {

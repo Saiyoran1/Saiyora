@@ -235,45 +235,46 @@ void USaiyoraMovementComponent::BeginPlay()
 	}
 	if (IsValid(OwnerStatHandler))
 	{
-		if (OwnerStatHandler->IsStatValid(FStatTags::MaxWalkSpeed))
+		const FSaiyoraCombatTags& CombatTags = FSaiyoraCombatTags::Get();
+		if (OwnerStatHandler->IsStatValid(CombatTags.Stat_MaxWalkSpeed))
 		{
-			MaxWalkSpeed = FMath::Max(DefaultMaxWalkSpeed * OwnerStatHandler->GetStatValue(FStatTags::MaxWalkSpeed), 0.0f);
-			OwnerStatHandler->SubscribeToStatChanged(FStatTags::MaxWalkSpeed, MaxWalkSpeedStatCallback);
+			MaxWalkSpeed = FMath::Max(DefaultMaxWalkSpeed * OwnerStatHandler->GetStatValue(CombatTags.Stat_MaxWalkSpeed), 0.0f);
+			OwnerStatHandler->SubscribeToStatChanged(CombatTags.Stat_MaxWalkSpeed, MaxWalkSpeedStatCallback);
 		}
-		if (OwnerStatHandler->IsStatValid(FStatTags::MaxCrouchSpeed))
+		if (OwnerStatHandler->IsStatValid(CombatTags.Stat_MaxCrouchSpeed))
 		{
-			MaxWalkSpeedCrouched = FMath::Max(DefaultCrouchSpeed * OwnerStatHandler->GetStatValue(FStatTags::MaxCrouchSpeed), 0.0f);
-			OwnerStatHandler->SubscribeToStatChanged(FStatTags::MaxCrouchSpeed, MaxCrouchSpeedStatCallback);
+			MaxWalkSpeedCrouched = FMath::Max(DefaultCrouchSpeed * OwnerStatHandler->GetStatValue(CombatTags.Stat_MaxCrouchSpeed), 0.0f);
+			OwnerStatHandler->SubscribeToStatChanged(CombatTags.Stat_MaxCrouchSpeed, MaxCrouchSpeedStatCallback);
 		}
-		if (OwnerStatHandler->IsStatValid(FStatTags::GroundFriction))
+		if (OwnerStatHandler->IsStatValid(CombatTags.Stat_GroundFriction))
 		{
-			GroundFriction = FMath::Max(DefaultGroundFriction * OwnerStatHandler->GetStatValue(FStatTags::GroundFriction), 0.0f);
-			OwnerStatHandler->SubscribeToStatChanged(FStatTags::GroundFriction, GroundFrictionStatCallback);
+			GroundFriction = FMath::Max(DefaultGroundFriction * OwnerStatHandler->GetStatValue(CombatTags.Stat_GroundFriction), 0.0f);
+			OwnerStatHandler->SubscribeToStatChanged(CombatTags.Stat_GroundFriction, GroundFrictionStatCallback);
 		}
-		if (OwnerStatHandler->IsStatValid(FStatTags::BrakingDeceleration))
+		if (OwnerStatHandler->IsStatValid(CombatTags.Stat_BrakingDeceleration))
 		{
-			BrakingDecelerationWalking = FMath::Max(DefaultBrakingDeceleration * OwnerStatHandler->GetStatValue(FStatTags::BrakingDeceleration), 0.0f);
-			OwnerStatHandler->SubscribeToStatChanged(FStatTags::BrakingDeceleration, BrakingDecelerationStatCallback);
+			BrakingDecelerationWalking = FMath::Max(DefaultBrakingDeceleration * OwnerStatHandler->GetStatValue(CombatTags.Stat_BrakingDeceleration), 0.0f);
+			OwnerStatHandler->SubscribeToStatChanged(CombatTags.Stat_BrakingDeceleration, BrakingDecelerationStatCallback);
 		}
-		if (OwnerStatHandler->IsStatValid(FStatTags::MaxAcceleration))
+		if (OwnerStatHandler->IsStatValid(CombatTags.Stat_MaxAcceleration))
 		{
-			MaxAcceleration = FMath::Max(DefaultMaxAcceleration * OwnerStatHandler->GetStatValue(FStatTags::MaxAcceleration), 0.0f);
-			OwnerStatHandler->SubscribeToStatChanged(FStatTags::MaxAcceleration, MaxAccelerationStatCallback);
+			MaxAcceleration = FMath::Max(DefaultMaxAcceleration * OwnerStatHandler->GetStatValue(CombatTags.Stat_MaxAcceleration), 0.0f);
+			OwnerStatHandler->SubscribeToStatChanged(CombatTags.Stat_MaxAcceleration, MaxAccelerationStatCallback);
 		}
-		if (OwnerStatHandler->IsStatValid(FStatTags::GravityScale))
+		if (OwnerStatHandler->IsStatValid(CombatTags.Stat_GravityScale))
 		{
-			GravityScale = FMath::Max(DefaultGravityScale * OwnerStatHandler->GetStatValue(FStatTags::GravityScale), 0.0f);
-			OwnerStatHandler->SubscribeToStatChanged(FStatTags::GravityScale, GravityScaleStatCallback);
+			GravityScale = FMath::Max(DefaultGravityScale * OwnerStatHandler->GetStatValue(CombatTags.Stat_GravityScale), 0.0f);
+			OwnerStatHandler->SubscribeToStatChanged(CombatTags.Stat_GravityScale, GravityScaleStatCallback);
 		}
-		if (OwnerStatHandler->IsStatValid(FStatTags::JumpZVelocity))
+		if (OwnerStatHandler->IsStatValid(CombatTags.Stat_JumpZVelocity))
 		{
-			JumpZVelocity = FMath::Max(DefaultJumpZVelocity * OwnerStatHandler->GetStatValue(FStatTags::JumpZVelocity), 0.0f);
-			OwnerStatHandler->SubscribeToStatChanged(FStatTags::JumpZVelocity, JumpVelocityStatCallback);
+			JumpZVelocity = FMath::Max(DefaultJumpZVelocity * OwnerStatHandler->GetStatValue(CombatTags.Stat_JumpZVelocity), 0.0f);
+			OwnerStatHandler->SubscribeToStatChanged(CombatTags.Stat_JumpZVelocity, JumpVelocityStatCallback);
 		}
-		if (OwnerStatHandler->IsStatValid(FStatTags::AirControl))
+		if (OwnerStatHandler->IsStatValid(CombatTags.Stat_AirControl))
 		{
-			AirControl = FMath::Max(DefaultAirControl * OwnerStatHandler->GetStatValue(FStatTags::AirControl), 0.0f);
-			OwnerStatHandler->SubscribeToStatChanged(FStatTags::AirControl, AirControlStatCallback);
+			AirControl = FMath::Max(DefaultAirControl * OwnerStatHandler->GetStatValue(CombatTags.Stat_AirControl), 0.0f);
+			OwnerStatHandler->SubscribeToStatChanged(CombatTags.Stat_AirControl, AirControlStatCallback);
 		}
 	}
 	if (IsValid(OwnerBuffHandler) && GetOwnerRole() == ROLE_Authority)
@@ -340,7 +341,7 @@ bool USaiyoraMovementComponent::ApplyCustomMove(FCustomMoveParams const& CustomM
 	}
 	if (!CustomMove.bIgnoreRestrictions)
 	{
-		if ((IsValid(OwnerCcHandler) && OwnerCcHandler->IsCrowdControlActive(FCcTags::Root)) || bMovementRestricted)
+		if ((IsValid(OwnerCcHandler) && OwnerCcHandler->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Root)) || bMovementRestricted)
 		{
 			return false;
 		}
@@ -570,7 +571,7 @@ bool USaiyoraMovementComponent::ApplyCustomRootMotionHandler(USaiyoraRootMotionH
 	}
 	if (!Handler->bIgnoreRestrictions)
 	{
-		if ((IsValid(OwnerCcHandler) && OwnerCcHandler->IsCrowdControlActive(FCcTags::Root)) || bMovementRestricted)
+		if ((IsValid(OwnerCcHandler) && OwnerCcHandler->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Root)) || bMovementRestricted)
 		{
 			return false;
 		}
@@ -627,7 +628,7 @@ bool USaiyoraMovementComponent::ApplyCustomRootMotionHandler(USaiyoraRootMotionH
 			}
 			ServerCompletedMovementIDs.Add(FPredictedTick(AbilitySource->GetPredictionID(), AbilitySource->GetCurrentTick()));
 			//We don't check custom restrictions since the move was self-initiated, but we do check for root.
-			if (!Handler->bIgnoreRestrictions && IsValid(OwnerCcHandler) && OwnerCcHandler->IsCrowdControlActive(FCcTags::Root))
+			if (!Handler->bIgnoreRestrictions && IsValid(OwnerCcHandler) && OwnerCcHandler->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Root))
 			{
 				return false;
 			}
@@ -641,7 +642,7 @@ bool USaiyoraMovementComponent::ApplyCustomRootMotionHandler(USaiyoraRootMotionH
 	case ROLE_AutonomousProxy :
 		{
 			//We don't check for custom restrictions since the move was self-initiated, but we do check for root.
-			if (!Handler->bIgnoreRestrictions && IsValid(OwnerCcHandler) && OwnerCcHandler->IsCrowdControlActive(FCcTags::Root))
+			if (!Handler->bIgnoreRestrictions && IsValid(OwnerCcHandler) && OwnerCcHandler->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Root))
 			{
 				return false;
 			}
@@ -768,7 +769,7 @@ void USaiyoraMovementComponent::ApplyMoveRestrictionFromBuff(FBuffApplyEvent con
 	}
 	FGameplayTagContainer BuffTags;
 	ApplyEvent.AffectedBuff->GetBuffTags(BuffTags);
-	if (BuffTags.HasTagExact(FMovementTags::GenericMovementRestriction))
+	if (BuffTags.HasTagExact(FSaiyoraCombatTags::Get().MovementRestriction))
 	{
 		bool const bPreviouslyRestricted = bMovementRestricted;
 		MovementRestrictions.AddUnique(ApplyEvent.AffectedBuff);
@@ -796,7 +797,7 @@ void USaiyoraMovementComponent::RemoveMoveRestrictionFromBuff(FBuffRemoveEvent c
 	}
 	FGameplayTagContainer BuffTags;
 	RemoveEvent.RemovedBuff->GetBuffTags(BuffTags);
-	if (BuffTags.HasTagExact(FMovementTags::GenericMovementRestriction))
+	if (BuffTags.HasTagExact(FSaiyoraCombatTags::Get().MovementRestriction))
 	{
 		bool const bPreviouslyRestricted = bMovementRestricted;
 		MovementRestrictions.Remove(RemoveEvent.RemovedBuff);
@@ -846,7 +847,7 @@ void USaiyoraMovementComponent::StopMotionOnOwnerDeath(AActor* Target, ELifeStat
 void USaiyoraMovementComponent::StopMotionOnRooted(FCrowdControlStatus const& Previous, FCrowdControlStatus const& New)
 {
 	//TODO: Can add ping delay to root taking effect for auto proxies? How does this work with sim proxies?
-	if (New.CrowdControlType == FCcTags::Root && New.bActive)
+	if (New.CrowdControlType == FSaiyoraCombatTags::Get().Cc_Root && New.bActive)
 	{
 		TArray<USaiyoraRootMotionHandler*> HandlersToRemove = CurrentRootMotionHandlers;
 		if (GetOwnerRole() == ROLE_Authority)
@@ -879,7 +880,7 @@ bool USaiyoraMovementComponent::CanAttemptJump() const
 	}
 	if (IsValid(OwnerCcHandler))
 	{
-		if (OwnerCcHandler->IsCrowdControlActive(FCcTags::Stun) || OwnerCcHandler->IsCrowdControlActive(FCcTags::Incapacitate) || OwnerCcHandler->IsCrowdControlActive(FCcTags::Root))
+		if (OwnerCcHandler->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Stun) || OwnerCcHandler->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Incapacitate) || OwnerCcHandler->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Root))
 		{
 			return false;
 		}
@@ -899,7 +900,7 @@ bool USaiyoraMovementComponent::CanCrouchInCurrentState() const
 	}
 	if (IsValid(OwnerCcHandler))
 	{
-		if (OwnerCcHandler->IsCrowdControlActive(FCcTags::Stun) || OwnerCcHandler->IsCrowdControlActive(FCcTags::Incapacitate))
+		if (OwnerCcHandler->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Stun) || OwnerCcHandler->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Incapacitate))
 		{
 			return false;
 		}
@@ -915,7 +916,7 @@ FVector USaiyoraMovementComponent::ConsumeInputVector()
 	}
 	if (IsValid(OwnerCcHandler))
 	{
-		if (OwnerCcHandler->IsCrowdControlActive(FCcTags::Stun) || OwnerCcHandler->IsCrowdControlActive(FCcTags::Incapacitate) || OwnerCcHandler->IsCrowdControlActive(FCcTags::Root))
+		if (OwnerCcHandler->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Stun) || OwnerCcHandler->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Incapacitate) || OwnerCcHandler->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Root))
 		{
 			return FVector::ZeroVector;
 		}
@@ -931,7 +932,7 @@ float USaiyoraMovementComponent::GetMaxAcceleration() const
 	}
 	if (IsValid(OwnerCcHandler))
 	{
-		if (OwnerCcHandler->IsCrowdControlActive(FCcTags::Stun) || OwnerCcHandler->IsCrowdControlActive(FCcTags::Incapacitate) || OwnerCcHandler->IsCrowdControlActive(FCcTags::Root))
+		if (OwnerCcHandler->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Stun) || OwnerCcHandler->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Incapacitate) || OwnerCcHandler->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Root))
 		{
 			return 0.0f;
 		}
@@ -947,7 +948,7 @@ float USaiyoraMovementComponent::GetMaxSpeed() const
 	}
 	if (IsValid(OwnerCcHandler))
 	{
-		if (OwnerCcHandler->IsCrowdControlActive(FCcTags::Stun) || OwnerCcHandler->IsCrowdControlActive(FCcTags::Incapacitate) || OwnerCcHandler->IsCrowdControlActive(FCcTags::Root))
+		if (OwnerCcHandler->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Stun) || OwnerCcHandler->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Incapacitate) || OwnerCcHandler->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Root))
 		{
 			return 0.0f;
 		}

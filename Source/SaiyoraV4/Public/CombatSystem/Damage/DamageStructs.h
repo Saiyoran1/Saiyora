@@ -8,15 +8,6 @@
 
 class UCombatComponent;
 
-USTRUCT()
-struct FDamageTags
-{
-	GENERATED_BODY()
-
-	static const FGameplayTag GenericDamage;
-	static const FGameplayTag GenericHealing;
-};
-
 USTRUCT(BlueprintType)
 struct FDamageResult
 {

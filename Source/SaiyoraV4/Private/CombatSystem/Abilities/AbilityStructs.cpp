@@ -1,9 +1,5 @@
 ﻿#include "AbilityStructs.h"
 #include "CombatAbility.h"
-#include "StatHandler.h"
-
-const FGameplayTag FAbilityTags::GenericAbilityRestriction = FGameplayTag::RequestGameplayTag(FName(TEXT("AbilityRestriction")), false);
-const FGameplayTag FAbilityTags::AbilityClassRestriction = FGameplayTag::RequestGameplayTag(FName(TEXT("AbilityRestriction.Class")), false);
 
 FAbilityCost::FAbilityCost()
 {

@@ -6,15 +6,6 @@
 #include "MovementStructs.generated.h"
 
 USTRUCT()
-struct FMovementTags
-{
-	GENERATED_BODY()
-
-	static const FGameplayTag GenericExternalMovement; 
-	static const FGameplayTag GenericMovementRestriction;
-};
-
-USTRUCT()
 struct FCustomMoveParams
 {
 	GENERATED_BODY()

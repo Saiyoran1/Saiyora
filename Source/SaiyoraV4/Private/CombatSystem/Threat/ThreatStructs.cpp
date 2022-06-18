@@ -2,12 +2,6 @@
 #include "Buff.h"
 #include "ThreatHandler.h"
 
-const FGameplayTag FThreatTags::GenericThreat = FGameplayTag::RequestGameplayTag(FName(TEXT("Threat")), false);
-const FGameplayTag FThreatTags::Fixate = FGameplayTag::RequestGameplayTag(FName(TEXT("Threat.Fixate")), false);
-const FGameplayTag FThreatTags::Blind = FGameplayTag::RequestGameplayTag(FName(TEXT("Threat.Blind")), false);
-const FGameplayTag FThreatTags::Fade = FGameplayTag::RequestGameplayTag(FName(TEXT("Threat.Fade")), false);
-const FGameplayTag FThreatTags::Misdirect = FGameplayTag::RequestGameplayTag(FName(TEXT("Threat.Misdirect")), false);
-
 FThreatTarget::FThreatTarget()
 {
 	Target = nullptr;

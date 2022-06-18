@@ -7,8 +7,8 @@
 
 void UCrowdControlImmunityFunction::CrowdControlImmunity(UBuff* Buff, FGameplayTag const ImmunedCrowdControl)
 {
-	if (!IsValid(Buff) || !ImmunedCrowdControl.IsValid() || !ImmunedCrowdControl.MatchesTag(FCcTags::GenericCrowdControl) ||
-		ImmunedCrowdControl.MatchesTagExact(FCcTags::GenericCrowdControl) || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
+	if (!IsValid(Buff) || !ImmunedCrowdControl.IsValid() || !ImmunedCrowdControl.MatchesTag(FSaiyoraCombatTags::Get().CrowdControl) ||
+		ImmunedCrowdControl.MatchesTagExact(FSaiyoraCombatTags::Get().CrowdControl) || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
 	{
 		return;
 	}
