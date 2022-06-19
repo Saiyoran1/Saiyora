@@ -31,6 +31,8 @@ private:
 	UPlaneComponent* PlaneComponent = nullptr;
 	UPROPERTY()
 	APawn* OwnerAsPawn = nullptr;
+	UPROPERTY()
+	class ASaiyoraGameState* GameStateRef = nullptr;
 
 //Health
 	
@@ -60,6 +62,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Health")
 	void UnsubscribeFromLifeStatusChanged(FLifeStatusCallback const& Callback);
 
+	UFUNCTION(BlueprintAuthorityOnly, Category = "Health")
+	void KillActor(AActor* Attacker, UObject* Source, const bool bIgnoreDeathRestrictions);
+	UFUNCTION(BlueprintAuthorityOnly, Category = "Health")
+	void RespawnActor(const bool bForceRespawnLocation, const FVector& OverrideRespawnLocation, const bool bForceHealthPercentage, const float OverrideHealthPercentage);
+	UFUNCTION(BlueprintAuthorityOnly, Category = "Health")
+	void UpdateRespawnPoint(const FVector& NewLocation);
+
 	void AddDeathRestriction(UBuff* Source, FDeathRestriction const& Restriction);
 	void RemoveDeathRestriction(UBuff* Source);
 
@@ -71,6 +80,10 @@ private:
 	bool bStaticMaxHealth = false;
 	UPROPERTY(EditAnywhere, Category = "Health", meta = (ClampMin = "1"))
 	float DefaultMaxHealth = 1.0f;
+	UPROPERTY(EditAnywhere, Category = "Health")
+	bool bCanRespawn = false;
+	UPROPERTY(EditAnywhere, Category = "Health")
+	bool bRespawnInPlace = false;
 
 	UPROPERTY(ReplicatedUsing = OnRep_CurrentHealth)
 	float CurrentHealth = 0.0f;
@@ -84,6 +97,7 @@ private:
 	ELifeStatus LifeStatus = ELifeStatus::Invalid;
 	UFUNCTION()
 	void OnRep_LifeStatus(ELifeStatus PreviousValue);
+	FVector RespawnLocation;
 
 	FHealthChangeNotification OnHealthChanged;
 	FHealthChangeNotification OnMaxHealthChanged;
@@ -97,6 +111,26 @@ private:
 	void ReactToMaxHealthStat(FGameplayTag const& StatTag, float const NewValue);
 	bool CheckDeathRestricted(FDamagingEvent const& DamageEvent);
 	void Die();
+
+//Kill Count
+
+public:
+
+	UFUNCTION(BlueprintPure)
+	EKillCountType GetKillCountType() const { return KillCountType; }
+	UFUNCTION(BlueprintPure)
+	int32 GetKillCountValue() const { return KillCountValue; }
+	UFUNCTION(BlueprintPure)
+	FGameplayTag GetBossTag() const { return BossTag; }
+
+private:
+
+	UPROPERTY(EditAnywhere, Category = "Kill Count")
+	EKillCountType KillCountType = EKillCountType::None;
+	UPROPERTY(EditAnywhere, Category = "Kill Count")
+	int32 KillCountValue = 0;
+	UPROPERTY(EditAnywhere, Category = "Kill Count", meta = (GameplayTagFilter = "Boss"))
+	FGameplayTag BossTag;
 
 //Outgoing Damage
 
@@ -168,9 +202,9 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Damage")
 	bool CanEverReceiveDamage() const { return bCanEverReceiveDamage; }
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Damage", meta = (AutoCreateRefTerm = "SourceModifier, ThreatParams"))
-	FDamagingEvent ApplyDamage(float const Amount, AActor* AppliedBy, UObject* Source,
-		EDamageHitStyle const HitStyle, EDamageSchool const School, bool const bIgnoreRestrictions,
-		bool const bIgnoreModifiers, bool const bFromSnapshot, FDamageModCondition const& SourceModifier, FThreatFromDamage const& ThreatParams);
+	FDamagingEvent ApplyDamage(float const Amount, AActor* AppliedBy, UObject* Source,EDamageHitStyle const HitStyle,
+		EDamageSchool const School, bool const bIgnoreModifiers, bool const bIgnoreRestrictions, const bool bIgnoreDeathRestrictions,
+		bool const bFromSnapshot, FDamageModCondition const& SourceModifier, FThreatFromDamage const& ThreatParams);
 
 	UFUNCTION(BlueprintCallable, Category = "Damage")
 	void SubscribeToIncomingDamage(FDamageEventCallback const& Callback);

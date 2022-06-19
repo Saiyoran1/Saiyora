@@ -103,8 +103,8 @@ void UDamageOverTimeFunction::InitialTick()
         EDamageSchool const InitSchool = bUsesSeparateInitialDamage ? InitialDamageSchool : DamageSchool;
         bool const FromSnapshot = bSnapshots && !bUsesSeparateInitialDamage;
         TargetComponent->ApplyDamage(InitDamage, GetOwningBuff()->GetAppliedBy(), GetOwningBuff(),
-            EDamageHitStyle::Chronic, InitSchool, bIgnoresRestrictions, bIgnoresModifiers,
-            FromSnapshot, FDamageModCondition(), ThreatInfo);
+			EDamageHitStyle::Chronic, InitSchool, bIgnoresModifiers, bIgnoresRestrictions, false,
+			FromSnapshot, FDamageModCondition(), ThreatInfo);
     }
 }
 
@@ -114,7 +114,8 @@ void UDamageOverTimeFunction::TickDamage()
     {
         float const TickDamage = bScalesWithStacks ? BaseDamage * GetOwningBuff()->GetCurrentStacks() : BaseDamage;
         TargetComponent->ApplyDamage(TickDamage, GetOwningBuff()->GetAppliedBy(), GetOwningBuff(), EDamageHitStyle::Chronic,
-            DamageSchool, bIgnoresRestrictions, bIgnoresModifiers, bSnapshots, FDamageModCondition(), ThreatInfo);
+                                     DamageSchool, bIgnoresModifiers, bIgnoresRestrictions, false,
+                                     bSnapshots, FDamageModCondition(), ThreatInfo);
     }
 }
 
@@ -127,7 +128,7 @@ void UDamageOverTimeFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
         {
             float const ExpireTickDamage = (bScalesWithStacks ? BaseDamage * GetOwningBuff()->GetCurrentStacks() : BaseDamage) * TickFraction;
             TargetComponent->ApplyDamage(ExpireTickDamage, GetOwningBuff()->GetAppliedBy(),GetOwningBuff(), EDamageHitStyle::Chronic,
-                DamageSchool, bIgnoresRestrictions, bIgnoresModifiers, bSnapshots, FDamageModCondition(), ThreatInfo);
+                                         DamageSchool, bIgnoresModifiers, bIgnoresRestrictions, false, bSnapshots, FDamageModCondition(), ThreatInfo);
         }
     }
 }

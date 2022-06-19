@@ -30,3 +30,12 @@ enum class ELifeStatus : uint8
     Alive = 1,
     Dead = 2,
 };
+
+UENUM(BlueprintType)
+enum class EKillCountType : uint8
+{
+    None = 0,
+    Player = 1,
+    Trash = 2,
+    Boss = 3,
+};

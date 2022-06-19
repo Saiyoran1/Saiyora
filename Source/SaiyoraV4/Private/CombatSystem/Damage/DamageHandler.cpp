@@ -4,6 +4,7 @@
 #include "Buff.h"
 #include "PlaneComponent.h"
 #include "SaiyoraCombatInterface.h"
+#include "SaiyoraGameState.h"
 #include "UnrealNetwork.h"
 
 #pragma region Initialization
@@ -33,6 +34,7 @@ void UDamageHandler::BeginPlay()
 	Super::BeginPlay();
 	
 	OwnerAsPawn = Cast<APawn>(GetOwner());
+	GameStateRef = GetWorld()->GetGameState<ASaiyoraGameState>();
 	if (GetOwnerRole() == ROLE_Authority)
 	{
 		//Bind Max Health stat, create damage and healing modifiers from stats.
@@ -89,11 +91,64 @@ void UDamageHandler::ReactToMaxHealthStat(FGameplayTag const& StatTag, float con
 	}
 }
 
+void UDamageHandler::KillActor(AActor* Attacker, UObject* Source, const bool bIgnoreDeathRestrictions)
+{
+	ApplyDamage(CurrentHealth, Attacker, Source, EDamageHitStyle::Authority, EDamageSchool::None, true, true, bIgnoreDeathRestrictions,
+	            false, FDamageModCondition(), FThreatFromDamage());
+}
+
+void UDamageHandler::RespawnActor(const bool bForceRespawnLocation, const FVector& OverrideRespawnLocation,
+	const bool bForceHealthPercentage, const float OverrideHealthPercentage)
+{
+	if (GetOwnerRole() != ROLE_Authority || !bCanRespawn || LifeStatus == ELifeStatus::Alive)
+	{
+		return;
+	}
+	if (!bRespawnInPlace || bForceRespawnLocation)
+	{
+		GetOwner()->SetActorLocation(bForceRespawnLocation ? OverrideRespawnLocation : RespawnLocation);
+	}
+	CurrentHealth = FMath::Clamp(MaxHealth * (bForceHealthPercentage ? FMath::Clamp(OverrideHealthPercentage, 0.0f, 1.0f) : 1.0f), 1.0f, MaxHealth);
+	OnHealthChanged.Broadcast(GetOwner(), 0.0f, CurrentHealth);
+	const ELifeStatus PreviousStatus = LifeStatus;
+	LifeStatus = ELifeStatus::Alive;
+	OnLifeStatusChanged.Broadcast(GetOwner(), PreviousStatus, ELifeStatus::Alive);
+}
+
+void UDamageHandler::UpdateRespawnPoint(const FVector& NewLocation)
+{
+	if (GetOwnerRole() != ROLE_Authority || !bCanRespawn || bRespawnInPlace)
+	{
+		return;
+	}
+	RespawnLocation = NewLocation;
+}
+
 void UDamageHandler::Die()
 {
 	ELifeStatus const PreviousStatus = LifeStatus;
 	LifeStatus = ELifeStatus::Dead;
 	OnLifeStatusChanged.Broadcast(GetOwner(), PreviousStatus, LifeStatus);
+	if (GameStateRef)
+	{
+		switch (KillCountType)
+		{
+		case EKillCountType::None :
+			return;
+		case EKillCountType::Player :
+			GameStateRef->ReportPlayerDeath();
+			break;
+		case EKillCountType::Trash :
+			GameStateRef->ReportTrashDeath(KillCountValue);
+			break;
+		case EKillCountType::Boss :
+			GameStateRef->ReportBossDeath(BossTag);
+			break;
+		default :
+			return;
+		}
+	}
+	
 }
 
 void UDamageHandler::OnRep_CurrentHealth(float const PreviousValue)
@@ -115,8 +170,8 @@ void UDamageHandler::OnRep_LifeStatus(ELifeStatus const PreviousValue)
 #pragma region Damage
 
 FDamagingEvent UDamageHandler::ApplyDamage(float const Amount, AActor* AppliedBy, UObject* Source,
-	EDamageHitStyle const HitStyle, EDamageSchool const School, bool const bIgnoreRestrictions, bool const bIgnoreModifiers,
-	bool const bFromSnapshot, FDamageModCondition const& SourceModifier, FThreatFromDamage const& ThreatParams)
+                                           EDamageHitStyle const HitStyle, EDamageSchool const School, bool const bIgnoreModifiers, bool const bIgnoreRestrictions,
+                                           const bool bIgnoreDeathRestrictions, bool const bFromSnapshot, FDamageModCondition const& SourceModifier, FThreatFromDamage const& ThreatParams)
 {
     FDamagingEvent DamageEvent;
     if (GetOwnerRole() != ROLE_Authority || !IsValid(AppliedBy) || !IsValid(Source))
@@ -182,7 +237,7 @@ FDamagingEvent UDamageHandler::ApplyDamage(float const Amount, AActor* AppliedBy
 	DamageEvent.Result.AmountDealt = DamageEvent.Result.PreviousHealth - CurrentHealth;
 	if (CurrentHealth == 0.0f)
 	{
-		if (!CheckDeathRestricted(DamageEvent))
+		if (bIgnoreDeathRestrictions || !CheckDeathRestricted(DamageEvent))
 		{
 			DamageEvent.Result.KillingBlow = true;
 		}

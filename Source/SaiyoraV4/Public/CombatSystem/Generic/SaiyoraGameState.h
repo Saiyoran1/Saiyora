@@ -142,6 +142,8 @@ private:
 public:
 
 	UFUNCTION(BlueprintPure)
+	FString GetDungeonName() const { return DungeonName; }
+	UFUNCTION(BlueprintPure)
 	EDungeonPhase GetDungeonPhase() const { return DungeonProgress.DungeonPhase; }
 	UFUNCTION(BlueprintPure)
 	float GetDungeonPhaseStartTime() const { return DungeonProgress.PhaseStartTime; }
@@ -198,6 +200,8 @@ protected:
 	float DeathPenaltySeconds = 0.0f;
 	UPROPERTY(EditDefaultsOnly, Category = "Dungeon Requirements", meta = (ClampMin = "0"))
 	float CountdownLength = 0.0f;
+	UPROPERTY(EditDefaultsOnly, Category = "Dungeon Information")
+	FString DungeonName;
 	
 private:
 
