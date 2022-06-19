@@ -172,7 +172,7 @@ public:
 	void ReportPlayerDeath();
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly)
 	void ReportTrashDeath(const int32 KillCount = 1);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly)
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, meta = (GameplayTagFilter = "Boss"))
 	void ReportBossDeath(const FGameplayTag BossTag);
 	
 	UPROPERTY(BlueprintAssignable)
