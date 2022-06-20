@@ -7,6 +7,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "AbilityComponent.h"
 #include "BuffStructs.h"
+#include "StatStructs.h"
 #include "SaiyoraMovementComponent.generated.h"
 
 class UBuffHandler;
@@ -110,7 +111,6 @@ private:
 	virtual void MoveAutonomous(float ClientTimeStamp, float DeltaTime, uint8 CompressedFlags, const FVector& NewAccel) override;
 	bool ApplyCustomMove(FCustomMoveParams const& CustomMove, UObject* Source);
 	void SetupCustomMovementPrediction(UCombatAbility* Source, FCustomMoveParams const& CustomMove);
-	FAbilityCallback OnPredictedAbility;
 	UFUNCTION()
 	void OnCustomMoveCastPredicted(FAbilityEvent const& Event);
 	virtual void UpdateFromCompressedFlags(uint8 Flags) override;
@@ -125,7 +125,6 @@ private:
 	virtual void OnMovementUpdated(float DeltaSeconds, const FVector& OldLocation, const FVector& OldVelocity) override;
 	void CustomMoveFromFlag();
 	void ExecuteCustomMove(FCustomMoveParams const& CustomMove);
-	FAbilityMispredictionCallback OnMispredict;
 	UFUNCTION()
 	void AbilityMispredicted(int32 const PredictionID);
 

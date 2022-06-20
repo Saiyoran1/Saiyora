@@ -1,14 +1,15 @@
-#include "SaiyoraPlayerCharacter.h"
+#include "CoreClasses/SaiyoraPlayerCharacter.h"
 #include "BuffHandler.h"
 #include "CrowdControlHandler.h"
 #include "DamageHandler.h"
 #include "FactionComponent.h"
 #include "PlaneComponent.h"
 #include "ResourceHandler.h"
-#include "SaiyoraGameState.h"
 #include "SaiyoraMovementComponent.h"
+#include "CoreClasses/SaiyoraPlayerController.h"
 #include "StatHandler.h"
 #include "ThreatHandler.h"
+#include "CoreClasses/SaiyoraGameState.h"
 
 ASaiyoraPlayerCharacter::ASaiyoraPlayerCharacter(const class FObjectInitializer& ObjectInitializer) :
 	Super(ObjectInitializer.SetDefaultSubobjectClass<USaiyoraMovementComponent>(ACharacter::CharacterMovementComponentName))

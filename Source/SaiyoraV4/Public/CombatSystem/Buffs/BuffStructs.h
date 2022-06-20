@@ -1,7 +1,7 @@
 #pragma once
 #include "BuffEnums.h"
-#include "SaiyoraEnums.h"
-#include "SaiyoraStructs.h"
+#include "CombatEnums.h"
+#include "CombatStructs.h"
 #include "BuffStructs.generated.h"
 
 class UBuff;

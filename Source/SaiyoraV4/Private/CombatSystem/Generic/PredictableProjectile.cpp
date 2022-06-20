@@ -1,7 +1,9 @@
 ﻿#include "PredictableProjectile.h"
 #include "AbilityComponent.h"
-#include "SaiyoraGameState.h"
+#include "CombatAbility.h"
+#include "CoreClasses/SaiyoraGameState.h"
 #include "UnrealNetwork.h"
+#include "CoreClasses/SaiyoraPlayerCharacter.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -41,8 +43,7 @@ void APredictableProjectile::InitializeProjectile(UCombatAbility* Source)
 	SourceInfo.SourceAbility = Source;
 	if (Source->GetHandler()->GetOwnerRole() == ROLE_AutonomousProxy)
 	{
-		OnMisprediction.BindDynamic(this, &APredictableProjectile::DeleteOnMisprediction);
-		Source->GetHandler()->SubscribeToAbilityMispredicted(OnMisprediction);
+		Source->GetHandler()->OnAbilityMispredicted.AddDynamic(this, &APredictableProjectile::DeleteOnMisprediction);
 		GameState->RegisterClientProjectile(this);
 	}
 	DestroyDelegate.BindUObject(this, &APredictableProjectile::DelayedDestroy);

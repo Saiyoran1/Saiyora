@@ -32,7 +32,7 @@ private:
 	UPROPERTY()
 	APawn* OwnerAsPawn = nullptr;
 	UPROPERTY()
-	class ASaiyoraGameState* GameStateRef = nullptr;
+	class ADungeonGameState* GameStateRef = nullptr;
 
 //Health
 	

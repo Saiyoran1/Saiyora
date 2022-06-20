@@ -186,8 +186,6 @@ void USaiyoraMovementComponent::InitializeComponent()
 	OwnerDamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
 	OwnerStatHandler = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
 	OwnerBuffHandler = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwner());
-	OnPredictedAbility.BindDynamic(this, &USaiyoraMovementComponent::OnCustomMoveCastPredicted);
-	OnMispredict.BindDynamic(this, &USaiyoraMovementComponent::AbilityMispredicted);
 	OnDeath.BindDynamic(this, &USaiyoraMovementComponent::StopMotionOnOwnerDeath);
 	OnRooted.BindDynamic(this, &USaiyoraMovementComponent::StopMotionOnRooted);
 	MaxWalkSpeedStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnMaxWalkSpeedStatChanged);
@@ -223,7 +221,7 @@ void USaiyoraMovementComponent::BeginPlay()
 	if (GetOwnerRole() == ROLE_AutonomousProxy && IsValid(OwnerAbilityHandler))
 	{
 		//Do not sub OnPredictedAbility, this will be added and removed only when custom moves are predicted.
-		OwnerAbilityHandler->SubscribeToAbilityMispredicted(OnMispredict);
+		OwnerAbilityHandler->OnAbilityMispredicted.AddDynamic(this, &USaiyoraMovementComponent::AbilityMispredicted);
 	}
 	if (IsValid(OwnerDamageHandler))
 	{
@@ -451,7 +449,7 @@ void USaiyoraMovementComponent::SetupCustomMovementPrediction(UCombatAbility* So
 	{
 		return;
 	}
-	OwnerAbilityHandler->SubscribeToAbilityTicked(OnPredictedAbility);
+	OwnerAbilityHandler->OnAbilityTick.AddDynamic(this, &USaiyoraMovementComponent::OnCustomMoveCastPredicted);
 	PendingCustomMove.AbilityClass = Source->GetClass();
 	PendingCustomMove.MoveParams = CustomMove;
 	PendingCustomMove.PredictionID = Source->GetPredictionID();
@@ -460,7 +458,7 @@ void USaiyoraMovementComponent::SetupCustomMovementPrediction(UCombatAbility* So
 
 void USaiyoraMovementComponent::OnCustomMoveCastPredicted(FAbilityEvent const& Event)
 {
-	OwnerAbilityHandler->UnsubscribeFromAbilityTicked(OnPredictedAbility);
+	OwnerAbilityHandler->OnAbilityTick.RemoveDynamic(this, &USaiyoraMovementComponent::OnCustomMoveCastPredicted);
 	CompletedCastStatus.Add(Event.PredictionID, true);
 	if (!IsValid(PendingCustomMove.AbilityClass) || PendingCustomMove.AbilityClass != Event.Ability->GetClass()
 		|| PendingCustomMove.PredictionID != Event.PredictionID || PendingCustomMove.MoveParams.MoveType == ESaiyoraCustomMove::None)

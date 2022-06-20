@@ -3,7 +3,6 @@
 #include "Buff.h"
 #include "Resource.h"
 #include "ResourceHandler.h"
-#include "SaiyoraGameMode.h"
 #include "UnrealNetwork.h"
 #include "Kismet/KismetSystemLibrary.h"
 
@@ -40,7 +39,7 @@ void UCombatAbility::PostNetReceive()
         OnResourceChanged.BindDynamic(this, &UCombatAbility::CheckResourceCostOnResourceChanged);
         OnResourceAdded.BindDynamic(this, &UCombatAbility::SetupCostCheckingForNewResource);
         AbilityCosts.OwningAbility = this;
-        for (FAbilityCost const& Cost : AbilityCosts.Items)
+        for (const FAbilityCost& Cost : AbilityCosts.Items)
         {
             UpdateCostFromReplication(Cost, true);
         }
@@ -59,23 +58,22 @@ void UCombatAbility::InitializeAbility(UAbilityComponent* AbilityComponent)
         return;
     }
     OwningComponent = AbilityComponent;
-    GameModeRef = Cast<ASaiyoraGameMode>(GetWorld()->GetAuthGameMode());
     AbilityCooldown.MaxCharges = FMath::Max(1, DefaultMaxCharges);
     AbilityCooldown.CurrentCharges = AbilityCooldown.MaxCharges;
     ChargesPerCooldown = FMath::Max(0, DefaultChargesPerCooldown);
     ChargeCost = FMath::Max(0, DefaultChargeCost);
     AbilityCosts.OwningAbility = this;
     OnResourceChanged.BindDynamic(this, &UCombatAbility::CheckResourceCostOnResourceChanged);
-    for (FDefaultAbilityCost const& DefaultCost : DefaultAbilityCosts)
+    for (const FDefaultAbilityCost& DefaultCost : DefaultAbilityCosts)
     {
-        if (IsValid(DefaultCost.ResourceClass))
+        if (DefaultCost.ResourceClass)
         {
             FAbilityCost NewCost;
             NewCost.ResourceClass = DefaultCost.ResourceClass;
             NewCost.Cost = DefaultCost.Cost;
             AbilityCosts.MarkItemDirty(AbilityCosts.Items.Add_GetRef(NewCost));
             bool bCostMet = false;
-            if (IsValid(OwningComponent->GetResourceHandlerRef()))
+            if (OwningComponent->GetResourceHandlerRef())
             {
                 UResource* Resource = OwningComponent->GetResourceHandlerRef()->FindActiveResource(DefaultCost.ResourceClass);
                 if (IsValid(Resource))
@@ -134,7 +132,7 @@ void UCombatAbility::DeactivateAbility()
     bDeactivated = true;
 }
 
-void UCombatAbility::OnRep_Deactivated(bool const Previous)
+void UCombatAbility::OnRep_Deactivated()
 {
     if (bDeactivated && bInitialized)
     {
@@ -208,21 +206,21 @@ float UCombatAbility::GetCurrentCooldownLength() const
     switch (OwningComponent->GetOwnerRole())
     {
         case ROLE_Authority :
-            return AbilityCooldown.OnCooldown ? FMath::Max(UAbilityComponent::MinimumCooldownLength, AbilityCooldown.CooldownEndTime - AbilityCooldown.CooldownStartTime) : 0.0f;
+            return AbilityCooldown.OnCooldown ? FMath::Max(UAbilityComponent::MINCDLENGTH, AbilityCooldown.CooldownEndTime - AbilityCooldown.CooldownStartTime) : 0.0f;
         case ROLE_AutonomousProxy :
-            return ClientCooldown.OnCooldown && ClientCooldown.CooldownEndTime != 0.0f ? FMath::Max(UAbilityComponent::MinimumCooldownLength, ClientCooldown.CooldownEndTime - ClientCooldown.CooldownStartTime) : 0.0f;
+            return ClientCooldown.OnCooldown && ClientCooldown.CooldownEndTime != 0.0f ? FMath::Max(UAbilityComponent::MINCDLENGTH, ClientCooldown.CooldownEndTime - ClientCooldown.CooldownStartTime) : 0.0f;
         default :
             return 0.0f;
     }
 }
 
-void UCombatAbility::ModifyCurrentCharges(int32 const Charges, EChargeModificationType const ModificationType)
+void UCombatAbility::ModifyCurrentCharges(const int32 Charges, const EChargeModificationType ModificationType)
 {
     if (OwningComponent->GetOwnerRole() != ROLE_Authority || ModificationType == EChargeModificationType::None)
     {
         return;
     }
-    int32 const PreviousCharges = AbilityCooldown.CurrentCharges;
+    const int32 PreviousCharges = AbilityCooldown.CurrentCharges;
     switch (ModificationType)
     {
     case EChargeModificationType::Additive :
@@ -249,7 +247,7 @@ void UCombatAbility::ModifyCurrentCharges(int32 const Charges, EChargeModificati
     }
 }
 
-void UCombatAbility::CommitCharges(int32 const PredictionID)
+void UCombatAbility::CommitCharges(const int32 PredictionID)
 {
     if (OwningComponent->GetOwnerRole() == ROLE_Authority)
     {
@@ -259,7 +257,7 @@ void UCombatAbility::CommitCharges(int32 const PredictionID)
             AbilityCooldown.PredictionID = PredictionID;
             bUseLagCompensation = true;
         }
-        int32 const PreviousCharges = AbilityCooldown.CurrentCharges;
+        const int32 PreviousCharges = AbilityCooldown.CurrentCharges;
         AbilityCooldown.CurrentCharges = FMath::Clamp(AbilityCooldown.CurrentCharges - ChargeCost, 0, AbilityCooldown.MaxCharges);
         if (AbilityCooldown.CurrentCharges < AbilityCooldown.MaxCharges && !AbilityCooldown.OnCooldown)
         {
@@ -278,9 +276,9 @@ void UCombatAbility::CommitCharges(int32 const PredictionID)
     }
 }
 
-void UCombatAbility::StartCooldown(bool const bUseLagCompensation)
+void UCombatAbility::StartCooldown(const bool bUseLagCompensation)
 {
-    float const CooldownLength = OwningComponent->CalculateCooldownLength(this, bUseLagCompensation);
+    const float CooldownLength = OwningComponent->CalculateCooldownLength(this, bUseLagCompensation);
     GetWorld()->GetTimerManager().SetTimer(CooldownHandle, this, &UCombatAbility::CompleteCooldown, CooldownLength, false);
     AbilityCooldown.OnCooldown = true;
     AbilityCooldown.CooldownStartTime = OwningComponent->GetGameStateRef()->GetServerWorldTimeSeconds();
@@ -289,8 +287,8 @@ void UCombatAbility::StartCooldown(bool const bUseLagCompensation)
 
 void UCombatAbility::CompleteCooldown()
 {
-    int32 const PreviousCharges = AbilityCooldown.CurrentCharges;
-    bool const bChargeCostPreviouslyMet = PreviousCharges >= ChargeCost;
+    const int32 PreviousCharges = AbilityCooldown.CurrentCharges;
+    const bool bChargeCostPreviouslyMet = PreviousCharges >= ChargeCost;
     AbilityCooldown.CurrentCharges = FMath::Clamp(AbilityCooldown.CurrentCharges + ChargesPerCooldown, 0, AbilityCooldown.MaxCharges);
     if (PreviousCharges != AbilityCooldown.CurrentCharges)
     {
@@ -342,9 +340,9 @@ void UCombatAbility::OnRep_AbilityCooldown(FAbilityCooldown const& PreviousState
 
 void UCombatAbility::RecalculatePredictedCooldown()
 {
-    int32 const PreviousCharges = ClientCooldown.CurrentCharges;
+    const int32 PreviousCharges = ClientCooldown.CurrentCharges;
     ClientCooldown = AbilityCooldown;
-    for (TTuple<int32, int32> const& Prediction : ChargePredictions)
+    for (const TTuple<int32, int32>& Prediction : ChargePredictions)
     {
         ClientCooldown.CurrentCharges = FMath::Clamp(ClientCooldown.CurrentCharges - Prediction.Value, 0, AbilityCooldown.MaxCharges);
     }
@@ -371,12 +369,12 @@ void UCombatAbility::OnRep_ChargeCost()
 #pragma endregion
 #pragma region Cost
 
-void UCombatAbility::UpdateCost(TSubclassOf<UResource> const ResourceClass)
+void UCombatAbility::UpdateCost(const TSubclassOf<UResource> ResourceClass)
 {
     bool bFoundDefault = false;
     float BaseCost = 0.0f;
     bool bStatic = false;
-    for (FDefaultAbilityCost const& DefaultCost : DefaultAbilityCosts)
+    for (const FDefaultAbilityCost& DefaultCost : DefaultAbilityCosts)
     {
         if (DefaultCost.ResourceClass == ResourceClass)
         {
@@ -403,14 +401,14 @@ void UCombatAbility::UpdateCost(TSubclassOf<UResource> const ResourceClass)
     CheckCostMet(ResourceClass);
 }
 
-void UCombatAbility::CheckCostMet(TSubclassOf<UResource> const ResourceClass)
+void UCombatAbility::CheckCostMet(const TSubclassOf<UResource> ResourceClass)
 {
     if (!IsValid(ResourceClass) || !IsValid(OwningComponent))
     {
         return;
     }
     bool bCostMet = false;
-    for (FAbilityCost const& Cost : AbilityCosts.Items)
+    for (const FAbilityCost& Cost : AbilityCosts.Items)
     {
         if (Cost.ResourceClass == ResourceClass)
         {
@@ -437,7 +435,7 @@ void UCombatAbility::CheckCostMet(TSubclassOf<UResource> const ResourceClass)
     }
     else
     {
-        int32 const PreviousUnmet = UnmetCosts.Num();
+        const int32 PreviousUnmet = UnmetCosts.Num();
         UnmetCosts.Add(ResourceClass);
         if (PreviousUnmet == 0 && UnmetCosts.Num() > 0)
         {
@@ -447,12 +445,12 @@ void UCombatAbility::CheckCostMet(TSubclassOf<UResource> const ResourceClass)
 }
 
 void UCombatAbility::CheckResourceCostOnResourceChanged(UResource* Resource, UObject* ChangeSource,
-    FResourceState const& PreviousState, FResourceState const& NewState)
+    const FResourceState& PreviousState, const FResourceState& NewState)
 {
     if (IsValid(Resource))
     {
         bool bCostMet = false;
-        for (FAbilityCost const& Cost : AbilityCosts.Items)
+        for (const FAbilityCost& Cost : AbilityCosts.Items)
         {
             if (Cost.ResourceClass == Resource->GetClass())
             {
@@ -472,7 +470,7 @@ void UCombatAbility::CheckResourceCostOnResourceChanged(UResource* Resource, UOb
         }
         else
         {
-            int32 const PreviousUnmet = UnmetCosts.Num();
+            const int32 PreviousUnmet = UnmetCosts.Num();
             UnmetCosts.Add(Resource->GetClass());
             if (PreviousUnmet == 0 && UnmetCosts.Num() > 0)
             {
@@ -482,7 +480,7 @@ void UCombatAbility::CheckResourceCostOnResourceChanged(UResource* Resource, UOb
     }
 }
 
-void UCombatAbility::UpdateCostFromReplication(FAbilityCost const& Cost, bool const bNewAdd)
+void UCombatAbility::UpdateCostFromReplication(const FAbilityCost& Cost, const bool bNewAdd)
 {
     if (IsValid(Cost.ResourceClass) && IsValid(OwningComponent))
     {
@@ -516,7 +514,7 @@ void UCombatAbility::UpdateCostFromReplication(FAbilityCost const& Cost, bool co
         }
         else
         {
-            int32 const PreviousUnmet = UnmetCosts.Num();
+            const int32 PreviousUnmet = UnmetCosts.Num();
             UnmetCosts.Add(Cost.ResourceClass);
             if (PreviousUnmet == 0 && UnmetCosts.Num() > 0)
             {
@@ -529,7 +527,7 @@ void UCombatAbility::UpdateCostFromReplication(FAbilityCost const& Cost, bool co
 #pragma endregion
 #pragma region Functionality
 
-void UCombatAbility::PredictedTick(int32 const TickNumber, FAbilityOrigin& Origin, TArray<FAbilityTargetSet>& Targets, int32 const PredictionID)
+void UCombatAbility::PredictedTick(const int32 TickNumber, FAbilityOrigin& Origin, TArray<FAbilityTargetSet>& Targets, const int32 PredictionID)
 {
     CurrentPredictionID = PredictionID;
     CurrentTick = TickNumber;
@@ -544,7 +542,7 @@ void UCombatAbility::PredictedTick(int32 const TickNumber, FAbilityOrigin& Origi
     CurrentPredictionID = 0;
 }
 
-void UCombatAbility::ServerTick(int32 const TickNumber, FAbilityOrigin& Origin, TArray<FAbilityTargetSet>& Targets, int32 const PredictionID)
+void UCombatAbility::ServerTick(const int32 TickNumber, FAbilityOrigin& Origin, TArray<FAbilityTargetSet>& Targets, const int32 PredictionID)
 {
     CurrentPredictionID = PredictionID;
     CurrentTick = TickNumber;
@@ -559,7 +557,7 @@ void UCombatAbility::ServerTick(int32 const TickNumber, FAbilityOrigin& Origin, 
     CurrentPredictionID = 0;
 }
 
-void UCombatAbility::SimulatedTick(int32 const TickNumber, FAbilityOrigin const& Origin, TArray<FAbilityTargetSet> const& Targets)
+void UCombatAbility::SimulatedTick(const int32 TickNumber, const FAbilityOrigin& Origin, const TArray<FAbilityTargetSet>& Targets)
 {
     CurrentTick = TickNumber;
     CurrentTargets = Targets;
@@ -570,7 +568,7 @@ void UCombatAbility::SimulatedTick(int32 const TickNumber, FAbilityOrigin const&
     CurrentTick = 0;
 }
 
-void UCombatAbility::PredictedCancel(FAbilityOrigin& Origin, TArray<FAbilityTargetSet>& Targets, int32 const PredictionID)
+void UCombatAbility::PredictedCancel(FAbilityOrigin& Origin, TArray<FAbilityTargetSet>& Targets, const int32 PredictionID)
 {
     CurrentPredictionID = PredictionID;
     CurrentTargets.Empty();
@@ -583,7 +581,7 @@ void UCombatAbility::PredictedCancel(FAbilityOrigin& Origin, TArray<FAbilityTarg
     CurrentPredictionID = 0;
 }
 
-void UCombatAbility::ServerCancel(FAbilityOrigin& Origin, TArray<FAbilityTargetSet>& Targets, int32 const PredictionID)
+void UCombatAbility::ServerCancel(FAbilityOrigin& Origin, TArray<FAbilityTargetSet>& Targets, const int32 PredictionID)
 {
     CurrentPredictionID = PredictionID;
     CurrentTargets = Targets;
@@ -596,7 +594,7 @@ void UCombatAbility::ServerCancel(FAbilityOrigin& Origin, TArray<FAbilityTargetS
     CurrentPredictionID = 0;
 }
 
-void UCombatAbility::SimulatedCancel(FAbilityOrigin const& Origin, TArray<FAbilityTargetSet> const& Targets)
+void UCombatAbility::SimulatedCancel(const FAbilityOrigin& Origin, const TArray<FAbilityTargetSet>& Targets)
 {
     CurrentTargets = Targets;
     AbilityOrigin = Origin;
@@ -605,17 +603,17 @@ void UCombatAbility::SimulatedCancel(FAbilityOrigin const& Origin, TArray<FAbili
     CurrentTargets.Empty();
 }
 
-void UCombatAbility::ServerInterrupt(FInterruptEvent const& InterruptEvent)
+void UCombatAbility::ServerInterrupt(const FInterruptEvent& InterruptEvent)
 {
     OnServerInterrupt(InterruptEvent);
 }
 
-void UCombatAbility::SimulatedInterrupt(FInterruptEvent const& InterruptEvent)
+void UCombatAbility::SimulatedInterrupt(const FInterruptEvent& InterruptEvent)
 {
     OnSimulatedInterrupt(InterruptEvent);
 }
 
-void UCombatAbility::UpdatePredictionFromServer(FServerAbilityResult const& Result)
+void UCombatAbility::UpdatePredictionFromServer(const FServerAbilityResult& Result)
 {
     if (AbilityCooldown.PredictionID < Result.PredictionID)
     {
@@ -628,7 +626,7 @@ void UCombatAbility::UpdatePredictionFromServer(FServerAbilityResult const& Resu
     }
 }
 
-void UCombatAbility::AddTarget(AActor* Target, int32 const SetID)
+void UCombatAbility::AddTarget(AActor* Target, const int32 SetID)
 {
     for (FAbilityTargetSet& Set : CurrentTargets)
     {
@@ -677,7 +675,7 @@ void UCombatAbility::RemoveTargetFromAllSets(AActor* Target)
     }
 }
 
-void UCombatAbility::RemoveTargetSet(int32 const SetID)
+void UCombatAbility::RemoveTargetSet(const int32 SetID)
 {
     for (int i = 0; i < CurrentTargets.Num(); i++)
     {
@@ -689,7 +687,7 @@ void UCombatAbility::RemoveTargetSet(int32 const SetID)
     }
 }
 
-void UCombatAbility::RemoveTargetFromSet(AActor* Target, int32 const SetID)
+void UCombatAbility::RemoveTargetFromSet(AActor* Target, const int32 SetID)
 {
     for (FAbilityTargetSet& Set : CurrentTargets)
     {
@@ -701,13 +699,13 @@ void UCombatAbility::RemoveTargetFromSet(AActor* Target, int32 const SetID)
     }
 }
 
-bool UCombatAbility::GetTargetSetByID(int32 const ID, FAbilityTargetSet& OutTargetSet) const
+bool UCombatAbility::GetTargetSetByID(const int32 SetID, FAbilityTargetSet& OutTargetSet) const
 {
     OutTargetSet.Targets.Empty();
     OutTargetSet.SetID = 0;
-    for (FAbilityTargetSet const& Set : CurrentTargets)
+    for (const FAbilityTargetSet& Set : CurrentTargets)
     {
-        if (Set.SetID == ID)
+        if (Set.SetID == SetID)
         {
             OutTargetSet = Set;
             return true;
@@ -719,7 +717,7 @@ bool UCombatAbility::GetTargetSetByID(int32 const ID, FAbilityTargetSet& OutTarg
 #pragma endregion 
 #pragma region Modifiers
 
-void UCombatAbility::AddMaxChargeModifier(FCombatModifier const& Modifier)
+void UCombatAbility::AddMaxChargeModifier(const FCombatModifier& Modifier)
 {
     if (OwningComponent->GetOwnerRole() != ROLE_Authority || bStaticMaxCharges || !IsValid(Modifier.Source))
     {
@@ -729,7 +727,7 @@ void UCombatAbility::AddMaxChargeModifier(FCombatModifier const& Modifier)
     RecalculateMaxCharges();
 }
 
-void UCombatAbility::RemoveMaxChargeModifier(UBuff* Source)
+void UCombatAbility::RemoveMaxChargeModifier(const UBuff* Source)
 {
     if (OwningComponent->GetOwnerRole() != ROLE_Authority || bStaticMaxCharges || !IsValid(Source))
     {
@@ -743,8 +741,8 @@ void UCombatAbility::RemoveMaxChargeModifier(UBuff* Source)
 
 void UCombatAbility::RecalculateMaxCharges()
 {
-    int32 const PreviousMaxCharges = AbilityCooldown.MaxCharges;
-    int32 const PreviousCharges = AbilityCooldown.CurrentCharges;
+    const int32 PreviousMaxCharges = AbilityCooldown.MaxCharges;
+    const int32 PreviousCharges = AbilityCooldown.CurrentCharges;
     TArray<FCombatModifier> Modifiers;
     MaxChargeModifiers.GenerateValueArray(Modifiers);
     AbilityCooldown.MaxCharges = FCombatModifier::ApplyModifiers(Modifiers, DefaultMaxCharges);
@@ -774,7 +772,7 @@ void UCombatAbility::RecalculateMaxCharges()
     }
 }
 
-void UCombatAbility::AddChargeCostModifier(FCombatModifier const& Modifier)
+void UCombatAbility::AddChargeCostModifier(const FCombatModifier& Modifier)
 {
     if (OwningComponent->GetOwnerRole() != ROLE_Authority || bStaticChargeCost || !IsValid(Modifier.Source))
     {
@@ -784,7 +782,7 @@ void UCombatAbility::AddChargeCostModifier(FCombatModifier const& Modifier)
     RecalculateChargeCost();
 }
 
-void UCombatAbility::RemoveChargeCostModifier(UBuff* Source)
+void UCombatAbility::RemoveChargeCostModifier(const UBuff* Source)
 {
     if (OwningComponent->GetOwnerRole() != ROLE_Authority || bStaticChargeCost || !IsValid(Source))
     {
@@ -798,7 +796,7 @@ void UCombatAbility::RemoveChargeCostModifier(UBuff* Source)
 
 void UCombatAbility::RecalculateChargeCost()
 {
-    int32 const PreviousCost = ChargeCost;
+    const int32 PreviousCost = ChargeCost;
     TArray<FCombatModifier> Modifiers;
     ChargeCostModifiers.GenerateValueArray(Modifiers);
     ChargeCost = FCombatModifier::ApplyModifiers(Modifiers, DefaultChargeCost);
@@ -808,7 +806,7 @@ void UCombatAbility::RecalculateChargeCost()
     }
 }
 
-void UCombatAbility::AddChargesPerCooldownModifier(FCombatModifier const& Modifier)
+void UCombatAbility::AddChargesPerCooldownModifier(const FCombatModifier& Modifier)
 {
     if (OwningComponent->GetOwnerRole() != ROLE_Authority || bStaticChargesPerCooldown || !IsValid(Modifier.Source))
     {
@@ -818,7 +816,7 @@ void UCombatAbility::AddChargesPerCooldownModifier(FCombatModifier const& Modifi
     RecalculateChargesPerCooldown();
 }
 
-void UCombatAbility::RemoveChargesPerCooldownModifier(UBuff* Source)
+void UCombatAbility::RemoveChargesPerCooldownModifier(const UBuff* Source)
 {
     if (OwningComponent->GetOwnerRole() != ROLE_Authority || bStaticChargesPerCooldown || !IsValid(Source))
     {
@@ -837,7 +835,7 @@ void UCombatAbility::RecalculateChargesPerCooldown()
     ChargesPerCooldown = FCombatModifier::ApplyModifiers(Modifiers, DefaultChargesPerCooldown);
 }
 
-void UCombatAbility::AddResourceCostModifier(TSubclassOf<UResource> const ResourceClass, FCombatModifier const& Modifier)
+void UCombatAbility::AddResourceCostModifier(const TSubclassOf<UResource> ResourceClass, const FCombatModifier& Modifier)
 {
     if (OwningComponent->GetOwnerRole() != ROLE_Authority || !IsValid(ResourceClass) || !IsValid(Modifier.Source))
     {
@@ -862,7 +860,7 @@ void UCombatAbility::AddResourceCostModifier(TSubclassOf<UResource> const Resour
     UpdateCost(ResourceClass);
 }
 
-void UCombatAbility::RemoveResourceCostModifier(TSubclassOf<UResource> const ResourceClass, UBuff* Source)
+void UCombatAbility::RemoveResourceCostModifier(const TSubclassOf<UResource> ResourceClass, UBuff* Source)
 {
     if (OwningComponent->GetOwnerRole() != ROLE_Authority || !IsValid(ResourceClass) || !IsValid(Source))
     {
@@ -871,7 +869,7 @@ void UCombatAbility::RemoveResourceCostModifier(TSubclassOf<UResource> const Res
     TArray<FCombatModifier*> Modifiers;
     ResourceCostModifiers.MultiFindPointer(ResourceClass, Modifiers);
     bool bFound = false;
-    for (FCombatModifier* Mod : Modifiers)
+    for (const FCombatModifier* Mod : Modifiers)
     {
         if (Mod->Source == Source)
         {
@@ -930,7 +928,7 @@ void UCombatAbility::UpdateCastable()
     }
 }
 
-void UCombatAbility::AddRestrictedTag(FGameplayTag const RestrictedTag)
+void UCombatAbility::AddRestrictedTag(const FGameplayTag RestrictedTag)
 {
     if (!RestrictedTag.IsValid() || (!RestrictedTag.MatchesTagExact(FSaiyoraCombatTags::Get().AbilityClassRestriction) && !AbilityTags.HasTag(RestrictedTag)))
     {
@@ -944,7 +942,7 @@ void UCombatAbility::AddRestrictedTag(FGameplayTag const RestrictedTag)
     }
 }
 
-void UCombatAbility::RemoveRestrictedTag(FGameplayTag const RestrictedTag)
+void UCombatAbility::RemoveRestrictedTag(const FGameplayTag RestrictedTag)
 {
     if (!RestrictedTag.IsValid() || (!RestrictedTag.MatchesTagExact(FSaiyoraCombatTags::Get().AbilityClassRestriction) && !AbilityTags.HasTag(RestrictedTag)))
     {
@@ -958,13 +956,13 @@ void UCombatAbility::RemoveRestrictedTag(FGameplayTag const RestrictedTag)
     }
 }
 
-void UCombatAbility::ActivateCastRestriction(FGameplayTag const RestrictionTag)
+void UCombatAbility::ActivateCastRestriction(const FGameplayTag RestrictionTag)
 {
     if (!RestrictionTag.IsValid() || !RestrictionTag.MatchesTag(FSaiyoraCombatTags::Get().AbilityRestriction) || RestrictionTag.MatchesTagExact(FSaiyoraCombatTags::Get().AbilityRestriction))
     {
         return;
     }
-    int32 const PreviousRestrictions = CustomCastRestrictions.Num();
+    const int32 PreviousRestrictions = CustomCastRestrictions.Num();
     CustomCastRestrictions.Add(RestrictionTag);
     if (PreviousRestrictions == 0 && CustomCastRestrictions.Num() > 0)
     {
@@ -972,36 +970,17 @@ void UCombatAbility::ActivateCastRestriction(FGameplayTag const RestrictionTag)
     }
 }
 
-void UCombatAbility::DeactivateCastRestriction(FGameplayTag const RestrictionTag)
+void UCombatAbility::DeactivateCastRestriction(const FGameplayTag RestrictionTag)
 {
     if (!RestrictionTag.IsValid() || !RestrictionTag.MatchesTag(FSaiyoraCombatTags::Get().AbilityRestriction) || RestrictionTag.MatchesTagExact(FSaiyoraCombatTags::Get().AbilityRestriction))
     {
         return;
     }
-    int32 const PreviousRestrictions = CustomCastRestrictions.Num();
+    const int32 PreviousRestrictions = CustomCastRestrictions.Num();
     CustomCastRestrictions.Remove(RestrictionTag);
     if (PreviousRestrictions > 0 && CustomCastRestrictions.Num() == 0)
     {
         UpdateCastable();
-    }
-}
-
-#pragma endregion 
-#pragma region Subscriptions
-
-void UCombatAbility::SubscribeToChargesChanged(FAbilityChargeCallback const& Callback)
-{
-    if (OwningComponent->GetOwnerRole() != ROLE_SimulatedProxy && Callback.IsBound())
-    {
-        OnChargesChanged.AddUnique(Callback);
-    }
-}
-
-void UCombatAbility::UnsubscribeFromChargesChanged(FAbilityChargeCallback const& Callback)
-{
-    if (OwningComponent->GetOwnerRole() != ROLE_SimulatedProxy && Callback.IsBound())
-    {
-        OnChargesChanged.Remove(Callback);
     }
 }
 

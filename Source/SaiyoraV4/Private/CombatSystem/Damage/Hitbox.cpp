@@ -1,6 +1,6 @@
-#include "CombatSystem/Generic/Hitbox.h"
+#include "CombatSystem/Damage/Hitbox.h"
 #include "SaiyoraCombatInterface.h"
-#include "SaiyoraGameState.h"
+#include "CoreClasses/SaiyoraGameState.h"
 #include "Faction/FactionComponent.h"
 
 UHitbox::UHitbox()

@@ -1,8 +1,8 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "DamageEnums.h"
-#include "SaiyoraEnums.h"
-#include "SaiyoraStructs.h"
+#include "CombatEnums.h"
+#include "CombatStructs.h"
 #include "ThreatStructs.h"
 #include "DamageStructs.generated.h"
 

@@ -1,6 +1,6 @@
 ﻿#pragma once
 #include "CoreMinimal.h"
-#include "SaiyoraStructs.h"
+#include "CombatStructs.h"
 #include "ThreatEnums.h"
 #include "ThreatStructs.generated.h"
 

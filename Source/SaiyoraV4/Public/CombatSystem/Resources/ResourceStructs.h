@@ -1,6 +1,6 @@
 #pragma once
 #include "CoreMinimal.h"
-#include "SaiyoraStructs.h"
+#include "CombatStructs.h"
 #include "ResourceStructs.generated.h"
 
 class UResource;

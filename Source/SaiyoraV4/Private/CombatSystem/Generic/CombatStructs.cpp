@@ -1,4 +1,4 @@
-#include "SaiyoraStructs.h"
+#include "CombatStructs.h"
 #include "Buff.h"
 
 FSaiyoraCombatTags FSaiyoraCombatTags::SaiyoraCombatTags;

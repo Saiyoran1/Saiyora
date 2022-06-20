@@ -12,7 +12,6 @@ class SAIYORAV4_API USaiyoraRootMotionHandler : public UObject
 	GENERATED_BODY()
 	
 private:
-	FAbilityMispredictionCallback MispredictionCallback;
 	UFUNCTION()
 	void OnMispredicted(int32 const PredictionID);
 	bool bInitialized = false;

@@ -2,8 +2,8 @@
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
 #include "GameplayTagsManager.h"
-#include "SaiyoraEnums.h"
-#include "SaiyoraStructs.generated.h"
+#include "CombatEnums.h"
+#include "CombatStructs.generated.h"
 
 struct SAIYORAV4_API FSaiyoraCombatTags : public FGameplayTagNativeAdder
 {

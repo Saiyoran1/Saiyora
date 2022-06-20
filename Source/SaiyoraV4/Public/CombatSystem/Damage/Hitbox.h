@@ -1,8 +1,10 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "Components/BoxComponent.h"
-#include "SaiyoraEnums.h"
+#include "CombatEnums.h"
 #include "Hitbox.generated.h"
+
+class ASaiyoraGameState;
 
 UCLASS(meta = (BlueprintSpawnableComponent))
 class SAIYORAV4_API UHitbox : public UBoxComponent
@@ -19,5 +21,5 @@ private:
 
 	void UpdateFactionCollision(EFaction const NewFaction);
 	UPROPERTY()
-	class ASaiyoraGameState* GameState;
+	ASaiyoraGameState* GameState;
 };

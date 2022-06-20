@@ -1,10 +1,11 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "AbilityEnums.h"
-#include "SaiyoraStructs.h"
+#include "CombatStructs.h"
 #include "Resource.h"
-#include "CoreUObject/Public/Templates/SubclassOf.h"
 #include "AbilityStructs.generated.h"
+
+class UCombatAbility;
 
 USTRUCT(BlueprintType)
 struct FDefaultAbilityCost
@@ -25,18 +26,18 @@ struct FAbilityCost : public FFastArraySerializerItem
 {
     GENERATED_BODY()
 
-    FAbilityCost();
-    FAbilityCost(TSubclassOf<UResource> const NewResourceClass, float const NewCost);
-
     UPROPERTY(BlueprintReadOnly)
     TSubclassOf<UResource> ResourceClass;
     UPROPERTY(BlueprintReadOnly)
     float Cost = 0.0f;
 
+    FAbilityCost() {}
+    FAbilityCost(const TSubclassOf<UResource> InResourceClass, const float InCost) : ResourceClass(InResourceClass), Cost(InCost) {}
+
     void PostReplicatedAdd(const struct FAbilityCostArray& InArraySerializer);
     void PostReplicatedChange(const struct FAbilityCostArray& InArraySerializer);
 
-    FORCEINLINE bool operator==(FAbilityCost const& Other) const { return Other.ResourceClass == ResourceClass && Other.Cost == Cost; }
+    FORCEINLINE bool operator==(const FAbilityCost& Other) const;
 };
 
 USTRUCT()
@@ -47,7 +48,7 @@ struct FAbilityCostArray: public FFastArraySerializer
     UPROPERTY()
     TArray<FAbilityCost> Items;
     UPROPERTY(NotReplicated)
-    class UCombatAbility* OwningAbility = nullptr;
+    UCombatAbility* OwningAbility = nullptr;
 
     bool NetDeltaSerialize(FNetDeltaSerializeInfo& DeltaParms)
     {
@@ -89,11 +90,11 @@ struct FAbilityOrigin
     GENERATED_BODY()
 
     UPROPERTY(BlueprintReadWrite)
-    FVector_NetQuantize100 AimLocation;
+    FVector AimLocation;
     UPROPERTY(BlueprintReadWrite)
-    FVector_NetQuantizeNormal AimDirection;
+    FVector AimDirection;
     UPROPERTY(BlueprintReadWrite)
-    FVector_NetQuantize100 Origin;
+    FVector Origin;
 
     void Clear() { AimLocation = FVector::ZeroVector; AimDirection = FVector::ZeroVector; Origin = FVector::ZeroVector; }
     
@@ -116,8 +117,8 @@ struct FAbilityTargetSet
     UPROPERTY(BlueprintReadWrite)
     TArray<AActor*> Targets;
 
-    FAbilityTargetSet();
-    FAbilityTargetSet(int32 const SetID, TArray<AActor*> const& Targets);
+    FAbilityTargetSet() {}
+    FAbilityTargetSet(const int32 InSetID, const TArray<AActor*>& InTargets) : SetID(InSetID), Targets(InTargets) {}
 
     friend FArchive& operator<<(FArchive& Ar, FAbilityTargetSet& TargetSet)
     {
@@ -135,8 +136,8 @@ struct FAbilityParams
     FAbilityOrigin Origin;
     TArray<FAbilityTargetSet> Targets;
 
-    FAbilityParams();
-    FAbilityParams(FAbilityOrigin const& InOrigin, TArray<FAbilityTargetSet> const& InTargets);
+    FAbilityParams() {}
+    FAbilityParams(const FAbilityOrigin& InOrigin, const TArray<FAbilityTargetSet>& InTargets) : Origin(InOrigin), Targets(InTargets) {}
 };
 
 USTRUCT(BlueprintType)
@@ -147,7 +148,7 @@ struct FAbilityEvent
     UPROPERTY(BlueprintReadOnly)
     ECastAction ActionTaken = ECastAction::Fail;
     UPROPERTY(BlueprintReadOnly)
-    class UCombatAbility* Ability = nullptr;
+    UCombatAbility* Ability = nullptr;
     UPROPERTY(BlueprintReadOnly)
     int32 Tick = 0;
     UPROPERTY(BlueprintReadOnly)
@@ -170,7 +171,7 @@ struct FCancelEvent
     UPROPERTY(BlueprintReadOnly)
     ECancelFailReason FailReason = ECancelFailReason::None;
     UPROPERTY(BlueprintReadOnly)
-    class UCombatAbility* CancelledAbility = nullptr;
+    UCombatAbility* CancelledAbility = nullptr;
     UPROPERTY()
     int32 PredictionID = 0;
     UPROPERTY()
@@ -220,7 +221,7 @@ struct FInterruptEvent
     UPROPERTY(BlueprintReadOnly)
     AActor* InterruptAppliedBy = nullptr;
     UPROPERTY(BlueprintReadOnly)
-    class UCombatAbility* InterruptedAbility = nullptr;
+    UCombatAbility* InterruptedAbility = nullptr;
     UPROPERTY()
     int32 CancelledCastID = 0;
     UPROPERTY(BlueprintReadOnly)
@@ -258,7 +259,7 @@ struct FCastingState
     UPROPERTY(BlueprintReadOnly)
     bool bIsCasting = false;
     UPROPERTY(BlueprintReadOnly)
-    class UCombatAbility* CurrentCast = nullptr;
+    UCombatAbility* CurrentCast = nullptr;
     UPROPERTY(NotReplicated)
     int32 PredictionID = 0;
     UPROPERTY(BlueprintReadOnly)
@@ -277,7 +278,7 @@ struct FClientAbilityPrediction
     GENERATED_BODY()
     
     UPROPERTY()
-    class UCombatAbility* Ability = nullptr;
+    UCombatAbility* Ability = nullptr;
     bool bPredictedGCD = false;
     bool bPredictedCastBar = false;
 };
@@ -290,8 +291,8 @@ struct FPredictedTick
     int32 PredictionID = 0;
     int32 TickNumber = 0;
 
-    FPredictedTick();
-    FPredictedTick(int32 const ID, int32 const Tick) { PredictionID = ID; TickNumber = Tick; }
+    FPredictedTick() {}
+    FPredictedTick(const int32 ID, const int32 Tick) : PredictionID(ID), TickNumber(Tick) {}
     FORCEINLINE bool operator==(const FPredictedTick& Other) const { return Other.PredictionID == PredictionID && Other.TickNumber == TickNumber; }
 };
 
@@ -300,23 +301,23 @@ FORCEINLINE uint32 GetTypeHash(const FPredictedTick& Tick)
     return HashCombine(GetTypeHash(Tick.PredictionID), GetTypeHash(Tick.TickNumber));
 }
 
-DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FAbilityModCondition, class UCombatAbility*, Ability);
-DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FAbilityClassRestriction, TSubclassOf<class UCombatAbility>, AbilityClass);
-DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FInterruptRestriction, FInterruptEvent const&, InterruptEvent);
-DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityInstanceCallback, class UCombatAbility*, NewAbility);
-DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityCallback, FAbilityEvent const&, Event);
-DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityCancelCallback, FCancelEvent const&, Event);
-DECLARE_DYNAMIC_DELEGATE_OneParam(FInterruptCallback, FInterruptEvent const&, InterruptEvent);
-DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityMispredictionCallback, int32 const, PredictionID);
-DECLARE_DYNAMIC_DELEGATE_TwoParams(FGlobalCooldownCallback, FGlobalCooldown const&, OldGlobalCooldown, FGlobalCooldown const&, NewGlobalCooldown);
-DECLARE_DYNAMIC_DELEGATE_TwoParams(FCastingStateCallback, FCastingState const&, OldState, FCastingState const&, NewState);
-DECLARE_DYNAMIC_DELEGATE_ThreeParams(FAbilityChargeCallback, class UCombatAbility*, Ability, int32 const, OldCharges, int32 const, NewCharges);
+DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FAbilityModCondition, UCombatAbility*, Ability);
+DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FAbilityClassRestriction, TSubclassOf<UCombatAbility>, AbilityClass);
+DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FInterruptRestriction, const FInterruptEvent&, InterruptEvent);
+DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityInstanceCallback, UCombatAbility*, NewAbility);
+DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityCallback, const FAbilityEvent&, Event);
+DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityCancelCallback, const FCancelEvent&, Event);
+DECLARE_DYNAMIC_DELEGATE_OneParam(FInterruptCallback, const FInterruptEvent&, InterruptEvent);
+DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityMispredictionCallback, const int32, PredictionID);
+DECLARE_DYNAMIC_DELEGATE_TwoParams(FGlobalCooldownCallback, const FGlobalCooldown&, OldGlobalCooldown, const FGlobalCooldown&, NewGlobalCooldown);
+DECLARE_DYNAMIC_DELEGATE_TwoParams(FCastingStateCallback, const FCastingState&, OldState, const FCastingState&, NewState);
+DECLARE_DYNAMIC_DELEGATE_ThreeParams(FAbilityChargeCallback, UCombatAbility*, Ability, const int32, OldCharges, const int32, NewCharges);
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityInstanceNotification, class UCombatAbility*, NewAbility);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityNotification, FAbilityEvent const&, Event);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityCancelNotification, FCancelEvent const&, Event);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FInterruptNotification, FInterruptEvent const&, InterruptEvent);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityMispredictionNotification, int32 const, PredictionID);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FGlobalCooldownNotification, FGlobalCooldown const&, OldGlobalCooldown, FGlobalCooldown const&, NewGlobalCooldown);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FCastingStateNotification, FCastingState const&, OldState, FCastingState const&, NewState);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FAbilityChargeNotification, class UCombatAbility*, Ability, int32 const, OldCharges, int32 const, NewCharges);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityInstanceNotification, UCombatAbility*, NewAbility);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityNotification, const FAbilityEvent&, Event);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityCancelNotification, const FCancelEvent&, Event);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FInterruptNotification, const FInterruptEvent&, InterruptEvent);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityMispredictionNotification, const int32, PredictionID);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FGlobalCooldownNotification, const FGlobalCooldown&, OldGlobalCooldown, const FGlobalCooldown&, NewGlobalCooldown);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FCastingStateNotification, const FCastingState&, OldState, const FCastingState&, NewState);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FAbilityChargeNotification, UCombatAbility*, Ability, const int32, OldCharges, const int32, NewCharges);

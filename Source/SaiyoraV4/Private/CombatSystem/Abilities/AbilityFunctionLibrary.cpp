@@ -1,18 +1,20 @@
 ﻿#include "AbilityFunctionLibrary.h"
+#include "CombatAbility.h"
 #include "Hitbox.h"
+#include "PredictableProjectile.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraCombatLibrary.h"
-#include "SaiyoraGameState.h"
-#include "SaiyoraPlayerCharacter.h"
+#include "CoreClasses/SaiyoraGameState.h"
+#include "CoreClasses/SaiyoraPlayerCharacter.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Kismet/KismetSystemLibrary.h"
 
-float const UAbilityFunctionLibrary::CamTraceLength = 10000.0f;
-float const UAbilityFunctionLibrary::RewindTraceRadius = 300.0f;
-float const UAbilityFunctionLibrary::AimToleranceDegrees = 30.0f;
+float const UAbilityFunctionLibrary::CAMTRACELENGTH = 10000.0f;
+float const UAbilityFunctionLibrary::REWINDTRACERADIUS = 300.0f;
+float const UAbilityFunctionLibrary::AIMTOLERANCEDEGREES = 30.0f;
 
-FAbilityOrigin UAbilityFunctionLibrary::MakeAbilityOrigin(FVector const& AimLocation, FVector const& AimDirection, FVector const& Origin)
+FAbilityOrigin UAbilityFunctionLibrary::MakeAbilityOrigin(const FVector& AimLocation, const FVector& AimDirection, const FVector& Origin)
 {
 	FAbilityOrigin Target;
 	Target.Origin = Origin;
@@ -21,16 +23,16 @@ FAbilityOrigin UAbilityFunctionLibrary::MakeAbilityOrigin(FVector const& AimLoca
 	return Target;
 }
 
-float UAbilityFunctionLibrary::GetCameraTraceMaxRange(FVector const& CameraLoc, FVector const& AimDir, FVector const& OriginLoc,
-    float const TraceRange)
+float UAbilityFunctionLibrary::GetCameraTraceMaxRange(const FVector& CameraLoc, const FVector& AimDir, const FVector& OriginLoc,
+    const float TraceRange)
 {
-	float const CamToOriginLength = (OriginLoc - CameraLoc).Size();
-	float const CamAngle = UKismetMathLibrary::DegAcos(FVector::DotProduct((OriginLoc - CameraLoc).GetSafeNormal(), AimDir));
+	const float CamToOriginLength = (OriginLoc - CameraLoc).Size();
+	const float CamAngle = UKismetMathLibrary::DegAcos(FVector::DotProduct((OriginLoc - CameraLoc).GetSafeNormal(), AimDir));
 	//Law of sines: sin(A)/A = sin(B)/B
 	//sin(CamAngle)/TraceRange = sin(B)/CamToOriginLength
 	//B = arcsin((sin(CamAngle) * CamToOriginLength)/TraceRange)
-	float const TargetAngle = UKismetMathLibrary::DegAsin((UKismetMathLibrary::DegSin(CamAngle) * CamToOriginLength) / TraceRange);
-	float const OriginAngle = 180.0f - (CamAngle + TargetAngle);
+	const float TargetAngle = UKismetMathLibrary::DegAsin((UKismetMathLibrary::DegSin(CamAngle) * CamToOriginLength) / TraceRange);
+	const float OriginAngle = 180.0f - (CamAngle + TargetAngle);
 	//sin(OriginAngle)/x = sin(CamAngle)/TraceRange
 	//sin(OriginAngle) * TraceRange / x = sin(CamAngle)
 	//sin(OriginAngle) * TraceRange = x * sin(CamAngle)
@@ -40,37 +42,37 @@ float UAbilityFunctionLibrary::GetCameraTraceMaxRange(FVector const& CameraLoc, 
 
 #pragma region Snapshotting
 
-void UAbilityFunctionLibrary::RewindRelevantHitboxes(ASaiyoraPlayerCharacter* Shooter, FAbilityOrigin const& Origin, TArray<AActor*> const& Targets,
-		TArray<AActor*> const& ActorsToIgnore, TMap<UHitbox*, FTransform>& ReturnTransforms)
+void UAbilityFunctionLibrary::RewindRelevantHitboxes(const ASaiyoraPlayerCharacter* Shooter, const FAbilityOrigin& Origin, const TArray<AActor*>& Targets,
+		const TArray<AActor*>& ActorsToIgnore, TMap<UHitbox*, FTransform>& ReturnTransforms)
 {
 	if (!IsValid(Shooter))
 	{
 		return;
 	}
-	float const Ping = USaiyoraCombatLibrary::GetActorPing(Shooter);
+	const float Ping = USaiyoraCombatLibrary::GetActorPing(Shooter);
 	ASaiyoraGameState* GameState = Shooter->GetWorld()->GetGameState<ASaiyoraGameState>();
 	if (Ping <= 0.0f || !IsValid(GameState))
 	{
 		return;
 	}
 	//Do a big trace in front of the camera to rewind all targets that could potentially intercept the trace.
-	FVector const RewindTraceEnd = Origin.AimLocation + CamTraceLength * Origin.AimDirection;
+	const FVector RewindTraceEnd = Origin.AimLocation + CAMTRACELENGTH * Origin.AimDirection;
 	TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes;
 	ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_GameTraceChannel10));
 	ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_GameTraceChannel11));
 	TArray<FHitResult> RewindTraceResults;
-	UKismetSystemLibrary::SphereTraceMultiForObjects(Shooter, Origin.AimLocation, RewindTraceEnd, RewindTraceRadius, ObjectTypes, false,
+	UKismetSystemLibrary::SphereTraceMultiForObjects(Shooter, Origin.AimLocation, RewindTraceEnd, REWINDTRACERADIUS, ObjectTypes, false,
 		ActorsToIgnore, EDrawDebugTrace::None, RewindTraceResults, true, FLinearColor::White);
 	//All targets we are interested in should also be rewound, even if they weren't in the trace.
 	TArray<AActor*> RewindTargets = Targets;
-	for (FHitResult const& Hit : RewindTraceResults)
+	for (const FHitResult& Hit : RewindTraceResults)
 	{
 		if (IsValid(Hit.GetActor()))
 		{
 			RewindTargets.AddUnique(Hit.GetActor());
 		}
 	}
-	for (AActor* RewindTarget : RewindTargets)
+	for (const AActor* RewindTarget : RewindTargets)
 	{
 		TArray<UHitbox*> HitboxComponents;
 		RewindTarget->GetComponents<UHitbox>(HitboxComponents);
@@ -81,9 +83,9 @@ void UAbilityFunctionLibrary::RewindRelevantHitboxes(ASaiyoraPlayerCharacter* Sh
 	}
 }
 
-void UAbilityFunctionLibrary::UnrewindHitboxes(TMap<UHitbox*, FTransform> const& ReturnTransforms)
+void UAbilityFunctionLibrary::UnrewindHitboxes(const TMap<UHitbox*, FTransform>& ReturnTransforms)
 {
-	for (TTuple<UHitbox*, FTransform> const& ReturnTransform : ReturnTransforms)
+	for (const TTuple<UHitbox*, FTransform>& ReturnTransform : ReturnTransforms)
 	{
 		if (IsValid(ReturnTransform.Key))
 		{
@@ -95,8 +97,8 @@ void UAbilityFunctionLibrary::UnrewindHitboxes(TMap<UHitbox*, FTransform> const&
 #pragma endregion 
 #pragma region Trace Validation
 
-bool UAbilityFunctionLibrary::PredictLineTrace(ASaiyoraPlayerCharacter* Shooter, float const TraceLength,
-	bool const bHostile, TArray<AActor*> const& ActorsToIgnore, int32 const TargetSetID,
+bool UAbilityFunctionLibrary::PredictLineTrace(ASaiyoraPlayerCharacter* Shooter, const float TraceLength,
+	const bool bHostile, const TArray<AActor*>& ActorsToIgnore, const int32 TargetSetID,
 	FHitResult& Result, FAbilityOrigin& OutOrigin, FAbilityTargetSet& OutTargetSet)
 {
 	Result = FHitResult();
@@ -130,14 +132,14 @@ bool UAbilityFunctionLibrary::PredictLineTrace(ASaiyoraPlayerCharacter* Shooter,
 		OutOrigin.AimDirection = Shooter->GetActorForwardVector();
 	}
 
-	FVector const CamTraceEnd = OutOrigin.AimLocation + (CamTraceLength * OutOrigin.AimDirection);
+	const FVector CamTraceEnd = OutOrigin.AimLocation + (CAMTRACELENGTH * OutOrigin.AimDirection);
 	FHitResult CamTraceResult;
-	ETraceTypeQuery const TraceChannel = UEngineTypes::ConvertToTraceType(bHostile ? ECC_GameTraceChannel4 : ECC_GameTraceChannel3);
+	const ETraceTypeQuery TraceChannel = UEngineTypes::ConvertToTraceType(bHostile ? ECC_GameTraceChannel4 : ECC_GameTraceChannel3);
 	UKismetSystemLibrary::LineTraceSingle(Shooter, OutOrigin.AimLocation, CamTraceEnd, TraceChannel, false,
 		ActorsToIgnore, EDrawDebugTrace::None, CamTraceResult, true, FLinearColor::Green);
 
 	//If we hit something and it was in front of the origin, use that as our trace target, otherwise use the end of the trace.
-	FVector const OriginTraceEnd = OutOrigin.Origin + TraceLength *
+	const FVector OriginTraceEnd = OutOrigin.Origin + TraceLength *
 			(((CamTraceResult.bBlockingHit && FVector::DotProduct((CamTraceResult.ImpactPoint - OutOrigin.Origin), OutOrigin.AimDirection) > 0.0f)
 				? CamTraceResult.ImpactPoint : CamTraceResult.TraceEnd) - OutOrigin.Origin).GetSafeNormal();
 	UKismetSystemLibrary::LineTraceSingle(Shooter, OutOrigin.Origin, OriginTraceEnd, TraceChannel, false,
@@ -152,8 +154,8 @@ bool UAbilityFunctionLibrary::PredictLineTrace(ASaiyoraPlayerCharacter* Shooter,
 	return Result.bBlockingHit;
 }
 
-bool UAbilityFunctionLibrary::ValidateLineTrace(ASaiyoraPlayerCharacter* Shooter, FAbilityOrigin const& Origin, AActor* Target,
-	float const TraceLength, bool const bHostile, TArray<AActor*> const& ActorsToIgnore)
+bool UAbilityFunctionLibrary::ValidateLineTrace(ASaiyoraPlayerCharacter* Shooter, const FAbilityOrigin& Origin, AActor* Target,
+	const float TraceLength, const bool bHostile, const TArray<AActor*>& ActorsToIgnore)
 {
 	if (!IsValid(Shooter) || Shooter->GetLocalRole() != ROLE_Authority || !IsValid(Target) || Shooter == Target
 		|| ActorsToIgnore.Contains(Target) || TraceLength <= 0.0f)
@@ -172,14 +174,14 @@ bool UAbilityFunctionLibrary::ValidateLineTrace(ASaiyoraPlayerCharacter* Shooter
 	RewindRelevantHitboxes(Shooter, Origin, TargetArray, ActorsToIgnore, ReturnTransforms);
 	//Trace from the camera for a very large distance to find what we were aiming at.
 	//TODO: Math to find distance and angle from origin point so that we can calculate the max distance we can trace before we outrange the origin.
-	FVector const CamTraceEnd = Origin.AimLocation + (CamTraceLength * Origin.AimDirection.GetSafeNormal());
+	const FVector CamTraceEnd = Origin.AimLocation + (CAMTRACELENGTH * Origin.AimDirection.GetSafeNormal());
 	FHitResult CamTraceResult;
-	ETraceTypeQuery const TraceChannel = UEngineTypes::ConvertToTraceType(bHostile ? ECC_GameTraceChannel4 : ECC_GameTraceChannel3);
+	const ETraceTypeQuery TraceChannel = UEngineTypes::ConvertToTraceType(bHostile ? ECC_GameTraceChannel4 : ECC_GameTraceChannel3);
 	UKismetSystemLibrary::LineTraceSingle(Shooter, Origin.AimLocation, CamTraceEnd, TraceChannel, false,
 		ActorsToIgnore, EDrawDebugTrace::None, CamTraceResult, true, FLinearColor::Green);
 
 	//If we hit something and it was in front of the origin, use that as our trace target, otherwise use the end of the trace.
-	FVector const OriginTraceEnd = Origin.Origin + TraceLength *
+	const FVector OriginTraceEnd = Origin.Origin + TraceLength *
 			(((CamTraceResult.bBlockingHit && FVector::DotProduct((CamTraceResult.ImpactPoint - Origin.Origin), Origin.AimDirection) > 0.0f)
 				? CamTraceResult.ImpactPoint : CamTraceResult.TraceEnd) - Origin.Origin).GetSafeNormal();
 	FHitResult OriginResult;
@@ -195,8 +197,8 @@ bool UAbilityFunctionLibrary::ValidateLineTrace(ASaiyoraPlayerCharacter* Shooter
 	return bDidHit;
 }
 
-bool UAbilityFunctionLibrary::PredictMultiLineTrace(ASaiyoraPlayerCharacter* Shooter, float const TraceLength, bool const bHostile,
-	TArray<AActor*> const& ActorsToIgnore, int32 const TargetSetID, TArray<FHitResult>& Results,
+bool UAbilityFunctionLibrary::PredictMultiLineTrace(ASaiyoraPlayerCharacter* Shooter, const float TraceLength, const bool bHostile,
+	const TArray<AActor*>& ActorsToIgnore, const int32 TargetSetID, TArray<FHitResult>& Results,
 	FAbilityOrigin& OutOrigin, FAbilityTargetSet& OutTargetSet)
 {
 	Results.Empty();
@@ -240,8 +242,8 @@ bool UAbilityFunctionLibrary::PredictMultiLineTrace(ASaiyoraPlayerCharacter* Sho
 	if (VisTraceResult.bBlockingHit)
 	{
 		//If there is something in the direction we're aiming, check if its within an allowed cone to prevent firing off at strange angles.
-		float const Angle = UKismetMathLibrary::DegAcos(FVector::DotProduct((VisTraceResult.ImpactPoint - OutOrigin.Origin).GetSafeNormal(), OutOrigin.AimDirection));
-		if (Angle < AimToleranceDegrees)
+		const float Angle = UKismetMathLibrary::DegAcos(FVector::DotProduct((VisTraceResult.ImpactPoint - OutOrigin.Origin).GetSafeNormal(), OutOrigin.AimDirection));
+		if (Angle < AIMTOLERANCEDEGREES)
 		{
 			AimTarget = VisTraceResult.ImpactPoint;
 		}
@@ -256,20 +258,20 @@ bool UAbilityFunctionLibrary::PredictMultiLineTrace(ASaiyoraPlayerCharacter* Sho
 	if (HitboxTraceHits.Num() > 0)
 	{
 		//Find the last thing in the line we were aiming at. If the angle to this last impact point is within a small cone of our original aim direction, we use that as our aim target.
-		float const Angle = UKismetMathLibrary::DegAcos(FVector::DotProduct((HitboxTraceHits.Last().ImpactPoint - OutOrigin.Origin).GetSafeNormal(), OutOrigin.AimDirection));
-		if (Angle < AimToleranceDegrees)
+		const float Angle = UKismetMathLibrary::DegAcos(FVector::DotProduct((HitboxTraceHits.Last().ImpactPoint - OutOrigin.Origin).GetSafeNormal(), OutOrigin.AimDirection));
+		if (Angle < AIMTOLERANCEDEGREES)
 		{
 			AimTarget = OutOrigin.Origin + (HitboxTraceHits.Last().ImpactPoint - OutOrigin.Origin).GetSafeNormal() * TraceLength;
 		}
 	}
 
 	//For the actual multi-trace, we use a channel that hitboxes will overlap instead of block (PlayerFriendlyOverlap or PlayerHostileOverlap) so that we get multiple results.
-	ETraceTypeQuery const TraceChannel = UEngineTypes::ConvertToTraceType(bHostile ? ECC_GameTraceChannel2 : ECC_GameTraceChannel1);
+	const ETraceTypeQuery TraceChannel = UEngineTypes::ConvertToTraceType(bHostile ? ECC_GameTraceChannel2 : ECC_GameTraceChannel1);
 	UKismetSystemLibrary::LineTraceMulti(Shooter, OutOrigin.Origin, AimTarget, TraceChannel, false,
 		ActorsToIgnore, EDrawDebugTrace::None, Results, true, FLinearColor::Yellow);
 
 	OutTargetSet.SetID = TargetSetID;
-	for (FHitResult const& Result : Results)
+	for (const FHitResult& Result : Results)
 	{
 		if (IsValid(Result.GetActor()))
 		{
@@ -280,8 +282,8 @@ bool UAbilityFunctionLibrary::PredictMultiLineTrace(ASaiyoraPlayerCharacter* Sho
 	return OutTargetSet.Targets.Num() > 0;
 }
 
-TArray<AActor*> UAbilityFunctionLibrary::ValidateMultiLineTrace(ASaiyoraPlayerCharacter* Shooter, FAbilityOrigin const& Origin,
-	TArray<AActor*> const& Targets, float const TraceLength, bool const bHostile, TArray<AActor*> const& ActorsToIgnore)
+TArray<AActor*> UAbilityFunctionLibrary::ValidateMultiLineTrace(ASaiyoraPlayerCharacter* Shooter, const FAbilityOrigin& Origin,
+	const TArray<AActor*>& Targets, const float TraceLength, const bool bHostile, const TArray<AActor*>& ActorsToIgnore)
 {
 	TArray<AActor*> ValidatedTargets;
 	if (!IsValid(Shooter) || Shooter->GetLocalRole() != ROLE_Authority || Targets.Num() == 0 || TraceLength <= 0.0f)
@@ -307,8 +309,8 @@ TArray<AActor*> UAbilityFunctionLibrary::ValidateMultiLineTrace(ASaiyoraPlayerCh
 	if (VisTraceResult.bBlockingHit)
 	{
 		//If there is something in the direction we're aiming, check if its within an allowed cone to prevent firing off at strange angles.
-		float const Angle = UKismetMathLibrary::DegAcos(FVector::DotProduct((VisTraceResult.ImpactPoint - Origin.Origin).GetSafeNormal(), Origin.AimDirection));
-		if (Angle < AimToleranceDegrees)
+		const float Angle = UKismetMathLibrary::DegAcos(FVector::DotProduct((VisTraceResult.ImpactPoint - Origin.Origin).GetSafeNormal(), Origin.AimDirection));
+		if (Angle < AIMTOLERANCEDEGREES)
 		{
 			AimTarget = VisTraceResult.ImpactPoint;
 		}
@@ -323,8 +325,8 @@ TArray<AActor*> UAbilityFunctionLibrary::ValidateMultiLineTrace(ASaiyoraPlayerCh
 	if (HitboxTraceHits.Num() > 0)
 	{
 		//Find the last thing in the line we were aiming at. If the angle to this last impact point is within a small cone of our original aim direction, we use that as our aim target.
-		float const Angle = UKismetMathLibrary::DegAcos(FVector::DotProduct((HitboxTraceHits.Last().ImpactPoint - Origin.Origin).GetSafeNormal(), Origin.AimDirection));
-		if (Angle < AimToleranceDegrees)
+		const float Angle = UKismetMathLibrary::DegAcos(FVector::DotProduct((HitboxTraceHits.Last().ImpactPoint - Origin.Origin).GetSafeNormal(), Origin.AimDirection));
+		if (Angle < AIMTOLERANCEDEGREES)
 		{
 			AimTarget = Origin.Origin + (HitboxTraceHits.Last().ImpactPoint - Origin.Origin).GetSafeNormal() * TraceLength;
 		}
@@ -332,11 +334,11 @@ TArray<AActor*> UAbilityFunctionLibrary::ValidateMultiLineTrace(ASaiyoraPlayerCh
 
 	TArray<FHitResult> Results;
 	//For the actual multi-trace, we use a channel that hitboxes will overlap instead of block (PlayerFriendlyOverlap or PlayerHostileOverlap) so that we get multiple results.
-	ETraceTypeQuery const TraceChannel = UEngineTypes::ConvertToTraceType(bHostile ? ECC_GameTraceChannel2 : ECC_GameTraceChannel1);
+	const ETraceTypeQuery TraceChannel = UEngineTypes::ConvertToTraceType(bHostile ? ECC_GameTraceChannel2 : ECC_GameTraceChannel1);
 	UKismetSystemLibrary::LineTraceMulti(Shooter, Origin.Origin, AimTarget, TraceChannel, false,
 		ActorsToIgnore, EDrawDebugTrace::None, Results, true, FLinearColor::Yellow);
 
-	for (FHitResult const& Result : Results)
+	for (const FHitResult& Result : Results)
 	{
 		if (IsValid(Result.GetActor()) && Targets.Contains(Result.GetActor()))
 		{
@@ -347,8 +349,8 @@ TArray<AActor*> UAbilityFunctionLibrary::ValidateMultiLineTrace(ASaiyoraPlayerCh
 	return ValidatedTargets;
 }
 
-bool UAbilityFunctionLibrary::PredictSphereTrace(ASaiyoraPlayerCharacter* Shooter, float const TraceLength,
-	float const TraceRadius, bool const bHostile, TArray<AActor*> const& ActorsToIgnore, int32 const TargetSetID,
+bool UAbilityFunctionLibrary::PredictSphereTrace(ASaiyoraPlayerCharacter* Shooter, const float TraceLength,
+	const float TraceRadius, const bool bHostile, const TArray<AActor*>& ActorsToIgnore, const int32 TargetSetID,
 	FHitResult& Result, FAbilityOrigin& OutOrigin, FAbilityTargetSet& OutTargetSet)
 {
 	Result = FHitResult();
@@ -382,14 +384,14 @@ bool UAbilityFunctionLibrary::PredictSphereTrace(ASaiyoraPlayerCharacter* Shoote
 		OutOrigin.AimDirection = Shooter->GetActorForwardVector();
 	}
 
-	FVector const CamTraceEnd = OutOrigin.AimLocation + OutOrigin.AimDirection * GetCameraTraceMaxRange(OutOrigin.AimLocation, OutOrigin.AimDirection, OutOrigin.Origin, TraceLength);
+	const FVector CamTraceEnd = OutOrigin.AimLocation + OutOrigin.AimDirection * GetCameraTraceMaxRange(OutOrigin.AimLocation, OutOrigin.AimDirection, OutOrigin.Origin, TraceLength);
 	FHitResult CamTraceResult;
-	ETraceTypeQuery const TraceChannel = UEngineTypes::ConvertToTraceType(bHostile ? ECC_GameTraceChannel4 : ECC_GameTraceChannel3);
+	const ETraceTypeQuery TraceChannel = UEngineTypes::ConvertToTraceType(bHostile ? ECC_GameTraceChannel4 : ECC_GameTraceChannel3);
 	UKismetSystemLibrary::LineTraceSingle(Shooter, OutOrigin.AimLocation, CamTraceEnd, TraceChannel, false,
 		ActorsToIgnore, EDrawDebugTrace::None, CamTraceResult, true, FLinearColor::Green);
 
 	//If we hit something and it was in front of the origin, use that as our trace target, otherwise use the end of the trace.
-	FVector const OriginTraceEnd = OutOrigin.Origin + TraceLength *
+	const FVector OriginTraceEnd = OutOrigin.Origin + TraceLength *
 			(((CamTraceResult.bBlockingHit && FVector::DotProduct((CamTraceResult.ImpactPoint - OutOrigin.Origin), OutOrigin.AimDirection) > 0.0f)
 				? CamTraceResult.ImpactPoint : CamTraceResult.TraceEnd) - OutOrigin.Origin).GetSafeNormal();
 	UKismetSystemLibrary::SphereTraceSingle(Shooter, OutOrigin.Origin, OriginTraceEnd, TraceRadius, TraceChannel, false, ActorsToIgnore,
@@ -404,9 +406,9 @@ bool UAbilityFunctionLibrary::PredictSphereTrace(ASaiyoraPlayerCharacter* Shoote
 	return Result.bBlockingHit;
 }
 
-bool UAbilityFunctionLibrary::ValidateSphereTrace(ASaiyoraPlayerCharacter* Shooter, FAbilityOrigin const& Origin,
-	AActor* Target, float const TraceLength, float const TraceRadius, bool const bHostile,
-	TArray<AActor*> const& ActorsToIgnore)
+bool UAbilityFunctionLibrary::ValidateSphereTrace(ASaiyoraPlayerCharacter* Shooter, const FAbilityOrigin& Origin,
+	AActor* Target, const float TraceLength, const float TraceRadius, const bool bHostile,
+	const TArray<AActor*>& ActorsToIgnore)
 {
 	if (!IsValid(Shooter) || Shooter->GetLocalRole() != ROLE_Authority || !IsValid(Target) || Shooter == Target
 		|| ActorsToIgnore.Contains(Target) || TraceLength <= 0.0f || TraceRadius <= 0.0f)
@@ -424,14 +426,14 @@ bool UAbilityFunctionLibrary::ValidateSphereTrace(ASaiyoraPlayerCharacter* Shoot
 	TMap<UHitbox*, FTransform> ReturnTransforms;
 	RewindRelevantHitboxes(Shooter, Origin, TargetArray, ActorsToIgnore, ReturnTransforms);
 	//Trace from the camera for a very large distance to find what we were aiming at.
-	FVector const CamTraceEnd = Origin.AimLocation + Origin.AimDirection * GetCameraTraceMaxRange(Origin.AimLocation, Origin.AimDirection, Origin.Origin, TraceLength);
+	const FVector CamTraceEnd = Origin.AimLocation + Origin.AimDirection * GetCameraTraceMaxRange(Origin.AimLocation, Origin.AimDirection, Origin.Origin, TraceLength);
 	FHitResult CamTraceResult;
-	ETraceTypeQuery const TraceChannel = UEngineTypes::ConvertToTraceType(bHostile ? ECC_GameTraceChannel4 : ECC_GameTraceChannel3);
+	const ETraceTypeQuery TraceChannel = UEngineTypes::ConvertToTraceType(bHostile ? ECC_GameTraceChannel4 : ECC_GameTraceChannel3);
 	UKismetSystemLibrary::LineTraceSingle(Shooter, Origin.AimLocation, CamTraceEnd,
 		TraceChannel, false, ActorsToIgnore, EDrawDebugTrace::None, CamTraceResult, true, FLinearColor::Green);
 
 	//If we hit something and it was in front of the origin, use that as our trace target, otherwise use the end of the trace.
-	FVector const OriginTraceEnd = Origin.Origin + TraceLength *
+	const FVector OriginTraceEnd = Origin.Origin + TraceLength *
 			(((CamTraceResult.bBlockingHit && FVector::DotProduct((CamTraceResult.ImpactPoint - Origin.Origin), Origin.AimDirection) > 0.0f)
 				? CamTraceResult.ImpactPoint : CamTraceResult.TraceEnd) - Origin.Origin).GetSafeNormal();
 	FHitResult OriginResult;
@@ -447,8 +449,8 @@ bool UAbilityFunctionLibrary::ValidateSphereTrace(ASaiyoraPlayerCharacter* Shoot
 	return bDidHit;
 }
 
-bool UAbilityFunctionLibrary::PredictMultiSphereTrace(ASaiyoraPlayerCharacter* Shooter, float const TraceLength,
-	float const TraceRadius, bool const bHostile, TArray<AActor*> const& ActorsToIgnore, int32 const TargetSetID,
+bool UAbilityFunctionLibrary::PredictMultiSphereTrace(ASaiyoraPlayerCharacter* Shooter, const float TraceLength,
+	const float TraceRadius, const bool bHostile, const TArray<AActor*>& ActorsToIgnore, const int32 TargetSetID,
 	TArray<FHitResult>& Results, FAbilityOrigin& OutOrigin, FAbilityTargetSet& OutTargetSet)
 {
 	Results.Empty();
@@ -492,8 +494,8 @@ bool UAbilityFunctionLibrary::PredictMultiSphereTrace(ASaiyoraPlayerCharacter* S
 	if (VisTraceResult.bBlockingHit)
 	{
 		//If there is something in the direction we're aiming, check if its within an allowed cone to prevent firing off at strange angles.
-		float const Angle = UKismetMathLibrary::DegAcos(FVector::DotProduct((VisTraceResult.ImpactPoint - OutOrigin.Origin).GetSafeNormal(), OutOrigin.AimDirection));
-		if (Angle < AimToleranceDegrees)
+		const float Angle = UKismetMathLibrary::DegAcos(FVector::DotProduct((VisTraceResult.ImpactPoint - OutOrigin.Origin).GetSafeNormal(), OutOrigin.AimDirection));
+		if (Angle < AIMTOLERANCEDEGREES)
 		{
 			AimTarget = VisTraceResult.ImpactPoint;
 		}
@@ -508,19 +510,19 @@ bool UAbilityFunctionLibrary::PredictMultiSphereTrace(ASaiyoraPlayerCharacter* S
 	if (HitboxTraceHits.Num() > 0)
 	{
 		//Find the last thing in the line we were aiming at. If the angle to this last impact point is within a small cone of our original aim direction, we use that as our aim target.
-		float const Angle = UKismetMathLibrary::DegAcos(FVector::DotProduct((HitboxTraceHits.Last().ImpactPoint - OutOrigin.Origin).GetSafeNormal(), OutOrigin.AimDirection));
-		if (Angle < AimToleranceDegrees)
+		const float Angle = UKismetMathLibrary::DegAcos(FVector::DotProduct((HitboxTraceHits.Last().ImpactPoint - OutOrigin.Origin).GetSafeNormal(), OutOrigin.AimDirection));
+		if (Angle < AIMTOLERANCEDEGREES)
 		{
 			AimTarget = OutOrigin.Origin + (HitboxTraceHits.Last().ImpactPoint - OutOrigin.Origin).GetSafeNormal() * TraceLength;
 		}
 	}
 
-	ETraceTypeQuery const TraceChannel = UEngineTypes::ConvertToTraceType(bHostile ? ECC_GameTraceChannel2 : ECC_GameTraceChannel1);
+	const ETraceTypeQuery TraceChannel = UEngineTypes::ConvertToTraceType(bHostile ? ECC_GameTraceChannel2 : ECC_GameTraceChannel1);
 	UKismetSystemLibrary::SphereTraceMulti(Shooter, OutOrigin.Origin, AimTarget, TraceRadius, TraceChannel, false, ActorsToIgnore,
 		EDrawDebugTrace::ForDuration, Results, true, FLinearColor::Yellow);
 
 	OutTargetSet.SetID = TargetSetID;
-	for (FHitResult const& Result : Results)
+	for (const FHitResult& Result : Results)
 	{
 		if (IsValid(Result.GetActor()))
 		{
@@ -532,8 +534,8 @@ bool UAbilityFunctionLibrary::PredictMultiSphereTrace(ASaiyoraPlayerCharacter* S
 }
 
 TArray<AActor*> UAbilityFunctionLibrary::ValidateMultiSphereTrace(ASaiyoraPlayerCharacter* Shooter,
-	FAbilityOrigin const& Origin, TArray<AActor*> const& Targets, float const TraceLength, float const TraceRadius,
-	bool const bHostile, TArray<AActor*> const& ActorsToIgnore)
+	const FAbilityOrigin& Origin, const TArray<AActor*>& Targets, const float TraceLength, const float TraceRadius,
+	const bool bHostile, const TArray<AActor*>& ActorsToIgnore)
 {
 	TArray<AActor*> ValidatedTargets;
 	if (!IsValid(Shooter) || Shooter->GetLocalRole() != ROLE_Authority || Targets.Num() == 0 || TraceLength <= 0.0f || TraceRadius <= 0.0f)
@@ -559,8 +561,8 @@ TArray<AActor*> UAbilityFunctionLibrary::ValidateMultiSphereTrace(ASaiyoraPlayer
 	if (VisTraceResult.bBlockingHit)
 	{
 		//If there is something in the direction we're aiming, check if its within an allowed cone to prevent firing off at strange angles.
-		float const Angle = UKismetMathLibrary::DegAcos(FVector::DotProduct((VisTraceResult.ImpactPoint - Origin.Origin).GetSafeNormal(), Origin.AimDirection));
-		if (Angle < AimToleranceDegrees)
+		const float Angle = UKismetMathLibrary::DegAcos(FVector::DotProduct((VisTraceResult.ImpactPoint - Origin.Origin).GetSafeNormal(), Origin.AimDirection));
+		if (Angle < AIMTOLERANCEDEGREES)
 		{
 			AimTarget = VisTraceResult.ImpactPoint;
 		}
@@ -575,19 +577,19 @@ TArray<AActor*> UAbilityFunctionLibrary::ValidateMultiSphereTrace(ASaiyoraPlayer
 	if (HitboxTraceHits.Num() > 0)
 	{
 		//Find the last thing in the line we were aiming at. If the angle to this last impact point is within a small cone of our original aim direction, we use that as our aim target.
-		float const Angle = UKismetMathLibrary::DegAcos(FVector::DotProduct((HitboxTraceHits.Last().ImpactPoint - Origin.Origin).GetSafeNormal(), Origin.AimDirection));
-		if (Angle < AimToleranceDegrees)
+		const float Angle = UKismetMathLibrary::DegAcos(FVector::DotProduct((HitboxTraceHits.Last().ImpactPoint - Origin.Origin).GetSafeNormal(), Origin.AimDirection));
+		if (Angle < AIMTOLERANCEDEGREES)
 		{
 			AimTarget = Origin.Origin + (HitboxTraceHits.Last().ImpactPoint - Origin.Origin).GetSafeNormal() * TraceLength;
 		}
 	}
 	
 	TArray<FHitResult> Results;
-	ETraceTypeQuery const TraceChannel = UEngineTypes::ConvertToTraceType(bHostile ? ECC_GameTraceChannel2 : ECC_GameTraceChannel1);
+	const ETraceTypeQuery TraceChannel = UEngineTypes::ConvertToTraceType(bHostile ? ECC_GameTraceChannel2 : ECC_GameTraceChannel1);
 	UKismetSystemLibrary::SphereTraceMulti(Shooter, Origin.Origin, AimTarget, TraceRadius, TraceChannel, false,
 		ActorsToIgnore, EDrawDebugTrace::None, Results, true, FLinearColor::Yellow);
 	
-	for (FHitResult const& Result : Results)
+	for (const FHitResult& Result : Results)
 	{
 		if (IsValid(Result.GetActor()) && Targets.Contains(Result.GetActor()))
 		{
@@ -598,8 +600,8 @@ TArray<AActor*> UAbilityFunctionLibrary::ValidateMultiSphereTrace(ASaiyoraPlayer
 	return ValidatedTargets;
 }
 
-bool UAbilityFunctionLibrary::PredictSphereSightTrace(ASaiyoraPlayerCharacter* Shooter, float const TraceLength,
-                                                      float const TraceRadius, bool const bHostile, TArray<AActor*> const& ActorsToIgnore, int32 const TargetSetID,
+bool UAbilityFunctionLibrary::PredictSphereSightTrace(ASaiyoraPlayerCharacter* Shooter, const float TraceLength,
+                                                      const float TraceRadius, const bool bHostile, const TArray<AActor*>& ActorsToIgnore, const int32 TargetSetID,
                                                       FHitResult& Result, FAbilityOrigin& OutOrigin, FAbilityTargetSet& OutTargetSet)
 {
 	Result = FHitResult();
@@ -633,14 +635,14 @@ bool UAbilityFunctionLibrary::PredictSphereSightTrace(ASaiyoraPlayerCharacter* S
 		OutOrigin.AimDirection = Shooter->GetActorForwardVector();
 	}
 
-	FVector const CamTraceEnd = OutOrigin.AimLocation + OutOrigin.AimDirection * GetCameraTraceMaxRange(OutOrigin.AimLocation, OutOrigin.AimDirection, OutOrigin.Origin, TraceLength);
+	const FVector CamTraceEnd = OutOrigin.AimLocation + OutOrigin.AimDirection * GetCameraTraceMaxRange(OutOrigin.AimLocation, OutOrigin.AimDirection, OutOrigin.Origin, TraceLength);
 	FHitResult CamTraceResult;
-	ETraceTypeQuery const TraceChannel = UEngineTypes::ConvertToTraceType(bHostile ? ECC_GameTraceChannel4 : ECC_GameTraceChannel3);
+	const ETraceTypeQuery TraceChannel = UEngineTypes::ConvertToTraceType(bHostile ? ECC_GameTraceChannel4 : ECC_GameTraceChannel3);
 	UKismetSystemLibrary::LineTraceSingle(Shooter, OutOrigin.AimLocation, CamTraceEnd, TraceChannel, false,
 		ActorsToIgnore, EDrawDebugTrace::None, CamTraceResult, true, FLinearColor::Green);
 
 	//If we hit something and it was in front of the origin, use that as our trace target, otherwise use the end of the trace.
-	FVector const OriginTraceEnd = OutOrigin.Origin + TraceLength *
+	const FVector OriginTraceEnd = OutOrigin.Origin + TraceLength *
 			(((CamTraceResult.bBlockingHit && FVector::DotProduct((CamTraceResult.ImpactPoint - OutOrigin.Origin), OutOrigin.AimDirection) > 0.0f)
 				? CamTraceResult.ImpactPoint : CamTraceResult.TraceEnd) - OutOrigin.Origin).GetSafeNormal();
 	FHitResult OriginTraceResult;
@@ -649,7 +651,7 @@ bool UAbilityFunctionLibrary::PredictSphereSightTrace(ASaiyoraPlayerCharacter* S
 		ActorsToIgnore, EDrawDebugTrace::None, OriginTraceResult, true, FLinearColor::Red);
 
 	//Perform the actual sphere trace to the point where line of sight was blocked (or our original trace target if it wasn't blocked).
-	FVector const SphereTraceEnd = OriginTraceResult.bBlockingHit ? OriginTraceResult.ImpactPoint : OriginTraceEnd;
+	const FVector SphereTraceEnd = OriginTraceResult.bBlockingHit ? OriginTraceResult.ImpactPoint : OriginTraceEnd;
 	TArray<FHitResult> SphereTraceResults;
 	TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes;
 	ObjectTypes.Add(UEngineTypes::ConvertToObjectType(bHostile ? ECC_GameTraceChannel11 : ECC_GameTraceChannel10));
@@ -691,8 +693,8 @@ bool UAbilityFunctionLibrary::PredictSphereSightTrace(ASaiyoraPlayerCharacter* S
 }
 
 bool UAbilityFunctionLibrary::ValidateSphereSightTrace(ASaiyoraPlayerCharacter* Shooter,
-	FAbilityOrigin const& Origin, AActor* Target, float const TraceLength, float const TraceRadius, bool const bHostile,
-	TArray<AActor*> const& ActorsToIgnore)
+	const FAbilityOrigin& Origin, AActor* Target, const float TraceLength, const float TraceRadius, const bool bHostile,
+	const TArray<AActor*>& ActorsToIgnore)
 {
 	if (!IsValid(Shooter) || Shooter->GetLocalRole() != ROLE_Authority || !IsValid(Target) || Shooter == Target
 		|| ActorsToIgnore.Contains(Target) || TraceLength <= 0.0f || TraceRadius <= 0.0f)
@@ -709,14 +711,14 @@ bool UAbilityFunctionLibrary::ValidateSphereSightTrace(ASaiyoraPlayerCharacter* 
 	TargetArray.Add(Target);
 	TMap<UHitbox*, FTransform> ReturnTransforms;
 	RewindRelevantHitboxes(Shooter, Origin, TargetArray, ActorsToIgnore, ReturnTransforms);
-	FVector const CamTraceEnd = Origin.AimLocation + Origin.AimDirection * GetCameraTraceMaxRange(Origin.AimLocation, Origin.AimDirection, Origin.Origin, TraceLength);
+	const FVector CamTraceEnd = Origin.AimLocation + Origin.AimDirection * GetCameraTraceMaxRange(Origin.AimLocation, Origin.AimDirection, Origin.Origin, TraceLength);
 	FHitResult CamTraceResult;
-	ETraceTypeQuery const TraceChannel = UEngineTypes::ConvertToTraceType(bHostile ? ECC_GameTraceChannel4 : ECC_GameTraceChannel3);
+	const ETraceTypeQuery TraceChannel = UEngineTypes::ConvertToTraceType(bHostile ? ECC_GameTraceChannel4 : ECC_GameTraceChannel3);
 	UKismetSystemLibrary::LineTraceSingle(Shooter, Origin.AimLocation, CamTraceEnd, TraceChannel, false,
 		ActorsToIgnore, EDrawDebugTrace::None, CamTraceResult, true, FLinearColor::Green);
 
 	//If we hit something and it was in front of the origin, use that as our trace target, otherwise use the end of the trace.
-	FVector const OriginTraceEnd = Origin.Origin + TraceLength *
+	const FVector OriginTraceEnd = Origin.Origin + TraceLength *
 			(((CamTraceResult.bBlockingHit && FVector::DotProduct((CamTraceResult.ImpactPoint - Origin.Origin), Origin.AimDirection) > 0.0f)
 				? CamTraceResult.ImpactPoint : CamTraceResult.TraceEnd) - Origin.Origin).GetSafeNormal();
 	FHitResult OriginTraceResult;
@@ -725,7 +727,7 @@ bool UAbilityFunctionLibrary::ValidateSphereSightTrace(ASaiyoraPlayerCharacter* 
 		ActorsToIgnore, EDrawDebugTrace::None, OriginTraceResult, true, FLinearColor::Red);
 
 	//Perform the actual sphere trace to the point where line of sight was blocked (or our original trace target if it wasn't blocked).
-	FVector const SphereTraceEnd = OriginTraceResult.bBlockingHit ? OriginTraceResult.ImpactPoint : OriginTraceEnd;
+	const FVector SphereTraceEnd = OriginTraceResult.bBlockingHit ? OriginTraceResult.ImpactPoint : OriginTraceEnd;
 	TArray<FHitResult> SphereTraceResults;
 	TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes;
 	ObjectTypes.Add(UEngineTypes::ConvertToObjectType(bHostile ? ECC_GameTraceChannel11 : ECC_GameTraceChannel10));
@@ -762,8 +764,8 @@ bool UAbilityFunctionLibrary::ValidateSphereSightTrace(ASaiyoraPlayerCharacter* 
 	return bDidHit;
 }
 
-bool UAbilityFunctionLibrary::PredictMultiSphereSightTrace(ASaiyoraPlayerCharacter* Shooter, float const TraceLength,
-	float const TraceRadius, bool const bHostile, TArray<AActor*> const& ActorsToIgnore, int32 const TargetSetID,
+bool UAbilityFunctionLibrary::PredictMultiSphereSightTrace(ASaiyoraPlayerCharacter* Shooter, const float TraceLength,
+	const float TraceRadius, const bool bHostile, const TArray<AActor*>& ActorsToIgnore, const int32 TargetSetID,
 	TArray<FHitResult>& Results, FAbilityOrigin& OutOrigin, FAbilityTargetSet& OutTargetSet)
 {
 	Results.Empty();
@@ -807,8 +809,8 @@ bool UAbilityFunctionLibrary::PredictMultiSphereSightTrace(ASaiyoraPlayerCharact
 	if (VisTraceResult.bBlockingHit)
 	{
 		//If there is something in the direction we're aiming, check if its within an allowed cone to prevent firing off at strange angles.
-		float const Angle = UKismetMathLibrary::DegAcos(FVector::DotProduct((VisTraceResult.ImpactPoint - OutOrigin.Origin).GetSafeNormal(), OutOrigin.AimDirection));
-		if (Angle < AimToleranceDegrees)
+		const float Angle = UKismetMathLibrary::DegAcos(FVector::DotProduct((VisTraceResult.ImpactPoint - OutOrigin.Origin).GetSafeNormal(), OutOrigin.AimDirection));
+		if (Angle < AIMTOLERANCEDEGREES)
 		{
 			AimTarget = VisTraceResult.ImpactPoint;
 		}
@@ -823,8 +825,8 @@ bool UAbilityFunctionLibrary::PredictMultiSphereSightTrace(ASaiyoraPlayerCharact
 	if (HitboxTraceHits.Num() > 0)
 	{
 		//Find the last thing in the line we were aiming at. If the angle to this last impact point is within a small cone of our original aim direction, we use that as our aim target.
-		float const Angle = UKismetMathLibrary::DegAcos(FVector::DotProduct((HitboxTraceHits.Last().ImpactPoint - OutOrigin.Origin).GetSafeNormal(), OutOrigin.AimDirection));
-		if (Angle < AimToleranceDegrees)
+		const float Angle = UKismetMathLibrary::DegAcos(FVector::DotProduct((HitboxTraceHits.Last().ImpactPoint - OutOrigin.Origin).GetSafeNormal(), OutOrigin.AimDirection));
+		if (Angle < AIMTOLERANCEDEGREES)
 		{
 			AimTarget = OutOrigin.Origin + (HitboxTraceHits.Last().ImpactPoint - OutOrigin.Origin).GetSafeNormal() * TraceLength;
 		}
@@ -852,7 +854,7 @@ bool UAbilityFunctionLibrary::PredictMultiSphereSightTrace(ASaiyoraPlayerCharact
 	}
 
 	OutTargetSet.SetID = TargetSetID;
-	for (FHitResult const& Hit : Results)
+	for (const FHitResult& Hit : Results)
 	{
 		if (IsValid(Hit.GetActor()))
 		{
@@ -864,8 +866,8 @@ bool UAbilityFunctionLibrary::PredictMultiSphereSightTrace(ASaiyoraPlayerCharact
 }
 
 TArray<AActor*> UAbilityFunctionLibrary::ValidateMultiSphereSightTrace(ASaiyoraPlayerCharacter* Shooter,
-	FAbilityOrigin const& Origin, TArray<AActor*> const& Targets, float const TraceLength, float const TraceRadius,
-	bool const bHostile, TArray<AActor*> const& ActorsToIgnore)
+	const FAbilityOrigin& Origin, const TArray<AActor*>& Targets, const float TraceLength, const float TraceRadius,
+	const bool bHostile, const TArray<AActor*>& ActorsToIgnore)
 {
 	TArray<AActor*> ValidatedTargets;
 	if (!IsValid(Shooter) || Shooter->GetLocalRole() != ROLE_Authority || Targets.Num() == 0 || Targets.Contains(Shooter)
@@ -892,8 +894,8 @@ TArray<AActor*> UAbilityFunctionLibrary::ValidateMultiSphereSightTrace(ASaiyoraP
 	if (VisTraceResult.bBlockingHit)
 	{
 		//If there is something in the direction we're aiming, check if its within an allowed cone to prevent firing off at strange angles.
-		float const Angle = UKismetMathLibrary::DegAcos(FVector::DotProduct((VisTraceResult.ImpactPoint - Origin.Origin).GetSafeNormal(), Origin.AimDirection));
-		if (Angle < AimToleranceDegrees)
+		const float Angle = UKismetMathLibrary::DegAcos(FVector::DotProduct((VisTraceResult.ImpactPoint - Origin.Origin).GetSafeNormal(), Origin.AimDirection));
+		if (Angle < AIMTOLERANCEDEGREES)
 		{
 			AimTarget = VisTraceResult.ImpactPoint;
 		}
@@ -908,8 +910,8 @@ TArray<AActor*> UAbilityFunctionLibrary::ValidateMultiSphereSightTrace(ASaiyoraP
 	if (HitboxTraceHits.Num() > 0)
 	{
 		//Find the last thing in the line we were aiming at. If the angle to this last impact point is within a small cone of our original aim direction, we use that as our aim target.
-		float const Angle = UKismetMathLibrary::DegAcos(FVector::DotProduct((HitboxTraceHits.Last().ImpactPoint - Origin.Origin).GetSafeNormal(), Origin.AimDirection));
-		if (Angle < AimToleranceDegrees)
+		const float Angle = UKismetMathLibrary::DegAcos(FVector::DotProduct((HitboxTraceHits.Last().ImpactPoint - Origin.Origin).GetSafeNormal(), Origin.AimDirection));
+		if (Angle < AIMTOLERANCEDEGREES)
 		{
 			AimTarget = Origin.Origin + (HitboxTraceHits.Last().ImpactPoint - Origin.Origin).GetSafeNormal() * TraceLength;
 		}
@@ -943,7 +945,7 @@ TArray<AActor*> UAbilityFunctionLibrary::ValidateMultiSphereSightTrace(ASaiyoraP
 #pragma region Projectiles
 
 APredictableProjectile* UAbilityFunctionLibrary::PredictProjectile(UCombatAbility* Ability,
-	ASaiyoraPlayerCharacter* Shooter, TSubclassOf<APredictableProjectile> const ProjectileClass, FAbilityOrigin& OutOrigin)
+	ASaiyoraPlayerCharacter* Shooter, const TSubclassOf<APredictableProjectile> ProjectileClass, FAbilityOrigin& OutOrigin)
 {
 	if (!IsValid(Ability) || !IsValid(Shooter) || !Shooter->IsLocallyControlled() || !IsValid(ProjectileClass))
 	{
@@ -978,7 +980,7 @@ APredictableProjectile* UAbilityFunctionLibrary::PredictProjectile(UCombatAbilit
 	FTransform SpawnTransform;
 	SpawnTransform.SetLocation(OutOrigin.Origin);
 	//Choose very far point straight from the camera as the default aim target.
-	FVector AimTarget = OutOrigin.AimLocation + OutOrigin.AimDirection * CamTraceLength;
+	FVector AimTarget = OutOrigin.AimLocation + OutOrigin.AimDirection * CAMTRACELENGTH;
 	//Trace from the camera forward to the default aim target, looking for anything that would block visibility that we could be aiming at.
 	FHitResult VisTraceResult;
 	UKismetSystemLibrary::LineTraceSingle(Shooter, OutOrigin.AimLocation, AimTarget, UEngineTypes::ConvertToTraceType(ECC_Visibility), false,
@@ -986,8 +988,8 @@ APredictableProjectile* UAbilityFunctionLibrary::PredictProjectile(UCombatAbilit
 	if (VisTraceResult.bBlockingHit)
 	{
 		//If there is something in the direction we're aiming, check if its within an allowed cone to prevent firing off at strange angles.
-		float const Angle = UKismetMathLibrary::DegAcos(FVector::DotProduct((VisTraceResult.ImpactPoint - OutOrigin.Origin).GetSafeNormal(), OutOrigin.AimDirection));
-		if (Angle < AimToleranceDegrees)
+		const float Angle = UKismetMathLibrary::DegAcos(FVector::DotProduct((VisTraceResult.ImpactPoint - OutOrigin.Origin).GetSafeNormal(), OutOrigin.AimDirection));
+		if (Angle < AIMTOLERANCEDEGREES)
 		{
 			AimTarget = VisTraceResult.ImpactPoint;
 		}
@@ -1006,8 +1008,8 @@ APredictableProjectile* UAbilityFunctionLibrary::PredictProjectile(UCombatAbilit
 }
 
 APredictableProjectile* UAbilityFunctionLibrary::ValidateProjectile(UCombatAbility* Ability,
-	ASaiyoraPlayerCharacter* Shooter, TSubclassOf<APredictableProjectile> const ProjectileClass,
-	FAbilityOrigin const& Origin)
+	ASaiyoraPlayerCharacter* Shooter, const TSubclassOf<APredictableProjectile> ProjectileClass,
+	const FAbilityOrigin& Origin)
 {
 	if (!IsValid(Ability) || !IsValid(Shooter) || Shooter->GetLocalRole() != ROLE_Authority || !IsValid(ProjectileClass))
 	{
@@ -1015,7 +1017,7 @@ APredictableProjectile* UAbilityFunctionLibrary::ValidateProjectile(UCombatAbili
 		//Potentially spawn a "dummy" projectile that is invisible, that will replace the client projectile with nothing then destroy itself.
 		return nullptr;
 	}
-	float const Ping = USaiyoraCombatLibrary::GetActorPing(Shooter);
+	const float Ping = USaiyoraCombatLibrary::GetActorPing(Shooter);
 	ASaiyoraGameState* GameState = Shooter->GetWorld()->GetGameState<ASaiyoraGameState>();
 	//Get target's hitboxes, rewind them, and store their actual transforms for un-rewinding.
 	TMap<UHitbox*, FTransform> ReturnTransforms;
@@ -1023,14 +1025,14 @@ APredictableProjectile* UAbilityFunctionLibrary::ValidateProjectile(UCombatAbili
 	if (Ping > 0.0f && IsValid(GameState))
 	{
 		//Do a big trace in front of the camera to rewind all targets that could potentially intercept the trace.
-		FVector const RewindTraceEnd = Origin.AimLocation + CamTraceLength * Origin.AimDirection;
+		const FVector RewindTraceEnd = Origin.AimLocation + CAMTRACELENGTH * Origin.AimDirection;
 		TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes;
 		ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_GameTraceChannel10));
 		ObjectTypes.Add(UEngineTypes::ConvertToObjectType(ECC_GameTraceChannel11));
 		TArray<FHitResult> RewindTraceResults;
-		UKismetSystemLibrary::SphereTraceMultiForObjects(Shooter, Origin.AimLocation, RewindTraceEnd, RewindTraceRadius, ObjectTypes, false,
+		UKismetSystemLibrary::SphereTraceMultiForObjects(Shooter, Origin.AimLocation, RewindTraceEnd, REWINDTRACERADIUS, ObjectTypes, false,
 			TArray<AActor*>(), EDrawDebugTrace::None, RewindTraceResults, true, FLinearColor::White);
-		for (FHitResult const& Hit : RewindTraceResults)
+		for (const FHitResult& Hit : RewindTraceResults)
 		{
 			if (IsValid(Hit.GetActor()))
 			{
@@ -1047,7 +1049,7 @@ APredictableProjectile* UAbilityFunctionLibrary::ValidateProjectile(UCombatAbili
 	FTransform SpawnTransform;
 	SpawnTransform.SetLocation(Origin.Origin);
 	//Choose very far point straight from the camera as the default aim target.
-	FVector AimTarget = Origin.AimLocation + Origin.AimDirection * CamTraceLength;
+	FVector AimTarget = Origin.AimLocation + Origin.AimDirection * CAMTRACELENGTH;
 	//Trace from the camera forward to the default aim target, looking for anything that would block visibility that we could be aiming at.
 	FHitResult VisTraceResult;
 	UKismetSystemLibrary::LineTraceSingle(Shooter, Origin.AimLocation, AimTarget, UEngineTypes::ConvertToTraceType(ECC_Visibility), false,
@@ -1055,8 +1057,8 @@ APredictableProjectile* UAbilityFunctionLibrary::ValidateProjectile(UCombatAbili
 	if (VisTraceResult.bBlockingHit)
 	{
 		//If there is something in the direction we're aiming, check if its within an allowed cone to prevent firing off at strange angles.
-		float const Angle = UKismetMathLibrary::DegAcos(FVector::DotProduct((VisTraceResult.ImpactPoint - Origin.Origin).GetSafeNormal(), Origin.AimDirection));
-		if (Angle < AimToleranceDegrees)
+		const float Angle = UKismetMathLibrary::DegAcos(FVector::DotProduct((VisTraceResult.ImpactPoint - Origin.Origin).GetSafeNormal(), Origin.AimDirection));
+		if (Angle < AIMTOLERANCEDEGREES)
 		{
 			AimTarget = VisTraceResult.ImpactPoint;
 		}
@@ -1076,7 +1078,7 @@ APredictableProjectile* UAbilityFunctionLibrary::ValidateProjectile(UCombatAbili
 	{
 		UProjectileMovementComponent* MoveComp = NewProjectile->FindComponentByClass<UProjectileMovementComponent>();
 		//Calculate how many 50ms steps we need to go through before we'd arrive less than 50ms from current time.
-		int32 const Steps = FMath::Floor(Ping / .05f);
+		const int32 Steps = FMath::Floor(Ping / .05f);
 		if (Steps == 0)
 		{
 			//Ping was less than 50ms, we can just do one step against the already rewound hitboxes.
@@ -1085,7 +1087,7 @@ APredictableProjectile* UAbilityFunctionLibrary::ValidateProjectile(UCombatAbili
 				MoveComp->TickComponent(Ping, ELevelTick::LEVELTICK_All, &MoveComp->PrimaryComponentTick);
 			}
 			//Unrewind after tick.
-			for (TTuple<UHitbox*, FTransform> const& ReturnTransform : ReturnTransforms)
+			for (const TTuple<UHitbox*, FTransform>& ReturnTransform : ReturnTransforms)
 			{
 				ReturnTransform.Key->SetWorldTransform(ReturnTransform.Value);
 			}
@@ -1112,13 +1114,13 @@ APredictableProjectile* UAbilityFunctionLibrary::ValidateProjectile(UCombatAbili
 					MoveComp->TickComponent(.05f, ELevelTick::LEVELTICK_All, &MoveComp->PrimaryComponentTick);
 				}
 				//Unrewind all targets to set up for next rewind.
-				for (TTuple<UHitbox*, FTransform> const& ReturnTransform : ReturnTransforms)
+				for (const TTuple<UHitbox*, FTransform>& ReturnTransform : ReturnTransforms)
 				{
 					ReturnTransform.Key->SetWorldTransform(ReturnTransform.Value);
 				}
 			}
 			//Partial step for any remainder less than 50ms at the end.
-			float const LastStepMs = Ping - (Steps * .05f);
+			const float LastStepMs = Ping - (Steps * .05f);
 			ReturnTransforms.Empty();
 			for (UHitbox* Hitbox : RelevantHitboxes)
 			{
@@ -1128,7 +1130,7 @@ APredictableProjectile* UAbilityFunctionLibrary::ValidateProjectile(UCombatAbili
 			{
 				MoveComp->TickComponent(LastStepMs, ELevelTick::LEVELTICK_All, &MoveComp->PrimaryComponentTick);
 			}
-			for (TTuple<UHitbox*, FTransform> const& ReturnTransform : ReturnTransforms)
+			for (const TTuple<UHitbox*, FTransform>& ReturnTransform : ReturnTransforms)
 			{
 				ReturnTransform.Key->SetWorldTransform(ReturnTransform.Value);
 			}

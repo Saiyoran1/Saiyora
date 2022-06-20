@@ -1,10 +1,12 @@
 ﻿#pragma once
 #include "CoreMinimal.h"
 #include "AbilityStructs.h"
-#include "SaiyoraPlayerCharacter.h"
 #include "GameFramework/ProjectileMovementComponent.h"
-#include "CombatAbility.h"
 #include "PredictableProjectile.generated.h"
+
+class ASaiyoraGameState;
+class ASaiyoraPlayerCharacter;
+class UCombatAbility;
 
 USTRUCT()
 struct FProjectileSource
@@ -62,7 +64,7 @@ private:
 	static int32 GenerateProjectileID(FPredictedTick const& Scope);
 
 	UPROPERTY()
-	class ASaiyoraGameState* GameState;
+	ASaiyoraGameState* GameState;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	UProjectileMovementComponent* ProjectileMovement;
 	bool bIsFake = false;
@@ -84,15 +86,4 @@ private:
 	UFUNCTION()
 	void DelayedDestroy();
 	void HideProjectile();
-};
-
-USTRUCT()
-struct FProjectileSpawnParams
-{
-	GENERATED_BODY()
-	
-	UPROPERTY()
-	TSubclassOf<APredictableProjectile> Class;
-	UPROPERTY()
-	FTransform SpawnTransform;
 };

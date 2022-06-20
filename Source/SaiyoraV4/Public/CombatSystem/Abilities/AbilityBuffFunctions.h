@@ -4,6 +4,8 @@
 #include "BuffFunction.h"
 #include "AbilityBuffFunctions.generated.h"
 
+class UAbilityComponent;
+
 UENUM(BlueprintType)
 enum class EComplexAbilityModType : uint8
 {
@@ -19,17 +21,17 @@ class UComplexAbilityModifierFunction : public UBuffFunction
 	GENERATED_BODY()
 	
 	FAbilityModCondition Mod;
-	EComplexAbilityModType ModType;
+	EComplexAbilityModType ModType = EComplexAbilityModType::None;
 	UPROPERTY()
-	class UAbilityComponent* TargetHandler = nullptr;
+	UAbilityComponent* TargetHandler = nullptr;
 
-	void SetModifierVars(EComplexAbilityModType const ModifierType, FAbilityModCondition const& Modifier);
+	void SetModifierVars(const EComplexAbilityModType ModifierType, const FAbilityModCondition& Modifier);
 
-	virtual void OnApply(FBuffApplyEvent const& ApplyEvent) override;
-	virtual void OnRemove(FBuffRemoveEvent const& RemoveEvent) override;
+	virtual void OnApply(const FBuffApplyEvent& ApplyEvent) override;
+	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) override;
 
 	UFUNCTION(BlueprintCallable, Category = "Buff Function", meta = (DefaultToSelf = "Buff", HidePin = "Buff"))
-	static void ComplexAbilityModifier(UBuff* Buff, EComplexAbilityModType const ModifierType, FAbilityModCondition const& Modifier);
+	static void ComplexAbilityModifier(UBuff* Buff, const EComplexAbilityModType ModifierType, const FAbilityModCondition& Modifier);
 };
 
 UENUM(BlueprintType)
@@ -47,18 +49,18 @@ class USimpleAbilityModifierFunction : public UBuffFunction
 	GENERATED_BODY()
 
 	FCombatModifier Mod;
-	ESimpleAbilityModType ModType;
+	ESimpleAbilityModType ModType = ESimpleAbilityModType::None;
 	UPROPERTY()
-	class UCombatAbility* TargetAbility;
+	UCombatAbility* TargetAbility = nullptr;
 
-	void SetModifierVars(TSubclassOf<UCombatAbility> const AbilityClass, ESimpleAbilityModType const ModifierType, FCombatModifier const& Modifier);
+	void SetModifierVars(const TSubclassOf<UCombatAbility> AbilityClass, const ESimpleAbilityModType ModifierType, const FCombatModifier& Modifier);
 
-	virtual void OnApply(FBuffApplyEvent const& ApplyEvent) override;
-	virtual void OnStack(FBuffApplyEvent const& ApplyEvent) override;
-	virtual void OnRemove(FBuffRemoveEvent const& RemoveEvent) override;
+	virtual void OnApply(const FBuffApplyEvent& ApplyEvent) override;
+	virtual void OnStack(const FBuffApplyEvent& ApplyEvent) override;
+	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) override;
 
 	UFUNCTION(BlueprintCallable, Category = "Buff Function", meta = (DefaultToSelf = "Buff", HidePin = "Buff"))
-	static void SimpleAbilityModifier(UBuff* Buff, TSubclassOf<UCombatAbility> const AbilityClass, ESimpleAbilityModType const ModifierType, FCombatModifier const& Modifier);
+	static void SimpleAbilityModifier(UBuff* Buff, const TSubclassOf<UCombatAbility> AbilityClass, const ESimpleAbilityModType ModifierType, const FCombatModifier& Modifier);
 };
 
 UCLASS()
@@ -70,18 +72,18 @@ class UAbilityCostModifierFunction : public UBuffFunction
 	TSubclassOf<UResource> Resource;
 	TSubclassOf<UCombatAbility> Ability;
 	UPROPERTY()
-	class UAbilityComponent* TargetHandler;
+	UAbilityComponent* TargetHandler = nullptr;
 	UPROPERTY()
-	class UCombatAbility* TargetAbility;
+	UCombatAbility* TargetAbility = nullptr;
 
-	void SetModifierVars(TSubclassOf<UResource> const ResourceClass, TSubclassOf<UCombatAbility> const AbilityClass, FCombatModifier const& Modifier);
+	void SetModifierVars(const TSubclassOf<UResource> ResourceClass, const TSubclassOf<UCombatAbility> AbilityClass, const FCombatModifier& Modifier);
 
-	virtual void OnApply(FBuffApplyEvent const& ApplyEvent) override;
-	virtual void OnStack(FBuffApplyEvent const& ApplyEvent) override;
-	virtual void OnRemove(FBuffRemoveEvent const& RemoveEvent) override;
+	virtual void OnApply(const FBuffApplyEvent& ApplyEvent) override;
+	virtual void OnStack(const FBuffApplyEvent& ApplyEvent) override;
+	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) override;
 
 	UFUNCTION(BlueprintCallable, Category = "Buff Function", meta = (DefaultToSelf = "Buff", HidePin = "Buff"))
-	static void AbilityCostModifier(UBuff* Buff, TSubclassOf<UResource> const ResourceClass, TSubclassOf<UCombatAbility> const AbilityClass, FCombatModifier const& Modifier);
+	static void AbilityCostModifier(UBuff* Buff, const TSubclassOf<UResource> ResourceClass, const TSubclassOf<UCombatAbility> AbilityClass, const FCombatModifier& Modifier);
 };
 
 UCLASS()
@@ -91,15 +93,15 @@ class UAbilityClassRestrictionFunction : public UBuffFunction
 
 	TSet<TSubclassOf<UCombatAbility>> RestrictClasses;
 	UPROPERTY()
-	UAbilityComponent* TargetComponent;
+	UAbilityComponent* TargetComponent = nullptr;
 
-	void SetRestrictionVars(TSet<TSubclassOf<UCombatAbility>> const& AbilityClasses);
+	void SetRestrictionVars(const TSet<TSubclassOf<UCombatAbility>>& AbilityClasses);
 
-	virtual void OnApply(FBuffApplyEvent const& ApplyEvent) override;
-	virtual void OnRemove(FBuffRemoveEvent const& RemoveEvent) override;
+	virtual void OnApply(const FBuffApplyEvent& ApplyEvent) override;
+	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) override;
 
 	UFUNCTION(BlueprintCallable, Category = "Buff Function", meta = (DefaultToSelf = "Buff", HidePin = "Buff"))
-	static void AbilityClassRestrictions(UBuff* Buff, TSet<TSubclassOf<UCombatAbility>> const& AbilityClasses);
+	static void AbilityClassRestrictions(UBuff* Buff, const TSet<TSubclassOf<UCombatAbility>>& AbilityClasses);
 };
 
 UCLASS()
@@ -109,15 +111,15 @@ class UAbilityTagRestrictionFunction : public UBuffFunction
 
 	FGameplayTagContainer RestrictTags;
 	UPROPERTY()
-	UAbilityComponent* TargetComponent;
+	UAbilityComponent* TargetComponent = nullptr;
 
-	void SetRestrictionVars(FGameplayTagContainer const& RestrictedTags);
+	void SetRestrictionVars(const FGameplayTagContainer& RestrictedTags);
 
-	virtual void OnApply(FBuffApplyEvent const& ApplyEvent) override;
-	virtual void OnRemove(FBuffRemoveEvent const& RemoveEvent) override;
+	virtual void OnApply(const FBuffApplyEvent& ApplyEvent) override;
+	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) override;
 
 	UFUNCTION(BlueprintCallable, Category = "Buff Function", meta = (DefaultToSelf = "Buff", HidePin = "Buff"))
-	static void AbilityTagRestrictions(UBuff* Buff, FGameplayTagContainer const& RestrictedTags);
+	static void AbilityTagRestrictions(UBuff* Buff, const FGameplayTagContainer& RestrictedTags);
 };
 
 UCLASS()
@@ -127,13 +129,13 @@ class UInterruptRestrictionFunction : public UBuffFunction
 
 	FInterruptRestriction Restrict;
 	UPROPERTY()
-	UAbilityComponent* TargetComponent;
+	UAbilityComponent* TargetComponent = nullptr;
 
-	void SetRestrictionVars(FInterruptRestriction const& Restriction);
+	void SetRestrictionVars(const FInterruptRestriction& Restriction);
 
-	virtual void OnApply(FBuffApplyEvent const& ApplyEvent) override;
-	virtual void OnRemove(FBuffRemoveEvent const& RemoveEvent) override;
+	virtual void OnApply(const FBuffApplyEvent& ApplyEvent) override;
+	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) override;
 
 	UFUNCTION(BlueprintCallable, Category = "Buff Function", meta = (DefaultToSelf = "Buff", HidePin = "Buff"))
-	static void InterruptRestriction(UBuff* Buff, FInterruptRestriction const& Restriction);
+	static void InterruptRestriction(UBuff* Buff, const FInterruptRestriction& Restriction);
 };

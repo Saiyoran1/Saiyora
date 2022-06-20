@@ -13,29 +13,20 @@ enum class EAbilityCastType : uint8
 UENUM(BlueprintType)
 enum class ECastAction : uint8
 {
-    Fail,
-    Success,
-    Que,
-    Tick,
-    Complete,
+    Fail = 0,
+    Success = 1,
+    Que = 2,
+    Tick = 3,
+    Complete = 4,
 };
 
 UENUM()
 enum class EQueueStatus : uint8
 {
-    Empty,
-    WaitForGlobal,
-    WaitForCast,
-    WaitForBoth,
-};
-
-UENUM()
-enum class EActionBarType : uint8
-{
-    None = 0,
-    Ancient = 1,
-    Modern = 2,
-    Hidden = 3,
+    Empty = 0,
+    WaitForGlobal = 1,
+    WaitForCast = 2,
+    WaitForBoth = 3,
 };
 
 UENUM(BlueprintType)

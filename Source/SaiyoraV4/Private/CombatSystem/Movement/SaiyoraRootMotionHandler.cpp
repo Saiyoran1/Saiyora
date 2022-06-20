@@ -36,7 +36,7 @@ void USaiyoraRootMotionHandler::Expire()
 	{
 		if (SourcePredictionID != 0 && TargetMovement->GetOwnerRole() == ROLE_AutonomousProxy && IsValid(TargetMovement->GetOwnerAbilityHandler()))
 		{
-			TargetMovement->GetOwnerAbilityHandler()->UnsubscribeFromAbilityMispredicted(MispredictionCallback);
+			TargetMovement->GetOwnerAbilityHandler()->OnAbilityMispredicted.RemoveDynamic(this, &USaiyoraRootMotionHandler::OnMispredicted);
 		}
 		TargetMovement->RemoveRootMotionHandler(this);
 	}
@@ -104,10 +104,6 @@ void USaiyoraRootMotionHandler::Init(USaiyoraMovementComponent* Movement, int32 
 	TargetMovement = Movement;
 	SourcePredictionID = PredictionID;
 	Source = MoveSource;
-	if (SourcePredictionID != 0 && TargetMovement->GetOwnerRole() == ROLE_AutonomousProxy)
-	{
-		MispredictionCallback.BindDynamic(this, &USaiyoraRootMotionHandler::OnMispredicted);
-	}
 }
 
 void USaiyoraRootMotionHandler::Apply()
@@ -128,7 +124,7 @@ void USaiyoraRootMotionHandler::Apply()
 	}
 	if (SourcePredictionID != 0 && TargetMovement->GetOwnerRole() == ROLE_AutonomousProxy && IsValid(TargetMovement->GetOwnerAbilityHandler()))
 	{
-		TargetMovement->GetOwnerAbilityHandler()->SubscribeToAbilityMispredicted(MispredictionCallback);
+		TargetMovement->GetOwnerAbilityHandler()->OnAbilityMispredicted.AddDynamic(this, &USaiyoraRootMotionHandler::OnMispredicted);
 	}
 	if (NeedsExpireTimer())
 	{

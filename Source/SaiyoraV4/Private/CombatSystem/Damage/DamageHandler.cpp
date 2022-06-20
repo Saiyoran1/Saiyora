@@ -4,7 +4,7 @@
 #include "Buff.h"
 #include "PlaneComponent.h"
 #include "SaiyoraCombatInterface.h"
-#include "SaiyoraGameState.h"
+#include "DungeonGameState.h"
 #include "UnrealNetwork.h"
 
 #pragma region Initialization
@@ -34,7 +34,7 @@ void UDamageHandler::BeginPlay()
 	Super::BeginPlay();
 	
 	OwnerAsPawn = Cast<APawn>(GetOwner());
-	GameStateRef = GetWorld()->GetGameState<ASaiyoraGameState>();
+	GameStateRef = GetWorld()->GetGameState<ADungeonGameState>();
 	if (GetOwnerRole() == ROLE_Authority)
 	{
 		//Bind Max Health stat, create damage and healing modifiers from stats.

@@ -1,6 +1,6 @@
 #include "SaiyoraPlayerController.h"
-#include "PredictableProjectile.h"
-#include "SaiyoraGameState.h"
+#include "SaiyoraPlayerCharacter.h"
+#include "CoreClasses/SaiyoraGameState.h"
 
 void ASaiyoraPlayerController::AcknowledgePossession(APawn* P)
 {
@@ -63,7 +63,3 @@ bool ASaiyoraPlayerController::ServerFinalPingBounce_Validate(float const Server
 {
     return true;
 }
-
-#pragma region Projectile Management
-
-#pragma endregion
