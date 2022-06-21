@@ -10,6 +10,7 @@
 #include "StatHandler.h"
 #include "ThreatHandler.h"
 #include "CoreClasses/SaiyoraGameState.h"
+#include "GameFramework/PlayerState.h"
 
 ASaiyoraPlayerCharacter::ASaiyoraPlayerCharacter(const class FObjectInitializer& ObjectInitializer) :
 	Super(ObjectInitializer.SetDefaultSubobjectClass<USaiyoraMovementComponent>(ACharacter::CharacterMovementComponentName))
@@ -67,14 +68,14 @@ void ASaiyoraPlayerCharacter::InitializeCharacter()
 	{
 		return;
 	}
-	if (!GameStateRef || !GetPlayerState() || (GetLocalRole() != ROLE_SimulatedProxy && !GetController()))
+	if (!IsValid(GameStateRef) || !IsValid(GetPlayerState()) || (GetLocalRole() != ROLE_SimulatedProxy && !IsValid(GetController())))
 	{
 		return;
 	}
-	if (!PlayerControllerRef)
+	if (!IsValid(PlayerControllerRef))
 	{
 		PlayerControllerRef = Cast<ASaiyoraPlayerController>(GetController());
-		if (!PlayerControllerRef)
+		if (!IsValid(PlayerControllerRef))
 		{
 			return;
 		}

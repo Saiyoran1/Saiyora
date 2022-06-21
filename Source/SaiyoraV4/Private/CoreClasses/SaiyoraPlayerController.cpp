@@ -5,7 +5,7 @@
 void ASaiyoraPlayerController::AcknowledgePossession(APawn* P)
 {
     Super::AcknowledgePossession(P);
-    if (GetPawn())
+    if (IsValid(GetPawn()))
     {
         PlayerCharacterRef = Cast<ASaiyoraPlayerCharacter>(GetPawn());
     }
@@ -14,7 +14,7 @@ void ASaiyoraPlayerController::AcknowledgePossession(APawn* P)
 void ASaiyoraPlayerController::OnPossess(APawn* InPawn)
 {
     Super::OnPossess(InPawn);
-    if (GetPawn())
+    if (IsValid(GetPawn()))
     {
         PlayerCharacterRef = Cast<ASaiyoraPlayerCharacter>(GetPawn());
     }
@@ -35,17 +35,17 @@ void ASaiyoraPlayerController::RequestWorldTime()
     ServerHandleWorldTimeRequest(GameStateRef->GetServerWorldTimeSeconds(), Ping);
 }
 
-void ASaiyoraPlayerController::ServerHandleWorldTimeRequest_Implementation(float const ClientTime, float const LastPing)
+void ASaiyoraPlayerController::ServerHandleWorldTimeRequest_Implementation(const float ClientTime, const float LastPing)
 {
     ClientHandleWorldTimeReturn(ClientTime, GameStateRef->GetServerWorldTimeSeconds());
 }
 
-bool ASaiyoraPlayerController::ServerHandleWorldTimeRequest_Validate(float const ClientTime, float const LastPing)
+bool ASaiyoraPlayerController::ServerHandleWorldTimeRequest_Validate(const float ClientTime, const float LastPing)
 {
     return true;
 }
 
-void ASaiyoraPlayerController::ClientHandleWorldTimeReturn_Implementation(float const ClientTime, float const ServerTime)
+void ASaiyoraPlayerController::ClientHandleWorldTimeReturn_Implementation(const float ClientTime, const float ServerTime)
 {
     Ping = FMath::Max(0.0f, (GameStateRef->GetServerWorldTimeSeconds() - ClientTime));
     OnPingChanged.Broadcast(Ping);
@@ -53,13 +53,13 @@ void ASaiyoraPlayerController::ClientHandleWorldTimeReturn_Implementation(float 
     ServerFinalPingBounce(ServerTime);
 }
 
-void ASaiyoraPlayerController::ServerFinalPingBounce_Implementation(float const ServerTime)
+void ASaiyoraPlayerController::ServerFinalPingBounce_Implementation(const float ServerTime)
 {
     Ping = FMath::Max(0.0f, GameStateRef->GetServerWorldTimeSeconds() - ServerTime);
     OnPingChanged.Broadcast(Ping);
 }
 
-bool ASaiyoraPlayerController::ServerFinalPingBounce_Validate(float const ServerTime)
+bool ASaiyoraPlayerController::ServerFinalPingBounce_Validate(const float ServerTime)
 {
     return true;
 }

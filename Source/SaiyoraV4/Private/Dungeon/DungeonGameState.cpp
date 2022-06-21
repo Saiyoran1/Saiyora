@@ -1,4 +1,5 @@
 #include "Dungeon/DungeonGameState.h"
+#include "SaiyoraPlayerCharacter.h"
 #include "UnrealNetwork.h"
 
 void ADungeonGameState::BeginPlay()
@@ -107,9 +108,7 @@ void ADungeonGameState::StartCountdown()
 	OnRep_DungeonProgress(PreviousProgress);
 	if (CountdownLength > 0.0f)
 	{
-		FTimerDelegate CountdownDelegate;
-		CountdownDelegate.BindUObject(this, &ADungeonGameState::EndCountdown);
-		GetWorld()->GetTimerManager().SetTimer(PhaseTimerHandle, CountdownDelegate, CountdownLength, false);
+		GetWorld()->GetTimerManager().SetTimer(PhaseTimerHandle, this, &ADungeonGameState::EndCountdown, CountdownLength, false);
 	}
 	else
 	{
@@ -134,9 +133,7 @@ void ADungeonGameState::EndCountdown()
 	}
 	else
 	{
-		FTimerDelegate DepletionDelegate;
-		DepletionDelegate.BindUObject(this, &ADungeonGameState::DepleteDungeonFromTimer);
-		GetWorld()->GetTimerManager().SetTimer(PhaseTimerHandle, DepletionDelegate, FMath::Max(MINIMUMTIMELIMIT, TimeLimit), false);
+		GetWorld()->GetTimerManager().SetTimer(PhaseTimerHandle, this, &ADungeonGameState::DepleteDungeonFromTimer, FMath::Max(MINIMUMTIMELIMIT, TimeLimit), false);
 	}
 	OnRep_DungeonProgress(PreviousProgress);
 }
@@ -207,9 +204,7 @@ void ADungeonGameState::ReportPlayerDeath()
 		}
 		else
 		{
-			FTimerDelegate DepletionDelegate;
-			DepletionDelegate.BindUObject(this, &ADungeonGameState::DepleteDungeonFromTimer);
-			GetWorld()->GetTimerManager().SetTimer(PhaseTimerHandle, DepletionDelegate, TimeRemaining - DeathPenaltySeconds, false);
+			GetWorld()->GetTimerManager().SetTimer(PhaseTimerHandle, this, &ADungeonGameState::DepleteDungeonFromTimer, TimeRemaining - DeathPenaltySeconds, false);
 		}
 	}
 	OnRep_DungeonProgress(PreviousProgress);
@@ -261,7 +256,7 @@ void ADungeonGameState::ReportBossDeath(const FGameplayTag BossTag)
 
 void ADungeonGameState::UpdatePlayerReadyStatus(ASaiyoraPlayerCharacter* Player, const bool bReady)
 {
-	if (!HasAuthority() || !Player || DungeonProgress.DungeonPhase != EDungeonPhase::WaitingToStart)
+	if (!HasAuthority() || !IsValid(Player) || DungeonProgress.DungeonPhase != EDungeonPhase::WaitingToStart)
 	{
 		return;
 	}

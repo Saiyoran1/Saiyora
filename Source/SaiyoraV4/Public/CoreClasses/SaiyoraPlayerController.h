@@ -3,6 +3,8 @@
 #include "SaiyoraPlayerController.generated.h"
 
 class APredictableProjectile;
+class ASaiyoraGameState;
+class ASaiyoraPlayerCharacter;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPingNotification, float, NewPing);
 
@@ -21,9 +23,9 @@ public:
 	float GetPlayerPing() const { return Ping; }
 
 	UFUNCTION(BlueprintPure)
-	class ASaiyoraPlayerCharacter* GetSaiyoraPlayerCharacter() const { return PlayerCharacterRef; }
+	ASaiyoraPlayerCharacter* GetSaiyoraPlayerCharacter() const { return PlayerCharacterRef; }
 	UFUNCTION(BlueprintPure)
-	class ASaiyoraGameState* GetSaiyoraGameState() const { return GameStateRef; }
+	ASaiyoraGameState* GetSaiyoraGameState() const { return GameStateRef; }
 
 	UPROPERTY(BlueprintAssignable)
 	FPingNotification OnPingChanged;
@@ -35,14 +37,14 @@ private:
 	float Ping = 0.0f;
 
 	UFUNCTION(Server, WithValidation, Unreliable)
-	void ServerHandleWorldTimeRequest(float const ClientTime, float const LastPing);
+	void ServerHandleWorldTimeRequest(const float ClientTime, const float LastPing);
 	UFUNCTION(Client, Unreliable)
-	void ClientHandleWorldTimeReturn(float const ClientTime, float const ServerTime);
+	void ClientHandleWorldTimeReturn(const float ClientTime, const float ServerTime);
 	UFUNCTION(Server, WithValidation, Unreliable)
-	void ServerFinalPingBounce(float const ServerTime);
+	void ServerFinalPingBounce(const float ServerTime);
 
 	UPROPERTY()
-	class ASaiyoraGameState* GameStateRef;
+	ASaiyoraGameState* GameStateRef;
 	UPROPERTY()
-	class ASaiyoraPlayerCharacter* PlayerCharacterRef;
+	ASaiyoraPlayerCharacter* PlayerCharacterRef;
 };

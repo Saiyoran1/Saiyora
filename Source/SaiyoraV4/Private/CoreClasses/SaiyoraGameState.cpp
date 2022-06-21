@@ -1,7 +1,7 @@
 ﻿#include "CoreClasses/SaiyoraGameState.h"
-
 #include "Hitbox.h"
 #include "PredictableProjectile.h"
+#include "SaiyoraPlayerCharacter.h"
 #include "Kismet/KismetSystemLibrary.h"
 
 ASaiyoraGameState::ASaiyoraGameState()
@@ -18,7 +18,7 @@ void ASaiyoraGameState::Tick(float DeltaSeconds)
 
 void ASaiyoraGameState::InitPlayer(ASaiyoraPlayerCharacter* Player)
 {
-	if (!Player || ActivePlayers.Contains(Player))
+	if (!IsValid(Player) || ActivePlayers.Contains(Player))
 	{
 		return;
 	}
@@ -72,17 +72,17 @@ void ASaiyoraGameState::CreateSnapshot()
     }
 }
 
-FTransform ASaiyoraGameState::RewindHitbox(UHitbox* Hitbox, float const Ping)
+FTransform ASaiyoraGameState::RewindHitbox(UHitbox* Hitbox, const float Ping)
 {
     //Clamp rewinding between 0 (current time) and max lag compensation.
-    float const RewindTime = FMath::Clamp(Ping, 0.0f, MAXLAGCOMPENSATION);
-    FTransform const OriginalTransform = Hitbox->GetComponentTransform();
+    const float RewindTime = FMath::Clamp(Ping, 0.0f, MAXLAGCOMPENSATION);
+    const FTransform OriginalTransform = Hitbox->GetComponentTransform();
     //Zero rewind time means just use the current transform.
     if (RewindTime == 0.0f)
     {
     	return OriginalTransform;
     }
-    float const Timestamp = GetServerWorldTimeSeconds() - RewindTime;
+    const float Timestamp = GetServerWorldTimeSeconds() - RewindTime;
     FRewindRecord* Record = Snapshots.Find(Hitbox);
     //If this hitbox wasn't registered or hasn't had a snapshot yet, we won't rewind it.
     if (!Record)
@@ -131,15 +131,15 @@ FTransform ASaiyoraGameState::RewindHitbox(UHitbox* Hitbox, float const Ping)
     	AfterTransform = Hitbox->GetComponentTransform();
     }
     //Find out what fraction of the way from the before timestamp to the after timestamp our target timestamp is.
-    float const SnapshotGap = AfterTimestamp - BeforeTimestamp;
-    float const SnapshotFraction = (Timestamp - BeforeTimestamp) / SnapshotGap;
+    const float SnapshotGap = AfterTimestamp - BeforeTimestamp;
+    const float SnapshotFraction = (Timestamp - BeforeTimestamp) / SnapshotGap;
     //Interpolate location.
-    FVector const LocDiff = AfterTransform.GetLocation() - BeforeTransform.GetLocation();
-    FVector const InterpVector = LocDiff * SnapshotFraction;
+    const FVector LocDiff = AfterTransform.GetLocation() - BeforeTransform.GetLocation();
+    const FVector InterpVector = LocDiff * SnapshotFraction;
     Hitbox->SetWorldLocation(BeforeTransform.GetLocation() + InterpVector);
     //Interpolate rotation.
-    FRotator const RotDiff = AfterTransform.Rotator() - BeforeTransform.Rotator();
-    FRotator const InterpRotator = RotDiff * SnapshotFraction;
+    const FRotator RotDiff = AfterTransform.Rotator() - BeforeTransform.Rotator();
+    const FRotator InterpRotator = RotDiff * SnapshotFraction;
     Hitbox->SetWorldRotation(BeforeTransform.Rotator() + InterpRotator);
     //Don't interpolate scale (I don't currently have smooth scale changes). Just pick whichever is closer to the target timestamp.
     Hitbox->SetWorldScale3D(SnapshotFraction <= 0.5f ? BeforeTransform.GetScale3D() : AfterTransform.GetScale3D());

@@ -57,7 +57,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnDeathCountChanged, const int32, D
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnBossKilled, const FGameplayTag, BossTag, const FString&, BossName);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnDungeonDepleted);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnDungeonCompleted, const float, CompletionTime);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnPlayerReadyChanged, const class ASaiyoraPlayerCharacter*, Player, const bool, bReady);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnPlayerReadyChanged, const ASaiyoraPlayerCharacter*, Player, const bool, bReady);
 
 UCLASS()
 class SAIYORAV4_API ADungeonGameState : public ASaiyoraGameState
@@ -76,14 +76,14 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly)
 	void UpdatePlayerReadyStatus(ASaiyoraPlayerCharacter* Player, const bool bReady);
 	UFUNCTION(BlueprintPure)
-	void GetReadyPlayers(TArray<class ASaiyoraPlayerCharacter*>& OutReadyPlayers) const { OutReadyPlayers = ReadyPlayers; }
+	void GetReadyPlayers(TArray<ASaiyoraPlayerCharacter*>& OutReadyPlayers) const { OutReadyPlayers = ReadyPlayers; }
 	UPROPERTY(BlueprintAssignable)
 	FOnPlayerReadyChanged OnPlayerReadyChanged;
 	
 private:
 	
-	UPROPERTY(ReplicatedUsing=OnRep_ReadyPlayers)
-	TArray<class ASaiyoraPlayerCharacter*> ReadyPlayers;
+	UPROPERTY(ReplicatedUsing = OnRep_ReadyPlayers)
+	TArray<ASaiyoraPlayerCharacter*> ReadyPlayers;
 	UFUNCTION()
 	void OnRep_ReadyPlayers(const TArray<ASaiyoraPlayerCharacter*>& PreviousReadyPlayers);
 
@@ -160,7 +160,7 @@ private:
 
 	bool AreDungeonRequirementsMet();
 
-	UPROPERTY(ReplicatedUsing=OnRep_DungeonProgress)
+	UPROPERTY(ReplicatedUsing = OnRep_DungeonProgress)
 	FDungeonProgress DungeonProgress;
 	UFUNCTION()
 	void OnRep_DungeonProgress(const FDungeonProgress& PreviousProgress);

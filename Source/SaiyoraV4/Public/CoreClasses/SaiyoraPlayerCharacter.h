@@ -4,6 +4,9 @@
 #include "GameFramework/Character.h"
 #include "SaiyoraPlayerCharacter.generated.h"
 
+class ASaiyoraGameState;
+class ASaiyoraPlayerController;
+
 UCLASS()
 class SAIYORAV4_API ASaiyoraPlayerCharacter : public ACharacter, public ISaiyoraCombatInterface
 {
@@ -30,9 +33,9 @@ public:
 	virtual UResourceHandler* GetResourceHandler_Implementation() const override { return ResourceHandler; }
 
 	UFUNCTION(BlueprintPure)
-	class ASaiyoraGameState* GetSaiyoraGameState() const { return GameStateRef; }
+	ASaiyoraGameState* GetSaiyoraGameState() const { return GameStateRef; }
 	UFUNCTION(BlueprintPure)
-	class ASaiyoraPlayerController* GetSaiyoraPlayerController() const { return PlayerControllerRef; }
+	ASaiyoraPlayerController* GetSaiyoraPlayerController() const { return PlayerControllerRef; }
 
 protected:
 
@@ -47,26 +50,26 @@ private:
 	UPROPERTY()
 	USaiyoraMovementComponent* CustomMovementComponent;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
-	class UFactionComponent* FactionComponent;
+	UFactionComponent* FactionComponent;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
-	class UPlaneComponent* PlaneComponent;
+	UPlaneComponent* PlaneComponent;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
-	class UDamageHandler* DamageHandler;
+	UDamageHandler* DamageHandler;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
-	class UThreatHandler* ThreatHandler;
+	UThreatHandler* ThreatHandler;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
-	class UBuffHandler* BuffHandler;
+	UBuffHandler* BuffHandler;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
-	class UStatHandler* StatHandler;
+	UStatHandler* StatHandler;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
-	class UCrowdControlHandler* CcHandler;
+	UCrowdControlHandler* CcHandler;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
-	class UAbilityComponent* AbilityComponent;
+	UAbilityComponent* AbilityComponent;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
-	class UResourceHandler* ResourceHandler;
+	UResourceHandler* ResourceHandler;
 
 	UPROPERTY()
-	class ASaiyoraGameState* GameStateRef;
+	ASaiyoraGameState* GameStateRef;
 	UPROPERTY()
-	class ASaiyoraPlayerController* PlayerControllerRef;
+	ASaiyoraPlayerController* PlayerControllerRef;
 };

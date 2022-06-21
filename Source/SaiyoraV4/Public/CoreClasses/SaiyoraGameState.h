@@ -6,6 +6,7 @@
 
 class UHitbox;
 class APredictableProjectile;
+class ASaiyoraPlayerCharacter;
 
 USTRUCT()
 struct FRewindRecord
@@ -15,7 +16,7 @@ struct FRewindRecord
 	TArray<TTuple<float, FTransform>> Transforms;
 };
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPlayerAdded, const class ASaiyoraPlayerCharacter*, Player);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPlayerAdded, const ASaiyoraPlayerCharacter*, Player);
 
 UCLASS()
 class SAIYORAV4_API ASaiyoraGameState : public AGameState
@@ -27,7 +28,7 @@ public:
 	ASaiyoraGameState();
 	virtual void Tick(float DeltaSeconds) override;
 	virtual float GetServerWorldTimeSeconds() const override { return WorldTime; }
-	void UpdateClientWorldTime(float const ServerTime) { WorldTime = ServerTime; }
+	void UpdateClientWorldTime(const float ServerTime) { WorldTime = ServerTime; }
 
 private:
 
@@ -55,7 +56,7 @@ public:
 	void RegisterNewHitbox(UHitbox* Hitbox);
 	void RegisterClientProjectile(APredictableProjectile* Projectile);
 	void ReplaceProjectile(APredictableProjectile* ServerProjectile);
-	FTransform RewindHitbox(UHitbox* Hitbox, float const Ping);
+	FTransform RewindHitbox(UHitbox* Hitbox, const float Ping);
 
 private:
 
