@@ -28,14 +28,14 @@ void UBuff::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimePro
     DOREPLIFETIME(UBuff, RemovalReason);
 }
 
-void UBuff::InitializeBuff(FBuffApplyEvent& Event, UBuffHandler* NewHandler, bool const bIgnoreRestrictions, EBuffApplicationOverrideType const StackOverrideType,
-        int32 const OverrideStacks, EBuffApplicationOverrideType const RefreshOverrideType, float const OverrideDuration)
+void UBuff::InitializeBuff(FBuffApplyEvent& Event, UBuffHandler* NewHandler, const bool bIgnoreRestrictions, const EBuffApplicationOverrideType StackOverrideType,
+        const int32 OverrideStacks, const EBuffApplicationOverrideType RefreshOverrideType, const float OverrideDuration)
 {
     if (Status != EBuffStatus::Spawning || !IsValid(NewHandler))
     {
         return;
     }
-    GameStateRef = GetWorld()->GetGameState();
+    GameStateRef = GetWorld()->GetGameState<AGameState>();
     Handler = NewHandler;
     Event.ActionTaken = EBuffApplyAction::NewBuff;
     Event.PreviousStacks = 0;
@@ -105,7 +105,7 @@ void UBuff::OnRep_CreationEvent()
         //The check for new buff is more to guard against replicating a default CreationEvent than anything else.
         return;
     }
-    GameStateRef = GetWorld()->GetGameState();
+    GameStateRef = GetWorld()->GetGameState<AGameState>();
     CurrentStacks = CreationEvent.NewStacks;
     LastRefreshTime = CreationEvent.NewApplyTime;
     ExpireTime = CreationEvent.NewDuration + LastRefreshTime;
@@ -137,8 +137,8 @@ void UBuff::OnRep_CreationEvent()
 #pragma endregion 
 #pragma region Application
 
-void UBuff::ApplyEvent(FBuffApplyEvent& ApplicationEvent, EBuffApplicationOverrideType const StackOverrideType,
-        int32 const OverrideStacks, EBuffApplicationOverrideType const RefreshOverrideType, float const OverrideDuration)
+void UBuff::ApplyEvent(FBuffApplyEvent& ApplicationEvent, const EBuffApplicationOverrideType StackOverrideType,
+        const int32 OverrideStacks, const EBuffApplicationOverrideType RefreshOverrideType, const float OverrideDuration)
 {
     ApplicationEvent.AffectedBuff = this;
     ApplicationEvent.PreviousStacks = GetCurrentStacks();
@@ -253,7 +253,7 @@ void UBuff::CompleteExpireTimer()
     TerminateBuff(EBuffExpireReason::TimedOut);
 }
 
-FBuffRemoveEvent UBuff::TerminateBuff(EBuffExpireReason const TerminationReason)
+FBuffRemoveEvent UBuff::TerminateBuff(const EBuffExpireReason TerminationReason)
 {
     if (bIgnoringRestrictions && TerminationReason == EBuffExpireReason::Dispel)
     {
@@ -293,38 +293,3 @@ void UBuff::OnRep_RemovalReason()
 }
 
 #pragma endregion 
-#pragma region Subscriptions
-
-void UBuff::SubscribeToBuffUpdated(FBuffEventCallback const& Callback)
-{
-    if (Callback.IsBound())
-    {
-        OnUpdated.AddUnique(Callback);
-    }
-}
-
-void UBuff::UnsubscribeFromBuffUpdated(FBuffEventCallback const& Callback)
-{
-    if (Callback.IsBound())
-    {
-        OnUpdated.Remove(Callback);
-    }
-}
-
-void UBuff::SubscribeToBuffRemoved(FBuffRemoveCallback const& Callback)
-{
-    if (Callback.IsBound())
-    {
-        OnRemoved.AddUnique(Callback);
-    }
-}
-
-void UBuff::UnsubscribeFromBuffRemoved(FBuffRemoveCallback const& Callback)
-{
-    if (Callback.IsBound())
-    {
-        OnRemoved.Remove(Callback);
-    }
-}
-
-#pragma endregion

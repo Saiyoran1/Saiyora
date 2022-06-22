@@ -1,5 +1,6 @@
 #include "Movement/SaiyoraMovementComponent.h"
 #include "Buff.h"
+#include "BuffHandler.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraCombatLibrary.h"
 #include "UnrealNetwork.h"
@@ -196,8 +197,6 @@ void USaiyoraMovementComponent::InitializeComponent()
 	GravityScaleStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnGravityScaleStatChanged);
 	JumpVelocityStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnJumpVelocityStatChanged);
 	AirControlStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnAirControlStatChanged);
-	OnBuffApplied.BindDynamic(this, &USaiyoraMovementComponent::ApplyMoveRestrictionFromBuff);
-	OnBuffRemoved.BindDynamic(this, &USaiyoraMovementComponent::RemoveMoveRestrictionFromBuff);
 	DefaultMaxWalkSpeed = MaxWalkSpeed;
 	DefaultCrouchSpeed = MaxWalkSpeedCrouched;
 	DefaultGroundFriction = GroundFriction;
@@ -277,8 +276,8 @@ void USaiyoraMovementComponent::BeginPlay()
 	}
 	if (IsValid(OwnerBuffHandler) && GetOwnerRole() == ROLE_Authority)
 	{
-		OwnerBuffHandler->SubscribeToIncomingBuff(OnBuffApplied);
-		OwnerBuffHandler->SubscribeToIncomingBuffRemove(OnBuffRemoved);
+		OwnerBuffHandler->OnIncomingBuffApplied.AddDynamic(this, &USaiyoraMovementComponent::ApplyMoveRestrictionFromBuff);
+		OwnerBuffHandler->OnIncomingBuffRemoved.AddDynamic(this, &USaiyoraMovementComponent::RemoveMoveRestrictionFromBuff);
 	}
 }
 

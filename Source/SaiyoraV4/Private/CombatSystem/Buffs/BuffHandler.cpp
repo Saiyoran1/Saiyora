@@ -64,10 +64,10 @@ bool UBuffHandler::ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch,
 #pragma endregion 
 #pragma region Application
 
-FBuffApplyEvent UBuffHandler::ApplyBuff(TSubclassOf<UBuff> const BuffClass, AActor* const AppliedBy,
-		UObject* const Source, bool const DuplicateOverride, EBuffApplicationOverrideType const StackOverrideType,
-		int32 const OverrideStacks, EBuffApplicationOverrideType const RefreshOverrideType, float const OverrideDuration,
-		bool const IgnoreRestrictions, TArray<FCombatParameter> const& BuffParams)
+FBuffApplyEvent UBuffHandler::ApplyBuff(const TSubclassOf<UBuff> BuffClass, AActor* AppliedBy,
+		UObject* Source, const bool DuplicateOverride, const EBuffApplicationOverrideType StackOverrideType,
+		const int32 OverrideStacks, const EBuffApplicationOverrideType RefreshOverrideType, const float OverrideDuration,
+		const bool IgnoreRestrictions, const TArray<FCombatParameter>& BuffParams)
 {
     FBuffApplyEvent Event;
 
@@ -117,7 +117,7 @@ FBuffApplyEvent UBuffHandler::ApplyBuff(TSubclassOf<UBuff> const BuffClass, AAct
     return Event;
 }
 
-void UBuffHandler::NotifyOfNewIncomingBuff(FBuffApplyEvent const& ApplicationEvent)
+void UBuffHandler::NotifyOfNewIncomingBuff(const FBuffApplyEvent& ApplicationEvent)
 {
 	if (!IsValid(ApplicationEvent.AffectedBuff))
 	{
@@ -154,7 +154,7 @@ void UBuffHandler::NotifyOfNewIncomingBuff(FBuffApplyEvent const& ApplicationEve
 	}
 }
 
-void UBuffHandler::NotifyOfNewOutgoingBuff(FBuffApplyEvent const& ApplicationEvent)
+void UBuffHandler::NotifyOfNewOutgoingBuff(const FBuffApplyEvent& ApplicationEvent)
 {
 	if (!IsValid(ApplicationEvent.AffectedBuff) || OutgoingBuffs.Contains(ApplicationEvent.AffectedBuff))
 	{
@@ -167,7 +167,7 @@ void UBuffHandler::NotifyOfNewOutgoingBuff(FBuffApplyEvent const& ApplicationEve
 #pragma endregion
 #pragma region Removal
 
-FBuffRemoveEvent UBuffHandler::RemoveBuff(UBuff* Buff, EBuffExpireReason const ExpireReason)
+FBuffRemoveEvent UBuffHandler::RemoveBuff(UBuff* Buff, const EBuffExpireReason ExpireReason)
 {
 	if (GetOwnerRole() != ROLE_Authority || !IsValid(Buff) || Buff->GetAppliedTo() != GetOwner())
 	{
@@ -176,7 +176,7 @@ FBuffRemoveEvent UBuffHandler::RemoveBuff(UBuff* Buff, EBuffExpireReason const E
 	return Buff->TerminateBuff(ExpireReason);
 }
 
-void UBuffHandler::NotifyOfIncomingBuffRemoval(FBuffRemoveEvent const& RemoveEvent)
+void UBuffHandler::NotifyOfIncomingBuffRemoval(const FBuffRemoveEvent& RemoveEvent)
 {
 	if (!IsValid(RemoveEvent.RemovedBuff))
 	{
@@ -203,7 +203,7 @@ void UBuffHandler::NotifyOfIncomingBuffRemoval(FBuffRemoveEvent const& RemoveEve
 		//This is to allow replication one last time (replicating the remove event).
 		RecentlyRemoved.Add(RemoveEvent.RemovedBuff);
 		FTimerHandle RemoveTimer;
-		FTimerDelegate const RemoveDel = FTimerDelegate::CreateUObject(this, &UBuffHandler::PostRemoveCleanup, RemoveEvent.RemovedBuff);
+		const FTimerDelegate RemoveDel = FTimerDelegate::CreateUObject(this, &UBuffHandler::PostRemoveCleanup, RemoveEvent.RemovedBuff);
 		GetWorld()->GetTimerManager().SetTimer(RemoveTimer, RemoveDel, 1.0f, false);
 		
 		if (IsValid(RemoveEvent.RemovedBuff->GetAppliedBy()) && RemoveEvent.RemovedBuff->GetAppliedBy()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
@@ -217,7 +217,7 @@ void UBuffHandler::NotifyOfIncomingBuffRemoval(FBuffRemoveEvent const& RemoveEve
 	}
 }
 
-void UBuffHandler::NotifyOfOutgoingBuffRemoval(FBuffRemoveEvent const& RemoveEvent)
+void UBuffHandler::NotifyOfOutgoingBuffRemoval(const FBuffRemoveEvent& RemoveEvent)
 {
 	if (OutgoingBuffs.Remove(RemoveEvent.RemovedBuff) > 0)
 	{
@@ -230,7 +230,7 @@ void UBuffHandler::PostRemoveCleanup(UBuff* Buff)
 	RecentlyRemoved.Remove(Buff);	
 }
 
-void UBuffHandler::RemoveBuffsOnOwnerDeath(AActor* Actor, ELifeStatus const PreviousStatus, ELifeStatus const NewStatus)
+void UBuffHandler::RemoveBuffsOnOwnerDeath(AActor* Actor, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus)
 {
 	if (NewStatus != ELifeStatus::Alive)
 	{
@@ -266,7 +266,7 @@ void UBuffHandler::RemoveBuffsOnOwnerDeath(AActor* Actor, ELifeStatus const Prev
 #pragma endregion 
 #pragma region Get Buffs
 
-void UBuffHandler::GetBuffsOfClass(TSubclassOf<UBuff> const BuffClass, TArray<UBuff*>& OutBuffs) const
+void UBuffHandler::GetBuffsOfClass(const TSubclassOf<UBuff> BuffClass, TArray<UBuff*>& OutBuffs) const
 {
 	OutBuffs.Empty();
 	if (!IsValid(BuffClass))
@@ -297,7 +297,7 @@ void UBuffHandler::GetBuffsOfClass(TSubclassOf<UBuff> const BuffClass, TArray<UB
 	}
 }
 
-void UBuffHandler::GetBuffsAppliedByActor(AActor* Actor, TArray<UBuff*>& OutBuffs) const
+void UBuffHandler::GetBuffsAppliedByActor(const AActor* Actor, TArray<UBuff*>& OutBuffs) const
 {
 	OutBuffs.Empty();
 	if (!IsValid(Actor))
@@ -327,7 +327,7 @@ void UBuffHandler::GetBuffsAppliedByActor(AActor* Actor, TArray<UBuff*>& OutBuff
 	}
 }
 
-void UBuffHandler::GetOutgoingBuffsOfClass(TSubclassOf<UBuff> const BuffClass, TArray<UBuff*>& OutBuffs) const
+void UBuffHandler::GetOutgoingBuffsOfClass(const TSubclassOf<UBuff> BuffClass, TArray<UBuff*>& OutBuffs) const
 {
 	OutBuffs.Empty();
 	if (!IsValid(BuffClass))
@@ -343,7 +343,7 @@ void UBuffHandler::GetOutgoingBuffsOfClass(TSubclassOf<UBuff> const BuffClass, T
 	}
 }
 
-void UBuffHandler::GetBuffsAppliedToActor(AActor* Target, TArray<UBuff*>& OutBuffs) const
+void UBuffHandler::GetBuffsAppliedToActor(const AActor* Target, TArray<UBuff*>& OutBuffs) const
 {
 	OutBuffs.Empty();
 	if (!IsValid(Target))
@@ -359,8 +359,8 @@ void UBuffHandler::GetBuffsAppliedToActor(AActor* Target, TArray<UBuff*>& OutBuf
 	}
 }
 
-UBuff* UBuffHandler::FindExistingOutgoingBuff(TSubclassOf<UBuff> const BuffClass, bool const bSpecificTarget,
-	AActor* BuffTarget) const
+UBuff* UBuffHandler::FindExistingOutgoingBuff(const TSubclassOf<UBuff> BuffClass, const bool bSpecificTarget,
+	const AActor* BuffTarget) const
 {
 	if (!IsValid(BuffClass) || (bSpecificTarget && !IsValid(BuffTarget)))
 	{
@@ -376,7 +376,7 @@ UBuff* UBuffHandler::FindExistingOutgoingBuff(TSubclassOf<UBuff> const BuffClass
 	return nullptr;
 }
 
-UBuff* UBuffHandler::FindExistingBuff(TSubclassOf<UBuff> const BuffClass, bool const bSpecificOwner, AActor* BuffOwner) const
+UBuff* UBuffHandler::FindExistingBuff(const TSubclassOf<UBuff> BuffClass, const bool bSpecificOwner, const AActor* BuffOwner) const
 {
 	if (!IsValid(BuffClass) || (bSpecificOwner && !IsValid(BuffOwner)))
 	{
@@ -408,76 +408,9 @@ UBuff* UBuffHandler::FindExistingBuff(TSubclassOf<UBuff> const BuffClass, bool c
 }
 
 #pragma endregion 
-#pragma region Subscriptions
-
-void UBuffHandler::SubscribeToIncomingBuff(FBuffEventCallback const& Callback)
-{
-	if (Callback.IsBound())
-	{
-		OnIncomingBuffApplied.AddUnique(Callback);
-	}
-}
-
-void UBuffHandler::UnsubscribeFromIncomingBuff(FBuffEventCallback const& Callback)
-{
-	if (Callback.IsBound())
-	{
-		OnIncomingBuffApplied.Remove(Callback);
-	}
-}
-
-void UBuffHandler::SubscribeToIncomingBuffRemove(FBuffRemoveCallback const& Callback)
-{
-	if (Callback.IsBound())
-	{
-		OnIncomingBuffRemoved.AddUnique(Callback);
-	}
-}
-
-void UBuffHandler::UnsubscribeFromIncomingBuffRemove(FBuffRemoveCallback const& Callback)
-{
-	if (Callback.IsBound())
-	{
-		OnIncomingBuffRemoved.Remove(Callback);
-	}
-}
-
-void UBuffHandler::SubscribeToOutgoingBuff(FBuffEventCallback const& Callback)
-{
-	if (Callback.IsBound())
-	{
-		OnOutgoingBuffApplied.AddUnique(Callback);
-	}
-}
-
-void UBuffHandler::UnsubscribeFromOutgoingBuff(FBuffEventCallback const& Callback)
-{
-	if (Callback.IsBound())
-	{
-		OnOutgoingBuffApplied.Remove(Callback);
-	}
-}
-
-void UBuffHandler::SubscribeToOutgoingBuffRemove(FBuffRemoveCallback const& Callback)
-{
-	if (Callback.IsBound())
-	{
-		OnOutgoingBuffRemoved.AddUnique(Callback);
-	}
-}
-
-void UBuffHandler::UnsubscribeFromOutgoingBuffRemove(FBuffRemoveCallback const& Callback)
-{
-	if (Callback.IsBound())
-	{
-		OnOutgoingBuffRemoved.Remove(Callback);
-	}
-}
-
-#pragma endregion
 #pragma region Restrictions
 
-void UBuffHandler::AddIncomingBuffRestriction(UBuff* Source, FBuffRestriction const& Restriction)
+void UBuffHandler::AddIncomingBuffRestriction(UBuff* Source, const FBuffRestriction& Restriction)
 {
 	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Restriction.IsBound())
 	{
@@ -485,7 +418,7 @@ void UBuffHandler::AddIncomingBuffRestriction(UBuff* Source, FBuffRestriction co
 	}
 }
 
-void UBuffHandler::RemoveIncomingBuffRestriction(UBuff* Source)
+void UBuffHandler::RemoveIncomingBuffRestriction(const UBuff* Source)
 {
 	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
 	{
@@ -493,9 +426,9 @@ void UBuffHandler::RemoveIncomingBuffRestriction(UBuff* Source)
 	}
 }
 
-bool UBuffHandler::CheckIncomingBuffRestricted(FBuffApplyEvent const& BuffEvent)
+bool UBuffHandler::CheckIncomingBuffRestricted(const FBuffApplyEvent& BuffEvent)
 {
-	for (TTuple<UBuff*, FBuffRestriction> const& Restriction : IncomingBuffRestrictions)
+	for (const TTuple<UBuff*, FBuffRestriction>& Restriction : IncomingBuffRestrictions)
 	{
 		if (Restriction.Value.IsBound() && Restriction.Value.Execute(BuffEvent))
 		{
@@ -508,7 +441,7 @@ bool UBuffHandler::CheckIncomingBuffRestricted(FBuffApplyEvent const& BuffEvent)
 	{
 		return true;
 	}
-	for (FGameplayTag const Tag : BuffTags)
+	for (const FGameplayTag Tag : BuffTags)
 	{
 		if (Tag.MatchesTagExact(FSaiyoraCombatTags::Get().Damage) && (!IsValid(DamageHandlerRef) || !DamageHandlerRef->CanEverReceiveDamage()))
 		{
@@ -538,7 +471,7 @@ bool UBuffHandler::CheckIncomingBuffRestricted(FBuffApplyEvent const& BuffEvent)
 	return false;
 }
 
-void UBuffHandler::AddOutgoingBuffRestriction(UBuff* Source, FBuffRestriction const& Restriction)
+void UBuffHandler::AddOutgoingBuffRestriction(UBuff* Source, const FBuffRestriction& Restriction)
 {
 	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Restriction.IsBound())
 	{
@@ -546,7 +479,7 @@ void UBuffHandler::AddOutgoingBuffRestriction(UBuff* Source, FBuffRestriction co
 	}
 }
 
-void UBuffHandler::RemoveOutgoingBuffRestriction(UBuff* Source)
+void UBuffHandler::RemoveOutgoingBuffRestriction(const UBuff* Source)
 {
 	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
 	{
@@ -554,9 +487,9 @@ void UBuffHandler::RemoveOutgoingBuffRestriction(UBuff* Source)
 	}
 }
 
-bool UBuffHandler::CheckOutgoingBuffRestricted(FBuffApplyEvent const& BuffEvent)
+bool UBuffHandler::CheckOutgoingBuffRestricted(const FBuffApplyEvent& BuffEvent)
 {
-	for (TTuple<UBuff*, FBuffRestriction> const& Restriction : OutgoingBuffRestrictions)
+	for (const TTuple<UBuff*, FBuffRestriction>& Restriction : OutgoingBuffRestrictions)
 	{
 		if (Restriction.Value.IsBound() && Restriction.Value.Execute(BuffEvent))
 		{
@@ -565,7 +498,7 @@ bool UBuffHandler::CheckOutgoingBuffRestricted(FBuffApplyEvent const& BuffEvent)
 	}
 	FGameplayTagContainer BuffTags;
 	BuffEvent.BuffClass.GetDefaultObject()->GetBuffTags(BuffTags);
-	for (FGameplayTag const Tag : BuffTags)
+	for (const FGameplayTag Tag : BuffTags)
 	{
 		if (Tag.MatchesTag(FSaiyoraCombatTags::Get().Threat) && (!IsValid(ThreatHandlerRef) || !ThreatHandlerRef->CanBeInThreatTable()))
 		{

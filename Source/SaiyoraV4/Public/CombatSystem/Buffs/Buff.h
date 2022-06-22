@@ -1,9 +1,6 @@
 #pragma once
-#include "BuffHandler.h"
 #include "BuffStructs.h"
-#include "GameplayTagContainer.h"
-#include "SaiyoraCombatLibrary.h"
-#include "GameFramework/GameStateBase.h"
+#include "GameFramework/GameState.h"
 #include "Buff.generated.h"
 
 class UBuffFunction;
@@ -22,19 +19,19 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual UWorld* GetWorld() const override;
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	UFUNCTION(BlueprintPure, Category = "Buff")
 	UBuffHandler* GetHandler() const { return Handler; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	UFUNCTION(BlueprintPure, Category = "Buff")
 	AActor* GetAppliedBy() const { return CreationEvent.AppliedBy; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	UFUNCTION(BlueprintPure, Category = "Buff")
 	AActor* GetAppliedTo() const { return CreationEvent.AppliedTo; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	UFUNCTION(BlueprintPure, Category = "Buff")
 	UObject* GetSource() const { return CreationEvent.Source; }
 
 private:
 
 	UPROPERTY()
-	AGameStateBase* GameStateRef;
+	AGameState* GameStateRef;
 	UPROPERTY()
 	UBuffHandler* Handler;
 
@@ -42,15 +39,15 @@ private:
 
 public:
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	UFUNCTION(BlueprintPure, Category = "Buff")
 	FName GetBuffName() const { return Name; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	UFUNCTION(BlueprintPure, Category = "Buff")
 	UTexture2D* GetBuffIcon() const { return Icon; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	UFUNCTION(BlueprintPure, Category = "Buff")
 	FText GetBuffDescription() const { return Description; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	UFUNCTION(BlueprintPure, Category = "Buff")
 	FLinearColor GetBuffProgressColor() const { return ProgressColor; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	UFUNCTION(BlueprintPure, Category = "Buff")
 	EBuffType GetBuffType() const { return BuffType; }
 
 private:
@@ -70,42 +67,42 @@ private:
 
 public:
 	
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	UFUNCTION(BlueprintPure, Category = "Buff")
 	bool IsDuplicable() const { return bDuplicable; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	UFUNCTION(BlueprintPure, Category = "Buff")
 	bool IsStackable() const { return bStackable; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	UFUNCTION(BlueprintPure, Category = "Buff")
 	int32 GetMaxStacks() const { return MaximumStacks; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	UFUNCTION(BlueprintPure, Category = "Buff")
 	bool IsRefreshable() const { return bRefreshable; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	UFUNCTION(BlueprintPure, Category = "Buff")
 	bool HasFiniteDuration() const { return bFiniteDuration; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	UFUNCTION(BlueprintPure, Category = "Buff")
 	float GetMaxDuration() const { return MaximumDuration; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	UFUNCTION(BlueprintPure, Category = "Buff")
 	void GetBuffTags(FGameplayTagContainer& OutContainer) const { OutContainer = BuffTags; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	UFUNCTION(BlueprintPure, Category = "Buff")
 	bool CanBeAppliedWhileDead() const { return bIgnoreDeath; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	UFUNCTION(BlueprintPure, Category = "Buff")
 	int32 GetInitialStacks() const { return CreationEvent.NewStacks; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	UFUNCTION(BlueprintPure, Category = "Buff")
 	float GetInitialDuration() const { return bFiniteDuration ? CreationEvent.NewDuration : 0.0f; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	UFUNCTION(BlueprintPure, Category = "Buff")
 	float GetInitialApplyTime() const { return CreationEvent.NewApplyTime; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	UFUNCTION(BlueprintPure, Category = "Buff")
 	float GetInitialExpireTime() const { return bFiniteDuration ? (GetInitialApplyTime() + CreationEvent.NewDuration) : 0.0f; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	UFUNCTION(BlueprintPure, Category = "Buff")
 	bool WasInitiallyAppliedXPlane() const { return CreationEvent.AppliedXPlane; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	UFUNCTION(BlueprintPure, Category = "Buff")
 	ESaiyoraPlane GetInitialOriginPlane() const { return CreationEvent.OriginPlane; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	UFUNCTION(BlueprintPure, Category = "Buff")
 	ESaiyoraPlane GetInitialTargetPlane() const { return CreationEvent.TargetPlane; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	UFUNCTION(BlueprintPure, Category = "Buff")
 	void GetInitialParameters(TArray<FCombatParameter>& OutParams) const { OutParams = CreationEvent.CombatParams; }
-	void InitializeBuff(FBuffApplyEvent& Event, UBuffHandler* NewHandler, bool const bIgnoreRestrictions, EBuffApplicationOverrideType const StackOverrideType,
-		int32 const OverrideStacks, EBuffApplicationOverrideType const RefreshOverrideType, float const OverrideDuration);
+	void InitializeBuff(FBuffApplyEvent& Event, UBuffHandler* NewHandler, const bool bIgnoreRestrictions, const EBuffApplicationOverrideType StackOverrideType,
+		const int32 OverrideStacks, const EBuffApplicationOverrideType RefreshOverrideType, const float OverrideDuration);
 	void ApplyEvent(FBuffApplyEvent& ApplicationEvent, EBuffApplicationOverrideType const StackOverrideType,
-		int32 const OverrideStacks, EBuffApplicationOverrideType const RefreshOverrideType, float const OverrideDuration);
+		const int32 OverrideStacks, const EBuffApplicationOverrideType RefreshOverrideType, const float OverrideDuration);
 
 private:
 
@@ -143,11 +140,9 @@ private:
 
 public:
 
-	UFUNCTION(BlueprintCallable, Category = "Buff")
-	void SubscribeToBuffRemoved(FBuffRemoveCallback const& Callback);
-	UFUNCTION(BlueprintCallable, Category = "Buff")
-	void UnsubscribeFromBuffRemoved(FBuffRemoveCallback const& Callback);
-	FBuffRemoveEvent TerminateBuff(EBuffExpireReason const TerminationReason);
+	UPROPERTY(BlueprintAssignable)
+	FBuffRemoveNotification OnRemoved;
+	FBuffRemoveEvent TerminateBuff(const EBuffExpireReason TerminationReason);
 
 private:
 
@@ -158,36 +153,33 @@ private:
 	FTimerHandle ExpireHandle;
 	void ResetExpireTimer();
 	void CompleteExpireTimer();
-	FBuffRemoveNotification OnRemoved;
 
 //Status
 
 public:
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	UFUNCTION(BlueprintPure, Category = "Buff")
 	EBuffStatus GetBuffStatus() const { return Status; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	UFUNCTION(BlueprintPure, Category = "Buff")
 	int32 GetCurrentStacks() const { return CurrentStacks; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	UFUNCTION(BlueprintPure, Category = "Buff")
 	float GetRemainingTime() const { return bFiniteDuration ? FMath::Max(0.0f, ExpireTime - GameStateRef->GetServerWorldTimeSeconds()) : 0.0f; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	UFUNCTION(BlueprintPure, Category = "Buff")
 	float GetLastRefreshTime() const { return LastRefreshTime; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	UFUNCTION(BlueprintPure, Category = "Buff")
 	float GetExpirationTime() const { return ExpireTime; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	UFUNCTION(BlueprintPure, Category = "Buff")
 	bool WasLastAppliedXPlane() const { return LastApplyEvent.ActionTaken == EBuffApplyAction::Failed ? CreationEvent.AppliedXPlane : LastApplyEvent.AppliedXPlane; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	UFUNCTION(BlueprintPure, Category = "Buff")
 	ESaiyoraPlane GetLastOriginPlane() const { return LastApplyEvent.ActionTaken == EBuffApplyAction::Failed ? CreationEvent.OriginPlane : LastApplyEvent.OriginPlane; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	UFUNCTION(BlueprintPure, Category = "Buff")
 	ESaiyoraPlane GetLastTargetPlane() const { return LastApplyEvent.ActionTaken == EBuffApplyAction::Failed ? CreationEvent.TargetPlane : LastApplyEvent.TargetPlane; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	UFUNCTION(BlueprintPure, Category = "Buff")
 	void GetLastApplicationParameters(TArray<FCombatParameter>& OutParams) const { LastApplyEvent.ActionTaken == EBuffApplyAction::Failed ? OutParams = CreationEvent.CombatParams : OutParams = LastApplyEvent.CombatParams; }
 	int32 GetLastPredictionID() const { return LastApplyEvent.ActionTaken == EBuffApplyAction::Failed ? CreationEvent.PredictionID : LastApplyEvent.PredictionID; }
 
-	UFUNCTION(BlueprintCallable, Category = "Buffs")
-	void SubscribeToBuffUpdated(FBuffEventCallback const& Callback);
-	UFUNCTION(BlueprintCallable, Category = "Buffs")
-	void UnsubscribeFromBuffUpdated(FBuffEventCallback const& Callback);
+	UPROPERTY(BlueprintAssignable)
+	FBuffEventNotification OnUpdated;
 
 private:
 
@@ -199,7 +191,6 @@ private:
 	FBuffApplyEvent LastApplyEvent;
 	UFUNCTION()
 	void OnRep_LastApplyEvent();
-	FBuffEventNotification OnUpdated;
 
 //Buff Functions
 
@@ -213,11 +204,11 @@ protected:
 	void SetupCommonBuffFunctions();
 	virtual void SetupCommonBuffFunctions_Implementation() {}
 	UFUNCTION(BlueprintNativeEvent)
-	void OnApply(FBuffApplyEvent const& Event);
-	virtual void OnApply_Implementation(FBuffApplyEvent const& Event) {}
+	void OnApply(const FBuffApplyEvent& Event);
+	virtual void OnApply_Implementation(const FBuffApplyEvent& Event) {}
 	UFUNCTION(BlueprintNativeEvent)
-	void OnRemove(FBuffRemoveEvent const& Event);
-	virtual void OnRemove_Implementation(FBuffRemoveEvent const& Event) {}
+	void OnRemove(const FBuffRemoveEvent& Event);
+	virtual void OnRemove_Implementation(const FBuffRemoveEvent& Event) {}
 	
 private:
 	

@@ -4,6 +4,13 @@
 #include "Components/ActorComponent.h"
 #include "BuffHandler.generated.h"
 
+class USaiyoraMovementComponent;
+class UThreatHandler;
+class UCrowdControlHandler;
+class UStatHandler;
+class UDamageHandler;
+class UPlaneComponent;
+
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class SAIYORAV4_API UBuffHandler : public UActorComponent
 {
@@ -20,59 +27,55 @@ public:
 private:
 
 	UPROPERTY()
-	class UPlaneComponent* PlaneComponentRef;
+	UPlaneComponent* PlaneComponentRef;
 	UPROPERTY()
-	class UDamageHandler* DamageHandlerRef;
+	UDamageHandler* DamageHandlerRef;
 	UPROPERTY()
-	class UStatHandler* StatHandlerRef;
+	UStatHandler* StatHandlerRef;
 	UPROPERTY()
-	class UCrowdControlHandler* CcHandlerRef;
+	UCrowdControlHandler* CcHandlerRef;
 	UPROPERTY()
-	class UThreatHandler* ThreatHandlerRef;
+	UThreatHandler* ThreatHandlerRef;
 	UPROPERTY()
-	class USaiyoraMovementComponent* MovementComponentRef;
+	USaiyoraMovementComponent* MovementComponentRef;
 	
 //Incoming Buffs
 
 public:
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Buffs", meta = (AutoCreateRefTerm = "BuffParams"))
-	FBuffApplyEvent ApplyBuff(TSubclassOf<UBuff> const BuffClass, AActor* const AppliedBy, UObject* const Source,
-		bool const DuplicateOverride, EBuffApplicationOverrideType const StackOverrideType, int32 const OverrideStacks,
-		EBuffApplicationOverrideType const RefreshOverrideType, float const OverrideDuration, bool const IgnoreRestrictions,
-		TArray<FCombatParameter> const& BuffParams);
+	FBuffApplyEvent ApplyBuff(const TSubclassOf<UBuff> BuffClass, AActor* AppliedBy, UObject* Source,
+		const bool DuplicateOverride, const EBuffApplicationOverrideType StackOverrideType, const int32 OverrideStacks,
+		const EBuffApplicationOverrideType RefreshOverrideType, const float OverrideDuration, const bool IgnoreRestrictions,
+		const TArray<FCombatParameter>& BuffParams);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Buffs")
-	FBuffRemoveEvent RemoveBuff(UBuff* Buff, EBuffExpireReason const ExpireReason);
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buffs")
+	FBuffRemoveEvent RemoveBuff(UBuff* Buff, const EBuffExpireReason ExpireReason);
+	UFUNCTION(BlueprintPure, Category = "Buffs")
 	bool CanEverReceiveBuffs() const { return bCanEverReceiveBuffs; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	UFUNCTION(BlueprintPure, Category = "Buff")
 	void GetBuffs(TArray<UBuff*>& OutBuffs) const { OutBuffs = Buffs; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	UFUNCTION(BlueprintPure, Category = "Buff")
 	void GetDebuffs(TArray<UBuff*>& OutDebuffs) const { OutDebuffs = Debuffs; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	UFUNCTION(BlueprintPure, Category = "Buff")
 	void GetHiddenBuffs(TArray<UBuff*>& OutHiddenBuffs) const { OutHiddenBuffs = HiddenBuffs; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
-	void GetBuffsOfClass(TSubclassOf<UBuff> const BuffClass, TArray<UBuff*>& OutBuffs) const;
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
-	void GetBuffsAppliedByActor(AActor* Actor, TArray<UBuff*>& OutBuffs) const;
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
-	UBuff* FindExistingBuff(TSubclassOf<UBuff> const BuffClass, bool const bSpecificOwner = false, AActor* BuffOwner = nullptr) const;
+	UFUNCTION(BlueprintPure, Category = "Buff")
+	void GetBuffsOfClass(const TSubclassOf<UBuff> BuffClass, TArray<UBuff*>& OutBuffs) const;
+	UFUNCTION(BlueprintPure, Category = "Buff")
+	void GetBuffsAppliedByActor(const AActor* Actor, TArray<UBuff*>& OutBuffs) const;
+	UFUNCTION(BlueprintPure, Category = "Buff")
+	UBuff* FindExistingBuff(const TSubclassOf<UBuff> BuffClass, const bool bSpecificOwner = false, const AActor* BuffOwner = nullptr) const;
 
-	UFUNCTION(BlueprintCallable, Category = "Buff")
-	void SubscribeToIncomingBuff(FBuffEventCallback const& Callback);
-	UFUNCTION(BlueprintCallable, Category = "Buff")
-	void UnsubscribeFromIncomingBuff(FBuffEventCallback const& Callback);
-	UFUNCTION(BlueprintCallable, Category = "Buff")
-	void SubscribeToIncomingBuffRemove(FBuffRemoveCallback const& Callback);
-	UFUNCTION(BlueprintCallable, Category = "Buff")
-	void UnsubscribeFromIncomingBuffRemove(FBuffRemoveCallback const& Callback);
+	UPROPERTY(BlueprintAssignable)
+	FBuffEventNotification OnIncomingBuffApplied;
+	UPROPERTY(BlueprintAssignable)
+	FBuffRemoveNotification OnIncomingBuffRemoved;
 
-	void AddIncomingBuffRestriction(UBuff* Source, FBuffRestriction const& Restriction);
-	void RemoveIncomingBuffRestriction(UBuff* Source);
-	bool CheckIncomingBuffRestricted(FBuffApplyEvent const& BuffEvent);
+	void AddIncomingBuffRestriction(UBuff* Source, const FBuffRestriction& Restriction);
+	void RemoveIncomingBuffRestriction(const UBuff* Source);
+	bool CheckIncomingBuffRestricted(const FBuffApplyEvent& BuffEvent);
 	
-	void NotifyOfNewIncomingBuff(FBuffApplyEvent const& ApplicationEvent);
-	void NotifyOfIncomingBuffRemoval(FBuffRemoveEvent const& RemoveEvent);
+	void NotifyOfNewIncomingBuff(const FBuffApplyEvent& ApplicationEvent);
+	void NotifyOfIncomingBuffRemoval(const FBuffRemoveEvent& RemoveEvent);
 
 private:
 
@@ -88,47 +91,39 @@ private:
 	void PostRemoveCleanup(UBuff* Buff);
 	UPROPERTY()
 	TArray<UBuff*> RecentlyRemoved;
-	FBuffEventNotification OnIncomingBuffApplied;
-	FBuffRemoveNotification OnIncomingBuffRemoved;
 	TMap<UBuff*, FBuffRestriction> IncomingBuffRestrictions;
 	FLifeStatusCallback OnDeath;
 	UFUNCTION()
-	void RemoveBuffsOnOwnerDeath(AActor* Actor, ELifeStatus const PreviousStatus, ELifeStatus const NewStatus);
+	void RemoveBuffsOnOwnerDeath(AActor* Actor, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus);
 
 //Outgoing Buffs
 
 public:
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	UFUNCTION(BlueprintPure, Category = "Buff")
 	void GetOutgoingBuffs(TArray<UBuff*>& OutBuffs) const { OutBuffs = OutgoingBuffs; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
-	void GetOutgoingBuffsOfClass(TSubclassOf<UBuff> const BuffClass, TArray<UBuff*>& OutBuffs) const;
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
-	void GetBuffsAppliedToActor(AActor* Target, TArray<UBuff*>& OutBuffs) const;
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
-	UBuff* FindExistingOutgoingBuff(TSubclassOf<UBuff> const BuffClass, bool const bSpecificTarget = false, AActor* BuffTarget = nullptr) const;
+	UFUNCTION(BlueprintPure, Category = "Buff")
+	void GetOutgoingBuffsOfClass(const TSubclassOf<UBuff> BuffClass, TArray<UBuff*>& OutBuffs) const;
+	UFUNCTION(BlueprintPure, Category = "Buff")
+	void GetBuffsAppliedToActor(const AActor* Target, TArray<UBuff*>& OutBuffs) const;
+	UFUNCTION(BlueprintPure, Category = "Buff")
+	UBuff* FindExistingOutgoingBuff(const TSubclassOf<UBuff> BuffClass, const bool bSpecificTarget = false, const AActor* BuffTarget = nullptr) const;
 
-	UFUNCTION(BlueprintCallable, Category = "Buff")
-	void SubscribeToOutgoingBuff(FBuffEventCallback const& Callback);
-	UFUNCTION(BlueprintCallable, Category = "Buff")
-	void UnsubscribeFromOutgoingBuff(FBuffEventCallback const& Callback);
-	UFUNCTION(BlueprintCallable, Category = "Buff")
-	void SubscribeToOutgoingBuffRemove(FBuffRemoveCallback const& Callback);
-	UFUNCTION(BlueprintCallable, Category = "Buff")
-	void UnsubscribeFromOutgoingBuffRemove(FBuffRemoveCallback const& Callback);
+	UPROPERTY(BlueprintAssignable)
+	FBuffEventNotification OnOutgoingBuffApplied;
+	UPROPERTY(BlueprintAssignable)
+	FBuffRemoveNotification OnOutgoingBuffRemoved;
 
-	void AddOutgoingBuffRestriction(UBuff* Source, FBuffRestriction const& Restriction);
-	void RemoveOutgoingBuffRestriction(UBuff* Source);
-	bool CheckOutgoingBuffRestricted(FBuffApplyEvent const& BuffEvent);
+	void AddOutgoingBuffRestriction(UBuff* Source, const FBuffRestriction& Restriction);
+	void RemoveOutgoingBuffRestriction(const UBuff* Source);
+	bool CheckOutgoingBuffRestricted(const FBuffApplyEvent& BuffEvent);
 
-	void NotifyOfNewOutgoingBuff(FBuffApplyEvent const& ApplicationEvent);
-	void NotifyOfOutgoingBuffRemoval(FBuffRemoveEvent const& RemoveEvent);
+	void NotifyOfNewOutgoingBuff(const FBuffApplyEvent& ApplicationEvent);
+	void NotifyOfOutgoingBuffRemoval(const FBuffRemoveEvent& RemoveEvent);
 	
 private:
 
 	UPROPERTY()
 	TArray<UBuff*> OutgoingBuffs;
-	FBuffEventNotification OnOutgoingBuffApplied;
-	FBuffRemoveNotification OnOutgoingBuffRemoved;
 	TMap<UBuff*, FBuffRestriction> OutgoingBuffRestrictions;
 };

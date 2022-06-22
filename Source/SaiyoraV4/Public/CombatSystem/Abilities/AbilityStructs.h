@@ -304,14 +304,6 @@ FORCEINLINE uint32 GetTypeHash(const FPredictedTick& Tick)
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FAbilityModCondition, UCombatAbility*, Ability);
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FAbilityClassRestriction, TSubclassOf<UCombatAbility>, AbilityClass);
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FInterruptRestriction, const FInterruptEvent&, InterruptEvent);
-DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityInstanceCallback, UCombatAbility*, NewAbility);
-DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityCallback, const FAbilityEvent&, Event);
-DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityCancelCallback, const FCancelEvent&, Event);
-DECLARE_DYNAMIC_DELEGATE_OneParam(FInterruptCallback, const FInterruptEvent&, InterruptEvent);
-DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityMispredictionCallback, const int32, PredictionID);
-DECLARE_DYNAMIC_DELEGATE_TwoParams(FGlobalCooldownCallback, const FGlobalCooldown&, OldGlobalCooldown, const FGlobalCooldown&, NewGlobalCooldown);
-DECLARE_DYNAMIC_DELEGATE_TwoParams(FCastingStateCallback, const FCastingState&, OldState, const FCastingState&, NewState);
-DECLARE_DYNAMIC_DELEGATE_ThreeParams(FAbilityChargeCallback, UCombatAbility*, Ability, const int32, OldCharges, const int32, NewCharges);
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityInstanceNotification, UCombatAbility*, NewAbility);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityNotification, const FAbilityEvent&, Event);

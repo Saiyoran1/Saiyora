@@ -163,10 +163,8 @@ private:
 	FCrowdControlCallback OnRooted;
 	UFUNCTION()
 	void StopMotionOnRooted(FCrowdControlStatus const& Previous, FCrowdControlStatus const& New);
-	FBuffEventCallback OnBuffApplied;
 	UFUNCTION()
 	void ApplyMoveRestrictionFromBuff(FBuffApplyEvent const& ApplyEvent);
-	FBuffRemoveCallback OnBuffRemoved;
 	UFUNCTION()
 	void RemoveMoveRestrictionFromBuff(FBuffRemoveEvent const& RemoveEvent);
 

@@ -72,7 +72,6 @@ private:
 	FProjectileSource SourceInfo;
 	UFUNCTION()
 	void OnRep_SourceInfo();
-	FAbilityMispredictionCallback OnMisprediction;
 	UFUNCTION()
 	void DeleteOnMisprediction(int32 const PredictionID);
 	bool bReplaced = false;

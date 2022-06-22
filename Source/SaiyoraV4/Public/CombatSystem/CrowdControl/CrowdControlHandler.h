@@ -68,10 +68,8 @@ private:
 	UFUNCTION()
 	void OnRep_DisarmStatus(FCrowdControlStatus const& Previous);
 	FCrowdControlNotification OnCrowdControlChanged;
-	FBuffEventCallback OnBuffApplied;
 	UFUNCTION()
 	void CheckAppliedBuffForCc(FBuffApplyEvent const& BuffEvent);
-	FBuffRemoveCallback OnBuffRemoved;
 	UFUNCTION()
 	void CheckRemovedBuffForCc(FBuffRemoveEvent const& RemoveEvent);
 	FDamageEventCallback OnDamageTaken;

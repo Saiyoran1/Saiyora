@@ -1,5 +1,6 @@
 #include "BuffFunction.h"
 #include "Buff.h"
+#include "BuffHandler.h"
 #include "DamageHandler.h"
 #include "PlaneComponent.h"
 #include "SaiyoraCombatInterface.h"
@@ -7,7 +8,7 @@
 
 #pragma region Core Buff Function
 
-UBuffFunction* UBuffFunction::InstantiateBuffFunction(UBuff* Buff, TSubclassOf<UBuffFunction> const FunctionClass)
+UBuffFunction* UBuffFunction::InstantiateBuffFunction(UBuff* Buff, const TSubclassOf<UBuffFunction> FunctionClass)
 {
     if (!IsValid(Buff) || !IsValid(FunctionClass))
     {
@@ -43,15 +44,15 @@ void UBuffFunction::InitializeBuffFunction(UBuff* BuffRef)
     }
 }
 
-void UCustomBuffFunction::SetupCustomBuffFunction(UBuff* Buff, TSubclassOf<UCustomBuffFunction> const FunctionClass)
+void UCustomBuffFunction::SetupCustomBuffFunction(UBuff* Buff, const TSubclassOf<UCustomBuffFunction> FunctionClass)
 {
     InstantiateBuffFunction(Buff, FunctionClass);
 }
 
 void UCustomBuffFunction::SetupCustomBuffFunctions(UBuff* Buff,
-    TArray<TSubclassOf<UCustomBuffFunction>> const& FunctionClasses)
+    const TArray<TSubclassOf<UCustomBuffFunction>>& FunctionClasses)
 {
-    for (TSubclassOf<UCustomBuffFunction> const& FunctionClass : FunctionClasses)
+    for (const TSubclassOf<UCustomBuffFunction>& FunctionClass : FunctionClasses)
     {
         InstantiateBuffFunction(Buff, FunctionClass);
     }
@@ -60,7 +61,7 @@ void UCustomBuffFunction::SetupCustomBuffFunctions(UBuff* Buff,
 #pragma endregion
 #pragma region Buff Restriction
 
-void UBuffRestrictionFunction::BuffRestriction(UBuff* Buff, EBuffRestrictionType const RestrictionType, FBuffRestriction const& Restriction)
+void UBuffRestrictionFunction::BuffRestriction(UBuff* Buff, const EBuffRestrictionType RestrictionType, const FBuffRestriction& Restriction)
 {
     if (!IsValid(Buff) || !Restriction.IsBound() || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
     {
@@ -74,7 +75,7 @@ void UBuffRestrictionFunction::BuffRestriction(UBuff* Buff, EBuffRestrictionType
     NewBuffRestrictionFunction->SetRestrictionVars(RestrictionType, Restriction);
 }
 
-void UBuffRestrictionFunction::SetRestrictionVars(EBuffRestrictionType const RestrictionType, FBuffRestriction const& Restriction)
+void UBuffRestrictionFunction::SetRestrictionVars(const EBuffRestrictionType RestrictionType, const FBuffRestriction& Restriction)
 {
     if (GetOwningBuff()->GetAppliedTo()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
     {
@@ -84,7 +85,7 @@ void UBuffRestrictionFunction::SetRestrictionVars(EBuffRestrictionType const Res
     }
 }
 
-void UBuffRestrictionFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
+void UBuffRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
     if (IsValid(TargetComponent))
     {
@@ -102,7 +103,7 @@ void UBuffRestrictionFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
     }
 }
 
-void UBuffRestrictionFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
+void UBuffRestrictionFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
     if (IsValid(TargetComponent))
     {

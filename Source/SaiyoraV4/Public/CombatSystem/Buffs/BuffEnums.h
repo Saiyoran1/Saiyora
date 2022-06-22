@@ -58,7 +58,7 @@ enum class EBuffParamType : uint8
 UENUM(BlueprintType)
 enum class EBuffRestrictionType : uint8
 {
- None,
- Outgoing,
- Incoming
+ None = 0,
+ Outgoing = 1,
+ Incoming = 2,
 };

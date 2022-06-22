@@ -17,17 +17,17 @@ private:
 
 public:
 
-	static UBuffFunction* InstantiateBuffFunction(UBuff* Buff, TSubclassOf<UBuffFunction> const FunctionClass);
+	static UBuffFunction* InstantiateBuffFunction(UBuff* Buff, const TSubclassOf<UBuffFunction> FunctionClass);
 	virtual UWorld* GetWorld() const override;
 	void InitializeBuffFunction(UBuff* BuffRef);
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Buff")
+	UFUNCTION(BlueprintPure, Category = "Buff")
 	UBuff* GetOwningBuff() const { return OwningBuff; }
 
 	virtual void SetupBuffFunction() {}
-	virtual void OnApply(FBuffApplyEvent const& ApplyEvent) {}
-	virtual void OnStack(FBuffApplyEvent const& ApplyEvent) {}
-	virtual void OnRefresh(FBuffApplyEvent const& ApplyEvent) {}
-	virtual void OnRemove(FBuffRemoveEvent const& RemoveEvent) {}
+	virtual void OnApply(const FBuffApplyEvent& ApplyEvent) {}
+	virtual void OnStack(const FBuffApplyEvent& ApplyEvent) {}
+	virtual void OnRefresh(const FBuffApplyEvent& ApplyEvent) {}
+	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) {}
 	virtual void CleanupBuffFunction() {}
 };
 
@@ -40,15 +40,15 @@ class UCustomBuffFunction : public UBuffFunction
 public:
 
 	UFUNCTION(BlueprintCallable, Category = "BuffFunctions")
-	static void SetupCustomBuffFunction(UBuff* Buff, TSubclassOf<UCustomBuffFunction> const FunctionClass);
+	static void SetupCustomBuffFunction(UBuff* Buff, const TSubclassOf<UCustomBuffFunction> FunctionClass);
 	UFUNCTION(BlueprintCallable, Category = "BuffFunctions")
-	static void SetupCustomBuffFunctions(UBuff* Buff, TArray<TSubclassOf<UCustomBuffFunction>> const& FunctionClasses);
+	static void SetupCustomBuffFunctions(UBuff* Buff, const TArray<TSubclassOf<UCustomBuffFunction>>& FunctionClasses);
 	
 	virtual void SetupBuffFunction() override { CustomSetup(); }
-	virtual void OnApply(FBuffApplyEvent const& ApplyEvent) override { CustomApply(ApplyEvent); }
-	virtual void OnStack(FBuffApplyEvent const& ApplyEvent) override { CustomStack(ApplyEvent); }
-	virtual void OnRefresh(FBuffApplyEvent const& ApplyEvent) override { CustomRefresh(ApplyEvent); }
-	virtual void OnRemove(FBuffRemoveEvent const& RemoveEvent) override { CustomRemove(RemoveEvent); }
+	virtual void OnApply(const FBuffApplyEvent& ApplyEvent) override { CustomApply(ApplyEvent); }
+	virtual void OnStack(const FBuffApplyEvent& ApplyEvent) override { CustomStack(ApplyEvent); }
+	virtual void OnRefresh(const FBuffApplyEvent& ApplyEvent) override { CustomRefresh(ApplyEvent); }
+	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) override { CustomRemove(RemoveEvent); }
 	virtual void CleanupBuffFunction() override { CustomCleanup(); }
 
 protected:
@@ -72,16 +72,16 @@ class UBuffRestrictionFunction : public UBuffFunction
 {
 	GENERATED_BODY()
 
-	EBuffRestrictionType RestrictType;
+	EBuffRestrictionType RestrictType = EBuffRestrictionType::None;
 	FBuffRestriction Restrict;
 	UPROPERTY()
-	UBuffHandler* TargetComponent;
+	UBuffHandler* TargetComponent = nullptr;
 
-	void SetRestrictionVars(EBuffRestrictionType const RestrictionType, FBuffRestriction const& Restriction);
+	void SetRestrictionVars(const EBuffRestrictionType RestrictionType, const FBuffRestriction& Restriction);
 
-	virtual void OnApply(FBuffApplyEvent const& ApplyEvent) override;
-	virtual void OnRemove(FBuffRemoveEvent const& RemoveEvent) override;
+	virtual void OnApply(const FBuffApplyEvent& ApplyEvent) override;
+	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) override;
 
 	UFUNCTION(BlueprintCallable, Category = "Buff Function", meta = (DefaultToSelf = "Buff", HidePin = "Buff"))
-	static void BuffRestriction(UBuff* Buff, EBuffRestrictionType const RestrictionType, FBuffRestriction const& Restriction);
+	static void BuffRestriction(UBuff* Buff, const EBuffRestrictionType RestrictionType, const FBuffRestriction& Restriction);
 };

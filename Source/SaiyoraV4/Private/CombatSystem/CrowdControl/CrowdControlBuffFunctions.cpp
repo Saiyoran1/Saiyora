@@ -1,5 +1,6 @@
 ﻿#include "CrowdControlBuffFunctions.h"
 #include "Buff.h"
+#include "BuffHandler.h"
 #include "CrowdControlHandler.h"
 #include "SaiyoraCombatInterface.h"
 
