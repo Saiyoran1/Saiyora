@@ -4,8 +4,8 @@
 #include "CombatStructs.h"
 #include "StatStructs.generated.h"
 
-DECLARE_DYNAMIC_DELEGATE_TwoParams(FStatCallback, const FGameplayTag, StatTag, float const, NewValue);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FStatNotification, FGameplayTag const&, StatTag, float const, NewValue);
+DECLARE_DYNAMIC_DELEGATE_TwoParams(FStatCallback, const FGameplayTag, StatTag, const float, NewValue);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FStatNotification, const FGameplayTag&, StatTag, const float, NewValue);
 
 USTRUCT()
 struct FStatInfo : public FTableRowBase
@@ -35,12 +35,12 @@ struct FCombatStat : public FFastArraySerializerItem
 {
     GENERATED_BODY()
 
-    FCombatStat(FStatInfo const& InitInfo);
+    FCombatStat(const FStatInfo& InitInfo);
     FCombatStat() {}
-    void SubscribeToStatChanged(FStatCallback const& Callback);
-    void UnsubscribeFromStatChanged(FStatCallback const& Callback);
-    void AddModifier(FCombatModifier const& Modifier);
-    void RemoveModifier(UBuff* Source);
+    void SubscribeToStatChanged(const FStatCallback& Callback);
+    void UnsubscribeFromStatChanged(const FStatCallback& Callback);
+    void AddModifier(const FCombatModifier& Modifier);
+    void RemoveModifier(const UBuff* Source);
 	
     FGameplayTag GetStatTag() const { return Defaults.StatTag; }
     bool ShouldReplicate() const { return Defaults.bShouldReplicate; }

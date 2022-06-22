@@ -13,7 +13,7 @@ public:
 	UFactionComponent();
 	virtual void BeginPlay() override;
 	
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Faction")
+	UFUNCTION(BlueprintPure, Category = "Faction")
 	EFaction GetCurrentFaction() const { return DefaultFaction; }
 
 private:

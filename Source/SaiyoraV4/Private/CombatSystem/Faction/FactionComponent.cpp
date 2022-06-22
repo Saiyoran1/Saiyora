@@ -12,10 +12,10 @@ void UFactionComponent::BeginPlay()
 	Super::BeginPlay();
 	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Faction Component."));
 	GetOwner()->GetComponents(OwnerMeshes);
-	APlayerController* LocalPC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+	const APlayerController* LocalPC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
 	if (IsValid(LocalPC))
 	{
-		APawn* LocalPawn = LocalPC->GetPawn();
+		const APawn* LocalPawn = LocalPC->GetPawn();
 		if (IsValid(LocalPawn) && LocalPawn == GetOwner())
 		{
 			bIsLocalPlayer = true;
@@ -26,12 +26,12 @@ void UFactionComponent::BeginPlay()
 
 void UFactionComponent::UpdateOwnerCustomRendering()
 {
-	int32 const StencilIndex = bIsLocalPlayer ? 0 : static_cast<int>(DefaultFaction) + 1;
+	const int32 StencilIndex = bIsLocalPlayer ? 0 : static_cast<int>(DefaultFaction) + 1;
 	for (UMeshComponent* Mesh : OwnerMeshes)
 	{
 		if (IsValid(Mesh))
 		{
-			int32 const PreviousStencil = Mesh->CustomDepthStencilValue;
+			const int32 PreviousStencil = Mesh->CustomDepthStencilValue;
 			Mesh->SetRenderCustomDepth(true);
 			Mesh->SetCustomDepthStencilValue((PreviousStencil - (PreviousStencil % 10)) + StencilIndex);
 		}

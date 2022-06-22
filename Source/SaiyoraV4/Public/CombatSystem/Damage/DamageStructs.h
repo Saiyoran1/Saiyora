@@ -68,9 +68,6 @@ struct FDamagingEvent
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FDamageRestriction, const FDamageInfo&, DamageInfo);
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FDamageModCondition, const FDamageInfo&, DamageInfo);
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FDeathRestriction, const FDamagingEvent&, DamageEvent);
-DECLARE_DYNAMIC_DELEGATE_OneParam(FDamageEventCallback, FDamagingEvent const&, DamageEvent);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDamageEventNotification, const FDamagingEvent&, DamageEvent);
-DECLARE_DYNAMIC_DELEGATE_ThreeParams(FHealthChangeCallback, AActor*, Actor, const float, PreviousHealth, const float, NewHealth);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FHealthChangeNotification, AActor*, Actor, const float, PreviousHealth, const float, NewHealth);
-DECLARE_DYNAMIC_DELEGATE_ThreeParams(FLifeStatusCallback, AActor*, Actor, const ELifeStatus, PreviousStatus, const ELifeStatus, NewStatus);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FLifeStatusNotification, AActor*, Actor, const ELifeStatus, PreviousStatus, const ELifeStatus, NewStatus);

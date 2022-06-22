@@ -10,6 +10,7 @@
 class UStatHandler;
 class UBuffHandler;
 class UPlaneComponent;
+class ADungeonGameState;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class SAIYORAV4_API UDamageHandler : public UActorComponent
@@ -32,7 +33,7 @@ private:
 	UPROPERTY()
 	APawn* OwnerAsPawn = nullptr;
 	UPROPERTY()
-	class ADungeonGameState* GameStateRef = nullptr;
+	ADungeonGameState* GameStateRef = nullptr;
 
 //Health
 	
@@ -64,7 +65,7 @@ public:
 	FLifeStatusNotification OnLifeStatusChanged;
 
 	void AddDeathRestriction(UBuff* Source, const FDeathRestriction& Restriction);
-	void RemoveDeathRestriction(UBuff* Source);
+	void RemoveDeathRestriction(const UBuff* Source);
 
 private:
 
@@ -133,10 +134,10 @@ public:
 	FDamageEventNotification OnKillingBlow;
 
    	void AddOutgoingDamageRestriction(UBuff* Source, const FDamageRestriction& Restriction);
-   	void RemoveOutgoingDamageRestriction(UBuff* Source);
+   	void RemoveOutgoingDamageRestriction(const UBuff* Source);
 	bool CheckOutgoingDamageRestricted(const FDamageInfo& DamageInfo);
     void AddOutgoingDamageModifier(UBuff* Source, const FDamageModCondition& Modifier);
-   	void RemoveOutgoingDamageModifier(UBuff* Source);
+   	void RemoveOutgoingDamageModifier(const UBuff* Source);
 	float GetModifiedOutgoingDamage(const FDamageInfo& DamageInfo, const FDamageModCondition& SourceMod) const;
 
 	void NotifyOfOutgoingDamage(const FDamagingEvent& DamageEvent);
@@ -159,10 +160,10 @@ public:
 	FDamageEventNotification OnOutgoingHealing;
 
    	void AddOutgoingHealingRestriction(UBuff* Source, const FDamageRestriction& Restriction);
-   	void RemoveOutgoingHealingRestriction(UBuff* Source);
+   	void RemoveOutgoingHealingRestriction(const UBuff* Source);
 	bool CheckOutgoingHealingRestricted(const FDamageInfo& HealingInfo);
    	void AddOutgoingHealingModifier(UBuff* Source, const FDamageModCondition& Modifier);
-   	void RemoveOutgoingHealingModifier(UBuff* Source);
+   	void RemoveOutgoingHealingModifier(const UBuff* Source);
 	float GetModifiedOutgoingHealing(const FDamageInfo& HealingInfo, const FDamageModCondition& SourceMod) const;
 	
 	void NotifyOfOutgoingHealing(const FDamagingEvent& HealingEvent);
@@ -192,10 +193,10 @@ public:
 	FDamageEventNotification OnIncomingDamage;
 
 	void AddIncomingDamageRestriction(UBuff* Source, const FDamageRestriction& Restriction);
-	void RemoveIncomingDamageRestriction(UBuff* Source);
+	void RemoveIncomingDamageRestriction(const UBuff* Source);
 	bool CheckIncomingDamageRestricted(const FDamageInfo& DamageInfo);
 	void AddIncomingDamageModifier(UBuff* Source, const FDamageModCondition& Modifier);
-	void RemoveIncomingDamageModifier(UBuff* Source);
+	void RemoveIncomingDamageModifier(const UBuff* Source);
 	float GetModifiedIncomingDamage(const FDamageInfo& DamageInfo) const;
 
 private:
@@ -229,10 +230,10 @@ public:
 	FDamageEventNotification OnIncomingHealing;
 
 	void AddIncomingHealingRestriction(UBuff* Source, const FDamageRestriction& Restriction);
-	void RemoveIncomingHealingRestriction(UBuff* Source);
+	void RemoveIncomingHealingRestriction(const UBuff* Source);
 	bool CheckIncomingHealingRestricted(const FDamageInfo& HealingInfo);
 	void AddIncomingHealingModifier(UBuff* Source, const FDamageModCondition& Modifier);
-	void RemoveIncomingHealingModifier(UBuff* Source);
+	void RemoveIncomingHealingModifier(const UBuff* Source);
 	float GetModifiedIncomingHealing(const FDamageInfo& HealingInfo) const;
 
 private:

@@ -954,7 +954,7 @@ float USaiyoraMovementComponent::GetMaxSpeed() const
 #pragma endregion
 #pragma region Stats
 
-void USaiyoraMovementComponent::OnMaxWalkSpeedStatChanged(FGameplayTag const& StatTag, float const NewValue)
+void USaiyoraMovementComponent::OnMaxWalkSpeedStatChanged(const FGameplayTag StatTag, const float NewValue)
 {
 	//TODO: Delay by ping for non-locally controlled on the server?
 	//Make sure all movement stats are actually replicated.
@@ -962,37 +962,37 @@ void USaiyoraMovementComponent::OnMaxWalkSpeedStatChanged(FGameplayTag const& St
 	MaxWalkSpeed = FMath::Max(DefaultMaxWalkSpeed * NewValue, 0.0f);
 }
 
-void USaiyoraMovementComponent::OnMaxCrouchSpeedStatChanged(FGameplayTag const& StatTag, float const NewValue)
+void USaiyoraMovementComponent::OnMaxCrouchSpeedStatChanged(const FGameplayTag StatTag, const float NewValue)
 {
 	MaxWalkSpeedCrouched = FMath::Max(DefaultCrouchSpeed * NewValue, 0.0f);
 }
 
-void USaiyoraMovementComponent::OnGroundFrictionStatChanged(FGameplayTag const& StatTag, float const NewValue)
+void USaiyoraMovementComponent::OnGroundFrictionStatChanged(const FGameplayTag StatTag, const float NewValue)
 {
 	GroundFriction = FMath::Max(DefaultGroundFriction * NewValue, 0.0f);
 }
 
-void USaiyoraMovementComponent::OnBrakingDecelerationStatChanged(FGameplayTag const& StatTag, float const NewValue)
+void USaiyoraMovementComponent::OnBrakingDecelerationStatChanged(const FGameplayTag StatTag, const float NewValue)
 {
 	BrakingDecelerationWalking = FMath::Max(DefaultBrakingDeceleration * NewValue, 0.0f);
 }
 
-void USaiyoraMovementComponent::OnMaxAccelerationStatChanged(FGameplayTag const& StatTag, float const NewValue)
+void USaiyoraMovementComponent::OnMaxAccelerationStatChanged(const FGameplayTag StatTag, const float NewValue)
 {
 	MaxAcceleration = FMath::Max(DefaultMaxAcceleration * NewValue, 0.0f);
 }
 
-void USaiyoraMovementComponent::OnGravityScaleStatChanged(FGameplayTag const& StatTag, float const NewValue)
+void USaiyoraMovementComponent::OnGravityScaleStatChanged(const FGameplayTag StatTag, const float NewValue)
 {
 	GravityScale = FMath::Max(DefaultGravityScale * NewValue, 0.0f);
 }
 
-void USaiyoraMovementComponent::OnJumpVelocityStatChanged(FGameplayTag const& StatTag, float const NewValue)
+void USaiyoraMovementComponent::OnJumpVelocityStatChanged(const FGameplayTag StatTag, const float NewValue)
 {
 	JumpZVelocity = FMath::Max(DefaultJumpZVelocity * NewValue, 0.0f);
 }
 
-void USaiyoraMovementComponent::OnAirControlStatChanged(FGameplayTag const& StatTag, float const NewValue)
+void USaiyoraMovementComponent::OnAirControlStatChanged(const FGameplayTag StatTag, const float NewValue)
 {
 	AirControl = FMath::Max(DefaultAirControl * NewValue, 0.0f);
 }

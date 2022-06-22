@@ -19,7 +19,7 @@ void UHitbox::BeginPlay()
 	Super::BeginPlay();
 	if (GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 	{
-		UFactionComponent* FactionComponent = ISaiyoraCombatInterface::Execute_GetFactionComponent(GetOwner());
+		const UFactionComponent* FactionComponent = ISaiyoraCombatInterface::Execute_GetFactionComponent(GetOwner());
 		if (IsValid(FactionComponent))
 		{
 			UpdateFactionCollision(FactionComponent->GetCurrentFaction());
@@ -35,7 +35,7 @@ void UHitbox::BeginPlay()
 	}
 }
 
-void UHitbox::UpdateFactionCollision(EFaction const NewFaction)
+void UHitbox::UpdateFactionCollision(const EFaction NewFaction)
 {
 	switch (NewFaction)
 	{

@@ -1,7 +1,7 @@
 #include "StatStructs.h"
 #include "Buff.h"
 
-void FCombatStat::SubscribeToStatChanged(FStatCallback const& Callback)
+void FCombatStat::SubscribeToStatChanged(const FStatCallback& Callback)
 {
 	if (Callback.IsBound() && Defaults.bModifiable)
 	{
@@ -9,7 +9,7 @@ void FCombatStat::SubscribeToStatChanged(FStatCallback const& Callback)
 	}
 }
 
-void FCombatStat::UnsubscribeFromStatChanged(FStatCallback const& Callback)
+void FCombatStat::UnsubscribeFromStatChanged(const FStatCallback& Callback)
 {
 	if (Callback.IsBound() && Defaults.bModifiable)
 	{
@@ -17,7 +17,7 @@ void FCombatStat::UnsubscribeFromStatChanged(FStatCallback const& Callback)
 	}
 }
 
-FCombatStat::FCombatStat(FStatInfo const& InitInfo)
+FCombatStat::FCombatStat(const FStatInfo& InitInfo)
 {
 	if (!InitInfo.StatTag.IsValid() || !InitInfo.StatTag.MatchesTag(FSaiyoraCombatTags::Get().Stat) || InitInfo.StatTag.MatchesTagExact(FSaiyoraCombatTags::Get().Stat))
 	{
@@ -28,7 +28,7 @@ FCombatStat::FCombatStat(FStatInfo const& InitInfo)
 	bInitialized = true;
 }
 
-void FCombatStat::AddModifier(FCombatModifier const& Modifier)
+void FCombatStat::AddModifier(const FCombatModifier& Modifier)
 {
 	if (!Defaults.bModifiable || !IsValid(Modifier.Source))
 	{
@@ -38,7 +38,7 @@ void FCombatStat::AddModifier(FCombatModifier const& Modifier)
 	RecalculateValue();
 }
 
-void FCombatStat::RemoveModifier(UBuff* Source)
+void FCombatStat::RemoveModifier(const UBuff* Source)
 {
 	if (!IsValid(Source))
 	{
@@ -52,7 +52,7 @@ void FCombatStat::PostReplicatedAdd(const FCombatStatArray& InArraySerializer)
 {
 	TArray<FStatCallback> Callbacks;
 	InArraySerializer.PendingSubscriptions.MultiFind(Defaults.StatTag, Callbacks);
-	for (FStatCallback const& Callback : Callbacks)
+	for (const FStatCallback& Callback : Callbacks)
 	{
 		SubscribeToStatChanged(Callback);
 	}

@@ -19,7 +19,7 @@ public:
 	
 private:
 
-	void UpdateFactionCollision(EFaction const NewFaction);
+	void UpdateFactionCollision(const EFaction NewFaction);
 	UPROPERTY()
-	ASaiyoraGameState* GameState;
+	ASaiyoraGameState* GameState = nullptr;
 };

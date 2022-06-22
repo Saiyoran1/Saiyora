@@ -50,11 +50,6 @@ void UStatHandler::InitializeComponent()
 	}
 }
 
-void UStatHandler::BeginPlay()
-{
-	Super::BeginPlay();
-}
-
 void UStatHandler::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
@@ -64,13 +59,13 @@ void UStatHandler::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLi
 #pragma endregion
 #pragma region Stat Management
 
-bool UStatHandler::IsStatValid(FGameplayTag const StatTag) const
+bool UStatHandler::IsStatValid(const FGameplayTag StatTag) const
 {
 	if (!StatTag.IsValid() || !StatTag.MatchesTag(FSaiyoraCombatTags::Get().Stat) || StatTag.MatchesTagExact(FSaiyoraCombatTags::Get().Stat))
 	{
 		return false;
 	}
-	for (TTuple<FGameplayTag, FStatInfo> const& DefaultInfo : StatDefaults)
+	for (const TTuple<FGameplayTag, FStatInfo>& DefaultInfo : StatDefaults)
 	{
 		if (DefaultInfo.Key.MatchesTagExact(StatTag))
 		{
@@ -80,7 +75,7 @@ bool UStatHandler::IsStatValid(FGameplayTag const StatTag) const
 	return false;
 }
 
-float UStatHandler::GetStatValue(FGameplayTag const StatTag) const
+float UStatHandler::GetStatValue(const FGameplayTag StatTag) const
 {
 	if (!StatTag.IsValid() || !StatTag.MatchesTag(FSaiyoraCombatTags::Get().Stat) || StatTag.MatchesTagExact(FSaiyoraCombatTags::Get().Stat))
 	{
@@ -89,7 +84,7 @@ float UStatHandler::GetStatValue(FGameplayTag const StatTag) const
 	bool bFoundInDefaults = false;
 	bool bStatReplicates = false;
 	float DefaultValue = -1.0f;
-	for (TTuple<FGameplayTag, FStatInfo> const& DefaultInfo : StatDefaults)
+	for (const TTuple<FGameplayTag, FStatInfo>& DefaultInfo : StatDefaults)
 	{
 		if (DefaultInfo.Key.MatchesTagExact(StatTag))
 		{
@@ -109,7 +104,7 @@ float UStatHandler::GetStatValue(FGameplayTag const StatTag) const
 	}
 	if (bStatReplicates)
 	{
-		for (FCombatStat const& Stat : ReplicatedStats.Items)
+		for (const FCombatStat& Stat : ReplicatedStats.Items)
 		{
 			if (Stat.GetStatTag().MatchesTagExact(StatTag))
 			{
@@ -123,8 +118,7 @@ float UStatHandler::GetStatValue(FGameplayTag const StatTag) const
 	}
 	else
 	{
-		FCombatStat const* Stat = NonReplicatedStats.Find(StatTag);
-		if (Stat)
+		if (FCombatStat const* Stat = NonReplicatedStats.Find(StatTag))
 		{
 			return Stat->GetValue();
 		}
@@ -132,13 +126,13 @@ float UStatHandler::GetStatValue(FGameplayTag const StatTag) const
 	return DefaultValue;
 }
 
-bool UStatHandler::IsStatModifiable(FGameplayTag const StatTag) const
+bool UStatHandler::IsStatModifiable(const FGameplayTag StatTag) const
 {
 	if (!StatTag.IsValid() || !StatTag.MatchesTag(FSaiyoraCombatTags::Get().Stat) || StatTag.MatchesTagExact(FSaiyoraCombatTags::Get().Stat))
 	{
 		return false;
 	}
-	for (TTuple<FGameplayTag, FStatInfo> const& DefaultInfo : StatDefaults)
+	for (const TTuple<FGameplayTag, FStatInfo>& DefaultInfo : StatDefaults)
 	{
 		if (DefaultInfo.Key.MatchesTagExact(StatTag))
 		{
@@ -151,13 +145,13 @@ bool UStatHandler::IsStatModifiable(FGameplayTag const StatTag) const
 #pragma endregion
 #pragma region Subscriptions
 
-void UStatHandler::SubscribeToStatChanged(FGameplayTag const StatTag, FStatCallback const& Callback)
+void UStatHandler::SubscribeToStatChanged(const FGameplayTag StatTag, const FStatCallback& Callback)
 {
 	if (!Callback.IsBound() || !StatTag.IsValid() || !StatTag.MatchesTag(FSaiyoraCombatTags::Get().Stat) || StatTag.MatchesTagExact(FSaiyoraCombatTags::Get().Stat))
 	{
 		return;
 	}
-	for (TTuple<FGameplayTag, FStatInfo> const& DefaultInfo : StatDefaults)
+	for (const TTuple<FGameplayTag, FStatInfo>& DefaultInfo : StatDefaults)
 	{
 		if (DefaultInfo.Key.MatchesTagExact(StatTag))
 		{
@@ -183,8 +177,7 @@ void UStatHandler::SubscribeToStatChanged(FGameplayTag const StatTag, FStatCallb
 			}
 			else if (GetOwnerRole() == ROLE_Authority)
 			{
-				FCombatStat* Stat = NonReplicatedStats.Find(StatTag);
-				if (Stat)
+				if (FCombatStat* Stat = NonReplicatedStats.Find(StatTag))
 				{
 					Stat->SubscribeToStatChanged(Callback);
 				}
@@ -194,13 +187,13 @@ void UStatHandler::SubscribeToStatChanged(FGameplayTag const StatTag, FStatCallb
 	}
 }
 
-void UStatHandler::UnsubscribeFromStatChanged(FGameplayTag const StatTag, FStatCallback const& Callback)
+void UStatHandler::UnsubscribeFromStatChanged(const FGameplayTag StatTag, const FStatCallback& Callback)
 {
 	if (!Callback.IsBound() || !StatTag.IsValid() || !StatTag.MatchesTag(FSaiyoraCombatTags::Get().Stat) || StatTag.MatchesTagExact(FSaiyoraCombatTags::Get().Stat))
 	{
 		return;
 	}
-	for (TTuple<FGameplayTag, FStatInfo> const& DefaultInfo : StatDefaults)
+	for (const TTuple<FGameplayTag, FStatInfo>& DefaultInfo : StatDefaults)
 	{
 		if (DefaultInfo.Key.MatchesTagExact(StatTag))
 		{
@@ -226,8 +219,7 @@ void UStatHandler::UnsubscribeFromStatChanged(FGameplayTag const StatTag, FStatC
 			}
 			else if (GetOwnerRole() == ROLE_Authority)
 			{
-				FCombatStat* Stat = NonReplicatedStats.Find(StatTag);
-				if (Stat)
+				if (FCombatStat* Stat = NonReplicatedStats.Find(StatTag))
 				{
 					Stat->UnsubscribeFromStatChanged(Callback);
 				}
@@ -240,7 +232,7 @@ void UStatHandler::UnsubscribeFromStatChanged(FGameplayTag const StatTag, FStatC
 #pragma endregion
 #pragma region Modifiers
 
-void UStatHandler::AddStatModifier(FGameplayTag const StatTag, FCombatModifier const& Modifier)
+void UStatHandler::AddStatModifier(const FGameplayTag StatTag, const FCombatModifier& Modifier)
 {
 	if (GetOwnerRole() != ROLE_Authority || Modifier.Type == EModifierType::Invalid ||
 		!StatTag.IsValid() || !StatTag.MatchesTag(FSaiyoraCombatTags::Get().Stat) || StatTag.MatchesTagExact(FSaiyoraCombatTags::Get().Stat) ||
@@ -248,7 +240,7 @@ void UStatHandler::AddStatModifier(FGameplayTag const StatTag, FCombatModifier c
 	{
 		return;
 	}
-	for (TTuple<FGameplayTag, FStatInfo> const& DefaultInfo : StatDefaults)
+	for (const TTuple<FGameplayTag, FStatInfo>& DefaultInfo : StatDefaults)
 	{
 		if (DefaultInfo.Key.MatchesTagExact(StatTag))
 		{
@@ -273,8 +265,7 @@ void UStatHandler::AddStatModifier(FGameplayTag const StatTag, FCombatModifier c
 			}
 			else
 			{
-				FCombatStat* Stat = NonReplicatedStats.Find(StatTag);
-				if (Stat)
+				if (FCombatStat* Stat = NonReplicatedStats.Find(StatTag))
 				{
 					Stat->AddModifier(Modifier);
 				}
@@ -284,14 +275,14 @@ void UStatHandler::AddStatModifier(FGameplayTag const StatTag, FCombatModifier c
 	}
 }
 
-void UStatHandler::RemoveStatModifier(FGameplayTag const StatTag, UBuff* Source)
+void UStatHandler::RemoveStatModifier(const FGameplayTag StatTag, const UBuff* Source)
 {
 	if (GetOwnerRole() != ROLE_Authority || !StatTag.IsValid() || !StatTag.MatchesTag(FSaiyoraCombatTags::Get().Stat) ||
 		StatTag.MatchesTagExact(FSaiyoraCombatTags::Get().Stat) || !IsValid(Source) || Source->GetAppliedTo() != GetOwner())
 	{
 		return;
 	}
-	for (TTuple<FGameplayTag, FStatInfo> const& DefaultInfo : StatDefaults)
+	for (const TTuple<FGameplayTag, FStatInfo>& DefaultInfo : StatDefaults)
 	{
 		if (DefaultInfo.Key.MatchesTagExact(StatTag))
 		{
@@ -316,8 +307,7 @@ void UStatHandler::RemoveStatModifier(FGameplayTag const StatTag, UBuff* Source)
 			}
 			else
 			{
-				FCombatStat* Stat = NonReplicatedStats.Find(StatTag);
-				if (Stat)
+				if (FCombatStat* Stat = NonReplicatedStats.Find(StatTag))
 				{
 					Stat->RemoveModifier(Source);
 				}

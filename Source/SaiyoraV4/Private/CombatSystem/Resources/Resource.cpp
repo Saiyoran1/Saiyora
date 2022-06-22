@@ -170,7 +170,7 @@ void UResource::SetResourceValue(float const NewValue, UObject* Source, int32 co
     }
 }
 
-void UResource::UpdateMinimumFromStatBind(FGameplayTag const& StatTag, float const NewValue)
+void UResource::UpdateMinimumFromStatBind(const FGameplayTag StatTag, const float NewValue)
 {
     if (Handler->GetOwnerRole() != ROLE_Authority || !StatTag.MatchesTagExact(MinimumBindStat) || !bInitialized || bDeactivated)
     {
@@ -186,7 +186,7 @@ void UResource::UpdateMinimumFromStatBind(FGameplayTag const& StatTag, float con
     }
 }
 
-void UResource::UpdateMaximumFromStatBind(FGameplayTag const& StatTag, float const NewValue)
+void UResource::UpdateMaximumFromStatBind(const FGameplayTag StatTag, const float NewValue)
 {
     if (Handler->GetOwnerRole() != ROLE_Authority || !StatTag.MatchesTagExact(MaximumBindStat) || !bInitialized || bDeactivated)
     {

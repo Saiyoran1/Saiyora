@@ -169,14 +169,9 @@ void UDamageHandler::OnRep_LifeStatus(const ELifeStatus PreviousValue)
 #pragma endregion
 #pragma region Damage
 
-//TODO: CLEANUP STARTS HERE!!!!!!!!!!!!!!
-//
-//
-//
-//TODO: PLEASE LOOK!!!!!!!!!!!
-FDamagingEvent UDamageHandler::ApplyDamage(float const Amount, AActor* AppliedBy, UObject* Source,
-                                           EDamageHitStyle const HitStyle, EDamageSchool const School, bool const bIgnoreModifiers, bool const bIgnoreRestrictions,
-                                           const bool bIgnoreDeathRestrictions, bool const bFromSnapshot, FDamageModCondition const& SourceModifier, FThreatFromDamage const& ThreatParams)
+FDamagingEvent UDamageHandler::ApplyDamage(const float Amount, AActor* AppliedBy, UObject* Source,
+                                           const EDamageHitStyle HitStyle, const EDamageSchool School, const bool bIgnoreModifiers, const bool bIgnoreRestrictions,
+                                           const bool bIgnoreDeathRestrictions, const bool bFromSnapshot, const FDamageModCondition& SourceModifier, const FThreatFromDamage& ThreatParams)
 {
     FDamagingEvent DamageEvent;
     if (GetOwnerRole() != ROLE_Authority || !IsValid(AppliedBy) || !IsValid(Source))
@@ -196,7 +191,7 @@ FDamagingEvent UDamageHandler::ApplyDamage(float const Amount, AActor* AppliedBy
     DamageEvent.Info.School = School;
 	if (DamageEvent.Info.AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 	{
-		UPlaneComponent* AppliedByPlaneComp = ISaiyoraCombatInterface::Execute_GetPlaneComponent(DamageEvent.Info.AppliedBy);
+		const UPlaneComponent* AppliedByPlaneComp = ISaiyoraCombatInterface::Execute_GetPlaneComponent(DamageEvent.Info.AppliedBy);
 		DamageEvent.Info.AppliedByPlane = IsValid(AppliedByPlaneComp) ? AppliedByPlaneComp->GetCurrentPlane() : ESaiyoraPlane::None;
 	}
 	else
@@ -269,7 +264,7 @@ FDamagingEvent UDamageHandler::ApplyDamage(float const Amount, AActor* AppliedBy
 	return DamageEvent;
 }
 
-void UDamageHandler::NotifyOfOutgoingDamage(FDamagingEvent const& DamageEvent)
+void UDamageHandler::NotifyOfOutgoingDamage(const FDamagingEvent& DamageEvent)
 {
 	if (GetOwnerRole() == ROLE_Authority)
 	{
@@ -285,7 +280,7 @@ void UDamageHandler::NotifyOfOutgoingDamage(FDamagingEvent const& DamageEvent)
 	}
 }
 
-void UDamageHandler::ClientNotifyOfOutgoingDamage_Implementation(FDamagingEvent const& DamageEvent)
+void UDamageHandler::ClientNotifyOfOutgoingDamage_Implementation(const FDamagingEvent& DamageEvent)
 {
 	OnOutgoingDamage.Broadcast(DamageEvent);
 	if (DamageEvent.Result.KillingBlow)
@@ -294,7 +289,7 @@ void UDamageHandler::ClientNotifyOfOutgoingDamage_Implementation(FDamagingEvent 
 	}
 }
 
-void UDamageHandler::ClientNotifyOfIncomingDamage_Implementation(FDamagingEvent const& DamageEvent)
+void UDamageHandler::ClientNotifyOfIncomingDamage_Implementation(const FDamagingEvent& DamageEvent)
 {
 	OnIncomingDamage.Broadcast(DamageEvent);
 }
@@ -302,9 +297,9 @@ void UDamageHandler::ClientNotifyOfIncomingDamage_Implementation(FDamagingEvent 
 #pragma endregion
 #pragma region Healing
 
-FDamagingEvent UDamageHandler::ApplyHealing(float const Amount, AActor* AppliedBy, UObject* Source,
-	EDamageHitStyle const HitStyle, EDamageSchool const School, bool const bIgnoreRestrictions, bool const bIgnoreModifiers,
-	bool const bFromSnapshot, FDamageModCondition const& SourceModifier, FThreatFromDamage const& ThreatParams)
+FDamagingEvent UDamageHandler::ApplyHealing(const float Amount, AActor* AppliedBy, UObject* Source,
+	const EDamageHitStyle HitStyle, const EDamageSchool School, const bool bIgnoreRestrictions, const bool bIgnoreModifiers,
+	const bool bFromSnapshot, const FDamageModCondition& SourceModifier, const FThreatFromDamage& ThreatParams)
 {
 	FDamagingEvent HealingEvent;
     if (GetOwnerRole() != ROLE_Authority || !IsValid(AppliedBy) || !IsValid(Source))
@@ -324,7 +319,7 @@ FDamagingEvent UDamageHandler::ApplyHealing(float const Amount, AActor* AppliedB
     HealingEvent.Info.School = School;
 	if (HealingEvent.Info.AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 	{
-		UPlaneComponent* AppliedByPlaneComp = ISaiyoraCombatInterface::Execute_GetPlaneComponent(HealingEvent.Info.AppliedBy);
+		const UPlaneComponent* AppliedByPlaneComp = ISaiyoraCombatInterface::Execute_GetPlaneComponent(HealingEvent.Info.AppliedBy);
 		HealingEvent.Info.AppliedByPlane = IsValid(AppliedByPlaneComp) ? AppliedByPlaneComp->GetCurrentPlane() : ESaiyoraPlane::None;
 	}
 	else
@@ -385,7 +380,7 @@ FDamagingEvent UDamageHandler::ApplyHealing(float const Amount, AActor* AppliedB
 	return HealingEvent;
 }
 
-void UDamageHandler::NotifyOfOutgoingHealing(FDamagingEvent const& HealingEvent)
+void UDamageHandler::NotifyOfOutgoingHealing(const FDamagingEvent& HealingEvent)
 {
 	if (GetOwnerRole() == ROLE_Authority)
 	{
@@ -397,12 +392,12 @@ void UDamageHandler::NotifyOfOutgoingHealing(FDamagingEvent const& HealingEvent)
 	}
 }
 
-void UDamageHandler::ClientNotifyOfOutgoingHealing_Implementation(FDamagingEvent const& HealingEvent)
+void UDamageHandler::ClientNotifyOfOutgoingHealing_Implementation(const FDamagingEvent& HealingEvent)
 {
 	OnOutgoingHealing.Broadcast(HealingEvent);
 }
 
-void UDamageHandler::ClientNotifyOfIncomingHealing_Implementation(FDamagingEvent const& HealingEvent)
+void UDamageHandler::ClientNotifyOfIncomingHealing_Implementation(const FDamagingEvent& HealingEvent)
 {
 	OnIncomingHealing.Broadcast(HealingEvent);
 }
@@ -410,7 +405,7 @@ void UDamageHandler::ClientNotifyOfIncomingHealing_Implementation(FDamagingEvent
 #pragma endregion 
 #pragma region Restrictions
 
-void UDamageHandler::AddDeathRestriction(UBuff* Source, FDeathRestriction const& Restriction)
+void UDamageHandler::AddDeathRestriction(UBuff* Source, const FDeathRestriction& Restriction)
 {
 	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Restriction.IsBound())
 	{
@@ -418,12 +413,11 @@ void UDamageHandler::AddDeathRestriction(UBuff* Source, FDeathRestriction const&
 	}
 }
 
-void UDamageHandler::RemoveDeathRestriction(UBuff* Source)
+void UDamageHandler::RemoveDeathRestriction(const UBuff* Source)
 {
 	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
 	{
-		int32 const Removed = DeathRestrictions.Remove(Source);
-		if (Removed > 0 && bHasPendingKillingBlow)
+		if (DeathRestrictions.Remove(Source) > 0 && bHasPendingKillingBlow)
 		{
 			if (!CheckDeathRestricted(PendingKillingBlow))
 			{
@@ -433,9 +427,9 @@ void UDamageHandler::RemoveDeathRestriction(UBuff* Source)
 	}
 }
 
-bool UDamageHandler::CheckDeathRestricted(FDamagingEvent const& DamageEvent)
+bool UDamageHandler::CheckDeathRestricted(const FDamagingEvent& DamageEvent)
 {
-	for (TTuple<UBuff*, FDeathRestriction> const& Restriction : DeathRestrictions)
+	for (const TTuple<UBuff*, FDeathRestriction>& Restriction : DeathRestrictions)
 	{
 		if (Restriction.Value.IsBound() && Restriction.Value.Execute(DamageEvent))
 		{
@@ -445,7 +439,7 @@ bool UDamageHandler::CheckDeathRestricted(FDamagingEvent const& DamageEvent)
 	return false;
 }
 
-void UDamageHandler::AddOutgoingDamageRestriction(UBuff* Source, FDamageRestriction const& Restriction)
+void UDamageHandler::AddOutgoingDamageRestriction(UBuff* Source, const FDamageRestriction& Restriction)
 {
 	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Restriction.IsBound())
 	{
@@ -453,7 +447,7 @@ void UDamageHandler::AddOutgoingDamageRestriction(UBuff* Source, FDamageRestrict
 	}
 }
 
-void UDamageHandler::RemoveOutgoingDamageRestriction(UBuff* Source)
+void UDamageHandler::RemoveOutgoingDamageRestriction(const UBuff* Source)
 {
 	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
 	{
@@ -461,9 +455,9 @@ void UDamageHandler::RemoveOutgoingDamageRestriction(UBuff* Source)
 	}
 }
 
-bool UDamageHandler::CheckOutgoingDamageRestricted(FDamageInfo const& DamageInfo)
+bool UDamageHandler::CheckOutgoingDamageRestricted(const FDamageInfo& DamageInfo)
 {
-	for (TTuple<UBuff*, FDamageRestriction> const& Restriction : OutgoingDamageRestrictions)
+	for (const TTuple<UBuff*, FDamageRestriction>& Restriction : OutgoingDamageRestrictions)
 	{
 		if (Restriction.Value.IsBound() && Restriction.Value.Execute(DamageInfo))
 		{
@@ -473,7 +467,7 @@ bool UDamageHandler::CheckOutgoingDamageRestricted(FDamageInfo const& DamageInfo
 	return false;
 }
 
-void UDamageHandler::AddOutgoingHealingRestriction(UBuff* Source, FDamageRestriction const& Restriction)
+void UDamageHandler::AddOutgoingHealingRestriction(UBuff* Source, const FDamageRestriction& Restriction)
 {
 	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Restriction.IsBound())
 	{
@@ -481,7 +475,7 @@ void UDamageHandler::AddOutgoingHealingRestriction(UBuff* Source, FDamageRestric
 	}
 }
 
-void UDamageHandler::RemoveOutgoingHealingRestriction(UBuff* Source)
+void UDamageHandler::RemoveOutgoingHealingRestriction(const UBuff* Source)
 {
 	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
 	{
@@ -489,9 +483,9 @@ void UDamageHandler::RemoveOutgoingHealingRestriction(UBuff* Source)
 	}
 }
 
-bool UDamageHandler::CheckOutgoingHealingRestricted(FDamageInfo const& HealingInfo)
+bool UDamageHandler::CheckOutgoingHealingRestricted(const FDamageInfo& HealingInfo)
 {
-	for (TTuple<UBuff*, FDamageRestriction> const& Restriction : OutgoingHealingRestrictions)
+	for (const TTuple<UBuff*, FDamageRestriction>& Restriction : OutgoingHealingRestrictions)
 	{
 		if (Restriction.Value.IsBound() && Restriction.Value.Execute(HealingInfo))
 		{
@@ -501,7 +495,7 @@ bool UDamageHandler::CheckOutgoingHealingRestricted(FDamageInfo const& HealingIn
 	return false;
 }
 
-void UDamageHandler::AddIncomingDamageRestriction(UBuff* Source, FDamageRestriction const& Restriction)
+void UDamageHandler::AddIncomingDamageRestriction(UBuff* Source, const FDamageRestriction& Restriction)
 {
 	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Restriction.IsBound())
 	{
@@ -509,7 +503,7 @@ void UDamageHandler::AddIncomingDamageRestriction(UBuff* Source, FDamageRestrict
 	}
 }
 
-void UDamageHandler::RemoveIncomingDamageRestriction(UBuff* Source)
+void UDamageHandler::RemoveIncomingDamageRestriction(const UBuff* Source)
 {
 	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
 	{
@@ -517,9 +511,9 @@ void UDamageHandler::RemoveIncomingDamageRestriction(UBuff* Source)
 	}
 }
 
-bool UDamageHandler::CheckIncomingDamageRestricted(FDamageInfo const& DamageInfo)
+bool UDamageHandler::CheckIncomingDamageRestricted(const FDamageInfo& DamageInfo)
 {
-	for (TTuple<UBuff*, FDamageRestriction> const& Restriction : IncomingDamageRestrictions)
+	for (const TTuple<UBuff*, FDamageRestriction>& Restriction : IncomingDamageRestrictions)
 	{
 		if (Restriction.Value.IsBound() && Restriction.Value.Execute(DamageInfo))
 		{
@@ -529,7 +523,7 @@ bool UDamageHandler::CheckIncomingDamageRestricted(FDamageInfo const& DamageInfo
 	return false;
 }
 
-void UDamageHandler::AddIncomingHealingRestriction(UBuff* Source, FDamageRestriction const& Restriction)
+void UDamageHandler::AddIncomingHealingRestriction(UBuff* Source, const FDamageRestriction& Restriction)
 {
 	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Restriction.IsBound())
 	{
@@ -537,7 +531,7 @@ void UDamageHandler::AddIncomingHealingRestriction(UBuff* Source, FDamageRestric
 	}
 }
 
-void UDamageHandler::RemoveIncomingHealingRestriction(UBuff* Source)
+void UDamageHandler::RemoveIncomingHealingRestriction(const UBuff* Source)
 {
 	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
 	{
@@ -545,9 +539,9 @@ void UDamageHandler::RemoveIncomingHealingRestriction(UBuff* Source)
 	}
 }
 
-bool UDamageHandler::CheckIncomingHealingRestricted(FDamageInfo const& HealingInfo)
+bool UDamageHandler::CheckIncomingHealingRestricted(const FDamageInfo& HealingInfo)
 {
-	for (TTuple<UBuff*, FDamageRestriction> const& Restriction : IncomingHealingRestrictions)
+	for (const TTuple<UBuff*, FDamageRestriction>& Restriction : IncomingHealingRestrictions)
 	{
 		if (Restriction.Value.IsBound() && Restriction.Value.Execute(HealingInfo))
 		{
@@ -560,7 +554,7 @@ bool UDamageHandler::CheckIncomingHealingRestricted(FDamageInfo const& HealingIn
 #pragma endregion
 #pragma region Modifiers
 
-void UDamageHandler::AddOutgoingDamageModifier(UBuff* Source, FDamageModCondition const& Modifier)
+void UDamageHandler::AddOutgoingDamageModifier(UBuff* Source, const FDamageModCondition& Modifier)
 {
 	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Modifier.IsBound())
 	{
@@ -568,7 +562,7 @@ void UDamageHandler::AddOutgoingDamageModifier(UBuff* Source, FDamageModConditio
 	}
 }
 
-void UDamageHandler::RemoveOutgoingDamageModifier(UBuff* Source)
+void UDamageHandler::RemoveOutgoingDamageModifier(const UBuff* Source)
 {
 	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
 	{
@@ -576,10 +570,10 @@ void UDamageHandler::RemoveOutgoingDamageModifier(UBuff* Source)
 	}
 }
 
-float UDamageHandler::GetModifiedOutgoingDamage(FDamageInfo const& DamageInfo, FDamageModCondition const& SourceMod) const
+float UDamageHandler::GetModifiedOutgoingDamage(const FDamageInfo& DamageInfo, const FDamageModCondition& SourceMod) const
 {
 	TArray<FCombatModifier> Mods;
-	for (TTuple<UBuff*, FDamageModCondition> const& Modifier : OutgoingDamageModifiers)
+	for (const TTuple<UBuff*, FDamageModCondition>& Modifier : OutgoingDamageModifiers)
 	{
 		if (Modifier.Value.IsBound())
 		{
@@ -597,7 +591,7 @@ float UDamageHandler::GetModifiedOutgoingDamage(FDamageInfo const& DamageInfo, F
 	return FCombatModifier::ApplyModifiers(Mods, DamageInfo.Value);
 }
 
-void UDamageHandler::AddOutgoingHealingModifier(UBuff* Source, FDamageModCondition const& Modifier)
+void UDamageHandler::AddOutgoingHealingModifier(UBuff* Source, const FDamageModCondition& Modifier)
 {
 	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Modifier.IsBound())
 	{
@@ -605,7 +599,7 @@ void UDamageHandler::AddOutgoingHealingModifier(UBuff* Source, FDamageModConditi
 	}
 }
 
-void UDamageHandler::RemoveOutgoingHealingModifier(UBuff* Source)
+void UDamageHandler::RemoveOutgoingHealingModifier(const UBuff* Source)
 {
 	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
 	{
@@ -613,10 +607,10 @@ void UDamageHandler::RemoveOutgoingHealingModifier(UBuff* Source)
 	}
 }
 
-float UDamageHandler::GetModifiedOutgoingHealing(FDamageInfo const& HealingInfo, FDamageModCondition const& SourceMod) const
+float UDamageHandler::GetModifiedOutgoingHealing(const FDamageInfo& HealingInfo, const FDamageModCondition& SourceMod) const
 {
 	TArray<FCombatModifier> Mods;
-	for (TTuple<UBuff*, FDamageModCondition> const& Modifier : OutgoingHealingModifiers)
+	for (const TTuple<UBuff*, FDamageModCondition>& Modifier : OutgoingHealingModifiers)
 	{
 		if (Modifier.Value.IsBound())
 		{
@@ -634,7 +628,7 @@ float UDamageHandler::GetModifiedOutgoingHealing(FDamageInfo const& HealingInfo,
 	return FCombatModifier::ApplyModifiers(Mods, HealingInfo.Value);
 }
 
-void UDamageHandler::AddIncomingDamageModifier(UBuff* Source, FDamageModCondition const& Modifier)
+void UDamageHandler::AddIncomingDamageModifier(UBuff* Source, const FDamageModCondition& Modifier)
 {
 	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Modifier.IsBound())
 	{
@@ -642,7 +636,7 @@ void UDamageHandler::AddIncomingDamageModifier(UBuff* Source, FDamageModConditio
 	}
 }
 
-void UDamageHandler::RemoveIncomingDamageModifier(UBuff* Source)
+void UDamageHandler::RemoveIncomingDamageModifier(const UBuff* Source)
 {
 	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
 	{
@@ -650,10 +644,10 @@ void UDamageHandler::RemoveIncomingDamageModifier(UBuff* Source)
 	}
 }
 
-float UDamageHandler::GetModifiedIncomingDamage(FDamageInfo const& DamageInfo) const
+float UDamageHandler::GetModifiedIncomingDamage(const FDamageInfo& DamageInfo) const
 {
 	TArray<FCombatModifier> Mods;
-	for (TTuple<UBuff*, FDamageModCondition> const& Modifier : IncomingDamageModifiers)
+	for (const TTuple<UBuff*, FDamageModCondition>& Modifier : IncomingDamageModifiers)
 	{
 		if (Modifier.Value.IsBound())
 		{
@@ -667,7 +661,7 @@ float UDamageHandler::GetModifiedIncomingDamage(FDamageInfo const& DamageInfo) c
 	return FCombatModifier::ApplyModifiers(Mods, DamageInfo.Value);
 }
 
-void UDamageHandler::AddIncomingHealingModifier(UBuff* Source, FDamageModCondition const& Modifier)
+void UDamageHandler::AddIncomingHealingModifier(UBuff* Source, const FDamageModCondition& Modifier)
 {
 	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Modifier.IsBound())
 	{
@@ -675,7 +669,7 @@ void UDamageHandler::AddIncomingHealingModifier(UBuff* Source, FDamageModConditi
 	}
 }
 
-void UDamageHandler::RemoveIncomingHealingModifier(UBuff* Source)
+void UDamageHandler::RemoveIncomingHealingModifier(const UBuff* Source)
 {
 	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
 	{
@@ -683,10 +677,10 @@ void UDamageHandler::RemoveIncomingHealingModifier(UBuff* Source)
 	}
 }
 
-float UDamageHandler::GetModifiedIncomingHealing(FDamageInfo const& HealingInfo) const
+float UDamageHandler::GetModifiedIncomingHealing(const FDamageInfo& HealingInfo) const
 {
 	TArray<FCombatModifier> Mods;
-	for (TTuple<UBuff*, FDamageModCondition> const& Modifier : IncomingHealingModifiers)
+	for (const TTuple<UBuff*, FDamageModCondition>& Modifier : IncomingHealingModifiers)
 	{
 		if (Modifier.Value.IsBound())
 		{

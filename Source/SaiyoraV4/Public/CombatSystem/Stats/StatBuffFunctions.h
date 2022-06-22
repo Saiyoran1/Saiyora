@@ -13,12 +13,12 @@ class UStatModifierFunction : public UBuffFunction
 	UPROPERTY()
 	class UStatHandler* TargetHandler = nullptr;
 
-	void SetModifierVars(TMap<FGameplayTag, FCombatModifier> const& Modifiers);
+	void SetModifierVars(const TMap<FGameplayTag, FCombatModifier>& Modifiers);
 
-	virtual void OnApply(FBuffApplyEvent const& ApplyEvent) override;
-	virtual void OnStack(FBuffApplyEvent const& ApplyEvent) override;
-	virtual void OnRemove(FBuffRemoveEvent const& RemoveEvent) override;
+	virtual void OnApply(const FBuffApplyEvent& ApplyEvent) override;
+	virtual void OnStack(const FBuffApplyEvent& ApplyEvent) override;
+	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) override;
 
 	UFUNCTION(BlueprintCallable, Category = "Stat Modifiers", meta = (DefaultToSelf = "Buff", HidePin = "Buff", GameplayTagFilter = "Stat"))
-	static void StatModifiers(UBuff* Buff, TMap<FGameplayTag, FCombatModifier> const& Modifiers);
+	static void StatModifiers(UBuff* Buff, const TMap<FGameplayTag, FCombatModifier>& Modifiers);
 };

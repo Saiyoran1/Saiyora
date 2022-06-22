@@ -5,7 +5,7 @@
 
 #pragma region Stat Modifiers
 
-void UStatModifierFunction::StatModifiers(UBuff* Buff, TMap<FGameplayTag, FCombatModifier> const& Modifiers)
+void UStatModifierFunction::StatModifiers(UBuff* Buff, const TMap<FGameplayTag, FCombatModifier>& Modifiers)
 {
 	if (!IsValid(Buff) || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
 	{
@@ -19,12 +19,12 @@ void UStatModifierFunction::StatModifiers(UBuff* Buff, TMap<FGameplayTag, FComba
 	NewStatModFunction->SetModifierVars(Modifiers);
 }
 
-void UStatModifierFunction::SetModifierVars(TMap<FGameplayTag, FCombatModifier> const& Modifiers)
+void UStatModifierFunction::SetModifierVars(const TMap<FGameplayTag, FCombatModifier>& Modifiers)
 {
 	if (GetOwningBuff()->GetAppliedTo()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 	{
 		TargetHandler = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwningBuff()->GetAppliedTo());
-		for (TTuple<FGameplayTag, FCombatModifier> const& ModTuple : Modifiers)
+		for (const TTuple<FGameplayTag, FCombatModifier>& ModTuple : Modifiers)
 		{
 			if (ModTuple.Key.IsValid() && ModTuple.Key.MatchesTag(FSaiyoraCombatTags::Get().Stat) && !ModTuple.Key.MatchesTagExact(FSaiyoraCombatTags::Get().Stat) && ModTuple.Value.Type != EModifierType::Invalid)
 			{
@@ -34,22 +34,22 @@ void UStatModifierFunction::SetModifierVars(TMap<FGameplayTag, FCombatModifier> 
 	}
 }
 
-void UStatModifierFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
+void UStatModifierFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
 	if (IsValid(TargetHandler))
 	{
-		for (TTuple<FGameplayTag, FCombatModifier> const& Mod : StatMods)
+		for (const TTuple<FGameplayTag, FCombatModifier>& Mod : StatMods)
 		{
 			TargetHandler->AddStatModifier(Mod.Key, Mod.Value);
 		}
 	}
 }
 
-void UStatModifierFunction::OnStack(FBuffApplyEvent const& ApplyEvent)
+void UStatModifierFunction::OnStack(const FBuffApplyEvent& ApplyEvent)
 {
 	if (IsValid(TargetHandler))
 	{
-		for (TTuple<FGameplayTag, FCombatModifier> const& Mod : StatMods)
+		for (const TTuple<FGameplayTag, FCombatModifier>& Mod : StatMods)
 		{
 			if (Mod.Value.bStackable)
 			{
@@ -59,11 +59,11 @@ void UStatModifierFunction::OnStack(FBuffApplyEvent const& ApplyEvent)
 	}
 }
 
-void UStatModifierFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
+void UStatModifierFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
 	if (IsValid(TargetHandler))
 	{
-		for (TTuple<FGameplayTag, FCombatModifier> const& Mod : StatMods)
+		for (const TTuple<FGameplayTag, FCombatModifier>& Mod : StatMods)
 		{
 			TargetHandler->RemoveStatModifier(Mod.Key, GetOwningBuff());
 		}

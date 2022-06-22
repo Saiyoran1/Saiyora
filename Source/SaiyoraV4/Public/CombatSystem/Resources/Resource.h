@@ -116,10 +116,10 @@ private:
 	void OnRep_ResourceState(FResourceState const& PreviousState);
 	FStatCallback MinStatBind;
 	UFUNCTION()
-	void UpdateMinimumFromStatBind(FGameplayTag const& StatTag, float const NewValue);
+	void UpdateMinimumFromStatBind(const FGameplayTag StatTag, const float NewValue);
 	FStatCallback MaxStatBind;
 	UFUNCTION()
-	void UpdateMaximumFromStatBind(FGameplayTag const& StatTag, float const NewValue);
+	void UpdateMaximumFromStatBind(const FGameplayTag StatTag, const float NewValue);
 	void SetResourceValue(float const NewValue, UObject* Source, int32 const PredictionID = 0);
 	TMap<UBuff*, FResourceDeltaModifier> ResourceDeltaMods;
 	FResourceValueNotification OnResourceChanged;

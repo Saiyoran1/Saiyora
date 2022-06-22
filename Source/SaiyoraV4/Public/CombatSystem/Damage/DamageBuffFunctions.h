@@ -4,14 +4,16 @@
 #include "DamageStructs.h"
 #include "DamageBuffFunctions.generated.h"
 
+class UDamageHandler;
+
 UENUM(BlueprintType)
 enum class EDamageModifierType : uint8
 {
-	None,
-	IncomingDamage,
-	OutgoingDamage,
-	IncomingHealing,
-	OutgoingHealing,
+	None = 0,
+	IncomingDamage = 1,
+	OutgoingDamage = 2,
+	IncomingHealing = 3,
+	OutgoingHealing = 4,
 };
 
 UCLASS()
@@ -20,9 +22,9 @@ class UDamageOverTimeFunction : public UBuffFunction
 	GENERATED_BODY()
 
 	UPROPERTY()
-	class UDamageHandler* TargetComponent;
+	UDamageHandler* TargetComponent = nullptr;
 	UPROPERTY()
-	class UDamageHandler* GeneratorComponent;
+	UDamageHandler* GeneratorComponent = nullptr;
 
 	float BaseDamage = 0.0f;
 	EDamageSchool DamageSchool = EDamageSchool::None;
@@ -46,22 +48,22 @@ class UDamageOverTimeFunction : public UBuffFunction
 	UFUNCTION()
 	void TickDamage();
 
-	void SetDamageVars(float const Damage, EDamageSchool const School,
-		float const Interval, bool const bIgnoreRestrictions, bool const bIgnoreModifiers,
-		bool const bSnapshot, bool const bScaleWithStacks, bool const bPartialTickOnExpire,
-		bool const bInitialTick, bool const bUseSeparateInitialDamage, float const InitialDamage,
-		EDamageSchool const InitialSchool, FThreatFromDamage const& ThreatParams);
+	void SetDamageVars(const float Damage, const EDamageSchool School,
+		const float Interval, const bool bIgnoreRestrictions, const bool bIgnoreModifiers,
+		const bool bSnapshot, const bool bScaleWithStacks, const bool bPartialTickOnExpire,
+		const bool bInitialTick, const bool bUseSeparateInitialDamage, const float InitialDamage,
+		const EDamageSchool InitialSchool, const FThreatFromDamage& ThreatParams);
 	
-	virtual void OnApply(FBuffApplyEvent const& ApplyEvent) override;
-	virtual void OnRemove(FBuffRemoveEvent const& RemoveEvent) override;
+	virtual void OnApply(const FBuffApplyEvent& ApplyEvent) override;
+	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) override;
 	virtual void CleanupBuffFunction() override;
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Damage Over Time", meta = (DefaultToSelf = "Buff", HidePin = "Buff"))
-	static void DamageOverTime(UBuff* Buff, float const Damage, EDamageSchool const School,
-		float const Interval, bool const bIgnoreRestrictions, bool const bIgnoreModifiers,
-		bool const bSnapshots, bool const bScalesWithStacks, bool const bPartialTickOnExpire,
-		bool const bHasInitialTick, bool const bUseSeparateInitialDamage, float const InitialDamage,
-		EDamageSchool const InitialSchool, FThreatFromDamage const& ThreatParams);
+	static void DamageOverTime(UBuff* Buff, const float Damage, const EDamageSchool School,
+		const float Interval, const bool bIgnoreRestrictions, const bool bIgnoreModifiers,
+		const bool bSnapshots, const bool bScalesWithStacks, const bool bPartialTickOnExpire,
+		const bool bHasInitialTick, const bool bUseSeparateInitialDamage, const float InitialDamage,
+		const EDamageSchool InitialSchool, const FThreatFromDamage& ThreatParams);
 };
 
 UCLASS()
@@ -70,9 +72,9 @@ class UHealingOverTimeFunction : public UBuffFunction
 	GENERATED_BODY()
 
 	UPROPERTY()
-	class UDamageHandler* TargetComponent;
+	UDamageHandler* TargetComponent;
 	UPROPERTY()
-	class UDamageHandler* GeneratorComponent;
+	UDamageHandler* GeneratorComponent;
 	
 	float BaseHealing = 0.0f;
 	EDamageSchool HealingSchool = EDamageSchool::None;
@@ -96,22 +98,22 @@ class UHealingOverTimeFunction : public UBuffFunction
 	UFUNCTION()
 	void TickHealing();
 
-	void SetHealingVars(float const Healing, EDamageSchool const School,
-		float const Interval, bool const bIgnoreRestrictions, bool const bIgnoreModifiers,
-		bool const bSnapshot, bool const bScaleWithStacks, bool const bPartialTickOnExpire,
-		bool const bInitialTick, bool const bUseSeparateInitialHealing, float const InitialHealing,
-		EDamageSchool const InitialSchool, FThreatFromDamage const& ThreatParams);
+	void SetHealingVars(const float Healing, const EDamageSchool School,
+		const float Interval, const bool bIgnoreRestrictions, const bool bIgnoreModifiers,
+		const bool bSnapshot, const bool bScaleWithStacks, const bool bPartialTickOnExpire,
+		const bool bInitialTick, const bool bUseSeparateInitialHealing, const float InitialHealing,
+		const EDamageSchool InitialSchool, const FThreatFromDamage& ThreatParams);
 
-	virtual void OnApply(FBuffApplyEvent const& ApplyEvent) override;
-	virtual void OnRemove(FBuffRemoveEvent const& RemoveEvent) override;
+	virtual void OnApply(const FBuffApplyEvent& ApplyEvent) override;
+	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) override;
 	virtual void CleanupBuffFunction() override;
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Healing Over Time", meta = (DefaultToSelf = "Buff", HidePin = "Buff"))
-	static void HealingOverTime(UBuff* Buff, float const Healing, EDamageSchool const School,
-		float const Interval, bool const bIgnoreRestrictions, bool const bIgnoreModifiers,
-		bool const bSnapshots, bool const bScalesWithStacks, bool const bPartialTickOnExpire,
-		bool const bHasInitialTick, bool const bUseSeparateInitialHealing, float const InitialHealing,
-		EDamageSchool const InitialSchool, FThreatFromDamage const& ThreatParams);
+	static void HealingOverTime(UBuff* Buff, const float Healing, const EDamageSchool School,
+		const float Interval, const bool bIgnoreRestrictions, const bool bIgnoreModifiers,
+		const bool bSnapshots, const bool bScalesWithStacks, const bool bPartialTickOnExpire,
+		const bool bHasInitialTick, const bool bUseSeparateInitialHealing, const float InitialHealing,
+		const EDamageSchool InitialSchool, const FThreatFromDamage& ThreatParams);
 };
 
 UCLASS()
@@ -120,17 +122,17 @@ class SAIYORAV4_API UDamageModifierFunction : public UBuffFunction
 	GENERATED_BODY()
 
 	FDamageModCondition Mod;
-	EDamageModifierType ModType;
+	EDamageModifierType ModType = EDamageModifierType::None;
 	UPROPERTY()
-	class UDamageHandler* TargetHandler;
+	UDamageHandler* TargetHandler;
 
-	void SetModifierVars(EDamageModifierType const ModifierType, FDamageModCondition const& Modifier);
+	void SetModifierVars(const EDamageModifierType ModifierType, const FDamageModCondition& Modifier);
 
-	virtual void OnApply(FBuffApplyEvent const& ApplyEvent) override;
-	virtual void OnRemove(FBuffRemoveEvent const& RemoveEvent) override;
+	virtual void OnApply(const FBuffApplyEvent& ApplyEvent) override;
+	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) override;
 
 	UFUNCTION(BlueprintCallable, Category = "Buff Function", meta = (DefaultToSelf = "Buff", HidePin = "Buff"))
-	static void DamageModifier(UBuff* Buff, EDamageModifierType const ModifierType, FDamageModCondition const& Modifier);
+	static void DamageModifier(UBuff* Buff, const EDamageModifierType ModifierType, const FDamageModCondition& Modifier);
 };
 
 UCLASS()
@@ -139,17 +141,17 @@ class SAIYORAV4_API UDamageRestrictionFunction : public UBuffFunction
 	GENERATED_BODY()
 
 	FDamageRestriction Restrict;
-	EDamageModifierType RestrictType;
+	EDamageModifierType RestrictType = EDamageModifierType::None;
 	UPROPERTY()
-	class UDamageHandler* TargetHandler;
+	UDamageHandler* TargetHandler;
 
-	void SetRestrictionVars(EDamageModifierType const RestrictionType, FDamageRestriction const& Restriction);
+	void SetRestrictionVars(const EDamageModifierType RestrictionType, const FDamageRestriction& Restriction);
 
-	virtual void OnApply(FBuffApplyEvent const& ApplyEvent) override;
-	virtual void OnRemove(FBuffRemoveEvent const& RemoveEvent) override;
+	virtual void OnApply(const FBuffApplyEvent& ApplyEvent) override;
+	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) override;
 
 	UFUNCTION(BlueprintCallable, Category = "Buff Function", meta = (DefaultToSelf = "Buff", HidePin = "Buff"))
-	static void DamageRestriction(UBuff* Buff, EDamageModifierType const RestrictionType, FDamageRestriction const& Restriction);
+	static void DamageRestriction(UBuff* Buff, const EDamageModifierType RestrictionType, const FDamageRestriction& Restriction);
 };
 
 UCLASS()
@@ -159,13 +161,13 @@ class SAIYORAV4_API UDeathRestrictionFunction : public UBuffFunction
 
 	FDeathRestriction Restrict;
 	UPROPERTY()
-	class UDamageHandler* TargetHandler;
+	UDamageHandler* TargetHandler;
 
-	void SetRestrictionVars(FDeathRestriction const& Restriction);
+	void SetRestrictionVars(const FDeathRestriction& Restriction);
 
-	virtual void OnApply(FBuffApplyEvent const& ApplyEvent) override;
-	virtual void OnRemove(FBuffRemoveEvent const& RemoveEvent) override;
+	virtual void OnApply(const FBuffApplyEvent& ApplyEvent) override;
+	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) override;
 
 	UFUNCTION(BlueprintCallable, Category = "Buff Function", meta = (DefaultToSelf = "Buff", HidePin = "Buff"))
-	static void DeathRestriction(UBuff* Buff, FDeathRestriction const& Restriction);
+	static void DeathRestriction(UBuff* Buff, const FDeathRestriction& Restriction);
 };

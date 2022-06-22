@@ -14,25 +14,25 @@ public:
 	
 	UStatHandler();
 	virtual void InitializeComponent() override;
-	virtual void BeginPlay() override;
 	virtual void GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 //Stats
 
 public:
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stat", meta = (GameplayTagFilter = "Stat"))
-	bool IsStatValid(FGameplayTag const StatTag) const;
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stat", meta = (GameplayTagFilter = "Stat"))
-	float GetStatValue(FGameplayTag const StatTag) const;
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Stat", meta = (GameplayTagFilter = "Stat"))
-	bool IsStatModifiable(FGameplayTag const StatTag) const;
+	UFUNCTION(BlueprintPure, Category = "Stat", meta = (GameplayTagFilter = "Stat"))
+	bool IsStatValid(const FGameplayTag StatTag) const;
+	UFUNCTION(BlueprintPure, Category = "Stat", meta = (GameplayTagFilter = "Stat"))
+	float GetStatValue(const FGameplayTag StatTag) const;
+	UFUNCTION(BlueprintPure, Category = "Stat", meta = (GameplayTagFilter = "Stat"))
+	bool IsStatModifiable(const FGameplayTag StatTag) const;
 	UFUNCTION(BlueprintCallable, Category = "Stat", meta = (GameplayTagFilter = "Stat"))
-	void SubscribeToStatChanged(FGameplayTag const StatTag, FStatCallback const& Callback);
+	void SubscribeToStatChanged(const FGameplayTag StatTag, const FStatCallback& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Stat", meta = (GameplayTagFilter = "Stat"))
-	void UnsubscribeFromStatChanged(FGameplayTag const StatTag, FStatCallback const& Callback);
-	void AddStatModifier(FGameplayTag const StatTag, FCombatModifier const& Modifier);
-	void RemoveStatModifier(FGameplayTag const StatTag, UBuff* Source);	
+	void UnsubscribeFromStatChanged(const FGameplayTag StatTag, const FStatCallback& Callback);
+	
+	void AddStatModifier(const FGameplayTag StatTag, const FCombatModifier& Modifier);
+	void RemoveStatModifier(const FGameplayTag StatTag, const UBuff* Source);	
 	
 private:
 	

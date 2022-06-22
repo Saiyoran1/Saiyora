@@ -7,10 +7,10 @@
 
 #pragma region Damage Over Time
 
-void UDamageOverTimeFunction::DamageOverTime(UBuff* Buff, float const Damage, EDamageSchool const School, float const Interval,
-	bool const bIgnoreRestrictions, bool const bIgnoreModifiers, bool const bSnapshots, bool const bScalesWithStacks,
-	bool const bPartialTickOnExpire, bool const bHasInitialTick, bool const bUseSeparateInitialDamage,
-	float const InitialDamage, EDamageSchool const InitialSchool, FThreatFromDamage const& ThreatParams)
+void UDamageOverTimeFunction::DamageOverTime(UBuff* Buff, const float Damage, const EDamageSchool School, const float Interval,
+	const bool bIgnoreRestrictions, const bool bIgnoreModifiers, const bool bSnapshots, const bool bScalesWithStacks,
+	const bool bPartialTickOnExpire, const bool bHasInitialTick, const bool bUseSeparateInitialDamage,
+	const float InitialDamage, const EDamageSchool InitialSchool, const FThreatFromDamage& ThreatParams)
 {
 	if (!IsValid(Buff) || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
 	{
@@ -25,10 +25,10 @@ void UDamageOverTimeFunction::DamageOverTime(UBuff* Buff, float const Damage, ED
 		bScalesWithStacks, bPartialTickOnExpire, bHasInitialTick, bUseSeparateInitialDamage, InitialDamage, InitialSchool, ThreatParams);
 }
 
-void UDamageOverTimeFunction::SetDamageVars(float const Damage, EDamageSchool const School, float const Interval,
-	bool const bIgnoreRestrictions, bool const bIgnoreModifiers, bool const bSnapshot, bool const bScaleWithStacks,
-	bool const bPartialTickOnExpire, bool const bInitialTick, bool const bUseSeparateInitialDamage,
-	float const InitialDamage, EDamageSchool const InitialSchool, FThreatFromDamage const& ThreatParams)
+void UDamageOverTimeFunction::SetDamageVars(const float Damage, const EDamageSchool School, const float Interval,
+	const bool bIgnoreRestrictions, const bool bIgnoreModifiers, const bool bSnapshot, const bool bScaleWithStacks,
+	const bool bPartialTickOnExpire, const bool bInitialTick, const bool bUseSeparateInitialDamage,
+	const float InitialDamage, const EDamageSchool InitialSchool, const FThreatFromDamage& ThreatParams)
 {
 	if (GetOwningBuff()->GetAppliedTo()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 	{
@@ -53,7 +53,7 @@ void UDamageOverTimeFunction::SetDamageVars(float const Damage, EDamageSchool co
 	}
 }
 
-void UDamageOverTimeFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
+void UDamageOverTimeFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
 	if (bSnapshots && !bIgnoresModifiers && IsValid(GeneratorComponent))
 	{
@@ -64,7 +64,7 @@ void UDamageOverTimeFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
 		SnapshotInfo.AppliedTo = GetOwningBuff()->GetAppliedTo();
 		if (SnapshotInfo.AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 		{
-			UPlaneComponent* AppliedByPlaneComp = ISaiyoraCombatInterface::Execute_GetPlaneComponent(SnapshotInfo.AppliedBy);
+			const UPlaneComponent* AppliedByPlaneComp = ISaiyoraCombatInterface::Execute_GetPlaneComponent(SnapshotInfo.AppliedBy);
 			SnapshotInfo.AppliedByPlane = IsValid(AppliedByPlaneComp) ? AppliedByPlaneComp->GetCurrentPlane() : ESaiyoraPlane::None;
 		}
 		else
@@ -73,7 +73,7 @@ void UDamageOverTimeFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
 		}
 		if (SnapshotInfo.AppliedTo->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 		{
-			UPlaneComponent* AppliedToPlaneComp = ISaiyoraCombatInterface::Execute_GetPlaneComponent(SnapshotInfo.AppliedTo);
+			const UPlaneComponent* AppliedToPlaneComp = ISaiyoraCombatInterface::Execute_GetPlaneComponent(SnapshotInfo.AppliedTo);
 			SnapshotInfo.AppliedToPlane = IsValid(AppliedToPlaneComp) ? AppliedToPlaneComp->GetCurrentPlane() : ESaiyoraPlane::None;
 		}
 		else
@@ -99,9 +99,9 @@ void UDamageOverTimeFunction::InitialTick()
 {
     if (IsValid(TargetComponent))
     {
-        float const InitDamage = bUsesSeparateInitialDamage ? InitialDamageAmount : BaseDamage;
-        EDamageSchool const InitSchool = bUsesSeparateInitialDamage ? InitialDamageSchool : DamageSchool;
-        bool const FromSnapshot = bSnapshots && !bUsesSeparateInitialDamage;
+        const float InitDamage = bUsesSeparateInitialDamage ? InitialDamageAmount : BaseDamage;
+        const EDamageSchool InitSchool = bUsesSeparateInitialDamage ? InitialDamageSchool : DamageSchool;
+        const bool FromSnapshot = bSnapshots && !bUsesSeparateInitialDamage;
         TargetComponent->ApplyDamage(InitDamage, GetOwningBuff()->GetAppliedBy(), GetOwningBuff(),
 			EDamageHitStyle::Chronic, InitSchool, bIgnoresModifiers, bIgnoresRestrictions, false,
 			FromSnapshot, FDamageModCondition(), ThreatInfo);
@@ -112,21 +112,21 @@ void UDamageOverTimeFunction::TickDamage()
 {
     if (IsValid(TargetComponent))
     {
-        float const TickDamage = bScalesWithStacks ? BaseDamage * GetOwningBuff()->GetCurrentStacks() : BaseDamage;
+        const float TickDamage = bScalesWithStacks ? BaseDamage * GetOwningBuff()->GetCurrentStacks() : BaseDamage;
         TargetComponent->ApplyDamage(TickDamage, GetOwningBuff()->GetAppliedBy(), GetOwningBuff(), EDamageHitStyle::Chronic,
                                      DamageSchool, bIgnoresModifiers, bIgnoresRestrictions, false,
                                      bSnapshots, FDamageModCondition(), ThreatInfo);
     }
 }
 
-void UDamageOverTimeFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
+void UDamageOverTimeFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
     if (IsValid(TargetComponent) && bTicksOnExpire && RemoveEvent.ExpireReason == EBuffExpireReason::TimedOut && DamageInterval > 0.0f)
     {
-        float const TickFraction = GetWorld()->GetTimerManager().GetTimerRemaining(TickHandle) / DamageInterval;
+    	const float TickFraction = GetWorld()->GetTimerManager().GetTimerRemaining(TickHandle) / DamageInterval;
         if (TickFraction > 0.0f)
         {
-            float const ExpireTickDamage = (bScalesWithStacks ? BaseDamage * GetOwningBuff()->GetCurrentStacks() : BaseDamage) * TickFraction;
+            const float ExpireTickDamage = (bScalesWithStacks ? BaseDamage * GetOwningBuff()->GetCurrentStacks() : BaseDamage) * TickFraction;
             TargetComponent->ApplyDamage(ExpireTickDamage, GetOwningBuff()->GetAppliedBy(),GetOwningBuff(), EDamageHitStyle::Chronic,
                                          DamageSchool, bIgnoresModifiers, bIgnoresRestrictions, false, bSnapshots, FDamageModCondition(), ThreatInfo);
         }
@@ -141,10 +141,10 @@ void UDamageOverTimeFunction::CleanupBuffFunction()
 #pragma endregion
 #pragma region Healing Over Time
 
-void UHealingOverTimeFunction::HealingOverTime(UBuff* Buff, float const Healing, EDamageSchool const School, float const Interval,
-	bool const bIgnoreRestrictions, bool const bIgnoreModifiers, bool const bSnapshots, bool const bScalesWithStacks,
-	bool const bPartialTickOnExpire, bool const bHasInitialTick, bool const bUseSeparateInitialHealing,
-	float const InitialHealing, EDamageSchool const InitialSchool, FThreatFromDamage const& ThreatParams)
+void UHealingOverTimeFunction::HealingOverTime(UBuff* Buff, const float Healing, const EDamageSchool School, const float Interval,
+	const bool bIgnoreRestrictions, const bool bIgnoreModifiers, const bool bSnapshots, const bool bScalesWithStacks,
+	const bool bPartialTickOnExpire, const bool bHasInitialTick, const bool bUseSeparateInitialHealing,
+	const float InitialHealing, const EDamageSchool InitialSchool, const FThreatFromDamage& ThreatParams)
 {
 	if (!IsValid(Buff) || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
 	{
@@ -159,10 +159,10 @@ void UHealingOverTimeFunction::HealingOverTime(UBuff* Buff, float const Healing,
 		bScalesWithStacks, bPartialTickOnExpire, bHasInitialTick, bUseSeparateInitialHealing, InitialHealing, InitialSchool, ThreatParams);
 }
 
-void UHealingOverTimeFunction::SetHealingVars(float const Healing, EDamageSchool const School, float const Interval,
-	bool const bIgnoreRestrictions, bool const bIgnoreModifiers, bool const bSnapshot, bool const bScaleWithStacks,
-	bool const bPartialTickOnExpire, bool const bInitialTick, bool const bUseSeparateInitialHealing,
-	float const InitialHealing, EDamageSchool const InitialSchool, FThreatFromDamage const& ThreatParams)
+void UHealingOverTimeFunction::SetHealingVars(const float Healing, const EDamageSchool School, const float Interval,
+	const bool bIgnoreRestrictions, const bool bIgnoreModifiers, const bool bSnapshot, const bool bScaleWithStacks,
+	const bool bPartialTickOnExpire, const bool bInitialTick, const bool bUseSeparateInitialHealing,
+	const float InitialHealing, const EDamageSchool InitialSchool, const FThreatFromDamage& ThreatParams)
 {
 	if (GetOwningBuff()->GetAppliedTo()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 	{
@@ -187,7 +187,7 @@ void UHealingOverTimeFunction::SetHealingVars(float const Healing, EDamageSchool
 	}
 }
 
-void UHealingOverTimeFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
+void UHealingOverTimeFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
 	if (bSnapshots && !bIgnoresModifiers && IsValid(GeneratorComponent))
 	{
@@ -198,7 +198,7 @@ void UHealingOverTimeFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
 		SnapshotInfo.AppliedTo = GetOwningBuff()->GetAppliedTo();
 		if (SnapshotInfo.AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 		{
-			UPlaneComponent* AppliedByPlaneComp = ISaiyoraCombatInterface::Execute_GetPlaneComponent(SnapshotInfo.AppliedBy);
+			const UPlaneComponent* AppliedByPlaneComp = ISaiyoraCombatInterface::Execute_GetPlaneComponent(SnapshotInfo.AppliedBy);
 			SnapshotInfo.AppliedByPlane = IsValid(AppliedByPlaneComp) ? AppliedByPlaneComp->GetCurrentPlane() : ESaiyoraPlane::None;
 		}
 		else
@@ -207,7 +207,7 @@ void UHealingOverTimeFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
 		}
 		if (SnapshotInfo.AppliedTo->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 		{
-			UPlaneComponent* AppliedToPlaneComp = ISaiyoraCombatInterface::Execute_GetPlaneComponent(SnapshotInfo.AppliedTo);
+			const UPlaneComponent* AppliedToPlaneComp = ISaiyoraCombatInterface::Execute_GetPlaneComponent(SnapshotInfo.AppliedTo);
 			SnapshotInfo.AppliedToPlane = IsValid(AppliedToPlaneComp) ? AppliedToPlaneComp->GetCurrentPlane() : ESaiyoraPlane::None;
 		}
 		else
@@ -233,9 +233,9 @@ void UHealingOverTimeFunction::InitialTick()
 {
     if (IsValid(TargetComponent))
     {
-        float const InitHealing = bUsesSeparateInitialHealing ? InitialHealingAmount : BaseHealing;
-        EDamageSchool const InitSchool = bUsesSeparateInitialHealing ? InitialHealingSchool : HealingSchool;
-        bool const FromSnapshot = bSnapshots && !bUsesSeparateInitialHealing;
+        const float InitHealing = bUsesSeparateInitialHealing ? InitialHealingAmount : BaseHealing;
+        const EDamageSchool InitSchool = bUsesSeparateInitialHealing ? InitialHealingSchool : HealingSchool;
+        const bool FromSnapshot = bSnapshots && !bUsesSeparateInitialHealing;
         TargetComponent->ApplyHealing(InitHealing, GetOwningBuff()->GetAppliedBy(), GetOwningBuff(),
             EDamageHitStyle::Chronic, InitSchool, bIgnoresRestrictions, bIgnoresModifiers, FromSnapshot, FDamageModCondition(), ThreatInfo);
     }
@@ -245,20 +245,20 @@ void UHealingOverTimeFunction::TickHealing()
 {
     if (IsValid(TargetComponent))
     {
-        float const TickHealing = bScalesWithStacks ? BaseHealing * GetOwningBuff()->GetCurrentStacks() : BaseHealing;
+        const float TickHealing = bScalesWithStacks ? BaseHealing * GetOwningBuff()->GetCurrentStacks() : BaseHealing;
         TargetComponent->ApplyHealing(TickHealing, GetOwningBuff()->GetAppliedBy(),GetOwningBuff(), EDamageHitStyle::Chronic,
             HealingSchool, bIgnoresRestrictions,bIgnoresModifiers, bSnapshots, FDamageModCondition(), ThreatInfo);
     }
 }
 
-void UHealingOverTimeFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
+void UHealingOverTimeFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
     if (IsValid(TargetComponent) && bTicksOnExpire && RemoveEvent.ExpireReason == EBuffExpireReason::TimedOut && HealingInterval > 0.0f)
     {
-        float const TickFraction = GetWorld()->GetTimerManager().GetTimerRemaining(TickHandle) / HealingInterval;
+    	const float TickFraction = GetWorld()->GetTimerManager().GetTimerRemaining(TickHandle) / HealingInterval;
         if (TickFraction > 0.0f)
         {
-            float const ExpireTickHealing = (bScalesWithStacks ? BaseHealing * GetOwningBuff()->GetCurrentStacks() : BaseHealing) * TickFraction;
+            const float ExpireTickHealing = (bScalesWithStacks ? BaseHealing * GetOwningBuff()->GetCurrentStacks() : BaseHealing) * TickFraction;
             TargetComponent->ApplyHealing(ExpireTickHealing, GetOwningBuff()->GetAppliedBy(),GetOwningBuff(), EDamageHitStyle::Chronic,
                 HealingSchool, bIgnoresRestrictions,bIgnoresModifiers, bSnapshots, FDamageModCondition(), ThreatInfo);
         }
@@ -273,8 +273,8 @@ void UHealingOverTimeFunction::CleanupBuffFunction()
 #pragma endregion 
 #pragma region Damage Modifiers
 
-void UDamageModifierFunction::DamageModifier(UBuff* Buff, EDamageModifierType const ModifierType,
-                                             FDamageModCondition const& Modifier)
+void UDamageModifierFunction::DamageModifier(UBuff* Buff, const EDamageModifierType ModifierType,
+                                             const FDamageModCondition& Modifier)
 {
 	if (!IsValid(Buff) || ModifierType == EDamageModifierType::None || !Modifier.IsBound() || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
 	{
@@ -288,8 +288,8 @@ void UDamageModifierFunction::DamageModifier(UBuff* Buff, EDamageModifierType co
 	NewDamageModifierFunction->SetModifierVars(ModifierType, Modifier);
 }
 
-void UDamageModifierFunction::SetModifierVars(EDamageModifierType const ModifierType,
-                                              FDamageModCondition const& Modifier)
+void UDamageModifierFunction::SetModifierVars(const EDamageModifierType ModifierType,
+                                              const FDamageModCondition& Modifier)
 {
 	if (GetOwningBuff()->GetAppliedTo()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 	{
@@ -299,7 +299,7 @@ void UDamageModifierFunction::SetModifierVars(EDamageModifierType const Modifier
 	}
 }
 
-void UDamageModifierFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
+void UDamageModifierFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
 	if (IsValid(TargetHandler))
 	{
@@ -323,7 +323,7 @@ void UDamageModifierFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
 	}
 }
 
-void UDamageModifierFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
+void UDamageModifierFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
 	if (IsValid(TargetHandler))
 	{
@@ -350,8 +350,8 @@ void UDamageModifierFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
 #pragma endregion 
 #pragma region Damage Restrictions
 
-void UDamageRestrictionFunction::DamageRestriction(UBuff* Buff, EDamageModifierType const RestrictionType,
-                                                   FDamageRestriction const& Restriction)
+void UDamageRestrictionFunction::DamageRestriction(UBuff* Buff, const EDamageModifierType RestrictionType,
+                                                   const FDamageRestriction& Restriction)
 {
 	if (!IsValid(Buff) || RestrictionType == EDamageModifierType::None || !Restriction.IsBound() || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
 	{
@@ -365,8 +365,8 @@ void UDamageRestrictionFunction::DamageRestriction(UBuff* Buff, EDamageModifierT
 	NewDamageRestrictionFunction->SetRestrictionVars(RestrictionType, Restriction);
 }
 
-void UDamageRestrictionFunction::SetRestrictionVars(EDamageModifierType const RestrictionType,
-                                                    FDamageRestriction const& Restriction)
+void UDamageRestrictionFunction::SetRestrictionVars(const EDamageModifierType RestrictionType,
+                                                    const FDamageRestriction& Restriction)
 {
 	if (GetOwningBuff()->GetAppliedTo()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 	{
@@ -376,9 +376,8 @@ void UDamageRestrictionFunction::SetRestrictionVars(EDamageModifierType const Re
 	}
 }
 
-void UDamageRestrictionFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
+void UDamageRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
-	
 	if (IsValid(TargetHandler))
 	{
 		switch (RestrictType)
@@ -401,7 +400,7 @@ void UDamageRestrictionFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
 	}
 }
 
-void UDamageRestrictionFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
+void UDamageRestrictionFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
 	if (IsValid(TargetHandler))
 	{
@@ -428,7 +427,7 @@ void UDamageRestrictionFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
 #pragma endregion
 #pragma region Death Restriction
 
-void UDeathRestrictionFunction::DeathRestriction(UBuff* Buff, FDeathRestriction const& Restriction)
+void UDeathRestrictionFunction::DeathRestriction(UBuff* Buff, const FDeathRestriction& Restriction)
 {
 	if (!IsValid(Buff) || !Restriction.IsBound() || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
 	{
@@ -442,7 +441,7 @@ void UDeathRestrictionFunction::DeathRestriction(UBuff* Buff, FDeathRestriction 
 	NewDeathRestrictionFunction->SetRestrictionVars(Restriction);
 }
 
-void UDeathRestrictionFunction::SetRestrictionVars(FDeathRestriction const& Restriction)
+void UDeathRestrictionFunction::SetRestrictionVars(const FDeathRestriction& Restriction)
 {
 	if (GetOwningBuff()->GetAppliedTo()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 	{
@@ -451,7 +450,7 @@ void UDeathRestrictionFunction::SetRestrictionVars(FDeathRestriction const& Rest
 	}
 }
 
-void UDeathRestrictionFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
+void UDeathRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
 	if (IsValid(TargetHandler))
 	{
@@ -459,7 +458,7 @@ void UDeathRestrictionFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
 	}
 }
 
-void UDeathRestrictionFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
+void UDeathRestrictionFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
 	if (IsValid(TargetHandler))
 	{
