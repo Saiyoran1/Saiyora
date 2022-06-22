@@ -26,11 +26,6 @@ void UThreatHandler::InitializeComponent()
 	checkf(IsValid(FactionCompRef), TEXT("Owner does not have a valid Faction Component, which Threat Handler depends on."));
 	DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
 	PlaneCompRef = ISaiyoraCombatInterface::Execute_GetPlaneComponent(GetOwner());
-	OwnerLifeStatusCallback.BindDynamic(this, &UThreatHandler::OnOwnerLifeStatusChanged);
-	ThreatFromDamageCallback.BindDynamic(this, &UThreatHandler::OnOwnerDamageTaken);
-	TargetLifeStatusCallback.BindDynamic(this, &UThreatHandler::OnTargetLifeStatusChanged);
-	ThreatFromIncomingHealingCallback.BindDynamic(this, &UThreatHandler::OnTargetHealingTaken);
-	ThreatFromOutgoingHealingCallback.BindDynamic(this, &UThreatHandler::OnTargetHealingDone);
 }
 
 void UThreatHandler::BeginPlay()
@@ -41,11 +36,11 @@ void UThreatHandler::BeginPlay()
 	{
 		if (DamageHandlerRef->HasHealth())
 		{
-			DamageHandlerRef->SubscribeToLifeStatusChanged(OwnerLifeStatusCallback);
+			DamageHandlerRef->OnLifeStatusChanged.AddDynamic(this, &UThreatHandler::OnOwnerLifeStatusChanged);
 		}
 		if (DamageHandlerRef->CanEverReceiveDamage())
 		{
-			DamageHandlerRef->SubscribeToIncomingDamage(ThreatFromDamageCallback);
+			DamageHandlerRef->OnIncomingDamage.AddDynamic(this, &UThreatHandler::OnOwnerDamageTaken);
 		}
 	}
 }
@@ -240,14 +235,14 @@ void UThreatHandler::AddToThreatTable(FThreatTarget const& NewTarget)
 	}
 	if (IsValid(TargetDamageHandler))
 	{
-		TargetDamageHandler->SubscribeToOutgoingHealing(ThreatFromOutgoingHealingCallback);
+		TargetDamageHandler->OnOutgoingHealing.AddDynamic(this, &UThreatHandler::OnTargetHealingDone);
 		if (TargetDamageHandler->HasHealth())
 		{
-			TargetDamageHandler->SubscribeToLifeStatusChanged(TargetLifeStatusCallback);
+			TargetDamageHandler->OnLifeStatusChanged.AddDynamic(this, &UThreatHandler::OnTargetLifeStatusChanged);
 		}
 		if (TargetDamageHandler->CanEverReceiveHealing())
 		{
-			TargetDamageHandler->SubscribeToIncomingHealing(ThreatFromIncomingHealingCallback);
+			TargetDamageHandler->OnIncomingHealing.AddDynamic(this, &UThreatHandler::OnTargetHealingTaken);
 		}
 	}
 	if (bShouldUpdateTarget)
@@ -383,14 +378,14 @@ void UThreatHandler::RemoveFromThreatTable(AActor* Actor)
 		UDamageHandler* TargetDamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(Actor);
 		if (IsValid(TargetDamageHandler))
 		{
-			TargetDamageHandler->UnsubscribeFromOutgoingHealing(ThreatFromOutgoingHealingCallback);
+			TargetDamageHandler->OnOutgoingHealing.RemoveDynamic(this, &UThreatHandler::OnTargetHealingDone);
 			if (TargetDamageHandler->CanEverReceiveHealing())
 			{
-				TargetDamageHandler->UnsubscribeFromIncomingHealingSuccess(ThreatFromIncomingHealingCallback);
+				TargetDamageHandler->OnIncomingHealing.RemoveDynamic(this, &UThreatHandler::OnTargetHealingTaken);
 			}
 			if (TargetDamageHandler->HasHealth())
 			{
-				TargetDamageHandler->UnsubscribeFromLifeStatusChanged(TargetLifeStatusCallback);
+				TargetDamageHandler->OnLifeStatusChanged.RemoveDynamic(this, &UThreatHandler::OnTargetLifeStatusChanged);
 			}
 		}
 		if (bAffectedTarget)
@@ -424,14 +419,14 @@ void UThreatHandler::ClearThreatTable()
 		UDamageHandler* TargetDamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(ThreatTarget.Target);
 		if (IsValid(TargetDamageHandler))
 		{
-			TargetDamageHandler->UnsubscribeFromOutgoingHealing(ThreatFromOutgoingHealingCallback);
+			TargetDamageHandler->OnOutgoingHealing.RemoveDynamic(this, &UThreatHandler::OnTargetHealingDone);
 			if (TargetDamageHandler->CanEverReceiveHealing())
 			{
-				TargetDamageHandler->UnsubscribeFromIncomingHealingSuccess(ThreatFromIncomingHealingCallback);
+				TargetDamageHandler->OnIncomingHealing.RemoveDynamic(this, &UThreatHandler::OnTargetHealingTaken);
 			}
 			if (TargetDamageHandler->HasHealth())
 			{
-				TargetDamageHandler->UnsubscribeFromLifeStatusChanged(TargetLifeStatusCallback);
+				TargetDamageHandler->OnLifeStatusChanged.RemoveDynamic(this, &UThreatHandler::OnTargetLifeStatusChanged);
 			}
 		}
 		UThreatHandler* TargetThreatHandler = ISaiyoraCombatInterface::Execute_GetThreatHandler(ThreatTarget.Target);

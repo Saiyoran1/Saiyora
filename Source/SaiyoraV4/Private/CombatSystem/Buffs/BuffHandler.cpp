@@ -27,7 +27,7 @@ void UBuffHandler::BeginPlay()
 	
 	if (GetOwnerRole() == ROLE_Authority && IsValid(DamageHandlerRef))
 	{
-		DamageHandlerRef->SubscribeToLifeStatusChanged(OnDeath);
+		DamageHandlerRef->OnLifeStatusChanged.AddDynamic(this, &UBuffHandler::RemoveBuffsOnOwnerDeath);
 	}
 }
 
@@ -40,7 +40,6 @@ void UBuffHandler::InitializeComponent()
 	ThreatHandlerRef = ISaiyoraCombatInterface::Execute_GetThreatHandler(GetOwner());
 	MovementComponentRef = ISaiyoraCombatInterface::Execute_GetCustomMovementComponent(GetOwner());
 	CcHandlerRef = ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(GetOwner());
-	OnDeath.BindDynamic(this, &UBuffHandler::RemoveBuffsOnOwnerDeath);
 }
 
 void UBuffHandler::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

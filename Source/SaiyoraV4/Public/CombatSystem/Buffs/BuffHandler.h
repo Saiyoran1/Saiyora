@@ -92,7 +92,6 @@ private:
 	UPROPERTY()
 	TArray<UBuff*> RecentlyRemoved;
 	TMap<UBuff*, FBuffRestriction> IncomingBuffRestrictions;
-	FLifeStatusCallback OnDeath;
 	UFUNCTION()
 	void RemoveBuffsOnOwnerDeath(AActor* Actor, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus);
 

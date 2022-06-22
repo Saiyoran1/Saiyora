@@ -40,8 +40,6 @@ void UAbilityComponent::InitializeComponent()
 	StatHandlerRef = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
 	CrowdControlHandlerRef = ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(GetOwner());
 	DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
-	CcCallback.BindDynamic(this, &UAbilityComponent::InterruptCastOnCrowdControl);
-	DeathCallback.BindDynamic(this, &UAbilityComponent::InterruptCastOnDeath);
 }
 
 void UAbilityComponent::BeginPlay()
@@ -54,11 +52,11 @@ void UAbilityComponent::BeginPlay()
 	{
 		if (IsValid(CrowdControlHandlerRef))
 		{
-			CrowdControlHandlerRef->SubscribeToCrowdControlChanged(CcCallback);
+			CrowdControlHandlerRef->OnCrowdControlChanged.AddDynamic(this, &UAbilityComponent::InterruptCastOnCrowdControl);
 		}
 		if (IsValid(DamageHandlerRef))
 		{
-			DamageHandlerRef->SubscribeToLifeStatusChanged(DeathCallback);
+			DamageHandlerRef->OnLifeStatusChanged.AddDynamic(this, &UAbilityComponent::InterruptCastOnDeath);
 		}
 		for (const TSubclassOf<UCombatAbility> AbilityClass : DefaultAbilities)
 		{

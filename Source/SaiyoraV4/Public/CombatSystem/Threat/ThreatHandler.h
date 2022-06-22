@@ -119,19 +119,14 @@ private:
 	void OnRep_CurrentTarget(AActor* PreviousTarget);
 	void UpdateTarget();
 	FTargetNotification OnTargetChanged;
-	FDamageEventCallback ThreatFromDamageCallback;
 	UFUNCTION()
 	void OnOwnerDamageTaken(FDamagingEvent const& DamageEvent);
-	FDamageEventCallback ThreatFromIncomingHealingCallback;
 	UFUNCTION()
 	void OnTargetHealingTaken(FDamagingEvent const& HealingEvent);
-	FDamageEventCallback ThreatFromOutgoingHealingCallback;
 	UFUNCTION()
 	void OnTargetHealingDone(FDamagingEvent const& HealingEvent);
-	FLifeStatusCallback TargetLifeStatusCallback;
 	UFUNCTION()
 	void OnTargetLifeStatusChanged(AActor* Actor, ELifeStatus const PreviousStatus, ELifeStatus const NewStatus);
-	FLifeStatusCallback OwnerLifeStatusCallback;
 	UFUNCTION()
 	void OnOwnerLifeStatusChanged(AActor* Actor, ELifeStatus const PreviousStatus, ELifeStatus const NewStatus);
 	

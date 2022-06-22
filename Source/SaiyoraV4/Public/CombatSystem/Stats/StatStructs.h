@@ -4,7 +4,7 @@
 #include "CombatStructs.h"
 #include "StatStructs.generated.h"
 
-DECLARE_DYNAMIC_DELEGATE_TwoParams(FStatCallback, FGameplayTag const&, StatTag, float const, NewValue);
+DECLARE_DYNAMIC_DELEGATE_TwoParams(FStatCallback, const FGameplayTag, StatTag, float const, NewValue);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FStatNotification, FGameplayTag const&, StatTag, float const, NewValue);
 
 USTRUCT()

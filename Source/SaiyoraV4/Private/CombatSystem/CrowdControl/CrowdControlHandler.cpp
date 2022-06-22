@@ -20,7 +20,6 @@ void UCrowdControlHandler::InitializeComponent()
 	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Crowd Control Handler."));
 	BuffHandler = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwner());
 	DamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
-	OnDamageTaken.BindDynamic(this, &UCrowdControlHandler::RemoveIncapacitatesOnDamageTaken);
 	StunStatus.CrowdControlType = FSaiyoraCombatTags::Get().Cc_Stun;
 	IncapStatus.CrowdControlType = FSaiyoraCombatTags::Get().Cc_Incapacitate;
 	RootStatus.CrowdControlType = FSaiyoraCombatTags::Get().Cc_Root;
@@ -39,7 +38,7 @@ void UCrowdControlHandler::BeginPlay()
 		BuffHandler->OnIncomingBuffRemoved.AddDynamic(this, &UCrowdControlHandler::CheckRemovedBuffForCc);
 		if (IsValid(DamageHandler))
 		{
-			DamageHandler->SubscribeToIncomingDamage(OnDamageTaken);
+			DamageHandler->OnIncomingDamage.AddDynamic(this, &UCrowdControlHandler::RemoveIncapacitatesOnDamageTaken);
 		}
 	}
 }
@@ -56,33 +55,11 @@ void UCrowdControlHandler::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty
 }
 
 #pragma endregion
-#pragma region Subscriptions
-
-void UCrowdControlHandler::SubscribeToCrowdControlChanged(FCrowdControlCallback const& Callback)
-{
-	if (!Callback.IsBound())
-	{
-		return;
-	}
-	OnCrowdControlChanged.AddUnique(Callback);
-}
-
-void UCrowdControlHandler::UnsubscribeFromCrowdControlChanged(FCrowdControlCallback const& Callback)
-{
-	if (!Callback.IsBound())
-	{
-		return;
-	}
-	OnCrowdControlChanged.Remove(Callback);
-}
-
-#pragma endregion
 #pragma region Status
 
-bool UCrowdControlHandler::IsCrowdControlActive(FGameplayTag const CcTag) const
+bool UCrowdControlHandler::IsCrowdControlActive(const FGameplayTag CcTag) const
 {
-	FCrowdControlStatus const* CcStruct = GetCcStructConst(CcTag);
-	if (CcStruct)
+	if (FCrowdControlStatus const* CcStruct = GetCcStructConst(CcTag))
 	{
 		return CcStruct->bActive;
 	}
@@ -114,7 +91,7 @@ void UCrowdControlHandler::GetActiveCrowdControls(FGameplayTagContainer& OutCcs)
 	}
 }
 
-FCrowdControlStatus* UCrowdControlHandler::GetCcStruct(FGameplayTag const CcTag)
+FCrowdControlStatus* UCrowdControlHandler::GetCcStruct(const FGameplayTag CcTag)
 {
 	if (!CcTag.IsValid() || !CcTag.MatchesTag(FSaiyoraCombatTags::Get().CrowdControl) || CcTag.MatchesTagExact(FSaiyoraCombatTags::Get().CrowdControl))
 	{
@@ -143,7 +120,7 @@ FCrowdControlStatus* UCrowdControlHandler::GetCcStruct(FGameplayTag const CcTag)
 	return nullptr;
 }
 
-FCrowdControlStatus const* UCrowdControlHandler::GetCcStructConst(FGameplayTag const CcTag) const
+FCrowdControlStatus const* UCrowdControlHandler::GetCcStructConst(const FGameplayTag CcTag) const
 {
 	if (!CcTag.IsValid() || !CcTag.MatchesTag(FSaiyoraCombatTags::Get().CrowdControl) || CcTag.MatchesTagExact(FSaiyoraCombatTags::Get().CrowdControl))
 	{
@@ -172,7 +149,7 @@ FCrowdControlStatus const* UCrowdControlHandler::GetCcStructConst(FGameplayTag c
 	return nullptr;
 }
 
-void UCrowdControlHandler::CheckAppliedBuffForCc(FBuffApplyEvent const& BuffEvent)
+void UCrowdControlHandler::CheckAppliedBuffForCc(const FBuffApplyEvent& BuffEvent)
 {
 	if (BuffEvent.ActionTaken == EBuffApplyAction::Failed || BuffEvent.ActionTaken == EBuffApplyAction::Stacked || !IsValid(BuffEvent.AffectedBuff))
 	{
@@ -182,14 +159,13 @@ void UCrowdControlHandler::CheckAppliedBuffForCc(FBuffApplyEvent const& BuffEven
 	BuffEvent.AffectedBuff->GetBuffTags(BuffTags);
 	if (BuffEvent.ActionTaken == EBuffApplyAction::NewBuff)
 	{
-		for (FGameplayTag const& Tag : BuffTags)
+		for (const FGameplayTag Tag : BuffTags)
 		{
 			if (Tag.IsValid() && Tag.MatchesTag(FSaiyoraCombatTags::Get().CrowdControl) && !Tag.MatchesTagExact(FSaiyoraCombatTags::Get().CrowdControl))
 			{
-				FCrowdControlStatus* CcStruct = GetCcStruct(Tag);
-				if (CcStruct)
+				if (FCrowdControlStatus* CcStruct = GetCcStruct(Tag))
 				{
-					FCrowdControlStatus const Previous = *CcStruct;
+					const FCrowdControlStatus Previous = *CcStruct;
 					if (CcStruct->AddNewBuff(BuffEvent.AffectedBuff))
 					{
 						OnCrowdControlChanged.Broadcast(Previous, *CcStruct);
@@ -200,14 +176,13 @@ void UCrowdControlHandler::CheckAppliedBuffForCc(FBuffApplyEvent const& BuffEven
 	}
 	else if (BuffEvent.ActionTaken == EBuffApplyAction::Refreshed || BuffEvent.ActionTaken == EBuffApplyAction::StackedAndRefreshed)
 	{
-		for (FGameplayTag const& Tag : BuffTags)
+		for (const FGameplayTag Tag : BuffTags)
 		{
 			if (Tag.IsValid() && Tag.MatchesTag(FSaiyoraCombatTags::Get().CrowdControl) && !Tag.MatchesTagExact(FSaiyoraCombatTags::Get().CrowdControl))
 			{
-				FCrowdControlStatus* CcStruct = GetCcStruct(Tag);
-				if (CcStruct)
+				if (FCrowdControlStatus* CcStruct = GetCcStruct(Tag))
 				{
-					FCrowdControlStatus const Previous = *CcStruct;
+					const FCrowdControlStatus Previous = *CcStruct;
 					if (CcStruct->RefreshBuff(BuffEvent.AffectedBuff))
 					{
 						OnCrowdControlChanged.Broadcast(Previous, *CcStruct);
@@ -218,7 +193,7 @@ void UCrowdControlHandler::CheckAppliedBuffForCc(FBuffApplyEvent const& BuffEven
 	}
 }
 
-void UCrowdControlHandler::CheckRemovedBuffForCc(FBuffRemoveEvent const& RemoveEvent)
+void UCrowdControlHandler::CheckRemovedBuffForCc(const FBuffRemoveEvent& RemoveEvent)
 {
 	if (!RemoveEvent.Result || !IsValid(RemoveEvent.RemovedBuff))
 	{
@@ -226,14 +201,13 @@ void UCrowdControlHandler::CheckRemovedBuffForCc(FBuffRemoveEvent const& RemoveE
 	}
 	FGameplayTagContainer BuffTags;
 	RemoveEvent.RemovedBuff->GetBuffTags(BuffTags);
-	for (FGameplayTag const& Tag : BuffTags)
+	for (const FGameplayTag Tag : BuffTags)
 	{
 		if (Tag.IsValid() && Tag.MatchesTag(FSaiyoraCombatTags::Get().CrowdControl) && !Tag.MatchesTagExact(FSaiyoraCombatTags::Get().CrowdControl))
 		{
-			FCrowdControlStatus* CcStruct = GetCcStruct(Tag);
-			if (CcStruct)
+			if (FCrowdControlStatus* CcStruct = GetCcStruct(Tag))
 			{
-				FCrowdControlStatus const Previous = *CcStruct;
+				const FCrowdControlStatus Previous = *CcStruct;
 				if (CcStruct->RemoveBuff(RemoveEvent.RemovedBuff))
 				{
 					OnCrowdControlChanged.Broadcast(Previous, *CcStruct);
@@ -243,32 +217,32 @@ void UCrowdControlHandler::CheckRemovedBuffForCc(FBuffRemoveEvent const& RemoveE
 	}
 }
 
-void UCrowdControlHandler::OnRep_StunStatus(FCrowdControlStatus const& Previous)
+void UCrowdControlHandler::OnRep_StunStatus(const FCrowdControlStatus& Previous)
 {
 	OnCrowdControlChanged.Broadcast(Previous, StunStatus);
 }
 
-void UCrowdControlHandler::OnRep_IncapStatus(FCrowdControlStatus const& Previous)
+void UCrowdControlHandler::OnRep_IncapStatus(const FCrowdControlStatus& Previous)
 {
 	OnCrowdControlChanged.Broadcast(Previous, IncapStatus);
 }
 
-void UCrowdControlHandler::OnRep_RootStatus(FCrowdControlStatus const& Previous)
+void UCrowdControlHandler::OnRep_RootStatus(const FCrowdControlStatus& Previous)
 {
 	OnCrowdControlChanged.Broadcast(Previous, RootStatus);
 }
 
-void UCrowdControlHandler::OnRep_SilenceStatus(FCrowdControlStatus const& Previous)
+void UCrowdControlHandler::OnRep_SilenceStatus(const FCrowdControlStatus& Previous)
 {
 	OnCrowdControlChanged.Broadcast(Previous, SilenceStatus);
 }
 
-void UCrowdControlHandler::OnRep_DisarmStatus(FCrowdControlStatus const& Previous)
+void UCrowdControlHandler::OnRep_DisarmStatus(const FCrowdControlStatus& Previous)
 {
 	OnCrowdControlChanged.Broadcast(Previous, DisarmStatus);
 }
 
-void UCrowdControlHandler::RemoveIncapacitatesOnDamageTaken(FDamagingEvent const& DamageEvent)
+void UCrowdControlHandler::RemoveIncapacitatesOnDamageTaken(const FDamagingEvent& DamageEvent)
 {
 	//Currently any non-zero and non-DoT damage will break all incaps.
 	if (DamageEvent.Result.AmountDealt > 0.0f && DamageEvent.Info.HitStyle != EDamageHitStyle::Chronic)

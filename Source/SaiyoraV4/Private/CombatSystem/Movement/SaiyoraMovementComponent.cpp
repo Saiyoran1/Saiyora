@@ -182,13 +182,11 @@ void USaiyoraMovementComponent::InitializeComponent()
 {
 	Super::InitializeComponent();
 	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Custom Movement Component."));
-	OwnerAbilityHandler = ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwner());
-	OwnerCcHandler = ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(GetOwner());
-	OwnerDamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
-	OwnerStatHandler = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
-	OwnerBuffHandler = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwner());
-	OnDeath.BindDynamic(this, &USaiyoraMovementComponent::StopMotionOnOwnerDeath);
-	OnRooted.BindDynamic(this, &USaiyoraMovementComponent::StopMotionOnRooted);
+	AbilityHandlerRef = ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwner());
+	CcHandlerRef = ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(GetOwner());
+	DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
+	StatHandlerRef = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
+	BuffHandlerRef = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwner());
 	MaxWalkSpeedStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnMaxWalkSpeedStatChanged);
 	MaxCrouchSpeedStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnMaxCrouchSpeedStatChanged);
 	GroundFrictionStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnGroundFrictionStatChanged);
@@ -217,67 +215,67 @@ void USaiyoraMovementComponent::BeginPlay()
 		UE_LOG(LogTemp, Warning, (TEXT("Custom CMC encountered wrong Game State Ref!")));
 		return;
 	}
-	if (GetOwnerRole() == ROLE_AutonomousProxy && IsValid(OwnerAbilityHandler))
+	if (GetOwnerRole() == ROLE_AutonomousProxy && IsValid(AbilityHandlerRef))
 	{
 		//Do not sub OnPredictedAbility, this will be added and removed only when custom moves are predicted.
-		OwnerAbilityHandler->OnAbilityMispredicted.AddDynamic(this, &USaiyoraMovementComponent::AbilityMispredicted);
+		AbilityHandlerRef->OnAbilityMispredicted.AddDynamic(this, &USaiyoraMovementComponent::AbilityMispredicted);
 	}
-	if (IsValid(OwnerDamageHandler))
+	if (IsValid(DamageHandlerRef))
 	{
-		OwnerDamageHandler->SubscribeToLifeStatusChanged(OnDeath);
+		DamageHandlerRef->OnLifeStatusChanged.AddDynamic(this, &USaiyoraMovementComponent::StopMotionOnOwnerDeath);
 	}
-	if (IsValid(OwnerCcHandler))
+	if (IsValid(CcHandlerRef))
 	{
-		OwnerCcHandler->SubscribeToCrowdControlChanged(OnRooted);
+		CcHandlerRef->OnCrowdControlChanged.AddDynamic(this, &USaiyoraMovementComponent::StopMotionOnRooted);
 	}
-	if (IsValid(OwnerStatHandler))
+	if (IsValid(StatHandlerRef))
 	{
 		const FSaiyoraCombatTags& CombatTags = FSaiyoraCombatTags::Get();
-		if (OwnerStatHandler->IsStatValid(CombatTags.Stat_MaxWalkSpeed))
+		if (StatHandlerRef->IsStatValid(CombatTags.Stat_MaxWalkSpeed))
 		{
-			MaxWalkSpeed = FMath::Max(DefaultMaxWalkSpeed * OwnerStatHandler->GetStatValue(CombatTags.Stat_MaxWalkSpeed), 0.0f);
-			OwnerStatHandler->SubscribeToStatChanged(CombatTags.Stat_MaxWalkSpeed, MaxWalkSpeedStatCallback);
+			MaxWalkSpeed = FMath::Max(DefaultMaxWalkSpeed * StatHandlerRef->GetStatValue(CombatTags.Stat_MaxWalkSpeed), 0.0f);
+			StatHandlerRef->SubscribeToStatChanged(CombatTags.Stat_MaxWalkSpeed, MaxWalkSpeedStatCallback);
 		}
-		if (OwnerStatHandler->IsStatValid(CombatTags.Stat_MaxCrouchSpeed))
+		if (StatHandlerRef->IsStatValid(CombatTags.Stat_MaxCrouchSpeed))
 		{
-			MaxWalkSpeedCrouched = FMath::Max(DefaultCrouchSpeed * OwnerStatHandler->GetStatValue(CombatTags.Stat_MaxCrouchSpeed), 0.0f);
-			OwnerStatHandler->SubscribeToStatChanged(CombatTags.Stat_MaxCrouchSpeed, MaxCrouchSpeedStatCallback);
+			MaxWalkSpeedCrouched = FMath::Max(DefaultCrouchSpeed * StatHandlerRef->GetStatValue(CombatTags.Stat_MaxCrouchSpeed), 0.0f);
+			StatHandlerRef->SubscribeToStatChanged(CombatTags.Stat_MaxCrouchSpeed, MaxCrouchSpeedStatCallback);
 		}
-		if (OwnerStatHandler->IsStatValid(CombatTags.Stat_GroundFriction))
+		if (StatHandlerRef->IsStatValid(CombatTags.Stat_GroundFriction))
 		{
-			GroundFriction = FMath::Max(DefaultGroundFriction * OwnerStatHandler->GetStatValue(CombatTags.Stat_GroundFriction), 0.0f);
-			OwnerStatHandler->SubscribeToStatChanged(CombatTags.Stat_GroundFriction, GroundFrictionStatCallback);
+			GroundFriction = FMath::Max(DefaultGroundFriction * StatHandlerRef->GetStatValue(CombatTags.Stat_GroundFriction), 0.0f);
+			StatHandlerRef->SubscribeToStatChanged(CombatTags.Stat_GroundFriction, GroundFrictionStatCallback);
 		}
-		if (OwnerStatHandler->IsStatValid(CombatTags.Stat_BrakingDeceleration))
+		if (StatHandlerRef->IsStatValid(CombatTags.Stat_BrakingDeceleration))
 		{
-			BrakingDecelerationWalking = FMath::Max(DefaultBrakingDeceleration * OwnerStatHandler->GetStatValue(CombatTags.Stat_BrakingDeceleration), 0.0f);
-			OwnerStatHandler->SubscribeToStatChanged(CombatTags.Stat_BrakingDeceleration, BrakingDecelerationStatCallback);
+			BrakingDecelerationWalking = FMath::Max(DefaultBrakingDeceleration * StatHandlerRef->GetStatValue(CombatTags.Stat_BrakingDeceleration), 0.0f);
+			StatHandlerRef->SubscribeToStatChanged(CombatTags.Stat_BrakingDeceleration, BrakingDecelerationStatCallback);
 		}
-		if (OwnerStatHandler->IsStatValid(CombatTags.Stat_MaxAcceleration))
+		if (StatHandlerRef->IsStatValid(CombatTags.Stat_MaxAcceleration))
 		{
-			MaxAcceleration = FMath::Max(DefaultMaxAcceleration * OwnerStatHandler->GetStatValue(CombatTags.Stat_MaxAcceleration), 0.0f);
-			OwnerStatHandler->SubscribeToStatChanged(CombatTags.Stat_MaxAcceleration, MaxAccelerationStatCallback);
+			MaxAcceleration = FMath::Max(DefaultMaxAcceleration * StatHandlerRef->GetStatValue(CombatTags.Stat_MaxAcceleration), 0.0f);
+			StatHandlerRef->SubscribeToStatChanged(CombatTags.Stat_MaxAcceleration, MaxAccelerationStatCallback);
 		}
-		if (OwnerStatHandler->IsStatValid(CombatTags.Stat_GravityScale))
+		if (StatHandlerRef->IsStatValid(CombatTags.Stat_GravityScale))
 		{
-			GravityScale = FMath::Max(DefaultGravityScale * OwnerStatHandler->GetStatValue(CombatTags.Stat_GravityScale), 0.0f);
-			OwnerStatHandler->SubscribeToStatChanged(CombatTags.Stat_GravityScale, GravityScaleStatCallback);
+			GravityScale = FMath::Max(DefaultGravityScale * StatHandlerRef->GetStatValue(CombatTags.Stat_GravityScale), 0.0f);
+			StatHandlerRef->SubscribeToStatChanged(CombatTags.Stat_GravityScale, GravityScaleStatCallback);
 		}
-		if (OwnerStatHandler->IsStatValid(CombatTags.Stat_JumpZVelocity))
+		if (StatHandlerRef->IsStatValid(CombatTags.Stat_JumpZVelocity))
 		{
-			JumpZVelocity = FMath::Max(DefaultJumpZVelocity * OwnerStatHandler->GetStatValue(CombatTags.Stat_JumpZVelocity), 0.0f);
-			OwnerStatHandler->SubscribeToStatChanged(CombatTags.Stat_JumpZVelocity, JumpVelocityStatCallback);
+			JumpZVelocity = FMath::Max(DefaultJumpZVelocity * StatHandlerRef->GetStatValue(CombatTags.Stat_JumpZVelocity), 0.0f);
+			StatHandlerRef->SubscribeToStatChanged(CombatTags.Stat_JumpZVelocity, JumpVelocityStatCallback);
 		}
-		if (OwnerStatHandler->IsStatValid(CombatTags.Stat_AirControl))
+		if (StatHandlerRef->IsStatValid(CombatTags.Stat_AirControl))
 		{
-			AirControl = FMath::Max(DefaultAirControl * OwnerStatHandler->GetStatValue(CombatTags.Stat_AirControl), 0.0f);
-			OwnerStatHandler->SubscribeToStatChanged(CombatTags.Stat_AirControl, AirControlStatCallback);
+			AirControl = FMath::Max(DefaultAirControl * StatHandlerRef->GetStatValue(CombatTags.Stat_AirControl), 0.0f);
+			StatHandlerRef->SubscribeToStatChanged(CombatTags.Stat_AirControl, AirControlStatCallback);
 		}
 	}
-	if (IsValid(OwnerBuffHandler) && GetOwnerRole() == ROLE_Authority)
+	if (IsValid(BuffHandlerRef) && GetOwnerRole() == ROLE_Authority)
 	{
-		OwnerBuffHandler->OnIncomingBuffApplied.AddDynamic(this, &USaiyoraMovementComponent::ApplyMoveRestrictionFromBuff);
-		OwnerBuffHandler->OnIncomingBuffRemoved.AddDynamic(this, &USaiyoraMovementComponent::RemoveMoveRestrictionFromBuff);
+		BuffHandlerRef->OnIncomingBuffApplied.AddDynamic(this, &USaiyoraMovementComponent::ApplyMoveRestrictionFromBuff);
+		BuffHandlerRef->OnIncomingBuffRemoved.AddDynamic(this, &USaiyoraMovementComponent::RemoveMoveRestrictionFromBuff);
 	}
 }
 
@@ -332,13 +330,13 @@ bool USaiyoraMovementComponent::ApplyCustomMove(FCustomMoveParams const& CustomM
 		return false;
 	}
 	//Do not apply custom moves to dead targets.
-	if (IsValid(OwnerDamageHandler) && OwnerDamageHandler->GetLifeStatus() != ELifeStatus::Alive)
+	if (IsValid(DamageHandlerRef) && DamageHandlerRef->GetLifeStatus() != ELifeStatus::Alive)
 	{
 		return false;
 	}
 	if (!CustomMove.bIgnoreRestrictions)
 	{
-		if ((IsValid(OwnerCcHandler) && OwnerCcHandler->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Root)) || bMovementRestricted)
+		if ((IsValid(CcHandlerRef) && CcHandlerRef->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Root)) || bMovementRestricted)
 		{
 			return false;
 		}
@@ -444,11 +442,11 @@ void USaiyoraMovementComponent::Client_ExecuteCustomMove_Implementation(FCustomM
 
 void USaiyoraMovementComponent::SetupCustomMovementPrediction(UCombatAbility* Source, FCustomMoveParams const& CustomMove)
 {
-	if (GetOwnerRole() != ROLE_AutonomousProxy || CustomMove.MoveType == ESaiyoraCustomMove::None || !IsValid(Source) || !IsValid(OwnerAbilityHandler))
+	if (GetOwnerRole() != ROLE_AutonomousProxy || CustomMove.MoveType == ESaiyoraCustomMove::None || !IsValid(Source) || !IsValid(AbilityHandlerRef))
 	{
 		return;
 	}
-	OwnerAbilityHandler->OnAbilityTick.AddDynamic(this, &USaiyoraMovementComponent::OnCustomMoveCastPredicted);
+	AbilityHandlerRef->OnAbilityTick.AddDynamic(this, &USaiyoraMovementComponent::OnCustomMoveCastPredicted);
 	PendingCustomMove.AbilityClass = Source->GetClass();
 	PendingCustomMove.MoveParams = CustomMove;
 	PendingCustomMove.PredictionID = Source->GetPredictionID();
@@ -457,7 +455,7 @@ void USaiyoraMovementComponent::SetupCustomMovementPrediction(UCombatAbility* So
 
 void USaiyoraMovementComponent::OnCustomMoveCastPredicted(FAbilityEvent const& Event)
 {
-	OwnerAbilityHandler->OnAbilityTick.RemoveDynamic(this, &USaiyoraMovementComponent::OnCustomMoveCastPredicted);
+	AbilityHandlerRef->OnAbilityTick.RemoveDynamic(this, &USaiyoraMovementComponent::OnCustomMoveCastPredicted);
 	CompletedCastStatus.Add(Event.PredictionID, true);
 	if (!IsValid(PendingCustomMove.AbilityClass) || PendingCustomMove.AbilityClass != Event.Ability->GetClass()
 		|| PendingCustomMove.PredictionID != Event.PredictionID || PendingCustomMove.MoveParams.MoveType == ESaiyoraCustomMove::None)
@@ -484,11 +482,11 @@ void USaiyoraMovementComponent::CustomMoveFromFlag()
 	if (GetOwnerRole() == ROLE_Authority && !PawnOwner->IsLocallyControlled())
 	{
 		//If we are the server, and have an auto proxy, check that this move hasn't already been sent (duplicating cast IDs), and can actually be performed.
-		if (ServerCompletedMovementIDs.Contains(FPredictedTick(CustomMoveAbilityRequest.PredictionID, CustomMoveAbilityRequest.Tick)) || !IsValid(OwnerAbilityHandler))
+		if (ServerCompletedMovementIDs.Contains(FPredictedTick(CustomMoveAbilityRequest.PredictionID, CustomMoveAbilityRequest.Tick)) || !IsValid(AbilityHandlerRef))
 		{
 			return;
 		}
-		bool const bCompleted = OwnerAbilityHandler->UseAbilityFromPredictedMovement(CustomMoveAbilityRequest);
+		bool const bCompleted = AbilityHandlerRef->UseAbilityFromPredictedMovement(CustomMoveAbilityRequest);
 		if (bCompleted)
 		{
 			//Document that this prediction ID has already been used, so duplicate moves with this ID do not get re-used.
@@ -562,13 +560,13 @@ bool USaiyoraMovementComponent::ApplyCustomRootMotionHandler(USaiyoraRootMotionH
 		return false;
 	}
 	//Do not apply root motion to dead targets.
-	if (IsValid(OwnerDamageHandler) && OwnerDamageHandler->GetLifeStatus() != ELifeStatus::Alive)
+	if (IsValid(DamageHandlerRef) && DamageHandlerRef->GetLifeStatus() != ELifeStatus::Alive)
 	{
 		return false;
 	}
 	if (!Handler->bIgnoreRestrictions)
 	{
-		if ((IsValid(OwnerCcHandler) && OwnerCcHandler->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Root)) || bMovementRestricted)
+		if ((IsValid(CcHandlerRef) && CcHandlerRef->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Root)) || bMovementRestricted)
 		{
 			return false;
 		}
@@ -625,7 +623,7 @@ bool USaiyoraMovementComponent::ApplyCustomRootMotionHandler(USaiyoraRootMotionH
 			}
 			ServerCompletedMovementIDs.Add(FPredictedTick(AbilitySource->GetPredictionID(), AbilitySource->GetCurrentTick()));
 			//We don't check custom restrictions since the move was self-initiated, but we do check for root.
-			if (!Handler->bIgnoreRestrictions && IsValid(OwnerCcHandler) && OwnerCcHandler->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Root))
+			if (!Handler->bIgnoreRestrictions && IsValid(CcHandlerRef) && CcHandlerRef->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Root))
 			{
 				return false;
 			}
@@ -639,7 +637,7 @@ bool USaiyoraMovementComponent::ApplyCustomRootMotionHandler(USaiyoraRootMotionH
 	case ROLE_AutonomousProxy :
 		{
 			//We don't check for custom restrictions since the move was self-initiated, but we do check for root.
-			if (!Handler->bIgnoreRestrictions && IsValid(OwnerCcHandler) && OwnerCcHandler->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Root))
+			if (!Handler->bIgnoreRestrictions && IsValid(CcHandlerRef) && CcHandlerRef->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Root))
 			{
 				return false;
 			}
@@ -871,13 +869,13 @@ bool USaiyoraMovementComponent::CanAttemptJump() const
 	{
 		return false;
 	}
-	if (IsValid(OwnerDamageHandler) && OwnerDamageHandler->GetLifeStatus() != ELifeStatus::Alive)
+	if (IsValid(DamageHandlerRef) && DamageHandlerRef->GetLifeStatus() != ELifeStatus::Alive)
 	{
 		return false;
 	}
-	if (IsValid(OwnerCcHandler))
+	if (IsValid(CcHandlerRef))
 	{
-		if (OwnerCcHandler->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Stun) || OwnerCcHandler->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Incapacitate) || OwnerCcHandler->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Root))
+		if (CcHandlerRef->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Stun) || CcHandlerRef->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Incapacitate) || CcHandlerRef->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Root))
 		{
 			return false;
 		}
@@ -891,13 +889,13 @@ bool USaiyoraMovementComponent::CanCrouchInCurrentState() const
 	{
 		return false;
 	}
-	if (IsValid(OwnerDamageHandler) && OwnerDamageHandler->GetLifeStatus() != ELifeStatus::Alive)
+	if (IsValid(DamageHandlerRef) && DamageHandlerRef->GetLifeStatus() != ELifeStatus::Alive)
 	{
 		return false;
 	}
-	if (IsValid(OwnerCcHandler))
+	if (IsValid(CcHandlerRef))
 	{
-		if (OwnerCcHandler->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Stun) || OwnerCcHandler->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Incapacitate))
+		if (CcHandlerRef->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Stun) || CcHandlerRef->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Incapacitate))
 		{
 			return false;
 		}
@@ -907,13 +905,13 @@ bool USaiyoraMovementComponent::CanCrouchInCurrentState() const
 
 FVector USaiyoraMovementComponent::ConsumeInputVector()
 {
-	if (IsValid(OwnerDamageHandler) && OwnerDamageHandler->GetLifeStatus() != ELifeStatus::Alive)
+	if (IsValid(DamageHandlerRef) && DamageHandlerRef->GetLifeStatus() != ELifeStatus::Alive)
 	{
 		return FVector::ZeroVector;
 	}
-	if (IsValid(OwnerCcHandler))
+	if (IsValid(CcHandlerRef))
 	{
-		if (OwnerCcHandler->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Stun) || OwnerCcHandler->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Incapacitate) || OwnerCcHandler->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Root))
+		if (CcHandlerRef->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Stun) || CcHandlerRef->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Incapacitate) || CcHandlerRef->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Root))
 		{
 			return FVector::ZeroVector;
 		}
@@ -923,13 +921,13 @@ FVector USaiyoraMovementComponent::ConsumeInputVector()
 
 float USaiyoraMovementComponent::GetMaxAcceleration() const
 {
-	if (IsValid(OwnerDamageHandler) && OwnerDamageHandler->GetLifeStatus() != ELifeStatus::Alive)
+	if (IsValid(DamageHandlerRef) && DamageHandlerRef->GetLifeStatus() != ELifeStatus::Alive)
 	{
 		return 0.0f;
 	}
-	if (IsValid(OwnerCcHandler))
+	if (IsValid(CcHandlerRef))
 	{
-		if (OwnerCcHandler->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Stun) || OwnerCcHandler->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Incapacitate) || OwnerCcHandler->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Root))
+		if (CcHandlerRef->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Stun) || CcHandlerRef->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Incapacitate) || CcHandlerRef->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Root))
 		{
 			return 0.0f;
 		}
@@ -939,13 +937,13 @@ float USaiyoraMovementComponent::GetMaxAcceleration() const
 
 float USaiyoraMovementComponent::GetMaxSpeed() const
 {
-	if (IsValid(OwnerDamageHandler) && OwnerDamageHandler->GetLifeStatus() != ELifeStatus::Alive)
+	if (IsValid(DamageHandlerRef) && DamageHandlerRef->GetLifeStatus() != ELifeStatus::Alive)
 	{
 		return 0.0f;
 	}
-	if (IsValid(OwnerCcHandler))
+	if (IsValid(CcHandlerRef))
 	{
-		if (OwnerCcHandler->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Stun) || OwnerCcHandler->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Incapacitate) || OwnerCcHandler->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Root))
+		if (CcHandlerRef->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Stun) || CcHandlerRef->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Incapacitate) || CcHandlerRef->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Root))
 		{
 			return 0.0f;
 		}

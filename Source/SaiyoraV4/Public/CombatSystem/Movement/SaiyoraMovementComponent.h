@@ -72,21 +72,21 @@ public:
 	virtual void InitializeComponent() override;
 	virtual void BeginPlay() override;
 	
-	UAbilityComponent* GetOwnerAbilityHandler() const { return OwnerAbilityHandler; }
+	UAbilityComponent* GetOwnerAbilityHandler() const { return AbilityHandlerRef; }
 	AGameState* GetGameStateRef() const { return GameStateRef; }
 	
 private:
 	
 	UPROPERTY()
-	UAbilityComponent* OwnerAbilityHandler = nullptr;
+	UAbilityComponent* AbilityHandlerRef = nullptr;
 	UPROPERTY()
-	UCrowdControlHandler* OwnerCcHandler = nullptr;
+	UCrowdControlHandler* CcHandlerRef = nullptr;
 	UPROPERTY()
-	UDamageHandler* OwnerDamageHandler = nullptr;
+	UDamageHandler* DamageHandlerRef = nullptr;
 	UPROPERTY()
-	UStatHandler* OwnerStatHandler = nullptr;
+	UStatHandler* StatHandlerRef = nullptr;
 	UPROPERTY()
-	UBuffHandler* OwnerBuffHandler = nullptr;
+	UBuffHandler* BuffHandlerRef = nullptr;
 	UPROPERTY()
 	AGameState* GameStateRef = nullptr;
 
@@ -157,10 +157,8 @@ private:
 	virtual FVector ConsumeInputVector() override;
 	virtual float GetMaxAcceleration() const override;
 	virtual float GetMaxSpeed() const override;
-	FLifeStatusCallback OnDeath;
 	UFUNCTION()
 	void StopMotionOnOwnerDeath(AActor* Target, ELifeStatus const Previous, ELifeStatus const New);
-	FCrowdControlCallback OnRooted;
 	UFUNCTION()
 	void StopMotionOnRooted(FCrowdControlStatus const& Previous, FCrowdControlStatus const& New);
 	UFUNCTION()

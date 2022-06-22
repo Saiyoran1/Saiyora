@@ -222,10 +222,8 @@ private:
 	UFUNCTION(Client, Reliable)
 	void ClientAbilityInterrupt(const FInterruptEvent& InterruptEvent);
 	TMap<UBuff*, FInterruptRestriction> InterruptRestrictions;
-	FCrowdControlCallback CcCallback;
 	UFUNCTION()
 	void InterruptCastOnCrowdControl(const FCrowdControlStatus& PreviousStatus, const FCrowdControlStatus& NewStatus);
-	FLifeStatusCallback DeathCallback;
 	UFUNCTION()
 	void InterruptCastOnDeath(AActor* Actor, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus);
 

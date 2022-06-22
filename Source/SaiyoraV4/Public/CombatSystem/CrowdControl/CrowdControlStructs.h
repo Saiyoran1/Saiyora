@@ -32,5 +32,4 @@ private:
     UBuff* GetLongestBuff();
 };
 
-DECLARE_DYNAMIC_DELEGATE_TwoParams(FCrowdControlCallback, FCrowdControlStatus const&, PreviousStatus, FCrowdControlStatus const&, NewStatus);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FCrowdControlNotification, FCrowdControlStatus const&, PreviousStatus, FCrowdControlStatus const&, NewStatus);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FCrowdControlNotification, const FCrowdControlStatus&, PreviousStatus, const FCrowdControlStatus&, NewStatus);

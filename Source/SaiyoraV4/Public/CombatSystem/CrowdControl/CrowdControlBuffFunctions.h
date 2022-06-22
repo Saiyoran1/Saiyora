@@ -4,6 +4,8 @@
 #include "GameplayTagContainer.h"
 #include "CrowdControlBuffFunctions.generated.h"
 
+class UCrowdControlHandler;
+
 UCLASS()
 class SAIYORAV4_API UCrowdControlImmunityFunction : public UBuffFunction
 {
@@ -11,18 +13,18 @@ class SAIYORAV4_API UCrowdControlImmunityFunction : public UBuffFunction
 
     FGameplayTag ImmuneCc;
 	UPROPERTY()
-	class UBuffHandler* TargetBuffHandler;
+	UBuffHandler* TargetBuffHandler = nullptr;
     UPROPERTY()
-    class UCrowdControlHandler* TargetCcHandler;
+    UCrowdControlHandler* TargetCcHandler = nullptr;
 	FBuffRestriction CcImmunity;
 	UFUNCTION()
-	bool RestrictCcBuff(FBuffApplyEvent const& ApplyEvent);
+	bool RestrictCcBuff(const FBuffApplyEvent& ApplyEvent);
     
-    void SetRestrictionVars(FGameplayTag const ImmunedCc);
+    void SetRestrictionVars(const FGameplayTag ImmunedCc);
     
-    virtual void OnApply(FBuffApplyEvent const& ApplyEvent) override;
-    virtual void OnRemove(FBuffRemoveEvent const& RemoveEvent) override;
+    virtual void OnApply(const FBuffApplyEvent& ApplyEvent) override;
+    virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) override;
     
     UFUNCTION(BlueprintCallable, Category = "Buff Function", meta = (GameplayTagFilter = "CrowdControl", DefaultToSelf = "Buff", HidePin = "Buff"))
-    static void CrowdControlImmunity(UBuff* Buff, FGameplayTag const ImmunedCrowdControl);
+    static void CrowdControlImmunity(UBuff* Buff, const FGameplayTag ImmunedCrowdControl);
 };

@@ -6,7 +6,7 @@
 
 #pragma region Cc Immunity
 
-void UCrowdControlImmunityFunction::CrowdControlImmunity(UBuff* Buff, FGameplayTag const ImmunedCrowdControl)
+void UCrowdControlImmunityFunction::CrowdControlImmunity(UBuff* Buff, const FGameplayTag ImmunedCrowdControl)
 {
 	if (!IsValid(Buff) || !ImmunedCrowdControl.IsValid() || !ImmunedCrowdControl.MatchesTag(FSaiyoraCombatTags::Get().CrowdControl) ||
 		ImmunedCrowdControl.MatchesTagExact(FSaiyoraCombatTags::Get().CrowdControl) || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
@@ -21,14 +21,14 @@ void UCrowdControlImmunityFunction::CrowdControlImmunity(UBuff* Buff, FGameplayT
 	NewCcImmunityFunction->SetRestrictionVars(ImmunedCrowdControl);
 }
 
-bool UCrowdControlImmunityFunction::RestrictCcBuff(FBuffApplyEvent const& ApplyEvent)
+bool UCrowdControlImmunityFunction::RestrictCcBuff(const FBuffApplyEvent& ApplyEvent)
 {
 	FGameplayTagContainer BuffTags;
 	ApplyEvent.BuffClass.GetDefaultObject()->GetBuffTags(BuffTags);
 	return BuffTags.HasTagExact(ImmuneCc);
 }
 
-void UCrowdControlImmunityFunction::SetRestrictionVars(FGameplayTag const ImmunedCc)
+void UCrowdControlImmunityFunction::SetRestrictionVars(const FGameplayTag ImmunedCc)
 {
 	if (GetOwningBuff()->GetAppliedTo()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 	{
@@ -39,11 +39,11 @@ void UCrowdControlImmunityFunction::SetRestrictionVars(FGameplayTag const Immune
 	}
 }
 
-void UCrowdControlImmunityFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
+void UCrowdControlImmunityFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
 	if (IsValid(TargetBuffHandler) && IsValid(TargetCcHandler))
 	{
-		FCrowdControlStatus const Status = TargetCcHandler->GetCrowdControlStatus(ImmuneCc);
+		const FCrowdControlStatus Status = TargetCcHandler->GetCrowdControlStatus(ImmuneCc);
 		if (Status.bActive)
 		{
 			TArray<UBuff*> Ccs = Status.Sources;
@@ -56,7 +56,7 @@ void UCrowdControlImmunityFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
 	}
 }
 
-void UCrowdControlImmunityFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
+void UCrowdControlImmunityFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
 	if (IsValid(TargetBuffHandler))
 	{

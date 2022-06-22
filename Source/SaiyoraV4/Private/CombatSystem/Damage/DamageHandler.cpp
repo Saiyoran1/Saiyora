@@ -63,17 +63,17 @@ void UDamageHandler::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& Out
 #pragma endregion 
 #pragma region Health
 
-void UDamageHandler::UpdateMaxHealth(float const NewMaxHealth)
+void UDamageHandler::UpdateMaxHealth(const float NewMaxHealth)
 {
 	if (!bHasHealth)
 	{
 		return;
 	}
-	float const PreviousMaxHealth = MaxHealth;
+	const float PreviousMaxHealth = MaxHealth;
 	MaxHealth = bStaticMaxHealth ? FMath::Max(1.0f, DefaultMaxHealth) : FMath::Max(1.0f, NewMaxHealth);
 	if (MaxHealth != PreviousMaxHealth)
 	{
-		float const PreviousHealth = CurrentHealth;
+		const float PreviousHealth = CurrentHealth;
 		CurrentHealth = FMath::Clamp((CurrentHealth / PreviousMaxHealth) * MaxHealth, 0.0f, MaxHealth);
 		if (CurrentHealth != PreviousHealth)
 		{
@@ -83,7 +83,7 @@ void UDamageHandler::UpdateMaxHealth(float const NewMaxHealth)
 	}
 }
 
-void UDamageHandler::ReactToMaxHealthStat(FGameplayTag const& StatTag, float const NewValue)
+void UDamageHandler::ReactToMaxHealthStat(const FGameplayTag StatTag, const float NewValue)
 {
 	if (StatTag.IsValid() && StatTag.MatchesTagExact(FSaiyoraCombatTags::Get().Stat_MaxHealth))
 	{
@@ -126,7 +126,7 @@ void UDamageHandler::UpdateRespawnPoint(const FVector& NewLocation)
 
 void UDamageHandler::Die()
 {
-	ELifeStatus const PreviousStatus = LifeStatus;
+	const ELifeStatus PreviousStatus = LifeStatus;
 	LifeStatus = ELifeStatus::Dead;
 	OnLifeStatusChanged.Broadcast(GetOwner(), PreviousStatus, LifeStatus);
 	if (GameStateRef)
@@ -151,17 +151,17 @@ void UDamageHandler::Die()
 	
 }
 
-void UDamageHandler::OnRep_CurrentHealth(float const PreviousValue)
+void UDamageHandler::OnRep_CurrentHealth(const float PreviousValue)
 {
 	OnHealthChanged.Broadcast(GetOwner(), PreviousValue, CurrentHealth);
 }
 
-void UDamageHandler::OnRep_MaxHealth(float const PreviousValue)
+void UDamageHandler::OnRep_MaxHealth(const float PreviousValue)
 {
 	OnMaxHealthChanged.Broadcast(GetOwner(), PreviousValue, MaxHealth);
 }
 
-void UDamageHandler::OnRep_LifeStatus(ELifeStatus const PreviousValue)
+void UDamageHandler::OnRep_LifeStatus(const ELifeStatus PreviousValue)
 {
 	OnLifeStatusChanged.Broadcast(GetOwner(), PreviousValue, LifeStatus);
 }
@@ -169,6 +169,11 @@ void UDamageHandler::OnRep_LifeStatus(ELifeStatus const PreviousValue)
 #pragma endregion
 #pragma region Damage
 
+//TODO: CLEANUP STARTS HERE!!!!!!!!!!!!!!
+//
+//
+//
+//TODO: PLEASE LOOK!!!!!!!!!!!
 FDamagingEvent UDamageHandler::ApplyDamage(float const Amount, AActor* AppliedBy, UObject* Source,
                                            EDamageHitStyle const HitStyle, EDamageSchool const School, bool const bIgnoreModifiers, bool const bIgnoreRestrictions,
                                            const bool bIgnoreDeathRestrictions, bool const bFromSnapshot, FDamageModCondition const& SourceModifier, FThreatFromDamage const& ThreatParams)
@@ -403,137 +408,6 @@ void UDamageHandler::ClientNotifyOfIncomingHealing_Implementation(FDamagingEvent
 }
 
 #pragma endregion 
-#pragma region Subscriptions
-
-void UDamageHandler::SubscribeToHealthChanged(FHealthChangeCallback const& Callback)
-{
-	if (Callback.IsBound())
-	{
-		OnHealthChanged.AddUnique(Callback);
-	}
-}
-
-void UDamageHandler::UnsubscribeFromHealthChanged(FHealthChangeCallback const& Callback)
-{
-	if (Callback.IsBound())
-	{
-		OnHealthChanged.Remove(Callback);
-	}
-}
-
-void UDamageHandler::SubscribeToMaxHealthChanged(FHealthChangeCallback const& Callback)
-{
-	if (Callback.IsBound())
-	{
-		OnMaxHealthChanged.AddUnique(Callback);
-	}
-}
-
-void UDamageHandler::UnsubscribeFromMaxHealthChanged(FHealthChangeCallback const& Callback)
-{
-	if (Callback.IsBound())
-	{
-		OnMaxHealthChanged.Remove(Callback);
-	}
-}
-
-void UDamageHandler::SubscribeToLifeStatusChanged(FLifeStatusCallback const& Callback)
-{
-	if (Callback.IsBound())
-	{
-		OnLifeStatusChanged.AddUnique(Callback);
-	}
-}
-
-void UDamageHandler::UnsubscribeFromLifeStatusChanged(FLifeStatusCallback const& Callback)
-{
-	if (Callback.IsBound())
-	{
-		OnLifeStatusChanged.Remove(Callback);
-	}
-}
-
-void UDamageHandler::SubscribeToOutgoingDamage(FDamageEventCallback const& Callback)
-{
-	if (Callback.IsBound())
-	{
-		OnOutgoingDamage.AddUnique(Callback);
-	}
-}
-
-void UDamageHandler::UnsubscribeFromOutgoingDamage(FDamageEventCallback const& Callback)
-{
-	if (Callback.IsBound())
-	{
-		OnOutgoingDamage.Remove(Callback);
-	}
-}
-
-void UDamageHandler::SubscribeToKillingBlow(FDamageEventCallback const& Callback)
-{
-	if (Callback.IsBound())
-	{
-		OnKillingBlow.AddUnique(Callback);
-	}
-}
-
-void UDamageHandler::UnsubscribeFromKillingBlow(FDamageEventCallback const& Callback)
-{
-	if (Callback.IsBound())
-	{
-		OnKillingBlow.Remove(Callback);
-	}
-}
-
-void UDamageHandler::SubscribeToOutgoingHealing(FDamageEventCallback const& Callback)
-{
-	if (Callback.IsBound())
-	{
-		OnOutgoingHealing.AddUnique(Callback);
-	}
-}
-
-void UDamageHandler::UnsubscribeFromOutgoingHealing(FDamageEventCallback const& Callback)
-{
-	if (Callback.IsBound())
-	{
-		OnOutgoingHealing.Remove(Callback);
-	}
-}
-
-void UDamageHandler::SubscribeToIncomingDamage(FDamageEventCallback const& Callback)
-{
-	if (Callback.IsBound())
-	{
-		OnIncomingDamage.AddUnique(Callback);
-	}
-}
-
-void UDamageHandler::UnsubscribeFromIncomingDamage(FDamageEventCallback const& Callback)
-{
-	if (Callback.IsBound())
-	{
-		OnIncomingDamage.Remove(Callback);
-	}
-}
-
-void UDamageHandler::SubscribeToIncomingHealing(FDamageEventCallback const& Callback)
-{
-	if (Callback.IsBound())
-	{
-		OnIncomingHealing.AddUnique(Callback);
-	}
-}
-
-void UDamageHandler::UnsubscribeFromIncomingHealingSuccess(FDamageEventCallback const& Callback)
-{
-	if (Callback.IsBound())
-	{
-		OnIncomingHealing.Remove(Callback);
-	}
-}
-
-#pragma endregion
 #pragma region Restrictions
 
 void UDamageHandler::AddDeathRestriction(UBuff* Source, FDeathRestriction const& Restriction)

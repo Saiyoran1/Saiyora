@@ -52,9 +52,6 @@ struct FDamageInfo
     float SnapshotValue = 0.0f;
 };
 
-DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FDamageRestriction, FDamageInfo const&, DamageInfo);
-DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FDamageModCondition, FDamageInfo const&, DamageInfo);
-
 USTRUCT(BlueprintType)
 struct FDamagingEvent
 {
@@ -68,36 +65,12 @@ struct FDamagingEvent
     FThreatFromDamage ThreatInfo;
 };
 
-DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FDeathRestriction, FDamagingEvent const&, DamageEvent);
+DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FDamageRestriction, const FDamageInfo&, DamageInfo);
+DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FDamageModCondition, const FDamageInfo&, DamageInfo);
+DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FDeathRestriction, const FDamagingEvent&, DamageEvent);
 DECLARE_DYNAMIC_DELEGATE_OneParam(FDamageEventCallback, FDamagingEvent const&, DamageEvent);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDamageEventNotification, FDamagingEvent const&, DamageEvent);
-
-USTRUCT(BlueprintType)
-struct FDamageLogEvent
-{
-    GENERATED_BODY()
-
-	UPROPERTY(BlueprintReadOnly, Category = "Damage")
-	float TimeStamp = 0.0f;
-	UPROPERTY(BlueprintReadOnly, Category = "Damage")
-	bool bWasHealing = false;
-    UPROPERTY(BlueprintReadOnly, Category = "Damage")
-    FString Instigator;
-    UPROPERTY(BlueprintReadOnly, Category = "Damage")
-    FString Target;
-    UPROPERTY(BlueprintReadOnly, Category = "Damage")
-    float Value = 0.0f;
-    UPROPERTY(BlueprintReadOnly, Category = "Damage")
-    FString Source;
-	UPROPERTY(BlueprintReadOnly, Category = "Damage")
-	EDamageHitStyle HitStyle = EDamageHitStyle::None;
-    UPROPERTY(BlueprintReadOnly, Category = "Damage")
-    EDamageSchool School = EDamageSchool::None;
-	UPROPERTY(BlueprintReadOnly, Category = "Damage")
-	bool XPlane = false;
-};
-
-DECLARE_DYNAMIC_DELEGATE_ThreeParams(FHealthChangeCallback, AActor*, Actor, float const, PreviousHealth, float const, NewHealth);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FHealthChangeNotification, AActor*, Actor, float const, PreviousHealth, float const, NewHealth);
-DECLARE_DYNAMIC_DELEGATE_ThreeParams(FLifeStatusCallback, AActor*, Actor, ELifeStatus const, PreviousStatus, ELifeStatus const, NewStatus);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FLifeStatusNotification, AActor*, Actor, ELifeStatus const, PreviousStatus, ELifeStatus const, NewStatus);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDamageEventNotification, const FDamagingEvent&, DamageEvent);
+DECLARE_DYNAMIC_DELEGATE_ThreeParams(FHealthChangeCallback, AActor*, Actor, const float, PreviousHealth, const float, NewHealth);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FHealthChangeNotification, AActor*, Actor, const float, PreviousHealth, const float, NewHealth);
+DECLARE_DYNAMIC_DELEGATE_ThreeParams(FLifeStatusCallback, AActor*, Actor, const ELifeStatus, PreviousStatus, const ELifeStatus, NewStatus);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FLifeStatusNotification, AActor*, Actor, const ELifeStatus, PreviousStatus, const ELifeStatus, NewStatus);
