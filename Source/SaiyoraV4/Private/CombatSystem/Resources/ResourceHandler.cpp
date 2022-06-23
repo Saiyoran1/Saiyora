@@ -21,7 +21,7 @@ void UResourceHandler::BeginPlay()
 	
 	if (GetOwnerRole() == ROLE_Authority)
 	{
-		for (TTuple<TSubclassOf<UResource>, FResourceInitInfo> const& InitInfo : DefaultResources)
+		for (const TTuple<TSubclassOf<UResource>, FResourceInitInfo>& InitInfo : DefaultResources)
 		{
 			AddNewResource(InitInfo.Key, InitInfo.Value);
 		}
@@ -49,7 +49,7 @@ bool UResourceHandler::ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bu
 #pragma endregion 
 #pragma region Resource Management
 
-UResource* UResourceHandler::FindActiveResource(TSubclassOf<UResource> const ResourceClass) const
+UResource* UResourceHandler::FindActiveResource(const TSubclassOf<UResource> ResourceClass) const
 {
 	if (!IsValid(ResourceClass))
 	{
@@ -69,7 +69,7 @@ UResource* UResourceHandler::FindActiveResource(TSubclassOf<UResource> const Res
 	return nullptr;
 }
 
-void UResourceHandler::AddNewResource(TSubclassOf<UResource> const ResourceClass, FResourceInitInfo const& InitInfo)
+void UResourceHandler::AddNewResource(const TSubclassOf<UResource> ResourceClass, const FResourceInitInfo& InitInfo)
 {
 	if (GetOwnerRole() != ROLE_Authority || IsValid(FindActiveResource(ResourceClass)))
 	{
@@ -88,7 +88,7 @@ void UResourceHandler::AddNewResource(TSubclassOf<UResource> const ResourceClass
 	}
 }
 
-void UResourceHandler::RemoveResource(TSubclassOf<UResource> const ResourceClass)
+void UResourceHandler::RemoveResource(const TSubclassOf<UResource> ResourceClass)
 {
 	if (GetOwnerRole() != ROLE_Authority)
 	{
@@ -107,7 +107,7 @@ void UResourceHandler::RemoveResource(TSubclassOf<UResource> const ResourceClass
 			OnResourceRemoved.Broadcast(Resource);
 			RecentlyRemovedResources.Add(Resource);
 			FTimerHandle RemovalHandle;
-			FTimerDelegate const RemovalDelegate = FTimerDelegate::CreateUObject(this, &UResourceHandler::FinishRemoveResource, Resource);
+			const FTimerDelegate RemovalDelegate = FTimerDelegate::CreateUObject(this, &UResourceHandler::FinishRemoveResource, Resource);
 			GetWorld()->GetTimerManager().SetTimer(RemovalHandle, RemovalDelegate, 1.0f, false);
 		}
 	}
@@ -139,7 +139,7 @@ void UResourceHandler::NotifyOfRemovedReplicatedResource(UResource* Resource)
 #pragma endregion 
 #pragma region Ability Costs
 
-void UResourceHandler::CommitAbilityCosts(UCombatAbility* Ability, int32 const PredictionID)
+void UResourceHandler::CommitAbilityCosts(UCombatAbility* Ability, const int32 PredictionID)
 {
 	if (GetOwnerRole() == ROLE_SimulatedProxy || !IsValid(Ability))
 	{
@@ -147,7 +147,7 @@ void UResourceHandler::CommitAbilityCosts(UCombatAbility* Ability, int32 const P
 	}
 	TArray<FAbilityCost> Costs;
 	Ability->GetAbilityCosts(Costs);
-	for (FAbilityCost const& Cost : Costs)
+	for (const FAbilityCost& Cost : Costs)
 	{
 		if (IsValid(Cost.ResourceClass))
 		{
@@ -165,11 +165,11 @@ void UResourceHandler::CommitAbilityCosts(UCombatAbility* Ability, int32 const P
 	
 }
 
-void UResourceHandler::UpdatePredictedCostsFromServer(FServerAbilityResult const& ServerResult)
+void UResourceHandler::UpdatePredictedCostsFromServer(const FServerAbilityResult& ServerResult)
 {
 	TArray<FAbilityCost> PredictedCosts;
 	CostPredictions.MultiFind(ServerResult.PredictionID, PredictedCosts);
-	for (FAbilityCost const& Cost : ServerResult.AbilityCosts)
+	for (const FAbilityCost& Cost : ServerResult.AbilityCosts)
 	{
 		if (IsValid(Cost.ResourceClass))
 		{
@@ -191,7 +191,7 @@ void UResourceHandler::UpdatePredictedCostsFromServer(FServerAbilityResult const
 			}
 		}
 	}
-	for (FAbilityCost const& Misprediction : PredictedCosts)
+	for (const FAbilityCost& Misprediction : PredictedCosts)
 	{
 		if (IsValid(Misprediction.ResourceClass))
 		{
@@ -203,41 +203,6 @@ void UResourceHandler::UpdatePredictedCostsFromServer(FServerAbilityResult const
 		}
 	}
 	CostPredictions.Remove(ServerResult.PredictionID);
-}
-
-#pragma endregion 
-#pragma region Subscriptions
-
-void UResourceHandler::SubscribeToResourceAdded(FResourceInstanceCallback const& Callback)
-{
-	if (Callback.IsBound())
-	{
-		OnResourceAdded.AddUnique(Callback);
-	}
-}
-
-void UResourceHandler::UnsubscribeFromResourceAdded(FResourceInstanceCallback const& Callback)
-{
-	if (Callback.IsBound())
-	{
-		OnResourceAdded.Remove(Callback);
-	}
-}
-
-void UResourceHandler::SubscribeToResourceRemoved(FResourceInstanceCallback const& Callback)
-{
-	if (Callback.IsBound())
-	{
-		OnResourceRemoved.AddUnique(Callback);
-	}
-}
-
-void UResourceHandler::UnsubscribeFromResourceRemoved(FResourceInstanceCallback const& Callback)
-{
-	if (Callback.IsBound())
-	{
-		OnResourceRemoved.Remove(Callback);
-	}
 }
 
 #pragma endregion 

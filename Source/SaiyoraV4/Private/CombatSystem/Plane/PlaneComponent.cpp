@@ -25,23 +25,22 @@ void UPlaneComponent::InitializeComponent()
 {
 	PlaneStatus.CurrentPlane = DefaultPlane;
 	PlaneStatus.LastSwapSource = nullptr;
-	LocalPlayerSwapCallback.BindDynamic(this, &UPlaneComponent::OnLocalPlayerPlaneSwap);
 }
 
 void UPlaneComponent::BeginPlay()
 {
 	Super::BeginPlay();
 	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Plane Component."));
-	APlayerController* LocalPC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+	const APlayerController* LocalPC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
 	if (IsValid(LocalPC))
 	{
-		APawn* LocalPawn = LocalPC->GetPawn();
+		const APawn* LocalPawn = LocalPC->GetPawn();
 		if (IsValid(LocalPawn))
 		{
 			LocalPlayerPlaneComponent = ISaiyoraCombatInterface::Execute_GetPlaneComponent(LocalPawn);
 			if (IsValid(LocalPlayerPlaneComponent))
 			{
-				LocalPlayerPlaneComponent->SubscribeToPlaneSwap(LocalPlayerSwapCallback);
+				LocalPlayerPlaneComponent->OnPlaneSwapped.AddDynamic(this, &UPlaneComponent::OnLocalPlayerPlaneSwap);
 			}
 		}
 	}
@@ -52,8 +51,8 @@ void UPlaneComponent::BeginPlay()
 #pragma endregion
 #pragma region Plane
 
-ESaiyoraPlane UPlaneComponent::PlaneSwap(bool const bIgnoreRestrictions, UObject* Source,
-                                                  bool const bToSpecificPlane, ESaiyoraPlane const TargetPlane)
+ESaiyoraPlane UPlaneComponent::PlaneSwap(const bool bIgnoreRestrictions, UObject* Source,
+                                                  const bool bToSpecificPlane, const ESaiyoraPlane TargetPlane)
 {
 	if (GetOwnerRole() != ROLE_Authority || !bCanEverPlaneSwap)
 	{
@@ -61,7 +60,7 @@ ESaiyoraPlane UPlaneComponent::PlaneSwap(bool const bIgnoreRestrictions, UObject
 	}
 	if (!bIgnoreRestrictions)
 	{
-		for (TTuple<UBuff*, FPlaneSwapRestriction> const& Restriction : PlaneSwapRestrictions)
+		for (const TTuple<UBuff*, FPlaneSwapRestriction>& Restriction : PlaneSwapRestrictions)
 		{
 			if (Restriction.Value.IsBound() && Restriction.Value.Execute(this, Source, bToSpecificPlane, TargetPlane))
 			{
@@ -69,7 +68,7 @@ ESaiyoraPlane UPlaneComponent::PlaneSwap(bool const bIgnoreRestrictions, UObject
 			}
 		}
 	}
-	ESaiyoraPlane const PreviousPlane = PlaneStatus.CurrentPlane;
+	const ESaiyoraPlane PreviousPlane = PlaneStatus.CurrentPlane;
 	if (bToSpecificPlane && TargetPlane != ESaiyoraPlane::None)
 	{
 		PlaneStatus.CurrentPlane = TargetPlane;
@@ -103,7 +102,7 @@ ESaiyoraPlane UPlaneComponent::PlaneSwap(bool const bIgnoreRestrictions, UObject
 	return PlaneStatus.CurrentPlane;
 }
 
-bool UPlaneComponent::CheckForXPlane(ESaiyoraPlane const FromPlane, ESaiyoraPlane const ToPlane)
+bool UPlaneComponent::CheckForXPlane(const ESaiyoraPlane FromPlane, const ESaiyoraPlane ToPlane)
 {
 	//None is the default value, always return false if it is provided.
 	if (FromPlane == ESaiyoraPlane::None || ToPlane == ESaiyoraPlane::None)
@@ -124,7 +123,7 @@ bool UPlaneComponent::CheckForXPlane(ESaiyoraPlane const FromPlane, ESaiyoraPlan
 	return FromPlane != ToPlane;
 }
 
-void UPlaneComponent::OnRep_PlaneStatus(FPlaneStatus const PreviousStatus)
+void UPlaneComponent::OnRep_PlaneStatus(const FPlaneStatus& PreviousStatus)
 {
 	if (PreviousStatus.CurrentPlane != PlaneStatus.CurrentPlane)
 	{
@@ -143,7 +142,7 @@ void UPlaneComponent::UpdateOwnerCustomRendering()
 		{
 			if (IsValid(Mesh))
 			{
-				int32 const PreviousStencil = Mesh->CustomDepthStencilValue;
+				const int32 PreviousStencil = Mesh->CustomDepthStencilValue;
 				Mesh->SetRenderCustomDepth(true);
 				Mesh->SetCustomDepthStencilValue((PreviousStencil % 10) + StencilIndex);
 			}
@@ -154,7 +153,7 @@ void UPlaneComponent::UpdateOwnerCustomRendering()
 #pragma endregion
 #pragma region Restrictions
 
-void UPlaneComponent::AddPlaneSwapRestriction(UBuff* Source, FPlaneSwapRestriction const& Restriction)
+void UPlaneComponent::AddPlaneSwapRestriction(UBuff* Source, const FPlaneSwapRestriction& Restriction)
 {
 	if (GetOwnerRole() == ROLE_Authority && bCanEverPlaneSwap && IsValid(Source) && Restriction.IsBound())
 	{
@@ -162,7 +161,7 @@ void UPlaneComponent::AddPlaneSwapRestriction(UBuff* Source, FPlaneSwapRestricti
 	}
 }
 
-void UPlaneComponent::RemovePlaneSwapRestriction(UBuff* Source)
+void UPlaneComponent::RemovePlaneSwapRestriction(const UBuff* Source)
 {
 	if (GetOwnerRole() == ROLE_Authority && bCanEverPlaneSwap && IsValid(Source))
 	{
@@ -171,22 +170,3 @@ void UPlaneComponent::RemovePlaneSwapRestriction(UBuff* Source)
 }
 
 #pragma endregion
-#pragma region Subscriptions
-
-void UPlaneComponent::SubscribeToPlaneSwap(FPlaneSwapCallback const& Callback)
-{
-	if (bCanEverPlaneSwap && Callback.IsBound())
-	{
-		OnPlaneSwapped.AddUnique(Callback);
-	}
-}
-
-void UPlaneComponent::UnsubscribeFromPlaneSwap(FPlaneSwapCallback const& Callback)
-{
-	if (bCanEverPlaneSwap && Callback.IsBound())
-	{
-		OnPlaneSwapped.Remove(Callback);
-	}
-}
-
-#pragma endregion 

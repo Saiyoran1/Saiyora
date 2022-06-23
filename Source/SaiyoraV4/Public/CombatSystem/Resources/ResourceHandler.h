@@ -2,12 +2,12 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "ResourceStructs.h"
-#include "Resource.h"
 #include "AbilityStructs.h"
 #include "ResourceHandler.generated.h"
 
 class UCombatAbility;
 class UStatHandler;
+struct FServerAbilityResult;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class SAIYORAV4_API UResourceHandler : public UActorComponent
@@ -28,25 +28,22 @@ public:
 
 public:
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resource")
-	UResource* FindActiveResource(TSubclassOf<UResource> const ResourceClass) const;
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resource")
+	UFUNCTION(BlueprintPure, Category = "Resource")
+	UResource* FindActiveResource(const TSubclassOf<UResource> ResourceClass) const;
+	UFUNCTION(BlueprintPure, Category = "Resource")
 	void GetActiveResources(TArray<UResource*>& OutResources) const { OutResources = ActiveResources; }
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Resources")
-	void AddNewResource(TSubclassOf<UResource> const ResourceClass, FResourceInitInfo const& InitInfo);
-	void NotifyOfReplicatedResource(UResource* Resource);
+	void AddNewResource(const TSubclassOf<UResource> ResourceClass, const FResourceInitInfo& InitInfo);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Resources")
-	void RemoveResource(TSubclassOf<UResource> const ResourceClass);
-	void NotifyOfRemovedReplicatedResource(UResource* Resource);
-	UFUNCTION(BlueprintCallable, Category = "Resource")
-	void SubscribeToResourceAdded(FResourceInstanceCallback const& Callback);
-	UFUNCTION(BlueprintCallable, Category = "Resource")
-	void UnsubscribeFromResourceAdded(FResourceInstanceCallback const& Callback);
-	UFUNCTION(BlueprintCallable, Category = "Resource")
-	void SubscribeToResourceRemoved(FResourceInstanceCallback const& Callback);
-	UFUNCTION(BlueprintCallable, Category = "Resource")
-	void UnsubscribeFromResourceRemoved(FResourceInstanceCallback const& Callback);
+	void RemoveResource(const TSubclassOf<UResource> ResourceClass);
+	UPROPERTY(BlueprintAssignable)
+	FResourceInstanceNotification OnResourceAdded;
+	UPROPERTY(BlueprintAssignable)
+	FResourceInstanceNotification OnResourceRemoved;
 
+	void NotifyOfReplicatedResource(UResource* Resource);
+	void NotifyOfRemovedReplicatedResource(UResource* Resource);
+	
 private:
 
 	UPROPERTY(EditAnywhere, Category = "Resource")
@@ -57,15 +54,13 @@ private:
 	TArray<UResource*> RecentlyRemovedResources;
 	UFUNCTION()
 	void FinishRemoveResource(UResource* Resource);
-	FResourceInstanceNotification OnResourceAdded;
-	FResourceInstanceNotification OnResourceRemoved;
 
 //Ability Costs
 
 public:
 	
-	void CommitAbilityCosts(UCombatAbility* Ability, int32 const PredictionID = 0);
-	void UpdatePredictedCostsFromServer(struct FServerAbilityResult const& ServerResult);
+	void CommitAbilityCosts(UCombatAbility* Ability, const int32 PredictionID = 0);
+	void UpdatePredictedCostsFromServer(const FServerAbilityResult& ServerResult);
 
 private:
 

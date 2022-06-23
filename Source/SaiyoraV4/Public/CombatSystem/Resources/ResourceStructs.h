@@ -19,8 +19,8 @@ struct FResourceState
 	UPROPERTY()
 	int32 PredictionID = 0;
 
-	FResourceState();
-	FResourceState(float const Min, float const Max, float const Value);
+	FResourceState() {}
+	FResourceState(const float Min, const float Max, const float Value) : Minimum(Min), Maximum(Max), CurrentValue(Value) {}
 };
 
 USTRUCT(BlueprintType)
@@ -43,11 +43,10 @@ struct FResourceInitInfo
 };
 
 //For modifiers to non-Ability resource changes.
-DECLARE_DYNAMIC_DELEGATE_RetVal_ThreeParams(FCombatModifier, FResourceDeltaModifier, UResource*, Resource, UObject*, Source, float const, InitialDelta);
+DECLARE_DYNAMIC_DELEGATE_RetVal_ThreeParams(FCombatModifier, FResourceDeltaModifier, UResource*, Resource, UObject*, Source, const float, InitialDelta);
 
 //For notification of resource expenditure and generation.
-DECLARE_DYNAMIC_DELEGATE_FourParams(FResourceValueCallback, UResource*, Resource, UObject*, ChangeSource, FResourceState const&, PreviousState, FResourceState const&, NewState);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_FourParams(FResourceValueNotification, UResource*, Resource, UObject*, ChangeSource, FResourceState const&, PreviousState, FResourceState const&, NewState);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_FourParams(FResourceValueNotification, UResource*, Resource, UObject*, ChangeSource, const FResourceState&, PreviousState, const FResourceState&, NewState);
 
 //For notification of a resource being instantiated.
 DECLARE_DYNAMIC_DELEGATE_OneParam(FResourceInstanceCallback, UResource*, Resource);

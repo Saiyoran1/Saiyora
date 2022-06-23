@@ -5,8 +5,8 @@
 
 #pragma region Resource Delta Modifier
 
-void UResourceDeltaModifierFunction::ResourceDeltaModifier(UBuff* Buff, TSubclassOf<UResource> const ResourceClass,
-                                                           FResourceDeltaModifier const& Modifier)
+void UResourceDeltaModifierFunction::ResourceDeltaModifier(UBuff* Buff, const TSubclassOf<UResource> ResourceClass,
+                                                           const FResourceDeltaModifier& Modifier)
 {
 	if (!IsValid(Buff) || !IsValid(ResourceClass) || !Modifier.IsBound() || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
 	{
@@ -20,12 +20,12 @@ void UResourceDeltaModifierFunction::ResourceDeltaModifier(UBuff* Buff, TSubclas
 	NewResourceModifierFunction->SetModifierVars(ResourceClass, Modifier);
 }
 
-void UResourceDeltaModifierFunction::SetModifierVars(TSubclassOf<UResource> const ResourceClass,
-                                              FResourceDeltaModifier const& Modifier)
+void UResourceDeltaModifierFunction::SetModifierVars(const TSubclassOf<UResource> ResourceClass,
+                                              const FResourceDeltaModifier& Modifier)
 {
 	if (GetOwningBuff()->GetAppliedTo()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 	{
-		UResourceHandler* TargetHandler = ISaiyoraCombatInterface::Execute_GetResourceHandler(GetOwningBuff()->GetAppliedTo());
+		const UResourceHandler* TargetHandler = ISaiyoraCombatInterface::Execute_GetResourceHandler(GetOwningBuff()->GetAppliedTo());
 		if (IsValid(TargetHandler))
 		{
 			TargetResource = TargetHandler->FindActiveResource(ResourceClass);
@@ -34,7 +34,7 @@ void UResourceDeltaModifierFunction::SetModifierVars(TSubclassOf<UResource> cons
 	}
 }
 
-void UResourceDeltaModifierFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
+void UResourceDeltaModifierFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
 	if (IsValid(TargetResource))
 	{
@@ -42,7 +42,7 @@ void UResourceDeltaModifierFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
 	}
 }
 
-void UResourceDeltaModifierFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
+void UResourceDeltaModifierFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
 	if (IsValid(TargetResource))
 	{

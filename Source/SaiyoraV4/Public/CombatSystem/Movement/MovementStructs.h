@@ -1,9 +1,10 @@
 ﻿#pragma once
 #include "CoreMinimal.h"
-#include "GameplayTagContainer.h"
+#include "AbilityStructs.h"
 #include "MovementEnums.h"
-#include "CombatAbility.h"
 #include "MovementStructs.generated.h"
+
+class UCombatAbility;
 
 USTRUCT()
 struct FCustomMoveParams

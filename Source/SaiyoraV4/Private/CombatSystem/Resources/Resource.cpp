@@ -43,7 +43,7 @@ void UResource::PostNetReceive()
     }
 }
 
-void UResource::InitializeResource(UResourceHandler* NewHandler, FResourceInitInfo const& InitInfo)
+void UResource::InitializeResource(UResourceHandler* NewHandler, const FResourceInitInfo& InitInfo)
 {
     if (bInitialized || !IsValid(NewHandler) || NewHandler->GetOwnerRole() != ROLE_Authority)
     {
@@ -67,10 +67,9 @@ void UResource::InitializeResource(UResourceHandler* NewHandler, FResourceInitIn
             MinStatBind.BindDynamic(this, &UResource::UpdateMinimumFromStatBind);
             StatHandlerRef->SubscribeToStatChanged(MinimumBindStat, MinStatBind);
             //Manually set the minimum with the initial stat value.
-            float const StatValue = StatHandlerRef->GetStatValue(MinimumBindStat);
-            if (StatValue >= 0.0f)
+            if (const float StatValue = StatHandlerRef->GetStatValue(MinimumBindStat) >= 0.0f)
             {
-                float const PreviousMin = ResourceState.Minimum;
+                const float PreviousMin = ResourceState.Minimum;
                 ResourceState.Minimum = FMath::Clamp(StatValue, 0.0f, ResourceState.Maximum);
                 //Maintain current value relative to the max and min, if the value follows min changes.
                 ResourceState.CurrentValue = FMath::GetMappedRangeValueClamped(FVector2D(PreviousMin, ResourceState.Maximum), FVector2D(ResourceState.Minimum, ResourceState.Maximum), ResourceState.CurrentValue);
@@ -86,10 +85,9 @@ void UResource::InitializeResource(UResourceHandler* NewHandler, FResourceInitIn
             MaxStatBind.BindDynamic(this, &UResource::UpdateMaximumFromStatBind);
             StatHandlerRef->SubscribeToStatChanged(MaximumBindStat, MaxStatBind);
             //Manually set the maximum with the initial stat value.
-            float const StatValue = StatHandlerRef->GetStatValue(MaximumBindStat);
-            if (StatValue >= 0.0f)
+            if (const float StatValue = StatHandlerRef->GetStatValue(MaximumBindStat) >= 0.0f)
             {
-                float const PreviousMax = GetMaximum();
+                const float PreviousMax = GetMaximum();
                 ResourceState.Maximum = FMath::Max(StatValue, GetMinimum());
                 //Maintain current value relative to the max and min, if the value follows max changes.
                 ResourceState.CurrentValue = FMath::GetMappedRangeValueClamped(FVector2D(ResourceState.Minimum, PreviousMax), FVector2D(ResourceState.Minimum, ResourceState.Maximum), ResourceState.CurrentValue);
@@ -129,7 +127,7 @@ float UResource::GetCurrentValue() const
     return Handler->GetOwnerRole() == ROLE_AutonomousProxy ? PredictedResourceValue : ResourceState.CurrentValue;
 }
 
-void UResource::ModifyResource(UObject* Source, float const Amount, bool const bIgnoreModifiers)
+void UResource::ModifyResource(UObject* Source, const float Amount, const bool bIgnoreModifiers)
 {
     if (GetHandler()->GetOwnerRole() != ROLE_Authority || !bInitialized || bDeactivated)
     {
@@ -139,7 +137,7 @@ void UResource::ModifyResource(UObject* Source, float const Amount, bool const b
     if (!bIgnoreModifiers)
     {
         TArray<FCombatModifier> Mods;
-        for (TTuple<UBuff*, FResourceDeltaModifier> const& Mod : ResourceDeltaMods)
+        for (const TTuple<UBuff*, FResourceDeltaModifier>& Mod : ResourceDeltaMods)
         {
             if (Mod.Value.IsBound())
             {
@@ -151,13 +149,13 @@ void UResource::ModifyResource(UObject* Source, float const Amount, bool const b
     SetResourceValue(ResourceState.CurrentValue + Delta, Source);
 }
 
-void UResource::SetResourceValue(float const NewValue, UObject* Source, int32 const PredictionID)
+void UResource::SetResourceValue(const float NewValue, UObject* Source, const int32 PredictionID)
 {
     if (!bInitialized || bDeactivated)
     {
         return;
     }
-    FResourceState const PreviousState = ResourceState;
+    const FResourceState PreviousState = ResourceState;
     ResourceState.CurrentValue = FMath::Clamp(NewValue, ResourceState.Minimum, ResourceState.Maximum);
     if (PredictionID != 0)
     {
@@ -176,7 +174,7 @@ void UResource::UpdateMinimumFromStatBind(const FGameplayTag StatTag, const floa
     {
         return;
     }
-    FResourceState const PreviousState = ResourceState;
+    const FResourceState PreviousState = ResourceState;
     ResourceState.Minimum = FMath::Clamp(NewValue, 0.0f, ResourceState.Maximum);
     ResourceState.CurrentValue = FMath::GetMappedRangeValueClamped(FVector2D(PreviousState.Minimum, ResourceState.Maximum), FVector2D(ResourceState.Minimum, ResourceState.Maximum), ResourceState.CurrentValue);
     if (PreviousState.Minimum != ResourceState.Minimum || PreviousState.CurrentValue != ResourceState.CurrentValue)
@@ -192,7 +190,7 @@ void UResource::UpdateMaximumFromStatBind(const FGameplayTag StatTag, const floa
     {
         return;
     }
-    FResourceState const PreviousState = ResourceState;
+    const FResourceState PreviousState = ResourceState;
     ResourceState.Maximum = FMath::Max(NewValue, GetMinimum());
     ResourceState.CurrentValue = FMath::GetMappedRangeValueClamped(FVector2D(GetMinimum(), PreviousState.Maximum), FVector2D(GetMinimum(), GetMaximum()), GetCurrentValue());
     if (PreviousState.Maximum != ResourceState.Maximum || PreviousState.CurrentValue != ResourceState.CurrentValue)
@@ -202,7 +200,7 @@ void UResource::UpdateMaximumFromStatBind(const FGameplayTag StatTag, const floa
     }
 }
 
-void UResource::OnRep_ResourceState(FResourceState const& PreviousState)
+void UResource::OnRep_ResourceState(const FResourceState& PreviousState)
 {
     if (!bInitialized || bDeactivated || !IsValid(Handler))
     {
@@ -226,7 +224,7 @@ void UResource::OnRep_ResourceState(FResourceState const& PreviousState)
 #pragma endregion
 #pragma region Ability Costs
 
-void UResource::CommitAbilityCost(UCombatAbility* Ability, float const Cost, int32 const PredictionID)
+void UResource::CommitAbilityCost(UCombatAbility* Ability, const float Cost, const int32 PredictionID)
 {
     if (Handler->GetOwnerRole() == ROLE_Authority)
     {
@@ -239,7 +237,7 @@ void UResource::CommitAbilityCost(UCombatAbility* Ability, float const Cost, int
     }
 }
 
-void UResource::UpdateCostPredictionFromServer(int32 const PredictionID, float const ServerCost)
+void UResource::UpdateCostPredictionFromServer(const int32 PredictionID, const float ServerCost)
 {
     if (ResourceState.PredictionID >= PredictionID)
     {
@@ -251,9 +249,9 @@ void UResource::UpdateCostPredictionFromServer(int32 const PredictionID, float c
 
 void UResource::RecalculatePredictedResource(UObject* ChangeSource)
 {
-    FResourceState const PreviousState = FResourceState(ResourceState.Minimum, ResourceState.Maximum, PredictedResourceValue);
+    const FResourceState PreviousState = FResourceState(ResourceState.Minimum, ResourceState.Maximum, PredictedResourceValue);
     PredictedResourceValue = ResourceState.CurrentValue;
-    for (TTuple<int32, float> const& Prediction : ResourcePredictions)
+    for (const TTuple<int32, float>& Prediction : ResourcePredictions)
     {
         PredictedResourceValue = FMath::Clamp(PredictedResourceValue - Prediction.Value, ResourceState.Minimum, ResourceState.Maximum);
     }
@@ -268,7 +266,7 @@ void UResource::PurgeOldPredictions()
 {
     TArray<int32> Keys;
     ResourcePredictions.GetKeys(Keys);
-    for (int32 const ID : Keys)
+    for (const int32 ID : Keys)
     {
         if (ID <= ResourceState.PredictionID)
         {
@@ -278,28 +276,9 @@ void UResource::PurgeOldPredictions()
 }
 
 #pragma endregion 
-#pragma region Subscriptions
-
-void UResource::SubscribeToResourceChanged(FResourceValueCallback const& Callback)
-{
-    if (Callback.IsBound())
-    {
-        OnResourceChanged.AddUnique(Callback);
-    }
-}
-
-void UResource::UnsubscribeFromResourceChanged(FResourceValueCallback const& Callback)
-{
-    if (Callback.IsBound())
-    {
-        OnResourceChanged.Remove(Callback);
-    }
-}
-
-#pragma endregion
 #pragma region Modifiers
 
-void UResource::AddResourceDeltaModifier(UBuff* Source, FResourceDeltaModifier const& Modifier)
+void UResource::AddResourceDeltaModifier(UBuff* Source, const FResourceDeltaModifier& Modifier)
 {
     if (GetHandler()->GetOwnerRole() == ROLE_Authority && IsValid(Source) && Modifier.IsBound())
     {
@@ -307,7 +286,7 @@ void UResource::AddResourceDeltaModifier(UBuff* Source, FResourceDeltaModifier c
     }
 }
 
-void UResource::RemoveResourceDeltaModifier(UBuff* Source)
+void UResource::RemoveResourceDeltaModifier(const UBuff* Source)
 {
     if (GetHandler()->GetOwnerRole() == ROLE_Authority && IsValid(Source))
     {

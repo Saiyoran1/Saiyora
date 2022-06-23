@@ -2,13 +2,7 @@
 #include "Buff.h"
 #include "ThreatHandler.h"
 
-FThreatTarget::FThreatTarget()
-{
-	Target = nullptr;
-	Threat = 0.0f;
-}
-
-FThreatTarget::FThreatTarget(AActor* ThreatTarget, float const InitialThreat, bool const bFaded, UBuff* InitialFixate,
+FThreatTarget::FThreatTarget(AActor* ThreatTarget, const float InitialThreat, const bool bFaded, UBuff* InitialFixate,
 	UBuff* InitialBlind)
 {
 	Target = ThreatTarget;
@@ -24,7 +18,7 @@ FThreatTarget::FThreatTarget(AActor* ThreatTarget, float const InitialThreat, bo
 	}
 }
 
-bool FThreatTarget::LessThan(FThreatTarget const& Other) const
+bool FThreatTarget::LessThan(const FThreatTarget& Other) const
 {
 	//Check if we are blinded or faded.
 	if (Blinds.Num() > 0 || Faded)
@@ -68,16 +62,4 @@ bool FThreatTarget::LessThan(FThreatTarget const& Other) const
 	}
 	//Neither has any blinds, fades, or fixates. Order on threat.
 	return Threat < Other.Threat;
-}
-
-FMisdirect::FMisdirect()
-{
-	Source = nullptr;
-	Target = nullptr;
-}
-
-FMisdirect::FMisdirect(UBuff* SourceBuff, AActor* TargetActor)
-{
-	Source = SourceBuff;
-	Target = TargetActor;
 }

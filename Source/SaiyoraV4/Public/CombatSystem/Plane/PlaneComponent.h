@@ -26,26 +26,25 @@ private:
 	UPlaneComponent* LocalPlayerPlaneComponent;
 	UPROPERTY()
 	TArray<UMeshComponent*> OwnerMeshes;
-	FPlaneSwapCallback LocalPlayerSwapCallback;
 	UFUNCTION()
-	void OnLocalPlayerPlaneSwap(ESaiyoraPlane const Previous, ESaiyoraPlane const New, UObject* Source) { UpdateOwnerCustomRendering(); }
+	void OnLocalPlayerPlaneSwap(const ESaiyoraPlane Previous, const ESaiyoraPlane New, UObject* Source) { UpdateOwnerCustomRendering(); }
 
 //Plane
 
 public:
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Plane")
+	UFUNCTION(BlueprintPure, Category = "Plane")
 	ESaiyoraPlane GetCurrentPlane() const { return PlaneStatus.CurrentPlane; }
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Plane")
-	ESaiyoraPlane PlaneSwap(bool const bIgnoreRestrictions, UObject* Source, bool const bToSpecificPlane, ESaiyoraPlane const TargetPlane = ESaiyoraPlane::None);
-	UFUNCTION(BlueprintCallable, Category = "Plane")
-	void SubscribeToPlaneSwap(FPlaneSwapCallback const& Callback);
-	UFUNCTION(BlueprintCallable, Category = "Plane")
-	void UnsubscribeFromPlaneSwap(FPlaneSwapCallback const& Callback);
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Plane")
-	static bool CheckForXPlane(ESaiyoraPlane const FromPlane, ESaiyoraPlane const ToPlane);
-	void AddPlaneSwapRestriction(UBuff* Source, FPlaneSwapRestriction const& Restriction);
-	void RemovePlaneSwapRestriction(UBuff* Source);
+	ESaiyoraPlane PlaneSwap(const bool bIgnoreRestrictions, UObject* Source, const bool bToSpecificPlane, const ESaiyoraPlane TargetPlane = ESaiyoraPlane::None);
+	UFUNCTION(BlueprintPure, Category = "Plane")
+	static bool CheckForXPlane(const ESaiyoraPlane FromPlane, const ESaiyoraPlane ToPlane);
+
+	UPROPERTY(BlueprintAssignable)
+	FPlaneSwapNotification OnPlaneSwapped;
+	
+	void AddPlaneSwapRestriction(UBuff* Source, const FPlaneSwapRestriction& Restriction);
+	void RemovePlaneSwapRestriction(const UBuff* Source);
 	
 private:
 	
@@ -56,8 +55,8 @@ private:
 	UPROPERTY(ReplicatedUsing = OnRep_PlaneStatus)
 	FPlaneStatus PlaneStatus;
 	UFUNCTION()
-	void OnRep_PlaneStatus(FPlaneStatus const PreviousStatus);
-	FPlaneSwapNotification OnPlaneSwapped;
+	void OnRep_PlaneStatus(const FPlaneStatus& PreviousStatus);
+	
 	UPROPERTY()
 	TMap<UBuff*, FPlaneSwapRestriction> PlaneSwapRestrictions;
 	UFUNCTION()

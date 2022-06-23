@@ -24,14 +24,14 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void PostNetReceive() override;
 
-	void InitializeResource(UResourceHandler* NewHandler, FResourceInitInfo const& InitInfo);
+	void InitializeResource(UResourceHandler* NewHandler, const FResourceInitInfo& InitInfo);
 	bool IsInitialized() const { return bInitialized; }
 	void DeactivateResource();
 	bool IsDeactivated() const { return bDeactivated; }
 
 protected:
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resource")
+	UFUNCTION(BlueprintPure, Category = "Resource")
 	UResourceHandler* GetHandler() const { return Handler; }
 	UFUNCTION(BlueprintNativeEvent)
 	void PreInitializeResource();
@@ -56,9 +56,9 @@ private:
 
 public:
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resource")
+	UFUNCTION(BlueprintPure, Category = "Resource")
 	FSlateBrush GetDisplayFillBrush() const { return BarFillBrush; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resource")
+	UFUNCTION(BlueprintPure, Category = "Resource")
 	FSlateBrush GetDisplayBackgroundBrush() const { return BarBackgroundBrush; }
 
 private:
@@ -87,49 +87,47 @@ private:
 
 public:
 
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resource")
+	UFUNCTION(BlueprintPure, Category = "Resource")
 	float GetCurrentValue() const;
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resource")
+	UFUNCTION(BlueprintPure, Category = "Resource")
 	float GetMinimum() const { return ResourceState.Minimum; }
-	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Resource")
+	UFUNCTION(BlueprintPure, Category = "Resource")
 	float GetMaximum() const { return ResourceState.Maximum; }
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Resource")
-	void ModifyResource(UObject* Source, float const Amount, bool const bIgnoreModifiers);
-	void AddResourceDeltaModifier(UBuff* Source, FResourceDeltaModifier const& Modifier);
-	void RemoveResourceDeltaModifier(UBuff* Source);
-	UFUNCTION(BlueprintCallable, Category = "Resource")
-	void SubscribeToResourceChanged(FResourceValueCallback const& Callback);
-	UFUNCTION(BlueprintCallable, Category = "Resource")
-	void UnsubscribeFromResourceChanged(FResourceValueCallback const& Callback);
+	void ModifyResource(UObject* Source, const float Amount, const bool bIgnoreModifiers);
+	UPROPERTY(BlueprintAssignable)
+	FResourceValueNotification OnResourceChanged;
+
+	void AddResourceDeltaModifier(UBuff* Source, const FResourceDeltaModifier& Modifier);
+	void RemoveResourceDeltaModifier(const UBuff* Source);
 
 protected:
 
 	UFUNCTION(BlueprintNativeEvent)
-	void PostResourceUpdated(UObject* Source, FResourceState const& PreviousState);
-	virtual void PostResourceUpdated_Implementation(UObject* Source, FResourceState const& PreviousState) {}
+	void PostResourceUpdated(UObject* Source, const FResourceState& PreviousState);
+	virtual void PostResourceUpdated_Implementation(UObject* Source, const FResourceState& PreviousState) {}
 
 private:
 
 	UPROPERTY(ReplicatedUsing = OnRep_ResourceState)
 	FResourceState ResourceState;
 	UFUNCTION()
-	void OnRep_ResourceState(FResourceState const& PreviousState);
+	void OnRep_ResourceState(const FResourceState& PreviousState);
 	FStatCallback MinStatBind;
 	UFUNCTION()
 	void UpdateMinimumFromStatBind(const FGameplayTag StatTag, const float NewValue);
 	FStatCallback MaxStatBind;
 	UFUNCTION()
 	void UpdateMaximumFromStatBind(const FGameplayTag StatTag, const float NewValue);
-	void SetResourceValue(float const NewValue, UObject* Source, int32 const PredictionID = 0);
+	void SetResourceValue(const float NewValue, UObject* Source, const int32 PredictionID = 0);
 	TMap<UBuff*, FResourceDeltaModifier> ResourceDeltaMods;
-	FResourceValueNotification OnResourceChanged;
 	
 //Ability Costs
 	
 public:
 
-	void CommitAbilityCost(UCombatAbility* Ability, float const Cost, int32 const PredictionID = 0);
-	void UpdateCostPredictionFromServer(int32 const PredictionID, float const ServerCost);
+	void CommitAbilityCost(UCombatAbility* Ability, const float Cost, const int32 PredictionID = 0);
+	void UpdateCostPredictionFromServer(const int32 PredictionID, const float ServerCost);
 	
 private:
 

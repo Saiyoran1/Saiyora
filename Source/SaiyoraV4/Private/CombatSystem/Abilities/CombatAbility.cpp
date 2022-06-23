@@ -36,8 +36,6 @@ void UCombatAbility::PostNetReceive()
     }
     if (IsValid(OwningComponent))
     {
-        OnResourceChanged.BindDynamic(this, &UCombatAbility::CheckResourceCostOnResourceChanged);
-        OnResourceAdded.BindDynamic(this, &UCombatAbility::SetupCostCheckingForNewResource);
         AbilityCosts.OwningAbility = this;
         for (const FAbilityCost& Cost : AbilityCosts.Items)
         {
@@ -63,7 +61,6 @@ void UCombatAbility::InitializeAbility(UAbilityComponent* AbilityComponent)
     ChargesPerCooldown = FMath::Max(0, DefaultChargesPerCooldown);
     ChargeCost = FMath::Max(0, DefaultChargeCost);
     AbilityCosts.OwningAbility = this;
-    OnResourceChanged.BindDynamic(this, &UCombatAbility::CheckResourceCostOnResourceChanged);
     for (const FDefaultAbilityCost& DefaultCost : DefaultAbilityCosts)
     {
         if (DefaultCost.ResourceClass)
@@ -82,7 +79,7 @@ void UCombatAbility::InitializeAbility(UAbilityComponent* AbilityComponent)
                     {
                          bCostMet = true;
                     }
-                    Resource->SubscribeToResourceChanged(OnResourceChanged);
+                    Resource->OnResourceChanged.AddDynamic(this, &UCombatAbility::CheckResourceCostOnResourceChanged);
                 }
                 else
                 {
@@ -97,8 +94,7 @@ void UCombatAbility::InitializeAbility(UAbilityComponent* AbilityComponent)
     }
     if (UninitializedResources.Num() > 0)
     {
-        OnResourceAdded.BindDynamic(this, &UCombatAbility::SetupCostCheckingForNewResource);
-        OwningComponent->GetResourceHandlerRef()->SubscribeToResourceAdded(OnResourceAdded);
+        OwningComponent->GetResourceHandlerRef()->OnResourceAdded.AddDynamic(this, &UCombatAbility::SetupCostCheckingForNewResource);
     }
     SetupCustomCastRestrictions();
     PreInitializeAbility();
@@ -112,11 +108,11 @@ void UCombatAbility::SetupCostCheckingForNewResource(UResource* Resource)
     {
         CheckResourceCostOnResourceChanged(Resource, nullptr, FResourceState(),
             FResourceState(Resource->GetMinimum(), Resource->GetMaximum(), Resource->GetCurrentValue()));
-        Resource->SubscribeToResourceChanged(OnResourceChanged);
+        Resource->OnResourceChanged.AddDynamic(this, &UCombatAbility::CheckResourceCostOnResourceChanged);
         UninitializedResources.Remove(Resource->GetClass());
         if (UninitializedResources.Num() <= 0)
         {
-            OwningComponent->GetResourceHandlerRef()->UnsubscribeFromResourceAdded(OnResourceAdded);
+            OwningComponent->GetResourceHandlerRef()->OnResourceAdded.RemoveDynamic(this, &UCombatAbility::SetupCostCheckingForNewResource);
         }
     }
 }
@@ -414,7 +410,7 @@ void UCombatAbility::CheckCostMet(const TSubclassOf<UResource> ResourceClass)
         {
             if (IsValid(OwningComponent->GetResourceHandlerRef()))
             {
-                UResource* Resource = OwningComponent->GetResourceHandlerRef()->FindActiveResource(ResourceClass);
+                const UResource* Resource = OwningComponent->GetResourceHandlerRef()->FindActiveResource(ResourceClass);
                 if (IsValid(Resource))
                 {
                     if (Resource->GetCurrentValue() >= Cost.Cost)
@@ -493,7 +489,7 @@ void UCombatAbility::UpdateCostFromReplication(const FAbilityCost& Cost, const b
                 bCostMet = Resource->GetCurrentValue() >= Cost.Cost;
                 if (bNewAdd)
                 {
-                    Resource->SubscribeToResourceChanged(OnResourceChanged);
+                    Resource->OnResourceChanged.AddDynamic(this, &UCombatAbility::CheckResourceCostOnResourceChanged);
                 }
             }
             else if (bNewAdd)
@@ -501,7 +497,7 @@ void UCombatAbility::UpdateCostFromReplication(const FAbilityCost& Cost, const b
                 UninitializedResources.Add(Cost.ResourceClass);
                 if (UninitializedResources.Num() == 1)
                 {
-                    OwningComponent->GetResourceHandlerRef()->SubscribeToResourceAdded(OnResourceAdded);
+                    OwningComponent->GetResourceHandlerRef()->OnResourceAdded.AddDynamic(this, &UCombatAbility::SetupCostCheckingForNewResource);
                 }
             }
         }

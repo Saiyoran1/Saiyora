@@ -47,11 +47,11 @@ struct FThreatTarget
 	TArray<UBuff*> Blinds;
 	bool Faded = false;
 
-	FThreatTarget();
-	FThreatTarget(AActor* ThreatTarget, float const InitialThreat, bool const bFaded = false, UBuff* InitialFixate = nullptr, UBuff* InitialBlind = nullptr);
+	FThreatTarget() {} 
+	FThreatTarget(AActor* ThreatTarget, const float InitialThreat, const bool bFaded = false, UBuff* InitialFixate = nullptr, UBuff* InitialBlind = nullptr);
 
-	FORCEINLINE bool operator<(FThreatTarget const& Other) const { return LessThan(Other); }
-	bool LessThan(FThreatTarget const& Other) const;
+	FORCEINLINE bool operator<(const FThreatTarget& Other) const { return LessThan(Other); }
+	bool LessThan(const FThreatTarget& Other) const;
 };
 
 USTRUCT()
@@ -60,29 +60,21 @@ struct FMisdirect
 	GENERATED_BODY()
 
 	UPROPERTY()
-	UBuff* Source;
+	UBuff* Source = nullptr;
 	UPROPERTY()
-	AActor* Target;
+	AActor* Target = nullptr;
 
-	FMisdirect();
-	FMisdirect(UBuff* SourceBuff, AActor* TargetActor);
+	FMisdirect() {}
+	FMisdirect(UBuff* SourceBuff, AActor* TargetActor) : Source(SourceBuff), Target(TargetActor) {}
 
 	FORCEINLINE bool operator==(FMisdirect const& Other) const { return Other.Source == Source; }
 };
 
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FThreatRestriction, FThreatEvent const&, ThreatEvent);
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FThreatModCondition, FThreatEvent const&, ThreatEvent);
-
-DECLARE_DYNAMIC_DELEGATE_OneParam(FCombatStatusCallback, bool const, NewCombatStatus);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FCombatStatusNotification, bool const, NewCombatStatus);
-
-DECLARE_DYNAMIC_DELEGATE_TwoParams(FTargetCallback, AActor*, PreviousTarget, AActor*, NewTarget);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FTargetNotification, AActor*, PreviousTarget, AActor*, NewTarget);
-
-DECLARE_DYNAMIC_DELEGATE_TwoParams(FFadeCallback, AActor*, Target, bool const, Faded);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FFadeNotification, AActor*, Target, bool const, Faded);
-
-DECLARE_DYNAMIC_DELEGATE_OneParam(FVanishCallback, AActor*, Target);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FVanishNotification, AActor*, Target);
 
 //Threat caused by damage and healing can have a separate base threat value, an optional modifier from the source, and the option to ignore modifiers and restrictions.

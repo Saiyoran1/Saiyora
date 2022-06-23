@@ -22,7 +22,7 @@ void UStatHandler::InitializeComponent()
 	{
 		TArray<FStatInfo*> InitialStatArray;
 		InitialStats->GetAllRows<FStatInfo>(nullptr, InitialStatArray);
-		for (FStatInfo const* InitInfo : InitialStatArray)
+		for (const FStatInfo* InitInfo : InitialStatArray)
 		{
 			if (!InitInfo || !InitInfo->StatTag.MatchesTag(FSaiyoraCombatTags::Get().Stat) || InitInfo->StatTag.MatchesTagExact(FSaiyoraCombatTags::Get().Stat))
 			{
@@ -118,7 +118,7 @@ float UStatHandler::GetStatValue(const FGameplayTag StatTag) const
 	}
 	else
 	{
-		if (FCombatStat const* Stat = NonReplicatedStats.Find(StatTag))
+		if (const FCombatStat* Stat = NonReplicatedStats.Find(StatTag))
 		{
 			return Stat->GetValue();
 		}

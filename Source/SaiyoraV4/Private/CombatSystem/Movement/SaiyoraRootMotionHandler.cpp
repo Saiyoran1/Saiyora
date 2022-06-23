@@ -3,7 +3,7 @@
 #include "UnrealNetwork.h"
 #include "GameFramework/Character.h"
 
-void USaiyoraRootMotionHandler::OnMispredicted(int32 const PredictionID)
+void USaiyoraRootMotionHandler::OnMispredicted(const int32 PredictionID)
 {
 	if (SourcePredictionID != 0 && PredictionID == SourcePredictionID)
 	{
@@ -64,7 +64,7 @@ void USaiyoraRootMotionHandler::PostNetReceive()
 		return;
 	}
 	//Cache the bFinished value to see if we need to expire immediately after applying.
-	bool const bStartedFinished = bFinished;
+	const bool bStartedFinished = bFinished;
 	TargetMovement->AddRootMotionHandlerFromReplication(this);
 	bInitialized = true;
 	//Set finished to false here (we have already cached the value). This allows us to check if Expire is called during Apply.
@@ -93,7 +93,7 @@ void USaiyoraRootMotionHandler::GetLifetimeReplicatedProps(TArray<FLifetimePrope
 	DOREPLIFETIME(USaiyoraRootMotionHandler, bIgnoreRestrictions);
 }
 
-void USaiyoraRootMotionHandler::Init(USaiyoraMovementComponent* Movement, int32 const PredictionID, UObject* MoveSource)
+void USaiyoraRootMotionHandler::Init(USaiyoraMovementComponent* Movement, const int32 PredictionID, UObject* MoveSource)
 {
 	if (!IsValid(Movement) || bInitialized)
 	{
@@ -112,7 +112,7 @@ void USaiyoraRootMotionHandler::Apply()
 	{
 		return;
 	}
-	TSharedPtr<FRootMotionSource> const NewSource = MakeRootMotionSource();
+	const TSharedPtr<FRootMotionSource> NewSource = MakeRootMotionSource();
 	if (!NewSource.IsValid())
 	{
 		return;
@@ -196,7 +196,7 @@ bool UJumpForceHandler::NeedsExpireTimer() const
 	return Duration > 0.0f && !bFinishOnLanded;
 }
 
-void UJumpForceHandler::OnLanded(FHitResult const& Result)
+void UJumpForceHandler::OnLanded(const FHitResult& Result)
 {
 	Expire();
 }

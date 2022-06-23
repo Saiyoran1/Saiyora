@@ -13,7 +13,7 @@ enum class EThreatType : uint8
 UENUM(BlueprintType)
 enum class EThreatModifierType : uint8
 {
-	None,
-	Incoming,
-	Outgoing,
+	None = 0,
+	Incoming = 1,
+	Outgoing = 2,
 };

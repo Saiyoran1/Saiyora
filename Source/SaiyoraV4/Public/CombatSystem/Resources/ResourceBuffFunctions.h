@@ -11,13 +11,13 @@ class SAIYORAV4_API UResourceDeltaModifierFunction : public UBuffFunction
 
 	FResourceDeltaModifier Mod;
 	UPROPERTY()
-	class UResource* TargetResource;
+	UResource* TargetResource = nullptr;
 
-	void SetModifierVars(TSubclassOf<UResource> const ResourceClass, FResourceDeltaModifier const& Modifier);
+	void SetModifierVars(const TSubclassOf<UResource> ResourceClass, const FResourceDeltaModifier& Modifier);
 
-	virtual void OnApply(FBuffApplyEvent const& ApplyEvent) override;
-	virtual void OnRemove(FBuffRemoveEvent const& RemoveEvent) override;
+	virtual void OnApply(const FBuffApplyEvent& ApplyEvent) override;
+	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) override;
 
 	UFUNCTION(BlueprintCallable, Category = "Buff Function", meta = (DefaultToSelf = "Buff", HidePin = "Buff"))
-	static void ResourceDeltaModifier(UBuff* Buff, TSubclassOf<UResource> const ResourceClass, FResourceDeltaModifier const& Modifier);
+	static void ResourceDeltaModifier(UBuff* Buff, const TSubclassOf<UResource> ResourceClass, const FResourceDeltaModifier& Modifier);
 };

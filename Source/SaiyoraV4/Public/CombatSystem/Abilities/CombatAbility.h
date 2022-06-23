@@ -308,10 +308,8 @@ private:
     UPROPERTY(Replicated)
     FAbilityCostArray AbilityCosts;
     TMultiMap<TSubclassOf<UResource>, FCombatModifier> ResourceCostModifiers;
-    FResourceValueCallback OnResourceChanged;
     UFUNCTION()
     void CheckResourceCostOnResourceChanged(UResource* Resource, UObject* ChangeSource, const FResourceState& PreviousState, const FResourceState& NewState);
-    FResourceInstanceCallback OnResourceAdded;
     UFUNCTION()
     void SetupCostCheckingForNewResource(UResource* Resource);
     void UpdateCost(const TSubclassOf<UResource> ResourceClass);

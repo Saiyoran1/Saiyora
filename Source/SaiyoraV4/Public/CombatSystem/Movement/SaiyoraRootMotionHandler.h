@@ -13,9 +13,9 @@ class SAIYORAV4_API USaiyoraRootMotionHandler : public UObject
 	
 private:
 	UFUNCTION()
-	void OnMispredicted(int32 const PredictionID);
+	void OnMispredicted(const int32 PredictionID);
 	bool bInitialized = false;
-	UPROPERTY(ReplicatedUsing=OnRep_Finished)
+	UPROPERTY(ReplicatedUsing = OnRep_Finished)
 	bool bFinished = false;
 	UFUNCTION()
 	void OnRep_Finished();
@@ -39,7 +39,7 @@ public:
 	virtual bool IsSupportedForNetworking() const override { return true; }
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	
-	void Init(USaiyoraMovementComponent* Movement, int32 const PredictionID, UObject* MoveSource);
+	void Init(USaiyoraMovementComponent* Movement, const int32 PredictionID, UObject* MoveSource);
 	void Apply();
 	void CancelRootMotion();
 	
@@ -76,22 +76,22 @@ class SAIYORAV4_API UJumpForceHandler : public USaiyoraRootMotionHandler
 	virtual void PostExpire() override;
 	virtual bool NeedsExpireTimer() const override;
 	UFUNCTION()
-	void OnLanded(FHitResult const& Result);
+	void OnLanded(const FHitResult& Result);
 public:
 	UPROPERTY(Replicated)
 	FRotator Rotation;
 	UPROPERTY(Replicated)
-	float Distance;
+	float Distance = 0.0f;
 	UPROPERTY(Replicated)
-	float Height;
+	float Height = 0.0f;
 	UPROPERTY(Replicated)
-	float MinimumLandedTriggerTime;
+	float MinimumLandedTriggerTime = 0.0f;
 	UPROPERTY(Replicated)
-	bool bFinishOnLanded;
+	bool bFinishOnLanded = false;
 	UPROPERTY(Replicated)
-	UCurveVector* PathOffsetCurve;
+	UCurveVector* PathOffsetCurve = nullptr;
 	UPROPERTY(Replicated)
-	UCurveFloat* TimeMappingCurve;
+	UCurveFloat* TimeMappingCurve = nullptr;
 };
 
 UCLASS()

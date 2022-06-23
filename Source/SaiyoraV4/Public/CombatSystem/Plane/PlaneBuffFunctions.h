@@ -11,13 +11,13 @@ class SAIYORAV4_API UPlaneSwapRestrictionFunction : public UBuffFunction
 
 	FPlaneSwapRestriction Restrict;
 	UPROPERTY()
-	UPlaneComponent* TargetComponent;
+	UPlaneComponent* TargetComponent = nullptr;
 
-	void SetRestrictionVars(FPlaneSwapRestriction const& Restriction);
+	void SetRestrictionVars(const FPlaneSwapRestriction& Restriction);
 
-	virtual void OnApply(FBuffApplyEvent const& ApplyEvent) override;
-	virtual void OnRemove(FBuffRemoveEvent const& RemoveEvent) override;
+	virtual void OnApply(const FBuffApplyEvent& ApplyEvent) override;
+	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) override;
 
 	UFUNCTION(BlueprintCallable, Category = "Buff Function", meta = (DefaultToSelf = "Buff", HidePin = "Buff"))
-	static void PlaneSwapRestriction(UBuff* Buff, FPlaneSwapRestriction const& Restriction);
+	static void PlaneSwapRestriction(UBuff* Buff, const FPlaneSwapRestriction& Restriction);
 };
