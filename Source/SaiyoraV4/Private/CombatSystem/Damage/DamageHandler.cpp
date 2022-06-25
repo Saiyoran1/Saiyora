@@ -37,6 +37,8 @@ void UDamageHandler::BeginPlay()
 	GameStateRef = GetWorld()->GetGameState<ADungeonGameState>();
 	if (GetOwnerRole() == ROLE_Authority)
 	{
+		//Set respawn point to initial actor location on BeginPlay.
+		UpdateRespawnPoint(GetOwner()->GetActorLocation());
 		//Bind Max Health stat, create damage and healing modifiers from stats.
 		if (IsValid(StatHandler))
 		{

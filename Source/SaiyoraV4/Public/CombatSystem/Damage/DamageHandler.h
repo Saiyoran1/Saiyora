@@ -50,11 +50,11 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Health")
 	bool IsDead() const { return bHasHealth && LifeStatus != ELifeStatus::Alive; }
 
-	UFUNCTION(BlueprintAuthorityOnly, Category = "Health")
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Health")
 	void KillActor(AActor* Attacker, UObject* Source, const bool bIgnoreDeathRestrictions);
-	UFUNCTION(BlueprintAuthorityOnly, Category = "Health")
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Health", meta = (AutoCreateRefTerm = "OverrideRespawnLocation"))
 	void RespawnActor(const bool bForceRespawnLocation, const FVector& OverrideRespawnLocation, const bool bForceHealthPercentage, const float OverrideHealthPercentage);
-	UFUNCTION(BlueprintAuthorityOnly, Category = "Health")
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Health")
 	void UpdateRespawnPoint(const FVector& NewLocation);
 
 	UPROPERTY(BlueprintAssignable)
