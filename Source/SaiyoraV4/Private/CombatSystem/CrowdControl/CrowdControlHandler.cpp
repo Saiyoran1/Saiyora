@@ -242,10 +242,10 @@ void UCrowdControlHandler::OnRep_DisarmStatus(const FCrowdControlStatus& Previou
 	OnCrowdControlChanged.Broadcast(Previous, DisarmStatus);
 }
 
-void UCrowdControlHandler::RemoveIncapacitatesOnDamageTaken(const FHealthEvent& DamageEvent)
+void UCrowdControlHandler::RemoveIncapacitatesOnDamageTaken(const FHealthEvent& HealthEvent)
 {
 	//Currently any non-zero and non-DoT damage will break all incaps.
-	if (DamageEvent.Result.AppliedValue > 0.0f && DamageEvent.Info.HitStyle != EEventHitStyle::Chronic)
+	if (HealthEvent.Info.EventType == EHealthEventType::Damage && HealthEvent.Result.AppliedValue > 0.0f && HealthEvent.Info.HitStyle != EEventHitStyle::Chronic)
 	{
 		for(UBuff* Cc : IncapStatus.Sources)
 		{
