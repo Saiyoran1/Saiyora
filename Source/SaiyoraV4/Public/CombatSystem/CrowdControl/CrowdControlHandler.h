@@ -74,7 +74,7 @@ private:
 	UFUNCTION()
 	void CheckRemovedBuffForCc(const FBuffRemoveEvent& RemoveEvent);
 	UFUNCTION()
-	void RemoveIncapacitatesOnDamageTaken(const FDamagingEvent& DamageEvent);
+	void RemoveIncapacitatesOnDamageTaken(const FHealthEvent& DamageEvent);
 
 //Immunities
 

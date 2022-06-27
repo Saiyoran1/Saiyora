@@ -59,6 +59,7 @@ void UDamageHandler::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& Out
 
 	DOREPLIFETIME(UDamageHandler, CurrentHealth);
 	DOREPLIFETIME(UDamageHandler, MaxHealth);
+	DOREPLIFETIME(UDamageHandler, CurrentAbsorb);
 	DOREPLIFETIME(UDamageHandler, LifeStatus);
 }
 
@@ -81,6 +82,12 @@ void UDamageHandler::UpdateMaxHealth(const float NewMaxHealth)
 		{
 			OnHealthChanged.Broadcast(GetOwner(), PreviousHealth, CurrentHealth);
 		}
+		const float PreviousAbsorb = CurrentAbsorb;
+		CurrentAbsorb = FMath::Clamp(CurrentAbsorb, 0.0f, MaxHealth);
+		if (CurrentAbsorb != PreviousAbsorb)
+		{
+			OnAbsorbChanged.Broadcast(GetOwner(), PreviousAbsorb, CurrentAbsorb);
+		}
 		OnMaxHealthChanged.Broadcast(GetOwner(), PreviousMaxHealth, MaxHealth);
 	}
 }
@@ -95,8 +102,8 @@ void UDamageHandler::ReactToMaxHealthStat(const FGameplayTag StatTag, const floa
 
 void UDamageHandler::KillActor(AActor* Attacker, UObject* Source, const bool bIgnoreDeathRestrictions)
 {
-	ApplyDamage(CurrentHealth, Attacker, Source, EDamageHitStyle::Authority, EDamageSchool::None, true, true, bIgnoreDeathRestrictions,
-	            false, FDamageModCondition(), FThreatFromDamage());
+	ApplyHealthEvent(EHealthEventType::Damage, CurrentHealth, Attacker, Source, EEventHitStyle::Authority, EHealthEventSchool::None, true, true,
+	                 true, bIgnoreDeathRestrictions, false, FHealthEventModCondition(), FThreatFromDamage());
 }
 
 void UDamageHandler::RespawnActor(const bool bForceRespawnLocation, const FVector& OverrideRespawnLocation,
@@ -111,6 +118,12 @@ void UDamageHandler::RespawnActor(const bool bForceRespawnLocation, const FVecto
 		GetOwner()->SetActorLocation(bForceRespawnLocation ? OverrideRespawnLocation : RespawnLocation);
 	}
 	CurrentHealth = FMath::Clamp(MaxHealth * (bForceHealthPercentage ? FMath::Clamp(OverrideHealthPercentage, 0.0f, 1.0f) : 1.0f), 1.0f, MaxHealth);
+	if (CurrentAbsorb != 0.0f)
+	{
+		const float PreviousAbsorb = CurrentAbsorb;
+		CurrentAbsorb = 0.0f;
+		OnAbsorbChanged.Broadcast(GetOwner(), PreviousAbsorb, CurrentAbsorb);
+	}
 	OnHealthChanged.Broadcast(GetOwner(), 0.0f, CurrentHealth);
 	const ELifeStatus PreviousStatus = LifeStatus;
 	LifeStatus = ELifeStatus::Alive;
@@ -128,6 +141,18 @@ void UDamageHandler::UpdateRespawnPoint(const FVector& NewLocation)
 
 void UDamageHandler::Die()
 {
+	if (CurrentAbsorb != 0.0f)
+	{
+		const float PreviousAbsorb = CurrentAbsorb;
+		CurrentAbsorb = 0.0f;
+		OnAbsorbChanged.Broadcast(GetOwner(), PreviousAbsorb, CurrentAbsorb);
+	}
+	if (CurrentHealth != 0.0f)
+	{
+		const float PreviousHealth = CurrentHealth;
+		CurrentHealth = 0.0f;
+		OnHealthChanged.Broadcast(GetOwner(), PreviousHealth, CurrentHealth);
+	}
 	const ELifeStatus PreviousStatus = LifeStatus;
 	LifeStatus = ELifeStatus::Dead;
 	OnLifeStatusChanged.Broadcast(GetOwner(), PreviousStatus, LifeStatus);
@@ -163,6 +188,11 @@ void UDamageHandler::OnRep_MaxHealth(const float PreviousValue)
 	OnMaxHealthChanged.Broadcast(GetOwner(), PreviousValue, MaxHealth);
 }
 
+void UDamageHandler::OnRep_CurrentAbsorb(const float PreviousValue)
+{
+	OnAbsorbChanged.Broadcast(GetOwner(), PreviousValue, CurrentAbsorb);	
+}
+
 void UDamageHandler::OnRep_LifeStatus(const ELifeStatus PreviousValue)
 {
 	OnLifeStatusChanged.Broadcast(GetOwner(), PreviousValue, LifeStatus);
@@ -171,43 +201,58 @@ void UDamageHandler::OnRep_LifeStatus(const ELifeStatus PreviousValue)
 #pragma endregion
 #pragma region Damage
 
-FDamagingEvent UDamageHandler::ApplyDamage(const float Amount, AActor* AppliedBy, UObject* Source,
-                                           const EDamageHitStyle HitStyle, const EDamageSchool School, const bool bIgnoreModifiers, const bool bIgnoreRestrictions,
-                                           const bool bIgnoreDeathRestrictions, const bool bFromSnapshot, const FDamageModCondition& SourceModifier, const FThreatFromDamage& ThreatParams)
+FHealthEvent UDamageHandler::ApplyHealthEvent(const EHealthEventType EventType, const float Amount, AActor* AppliedBy,
+                                              UObject* Source, const EEventHitStyle HitStyle, const EHealthEventSchool School, const bool bBypassAbsorbs,
+                                              const bool bIgnoreModifiers, const bool bIgnoreRestrictions, const bool bIgnoreDeathRestrictions, const bool bFromSnapshot, const FHealthEventModCondition& SourceModifier, const FThreatFromDamage& ThreatParams)
 {
-    FDamagingEvent DamageEvent;
+    FHealthEvent HealthEvent;
     if (GetOwnerRole() != ROLE_Authority || !IsValid(AppliedBy) || !IsValid(Source))
     {
-        return DamageEvent;
+        return HealthEvent;
     }
-    if (!bHasHealth || !bCanEverReceiveDamage || IsDead())
+    if (!bHasHealth || IsDead() || EventType == EHealthEventType::None || Amount < 0.0f)
     {
-        return DamageEvent;
+        return HealthEvent;
     }
-    DamageEvent.Info.Value = Amount;
-    DamageEvent.Info.SnapshotValue = Amount;
-    DamageEvent.Info.AppliedBy = AppliedBy;
-    DamageEvent.Info.AppliedTo = GetOwner();
-    DamageEvent.Info.Source = Source;
-    DamageEvent.Info.HitStyle = HitStyle;
-    DamageEvent.Info.School = School;
-	if (DamageEvent.Info.AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	switch (EventType)
 	{
-		const UPlaneComponent* AppliedByPlaneComp = ISaiyoraCombatInterface::Execute_GetPlaneComponent(DamageEvent.Info.AppliedBy);
-		DamageEvent.Info.AppliedByPlane = IsValid(AppliedByPlaneComp) ? AppliedByPlaneComp->GetCurrentPlane() : ESaiyoraPlane::None;
+    case EHealthEventType::Damage :
+    	if (!bCanEverReceiveDamage) return HealthEvent;
+		break;
+    case EHealthEventType::Healing :
+    	if (!bCanEverReceiveHealing) return HealthEvent;
+		break;
+    case EHealthEventType::Absorb :
+    	if (!bCanEverReceiveHealing) return HealthEvent;
+		break;
+    default :
+    	return HealthEvent;
+	}
+	HealthEvent.Info.EventType = EventType;
+    HealthEvent.Info.Value = Amount;
+    HealthEvent.Info.SnapshotValue = Amount;
+    HealthEvent.Info.AppliedBy = AppliedBy;
+    HealthEvent.Info.AppliedTo = GetOwner();
+    HealthEvent.Info.Source = Source;
+    HealthEvent.Info.HitStyle = HitStyle;
+    HealthEvent.Info.School = School;
+	if (HealthEvent.Info.AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	{
+		const UPlaneComponent* AppliedByPlaneComp = ISaiyoraCombatInterface::Execute_GetPlaneComponent(HealthEvent.Info.AppliedBy);
+		HealthEvent.Info.AppliedByPlane = IsValid(AppliedByPlaneComp) ? AppliedByPlaneComp->GetCurrentPlane() : ESaiyoraPlane::None;
 	}
 	else
 	{
-		DamageEvent.Info.AppliedByPlane = ESaiyoraPlane::None;
+		HealthEvent.Info.AppliedByPlane = ESaiyoraPlane::None;
 	}
-    DamageEvent.Info.AppliedToPlane = IsValid(PlaneComponent) ? PlaneComponent->GetCurrentPlane() : ESaiyoraPlane::None;
-    DamageEvent.Info.AppliedXPlane = UPlaneComponent::CheckForXPlane(DamageEvent.Info.AppliedByPlane, DamageEvent.Info.AppliedToPlane);
+    HealthEvent.Info.AppliedToPlane = IsValid(PlaneComponent) ? PlaneComponent->GetCurrentPlane() : ESaiyoraPlane::None;
+    HealthEvent.Info.AppliedXPlane = UPlaneComponent::CheckForXPlane(HealthEvent.Info.AppliedByPlane, HealthEvent.Info.AppliedToPlane);
 	if (ThreatParams.GeneratesThreat)
 	{
-		DamageEvent.ThreatInfo = ThreatParams;
+		HealthEvent.ThreatInfo = ThreatParams;
 		if (!ThreatParams.SeparateBaseThreat)
 		{
-			DamageEvent.ThreatInfo.BaseThreat = DamageEvent.Info.Value;
+			HealthEvent.ThreatInfo.BaseThreat = HealthEvent.Info.Value;
 		}
 	}
 
@@ -218,193 +263,135 @@ FDamagingEvent UDamageHandler::ApplyDamage(const float Amount, AActor* AppliedBy
     {
         if (!bFromSnapshot && IsValid(GeneratorComponent))
         {
-            DamageEvent.Info.Value = GeneratorComponent->GetModifiedOutgoingDamage(DamageEvent.Info, SourceModifier);
-            DamageEvent.Info.SnapshotValue = DamageEvent.Info.Value;
+            HealthEvent.Info.Value = GeneratorComponent->GetModifiedOutgoingHealthEventValue(HealthEvent.Info, SourceModifier);
+            HealthEvent.Info.SnapshotValue = HealthEvent.Info.Value;
         }
-        DamageEvent.Info.Value = GetModifiedIncomingDamage(DamageEvent.Info);
+        HealthEvent.Info.Value = GetModifiedIncomingHealthEventValue(HealthEvent.Info);
     }
-    if (!bIgnoreRestrictions && (CheckIncomingDamageRestricted(DamageEvent.Info) || (IsValid(GeneratorComponent) && GeneratorComponent->CheckOutgoingDamageRestricted(DamageEvent.Info))))
+    if (!bIgnoreRestrictions && (CheckIncomingHealthEventRestricted(HealthEvent.Info) || (IsValid(GeneratorComponent) && GeneratorComponent->CheckOutgoingHealthEventRestricted(HealthEvent.Info))))
     {
-        return DamageEvent;
+        return HealthEvent;
     }
+
+	HealthEvent.Result.Success = true;
+	if (EventType == EHealthEventType::Damage)
+	{
+		HealthEvent.Result.PreviousValue = CurrentHealth;
+		float RemainingDamage = HealthEvent.Info.Value;
+		if (!bBypassAbsorbs)
+		{
+			if (CurrentAbsorb >= RemainingDamage)
+			{
+				RemainingDamage = 0.0f;
+				const float PreviousAbsorb = CurrentAbsorb;
+				CurrentAbsorb = FMath::Clamp(CurrentAbsorb - HealthEvent.Info.Value, 0.0f, MaxHealth);
+				if (PreviousAbsorb != CurrentAbsorb)
+				{
+					OnAbsorbChanged.Broadcast(GetOwner(), PreviousAbsorb, CurrentAbsorb);
+				}
+			}
+			else
+			{
+				RemainingDamage -= CurrentAbsorb;
+				const float PreviousAbsorb = CurrentAbsorb;
+				CurrentAbsorb = 0.0f;
+				if (PreviousAbsorb != CurrentAbsorb)
+				{
+					OnAbsorbChanged.Broadcast(GetOwner(), PreviousAbsorb, CurrentAbsorb);
+				}
+			}
+		}
+		CurrentHealth = FMath::Clamp(CurrentHealth - RemainingDamage, 0.0f, MaxHealth);
+		if (CurrentHealth != HealthEvent.Result.PreviousValue)
+		{
+			OnHealthChanged.Broadcast(GetOwner(), HealthEvent.Result.PreviousValue, CurrentHealth);
+		}
+		HealthEvent.Result.NewValue = CurrentHealth;
+		HealthEvent.Result.AppliedValue = HealthEvent.Result.PreviousValue - CurrentHealth;
+		if (CurrentHealth == 0.0f)
+		{
+			if (bIgnoreDeathRestrictions || !CheckDeathRestricted(HealthEvent))
+			{
+				HealthEvent.Result.KillingBlow = true;
+			}
+			else if (!bHasPendingKillingBlow)
+			{
+				bHasPendingKillingBlow = true;
+				PendingKillingBlow = HealthEvent;
+			}
+		}
+	}
+	else if (EventType == EHealthEventType::Healing)
+	{
+		HealthEvent.Result.PreviousValue = CurrentHealth;
+		CurrentHealth = FMath::Clamp(CurrentHealth + HealthEvent.Info.Value, 0.0f, MaxHealth);
+		if (CurrentHealth != HealthEvent.Result.PreviousValue)
+		{
+			OnHealthChanged.Broadcast(GetOwner(), HealthEvent.Result.PreviousValue, CurrentHealth);
+		}
+		HealthEvent.Result.NewValue = CurrentHealth;
+		HealthEvent.Result.AppliedValue = CurrentHealth - HealthEvent.Result.PreviousValue;
+	}
+	else if (EventType == EHealthEventType::Absorb)
+	{
+		HealthEvent.Result.PreviousValue = CurrentAbsorb;
+		CurrentAbsorb = FMath::Clamp(CurrentAbsorb + HealthEvent.Info.Value, 0.0f, MaxHealth);
+		if (CurrentAbsorb != HealthEvent.Result.PreviousValue)
+		{
+			OnAbsorbChanged.Broadcast(GetOwner(), HealthEvent.Result.PreviousValue, CurrentAbsorb);
+		}
+		HealthEvent.Result.NewValue = CurrentAbsorb;
+		HealthEvent.Result.AppliedValue = CurrentAbsorb - HealthEvent.Result.PreviousValue;
+	}
 	
-	DamageEvent.Result.PreviousHealth = CurrentHealth;
-	CurrentHealth = FMath::Clamp(CurrentHealth - DamageEvent.Info.Value, 0.0f, MaxHealth);
-	if (CurrentHealth != DamageEvent.Result.PreviousHealth)
-	{
-		OnHealthChanged.Broadcast(GetOwner(), DamageEvent.Result.PreviousHealth, CurrentHealth);
-	}
-	DamageEvent.Result.Success = true;
-	DamageEvent.Result.NewHealth = CurrentHealth;
-	DamageEvent.Result.AmountDealt = DamageEvent.Result.PreviousHealth - CurrentHealth;
-	if (CurrentHealth == 0.0f)
-	{
-		if (bIgnoreDeathRestrictions || !CheckDeathRestricted(DamageEvent))
-		{
-			DamageEvent.Result.KillingBlow = true;
-		}
-		else if (!bHasPendingKillingBlow)
-		{
-			bHasPendingKillingBlow = true;
-			PendingKillingBlow = DamageEvent;
-		}
-	}
-	OnIncomingDamage.Broadcast(DamageEvent);
+	OnIncomingHealthEvent.Broadcast(HealthEvent);
 	if (IsValid(OwnerAsPawn) && !OwnerAsPawn->IsLocallyControlled())
 	{
-		ClientNotifyOfIncomingDamage(DamageEvent);
+		ClientNotifyOfIncomingHealthEvent(HealthEvent);
 	}
 	if (IsValid(GeneratorComponent))
 	{
-		GeneratorComponent->NotifyOfOutgoingDamage(DamageEvent);
+		GeneratorComponent->NotifyOfOutgoingHealthEvent(HealthEvent);
 	}
-	if (DamageEvent.Result.KillingBlow)
+	if (HealthEvent.Result.KillingBlow)
 	{
 		Die();
 	}
 	
-	return DamageEvent;
+	return HealthEvent;
 }
 
-void UDamageHandler::NotifyOfOutgoingDamage(const FDamagingEvent& DamageEvent)
+void UDamageHandler::NotifyOfOutgoingHealthEvent(const FHealthEvent& HealthEvent)
 {
 	if (GetOwnerRole() == ROLE_Authority)
 	{
-		OnOutgoingDamage.Broadcast(DamageEvent);
-		if (DamageEvent.Result.KillingBlow)
+		OnOutgoingHealthEvent.Broadcast(HealthEvent);
+		if (HealthEvent.Result.KillingBlow)
 		{
-			OnKillingBlow.Broadcast(DamageEvent);
+			OnKillingBlow.Broadcast(HealthEvent);
 		}
 		if (IsValid(OwnerAsPawn) && !OwnerAsPawn->IsLocallyControlled())
 		{
-			ClientNotifyOfOutgoingDamage(DamageEvent);
+			ClientNotifyOfOutgoingHealthEvent(HealthEvent);
 		}
 	}
 }
 
-void UDamageHandler::ClientNotifyOfOutgoingDamage_Implementation(const FDamagingEvent& DamageEvent)
+void UDamageHandler::ClientNotifyOfOutgoingHealthEvent_Implementation(const FHealthEvent& HealthEvent)
 {
-	OnOutgoingDamage.Broadcast(DamageEvent);
-	if (DamageEvent.Result.KillingBlow)
+	OnOutgoingHealthEvent.Broadcast(HealthEvent);
+	if (HealthEvent.Result.KillingBlow)
 	{
-		OnKillingBlow.Broadcast(DamageEvent);
+		OnKillingBlow.Broadcast(HealthEvent);
 	}
 }
 
-void UDamageHandler::ClientNotifyOfIncomingDamage_Implementation(const FDamagingEvent& DamageEvent)
+void UDamageHandler::ClientNotifyOfIncomingHealthEvent_Implementation(const FHealthEvent& HealthEvent)
 {
-	OnIncomingDamage.Broadcast(DamageEvent);
+	OnIncomingHealthEvent.Broadcast(HealthEvent);
 }
 
 #pragma endregion
-#pragma region Healing
-
-FDamagingEvent UDamageHandler::ApplyHealing(const float Amount, AActor* AppliedBy, UObject* Source,
-	const EDamageHitStyle HitStyle, const EDamageSchool School, const bool bIgnoreRestrictions, const bool bIgnoreModifiers,
-	const bool bFromSnapshot, const FDamageModCondition& SourceModifier, const FThreatFromDamage& ThreatParams)
-{
-	FDamagingEvent HealingEvent;
-    if (GetOwnerRole() != ROLE_Authority || !IsValid(AppliedBy) || !IsValid(Source))
-    {
-        return HealingEvent;
-    }
-    if (!bHasHealth || !bCanEverReceiveHealing || IsDead())
-    {
-        return HealingEvent;
-    }
-    HealingEvent.Info.Value = Amount;
-    HealingEvent.Info.SnapshotValue = Amount;
-    HealingEvent.Info.AppliedBy = AppliedBy;
-    HealingEvent.Info.AppliedTo = GetOwner();
-    HealingEvent.Info.Source = Source;
-    HealingEvent.Info.HitStyle = HitStyle;
-    HealingEvent.Info.School = School;
-	if (HealingEvent.Info.AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
-	{
-		const UPlaneComponent* AppliedByPlaneComp = ISaiyoraCombatInterface::Execute_GetPlaneComponent(HealingEvent.Info.AppliedBy);
-		HealingEvent.Info.AppliedByPlane = IsValid(AppliedByPlaneComp) ? AppliedByPlaneComp->GetCurrentPlane() : ESaiyoraPlane::None;
-	}
-	else
-	{
-		HealingEvent.Info.AppliedByPlane = ESaiyoraPlane::None;
-	}
-	HealingEvent.Info.AppliedToPlane = IsValid(PlaneComponent) ? PlaneComponent->GetCurrentPlane() : ESaiyoraPlane::None;
-	HealingEvent.Info.AppliedXPlane = UPlaneComponent::CheckForXPlane(HealingEvent.Info.AppliedByPlane, HealingEvent.Info.AppliedToPlane);
-	if (ThreatParams.GeneratesThreat)
-	{
-		HealingEvent.ThreatInfo = ThreatParams;
-		if (!ThreatParams.SeparateBaseThreat)
-		{
-			HealingEvent.ThreatInfo.BaseThreat = HealingEvent.Info.Value;
-		}
-	}
-	
-	UDamageHandler* GeneratorComponent = AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()) ?
-		ISaiyoraCombatInterface::Execute_GetDamageHandler(AppliedBy) : nullptr;
-	
-    if (!bIgnoreModifiers)
-    {
-        if (!bFromSnapshot && IsValid(GeneratorComponent))
-        {
-            HealingEvent.Info.Value = GeneratorComponent->GetModifiedOutgoingHealing(HealingEvent.Info, SourceModifier);
-            HealingEvent.Info.SnapshotValue = HealingEvent.Info.Value;
-        }
-        HealingEvent.Info.Value = GetModifiedIncomingHealing(HealingEvent.Info);
-    }
-    if (!bIgnoreRestrictions && (CheckIncomingHealingRestricted(HealingEvent.Info) || (IsValid(GeneratorComponent) && GeneratorComponent->CheckOutgoingHealingRestricted(HealingEvent.Info))))
-    {
-		return HealingEvent;
-    }
-	HealingEvent.Result.PreviousHealth = CurrentHealth;
-	CurrentHealth = FMath::Clamp(CurrentHealth + HealingEvent.Info.Value, 0.0f, MaxHealth);
-	if (CurrentHealth != HealingEvent.Result.PreviousHealth)
-	{
-		OnHealthChanged.Broadcast(GetOwner(), HealingEvent.Result.PreviousHealth, CurrentHealth);
-	}
-	if (bHasPendingKillingBlow && CurrentHealth > 0.0f)
-	{
-		bHasPendingKillingBlow = false;
-		PendingKillingBlow = FDamagingEvent();
-	}
-	HealingEvent.Result.Success = true;
-	HealingEvent.Result.NewHealth = CurrentHealth;
-	HealingEvent.Result.AmountDealt = CurrentHealth - HealingEvent.Result.PreviousHealth;
-	HealingEvent.Result.KillingBlow = false;
-	OnIncomingHealing.Broadcast(HealingEvent);
-	if (IsValid(OwnerAsPawn) && !OwnerAsPawn->IsLocallyControlled())
-	{
-		ClientNotifyOfIncomingHealing(HealingEvent);
-	}
-	if (IsValid(GeneratorComponent))
-	{
-		GeneratorComponent->NotifyOfOutgoingHealing(HealingEvent);
-	}
-	return HealingEvent;
-}
-
-void UDamageHandler::NotifyOfOutgoingHealing(const FDamagingEvent& HealingEvent)
-{
-	if (GetOwnerRole() == ROLE_Authority)
-	{
-		OnOutgoingHealing.Broadcast(HealingEvent);
-		if (IsValid(OwnerAsPawn) && !OwnerAsPawn->IsLocallyControlled())
-		{
-			ClientNotifyOfOutgoingHealing(HealingEvent);
-		}
-	}
-}
-
-void UDamageHandler::ClientNotifyOfOutgoingHealing_Implementation(const FDamagingEvent& HealingEvent)
-{
-	OnOutgoingHealing.Broadcast(HealingEvent);
-}
-
-void UDamageHandler::ClientNotifyOfIncomingHealing_Implementation(const FDamagingEvent& HealingEvent)
-{
-	OnIncomingHealing.Broadcast(HealingEvent);
-}
-
-#pragma endregion 
 #pragma region Restrictions
 
 void UDamageHandler::AddDeathRestriction(UBuff* Source, const FDeathRestriction& Restriction)
@@ -429,7 +416,7 @@ void UDamageHandler::RemoveDeathRestriction(const UBuff* Source)
 	}
 }
 
-bool UDamageHandler::CheckDeathRestricted(const FDamagingEvent& DamageEvent)
+bool UDamageHandler::CheckDeathRestricted(const FHealthEvent& DamageEvent)
 {
 	for (const TTuple<UBuff*, FDeathRestriction>& Restriction : DeathRestrictions)
 	{
@@ -441,25 +428,25 @@ bool UDamageHandler::CheckDeathRestricted(const FDamagingEvent& DamageEvent)
 	return false;
 }
 
-void UDamageHandler::AddOutgoingDamageRestriction(UBuff* Source, const FDamageRestriction& Restriction)
+void UDamageHandler::AddOutgoingHealthEventRestriction(UBuff* Source, const FHealthEventRestriction& Restriction)
 {
 	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Restriction.IsBound())
 	{
-		OutgoingDamageRestrictions.Add(Source, Restriction);
+		OutgoingHealthEventRestrictions.Add(Source, Restriction);
 	}
 }
 
-void UDamageHandler::RemoveOutgoingDamageRestriction(const UBuff* Source)
+void UDamageHandler::RemoveOutgoingHealthEventRestriction(const UBuff* Source)
 {
 	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
 	{
-		OutgoingDamageRestrictions.Remove(Source);
+		OutgoingHealthEventRestrictions.Remove(Source);
 	}
 }
 
-bool UDamageHandler::CheckOutgoingDamageRestricted(const FDamageInfo& DamageInfo)
+bool UDamageHandler::CheckOutgoingHealthEventRestricted(const FHealthEventInfo& DamageInfo)
 {
-	for (const TTuple<UBuff*, FDamageRestriction>& Restriction : OutgoingDamageRestrictions)
+	for (const TTuple<UBuff*, FHealthEventRestriction>& Restriction : OutgoingHealthEventRestrictions)
 	{
 		if (Restriction.Value.IsBound() && Restriction.Value.Execute(DamageInfo))
 		{
@@ -469,83 +456,27 @@ bool UDamageHandler::CheckOutgoingDamageRestricted(const FDamageInfo& DamageInfo
 	return false;
 }
 
-void UDamageHandler::AddOutgoingHealingRestriction(UBuff* Source, const FDamageRestriction& Restriction)
+void UDamageHandler::AddIncomingHealthEventRestriction(UBuff* Source, const FHealthEventRestriction& Restriction)
 {
 	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Restriction.IsBound())
 	{
-		OutgoingHealingRestrictions.Add(Source, Restriction);
+		IncomingHealthEventRestrictions.Add(Source, Restriction);
 	}
 }
 
-void UDamageHandler::RemoveOutgoingHealingRestriction(const UBuff* Source)
+void UDamageHandler::RemoveIncomingHealthEventRestriction(const UBuff* Source)
 {
 	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
 	{
-		OutgoingHealingRestrictions.Remove(Source);
+		IncomingHealthEventRestrictions.Remove(Source);
 	}
 }
 
-bool UDamageHandler::CheckOutgoingHealingRestricted(const FDamageInfo& HealingInfo)
+bool UDamageHandler::CheckIncomingHealthEventRestricted(const FHealthEventInfo& EventInfo)
 {
-	for (const TTuple<UBuff*, FDamageRestriction>& Restriction : OutgoingHealingRestrictions)
+	for (const TTuple<UBuff*, FHealthEventRestriction>& Restriction : IncomingHealthEventRestrictions)
 	{
-		if (Restriction.Value.IsBound() && Restriction.Value.Execute(HealingInfo))
-		{
-			return true;
-		}
-	}
-	return false;
-}
-
-void UDamageHandler::AddIncomingDamageRestriction(UBuff* Source, const FDamageRestriction& Restriction)
-{
-	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Restriction.IsBound())
-	{
-		IncomingDamageRestrictions.Add(Source, Restriction);
-	}
-}
-
-void UDamageHandler::RemoveIncomingDamageRestriction(const UBuff* Source)
-{
-	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
-	{
-		IncomingDamageRestrictions.Remove(Source);
-	}
-}
-
-bool UDamageHandler::CheckIncomingDamageRestricted(const FDamageInfo& DamageInfo)
-{
-	for (const TTuple<UBuff*, FDamageRestriction>& Restriction : IncomingDamageRestrictions)
-	{
-		if (Restriction.Value.IsBound() && Restriction.Value.Execute(DamageInfo))
-		{
-			return true;
-		}
-	}
-	return false;
-}
-
-void UDamageHandler::AddIncomingHealingRestriction(UBuff* Source, const FDamageRestriction& Restriction)
-{
-	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Restriction.IsBound())
-	{
-		IncomingHealingRestrictions.Add(Source, Restriction);
-	}
-}
-
-void UDamageHandler::RemoveIncomingHealingRestriction(const UBuff* Source)
-{
-	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
-	{
-		IncomingHealingRestrictions.Remove(Source);
-	}
-}
-
-bool UDamageHandler::CheckIncomingHealingRestricted(const FDamageInfo& HealingInfo)
-{
-	for (const TTuple<UBuff*, FDamageRestriction>& Restriction : IncomingHealingRestrictions)
-	{
-		if (Restriction.Value.IsBound() && Restriction.Value.Execute(HealingInfo))
+		if (Restriction.Value.IsBound() && Restriction.Value.Execute(EventInfo))
 		{
 			return true;
 		}
@@ -556,144 +487,118 @@ bool UDamageHandler::CheckIncomingHealingRestricted(const FDamageInfo& HealingIn
 #pragma endregion
 #pragma region Modifiers
 
-void UDamageHandler::AddOutgoingDamageModifier(UBuff* Source, const FDamageModCondition& Modifier)
+void UDamageHandler::AddOutgoingHealthEventModifier(UBuff* Source, const FHealthEventModCondition& Modifier)
 {
 	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Modifier.IsBound())
 	{
-		OutgoingDamageModifiers.Add(Source, Modifier);
+		OutgoingHealthEventModifiers.Add(Source, Modifier);
 	}
 }
 
-void UDamageHandler::RemoveOutgoingDamageModifier(const UBuff* Source)
+void UDamageHandler::RemoveOutgoingHealthEventModifier(const UBuff* Source)
 {
 	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
 	{
-		OutgoingDamageModifiers.Remove(Source);
+		OutgoingHealthEventModifiers.Remove(Source);
 	}
 }
 
-float UDamageHandler::GetModifiedOutgoingDamage(const FDamageInfo& DamageInfo, const FDamageModCondition& SourceMod) const
+float UDamageHandler::GetModifiedOutgoingHealthEventValue(const FHealthEventInfo& EventInfo, const FHealthEventModCondition& SourceMod) const
 {
 	TArray<FCombatModifier> Mods;
-	for (const TTuple<UBuff*, FDamageModCondition>& Modifier : OutgoingDamageModifiers)
+	for (const TTuple<UBuff*, FHealthEventModCondition>& Modifier : OutgoingHealthEventModifiers)
 	{
 		if (Modifier.Value.IsBound())
 		{
-			Mods.Add(Modifier.Value.Execute(DamageInfo));
+			Mods.Add(Modifier.Value.Execute(EventInfo));
 		}
 	}
 	if (SourceMod.IsBound())
 	{
-		Mods.Add(SourceMod.Execute(DamageInfo));
+		Mods.Add(SourceMod.Execute(EventInfo));
 	}
-	if (IsValid(StatHandler) && StatHandler->IsStatValid(FSaiyoraCombatTags::Get().Stat_DamageDone))
+	if (IsValid(StatHandler))
 	{
-		Mods.Add(FCombatModifier(StatHandler->GetStatValue(FSaiyoraCombatTags::Get().Stat_DamageDone), EModifierType::Multiplicative));
+		switch (EventInfo.EventType)
+		{
+		case EHealthEventType::Damage :
+			if (StatHandler->IsStatValid(FSaiyoraCombatTags::Get().Stat_DamageDone))
+			{
+				Mods.Add(FCombatModifier(StatHandler->GetStatValue(FSaiyoraCombatTags::Get().Stat_DamageDone), EModifierType::Multiplicative));
+			}
+			break;
+		case EHealthEventType::Healing :
+			if (StatHandler->IsStatValid(FSaiyoraCombatTags::Get().Stat_HealingDone))
+			{
+				Mods.Add(FCombatModifier(StatHandler->GetStatValue(FSaiyoraCombatTags::Get().Stat_HealingDone), EModifierType::Multiplicative));
+			}
+			break;
+		case EHealthEventType::Absorb :
+			if (StatHandler->IsStatValid(FSaiyoraCombatTags::Get().Stat_AbsorbDone))
+			{
+				Mods.Add(FCombatModifier(StatHandler->GetStatValue(FSaiyoraCombatTags::Get().Stat_AbsorbDone), EModifierType::Multiplicative));
+			}
+			break;
+		default :
+			break;
+		}
 	}
-	return FCombatModifier::ApplyModifiers(Mods, DamageInfo.Value);
+	return FCombatModifier::ApplyModifiers(Mods, EventInfo.Value);
 }
 
-void UDamageHandler::AddOutgoingHealingModifier(UBuff* Source, const FDamageModCondition& Modifier)
+void UDamageHandler::AddIncomingHealthEventModifier(UBuff* Source, const FHealthEventModCondition& Modifier)
 {
 	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Modifier.IsBound())
 	{
-		OutgoingHealingModifiers.Add(Source, Modifier);
+		IncomingHealthEventModifiers.Add(Source, Modifier);
 	}
 }
 
-void UDamageHandler::RemoveOutgoingHealingModifier(const UBuff* Source)
+void UDamageHandler::RemoveIncomingHealthEventModifier(const UBuff* Source)
 {
 	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
 	{
-		OutgoingHealingModifiers.Remove(Source);
+		IncomingHealthEventModifiers.Remove(Source);
 	}
 }
 
-float UDamageHandler::GetModifiedOutgoingHealing(const FDamageInfo& HealingInfo, const FDamageModCondition& SourceMod) const
+float UDamageHandler::GetModifiedIncomingHealthEventValue(const FHealthEventInfo& EventInfo) const
 {
 	TArray<FCombatModifier> Mods;
-	for (const TTuple<UBuff*, FDamageModCondition>& Modifier : OutgoingHealingModifiers)
+	for (const TTuple<UBuff*, FHealthEventModCondition>& Modifier : IncomingHealthEventModifiers)
 	{
 		if (Modifier.Value.IsBound())
 		{
-			Mods.Add(Modifier.Value.Execute(HealingInfo));
+			Mods.Add(Modifier.Value.Execute(EventInfo));
 		}
 	}
-	if (SourceMod.IsBound())
+	if (IsValid(StatHandler))
 	{
-		Mods.Add(SourceMod.Execute(HealingInfo));
-	}
-	if (IsValid(StatHandler) && StatHandler->IsStatValid(FSaiyoraCombatTags::Get().Stat_HealingDone))
-	{
-		Mods.Add(FCombatModifier(StatHandler->GetStatValue(FSaiyoraCombatTags::Get().Stat_HealingDone), EModifierType::Multiplicative));
-	}
-	return FCombatModifier::ApplyModifiers(Mods, HealingInfo.Value);
-}
-
-void UDamageHandler::AddIncomingDamageModifier(UBuff* Source, const FDamageModCondition& Modifier)
-{
-	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Modifier.IsBound())
-	{
-		IncomingDamageModifiers.Add(Source, Modifier);
-	}
-}
-
-void UDamageHandler::RemoveIncomingDamageModifier(const UBuff* Source)
-{
-	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
-	{
-		IncomingDamageModifiers.Remove(Source);
-	}
-}
-
-float UDamageHandler::GetModifiedIncomingDamage(const FDamageInfo& DamageInfo) const
-{
-	TArray<FCombatModifier> Mods;
-	for (const TTuple<UBuff*, FDamageModCondition>& Modifier : IncomingDamageModifiers)
-	{
-		if (Modifier.Value.IsBound())
+		switch (EventInfo.EventType)
 		{
-			Mods.Add(Modifier.Value.Execute(DamageInfo));
+		case EHealthEventType::Damage :
+			if (StatHandler->IsStatValid(FSaiyoraCombatTags::Get().Stat_DamageTaken))
+			{
+				Mods.Add(FCombatModifier(StatHandler->GetStatValue(FSaiyoraCombatTags::Get().Stat_DamageTaken), EModifierType::Multiplicative));
+			}
+			break;
+		case EHealthEventType::Healing :
+			if (StatHandler->IsStatValid(FSaiyoraCombatTags::Get().Stat_HealingTaken))
+			{
+				Mods.Add(FCombatModifier(StatHandler->GetStatValue(FSaiyoraCombatTags::Get().Stat_HealingTaken), EModifierType::Multiplicative));
+			}
+			break;
+		case EHealthEventType::Absorb :
+			if (StatHandler->IsStatValid(FSaiyoraCombatTags::Get().Stat_AbsorbTaken))
+			{
+				Mods.Add(FCombatModifier(StatHandler->GetStatValue(FSaiyoraCombatTags::Get().Stat_AbsorbTaken), EModifierType::Multiplicative));
+			}
+			break;
+		default :
+			break;
 		}
 	}
-	if (IsValid(StatHandler) && StatHandler->IsStatValid(FSaiyoraCombatTags::Get().Stat_DamageTaken))
-	{
-		Mods.Add(FCombatModifier(StatHandler->GetStatValue(FSaiyoraCombatTags::Get().Stat_DamageTaken), EModifierType::Multiplicative));
-	}
-	return FCombatModifier::ApplyModifiers(Mods, DamageInfo.Value);
-}
-
-void UDamageHandler::AddIncomingHealingModifier(UBuff* Source, const FDamageModCondition& Modifier)
-{
-	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Modifier.IsBound())
-	{
-		IncomingHealingModifiers.Add(Source, Modifier);
-	}
-}
-
-void UDamageHandler::RemoveIncomingHealingModifier(const UBuff* Source)
-{
-	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
-	{
-		IncomingHealingModifiers.Remove(Source);
-	}
-}
-
-float UDamageHandler::GetModifiedIncomingHealing(const FDamageInfo& HealingInfo) const
-{
-	TArray<FCombatModifier> Mods;
-	for (const TTuple<UBuff*, FDamageModCondition>& Modifier : IncomingHealingModifiers)
-	{
-		if (Modifier.Value.IsBound())
-		{
-			Mods.Add(Modifier.Value.Execute(HealingInfo));
-		}
-	}
-	if (IsValid(StatHandler) && StatHandler->IsStatValid(FSaiyoraCombatTags::Get().Stat_HealingTaken))
-	{
-		Mods.Add(FCombatModifier(StatHandler->GetStatValue(FSaiyoraCombatTags::Get().Stat_HealingTaken), EModifierType::Multiplicative));
-	}
-	return FCombatModifier::ApplyModifiers(Mods, HealingInfo.Value);
+	return FCombatModifier::ApplyModifiers(Mods, EventInfo.Value);
 }
 
 #pragma endregion

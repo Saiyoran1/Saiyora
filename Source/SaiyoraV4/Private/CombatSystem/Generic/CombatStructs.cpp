@@ -3,7 +3,7 @@
 
 FSaiyoraCombatTags FSaiyoraCombatTags::SaiyoraCombatTags;
 
-FCombatModifier::FCombatModifier(float const BaseValue, EModifierType const ModifierType, UBuff* SourceBuff, bool const Stackable)
+FCombatModifier::FCombatModifier(const float BaseValue, const EModifierType ModifierType, UBuff* SourceBuff, const bool Stackable)
 {
     Value = BaseValue;
     Type = ModifierType;
@@ -11,11 +11,11 @@ FCombatModifier::FCombatModifier(float const BaseValue, EModifierType const Modi
     bStackable = IsValid(Source) && Stackable;
 }
 
-float FCombatModifier::ApplyModifiers(TArray<FCombatModifier> const& ModArray, float const BaseValue)
+float FCombatModifier::ApplyModifiers(const TArray<FCombatModifier>& ModArray, const float BaseValue)
 {
     float AddMod = 0.0f;
     float MultMod = 1.0f;
-    for (FCombatModifier const& Mod : ModArray)
+    for (const FCombatModifier& Mod : ModArray)
     {
         switch (Mod.Type)
         {
@@ -37,8 +37,8 @@ float FCombatModifier::ApplyModifiers(TArray<FCombatModifier> const& ModArray, f
     return FMath::Max(0.0f, FMath::Max(0.0f, BaseValue + AddMod) * MultMod);
 }
 
-int32 FCombatModifier::ApplyModifiers(TArray<FCombatModifier> const& ModArray, int32 const BaseValue)
+int32 FCombatModifier::ApplyModifiers(const TArray<FCombatModifier>& ModArray, const int32 BaseValue)
 {
-    float const ValueAsFloat = static_cast<float>(BaseValue);
+    const float ValueAsFloat = static_cast<float>(BaseValue);
     return static_cast<int32>(ApplyModifiers(ModArray, ValueAsFloat));
 }

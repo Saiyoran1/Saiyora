@@ -62,6 +62,8 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FHealthChangeNotification OnMaxHealthChanged;
 	UPROPERTY(BlueprintAssignable)
+	FHealthChangeNotification OnAbsorbChanged;
+	UPROPERTY(BlueprintAssignable)
 	FLifeStatusNotification OnLifeStatusChanged;
 
 	void AddDeathRestriction(UBuff* Source, const FDeathRestriction& Restriction);
@@ -83,15 +85,19 @@ private:
 	UPROPERTY(ReplicatedUsing = OnRep_CurrentHealth)
 	float CurrentHealth = 0.0f;
 	UFUNCTION()
-	void OnRep_CurrentHealth(float PreviousValue);
+	void OnRep_CurrentHealth(const float PreviousValue);
 	UPROPERTY(ReplicatedUsing = OnRep_MaxHealth)
 	float MaxHealth = 1.0f;
 	UFUNCTION()
-	void OnRep_MaxHealth(float PreviousValue);
+	void OnRep_MaxHealth(const float PreviousValue);
+	UPROPERTY(ReplicatedUsing = OnRep_CurrentAbsorb)
+	float CurrentAbsorb = 0.0f;
+	UFUNCTION()
+	void OnRep_CurrentAbsorb(const float PreviousValue);
 	UPROPERTY(ReplicatedUsing = OnRep_LifeStatus)
 	ELifeStatus LifeStatus = ELifeStatus::Invalid;
 	UFUNCTION()
-	void OnRep_LifeStatus(ELifeStatus PreviousValue);
+	void OnRep_LifeStatus(const ELifeStatus PreviousValue);
 	FVector RespawnLocation;
 	
 	UPROPERTY()
@@ -101,7 +107,7 @@ private:
 	FStatCallback MaxHealthStatCallback;
 	UFUNCTION()
 	void ReactToMaxHealthStat(const FGameplayTag StatTag, const float NewValue);
-	bool CheckDeathRestricted(const FDamagingEvent& DamageEvent);
+	bool CheckDeathRestricted(const FHealthEvent& DamageEvent);
 	void Die();
 
 //Kill Count
@@ -124,128 +130,63 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Kill Count", meta = (GameplayTagFilter = "Boss"))
 	FGameplayTag BossTag;
 
-//Outgoing Damage
+//Health Events
 
 public:
 
-	UPROPERTY(BlueprintAssignable)
-	FDamageEventNotification OnOutgoingDamage;
-	UPROPERTY(BlueprintAssignable)
-	FDamageEventNotification OnKillingBlow;
-
-   	void AddOutgoingDamageRestriction(UBuff* Source, const FDamageRestriction& Restriction);
-   	void RemoveOutgoingDamageRestriction(const UBuff* Source);
-	bool CheckOutgoingDamageRestricted(const FDamageInfo& DamageInfo);
-    void AddOutgoingDamageModifier(UBuff* Source, const FDamageModCondition& Modifier);
-   	void RemoveOutgoingDamageModifier(const UBuff* Source);
-	float GetModifiedOutgoingDamage(const FDamageInfo& DamageInfo, const FDamageModCondition& SourceMod) const;
-
-	void NotifyOfOutgoingDamage(const FDamagingEvent& DamageEvent);
-	
-private:
-	
-	UPROPERTY()
-	TMap<UBuff*, FDamageRestriction> OutgoingDamageRestrictions;
-	UPROPERTY()
-	TMap<UBuff*, FDamageModCondition> OutgoingDamageModifiers;
-
-	UFUNCTION(Client, Unreliable)
-    void ClientNotifyOfOutgoingDamage(const FDamagingEvent& DamageEvent);
-
-//Outgoing Healing
-
-public:
-
-	UPROPERTY(BlueprintAssignable)
-	FDamageEventNotification OnOutgoingHealing;
-
-   	void AddOutgoingHealingRestriction(UBuff* Source, const FDamageRestriction& Restriction);
-   	void RemoveOutgoingHealingRestriction(const UBuff* Source);
-	bool CheckOutgoingHealingRestricted(const FDamageInfo& HealingInfo);
-   	void AddOutgoingHealingModifier(UBuff* Source, const FDamageModCondition& Modifier);
-   	void RemoveOutgoingHealingModifier(const UBuff* Source);
-	float GetModifiedOutgoingHealing(const FDamageInfo& HealingInfo, const FDamageModCondition& SourceMod) const;
-	
-	void NotifyOfOutgoingHealing(const FDamagingEvent& HealingEvent);
-	
-private:
-	
-	UPROPERTY()
-    TMap<UBuff*, FDamageRestriction> OutgoingHealingRestrictions;
-	UPROPERTY()
-    TMap<UBuff*, FDamageModCondition> OutgoingHealingModifiers;
-    
-    UFUNCTION(Client, Unreliable)
-    void ClientNotifyOfOutgoingHealing(const FDamagingEvent& HealingEvent);
-
-//Incoming Damage
-
-public:
-
-	UFUNCTION(BlueprintPure, Category = "Damage")
+	UFUNCTION(BlueprintPure, Category = "Health")
 	bool CanEverReceiveDamage() const { return bCanEverReceiveDamage; }
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Damage", meta = (AutoCreateRefTerm = "SourceModifier, ThreatParams"))
-	FDamagingEvent ApplyDamage(const float Amount, AActor* AppliedBy, UObject* Source, const EDamageHitStyle HitStyle,
-		const EDamageSchool School, const bool bIgnoreModifiers, const bool bIgnoreRestrictions, const bool bIgnoreDeathRestrictions,
-		const bool bFromSnapshot, const FDamageModCondition& SourceModifier, const FThreatFromDamage& ThreatParams);
+	UFUNCTION(BlueprintPure, Category = "Health")
+	bool CanEverReceiveHealing() const { return bCanEverReceiveHealing; }
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Health", meta = (AutoCreateRefTerm = "SourceModifier, ThreatParams"))
+	FHealthEvent ApplyHealthEvent(const EHealthEventType EventType, const float Amount, AActor* AppliedBy, UObject* Source, const EEventHitStyle HitStyle,
+		const EHealthEventSchool School, const bool bBypassAbsorbs, const bool bIgnoreModifiers, const bool bIgnoreRestrictions, const bool bIgnoreDeathRestrictions,
+		const bool bFromSnapshot, const FHealthEventModCondition& SourceModifier, const FThreatFromDamage& ThreatParams);
 
 	UPROPERTY(BlueprintAssignable)
-	FDamageEventNotification OnIncomingDamage;
+	FHealthEventNotification OnIncomingHealthEvent;
+	UPROPERTY(BlueprintAssignable)
+	FHealthEventNotification OnOutgoingHealthEvent;
+	UPROPERTY(BlueprintAssignable)
+	FHealthEventNotification OnKillingBlow;
 
-	void AddIncomingDamageRestriction(UBuff* Source, const FDamageRestriction& Restriction);
-	void RemoveIncomingDamageRestriction(const UBuff* Source);
-	bool CheckIncomingDamageRestricted(const FDamageInfo& DamageInfo);
-	void AddIncomingDamageModifier(UBuff* Source, const FDamageModCondition& Modifier);
-	void RemoveIncomingDamageModifier(const UBuff* Source);
-	float GetModifiedIncomingDamage(const FDamageInfo& DamageInfo) const;
-
+	void AddIncomingHealthEventRestriction(UBuff* Source, const FHealthEventRestriction& Restriction);
+	void RemoveIncomingHealthEventRestriction(const UBuff* Source);
+	bool CheckIncomingHealthEventRestricted(const FHealthEventInfo& EventInfo);
+   	void AddOutgoingHealthEventRestriction(UBuff* Source, const FHealthEventRestriction& Restriction);
+   	void RemoveOutgoingHealthEventRestriction(const UBuff* Source);
+	bool CheckOutgoingHealthEventRestricted(const FHealthEventInfo& EventInfo);
+	
+	void AddIncomingHealthEventModifier(UBuff* Source, const FHealthEventModCondition& Modifier);
+	void RemoveIncomingHealthEventModifier(const UBuff* Source);
+	float GetModifiedIncomingHealthEventValue(const FHealthEventInfo& EventInfo) const;
+    void AddOutgoingHealthEventModifier(UBuff* Source, const FHealthEventModCondition& Modifier);
+   	void RemoveOutgoingHealthEventModifier(const UBuff* Source);
+	float GetModifiedOutgoingHealthEventValue(const FHealthEventInfo& EventInfo, const FHealthEventModCondition& SourceMod) const;
+	
+	void NotifyOfOutgoingHealthEvent(const FHealthEvent& HealthEvent);
+	
 private:
 
-	UPROPERTY(EditAnywhere, Category = "Damage")
+	UPROPERTY(EditAnywhere, Category = "Health")
 	bool bCanEverReceiveDamage = true;
+	UPROPERTY(EditAnywhere, Category = "Health")
+	bool bCanEverReceiveHealing = true;
 
 	bool bHasPendingKillingBlow = false;
-	FDamagingEvent PendingKillingBlow;
+	FHealthEvent PendingKillingBlow;
 	
 	UPROPERTY()
-	TMap<UBuff*, FDamageRestriction> IncomingDamageRestrictions;
+	TMap<UBuff*, FHealthEventRestriction> IncomingHealthEventRestrictions;
 	UPROPERTY()
-	TMap<UBuff*, FDamageModCondition> IncomingDamageModifiers;
+	TMap<UBuff*, FHealthEventRestriction> OutgoingHealthEventRestrictions;
+	UPROPERTY()
+	TMap<UBuff*, FHealthEventModCondition> IncomingHealthEventModifiers;
+	UPROPERTY()
+	TMap<UBuff*, FHealthEventModCondition> OutgoingHealthEventModifiers;
 
 	UFUNCTION(Client, Unreliable)
-    void ClientNotifyOfIncomingDamage(const FDamagingEvent& DamageEvent);
-
-//Incoming Healing
-
-public:
-
-	UFUNCTION(BlueprintPure, Category = "Healing")
-	bool CanEverReceiveHealing() const { return bCanEverReceiveHealing; }
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Healing", meta = (AutoCreateRefTerm = "SourceModifier, ThreatParams"))
-	FDamagingEvent ApplyHealing(const float Amount, AActor* AppliedBy, UObject* Source,
-		const EDamageHitStyle HitStyle, const EDamageSchool School, const bool bIgnoreRestrictions,
-		const bool bIgnoreModifiers, const bool bFromSnapshot, const FDamageModCondition& SourceModifier, const FThreatFromDamage& ThreatParams);
-
-	UPROPERTY(BlueprintAssignable)
-	FDamageEventNotification OnIncomingHealing;
-
-	void AddIncomingHealingRestriction(UBuff* Source, const FDamageRestriction& Restriction);
-	void RemoveIncomingHealingRestriction(const UBuff* Source);
-	bool CheckIncomingHealingRestricted(const FDamageInfo& HealingInfo);
-	void AddIncomingHealingModifier(UBuff* Source, const FDamageModCondition& Modifier);
-	void RemoveIncomingHealingModifier(const UBuff* Source);
-	float GetModifiedIncomingHealing(const FDamageInfo& HealingInfo) const;
-
-private:
-
-	UPROPERTY(EditAnywhere, Category = "Healing")
-	bool bCanEverReceiveHealing = true;
-	
-	UPROPERTY()
-	TMap<UBuff*, FDamageRestriction> IncomingHealingRestrictions;
-	UPROPERTY()
-	TMap<UBuff*, FDamageModCondition> IncomingHealingModifiers;
-
+	void ClientNotifyOfIncomingHealthEvent(const FHealthEvent& HealthEvent);
 	UFUNCTION(Client, Unreliable)
-    void ClientNotifyOfIncomingHealing(const FDamagingEvent& HealingEvent);
+    void ClientNotifyOfOutgoingHealthEvent(const FHealthEvent& HealthEvent);
 };

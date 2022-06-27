@@ -5,6 +5,8 @@
 #include "CombatEnums.h"
 #include "CombatStructs.generated.h"
 
+class UBuff;
+
 struct SAIYORAV4_API FSaiyoraCombatTags : public FGameplayTagNativeAdder
 {
     FGameplayTag DungeonBoss;
@@ -30,6 +32,8 @@ struct SAIYORAV4_API FSaiyoraCombatTags : public FGameplayTagNativeAdder
     FGameplayTag Stat_DamageTaken;
     FGameplayTag Stat_HealingDone;
     FGameplayTag Stat_HealingTaken;
+    FGameplayTag Stat_AbsorbDone;
+    FGameplayTag Stat_AbsorbTaken;
     FGameplayTag Stat_MaxHealth;
 
     FGameplayTag Stat_GlobalCooldownLength;
@@ -112,10 +116,10 @@ struct FCombatModifier
 {
     GENERATED_BODY()
 
-    static float ApplyModifiers(TArray<FCombatModifier> const& ModArray, float const BaseValue);
-    static int32 ApplyModifiers(TArray<FCombatModifier> const& ModArray, int32 const BaseValue);
+    static float ApplyModifiers(const TArray<FCombatModifier>& ModArray, const float BaseValue);
+    static int32 ApplyModifiers(const TArray<FCombatModifier>& ModArray, const int32 BaseValue);
     FCombatModifier() {}
-    FCombatModifier(float const BaseValue, EModifierType const ModifierType, class UBuff* SourceBuff = nullptr, bool const Stackable = false);
+    FCombatModifier(const float BaseValue, const EModifierType ModifierType, UBuff* SourceBuff = nullptr, const bool Stackable = false);
     UPROPERTY()
     EModifierType Type = EModifierType::Invalid;
     UPROPERTY()
@@ -125,7 +129,7 @@ struct FCombatModifier
     UPROPERTY(NotReplicated)
     UBuff* Source = nullptr;
 
-    FORCEINLINE bool operator==(FCombatModifier const& Other) const { return Other.Type == Type && Other.Source == Source && Other.Value == Value; }
+    FORCEINLINE bool operator==(const FCombatModifier& Other) const { return Other.Type == Type && Other.Source == Source && Other.Value == Value; }
 };
 
 USTRUCT(BlueprintType)

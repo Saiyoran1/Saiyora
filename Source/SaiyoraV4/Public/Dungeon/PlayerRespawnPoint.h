@@ -1,13 +1,13 @@
 ﻿#pragma once
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
-#include "Engine/TargetPoint.h"
+#include "Components/CapsuleComponent.h"
 #include "PlayerRespawnPoint.generated.h"
 
 class ADungeonGameState;
 
 UCLASS()
-class SAIYORAV4_API APlayerRespawnPoint : public ATargetPoint
+class SAIYORAV4_API APlayerRespawnPoint : public AActor
 {
 	GENERATED_BODY()
 
@@ -18,6 +18,8 @@ public:
 
 private:
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Respawn", meta = (AllowPrivateAccess = true))
+	UCapsuleComponent* CapsuleComponent;
 	UPROPERTY(EditAnywhere, Category = "Respawn", meta = (Categories = "Boss"))
 	FGameplayTag BossTriggerTag;
 	UPROPERTY()

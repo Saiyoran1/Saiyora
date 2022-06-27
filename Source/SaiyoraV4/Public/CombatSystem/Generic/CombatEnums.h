@@ -11,6 +11,14 @@ enum class ESaiyoraPlane : uint8
 };
 
 UENUM(BlueprintType)
+enum class ECombatEventDirection : uint8
+{
+ None = 0,
+ Incoming = 1,
+ Outgoing = 2,
+};
+
+UENUM(BlueprintType)
 enum class EModifierType : uint8
 {
  Invalid = 0,

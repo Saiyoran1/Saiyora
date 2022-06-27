@@ -63,7 +63,7 @@ public:
     UFUNCTION(BlueprintPure, Category = "Abilities")
     UTexture2D* GetAbilityIcon() const { return Icon; }
     UFUNCTION(BlueprintPure, Category = "Abilities")
-    EDamageSchool GetAbilitySchool() const { return School; }
+    EHealthEventSchool GetAbilitySchool() const { return School; }
     UFUNCTION(BlueprintPure, Category = "Abilities")
     ESaiyoraPlane GetAbilityPlane() const { return Plane; }
     UFUNCTION(BlueprintPure, Category = "Abilities")
@@ -80,7 +80,7 @@ private:
     UPROPERTY(EditDefaultsOnly, Category = "Info")
     UTexture2D* Icon;
     UPROPERTY(EditDefaultsOnly, Category = "Info")
-    EDamageSchool School;
+    EHealthEventSchool School;
     UPROPERTY(EditDefaultsOnly, Category = "Info")
     ESaiyoraPlane Plane;
     UPROPERTY(EditDefaultsOnly, Category = "Info")

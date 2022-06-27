@@ -9,65 +9,67 @@
 class UCombatComponent;
 
 USTRUCT(BlueprintType)
-struct FDamageResult
+struct FHealthEventResult
 {
     GENERATED_BODY()
 
-    UPROPERTY(BlueprintReadOnly, Category = "Damage")
+    UPROPERTY(BlueprintReadOnly)
     bool Success = false;
-    UPROPERTY(BlueprintReadOnly, Category = "Damage")
-    float AmountDealt = 0.0f;
-    UPROPERTY(BlueprintReadOnly, Category = "Damage")
-    float PreviousHealth = 0.0f;
-    UPROPERTY(BlueprintReadOnly, Category = "Damage")
-    float NewHealth = 0.0f;
-    UPROPERTY(BlueprintReadOnly, Category = "Damage")
+    UPROPERTY(BlueprintReadOnly)
+    float AppliedValue = 0.0f;
+    UPROPERTY(BlueprintReadOnly)
+    float PreviousValue = 0.0f;
+    UPROPERTY(BlueprintReadOnly)
+    float NewValue = 0.0f;
+    UPROPERTY(BlueprintReadOnly)
     bool KillingBlow = false;
 };
 
 USTRUCT(BlueprintType)
-struct FDamageInfo
+struct FHealthEventInfo
 {
     GENERATED_BODY()
 
-    UPROPERTY(BlueprintReadOnly, Category = "Damage")
+    UPROPERTY(BlueprintReadOnly)
+    EHealthEventType EventType = EHealthEventType::None;
+    UPROPERTY(BlueprintReadOnly)
     AActor* AppliedTo = nullptr;
-    UPROPERTY(BlueprintReadOnly, Category = "Damage")
+    UPROPERTY(BlueprintReadOnly)
     AActor* AppliedBy = nullptr;
-    UPROPERTY(BlueprintReadOnly, Category = "Damage")
+    UPROPERTY(BlueprintReadOnly)
     UObject* Source = nullptr;
-    UPROPERTY(BlueprintReadOnly, Category = "Damage")
+    UPROPERTY(BlueprintReadOnly)
     bool AppliedXPlane = false;
-    UPROPERTY(BlueprintReadOnly, Category = "Damage")
+    UPROPERTY(BlueprintReadOnly)
     ESaiyoraPlane AppliedByPlane = ESaiyoraPlane::None;
-    UPROPERTY(BlueprintReadOnly, Category = "Damage")
+    UPROPERTY(BlueprintReadOnly)
     ESaiyoraPlane AppliedToPlane = ESaiyoraPlane::None;
-    UPROPERTY(BlueprintReadOnly, Category = "Damage")
-    EDamageHitStyle HitStyle = EDamageHitStyle::None;
-    UPROPERTY(BlueprintReadOnly, Category = "Damage")
-    EDamageSchool School = EDamageSchool::None;
-    UPROPERTY(BlueprintReadOnly, Category = "Damage")
+    UPROPERTY(BlueprintReadOnly)
+    EEventHitStyle HitStyle = EEventHitStyle::None;
+    UPROPERTY(BlueprintReadOnly)
+    EHealthEventSchool School = EHealthEventSchool::None;
+    UPROPERTY(BlueprintReadOnly)
     float Value = 0.0f;
-    UPROPERTY(BlueprintReadOnly, Category = "Damage")
+    UPROPERTY(BlueprintReadOnly)
     float SnapshotValue = 0.0f;
 };
 
 USTRUCT(BlueprintType)
-struct FDamagingEvent
+struct FHealthEvent
 {
     GENERATED_BODY()
- 
-    UPROPERTY(BlueprintReadOnly, Category = "Damage")
-    FDamageInfo Info;
-    UPROPERTY(BlueprintReadOnly, Category = "Damage")
-    FDamageResult Result;
-    UPROPERTY(BlueprintReadOnly, Category = "Threat")
+    
+    UPROPERTY(BlueprintReadOnly)
+    FHealthEventInfo Info;
+    UPROPERTY(BlueprintReadOnly)
+    FHealthEventResult Result;
+    UPROPERTY(BlueprintReadOnly)
     FThreatFromDamage ThreatInfo;
 };
 
-DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FDamageRestriction, const FDamageInfo&, DamageInfo);
-DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FDamageModCondition, const FDamageInfo&, DamageInfo);
-DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FDeathRestriction, const FDamagingEvent&, DamageEvent);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FDamageEventNotification, const FDamagingEvent&, DamageEvent);
+DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FHealthEventRestriction, const FHealthEventInfo&, EventInfo);
+DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FHealthEventModCondition, const FHealthEventInfo&, EventInfo);
+DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FDeathRestriction, const FHealthEvent&, HealthEvent);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FHealthEventNotification, const FHealthEvent&, HealthEvent);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FHealthChangeNotification, AActor*, Actor, const float, PreviousHealth, const float, NewHealth);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FLifeStatusNotification, AActor*, Actor, const ELifeStatus, PreviousStatus, const ELifeStatus, NewStatus);

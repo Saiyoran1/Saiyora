@@ -40,7 +40,7 @@ void UThreatHandler::BeginPlay()
 		}
 		if (DamageHandlerRef->CanEverReceiveDamage())
 		{
-			DamageHandlerRef->OnIncomingDamage.AddDynamic(this, &UThreatHandler::OnOwnerDamageTaken);
+			DamageHandlerRef->OnIncomingHealthEvent.AddDynamic(this, &UThreatHandler::OnOwnerDamageTaken);
 		}
 	}
 }
@@ -52,7 +52,7 @@ void UThreatHandler::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 	DOREPLIFETIME(UThreatHandler, bInCombat);
 }
 
-void UThreatHandler::OnOwnerDamageTaken(const FDamagingEvent& DamageEvent)
+void UThreatHandler::OnOwnerDamageTaken(const FHealthEvent& DamageEvent)
 {
 	if (!DamageEvent.Result.Success || !DamageEvent.ThreatInfo.GeneratesThreat)
 	{
@@ -235,14 +235,14 @@ void UThreatHandler::AddToThreatTable(const FThreatTarget& NewTarget)
 	}
 	if (IsValid(TargetDamageHandler))
 	{
-		TargetDamageHandler->OnOutgoingHealing.AddDynamic(this, &UThreatHandler::OnTargetHealingDone);
+		TargetDamageHandler->OnOutgoingHealthEvent.AddDynamic(this, &UThreatHandler::OnTargetHealingDone);
 		if (TargetDamageHandler->HasHealth())
 		{
 			TargetDamageHandler->OnLifeStatusChanged.AddDynamic(this, &UThreatHandler::OnTargetLifeStatusChanged);
 		}
 		if (TargetDamageHandler->CanEverReceiveHealing())
 		{
-			TargetDamageHandler->OnIncomingHealing.AddDynamic(this, &UThreatHandler::OnTargetHealingTaken);
+			TargetDamageHandler->OnIncomingHealthEvent.AddDynamic(this, &UThreatHandler::OnTargetHealingTaken);
 		}
 	}
 	if (bShouldUpdateTarget)
@@ -273,35 +273,35 @@ void UThreatHandler::NotifyOfTargeting(const UThreatHandler* TargetingComponent)
 	}
 }
 
-void UThreatHandler::OnTargetHealingTaken(const FDamagingEvent& HealingEvent)
+void UThreatHandler::OnTargetHealingTaken(const FHealthEvent& HealthEvent)
 {
-	if (!HealingEvent.Result.Success || !HealingEvent.ThreatInfo.GeneratesThreat)
+	if (!HealthEvent.Result.Success || !HealthEvent.ThreatInfo.GeneratesThreat || HealthEvent.Info.EventType == EHealthEventType::Damage)
 	{
 		return;
 	}
-	AddThreat(EThreatType::Healing, (HealingEvent.ThreatInfo.BaseThreat * GLOBALHEALINGTHREATMOD), HealingEvent.Info.AppliedBy,
-		HealingEvent.Info.Source, HealingEvent.ThreatInfo.IgnoreRestrictions, HealingEvent.ThreatInfo.IgnoreModifiers,
-		HealingEvent.ThreatInfo.SourceModifier);
+	AddThreat(EThreatType::Healing, (HealthEvent.ThreatInfo.BaseThreat * GLOBALHEALINGTHREATMOD), HealthEvent.Info.AppliedBy,
+		HealthEvent.Info.Source, HealthEvent.ThreatInfo.IgnoreRestrictions, HealthEvent.ThreatInfo.IgnoreModifiers,
+		HealthEvent.ThreatInfo.SourceModifier);
 }
 
-void UThreatHandler::OnTargetHealingDone(const FDamagingEvent& HealingEvent)
+void UThreatHandler::OnTargetHealingDone(const FHealthEvent& HealthEvent)
 {
-	if (!HealingEvent.Result.Success || !HealingEvent.ThreatInfo.GeneratesThreat)
+	if (!HealthEvent.Result.Success || !HealthEvent.ThreatInfo.GeneratesThreat || HealthEvent.Info.EventType == EHealthEventType::Damage)
 	{
 		return;
 	}
 	//If a target heals someone not already in our threat table, we won't get a callback from that actor receiving the healing.
-	if (!IsActorInThreatTable(HealingEvent.Info.AppliedTo))
+	if (!IsActorInThreatTable(HealthEvent.Info.AppliedTo))
 	{
 		//Add the threat, since we don't get the received healing callback to add it.
-		AddThreat(EThreatType::Healing,(HealingEvent.ThreatInfo.BaseThreat * GLOBALHEALINGTHREATMOD), HealingEvent.Info.AppliedBy,
-			HealingEvent.Info.Source, HealingEvent.ThreatInfo.IgnoreRestrictions, HealingEvent.ThreatInfo.IgnoreModifiers,
-			HealingEvent.ThreatInfo.SourceModifier);
+		AddThreat(EThreatType::Healing,(HealthEvent.ThreatInfo.BaseThreat * GLOBALHEALINGTHREATMOD), HealthEvent.Info.AppliedBy,
+			HealthEvent.Info.Source, HealthEvent.ThreatInfo.IgnoreRestrictions, HealthEvent.ThreatInfo.IgnoreModifiers,
+			HealthEvent.ThreatInfo.SourceModifier);
 		//Then add the healed target to the threat table as well.
-		const UThreatHandler* TargetThreatHandler = ISaiyoraCombatInterface::Execute_GetThreatHandler(HealingEvent.Info.AppliedTo);
+		const UThreatHandler* TargetThreatHandler = ISaiyoraCombatInterface::Execute_GetThreatHandler(HealthEvent.Info.AppliedTo);
 		if (IsValid(TargetThreatHandler))
 		{
-			AddToThreatTable(FThreatTarget(HealingEvent.Info.AppliedTo, 0.0f, TargetThreatHandler->HasActiveFade()));
+			AddToThreatTable(FThreatTarget(HealthEvent.Info.AppliedTo, 0.0f, TargetThreatHandler->HasActiveFade()));
 		}
 	}
 }
@@ -378,10 +378,10 @@ void UThreatHandler::RemoveFromThreatTable(const AActor* Actor)
 		UDamageHandler* TargetDamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(Actor);
 		if (IsValid(TargetDamageHandler))
 		{
-			TargetDamageHandler->OnOutgoingHealing.RemoveDynamic(this, &UThreatHandler::OnTargetHealingDone);
+			TargetDamageHandler->OnOutgoingHealthEvent.RemoveDynamic(this, &UThreatHandler::OnTargetHealingDone);
 			if (TargetDamageHandler->CanEverReceiveHealing())
 			{
-				TargetDamageHandler->OnIncomingHealing.RemoveDynamic(this, &UThreatHandler::OnTargetHealingTaken);
+				TargetDamageHandler->OnIncomingHealthEvent.RemoveDynamic(this, &UThreatHandler::OnTargetHealingTaken);
 			}
 			if (TargetDamageHandler->HasHealth())
 			{
@@ -418,10 +418,10 @@ void UThreatHandler::ClearThreatTable()
 		UDamageHandler* TargetDamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(ThreatTarget.Target);
 		if (IsValid(TargetDamageHandler))
 		{
-			TargetDamageHandler->OnOutgoingHealing.RemoveDynamic(this, &UThreatHandler::OnTargetHealingDone);
+			TargetDamageHandler->OnOutgoingHealthEvent.RemoveDynamic(this, &UThreatHandler::OnTargetHealingDone);
 			if (TargetDamageHandler->CanEverReceiveHealing())
 			{
-				TargetDamageHandler->OnIncomingHealing.RemoveDynamic(this, &UThreatHandler::OnTargetHealingTaken);
+				TargetDamageHandler->OnIncomingHealthEvent.RemoveDynamic(this, &UThreatHandler::OnTargetHealingTaken);
 			}
 			if (TargetDamageHandler->HasHealth())
 			{

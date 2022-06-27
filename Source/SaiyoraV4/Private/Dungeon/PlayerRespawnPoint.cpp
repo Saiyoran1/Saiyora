@@ -6,6 +6,8 @@
 APlayerRespawnPoint::APlayerRespawnPoint()
 {
 	PrimaryActorTick.bCanEverTick = false;
+	CapsuleComponent = CreateDefaultSubobject<UCapsuleComponent>(FName(TEXT("Capsule")));
+	CapsuleComponent->SetCapsuleSize(34.0f, 88.0f);
 }
 
 void APlayerRespawnPoint::BeginPlay()

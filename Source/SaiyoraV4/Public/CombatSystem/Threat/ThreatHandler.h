@@ -112,11 +112,11 @@ private:
 	void OnRep_CurrentTarget(AActor* PreviousTarget);
 	void UpdateTarget();
 	UFUNCTION()
-	void OnOwnerDamageTaken(const FDamagingEvent& DamageEvent);
+	void OnOwnerDamageTaken(const FHealthEvent& DamageEvent);
 	UFUNCTION()
-	void OnTargetHealingTaken(const FDamagingEvent& HealingEvent);
+	void OnTargetHealingTaken(const FHealthEvent& HealthEvent);
 	UFUNCTION()
-	void OnTargetHealingDone(const FDamagingEvent& HealingEvent);
+	void OnTargetHealingDone(const FHealthEvent& HealthEvent);
 	UFUNCTION()
 	void OnTargetLifeStatusChanged(AActor* Actor, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus);
 	UFUNCTION()

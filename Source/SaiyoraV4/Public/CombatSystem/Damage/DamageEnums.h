@@ -2,7 +2,16 @@
 #include "DamageEnums.generated.h"
 
 UENUM(BlueprintType)
-enum class EDamageSchool : uint8
+enum class EHealthEventType : uint8
+{
+    None = 0,
+    Damage = 1,
+    Healing = 2,
+    Absorb = 3,
+};
+
+UENUM(BlueprintType)
+enum class EHealthEventSchool : uint8
 {
     None = 0,
     Physical = 1,
@@ -14,7 +23,7 @@ enum class EDamageSchool : uint8
 };
 
 UENUM(BlueprintType)
-enum class EDamageHitStyle : uint8
+enum class EEventHitStyle : uint8
 {
     None = 0,
     Direct = 1,

@@ -38,7 +38,7 @@ void UCrowdControlHandler::BeginPlay()
 		BuffHandler->OnIncomingBuffRemoved.AddDynamic(this, &UCrowdControlHandler::CheckRemovedBuffForCc);
 		if (IsValid(DamageHandler))
 		{
-			DamageHandler->OnIncomingDamage.AddDynamic(this, &UCrowdControlHandler::RemoveIncapacitatesOnDamageTaken);
+			DamageHandler->OnIncomingHealthEvent.AddDynamic(this, &UCrowdControlHandler::RemoveIncapacitatesOnDamageTaken);
 		}
 	}
 }
@@ -242,10 +242,10 @@ void UCrowdControlHandler::OnRep_DisarmStatus(const FCrowdControlStatus& Previou
 	OnCrowdControlChanged.Broadcast(Previous, DisarmStatus);
 }
 
-void UCrowdControlHandler::RemoveIncapacitatesOnDamageTaken(const FDamagingEvent& DamageEvent)
+void UCrowdControlHandler::RemoveIncapacitatesOnDamageTaken(const FHealthEvent& DamageEvent)
 {
 	//Currently any non-zero and non-DoT damage will break all incaps.
-	if (DamageEvent.Result.AmountDealt > 0.0f && DamageEvent.Info.HitStyle != EDamageHitStyle::Chronic)
+	if (DamageEvent.Result.AppliedValue > 0.0f && DamageEvent.Info.HitStyle != EEventHitStyle::Chronic)
 	{
 		for(UBuff* Cc : IncapStatus.Sources)
 		{
