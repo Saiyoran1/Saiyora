@@ -44,6 +44,8 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Health")
 	float GetMaxHealth() const { return MaxHealth; }
 	UFUNCTION(BlueprintPure, Category = "Health")
+	float GetCurrentAbsorb() const { return CurrentAbsorb; }
+	UFUNCTION(BlueprintPure, Category = "Health")
 	ELifeStatus GetLifeStatus() const { return LifeStatus; }
 	UFUNCTION(BlueprintPure, Category = "Health")
 	bool HasHealth() const { return bHasHealth; }
