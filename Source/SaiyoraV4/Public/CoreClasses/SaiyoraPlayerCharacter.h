@@ -1,11 +1,15 @@
 #pragma once
 #include "CoreMinimal.h"
+#include "CombatEnums.h"
 #include "SaiyoraCombatInterface.h"
 #include "GameFramework/Character.h"
 #include "SaiyoraPlayerCharacter.generated.h"
 
 class ASaiyoraGameState;
 class ASaiyoraPlayerController;
+class UCombatAbility;
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnMappingChanged, const ESaiyoraPlane, Plane, const int32, MappingID, UCombatAbility*, Ability);
 
 UCLASS()
 class SAIYORAV4_API ASaiyoraPlayerCharacter : public ACharacter, public ISaiyoraCombatInterface
@@ -36,6 +40,11 @@ public:
 	ASaiyoraGameState* GetSaiyoraGameState() const { return GameStateRef; }
 	UFUNCTION(BlueprintPure)
 	ASaiyoraPlayerController* GetSaiyoraPlayerController() const { return PlayerControllerRef; }
+
+	UPROPERTY(BlueprintAssignable)
+	FOnMappingChanged OnMappingChanged;
+	UFUNCTION(BlueprintPure, Category = "Abilities")
+	void GetAbilityMappings(TMap<int32, UCombatAbility*>& AncientMappings, TMap<int32, UCombatAbility*>& ModernMappings) const { AncientMappings = AncientAbilityMappings; ModernMappings = ModernAbilityMappings; }
 
 protected:
 
@@ -72,4 +81,8 @@ private:
 	ASaiyoraGameState* GameStateRef;
 	UPROPERTY()
 	ASaiyoraPlayerController* PlayerControllerRef;
+
+	void SetupAbilityMappings();
+	TMap<int32, UCombatAbility*> ModernAbilityMappings;
+	TMap<int32, UCombatAbility*> AncientAbilityMappings;
 };

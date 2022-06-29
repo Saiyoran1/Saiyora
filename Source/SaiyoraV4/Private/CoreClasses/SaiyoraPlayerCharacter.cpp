@@ -39,6 +39,10 @@ void ASaiyoraPlayerCharacter::BeginPlay()
 	GameStateRef = GetWorld()->GetGameState<ASaiyoraGameState>();
 	//Initialize character called here, with valid GameState.
 	InitializeCharacter();
+	if (IsLocallyControlled())
+	{
+		SetupAbilityMappings();
+	}
 }
 
 void ASaiyoraPlayerCharacter::PossessedBy(AController* NewController)
@@ -86,4 +90,27 @@ void ASaiyoraPlayerCharacter::InitializeCharacter()
 	}
 	GameStateRef->InitPlayer(this);
 	bInitialized = true;
+}
+
+void ASaiyoraPlayerCharacter::SetupAbilityMappings()
+{
+	TArray<UCombatAbility*> ActiveAbilities;
+	AbilityComponent->GetActiveAbilities(ActiveAbilities);
+	int32 AncientIndex = 0;
+	int32 ModernIndex = 1;
+	for (UCombatAbility* Ability : ActiveAbilities)
+	{
+		if (Ability->GetAbilityPlane() == ESaiyoraPlane::Ancient)
+		{
+			AncientAbilityMappings.Add(AncientIndex, Ability);
+			OnMappingChanged.Broadcast(ESaiyoraPlane::Ancient, AncientIndex, Ability);
+			AncientIndex++;
+		}
+		else if (Ability->GetAbilityPlane() == ESaiyoraPlane::Modern)
+		{
+			ModernAbilityMappings.Add(ModernIndex, Ability);
+			OnMappingChanged.Broadcast(ESaiyoraPlane::Modern, ModernIndex, Ability);
+			ModernIndex++;
+		}
+	}
 }
