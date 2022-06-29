@@ -74,6 +74,9 @@ public:
 	USceneComponent* GetAimSocket(FName& SocketName) const;
 	virtual USceneComponent* GetAimSocket_Implementation(FName& SocketName) const { SocketName = NAME_None; return nullptr; }
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Weapon")
-	USceneComponent* GetWeaponSocket(FName& SocketName) const;
-	virtual USceneComponent* GetWeaponSocket_Implementation(FName& SocketName) const { SocketName = NAME_None; return nullptr; }
+	USceneComponent* GetPrimaryWeaponSocket(FName& SocketName) const;
+	virtual USceneComponent* GetPrimaryWeaponSocket_Implementation(FName& SocketName) const { SocketName = NAME_None; return nullptr; }
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Weapon")
+	USceneComponent* GetSecondaryWeaponSocket(FName& SocketName) const;
+	virtual USceneComponent* GetSecondaryWeaponSocket_Implementation(FName& SocketName) const { SocketName = NAME_None; return nullptr; }
 };

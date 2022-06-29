@@ -12,4 +12,4 @@ struct FFillerStruct
 	int32 Dummy = 0;
 };
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnWeaponChanged, AWeapon*, PreviousWeapon, AWeapon*, NewWeapon);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnWeaponChanged, const bool, bPrimary, AWeapon*, PreviousWeapon, AWeapon*, NewWeapon);

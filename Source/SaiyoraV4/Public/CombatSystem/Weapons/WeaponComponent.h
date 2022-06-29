@@ -18,9 +18,11 @@ public:
 	virtual void BeginPlay() override;
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Weapon")
-	void SelectWeapon(const TSubclassOf<AWeapon> WeaponClass);
+	void SelectWeapon(const bool bPrimarySlot, const TSubclassOf<AWeapon> WeaponClass);
 	UFUNCTION(BlueprintPure, Category = "Weapon")
-	AWeapon* GetCurrentWeapon() const { return CurrentWeapon; }
+	AWeapon* GetCurrentPrimaryWeapon() const { return CurrentPrimaryWeapon; }
+	UFUNCTION(BlueprintPure, Category = "Weapon")
+	AWeapon* GetCurrentSecondaryWeapon() const { return CurrentSecondaryWeapon; }
 
 	UPROPERTY(BlueprintAssignable)
 	FOnWeaponChanged OnWeaponChanged;
@@ -28,9 +30,17 @@ public:
 private:
 
 	UPROPERTY(EditAnywhere, Category = "Weapon")
-	TSubclassOf<AWeapon> DefaultWeaponClass;
-	UPROPERTY(ReplicatedUsing = OnRep_CurrentWeapon)
-	AWeapon* CurrentWeapon;
+	TSubclassOf<AWeapon> DefaultPrimaryWeaponClass;
+	UPROPERTY(EditAnywhere, Category = "Weapon")
+	bool bCanDualWield = false;
+	UPROPERTY(EditAnywhere, Category = "Weapon")
+	TSubclassOf<AWeapon> DefaultSecondaryWeaponClass;
+	UPROPERTY(ReplicatedUsing = OnRep_CurrentPrimaryWeapon)
+	AWeapon* CurrentPrimaryWeapon = nullptr;
 	UFUNCTION()
-	void OnRep_CurrentWeapon(AWeapon* PreviousWeapon);
+	void OnRep_CurrentPrimaryWeapon(AWeapon* PreviousWeapon);
+	UPROPERTY(ReplicatedUsing = OnRep_CurrentSecondaryWeapon)
+	AWeapon* CurrentSecondaryWeapon = nullptr;
+	UFUNCTION()
+	void OnRep_CurrentSecondaryWeapon(AWeapon* PreviousWeapon);
 };

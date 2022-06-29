@@ -17,6 +17,9 @@ public:
 	void InitWeapon(UWeaponComponent* NewHandler);
 	void SwitchFromWeapon();
 
+	void StartFiring() {/*TODO*/}
+	void EndFiring() {/*TODO*/}
+
 private:
 
 	UPROPERTY()
