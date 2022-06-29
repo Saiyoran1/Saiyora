@@ -63,14 +63,17 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Damage")
 	USceneComponent* GetFloatingHealthSocket(FName& SocketName) const;
-	virtual USceneComponent* GetFloatingHealthSocket_Implementation(FName& SocketName) const { SocketName = FName(TEXT("")); return nullptr; }
+	virtual USceneComponent* GetFloatingHealthSocket_Implementation(FName& SocketName) const { SocketName = NAME_None; return nullptr; }
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Damage")
 	USceneComponent* GetDamageEffectSocket(FName& SocketName) const;
-	virtual USceneComponent* GetDamageEffectSocket_Implementation(FName& SocketName) const { SocketName = FName(TEXT("")); return nullptr; }
+	virtual USceneComponent* GetDamageEffectSocket_Implementation(FName& SocketName) const { SocketName = NAME_None; return nullptr; }
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Abilities")
 	USceneComponent* GetAbilityOriginSocket(FName& SocketName) const;
-	virtual USceneComponent* GetAbilityOriginSocket_Implementation(FName& SocketName) const { SocketName = FName(TEXT("")); return nullptr; }
+	virtual USceneComponent* GetAbilityOriginSocket_Implementation(FName& SocketName) const { SocketName = NAME_None; return nullptr; }
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Abilities")
 	USceneComponent* GetAimSocket(FName& SocketName) const;
-	virtual USceneComponent* GetAimSocket_Implementation(FName& SocketName) const { SocketName = FName(TEXT("")); return nullptr; }
+	virtual USceneComponent* GetAimSocket_Implementation(FName& SocketName) const { SocketName = NAME_None; return nullptr; }
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Weapon")
+	USceneComponent* GetWeaponSocket(FName& SocketName) const;
+	virtual USceneComponent* GetWeaponSocket_Implementation(FName& SocketName) const { SocketName = NAME_None; return nullptr; }
 };
