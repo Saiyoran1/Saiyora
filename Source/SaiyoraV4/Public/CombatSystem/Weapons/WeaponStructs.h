@@ -5,11 +5,13 @@
 class AWeapon;
 
 USTRUCT()
-struct FFillerStruct
+struct FAmmo
 {
 	GENERATED_BODY()
-	//I don't think the generated file is created with only a multicast delegate created in the file.
-	int32 Dummy = 0;
+	
+	int32 ShotID = 0;
+	int32 CurrentAmmo = 0;
 };
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnWeaponChanged, const bool, bPrimary, AWeapon*, PreviousWeapon, AWeapon*, NewWeapon);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnAmmoChanged, const int32, PreviousAmmo, const int32, NewAmmo);
