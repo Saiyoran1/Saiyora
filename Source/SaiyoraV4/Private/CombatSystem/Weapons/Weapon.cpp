@@ -3,7 +3,7 @@
 
 AWeapon::AWeapon()
 {
-	SetReplicates(true);
+	bReplicates = true;
 }
 
 void AWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
