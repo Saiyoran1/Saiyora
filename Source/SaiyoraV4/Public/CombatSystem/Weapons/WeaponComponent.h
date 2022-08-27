@@ -1,5 +1,6 @@
 #pragma once
 #include "CoreMinimal.h"
+#include "WeaponEnums.h"
 #include "WeaponStructs.h"
 #include "Components/ActorComponent.h"
 #include "WeaponComponent.generated.h"
@@ -17,6 +18,9 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void BeginPlay() override;
 
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Weapon")
+	APawn* GetOwnerAsPawn() const { return OwnerAsPawn; }
+
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Weapon")
 	void SelectWeapon(const bool bPrimarySlot, const TSubclassOf<AWeapon> WeaponClass);
 	UFUNCTION(BlueprintPure, Category = "Weapon")
@@ -26,6 +30,11 @@ public:
 
 	UPROPERTY(BlueprintAssignable)
 	FOnWeaponChanged OnWeaponChanged;
+
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	FWeaponFireResult FireWeapon(const bool bPrimary);
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Weapon")
+	bool CanFireWeapon(AWeapon* Weapon, EWeaponFailReason& OutFailReason) const;
 
 private:
 
@@ -43,4 +52,18 @@ private:
 	AWeapon* CurrentSecondaryWeapon = nullptr;
 	UFUNCTION()
 	void OnRep_CurrentSecondaryWeapon(AWeapon* PreviousWeapon);
+
+	bool TryQueueWeapon(const bool bPrimary);
+	bool bFiringWeaponFromQueue = false;
+
+	UPROPERTY()
+	APawn* OwnerAsPawn;
+	UPROPERTY()
+	class UAbilityComponent* AbilityCompRef;
+	UPROPERTY()
+	class UDamageHandler* DamageHandlerRef;
+	UPROPERTY()
+	class UPlaneComponent* PlaneComponentRef;
+	UPROPERTY()
+	class UCrowdControlHandler* CcHandlerRef;
 };
