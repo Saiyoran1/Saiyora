@@ -247,7 +247,7 @@ private:
     UFUNCTION()
     void OnRep_AbilityCooldown(const FAbilityCooldown& PreviousState);
     FTimerHandle CooldownHandle;
-    void StartCooldown(const bool bUseLagCompensation = false);
+    void StartCooldown();
     UFUNCTION()
     void CompleteCooldown();
     void CancelCooldown();

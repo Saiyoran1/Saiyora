@@ -173,7 +173,7 @@ bool UCombatAbility::IsCooldownActive() const
 float UCombatAbility::GetCooldownLength()
 {
     return !bStaticCooldownLength && IsValid(OwningComponent) && OwningComponent->GetOwnerRole() == ROLE_Authority ?
-        OwningComponent->CalculateCooldownLength(this, false) : DefaultCooldownLength;
+        OwningComponent->CalculateCooldownLength(this) : DefaultCooldownLength;
 }
 
 float UCombatAbility::GetRemainingCooldown() const
@@ -247,17 +247,15 @@ void UCombatAbility::CommitCharges(const int32 PredictionID)
 {
     if (OwningComponent->GetOwnerRole() == ROLE_Authority)
     {
-        bool bUseLagCompensation = false;
         if (PredictionID != 0)
         {
             AbilityCooldown.PredictionID = PredictionID;
-            bUseLagCompensation = true;
         }
         const int32 PreviousCharges = AbilityCooldown.CurrentCharges;
         AbilityCooldown.CurrentCharges = FMath::Clamp(AbilityCooldown.CurrentCharges - ChargeCost, 0, AbilityCooldown.MaxCharges);
         if (AbilityCooldown.CurrentCharges < AbilityCooldown.MaxCharges && !AbilityCooldown.OnCooldown)
         {
-            StartCooldown(bUseLagCompensation);
+            StartCooldown();
         }
         if (PreviousCharges != AbilityCooldown.CurrentCharges)
         {
@@ -272,13 +270,22 @@ void UCombatAbility::CommitCharges(const int32 PredictionID)
     }
 }
 
-void UCombatAbility::StartCooldown(const bool bUseLagCompensation)
+void UCombatAbility::StartCooldown()
 {
-    const float CooldownLength = OwningComponent->CalculateCooldownLength(this, bUseLagCompensation);
+    const float CooldownLength = OwningComponent->CalculateCooldownLength(this);
     GetWorld()->GetTimerManager().SetTimer(CooldownHandle, this, &UCombatAbility::CompleteCooldown, CooldownLength, false);
-    AbilityCooldown.OnCooldown = true;
-    AbilityCooldown.CooldownStartTime = OwningComponent->GetGameStateRef()->GetServerWorldTimeSeconds();
-    AbilityCooldown.CooldownEndTime = AbilityCooldown.CooldownStartTime + CooldownLength;
+    if (OwningComponent->GetOwnerRole() == ROLE_Authority)
+    {
+        AbilityCooldown.OnCooldown = true;
+        AbilityCooldown.CooldownStartTime = OwningComponent->GetGameStateRef()->GetServerWorldTimeSeconds();
+        AbilityCooldown.CooldownEndTime = AbilityCooldown.CooldownStartTime + CooldownLength;
+    }
+    else if (OwningComponent->GetOwnerRole() == ROLE_AutonomousProxy)
+    {
+        ClientCooldown.OnCooldown = true;
+        ClientCooldown.CooldownStartTime = OwningComponent->GetGameStateRef()->GetServerWorldTimeSeconds();
+        ClientCooldown.CooldownEndTime = ClientCooldown.CooldownStartTime + CooldownLength;
+    }
 }
 
 void UCombatAbility::CompleteCooldown()
@@ -346,9 +353,9 @@ void UCombatAbility::RecalculatePredictedCooldown()
     //If server is not on CD, but predicted charges are less than max, predict a CD has started but do not predict start/end time.
     if (!ClientCooldown.OnCooldown && ClientCooldown.CurrentCharges < AbilityCooldown.MaxCharges)
     {
-        ClientCooldown.OnCooldown = true;
-        ClientCooldown.CooldownStartTime = 0.0f;
-        ClientCooldown.CooldownEndTime = 0.0f;
+        //TODO: Prediction of cooldown length, based on time since the charges were spent.
+        //We need to predict at the time when the charges are spent, so may need a more detailed history.
+        StartCooldown();
     }
     if (PreviousCharges != ClientCooldown.CurrentCharges)
     {
@@ -884,13 +891,13 @@ void UCombatAbility::RemoveResourceCostModifier(const TSubclassOf<UResource> Res
 float UCombatAbility::GetCastLength()
 {
     return !bStaticCastTime && IsValid(OwningComponent) && OwningComponent->GetOwnerRole() == ROLE_Authority ?
-        OwningComponent->CalculateCastLength(this, false) : DefaultCastTime;
+        OwningComponent->CalculateCastLength(this) : DefaultCastTime;
 }
 
 float UCombatAbility::GetGlobalCooldownLength()
 {
     return !bStaticGlobalCooldownLength && IsValid(OwningComponent) && OwningComponent->GetOwnerRole() == ROLE_Authority ?
-        OwningComponent->CalculateGlobalCooldownLength(this, false) : DefaultGlobalCooldownLength;
+        OwningComponent->CalculateGlobalCooldownLength(this) : DefaultGlobalCooldownLength;
 }
 
 #pragma endregion

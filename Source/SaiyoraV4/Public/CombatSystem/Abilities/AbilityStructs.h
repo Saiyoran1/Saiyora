@@ -242,13 +242,16 @@ struct FGlobalCooldown
     GENERATED_BODY()
 
     UPROPERTY(BlueprintReadOnly)
-    bool bGlobalCooldownActive = false;
+    bool bActive = false;
     UPROPERTY()
     int32 PredictionID = 0;
     UPROPERTY(BlueprintReadOnly)
     float StartTime = 0.0f;
     UPROPERTY(BlueprintReadOnly)
-    float EndTime = 0.0f;
+    float Length = 0.0f;
+
+    FORCEINLINE bool operator==(const FGlobalCooldown& Other) const { return Other.bActive == bActive && Other.StartTime == StartTime && Other.Length == Length; }
+    FORCEINLINE bool operator!=(const FGlobalCooldown& Other) const { return Other.bActive != bActive || Other.StartTime != StartTime || Other.Length != Length; }
 };
 
 USTRUCT(BlueprintType)
@@ -280,7 +283,10 @@ struct FClientAbilityPrediction
     UPROPERTY()
     UCombatAbility* Ability = nullptr;
     bool bPredictedGCD = false;
+    float GcdLength = 0.0f;
     bool bPredictedCastBar = false;
+    float CastLength = 0.0f;
+    float Time = 0.0f;
 };
 
 USTRUCT()

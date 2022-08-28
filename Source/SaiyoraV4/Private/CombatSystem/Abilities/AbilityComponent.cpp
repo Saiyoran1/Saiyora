@@ -329,7 +329,7 @@ void UAbilityComponent::ServerPredictAbility_Implementation(const FAbilityReques
         {
         	StartGlobalCooldown(Ability, Request.PredictionID);
         	ServerResult.bActivatedGlobal = true;
-        	ServerResult.GlobalLength = CalculateGlobalCooldownLength(Ability, false);
+        	ServerResult.GlobalLength = CalculateGlobalCooldownLength(Ability);
         }
         
         const int32 PreviousCharges = Ability->GetCurrentCharges();
@@ -357,7 +357,7 @@ void UAbilityComponent::ServerPredictAbility_Implementation(const FAbilityReques
         		Result.ActionTaken = ECastAction::Success;
         		StartCast(Ability, Result.PredictionID);
         		ServerResult.bActivatedCastBar = true;
-        		ServerResult.CastLength = CalculateCastLength(Ability, false);
+        		ServerResult.CastLength = CalculateCastLength(Ability);
         		ServerResult.bInterruptible = CastingState.bInterruptible;
         		if (Ability->HasInitialTick())
         		{
@@ -449,27 +449,11 @@ void UAbilityComponent::ClientPredictionResult_Implementation(const FServerAbili
 		}
 		else if (CastingState.bIsCasting)
 		{
+			//TODO: Potential to miss ticks here if the cast should've already completed.
 			EndCast();
 		}
 	}
-	if (GlobalCooldownState.PredictionID <= Result.PredictionID)
-	{
-		GlobalCooldownState.PredictionID = Result.PredictionID;
-		if (Result.bSuccess && Result.bActivatedGlobal && Result.ClientStartTime + Result.GlobalLength > GameStateRef->GetServerWorldTimeSeconds())
-		{
-			const FGlobalCooldown PreviousState = GlobalCooldownState;
-			GlobalCooldownState.bGlobalCooldownActive = true;
-			GlobalCooldownState.StartTime = Result.ClientStartTime;
-			GlobalCooldownState.EndTime = GlobalCooldownState.StartTime + Result.GlobalLength;
-			GetWorld()->GetTimerManager().ClearTimer(GlobalCooldownHandle);
-			GetWorld()->GetTimerManager().SetTimer(GlobalCooldownHandle, this, &UAbilityComponent::EndGlobalCooldown, GlobalCooldownState.EndTime - GameStateRef->GetServerWorldTimeSeconds(), false);
-			OnGlobalCooldownChanged.Broadcast(PreviousState, GlobalCooldownState);
-		}
-		else if (GlobalCooldownState.bGlobalCooldownActive)
-		{
-			EndGlobalCooldown();
-		}
-	}
+	UpdateGlobalCooldownFromServerResult(Result);
 	if (!Result.bSuccess)
 	{
 		OnAbilityMispredicted.Broadcast(Result.PredictionID);
@@ -589,7 +573,7 @@ int32 UAbilityComponent::GenerateNewPredictionID()
 
 bool UAbilityComponent::TryQueueAbility(const TSubclassOf<UCombatAbility> AbilityClass)
 {
-	if (!IsLocallyControlled() || !IsValid(AbilityClass) || (!GlobalCooldownState.bGlobalCooldownActive && !CastingState.bIsCasting))
+	if (!IsLocallyControlled() || !IsValid(AbilityClass) || (!GlobalCooldownState.bActive && !CastingState.bIsCasting))
 	{
 		return false;
 	}
@@ -597,12 +581,8 @@ bool UAbilityComponent::TryQueueAbility(const TSubclassOf<UCombatAbility> Abilit
 	{
 		return false;
 	}
-	if (AbilityClass->GetDefaultObject<UCombatAbility>()->HasGlobalCooldown() && GlobalCooldownState.bGlobalCooldownActive && GlobalCooldownState.EndTime == -1.0f)
-	{
-		return false;
-	}
-	const float GlobalTimeRemaining = AbilityClass->GetDefaultObject<UCombatAbility>()->HasGlobalCooldown() && GlobalCooldownState.bGlobalCooldownActive ?
-		GlobalCooldownState.EndTime - GameStateRef->GetServerWorldTimeSeconds() : 0.0f;
+	const float GlobalTimeRemaining = AbilityClass->GetDefaultObject<UCombatAbility>()->HasGlobalCooldown() && GlobalCooldownState.bActive ?
+		(GlobalCooldownState.StartTime + GlobalCooldownState.Length) - GameStateRef->GetServerWorldTimeSeconds() : 0.0f;
 	const float CastTimeRemaining = CastingState.bIsCasting ? CastingState.CastEndTime - GameStateRef->GetServerWorldTimeSeconds() : 0.0f;
 	if (GlobalTimeRemaining > ABILITYQUEWINDOW || CastTimeRemaining > ABILITYQUEWINDOW)
 	{
@@ -858,17 +838,10 @@ void UAbilityComponent::StartCast(UCombatAbility* Ability, const int32 Predictio
 	CastingState.CastStartTime = GameStateRef->GetServerWorldTimeSeconds();
 	CastingState.bInterruptible = Ability->IsInterruptible();
 	CastingState.ElapsedTicks = 0;
-	if (GetOwnerRole() == ROLE_Authority)
-	{
-		float const CastLength = CalculateCastLength(Ability, true);
-		CastingState.CastEndTime = CastingState.CastStartTime + CastLength;
-		GetWorld()->GetTimerManager().SetTimer(TickHandle, this, &UAbilityComponent::TickCurrentCast,
+	float const CastLength = CalculateCastLength(Ability);
+	CastingState.CastEndTime = CastingState.CastStartTime + CastLength;
+	GetWorld()->GetTimerManager().SetTimer(TickHandle, this, &UAbilityComponent::TickCurrentCast,
 			(CastLength / Ability->GetNumberOfTicks()), true);
-	}
-	else
-	{
-		CastingState.CastEndTime = -1.0f;
-	}
     OnCastStateChanged.Broadcast(PreviousState, CastingState);
 }
 
@@ -903,33 +876,25 @@ void UAbilityComponent::EndCast()
 void UAbilityComponent::StartGlobalCooldown(UCombatAbility* Ability, const int32 PredictionID)
 {
 	const FGlobalCooldown PreviousState = GlobalCooldownState;
-	GlobalCooldownState.bGlobalCooldownActive = true;
+	GlobalCooldownState.bActive = true;
 	if (PredictionID != 0)
 	{
 		GlobalCooldownState.PredictionID = PredictionID;
 	}
 	GlobalCooldownState.StartTime = GetGameStateRef()->GetServerWorldTimeSeconds();
-	if (GetOwnerRole() == ROLE_Authority)
-	{
-		const float GlobalLength = CalculateGlobalCooldownLength(Ability, true);
-		GlobalCooldownState.EndTime = GlobalCooldownState.StartTime + GlobalLength;
-		GetWorld()->GetTimerManager().SetTimer(GlobalCooldownHandle, this, &UAbilityComponent::EndGlobalCooldown, GlobalLength, false);
-	}
-	else
-	{
-		GlobalCooldownState.EndTime = -1.0f;
-	}
+	GlobalCooldownState.Length = CalculateGlobalCooldownLength(Ability);
+	GetWorld()->GetTimerManager().SetTimer(GlobalCooldownHandle, this, &UAbilityComponent::EndGlobalCooldown, GlobalCooldownState.Length, false);
 	OnGlobalCooldownChanged.Broadcast(PreviousState, GlobalCooldownState);
 }
 
 void UAbilityComponent::EndGlobalCooldown()
 {
-	if (GlobalCooldownState.bGlobalCooldownActive)
+	if (GlobalCooldownState.bActive)
 	{
 		const FGlobalCooldown PreviousGlobal;
-		GlobalCooldownState.bGlobalCooldownActive = false;
+		GlobalCooldownState.bActive = false;
 		GlobalCooldownState.StartTime = 0.0f;
-		GlobalCooldownState.EndTime = 0.0f;
+		GlobalCooldownState.Length = 0.0f;
 		GetWorld()->GetTimerManager().ClearTimer(GlobalCooldownHandle);
 		OnGlobalCooldownChanged.Broadcast(PreviousGlobal, GlobalCooldownState);
 		if (IsLocallyControlled())
@@ -944,6 +909,70 @@ void UAbilityComponent::EndGlobalCooldown()
 				UseAbility(QueuedAbility);
 			}
 		}
+	}
+}
+
+void UAbilityComponent::UpdateGlobalCooldownFromServerResult(const FServerAbilityResult& Result)
+{
+	const FClientAbilityPrediction* Prediction = UnackedAbilityPredictions.Find(Result.PredictionID);
+	//TODO: What do we do if we don't find a prediction? Not sure if this can happen. We need an original time to use otherwise other predictions won't line up.
+	//I think we just error...
+	
+	const FGlobalCooldown PreviousGlobal = GlobalCooldownState;
+	//We will reset the GCD timer later if necessary, but clear it here anyway since it could be inaccurate.
+	GetWorld()->GetTimerManager().ClearTimer(GlobalCooldownHandle);
+	
+	//Set the global state back to the server result, with the exception of Start Time, which we take from the client's saved prediction.
+	GlobalCooldownState.bActive = Result.bActivatedGlobal;
+	GlobalCooldownState.StartTime = Prediction->Time;
+	GlobalCooldownState.Length = Result.GlobalLength;
+	GlobalCooldownState.PredictionID = Result.PredictionID;
+
+	//Iterate over other predictions. Any prediction that is later than the result and could be relevant (happens AFTER the previous GCD has ended), is then applied.
+	for (const TTuple<int32, FClientAbilityPrediction>& AbilityPrediction : UnackedAbilityPredictions)
+	{
+		if (AbilityPrediction.Key > GlobalCooldownState.PredictionID && AbilityPrediction.Value.Time > GlobalCooldownState.StartTime + GlobalCooldownState.Length)
+		{
+			GlobalCooldownState.bActive = AbilityPrediction.Value.bPredictedGCD;
+			GlobalCooldownState.StartTime = AbilityPrediction.Value.Time;
+			GlobalCooldownState.Length = AbilityPrediction.Value.GcdLength;
+		}
+	}
+
+	if (GlobalCooldownState.bActive)
+	{
+		if (GlobalCooldownState.StartTime + GlobalCooldownState.Length <= GetGameStateRef()->GetServerWorldTimeSeconds())
+		{
+			//If, after updating from all predictions, we are left on a global, BUT the global should have already finished, then we end the global.
+			GlobalCooldownState.bActive = false;
+			GlobalCooldownState.Length = 0.0f;
+		}
+		else
+		{
+			//If instead, we are left on a global that is NOT yet finished, set a timer for global end to match the remaining time.
+			const float RemainingTime = GlobalCooldownState.StartTime + GlobalCooldownState.Length - GetGameStateRef()->GetServerWorldTimeSeconds();
+			GetWorld()->GetTimerManager().SetTimer(GlobalCooldownHandle, this, &UAbilityComponent::EndGlobalCooldown, RemainingTime, false);
+		}
+	}
+	else
+	{
+		if (IsLocallyControlled())
+		{
+			if (QueueStatus == EQueueStatus::WaitForBoth)
+			{
+				QueueStatus = EQueueStatus::WaitForCast;
+			}
+			else if (QueueStatus == EQueueStatus::WaitForGlobal)
+			{
+				bUsingAbilityFromQueue = true;
+				UseAbility(QueuedAbility);
+			}
+		}
+	}
+
+	if (GlobalCooldownState != PreviousGlobal)
+	{
+		OnGlobalCooldownChanged.Broadcast(PreviousGlobal, GlobalCooldownState);
 	}
 }
 
@@ -966,7 +995,7 @@ void UAbilityComponent::RemoveGlobalCooldownModifier(const UBuff* Source)
 	}
 }
 
-float UAbilityComponent::CalculateGlobalCooldownLength(UCombatAbility* Ability, const bool bWithPingComp) const
+float UAbilityComponent::CalculateGlobalCooldownLength(UCombatAbility* Ability) const
 {
 	if (!IsValid(Ability) || !Ability->HasGlobalCooldown())
 	{
@@ -988,8 +1017,7 @@ float UAbilityComponent::CalculateGlobalCooldownLength(UCombatAbility* Ability, 
 	{
 		Mods.Add(FCombatModifier(StatHandlerRef->GetStatValue(FSaiyoraCombatTags::Get().Stat_GlobalCooldownLength), EModifierType::Multiplicative));
 	}
-	const float PingCompensation = bWithPingComp ? FMath::Min(MAXPINGCOMPENSATION, USaiyoraCombatLibrary::GetActorPing(GetOwner())) : 0.0f;
-	return FMath::Max(MINGCDLENGTH, FCombatModifier::ApplyModifiers(Mods, Ability->GetDefaultGlobalCooldownLength()) - PingCompensation);
+	return FMath::Max(MINGCDLENGTH, FCombatModifier::ApplyModifiers(Mods, Ability->GetDefaultGlobalCooldownLength()));
 }
 
 void UAbilityComponent::AddCastLengthModifier(UBuff* Source, const FAbilityModCondition& Modifier)
@@ -1008,7 +1036,7 @@ void UAbilityComponent::RemoveCastLengthModifier(const UBuff* Source)
 	}
 }
 
-float UAbilityComponent::CalculateCastLength(UCombatAbility* Ability, const bool bWithPingComp) const
+float UAbilityComponent::CalculateCastLength(UCombatAbility* Ability) const
 {
 	if (!IsValid(Ability) || Ability->GetCastType() != EAbilityCastType::Channel)
 	{
@@ -1030,8 +1058,7 @@ float UAbilityComponent::CalculateCastLength(UCombatAbility* Ability, const bool
 	{
 		Mods.Add(FCombatModifier(StatHandlerRef->GetStatValue(FSaiyoraCombatTags::Get().Stat_CastLength), EModifierType::Multiplicative));
 	}
-	const float PingCompensation = bWithPingComp ? FMath::Min(MAXPINGCOMPENSATION, USaiyoraCombatLibrary::GetActorPing(GetOwner())) : 0.0f;
-	return FMath::Max(MINCASTLENGTH, FCombatModifier::ApplyModifiers(Mods, Ability->GetDefaultCastLength()) - PingCompensation);
+	return FMath::Max(MINCASTLENGTH, FCombatModifier::ApplyModifiers(Mods, Ability->GetDefaultCastLength()));
 }
 
 void UAbilityComponent::AddCooldownModifier(UBuff* Source, const FAbilityModCondition& Modifier)
@@ -1050,7 +1077,7 @@ void UAbilityComponent::RemoveCooldownModifier(const UBuff* Source)
 	}
 }
 
-float UAbilityComponent::CalculateCooldownLength(UCombatAbility* Ability, const bool bWithPingComp) const
+float UAbilityComponent::CalculateCooldownLength(UCombatAbility* Ability) const
 {
 	if (!IsValid(Ability))
 	{
@@ -1072,8 +1099,7 @@ float UAbilityComponent::CalculateCooldownLength(UCombatAbility* Ability, const 
 	{
 		Mods.Add(FCombatModifier(StatHandlerRef->GetStatValue(FSaiyoraCombatTags::Get().Stat_CooldownLength), EModifierType::Multiplicative));
 	}
-	const float PingCompensation = bWithPingComp ? FMath::Min(MAXPINGCOMPENSATION, USaiyoraCombatLibrary::GetActorPing(GetOwner())) : 0.0f;
-	return FMath::Max(MINCDLENGTH, FCombatModifier::ApplyModifiers(Mods, Ability->GetDefaultCooldownLength()) - PingCompensation);
+	return FMath::Max(MINCDLENGTH, FCombatModifier::ApplyModifiers(Mods, Ability->GetDefaultCooldownLength()));
 }
 
 void UAbilityComponent::AddGenericResourceCostModifier(const TSubclassOf<UResource> ResourceClass, const FCombatModifier& Modifier)
@@ -1232,7 +1258,7 @@ bool UAbilityComponent::CanUseAbility(const UCombatAbility* Ability, ECastFailRe
 	{
 		return false;
 	}
-	if (Ability->HasGlobalCooldown() && GlobalCooldownState.bGlobalCooldownActive)
+	if (Ability->HasGlobalCooldown() && GlobalCooldownState.bActive)
 	{
 		OutFailReason = ECastFailReason::OnGlobalCooldown;
 		return false;

@@ -185,6 +185,7 @@ private:
 	TArray<FAbilityEvent> TicksAwaitingParams;
 	TMap<FPredictedTick, FAbilityParams> ParamsAwaitingTicks;
 	void RemoveExpiredTicks();
+	TMap<FPredictedTick, float> PredictedTickHistory;
 
 //Cancelling
 
@@ -246,7 +247,7 @@ public:
 	
 	void AddCastLengthModifier(UBuff* Source, const FAbilityModCondition& Modifier);
 	void RemoveCastLengthModifier(const UBuff* Source);
-	float CalculateCastLength(UCombatAbility* Ability, const bool bWithPingComp) const;
+	float CalculateCastLength(UCombatAbility* Ability) const;
 
 private:
 
@@ -264,25 +265,26 @@ private:
 public:
 
 	UFUNCTION(BlueprintPure, Category = "Abilities")
-	bool IsGlobalCooldownActive() const { return GlobalCooldownState.bGlobalCooldownActive; }
+	bool IsGlobalCooldownActive() const { return GlobalCooldownState.bActive; }
 	UFUNCTION(BlueprintPure, Category = "Abilities")
-	float GetCurrentGlobalCooldownLength() const { return GlobalCooldownState.bGlobalCooldownActive && GlobalCooldownState.EndTime != -1.0f ? FMath::Max(0.0f, GlobalCooldownState.EndTime - GlobalCooldownState.StartTime) : -1.0f; }
+	float GetCurrentGlobalCooldownLength() const { return GlobalCooldownState.bActive ? GlobalCooldownState.Length : -1.0f; }
 	UFUNCTION(BlueprintPure, Category = "Abilities")
-	float GetGlobalCooldownTimeRemaining() const { return GlobalCooldownState.bGlobalCooldownActive && GlobalCooldownState.EndTime != -1.0f ? FMath::Max(0.0f, GlobalCooldownState.EndTime - GameStateRef->GetServerWorldTimeSeconds()) : -1.0f; }
+	float GetGlobalCooldownTimeRemaining() const { return GlobalCooldownState.bActive ? FMath::Max(0.0f, (GlobalCooldownState.StartTime + GlobalCooldownState.Length) - GameStateRef->GetServerWorldTimeSeconds()) : -1.0f; }
 	UPROPERTY(BlueprintAssignable)
 	FGlobalCooldownNotification OnGlobalCooldownChanged;
 	
 	void AddGlobalCooldownModifier(UBuff* Source, const FAbilityModCondition& Modifier);
 	void RemoveGlobalCooldownModifier(const UBuff* Source);
-	float CalculateGlobalCooldownLength(UCombatAbility* Ability, const bool bWithPingComp) const;
+	float CalculateGlobalCooldownLength(UCombatAbility* Ability) const;
 
 private:
-
+	
 	FGlobalCooldown GlobalCooldownState;
 	void StartGlobalCooldown(UCombatAbility* Ability, const int32 PredictionID = 0);
 	FTimerHandle GlobalCooldownHandle;
 	UFUNCTION()
 	void EndGlobalCooldown();
+	void UpdateGlobalCooldownFromServerResult(const FServerAbilityResult& Result);
 	TMap<UBuff*, FAbilityModCondition> GlobalCooldownMods;
 	
 
@@ -292,7 +294,7 @@ public:
 
 	void AddCooldownModifier(UBuff* Source, const FAbilityModCondition& Modifier);
 	void RemoveCooldownModifier(const UBuff* Source);
-	float CalculateCooldownLength(UCombatAbility* Ability, const bool bWithPingComp) const;
+	float CalculateCooldownLength(UCombatAbility* Ability) const;
 
 private:
 
