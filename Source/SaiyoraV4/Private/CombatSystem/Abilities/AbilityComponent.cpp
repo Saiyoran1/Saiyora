@@ -16,8 +16,8 @@
 
 const float UAbilityComponent::MAXPINGCOMPENSATION = 0.2f;
 const float UAbilityComponent::MINCASTLENGTH = 0.5f;
-const float UAbilityComponent::MINGCDLENGTH = 0.5f;
-const float UAbilityComponent::MINCDLENGTH = 0.5f;
+const float UAbilityComponent::MINGCDLENGTH = 0.05f;
+const float UAbilityComponent::MINCDLENGTH = 0.05f;
 const float UAbilityComponent::ABILITYQUEWINDOW = 0.2f;
 
 UAbilityComponent::UAbilityComponent()
@@ -274,7 +274,6 @@ FAbilityEvent UAbilityComponent::UseAbility(const TSubclassOf<UCombatAbility> Ab
 		FClientAbilityPrediction Prediction;
 		Prediction.Ability = Result.Ability;
 		Prediction.bPredictedGCD = Result.Ability->HasGlobalCooldown();
-		Prediction.bPredictedCastBar = Result.Ability->GetCastType() == EAbilityCastType::Channel;
 		UnackedAbilityPredictions.Add(Result.PredictionID, Prediction);
 		ServerPredictAbility(Request);
 	}
@@ -409,6 +408,7 @@ void UAbilityComponent::ClientPredictionResult_Implementation(const FServerAbili
 		UE_LOG(LogTemp, Warning, TEXT("Client did not have an ability prediction stored that matches server result with prediction ID %i."), Result.PredictionID);
 		return;
 	}
+	ClearOldPredictions(Result.PredictionID);
 	if (IsValid(ResourceHandlerRef))
 	{
 		ResourceHandlerRef->UpdatePredictedCostsFromServer(Result);
@@ -417,48 +417,29 @@ void UAbilityComponent::ClientPredictionResult_Implementation(const FServerAbili
 	{
 		OriginalPrediction->Ability->UpdatePredictionFromServer(Result);
 	}
-	if (CastingState.PredictionID <= Result.PredictionID)
-	{
-		CastingState.PredictionID = Result.PredictionID;
-		if (Result.bSuccess && Result.bActivatedCastBar && Result.ClientStartTime + Result.CastLength > GameStateRef->GetServerWorldTimeSeconds())
-		{
-			const FCastingState PreviousState = CastingState;
-			CastingState.bIsCasting = true;
-			CastingState.CastStartTime = Result.ClientStartTime;
-			CastingState.CastEndTime = CastingState.CastStartTime + Result.CastLength;
-			CastingState.CurrentCast = IsValid(OriginalPrediction->Ability) ? OriginalPrediction->Ability : ActiveAbilities.FindRef(Result.AbilityClass);
-			CastingState.bInterruptible = Result.bInterruptible;
-			//Check for any missed ticks. We will update the last missed tick (if any, this should be rare) after setting everything else.
-			const float TickInterval = Result.CastLength / CastingState.CurrentCast->GetNumberOfTicks();
-			const int32 ElapsedTicks = FMath::FloorToInt((GameStateRef->GetServerWorldTimeSeconds() - CastingState.CastStartTime) / TickInterval);
-			//First iteration of the tick timer will get time remaining until the next tick (to account for travel time). Subsequent ticks use regular interval.
-			GetWorld()->GetTimerManager().SetTimer(TickHandle, this, &UAbilityComponent::TickCurrentCast, TickInterval, true,
-				(CastingState.CastStartTime + (TickInterval * (ElapsedTicks + 1))) - GameStateRef->GetServerWorldTimeSeconds());
-			OnCastStateChanged.Broadcast(PreviousState, CastingState);
-			//Immediately perform the last missed tick if one happened during the wait time between ability prediction and confirmation.
-			if (ElapsedTicks > 0)
-			{
-				//Reduce tick by one since ticking the cast will increment it back up.
-				CastingState.ElapsedTicks = ElapsedTicks - 1;
-				TickCurrentCast();
-			}
-			else
-			{
-				CastingState.ElapsedTicks = ElapsedTicks;
-			}
-		}
-		else if (CastingState.bIsCasting)
-		{
-			//TODO: Potential to miss ticks here if the cast should've already completed.
-			EndCast();
-		}
-	}
-	UpdateGlobalCooldownFromServerResult(Result);
+	UpdateCastFromServerResult(OriginalPrediction->Time, Result);
+	UpdateGlobalCooldownFromServerResult(OriginalPrediction->Time, Result);
 	if (!Result.bSuccess)
 	{
 		OnAbilityMispredicted.Broadcast(Result.PredictionID);
 	}
-	UnackedAbilityPredictions.Remove(Result.PredictionID);
+}
+
+void UAbilityComponent::ClearOldPredictions(const int32 AckedPredictionID)
+{
+	//TODO: Figure out how to either reverse iterate over a map or use an iterator to allow removal during iteration.
+	TArray<int32> OldIDs;
+	for (const TTuple<int32, FClientAbilityPrediction>& Prediction : UnackedAbilityPredictions)
+	{
+		if (Prediction.Key <= AckedPredictionID)
+		{
+			OldIDs.Add(Prediction.Key);
+		}
+	}
+	for (const int32 ID : OldIDs)
+	{
+		UnackedAbilityPredictions.Remove(ID);
+	}
 }
 
 void UAbilityComponent::TickCurrentCast()
@@ -612,6 +593,31 @@ void UAbilityComponent::ExpireQueue()
 	GetWorld()->GetTimerManager().ClearTimer(QueueExpirationHandle);
 }
 
+void UAbilityComponent::UpdateQueueOnGlobalEnd()
+{
+	if (QueueStatus == EQueueStatus::WaitForGlobal)
+	{
+		bUsingAbilityFromQueue = true;UseAbility(QueuedAbility);
+	}
+	else if (QueueStatus == EQueueStatus::WaitForBoth)
+	{
+		QueueStatus = EQueueStatus::WaitForCast;
+	}
+}
+
+void UAbilityComponent::UpdateQueueOnCastEnd()
+{
+	if (QueueStatus == EQueueStatus::WaitForCast)
+	{
+		bUsingAbilityFromQueue = true;
+		UseAbility(QueuedAbility);
+	}
+	else if (QueueStatus == EQueueStatus::WaitForBoth)
+	{
+		QueueStatus = EQueueStatus::WaitForGlobal;
+	}
+}
+
 bool UAbilityComponent::UseAbilityFromPredictedMovement(const FAbilityRequest& Request)
 {
 	if (GetOwnerRole() != ROLE_Authority || !IsValid(Request.AbilityClass) || Request.PredictionID == 0)
@@ -647,8 +653,9 @@ FCancelEvent UAbilityComponent::CancelCurrentCast()
 		Result.FailReason = ECancelFailReason::NetRole;
 		return Result;
 	}
-	if (!CastingState.bIsCasting || !IsValid(CastingState.CurrentCast))
+	if (!CastingState.bIsCasting || !IsValid(CastingState.CurrentCast) || CastingState.CastEndTime == -1.0f)
 	{
+		//Note that we can not cancel a cast that is being predicted and has not had its cast time acked.
 		Result.FailReason = ECancelFailReason::NotCasting;
 		return Result;
 	}
@@ -830,6 +837,7 @@ void UAbilityComponent::StartCast(UCombatAbility* Ability, const int32 Predictio
 {
 	const FCastingState PreviousState = CastingState;
 	CastingState.bIsCasting = true;
+	CastingState.bAcked = GetOwnerRole() == ROLE_Authority;
 	CastingState.CurrentCast = Ability;
 	if (PredictionID != 0)
 	{
@@ -838,10 +846,13 @@ void UAbilityComponent::StartCast(UCombatAbility* Ability, const int32 Predictio
 	CastingState.CastStartTime = GameStateRef->GetServerWorldTimeSeconds();
 	CastingState.bInterruptible = Ability->IsInterruptible();
 	CastingState.ElapsedTicks = 0;
-	float const CastLength = CalculateCastLength(Ability);
-	CastingState.CastEndTime = CastingState.CastStartTime + CastLength;
-	GetWorld()->GetTimerManager().SetTimer(TickHandle, this, &UAbilityComponent::TickCurrentCast,
+	float const CastLength = GetOwnerRole() == ROLE_Authority ? CalculateCastLength(Ability) : -1.0f;
+	CastingState.CastEndTime = GetOwnerRole() == ROLE_Authority ? CastingState.CastStartTime + CastLength : -1.0f;
+	if (GetOwnerRole() == ROLE_Authority)
+	{
+		GetWorld()->GetTimerManager().SetTimer(TickHandle, this, &UAbilityComponent::TickCurrentCast,
 			(CastLength / Ability->GetNumberOfTicks()), true);
+	}
     OnCastStateChanged.Broadcast(PreviousState, CastingState);
 }
 
@@ -866,6 +877,47 @@ void UAbilityComponent::EndCast()
 		{
 			bUsingAbilityFromQueue = true;
 			UseAbility(QueuedAbility);
+		}
+	}
+}
+
+void UAbilityComponent::UpdateCastFromServerResult(const float PredictionTime, const FServerAbilityResult& Result)
+{
+	if (CastingState.PredictionID <= Result.PredictionID)
+	{
+		CastingState.PredictionID = Result.PredictionID;
+		if (Result.bSuccess && Result.bActivatedCastBar && PredictionTime + Result.CastLength > GameStateRef->GetServerWorldTimeSeconds())
+		{
+			const FCastingState PreviousState = CastingState;
+			CastingState.bIsCasting = true;
+			CastingState.bAcked = true;
+			CastingState.CastStartTime = PredictionTime;
+			CastingState.CastEndTime = CastingState.CastStartTime + Result.CastLength;
+			CastingState.CurrentCast = ActiveAbilities.FindRef(Result.AbilityClass);
+			CastingState.bInterruptible = Result.bInterruptible;
+			//Check for any missed ticks. We will update the last missed tick (if any, this should be rare) after setting everything else.
+			const float TickInterval = Result.CastLength / CastingState.CurrentCast->GetNumberOfTicks();
+			const int32 ElapsedTicks = FMath::FloorToInt((GameStateRef->GetServerWorldTimeSeconds() - CastingState.CastStartTime) / TickInterval);
+			//First iteration of the tick timer will get time remaining until the next tick (to account for travel time). Subsequent ticks use regular interval.
+			GetWorld()->GetTimerManager().SetTimer(TickHandle, this, &UAbilityComponent::TickCurrentCast, TickInterval, true,
+				(CastingState.CastStartTime + (TickInterval * (ElapsedTicks + 1))) - GameStateRef->GetServerWorldTimeSeconds());
+			OnCastStateChanged.Broadcast(PreviousState, CastingState);
+			//Immediately perform the last missed tick if one happened during the wait time between ability prediction and confirmation.
+			if (ElapsedTicks > 0)
+			{
+				//Reduce tick by one since ticking the cast will increment it back up.
+				CastingState.ElapsedTicks = ElapsedTicks - 1;
+				TickCurrentCast();
+			}
+			else
+			{
+				CastingState.ElapsedTicks = ElapsedTicks;
+			}
+		}
+		else if (CastingState.bIsCasting)
+		{
+			//TODO: Potential to miss ticks here if the cast should've already completed.
+			EndCast();
 		}
 	}
 }
@@ -899,32 +951,20 @@ void UAbilityComponent::EndGlobalCooldown()
 		OnGlobalCooldownChanged.Broadcast(PreviousGlobal, GlobalCooldownState);
 		if (IsLocallyControlled())
 		{
-			if (QueueStatus == EQueueStatus::WaitForBoth)
-			{
-				QueueStatus = EQueueStatus::WaitForCast;
-			}
-			else if (QueueStatus == EQueueStatus::WaitForGlobal)
-			{
-				bUsingAbilityFromQueue = true;
-				UseAbility(QueuedAbility);
-			}
+			UpdateQueueOnGlobalEnd();
 		}
 	}
 }
 
-void UAbilityComponent::UpdateGlobalCooldownFromServerResult(const FServerAbilityResult& Result)
+void UAbilityComponent::UpdateGlobalCooldownFromServerResult(const float PredictionTime, const FServerAbilityResult& Result)
 {
-	const FClientAbilityPrediction* Prediction = UnackedAbilityPredictions.Find(Result.PredictionID);
-	//TODO: What do we do if we don't find a prediction? Not sure if this can happen. We need an original time to use otherwise other predictions won't line up.
-	//I think we just error...
-	
 	const FGlobalCooldown PreviousGlobal = GlobalCooldownState;
 	//We will reset the GCD timer later if necessary, but clear it here anyway since it could be inaccurate.
 	GetWorld()->GetTimerManager().ClearTimer(GlobalCooldownHandle);
 	
 	//Set the global state back to the server result, with the exception of Start Time, which we take from the client's saved prediction.
 	GlobalCooldownState.bActive = Result.bActivatedGlobal;
-	GlobalCooldownState.StartTime = Prediction->Time;
+	GlobalCooldownState.StartTime = PredictionTime;
 	GlobalCooldownState.Length = Result.GlobalLength;
 	GlobalCooldownState.PredictionID = Result.PredictionID;
 
@@ -954,25 +994,14 @@ void UAbilityComponent::UpdateGlobalCooldownFromServerResult(const FServerAbilit
 			GetWorld()->GetTimerManager().SetTimer(GlobalCooldownHandle, this, &UAbilityComponent::EndGlobalCooldown, RemainingTime, false);
 		}
 	}
-	else
-	{
-		if (IsLocallyControlled())
-		{
-			if (QueueStatus == EQueueStatus::WaitForBoth)
-			{
-				QueueStatus = EQueueStatus::WaitForCast;
-			}
-			else if (QueueStatus == EQueueStatus::WaitForGlobal)
-			{
-				bUsingAbilityFromQueue = true;
-				UseAbility(QueuedAbility);
-			}
-		}
-	}
 
 	if (GlobalCooldownState != PreviousGlobal)
 	{
 		OnGlobalCooldownChanged.Broadcast(PreviousGlobal, GlobalCooldownState);
+		if (PreviousGlobal.bActive && !GlobalCooldownState.bActive)
+		{
+			UpdateQueueOnGlobalEnd();
+		}
 	}
 }
 
@@ -981,7 +1010,7 @@ void UAbilityComponent::UpdateGlobalCooldownFromServerResult(const FServerAbilit
 
 void UAbilityComponent::AddGlobalCooldownModifier(UBuff* Source, const FAbilityModCondition& Modifier)
 {
-	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Modifier.IsBound())
+	if (IsValid(Source) && Modifier.IsBound())
 	{
 		GlobalCooldownMods.Add(Source, Modifier);
 	}
@@ -989,7 +1018,7 @@ void UAbilityComponent::AddGlobalCooldownModifier(UBuff* Source, const FAbilityM
 
 void UAbilityComponent::RemoveGlobalCooldownModifier(const UBuff* Source)
 {
-	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
+	if (IsValid(Source))
 	{
 		GlobalCooldownMods.Remove(Source);
 	}

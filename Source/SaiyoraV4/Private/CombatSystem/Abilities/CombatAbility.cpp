@@ -896,7 +896,7 @@ float UCombatAbility::GetCastLength()
 
 float UCombatAbility::GetGlobalCooldownLength()
 {
-    return !bStaticGlobalCooldownLength && IsValid(OwningComponent) && OwningComponent->GetOwnerRole() == ROLE_Authority ?
+    return !bStaticGlobalCooldownLength && IsValid(OwningComponent) ?
         OwningComponent->CalculateGlobalCooldownLength(this) : DefaultGlobalCooldownLength;
 }
 

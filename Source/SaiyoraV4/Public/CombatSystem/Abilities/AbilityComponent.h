@@ -176,6 +176,7 @@ private:
 	bool ServerPredictAbility_Validate(const FAbilityRequest& Request) { return true; }
 	UFUNCTION(Client, Reliable)
 	void ClientPredictionResult(const FServerAbilityResult& Result);
+	void ClearOldPredictions(const int32 AckedPredictionID);
 	FTimerHandle TickHandle;
 	UFUNCTION()
 	void TickCurrentCast();
@@ -237,6 +238,8 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Abilities")
 	UCombatAbility* GetCurrentCast() const { return CastingState.CurrentCast; }
 	UFUNCTION(BlueprintPure, Category = "Abilities")
+	bool IsCastAcked() const { return CastingState.bAcked; }
+	UFUNCTION(BlueprintPure, Category = "Abilities")
 	bool IsInterruptible() const { return CastingState.bIsCasting && CastingState.bInterruptible; }
 	UFUNCTION(BlueprintPure, Category = "Abilities")
     float GetCurrentCastLength() const { return CastingState.bIsCasting && CastingState.CastEndTime != -1.0f ? FMath::Max(0.0f, CastingState.CastEndTime - CastingState.CastStartTime) : -1.0f; }
@@ -257,6 +260,7 @@ private:
 	void OnRep_CastingState(const FCastingState& Previous) { OnCastStateChanged.Broadcast(Previous, CastingState); }
 	void StartCast(UCombatAbility* Ability, const int32 PredictionID = 0);
 	void EndCast();
+	void UpdateCastFromServerResult(const float PredictionTime, const FServerAbilityResult& Result);
 	TMap<UBuff*, FAbilityModCondition> CastLengthMods;
 	
 
@@ -284,7 +288,7 @@ private:
 	FTimerHandle GlobalCooldownHandle;
 	UFUNCTION()
 	void EndGlobalCooldown();
-	void UpdateGlobalCooldownFromServerResult(const FServerAbilityResult& Result);
+	void UpdateGlobalCooldownFromServerResult(const float PredictionTime, const FServerAbilityResult& Result);
 	TMap<UBuff*, FAbilityModCondition> GlobalCooldownMods;
 	
 
@@ -310,7 +314,9 @@ public:
 //Queueing
 
 private:
-
+	
+	void UpdateQueueOnGlobalEnd();
+	void UpdateQueueOnCastEnd();
 	EQueueStatus QueueStatus = EQueueStatus::Empty;
 	TSubclassOf<UCombatAbility> QueuedAbility;
 	bool bUsingAbilityFromQueue = false;

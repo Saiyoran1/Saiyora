@@ -261,6 +261,8 @@ struct FCastingState
 
     UPROPERTY(BlueprintReadOnly)
     bool bIsCasting = false;
+    UPROPERTY(BlueprintReadOnly, NotReplicated)
+    bool bAcked = true;
     UPROPERTY(BlueprintReadOnly)
     UCombatAbility* CurrentCast = nullptr;
     UPROPERTY(NotReplicated)
@@ -284,8 +286,6 @@ struct FClientAbilityPrediction
     UCombatAbility* Ability = nullptr;
     bool bPredictedGCD = false;
     float GcdLength = 0.0f;
-    bool bPredictedCastBar = false;
-    float CastLength = 0.0f;
     float Time = 0.0f;
 };
 
