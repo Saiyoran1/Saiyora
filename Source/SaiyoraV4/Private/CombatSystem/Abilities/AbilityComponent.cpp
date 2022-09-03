@@ -14,7 +14,7 @@
 
 #pragma region Setup
 
-const float UAbilityComponent::MAXPINGCOMPENSATION = 0.2f;
+const float UAbilityComponent::PINGCOMPENSATIONRATIO = 0.2f;
 const float UAbilityComponent::MINCASTLENGTH = 0.5f;
 const float UAbilityComponent::MINGCDLENGTH = 0.05f;
 const float UAbilityComponent::MINCDLENGTH = 0.05f;
@@ -274,6 +274,8 @@ FAbilityEvent UAbilityComponent::UseAbility(const TSubclassOf<UCombatAbility> Ab
 		FClientAbilityPrediction Prediction;
 		Prediction.Ability = Result.Ability;
 		Prediction.bPredictedGCD = Result.Ability->HasGlobalCooldown();
+		Prediction.GcdLength = CalculateGlobalCooldownLength(Result.Ability);
+		Prediction.Time = GameStateRef->GetServerWorldTimeSeconds();
 		UnackedAbilityPredictions.Add(Result.PredictionID, Prediction);
 		ServerPredictAbility(Request);
 	}
@@ -935,6 +937,12 @@ void UAbilityComponent::StartGlobalCooldown(UCombatAbility* Ability, const int32
 	}
 	GlobalCooldownState.StartTime = GetGameStateRef()->GetServerWorldTimeSeconds();
 	GlobalCooldownState.Length = CalculateGlobalCooldownLength(Ability);
+	if (GetOwnerRole() == ROLE_Authority && !IsLocallyControlled())
+	{
+		//Reduce GCD by a percentage of ping to prevent queued abilities from arriving too fast and failing to cast.
+		//This only happens on the server for non-local players.
+		GlobalCooldownState.Length = FMath::Max(0.0f, GlobalCooldownState.Length - (USaiyoraCombatLibrary::GetActorPing(GetOwner()) * PINGCOMPENSATIONRATIO));
+	}
 	GetWorld()->GetTimerManager().SetTimer(GlobalCooldownHandle, this, &UAbilityComponent::EndGlobalCooldown, GlobalCooldownState.Length, false);
 	OnGlobalCooldownChanged.Broadcast(PreviousState, GlobalCooldownState);
 }

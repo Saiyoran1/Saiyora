@@ -84,7 +84,7 @@ class SAIYORAV4_API UAbilityComponent : public UActorComponent
 
 public:
 
-	static const float MAXPINGCOMPENSATION;
+	static const float PINGCOMPENSATIONRATIO;
 	static const float MINCASTLENGTH;
 	static const float MINGCDLENGTH;
 	static const float MINCDLENGTH;

@@ -90,11 +90,11 @@ struct FAbilityOrigin
     GENERATED_BODY()
 
     UPROPERTY(BlueprintReadWrite)
-    FVector AimLocation;
+    FVector AimLocation = FVector::ZeroVector;
     UPROPERTY(BlueprintReadWrite)
-    FVector AimDirection;
+    FVector AimDirection = FVector::ZeroVector;
     UPROPERTY(BlueprintReadWrite)
-    FVector Origin;
+    FVector Origin = FVector::ZeroVector;
 
     void Clear() { AimLocation = FVector::ZeroVector; AimDirection = FVector::ZeroVector; Origin = FVector::ZeroVector; }
     

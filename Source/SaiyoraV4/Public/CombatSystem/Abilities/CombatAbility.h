@@ -105,9 +105,9 @@ protected:
     UFUNCTION(BlueprintNativeEvent)
     void SetupCustomCastRestrictions();
     virtual void SetupCustomCastRestrictions_Implementation() {}
-    UFUNCTION(BlueprintCallable, Category = "Abilities", meta = (GameplayTagFilter = "AbilityRestriction"))
+    UFUNCTION(BlueprintCallable, Category = "Abilities", meta = (GameplayTagFilter = "Ability.Restriction"))
     void ActivateCastRestriction(const FGameplayTag RestrictionTag);
-    UFUNCTION(BlueprintCallable, Category = "Abilities", meta = (GameplayTagFilter = "AbilityRestriction"))
+    UFUNCTION(BlueprintCallable, Category = "Abilities", meta = (GameplayTagFilter = "Ability.Restriction"))
     void DeactivateCastRestriction(const FGameplayTag RestrictionTag);
     
 private:
