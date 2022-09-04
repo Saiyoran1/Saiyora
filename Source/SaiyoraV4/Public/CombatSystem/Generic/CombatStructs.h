@@ -13,6 +13,7 @@ struct SAIYORAV4_API FSaiyoraCombatTags : public FGameplayTagNativeAdder
     
     FGameplayTag AbilityRestriction;
     FGameplayTag AbilityClassRestriction;
+    FGameplayTag AbilityFireRateRestriction;
 
     FGameplayTag CrowdControl;
     FGameplayTag Cc_Stun;
@@ -67,6 +68,7 @@ protected:
         
         AbilityRestriction = Manager.AddNativeGameplayTag(TEXT("Ability.Restriction"));
         AbilityClassRestriction = Manager.AddNativeGameplayTag(TEXT("Ability.Restriction.Class"));
+        AbilityFireRateRestriction = Manager.AddNativeGameplayTag(TEXT("Ability.Restriction.FireRate"));
 
         CrowdControl = Manager.AddNativeGameplayTag(TEXT("CrowdControl"));
         Cc_Stun = Manager.AddNativeGameplayTag(TEXT("CrowdControl.Stun"));
