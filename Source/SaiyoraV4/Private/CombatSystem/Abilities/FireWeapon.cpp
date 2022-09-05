@@ -1,5 +1,4 @@
 ﻿#include "FireWeapon.h"
-
 #include "AbilityComponent.h"
 #include "SaiyoraCombatInterface.h"
 #include "Weapon.h"
@@ -7,18 +6,17 @@
 void UFireWeapon::EndFireDelay()
 {
 	DeactivateCastRestriction(FSaiyoraCombatTags::Get().AbilityFireRateRestriction);
-	if (bAutomatic)
-	{
-		//TODO: Check if fire input is down? Then trigger re-fire?
-		//Or I could just set up a universal input system for abilities that includes cancel on release, re-fire on hold, etc.
-	}
 }
 
 void UFireWeapon::OnPredictedTick_Implementation(const int32 TickNumber)
 {
 	Super::OnPredictedTick_Implementation(TickNumber);
 	ActivateCastRestriction(FSaiyoraCombatTags::Get().AbilityFireRateRestriction);
-	GetWorld()->GetTimerManager().SetTimer(FireDelayTimer, this, &UFireWeapon::EndFireDelay, DefaultFireDelay);
+	GetWorld()->GetTimerManager().SetTimer(FireDelayTimer, this, &UFireWeapon::EndFireDelay, GetHandler()->CalculateCooldownLength(this));
+	if (IsValid(Weapon))
+	{
+		Weapon->StartFiring();
+	}
 }
 
 void UFireWeapon::PreInitializeAbility_Implementation()
@@ -30,13 +28,25 @@ void UFireWeapon::PreInitializeAbility_Implementation()
 		USceneComponent* WeaponSocketComp = ISaiyoraCombatInterface::Execute_GetPrimaryWeaponSocket(GetHandler()->GetOwner(), WeaponSocketName);
 		if (!IsValid(WeaponSocketComp))
 		{
-			return;
+			//Use actor root component if we don't have a designated weapon socket/component.
+			WeaponSocketComp = GetHandler()->GetOwner()->GetRootComponent();
 		}
 		const FTransform WeaponTransform = WeaponSocketComp->GetSocketTransform(WeaponSocketName);
 		FActorSpawnParameters SpawnParams;
 		SpawnParams.Owner = GetHandler()->GetOwner();
 		SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 		Weapon = Cast<AWeapon>(GetWorld()->SpawnActor(WeaponClass, &WeaponTransform, SpawnParams));
-		Weapon->AttachToComponent(WeaponSocketComp, FAttachmentTransformRules::SnapToTargetIncludingScale, WeaponSocketName);
+		if (IsValid(Weapon))
+		{
+			Weapon->AttachToComponent(WeaponSocketComp, FAttachmentTransformRules::SnapToTargetIncludingScale, WeaponSocketName);
+		}
+	}
+	if (GetHandler()->GetOwnerRole() == ROLE_Authority)
+	{
+		if (IsValid(ReloadAbilityClass))
+		{
+			ReloadAbility = GetHandler()->AddNewAbility(ReloadAbilityClass);
+		}
+		//TODO: StopFiring ability, this might be able to be generic?
 	}
 }

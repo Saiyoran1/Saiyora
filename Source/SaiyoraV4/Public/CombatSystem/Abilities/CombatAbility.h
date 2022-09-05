@@ -70,6 +70,10 @@ public:
     void GetAbilityTags(FGameplayTagContainer& OutTags) const { OutTags = AbilityTags; }
     UFUNCTION(BlueprintPure, Category = "Abilities")
     bool HasTag(const FGameplayTag Tag) const { return AbilityTags.HasTag(Tag); }
+    UFUNCTION(BlueprintPure, Category = "Abilities")
+    bool IsAutomatic() const { return bAutomatic; }
+    UFUNCTION(BlueprintPure, Category = "Abilities")
+    bool WillCancelOnRelease() const { return bCancelOnRelease; }
     
 private:
     
@@ -85,6 +89,10 @@ private:
     ESaiyoraPlane Plane;
     UPROPERTY(EditDefaultsOnly, Category = "Info")
     FGameplayTagContainer AbilityTags;
+    UPROPERTY(EditDefaultsOnly, Category = "Info")
+    bool bAutomatic = false;
+    UPROPERTY(EditDefaultsOnly, Category = "Info")
+    bool bCancelOnRelease = false;
     
 //Restrictions
     
