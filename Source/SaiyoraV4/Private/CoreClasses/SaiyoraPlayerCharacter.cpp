@@ -6,11 +6,14 @@
 #include "PlaneComponent.h"
 #include "ResourceHandler.h"
 #include "SaiyoraMovementComponent.h"
+#include "SAT.h"
 #include "CoreClasses/SaiyoraPlayerController.h"
 #include "StatHandler.h"
 #include "ThreatHandler.h"
 #include "CoreClasses/SaiyoraGameState.h"
 #include "GameFramework/PlayerState.h"
+
+const int32 ASaiyoraPlayerCharacter::MAXABILITYBINDS = 6;
 
 ASaiyoraPlayerCharacter::ASaiyoraPlayerCharacter(const class FObjectInitializer& ObjectInitializer) :
 	Super(ObjectInitializer.SetDefaultSubobjectClass<USaiyoraMovementComponent>(ACharacter::CharacterMovementComponentName))
@@ -66,6 +69,44 @@ void ASaiyoraPlayerCharacter::OnRep_PlayerState()
 	InitializeCharacter();
 }
 
+void ASaiyoraPlayerCharacter::AbilityInput(const int32 InputNum, const bool bPressed)
+{
+	if (!IsValid(AbilityComponent) || !IsValid(PlaneComponent))
+	{
+		return;
+	}
+	if (PlaneComponent->GetCurrentPlane() == ESaiyoraPlane::Ancient)
+	{
+		const UCombatAbility* Ability = AncientAbilityMappings.FindRef(InputNum);
+		if (bPressed)
+		{
+			if (IsValid(Ability))
+			{
+				AbilityComponent->UseAbility(Ability->GetClass());
+			}
+		}
+		else
+		{
+			//TODO: Cancel ability if CancelOnRelease and check que timer?
+		}
+	}
+	else
+	{
+		const UCombatAbility* Ability = ModernAbilityMappings.FindRef(InputNum);
+		if (bPressed)
+		{
+			if (IsValid(Ability))
+			{
+				AbilityComponent->UseAbility(Ability->GetClass());
+			}
+		}
+		else
+		{
+			//TODO: Cancel ability if CancelOnRelease and check que timer?
+		}
+	}
+}
+
 void ASaiyoraPlayerCharacter::InitializeCharacter()
 {
 	if (bInitialized)
@@ -94,23 +135,83 @@ void ASaiyoraPlayerCharacter::InitializeCharacter()
 
 void ASaiyoraPlayerCharacter::SetupAbilityMappings()
 {
+	for (int i = 0; i < MAXABILITYBINDS; i++)
+	{
+		AncientAbilityMappings.Add(i, nullptr);
+		ModernAbilityMappings.Add(i, nullptr);
+	}
 	TArray<UCombatAbility*> ActiveAbilities;
 	AbilityComponent->GetActiveAbilities(ActiveAbilities);
-	int32 AncientIndex = 0;
-	int32 ModernIndex = 1;
 	for (UCombatAbility* Ability : ActiveAbilities)
 	{
-		if (Ability->GetAbilityPlane() == ESaiyoraPlane::Ancient)
+		AddAbilityMapping(Ability);
+	}
+	AbilityComponent->OnAbilityAdded.AddDynamic(this, &ASaiyoraPlayerCharacter::AddAbilityMapping);
+	AbilityComponent->OnAbilityRemoved.AddDynamic(this, &ASaiyoraPlayerCharacter::RemoveAbilityMapping);
+}
+
+void ASaiyoraPlayerCharacter::AddAbilityMapping(UCombatAbility* NewAbility)
+{
+	if (NewAbility->HasTag(FSaiyoraCombatTags::Get().ReloadAbility) || NewAbility->HasTag(FSaiyoraCombatTags::Get().StopFireAbility))
+	{
+		return;
+	}
+	if (NewAbility->HasTag(FSaiyoraCombatTags::Get().FireWeaponAbility))
+	{
+		ModernAbilityMappings.Add(0, NewAbility);
+		OnMappingChanged.Broadcast(ESaiyoraPlane::Modern, 0, NewAbility);
+		return;
+	}
+	if (NewAbility->GetAbilityPlane() == ESaiyoraPlane::Ancient)
+	{
+		for (TTuple<int32, UCombatAbility*>& Mapping : AncientAbilityMappings)
 		{
-			AncientAbilityMappings.Add(AncientIndex, Ability);
-			OnMappingChanged.Broadcast(ESaiyoraPlane::Ancient, AncientIndex, Ability);
-			AncientIndex++;
+			if (!IsValid(Mapping.Value))
+			{
+				Mapping.Value = NewAbility;
+				OnMappingChanged.Broadcast(ESaiyoraPlane::Ancient, Mapping.Key, Mapping.Value);
+				break;
+			}
 		}
-		else if (Ability->GetAbilityPlane() == ESaiyoraPlane::Modern)
+	}
+	else
+	{
+		for (TTuple<int32, UCombatAbility*>& Mapping : ModernAbilityMappings)
 		{
-			ModernAbilityMappings.Add(ModernIndex, Ability);
-			OnMappingChanged.Broadcast(ESaiyoraPlane::Modern, ModernIndex, Ability);
-			ModernIndex++;
+			if (Mapping.Key != 0 && !IsValid(Mapping.Value))
+			{
+				Mapping.Value = NewAbility;
+				OnMappingChanged.Broadcast(ESaiyoraPlane::Modern, Mapping.Key, Mapping.Value);
+				break;
+			}
+		}
+	}
+}
+
+void ASaiyoraPlayerCharacter::RemoveAbilityMapping(UCombatAbility* RemovedAbility)
+{
+	if (RemovedAbility->GetAbilityPlane() == ESaiyoraPlane::Ancient)
+	{
+		for (TTuple<int32, UCombatAbility*>& Mapping : AncientAbilityMappings)
+		{
+			if (IsValid(Mapping.Value) && Mapping.Value == RemovedAbility)
+			{
+				Mapping.Value = nullptr;
+				OnMappingChanged.Broadcast(ESaiyoraPlane::Ancient, Mapping.Key, nullptr);
+				break;
+			}
+		}
+	}
+	else
+	{
+		for (TTuple<int32, UCombatAbility*>& Mapping : ModernAbilityMappings)
+		{
+			if (IsValid(Mapping.Value) && Mapping.Value == RemovedAbility)
+			{
+				Mapping.Value = nullptr;
+				OnMappingChanged.Broadcast(ESaiyoraPlane::Modern, Mapping.Key, nullptr);
+				break;
+			}
 		}
 	}
 }

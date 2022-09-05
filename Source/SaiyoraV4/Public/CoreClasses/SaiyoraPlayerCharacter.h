@@ -51,6 +51,9 @@ protected:
 	UFUNCTION(BlueprintImplementableEvent)
 	void CreateUserInterface();
 
+	UFUNCTION(BlueprintCallable, Category = "Input")
+	void AbilityInput(const int32 InputNum, const bool bPressed);
+
 private:
 
 	bool bInitialized = false;
@@ -82,7 +85,12 @@ private:
 	UPROPERTY()
 	ASaiyoraPlayerController* PlayerControllerRef;
 
+	static const int32 MAXABILITYBINDS;
 	void SetupAbilityMappings();
 	TMap<int32, UCombatAbility*> ModernAbilityMappings;
 	TMap<int32, UCombatAbility*> AncientAbilityMappings;
+	UFUNCTION()
+	void AddAbilityMapping(UCombatAbility* NewAbility);
+	UFUNCTION()
+	void RemoveAbilityMapping(UCombatAbility* RemovedAbility);
 };

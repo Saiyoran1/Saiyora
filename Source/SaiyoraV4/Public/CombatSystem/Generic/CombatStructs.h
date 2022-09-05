@@ -15,6 +15,10 @@ struct SAIYORAV4_API FSaiyoraCombatTags : public FGameplayTagNativeAdder
     FGameplayTag AbilityClassRestriction;
     FGameplayTag AbilityFireRateRestriction;
 
+    FGameplayTag FireWeaponAbility;
+    FGameplayTag ReloadAbility;
+    FGameplayTag StopFireAbility;
+
     FGameplayTag CrowdControl;
     FGameplayTag Cc_Stun;
     FGameplayTag Cc_Incapacitate;
@@ -69,6 +73,10 @@ protected:
         AbilityRestriction = Manager.AddNativeGameplayTag(TEXT("Ability.Restriction"));
         AbilityClassRestriction = Manager.AddNativeGameplayTag(TEXT("Ability.Restriction.Class"));
         AbilityFireRateRestriction = Manager.AddNativeGameplayTag(TEXT("Ability.Restriction.FireRate"));
+
+        FireWeaponAbility = Manager.AddNativeGameplayTag(TEXT("Ability.FireWeapon"));
+        ReloadAbility = Manager.AddNativeGameplayTag(TEXT("Ability.ReloadWeapon"));
+        StopFireAbility = Manager.AddNativeGameplayTag(TEXT("Ability.StopFireWeapon"));
 
         CrowdControl = Manager.AddNativeGameplayTag(TEXT("CrowdControl"));
         Cc_Stun = Manager.AddNativeGameplayTag(TEXT("CrowdControl.Stun"));
