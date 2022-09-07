@@ -74,6 +74,8 @@ struct FAbilityCooldown
     int32 CurrentCharges = 0;
     UPROPERTY()
     bool OnCooldown = false;
+    UPROPERTY(NotReplicated)
+    bool bAcked = true;
     UPROPERTY()
     float CooldownStartTime = 0.0f;
     UPROPERTY()
@@ -82,6 +84,7 @@ struct FAbilityCooldown
     int32 PredictionID = 0;
     UPROPERTY()
     int32 MaxCharges = 1;
+    
 };
 
 USTRUCT(BlueprintType)

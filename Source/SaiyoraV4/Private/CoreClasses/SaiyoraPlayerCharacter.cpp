@@ -44,10 +44,6 @@ void ASaiyoraPlayerCharacter::BeginPlay()
 	GameStateRef = GetWorld()->GetGameState<ASaiyoraGameState>();
 	//Initialize character called here, with valid GameState.
 	InitializeCharacter();
-	if (IsLocallyControlled())
-	{
-		SetupAbilityMappings();
-	}
 }
 
 void ASaiyoraPlayerCharacter::PossessedBy(AController* NewController)
@@ -141,6 +137,7 @@ void ASaiyoraPlayerCharacter::InitializeCharacter()
 	}
 	if (IsLocallyControlled())
 	{
+		SetupAbilityMappings();
 		CreateUserInterface();
 	}
 	GameStateRef->InitPlayer(this);

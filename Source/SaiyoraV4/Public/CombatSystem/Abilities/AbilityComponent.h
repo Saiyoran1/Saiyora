@@ -242,9 +242,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Abilities")
 	bool IsInterruptible() const { return CastingState.bIsCasting && CastingState.bInterruptible; }
 	UFUNCTION(BlueprintPure, Category = "Abilities")
-    float GetCurrentCastLength() const { return CastingState.bIsCasting && CastingState.CastEndTime != -1.0f ? FMath::Max(0.0f, CastingState.CastEndTime - CastingState.CastStartTime) : -1.0f; }
+    float GetCurrentCastLength() const { return CastingState.bIsCasting && CastingState.bAcked ? FMath::Max(0.0f, CastingState.CastEndTime - CastingState.CastStartTime) : -1.0f; }
     UFUNCTION(BlueprintPure, Category = "Abilities")
-    float GetCastTimeRemaining() const { return CastingState.bIsCasting && CastingState.CastEndTime != -1.0f ? FMath::Max(0.0f, CastingState.CastEndTime - GameStateRef->GetServerWorldTimeSeconds()) : -1.0f; }
+    float GetCastTimeRemaining() const { return CastingState.bIsCasting && CastingState.bAcked ? FMath::Max(0.0f, CastingState.CastEndTime - GameStateRef->GetServerWorldTimeSeconds()) : -1.0f; }
 	UPROPERTY(BlueprintAssignable)
 	FCastingStateNotification OnCastStateChanged;
 	
