@@ -6,7 +6,6 @@
 #include "PlaneComponent.h"
 #include "ResourceHandler.h"
 #include "SaiyoraMovementComponent.h"
-#include "SAT.h"
 #include "CoreClasses/SaiyoraPlayerController.h"
 #include "StatHandler.h"
 #include "ThreatHandler.h"
@@ -14,6 +13,7 @@
 #include "GameFramework/PlayerState.h"
 
 const int32 ASaiyoraPlayerCharacter::MAXABILITYBINDS = 6;
+const float ASaiyoraPlayerCharacter::ABILITYQUEWINDOW = 0.2f;
 
 ASaiyoraPlayerCharacter::ASaiyoraPlayerCharacter(const class FObjectInitializer& ObjectInitializer) :
 	Super(ObjectInitializer.SetDefaultSubobjectClass<USaiyoraMovementComponent>(ACharacter::CharacterMovementComponentName))
@@ -34,6 +34,8 @@ void ASaiyoraPlayerCharacter::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
 	CustomMovementComponent = Cast<USaiyoraMovementComponent>(Super::GetMovementComponent());
+	AbilityComponent->OnCastStateChanged.AddDynamic(this, &ASaiyoraPlayerCharacter::UpdateQueueOnCastEnd);
+	AbilityComponent->OnGlobalCooldownChanged.AddDynamic(this, &ASaiyoraPlayerCharacter::UpdateQueueOnGlobalEnd);
 }
 
 void ASaiyoraPlayerCharacter::BeginPlay()
@@ -75,34 +77,46 @@ void ASaiyoraPlayerCharacter::AbilityInput(const int32 InputNum, const bool bPre
 	{
 		return;
 	}
-	if (PlaneComponent->GetCurrentPlane() == ESaiyoraPlane::Ancient)
+	const UCombatAbility* AbilityToUse = PlaneComponent->GetCurrentPlane() == ESaiyoraPlane::Ancient ? AncientAbilityMappings.FindRef(InputNum) : ModernAbilityMappings.FindRef(InputNum);
+	if (!IsValid(AbilityToUse))
 	{
-		const UCombatAbility* Ability = AncientAbilityMappings.FindRef(InputNum);
-		if (bPressed)
+		return;
+	}
+	if (bPressed)
+	{
+		//Attempt to use the ability.
+		const FAbilityEvent InitialAttempt = AbilityComponent->UseAbility(AbilityToUse->GetClass());
+		if (InitialAttempt.ActionTaken == ECastAction::Fail && GEngine)
 		{
-			if (IsValid(Ability))
-			{
-				AbilityComponent->UseAbility(Ability->GetClass());
-			}
+			static int32 Key = 0;
+			Key++;
+			GEngine->AddOnScreenDebugMessage(Key, 5.0f, FColor::Red, UEnum::GetValueAsString(InitialAttempt.FailReason));
 		}
-		else
+		if (InitialAttempt.ActionTaken == ECastAction::Fail && (InitialAttempt.FailReason == ECastFailReason::AlreadyCasting || InitialAttempt.FailReason == ECastFailReason::OnGlobalCooldown))
 		{
-			//TODO: Cancel ability if CancelOnRelease and check que timer?
+			//If the attempt failed due to cast in progress or GCD, try and queue.
+			if (!TryQueueAbility(AbilityToUse->GetClass()) && InitialAttempt.FailReason == ECastFailReason::AlreadyCasting)
+			{
+				//If we couldn't que, and originally failed due to casting, cancel the current cast and then re-attempt.
+				if (AbilityComponent->CancelCurrentCast().bSuccess)
+				{
+					AbilityComponent->UseAbility(AbilityToUse->GetClass());
+				}
+			}
 		}
 	}
 	else
 	{
-		const UCombatAbility* Ability = ModernAbilityMappings.FindRef(InputNum);
-		if (bPressed)
+		//If the input we are releasing is for the current cast, that cast is cancellable on release, AND we aren't within the queue window, cancel our cast. (Within the queue window, we allow the cast to finish).
+		if (AbilityComponent->IsCasting() && AbilityComponent->GetCurrentCast() == AbilityToUse && AbilityComponent->GetCurrentCast()->WillCancelOnRelease() && (AbilityComponent->GetCastTimeRemaining() > ABILITYQUEWINDOW || !AbilityComponent->IsCastAcked()))
 		{
-			if (IsValid(Ability))
-			{
-				AbilityComponent->UseAbility(Ability->GetClass());
-			}
+			AbilityComponent->CancelCurrentCast();
 		}
-		else
+		//Else if the input we are releasing is for an ability that is currently queued, and that ability is cancellable on release, we just clear the queue (the cast would instantly end anyway).
+		else if (QueueStatus != EQueueStatus::Empty && QueuedAbility->GetClass() == AbilityToUse->GetClass() && AbilityToUse->WillCancelOnRelease())
 		{
-			//TODO: Cancel ability if CancelOnRelease and check que timer?
+			//TODO: There is potentially a problem if we WANT to instant tick and then cancel a cast at the end of another cast. We'll see if this is something that's ever desirable.
+			ExpireQueue();
 		}
 	}
 }
@@ -214,4 +228,90 @@ void ASaiyoraPlayerCharacter::RemoveAbilityMapping(UCombatAbility* RemovedAbilit
 			}
 		}
 	}
+}
+
+bool ASaiyoraPlayerCharacter::TryQueueAbility(const TSubclassOf<UCombatAbility> AbilityClass)
+{
+	if (!IsValid(AbilityComponent) || !IsLocallyControlled() || !IsValid(AbilityClass))
+	{
+		return false;
+	}
+	//If we are casting and the cast time isn't acked, OR we aren't casting and aren't on GCD, don't queue.
+	if ((AbilityComponent->IsCasting() && !AbilityComponent->IsCastAcked()) || (!AbilityComponent->IsCasting() && !AbilityComponent->IsGlobalCooldownActive()))
+	{
+		return false;
+	}
+	const float GlobalTimeRemaining = AbilityComponent->GetGlobalCooldownTimeRemaining();
+	const float CastTimeRemaining = AbilityComponent->GetCastTimeRemaining();
+	if (GlobalTimeRemaining > ABILITYQUEWINDOW || CastTimeRemaining > ABILITYQUEWINDOW)
+	{
+		return false;
+	}
+	if (GlobalTimeRemaining == CastTimeRemaining)
+	{
+		QueueStatus = EQueueStatus::WaitForBoth;
+	}
+	else if (GlobalTimeRemaining > CastTimeRemaining)
+	{
+		QueueStatus = EQueueStatus::WaitForGlobal;
+	}
+	else
+	{
+		QueueStatus = EQueueStatus::WaitForCast;
+	}
+	QueuedAbility = AbilityClass;
+	GetWorld()->GetTimerManager().SetTimer(QueueExpirationHandle, this, &ASaiyoraPlayerCharacter::ExpireQueue, ABILITYQUEWINDOW);
+	return true;
+}
+
+void ASaiyoraPlayerCharacter::UpdateQueueOnGlobalEnd(const FGlobalCooldown& OldGlobalCooldown, const FGlobalCooldown& NewGlobalCooldown)
+{
+	if (NewGlobalCooldown.bActive)
+	{
+		return;
+	}
+	if (QueueStatus == EQueueStatus::WaitForGlobal)
+	{
+		const TSubclassOf<UCombatAbility> AbilityClass = QueuedAbility;
+		ExpireQueue();
+		//Execute the queued ability on next tick to prevent conflicts with other delegates tied to GCD end that might trigger an ability.
+		const FTimerDelegate QueueDelegate = FTimerDelegate::CreateUObject(this, &ASaiyoraPlayerCharacter::UseAbilityFromQueue, AbilityClass);
+		GetWorld()->GetTimerManager().SetTimerForNextTick(QueueDelegate);
+	}
+	else if (QueueStatus == EQueueStatus::WaitForBoth)
+	{
+		QueueStatus = EQueueStatus::WaitForCast;
+	}
+}
+
+void ASaiyoraPlayerCharacter::UpdateQueueOnCastEnd(const FCastingState& OldState, const FCastingState& NewState)
+{
+	if (NewState.bIsCasting)
+	{
+		return;
+	}
+	if (QueueStatus == EQueueStatus::WaitForCast)
+	{
+		const TSubclassOf<UCombatAbility> AbilityClass = QueuedAbility;
+		ExpireQueue();
+		//Execute the queued ability on next tick to prevent conflicts with other delegates tied to cast end that might trigger an ability.
+		const FTimerDelegate QueueDelegate = FTimerDelegate::CreateUObject(this, &ASaiyoraPlayerCharacter::UseAbilityFromQueue, AbilityClass);
+		GetWorld()->GetTimerManager().SetTimerForNextTick(QueueDelegate);
+	}
+	else if (QueueStatus == EQueueStatus::WaitForBoth)
+	{
+		QueueStatus = EQueueStatus::WaitForGlobal;
+	}
+}
+
+void ASaiyoraPlayerCharacter::UseAbilityFromQueue(const TSubclassOf<UCombatAbility> AbilityClass)
+{
+	AbilityComponent->UseAbility(AbilityClass);
+}
+
+void ASaiyoraPlayerCharacter::ExpireQueue()
+{
+	QueueStatus = EQueueStatus::Empty;
+	QueuedAbility = nullptr;
+	GetWorld()->GetTimerManager().ClearTimer(QueueExpirationHandle);
 }

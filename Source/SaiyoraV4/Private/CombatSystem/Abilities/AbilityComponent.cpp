@@ -161,9 +161,6 @@ void UAbilityComponent::NotifyOfReplicatedAbilityRemoval(UCombatAbility* Removed
 
 FAbilityEvent UAbilityComponent::UseAbility(const TSubclassOf<UCombatAbility> AbilityClass)
 {
-	const bool bFromQueue = bUsingAbilityFromQueue;
-	bUsingAbilityFromQueue = false;
-	ExpireQueue();
 	FAbilityEvent Result;
 	if (!IsLocallyControlled() || !IsValid(AbilityClass))
 	{
@@ -173,29 +170,6 @@ FAbilityEvent UAbilityComponent::UseAbility(const TSubclassOf<UCombatAbility> Ab
 	Result.Ability = ActiveAbilities.FindRef(AbilityClass);
 	if (!CanUseAbility(Result.Ability, Result.FailReason))
 	{
-		if (!bFromQueue)
-		{
-			if (Result.FailReason == ECastFailReason::AlreadyCasting)
-			{
-				if (TryQueueAbility(AbilityClass))
-				{
-					Result.FailReason = ECastFailReason::Queued;
-				}
-				else
-				{
-					CancelCurrentCast();
-					bUsingAbilityFromQueue = true;
-					return UseAbility(AbilityClass);
-				}
-			}
-			else if (Result.FailReason == ECastFailReason::OnGlobalCooldown)
-			{
-				if (TryQueueAbility(AbilityClass))
-				{
-					Result.FailReason = ECastFailReason::Queued;
-				}
-			}
-		}
 		return Result;
 	}
 	Result.PredictionID = GetOwnerRole() == ROLE_Authority ? 0 : GenerateNewPredictionID();
@@ -554,72 +528,6 @@ int32 UAbilityComponent::GenerateNewPredictionID()
 	return LastPredictionID;
 }
 
-bool UAbilityComponent::TryQueueAbility(const TSubclassOf<UCombatAbility> AbilityClass)
-{
-	if (!IsLocallyControlled() || !IsValid(AbilityClass) || (!GlobalCooldownState.bActive && !CastingState.bIsCasting))
-	{
-		return false;
-	}
-	if (CastingState.bIsCasting && CastingState.CastEndTime == -1.0f)
-	{
-		return false;
-	}
-	const float GlobalTimeRemaining = AbilityClass->GetDefaultObject<UCombatAbility>()->HasGlobalCooldown() && GlobalCooldownState.bActive ?
-		(GlobalCooldownState.StartTime + GlobalCooldownState.Length) - GameStateRef->GetServerWorldTimeSeconds() : 0.0f;
-	const float CastTimeRemaining = CastingState.bIsCasting ? CastingState.CastEndTime - GameStateRef->GetServerWorldTimeSeconds() : 0.0f;
-	if (GlobalTimeRemaining > ABILITYQUEWINDOW || CastTimeRemaining > ABILITYQUEWINDOW)
-	{
-		return false;
-	}
-	if (GlobalTimeRemaining == CastTimeRemaining)
-	{
-		QueueStatus = EQueueStatus::WaitForBoth;
-	}
-	else if (GlobalTimeRemaining > CastTimeRemaining)
-	{
-		QueueStatus = EQueueStatus::WaitForGlobal;
-	}
-	else
-	{
-		QueueStatus = EQueueStatus::WaitForCast;
-	}
-	QueuedAbility = AbilityClass;
-	GetWorld()->GetTimerManager().SetTimer(QueueExpirationHandle, this, &UAbilityComponent::ExpireQueue, ABILITYQUEWINDOW);
-	return true;
-}
-
-void UAbilityComponent::ExpireQueue()
-{
-	QueueStatus = EQueueStatus::Empty;
-	QueuedAbility = nullptr;
-	GetWorld()->GetTimerManager().ClearTimer(QueueExpirationHandle);
-}
-
-void UAbilityComponent::UpdateQueueOnGlobalEnd()
-{
-	if (QueueStatus == EQueueStatus::WaitForGlobal)
-	{
-		bUsingAbilityFromQueue = true;UseAbility(QueuedAbility);
-	}
-	else if (QueueStatus == EQueueStatus::WaitForBoth)
-	{
-		QueueStatus = EQueueStatus::WaitForCast;
-	}
-}
-
-void UAbilityComponent::UpdateQueueOnCastEnd()
-{
-	if (QueueStatus == EQueueStatus::WaitForCast)
-	{
-		bUsingAbilityFromQueue = true;
-		UseAbility(QueuedAbility);
-	}
-	else if (QueueStatus == EQueueStatus::WaitForBoth)
-	{
-		QueueStatus = EQueueStatus::WaitForGlobal;
-	}
-}
-
 bool UAbilityComponent::UseAbilityFromPredictedMovement(const FAbilityRequest& Request)
 {
 	if (GetOwnerRole() != ROLE_Authority || !IsValid(Request.AbilityClass) || Request.PredictionID == 0)
@@ -655,8 +563,9 @@ FCancelEvent UAbilityComponent::CancelCurrentCast()
 		Result.FailReason = ECancelFailReason::NetRole;
 		return Result;
 	}
-	if (!CastingState.bIsCasting || !IsValid(CastingState.CurrentCast) || CastingState.CastEndTime == -1.0f)
+	if (!CastingState.bIsCasting || !IsValid(CastingState.CurrentCast))
 	{
+		//TODO: I changed this to allow cancelling of unacked casts. If this breaks things, here is where to fix!
 		//Note that we can not cancel a cast that is being predicted and has not had its cast time acked.
 		Result.FailReason = ECancelFailReason::NotCasting;
 		return Result;
@@ -869,18 +778,6 @@ void UAbilityComponent::EndCast()
     CastingState.CastEndTime = 0.0f;
     GetWorld()->GetTimerManager().ClearTimer(TickHandle);
     OnCastStateChanged.Broadcast(PreviousState, CastingState);
-	if (IsLocallyControlled())
-	{
-		if (QueueStatus == EQueueStatus::WaitForBoth)
-		{
-			QueueStatus = EQueueStatus::WaitForGlobal;
-		}
-		else if (QueueStatus == EQueueStatus::WaitForCast)
-		{
-			bUsingAbilityFromQueue = true;
-			UseAbility(QueuedAbility);
-		}
-	}
 }
 
 void UAbilityComponent::UpdateCastFromServerResult(const float PredictionTime, const FServerAbilityResult& Result)
@@ -957,10 +854,6 @@ void UAbilityComponent::EndGlobalCooldown()
 		GlobalCooldownState.Length = 0.0f;
 		GetWorld()->GetTimerManager().ClearTimer(GlobalCooldownHandle);
 		OnGlobalCooldownChanged.Broadcast(PreviousGlobal, GlobalCooldownState);
-		if (IsLocallyControlled())
-		{
-			UpdateQueueOnGlobalEnd();
-		}
 	}
 }
 
@@ -1006,10 +899,6 @@ void UAbilityComponent::UpdateGlobalCooldownFromServerResult(const float Predict
 	if (GlobalCooldownState != PreviousGlobal)
 	{
 		OnGlobalCooldownChanged.Broadcast(PreviousGlobal, GlobalCooldownState);
-		if (PreviousGlobal.bActive && !GlobalCooldownState.bActive)
-		{
-			UpdateQueueOnGlobalEnd();
-		}
 	}
 }
 

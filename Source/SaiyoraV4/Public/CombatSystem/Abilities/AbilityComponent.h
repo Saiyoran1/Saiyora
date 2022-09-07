@@ -310,19 +310,5 @@ public:
 
 	void AddGenericResourceCostModifier(const TSubclassOf<UResource> ResourceClass, const FCombatModifier& Modifier);
 	void RemoveGenericResourceCostModifier(const TSubclassOf<UResource> ResourceClass, UBuff* Source);
-
-//Queueing
-
-private:
-	
-	void UpdateQueueOnGlobalEnd();
-	void UpdateQueueOnCastEnd();
-	EQueueStatus QueueStatus = EQueueStatus::Empty;
-	TSubclassOf<UCombatAbility> QueuedAbility;
-	bool bUsingAbilityFromQueue = false;
-	bool TryQueueAbility(const TSubclassOf<UCombatAbility> AbilityClass);
-	FTimerHandle QueueExpirationHandle;
-	UFUNCTION()
-	void ExpireQueue();
 	
 };

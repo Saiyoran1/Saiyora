@@ -1,5 +1,7 @@
 #pragma once
 #include "CoreMinimal.h"
+#include "AbilityEnums.h"
+#include "AbilityStructs.h"
 #include "CombatEnums.h"
 #include "SaiyoraCombatInterface.h"
 #include "GameFramework/Character.h"
@@ -93,4 +95,19 @@ private:
 	void AddAbilityMapping(UCombatAbility* NewAbility);
 	UFUNCTION()
 	void RemoveAbilityMapping(UCombatAbility* RemovedAbility);
+	
+	static const float ABILITYQUEWINDOW;
+	UFUNCTION()
+	void UpdateQueueOnGlobalEnd(const FGlobalCooldown& OldGlobalCooldown, const FGlobalCooldown& NewGlobalCooldown);
+	UFUNCTION()
+	void UpdateQueueOnCastEnd(const FCastingState& OldState, const FCastingState& NewState);
+	UFUNCTION()
+	void UseAbilityFromQueue(const TSubclassOf<UCombatAbility> AbilityClass);
+	EQueueStatus QueueStatus = EQueueStatus::Empty;
+	TSubclassOf<UCombatAbility> QueuedAbility;
+	bool bUsingAbilityFromQueue = false;
+	bool TryQueueAbility(const TSubclassOf<UCombatAbility> AbilityClass);
+	FTimerHandle QueueExpirationHandle;
+	UFUNCTION()
+	void ExpireQueue();
 };
