@@ -67,56 +67,6 @@ void ASaiyoraPlayerCharacter::OnRep_PlayerState()
 	InitializeCharacter();
 }
 
-void ASaiyoraPlayerCharacter::AbilityInput(const int32 InputNum, const bool bPressed)
-{
-	if (!IsValid(AbilityComponent) || !IsValid(PlaneComponent))
-	{
-		return;
-	}
-	const UCombatAbility* AbilityToUse = PlaneComponent->GetCurrentPlane() == ESaiyoraPlane::Ancient ? AncientAbilityMappings.FindRef(InputNum) : ModernAbilityMappings.FindRef(InputNum);
-	if (!IsValid(AbilityToUse))
-	{
-		return;
-	}
-	if (bPressed)
-	{
-		//Attempt to use the ability.
-		const FAbilityEvent InitialAttempt = AbilityComponent->UseAbility(AbilityToUse->GetClass());
-		if (InitialAttempt.ActionTaken == ECastAction::Fail && GEngine)
-		{
-			static int32 Key = 0;
-			Key++;
-			GEngine->AddOnScreenDebugMessage(Key, 5.0f, FColor::Red, UEnum::GetValueAsString(InitialAttempt.FailReason));
-		}
-		if (InitialAttempt.ActionTaken == ECastAction::Fail && (InitialAttempt.FailReason == ECastFailReason::AlreadyCasting || InitialAttempt.FailReason == ECastFailReason::OnGlobalCooldown))
-		{
-			//If the attempt failed due to cast in progress or GCD, try and queue.
-			if (!TryQueueAbility(AbilityToUse->GetClass()) && InitialAttempt.FailReason == ECastFailReason::AlreadyCasting)
-			{
-				//If we couldn't que, and originally failed due to casting, cancel the current cast and then re-attempt.
-				if (AbilityComponent->CancelCurrentCast().bSuccess)
-				{
-					AbilityComponent->UseAbility(AbilityToUse->GetClass());
-				}
-			}
-		}
-	}
-	else
-	{
-		//If the input we are releasing is for the current cast, that cast is cancellable on release, AND we aren't within the queue window, cancel our cast. (Within the queue window, we allow the cast to finish).
-		if (AbilityComponent->IsCasting() && AbilityComponent->GetCurrentCast() == AbilityToUse && AbilityComponent->GetCurrentCast()->WillCancelOnRelease() && (AbilityComponent->GetCastTimeRemaining() > ABILITYQUEWINDOW || !AbilityComponent->IsCastAcked()))
-		{
-			AbilityComponent->CancelCurrentCast();
-		}
-		//Else if the input we are releasing is for an ability that is currently queued, and that ability is cancellable on release, we just clear the queue (the cast would instantly end anyway).
-		else if (QueueStatus != EQueueStatus::Empty && QueuedAbility->GetClass() == AbilityToUse->GetClass() && AbilityToUse->WillCancelOnRelease())
-		{
-			//TODO: There is potentially a problem if we WANT to instant tick and then cancel a cast at the end of another cast. We'll see if this is something that's ever desirable.
-			ExpireQueue();
-		}
-	}
-}
-
 void ASaiyoraPlayerCharacter::InitializeCharacter()
 {
 	if (bInitialized)
@@ -139,6 +89,7 @@ void ASaiyoraPlayerCharacter::InitializeCharacter()
 	{
 		SetupAbilityMappings();
 		CreateUserInterface();
+		PlaneComponent->OnPlaneSwapped.AddDynamic(this, &ASaiyoraPlayerCharacter::ClearQueueAndAutoFireOnPlaneSwap);
 	}
 	GameStateRef->InitPlayer(this);
 	bInitialized = true;
@@ -224,6 +175,71 @@ void ASaiyoraPlayerCharacter::RemoveAbilityMapping(UCombatAbility* RemovedAbilit
 				break;
 			}
 		}
+	}
+	if (RemovedAbility == AutomaticInputAbility)
+	{
+		AutomaticInputAbility = nullptr;
+	}
+}
+
+void ASaiyoraPlayerCharacter::AbilityInput(const int32 InputNum, const bool bPressed)
+{
+	if (!IsValid(AbilityComponent) || !IsValid(PlaneComponent))
+	{
+		return;
+	}
+	UCombatAbility* AbilityToUse = PlaneComponent->GetCurrentPlane() == ESaiyoraPlane::Ancient ? AncientAbilityMappings.FindRef(InputNum) : ModernAbilityMappings.FindRef(InputNum);
+	if (!IsValid(AbilityToUse))
+	{
+		return;
+	}
+	if (bPressed)
+	{
+		//Attempt to use the ability.
+		const FAbilityEvent InitialAttempt = AbilityComponent->UseAbility(AbilityToUse->GetClass());
+		if (InitialAttempt.ActionTaken == ECastAction::Fail && (InitialAttempt.FailReason == ECastFailReason::AlreadyCasting || InitialAttempt.FailReason == ECastFailReason::OnGlobalCooldown))
+		{
+			//If the attempt failed due to cast in progress or GCD, try and queue.
+			if (!TryQueueAbility(AbilityToUse->GetClass()) && InitialAttempt.FailReason == ECastFailReason::AlreadyCasting)
+			{
+				//If we couldn't que, and originally failed due to casting, cancel the current cast and then re-attempt.
+				if (AbilityComponent->CancelCurrentCast().bSuccess)
+				{
+					AbilityComponent->UseAbility(AbilityToUse->GetClass());
+				}
+			}
+		}
+		if (AbilityToUse->IsAutomatic())
+		{
+			AutomaticInputAbility = AbilityToUse;
+		}
+	}
+	else
+	{
+		//If the input we are releasing is for the current cast, that cast is cancellable on release, AND we aren't within the queue window, cancel our cast. (Within the queue window, we allow the cast to finish).
+		if (AbilityComponent->IsCasting() && AbilityComponent->GetCurrentCast() == AbilityToUse && AbilityComponent->GetCurrentCast()->WillCancelOnRelease() && (AbilityComponent->GetCastTimeRemaining() > ABILITYQUEWINDOW || !AbilityComponent->IsCastAcked()))
+		{
+			AbilityComponent->CancelCurrentCast();
+		}
+		//Else if the input we are releasing is for an ability that is currently queued, and that ability is cancellable on release, we just clear the queue (the cast would instantly end anyway).
+		else if (QueueStatus != EQueueStatus::Empty && QueuedAbility->GetClass() == AbilityToUse->GetClass() && AbilityToUse->WillCancelOnRelease())
+		{
+			//TODO: There is potentially a problem if we WANT to instant tick and then cancel a cast at the end of another cast. We'll see if this is something that's ever desirable.
+			ExpireQueue();
+		}
+		if (AbilityToUse->IsAutomatic() && AbilityToUse == AutomaticInputAbility)
+		{
+			AutomaticInputAbility = nullptr;
+		}
+	}
+}
+
+void ASaiyoraPlayerCharacter::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+	if (IsLocallyControlled() && QueueStatus == EQueueStatus::Empty && IsValid(AutomaticInputAbility))
+	{
+		AbilityComponent->UseAbility(AutomaticInputAbility->GetClass());
 	}
 }
 
@@ -311,4 +327,11 @@ void ASaiyoraPlayerCharacter::ExpireQueue()
 	QueueStatus = EQueueStatus::Empty;
 	QueuedAbility = nullptr;
 	GetWorld()->GetTimerManager().ClearTimer(QueueExpirationHandle);
+}
+
+void ASaiyoraPlayerCharacter::ClearQueueAndAutoFireOnPlaneSwap(const ESaiyoraPlane PreviousPlane,
+	const ESaiyoraPlane NewPlane, UObject* Source)
+{
+	AutomaticInputAbility = nullptr;
+	ExpireQueue();
 }

@@ -23,6 +23,7 @@ public:
 	ASaiyoraPlayerCharacter(const class FObjectInitializer& ObjectInitializer);
 	virtual void PostInitializeComponents() override;
 	virtual void BeginPlay() override;
+	virtual void Tick(float DeltaSeconds) override;
 	virtual void PossessedBy(AController* NewController) override;
 	virtual void OnRep_Controller() override;
 	virtual void OnRep_PlayerState() override;
@@ -102,6 +103,8 @@ private:
 	UFUNCTION()
 	void UpdateQueueOnCastEnd(const FCastingState& OldState, const FCastingState& NewState);
 	UFUNCTION()
+	void ClearQueueAndAutoFireOnPlaneSwap(const ESaiyoraPlane PreviousPlane, const ESaiyoraPlane NewPlane, UObject* Source);
+	UFUNCTION()
 	void UseAbilityFromQueue(const TSubclassOf<UCombatAbility> AbilityClass);
 	EQueueStatus QueueStatus = EQueueStatus::Empty;
 	TSubclassOf<UCombatAbility> QueuedAbility;
@@ -110,4 +113,7 @@ private:
 	FTimerHandle QueueExpirationHandle;
 	UFUNCTION()
 	void ExpireQueue();
+
+	UPROPERTY()
+	UCombatAbility* AutomaticInputAbility = nullptr;
 };
