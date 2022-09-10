@@ -19,15 +19,7 @@ Ability usage is fairly complicated, especially when looking at prediction and r
 - Request ability use by TSubclassOf<UCombatAbility>.
 - Check if the actor is locally controlled and the ability subclass is valid.
 - Check active abilities to find one of the requested class.
-- Check if the ability is usable:
-    - Is the ability valid, initialized, and not deactivated?
-    - Is the caster alive, or is the ability usable while dead?
-    - Does the ability have sufficient charges?
-    - Are the ability's resource costs met?
-    - Are there any custom cast restrictions?
-    - Are any of the ability's tags restricted (including the ability class tag)?
-    - Is the global cooldown active, or is the ability off-global?
-    - Is another cast in progress?
+- Check if the ability is usable (full list of conditions checked is in the Ability Usage Conditions section below).
 - Start the global cooldown, if the ability is on-global.
 - Commit the ability's charge cost and start the ability's cooldown if any charges are spent.
 - Commit any resource costs of the ability.
@@ -41,18 +33,10 @@ ON CLIENT:
 - Request ability use by TSubclassOf<UCombatAbility>.
 - Check if the actor is locally controlled and the ability subclass is valid.
 - Check active abilities to find one of the requested class.
-- Check if the ability is usable:
-    - Is the ability valid, initialized, and not deactivated?
-    - Is the caster alive, or is the ability usable while dead?
-    - Does the ability have sufficient charges?
-    - Are the ability's resource costs met?
-    - Are there any custom cast restrictions?
-    - Are any of the ability's tags restricted (including the ability class tag)?
-    - Is the global cooldown active, or is the ability off-global?
-    - Is another cast in progress?
+- Check if the ability is usable.
 - Generate a new Prediction ID.
-- Predictively start a global cooldown, if the ability is on-global.
-- Predictively commit the ability's charge cost, and start an indefinite-length cooldown if charges were spent and the ability isn't already on cooldown.
+- Predictively start a global cooldown, if the ability is on-global ([Global Cooldown](#global-cooldown))
+- Predictively commit the ability's charge cost (prediction of charges and cooldown is detailed in the Charges and Cooldowns section below).
 - Predictively commit any resource costs of the ability.
 - In the case of an instant ability: Execute the predicted tick functionality of the ability.
 - In the case of a channeled ability: Start an indefinite-length cast bar, and execute predicted tick functionality if an initial tick is needed.
@@ -86,7 +70,7 @@ Abilities marked as "On Global Cooldown" can not be activated during a global co
 
 Abilities can not be activated during a channel of an ability. For players, there is some functionality setup inside the Player Character class (where ability input is initially handled) to automatically try and cancel a channel in progress to use a new ability if the channel isn't about to end (more on that in the Queueing section).
 
-
+<a name="global-cooldown"></a>
 ##### Global Cooldown
 
 _Modifiable Values: Global Cooldown Length_
