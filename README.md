@@ -9,7 +9,7 @@ _I did experiment with using Unreal Engine's Gameplay Ability System plugin for 
 
 There are a few patterns that I found myself using in a lot of places in the combat system's code, and wanted to document since they pop up in nearly every component involved in combat.
 
-### Modifiable Values
+### Combat Modifiers
 
 Because of the influence of RPG and MMO-style games on Saiyora, I wanted to build a complex system of buffs, debuffs, and stats that could alter gameplay at runtime. A lot of actions you can take in combat result in calculating a value that determines how long a timer lasts, how effective an ability is, etc. To allow this, I set up a generic pattern of modifiers and a common system for handling them.
 
@@ -31,17 +31,23 @@ As an example, take an ability with non-static cast length, a default cast lengt
 
 This covers use cases for simple modifiers, for things like generically increasing all cast lengths by 20%. Some modifiable values currently only support simple modifiers, such as Max Charges, Charge Cost, Resource Cost, and Charges Per Cooldown (this is mostly to keep the updating of an ability's Castable status functioning correctly and displaying on the player UI correctly). 
 
-However, to get more interesting interactions, there also needs to be more specific modifiers that take effect only within specific contexts. Complex modifiers are represented as functions that take an event as context and return a modifier to apply, which may be null. These functions are specific to the type of event they modify.
+### Conditional Modifiers
 
-As an example, a modifier that reduces all direct fire damage taken by 20% would be a function that takes an FHealthEvent struct as context, checks if the HitStyle is Direct, checks if the School is Fire, and checks if the EventType is Damage. If any of those three are false, it would return an Invalid type modifier. If all three are true, it would return a Multiplicative modifier whose value is .8. Components hold an array of these delegates, and iterate over them, executing each one during calculation and storing the result in a modifier array, before using the same calculation as above to apply them to a base value.
+To get more specific modifier interactions, there is also the concept of conditional modifiers, which take effect only within specific contexts. Conditional modifiers are represented as functions that take an event as context and return a modifier to apply, which may be null. These functions are specific to the type of event they modify.
+
+As an example, a modifier that reduces all direct fire damage taken by 20% would be a function that takes an FHealthEvent struct as context, checks if the HitStyle is Direct, checks if the School is Fire, and checks if the EventType is Damage. If any of those three are false, it would return an Invalid type modifier. If all three are true, it would return a Multiplicative modifier whose value is .8. Components hold an array of these delegates, and iterate over them, executing each one during calculation and storing the result in a modifier array, before using the generic modifier application calculation as above to apply them to a base value.
 
 ### Event Restrictions
 
-Many events within the combat system may be conditionally restricted from being executed, including things like damage and healing, threat generation and threat actions, Plane swapping, and Buff application, among others. Taking a similar approach to complex modifiers above, restrictions are also represented as functions that take an event struct as context and return a bool representing whether the event should be restricted.
+Many events within the combat system may be conditionally restricted from being executed, including things like damage and healing, threat generation and threat actions, Plane swapping, and Buff application, among others. Taking a similar approach to conditional modifiers above, restrictions are also represented as functions that take an event struct as context and return a bool representing whether the event should be restricted.
 
 As an example, a restriction that prevents all crowd control debuffs from being applied would be a function that takes an FBuffApplyEvent struct as context, checks if the buff class has a CrowdControl tag in its BuffTags, and if so returns true (preventing application), and if not returns false (allowing appication).
 
-The ability system had need for a simpler system that wasn't dependent on context, to keep the Castable status of an ability updated correctly and UI display working properly, so custom cast restrictions and ability tag restrictions are used for ability activation. ([Ability Usage Conditions](#ability-usage-conditions))
+The ability system had need for a simpler system that wasn't dependent on context, to keep the Castable status of an ability updated correctly and UI display working properly, so custom cast restrictions and ability tag restrictions are used for ability activation instead of conditional restrictions. ([Ability Usage Conditions](#ability-usage-conditions))
+
+### Prediction IDs
+
+Used mostly within the context of the ability system, Prediction IDs are just integers that represent an ability usage initiated by a non-server client. Actors controlled on the server (NPCs and players who are hosting as a listen server) always use 0 as a prediction ID. Prediction IDs are used to update predicted structs like the GCD, ability cooldowns, resource values, and cast status and keep things in sync between server and owning client. Abilities also typically pass their prediction ID to any buffs, projectiles, or predictively spawned actors, in order to sync things like movement stats, or handle mispredictions.
 
 ---
 
@@ -100,14 +106,14 @@ Abilities have the option to be castable while dead, where they will ignore thei
 
 A number of ability-specific restrictions on usage are encapsulated in the Castable enum, which holds a reason that an ability is not castable at any given time, or None if the ability is castable. It is constantly updated by multiple different checks for the purpose of being displayable on the UI for players. These checks include:
 
-- Charge cost check, updated any time the charge cost or current charges of the ability are updated.
-- Resource cost check, updated any time any of the resources the ability depends on change values (or are removed).
+- Charge cost check, updated any time the charge cost or current charges of the ability are updated. ([Cooldowns and Charges](#cooldowns-and-charges))
+- Resource cost check, updated any time any of the resources the ability depends on change values (or are removed). ([Resources](#resources))
 - Custom cast restrictions check, updated any time a custom cast restriction is activated or deactivated by the ability. These are for conditions that the ability imposes on itself, for example "Can only cast while moving," "Must have a debuff active on an enemy to cast," etc.
 - Tag restrictions check, updated any time a restricted tag is added or removed from the ability. These are restrictions applied by sources other than the ability itself, including a generic restriction on an ability class (and all its derived classes) and more specific restrictions that are checked against an ability's tags.
 
-Abilities marked as "On Global Cooldown" can not be activated during a global cooldown.
+Abilities marked as "On Global Cooldown" can not be activated during a global cooldown. ([Global Cooldown](#global-cooldown))
 
-Abilities can not be activated during a channel of an ability. For players, there is some functionality setup inside the Player Character class (where ability input is initially handled) to automatically try and cancel a channel in progress to use a new ability if the channel isn't about to end (more on that in the Queueing section).
+Abilities can not be activated during a channel of an ability. For players, there is some functionality setup inside the Player Character class (where ability input is initially handled) to automatically try and cancel a channel in progress to use a new ability if the channel isn't about to end (more on that in the Queueing section). ([Casting](#casting))
 
 <a name="global-cooldown"></a>
 ### Global Cooldown
@@ -148,10 +154,34 @@ Channeled abilities also have the ability to be cancelled and interrupted. Inter
 
 Prediction of casts is handled similarly to cooldowns, where the predicting client will instantly trigger the initial tick (if the ability has one), and display an empty cast bar, but will not calculate the length of the cast or trigger any subsequent ticks until the server has responded with the correct cast length or notice of misprediction. Misprediction simply results in the immediate end of the cast (this is not considered a cancellation and will not trigger behavior), while confirmation of the cast length allows the client to use his predicted activation time to recreate the cast bar, trigger any ability ticks that may have been missed in the time between predicting and receiving confirmation of the ability usage, and set up a timer for the next tick. Each tick is predicted separately, with the client sending any necessary data at his own local tick intervals, and the server simply holding that data then triggering the tick at the right time (if it arrives before the server ticks), or marking the tick as lacking data and triggering it when client data arrives (if it arrives after the server ticks). There is a time limit on how far out of sync the server will execute a predicted tick to prevent the client from sending ticks at incorrect times and potentially causing issues. Currently, this limit is 1 tick, so the server will ignore a tick entirely if the next tick of the ability happens on the server without receiving prediction data. This may need to be adjusted if there is a need for a lot of fast-ticking abilities used by players (as NPCs don't need to worry about prediction).
 
+<a name="player-ability-input"></a>
+### Player Ability Input
+
+Ability input for players is handled in the APlayerCharacter class, where there is some additional logic beyond just calling UseAbility on every new ability input. The main additional functionality includes:
+
+- Cancelling channels on new input.
+- Queueing input.
+- Re-using automatically firing abilities.
+- Cancelling "cancel on release" channels on release.
+
+When ability input is received and another channel is already in progress, players will either cancel the current channel and then attempt to use the newly input ability, or, in the case of an input that occurs within a small window (currently .2 seconds) of the end of the channel, the player will "queue" the input until the end of the current channel and then reattempt it. This queueing logic also works for GCDs that are about to end, to prevent pressing an input a few milliseconds early from resulting in a failed ability use.
+
+Abilities can be marked as Automatic, which means that holding their input will constantly re-use the ability when possible until another input is pressed. This currently runs on every frame if an automatic ability's input is held down, unless the player swaps Planes (switching what ability the input corresponds to) or has another ability in queue. Weapons are the main reason this functionality exists.
+
+Abilities can also be marked as Cancel on Release, which means that their input must be held down to continue the channel. Releasing the input of a channeled ability that is Cancel on Release will immediately cancel the channel, unless it is within the queueing window, in which case the channel will be allowed to finish. This allows an early escape from abilities where the entire channel may not be desired.
+
 <a name="ability-functionality"></a>
 ### Ability Functionality
   
   Abilities have functionality attached to a a multitude of different functions. The primary places where abilities perform their functionality are in the Tick functions: PredictedTick, ServerTick, and SimulatedTick. They can also have functionality tied to being cancelled, interrupted, and mispredicted, though the misprediction functionality should be limited to cleaning up predicted effects such as projectiles or particles.
+  
+- Predicted Tick runs on the locally controlled client, whether it is the server or not.
+- Server Tick runs only on the server. This means that players on listen servers will fire both the Predicted and Server Ticks back-to-back.
+- Simulated Tick runs only on clients that are not the server and not controlling the actor, and is intended to be used mostly for cosmetic effects.
+
+Typically, Predicted Tick should be where any targeting or input-reliant logic is handled, with target data being passed along to the Server Tick automatically after being set. Server Tick should handle the authoritative logic that can not happen on clients, and can also have some conditional cosmetic effects to allow listen server players to see effects for other players' abilities. Simulated tick should just be used to pass results of the ability use to other clients and allow them to have cosmetic effects.
+
+Cancelling has a similar set of functions (PredictedCancel, ServerCancel, SimulatedCancel), and Interrupting has a Server and Simulated version (Interrupts only happen on the server, and can not be predicted). Misprediction is not called on simulated clients, only on the server and the owning client, as it should really just be used to clean up predicted effects.
   
 ---
 
