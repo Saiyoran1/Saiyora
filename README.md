@@ -37,6 +37,7 @@ Ability usage is fairly complicated, especially when looking at prediction and r
 
 For players that are not a listen server, things are more complicated, as there is a lot of prediction going on. Here is an overview of a predicted ability use by a non-server player:
 
+ON CLIENT:
 - Request ability use by TSubclassOf<UCombatAbility>.
 - Check if the actor is locally controlled and the ability subclass is valid.
 - Check active abilities to find one of the requested class.
@@ -51,11 +52,40 @@ For players that are not a listen server, things are more complicated, as there 
     - Is another cast in progress?
 - Generate a new Prediction ID.
 - Predictively start a global cooldown, if the ability is on-global.
-- Predictively commit the ability's charge cost, and activate an indefinite-length cooldown if charges were spent and no cooldown is currently active.
+- Predictively commit the ability's charge cost, and start an indefinite-length cooldown if charges were spent and the ability isn't already on cooldown.
 - Predictively commit any resource costs of the ability.
 - In the case of an instant ability: Execute the predicted tick functionality of the ability.
 - In the case of a channeled ability: Start an indefinite-length cast bar, and execute predicted tick functionality if an initial tick is needed.
-- If an ability tick was executed, multicast to execute the simulated tick on other machines.
+- Send ability request to the server.
+
+ON SERVER:
+- Check request for valid prediction ID.
+- Perform all of the steps taken on the client, but with actual calculated values for cooldown length and cast bar length, and executing the server tick functionality instead of predicted tick functionality.
+- If a tick was performed, multicast to execute simulated tick functionality on other clients.
+- Notify the client of the result of the ability request.
+
+ON CLIENT:
+- Update resource cost predictions from server result (this does nothing if the server has already replicated down new resource values with the same prediction ID).
+- Update ability charge cost from server result (this does not set the cooldown timer to the correct length, just corrects any mistakes in calculating charge expenditure).
+- Update global cooldown from server result (this DOES adjust the GCD timer if necessary, since GCD length is predicted).
+
+#### Ability Usage Conditions
+
+Abilities need to be initialized on the server and owning client, and are not usable until this is done. This initialization involves making sure the ability has a valid reference to it's owning Ability Component, valid max charges, charges per cooldown, and charge cost, current charges set to max, resource costs set up, valid references to all resources that are included in the ability's costs, any custom cast restrictions that need to be set, any Blueprint initialization handled, and castable status updated properly. Most of this only takes place on the server, and the client can just call the custom cast restrictions, Blueprint initialization, and castable status steps once a valid Ability Component reference has been replicated down.
+
+Abilities have the option to be castable while dead, where they will ignore their owner's life status (if the owning actor even has a Damage Handler). In the event that the owner does not have a Damage Handler, this check is skipped entirely.
+
+A number of ability-specific restrictions on usage are encapsulated in the Castable enum, which holds a reason that an ability is not castable at any given time, or None if the ability is castable. It is constantly updated by multiple different checks for the purpose of being displayable on the UI for players. These checks include:
+
+- Charge cost check, updated any time the charge cost or current charges of the ability are updated.
+- Resource cost check, updated any time any of the resources the ability depends on change values (or are removed).
+- Custom cast restrictions check, updated any time a custom cast restriction is activated or deactivated by the ability. These are for conditions that the ability imposes on itself, for example "Can only cast while moving," "Must have a debuff active on an enemy to cast," etc.
+- Tag restrictions check, updated any time a restricted tag is added or removed from the ability. These are restrictions applied by sources other than the ability itself, including a generic restriction on an ability class (and all its derived classes) and more specific restrictions that are checked against an ability's tags.
+
+Abilities marked as "On Global Cooldown" can not be activated during a global cooldown.
+
+Abilities can not be activated during a channel of an ability. For players, there is some functionality setup inside the Player Character class (where ability input is initially handled) to automatically try and cancel a channel in progress to use a new ability if the channel isn't about to end (more on that in the Queueing section).
+
 
 ##### Global Cooldown
 
