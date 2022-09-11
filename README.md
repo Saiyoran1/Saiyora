@@ -5,11 +5,40 @@ _I did experiment with using Unreal Engine's Gameplay Ability System plugin for 
 
 ---
 
-## Generic Concepts
+<a name="table-of-contents"></a>
+## Table of Contents
+
+> 1. [Generic Concepts](#generic-concepts)  
+>   1.1 [Combat Modifiers](#combat-modifiers)  
+>   1.2 [Conditional Modifiers](#conditional-modifiers)  
+>   1.3 [Event Restrictions](#event-restrictions)  
+>   1.4 [Prediction IDs](#prediction-ids)  
+> 2. [Abilities](#abilities)  
+>   2.1 [Ability Usage Flow](#ability-usage-flow)  
+>   2.2 [Ability Usage Conditions](#ability-usage-conditions)  
+>   2.3 [Global Cooldown](#global-cooldown)  
+>   2.4 [Cooldowns and Charges](#cooldowns-and-charges)  
+>   2.5 [Casting](#casting)  
+>   2.6 [Player Ability Input](#player-ability-input)  
+>   2.7 [Ability Functionality](#ability-functionality)  
+> 3. [Resources](#resources)  
+>   3.1 [Resource Initialization](#resource-initialization)  
+>   3.2 [Resource Costs](#resource-costs)  
+>   3.3 [Resource Delta Modifiers](#resource-delta-modifiers)  
+> 4. [Stats](#stats)  
+>   4.1 [Stat Initialization](#stat-initialization)  
+>   4.2 [Stat Modifiers](#stat-modifiers)  
+> 5. [Buffs](#buffs)  
+
+---
+
+<a name="generic-concepts"></a>
+## 1. Generic Concepts
 
 There are a few patterns that I found myself using in a lot of places in the combat system's code, and wanted to document since they pop up in nearly every component involved in combat.
 
-### Combat Modifiers
+<a name="combat-modifiers"></a>
+### 1.1 Combat Modifiers
 
 Because of the influence of RPG and MMO-style games on Saiyora, I wanted to build a complex system of buffs, debuffs, and stats that could alter gameplay at runtime. A lot of actions you can take in combat result in calculating a value that determines how long a timer lasts, how effective an ability is, etc. To allow this, I set up a generic pattern of modifiers and a common system for handling them.
 
@@ -31,13 +60,15 @@ As an example, take an ability with non-static cast length, a default cast lengt
 
 This covers use cases for simple modifiers, for things like generically increasing all cast lengths by 20%. Some modifiable values currently only support simple modifiers, such as Max Charges, Charge Cost, Resource Cost, and Charges Per Cooldown (this is mostly to keep the updating of an ability's Castable status functioning correctly and displaying on the player UI correctly). 
 
-### Conditional Modifiers
+<a name="conditional-modifiers"></a>
+### 1.2 Conditional Modifiers
 
 To get more specific modifier interactions, there is also the concept of conditional modifiers, which take effect only within specific contexts. Conditional modifiers are represented as functions that take an event as context and return a modifier to apply, which may be null. These functions are specific to the type of event they modify.
 
 As an example, a modifier that reduces all direct fire damage taken by 20% would be a function that takes an FHealthEvent struct as context, checks if the HitStyle is Direct, checks if the School is Fire, and checks if the EventType is Damage. If any of those three are false, it would return an Invalid type modifier. If all three are true, it would return a Multiplicative modifier whose value is .8. Components hold an array of these delegates, and iterate over them, executing each one during calculation and storing the result in a modifier array, before using the generic modifier application calculation as above to apply them to a base value.
 
-### Event Restrictions
+<a name="event-restrictions"></a>
+### 1.3 Event Restrictions
 
 Many events within the combat system may be conditionally restricted from being executed, including things like damage and healing, threat generation and threat actions, Plane swapping, and Buff application, among others. Taking a similar approach to conditional modifiers above, restrictions are also represented as functions that take an event struct as context and return a bool representing whether the event should be restricted.
 
@@ -45,17 +76,26 @@ As an example, a restriction that prevents all crowd control debuffs from being 
 
 The ability system had need for a simpler system that wasn't dependent on context, to keep the Castable status of an ability updated correctly and UI display working properly, so custom cast restrictions and ability tag restrictions are used for ability activation instead of conditional restrictions. ([Ability Usage Conditions](#ability-usage-conditions))
 
-### Prediction IDs
+<a name="prediction-ids"></a>
+### 1.4 Prediction IDs
 
 Used mostly within the context of the ability system, Prediction IDs are just integers that represent an ability usage initiated by a non-server client. Actors controlled on the server (NPCs and players who are hosting as a listen server) always use 0 as a prediction ID. Prediction IDs are used to update predicted structs like the GCD, ability cooldowns, resource values, and cast status and keep things in sync between server and owning client. Abilities also typically pass their prediction ID to any buffs, projectiles, or predictively spawned actors, in order to sync things like movement stats, or handle mispredictions.
 
 ---
 
-## Abilities
+<a name="abilities"></a>
+## 2. Abilities
 
 Abilities are handled by the UAbilityComponent, which is a universal actor component that can be applied to players or NPCs to give them functionality to add, remove, and use objects derived from UCombatAbility, the generic ability/spell class in this game. For players, UAbilityComponent also handles prediction and reconciliation of the global cooldown timer, individual ability cooldowns, cast bars, resource costs, and any predicted parameters necessary to execute ability functionality, such as aim targets and camera location.  
 
-### Ability Usage Flow
+__Available Callbacks:__ _On Ability Added, On Ability Removed, On Ability Tick, On Ability Mispredicted, On Ability Cancelled, On Ability Interrupted, On Cast State Changed, On Global Cooldown Changed, On Charges Changed_  
+
+__Modifiable Values:__ _Cast Length, Global Cooldown Length, Cooldown Length, Resource Cost, Max Charges, Charge Cost, Charges Per Cooldown_  
+
+__Restrictable Events:__ _Ability Use, Interrupt_  
+
+<a name="ability-usage-flow"></a>
+### 2.1 Ability Usage Flow
 
 Ability usage is fairly complicated, especially when looking at prediction and replication. A basic overview from the perspective of a server-controlled actor (either an NPC or a player acting as a listen server) using an ability is as follows:
 
@@ -80,7 +120,7 @@ ON CLIENT:
 - Generate a new Prediction ID.
 - Start the global cooldown, if the ability is on-global. ([Global Cooldown](#global-cooldown))
 - Commit the ability's charge cost and start the ability's cooldown if needed. ([Cooldowns and Charges](#cooldowns-and-charges))
-- Commit any resource costs of the ability. ([Resources](#resources))
+- Commit any resource costs of the ability. ([Resource Costs](#resource-costs))
 - For channeled abilities: Start a cast bar. ([Casting](#casting))
 - For instant abilities OR channeled abilities with an initial tick: Execute the predicted tick functionality of the ability. ([Ability Functionality](#ability-functionality))
 - Send ability request to the server.
@@ -98,7 +138,7 @@ ON CLIENT:
 - In the case of a misprediction (the ability was denied by the server), call the ability's OnMispredicted functionality to clean up predicted effects.
 
 <a name="ability-usage-conditions"></a>
-### Ability Usage Conditions
+### 2.2 Ability Usage Conditions
 
 Abilities need to be initialized on the server and owning client, and are not usable until this is done. Server initialization is done when adding the ability to an Ability Component. Client initialization is triggered by replication of a valid Ability Component reference within the ability instance. Abilities can also be deactivated when removed from an Ability Component, rendering them unusable and pending destruction.
   
@@ -116,9 +156,7 @@ Abilities marked as "On Global Cooldown" can not be activated during a global co
 Abilities can not be activated during a channel of an ability. For players, there is some functionality setup inside the Player Character class (where ability input is initially handled) to automatically try and cancel a channel in progress to use a new ability if the channel isn't about to end (more on that in the Queueing section). ([Casting](#casting))
 
 <a name="global-cooldown"></a>
-### Global Cooldown
-
-_Modifiable Values: Global Cooldown Length_
+### 2.3 Global Cooldown
 
 The global cooldown (GCD) is a concept commonly used in non-shooter games. Specifically, MMOs like World of Warcraft and Final Fantasy XIV use GCDs as a way to set the pace of combat, causing a short period after using most abilities where other abilities can not be used. Some abilities designated as "off-GCD" can ignore the GCD and not trigger its timer, but in the games I used as examples, the vast majority of core abilities trigger a GCD anywhere from 1 to 3 seconds. 
 
@@ -129,9 +167,7 @@ GCDs are client predicted in the Ability Component, including their length (whic
 There is potential for issues if the ping of the client drops in between ability uses, as a request for using a new ability might arrive before the previous GCD has ended on the server, despite the client locally seeing his predicted GCD complete. For this reason, the server sends the client the correct calculated GCD length, but actually sets its own GCD timer to a reduced value, based on a universal multiplier of the requesting client's ping (currently set at 20%), so that it would be exceedingly rare for a client's ping to fluctuate enough naturally to cause their next ability request to arrive before the previous GCD had finished on the server (without cheating or completely mispredicting). There is some potential for cheating here, as clients could send new ability requests up to 20% earlier by bypassing their local GCD timer, and the server would accept this as valid. One way to combat this would be to do some internal bookkeeping of GCD discrepancies over time, and if clients are consistently sending new ability use requests within that 20% window, disconnect them. However, I have not implemented this functionality right now.
 
 <a name="cooldowns-and-charges"></a>
-### Cooldowns and Charges
-
-_Modifiable Values: Charge Cost, Cooldown Length, Charges per Cooldown_
+### 2.4 Cooldowns and Charges
 
 Cooldowns in Saiyora are based on a charge system. This means every ability can be used a certain amount of times before running out of charges and needing to wait for the ability's cooldown timer to finish and refund some or all of those uses. A basic ability would have a single charge, and its cooldown would restore that single charge, which would mirror the functionality most commonly seen in RPGs or in Epic's own Gameplay Ability System. However, the charge system gives flexibility to design abilities that can also be fired multiple times before needing to cooldown, and even the ability for a cooldown to restore multiple charges to an ability, creating some resource management and "dump" windows for abilities where it is encouraged to use multiple charges in quick succession to avoid wasting refunded charges from the ability's cooldown.
 
@@ -142,9 +178,7 @@ The server keeps track of the authoritative cooldown state, calculating charge c
 Currently on my list of TODOs: Adding in the same lag compensation window to cooldowns triggered by an ability use (NOT cooldowns triggered by "rolling over" at the end of a previous cooldown) that GCD uses, to prevent players with higher ping from being disadvantaged with longer cooldowns on abilities.
 
 <a name="casting"></a>
-### Casting
-
-_Modifiable Values: Cast Length_
+### 2.5 Casting
 
 There are two types of abilities in Saiyora: instant and channeled. Instant abilities happen within a single frame, while channeled abilities happen over time, in a set number of "ticks" (note this is not Unreal Engine's game tick, but a term adopted from MMOs that represents an instance of an ability activation within a set triggered by a single cast) that are equally spaced throughout the ability's duration. Channeled abilities can either have an initial tick or not, and then have at least 1 non-initial tick where the ability's functionality is triggered, the last of which occurs at the end of the cast duration.
 
@@ -155,7 +189,7 @@ Channeled abilities also have the ability to be cancelled and interrupted. Inter
 Prediction of casts is handled similarly to cooldowns, where the predicting client will instantly trigger the initial tick (if the ability has one), and display an empty cast bar, but will not calculate the length of the cast or trigger any subsequent ticks until the server has responded with the correct cast length or notice of misprediction. Misprediction simply results in the immediate end of the cast (this is not considered a cancellation and will not trigger behavior), while confirmation of the cast length allows the client to use his predicted activation time to recreate the cast bar, trigger any ability ticks that may have been missed in the time between predicting and receiving confirmation of the ability usage, and set up a timer for the next tick. Each tick is predicted separately, with the client sending any necessary data at his own local tick intervals, and the server simply holding that data then triggering the tick at the right time (if it arrives before the server ticks), or marking the tick as lacking data and triggering it when client data arrives (if it arrives after the server ticks). There is a time limit on how far out of sync the server will execute a predicted tick to prevent the client from sending ticks at incorrect times and potentially causing issues. Currently, this limit is 1 tick, so the server will ignore a tick entirely if the next tick of the ability happens on the server without receiving prediction data. This may need to be adjusted if there is a need for a lot of fast-ticking abilities used by players (as NPCs don't need to worry about prediction).
 
 <a name="player-ability-input"></a>
-### Player Ability Input
+### 2.6 Player Ability Input
 
 Ability input for players is handled in the APlayerCharacter class, where there is some additional logic beyond just calling UseAbility on every new ability input. The main additional functionality includes:
 
@@ -171,9 +205,9 @@ Abilities can be marked as Automatic, which means that holding their input will 
 Abilities can also be marked as Cancel on Release, which means that their input must be held down to continue the channel. Releasing the input of a channeled ability that is Cancel on Release will immediately cancel the channel, unless it is within the queueing window, in which case the channel will be allowed to finish. This allows an early escape from abilities where the entire channel may not be desired.
 
 <a name="ability-functionality"></a>
-### Ability Functionality
+### 2.7 Ability Functionality
   
-  Abilities have functionality attached to a a multitude of different functions. The primary places where abilities perform their functionality are in the Tick functions: PredictedTick, ServerTick, and SimulatedTick. They can also have functionality tied to being cancelled, interrupted, and mispredicted, though the misprediction functionality should be limited to cleaning up predicted effects such as projectiles or particles.
+Abilities have functionality attached to a a multitude of different functions. The primary places where abilities perform their functionality are in the Tick functions: PredictedTick, ServerTick, and SimulatedTick. They can also have functionality tied to being cancelled, interrupted, and mispredicted, though the misprediction functionality should be limited to cleaning up predicted effects such as projectiles or particles.
   
 - Predicted Tick runs on the locally controlled client, whether it is the server or not.
 - Server Tick runs only on the server. This means that players on listen servers will fire both the Predicted and Server Ticks back-to-back.
@@ -186,6 +220,77 @@ Cancelling has a similar set of functions (PredictedCancel, ServerCancel, Simula
 ---
 
 <a name="resources"></a>
-## Resources
+## 3. Resources
   
+Resources are things like mana or energy, that are spent and generated by abilities as part of the normal management of combat flow. They support prediction of ability costs, manual value modification on the server, linking to Stats for fluctuating max and min values, and custom max and min value initialization.
+  
+__Available Callbacks:__ _On Resource Added, On Resource Removed, On Resource Changed_  
+  
+__Modifiable Values:__ _Resource Delta_  
+  
+__Restrictable Events:__ _None_
 
+<a name="resource-initialization"></a>
+### 3.1 Resource Initialization
+  
+Resource initialization happens first on the server, with each UResource getting a reference to it's handler and it's owner's UStatHandler component (if one exists) for binding max and min values to a Stat. Each resource is also passed an initialization struct that contains an optional custom initial, custom max, and custom min values, which will override the resource class' default initial, max, and min values. Resources can not have negative values, and as such are clamped above 0 at all times.
+  
+Resource classes can optionally have a Minimum Bind Stat and Maximum Bind Stat set, in which case they will check that their owner has a valid Stat Handler, that handler has a valid value for the selected Stat, and then set their min or max value to the stat's value, subscribing to the stat's OnStatChanged delegate to adjust any time the stat is updated. Current value is adjusted any time max or min value changes, to keep it proportional to the new range of values the resource supports and clamped within that new range.
+  
+There is a also a BlueprintNative PreInitializeResource function called after initial setup, that allows resources to perform some logic on initialization if needed. This is useful for things like setting up resource regeneration or tracking owner interactions to modify resources outside of the usual costs of ability usage or gains from external calls to ModifyResource.
+
+Client resource initialization is handled inside PostNetReceive, which checks for a valid Resource Handler ref, then calls PreInitializeResource client-side as well.
+
+<a name="resource-costs"></a>
+### 3.2 Resource Costs
+  
+Abilities have designated resource costs required to use them. These costs can be modified at runtime by adding Resource Cost Modifiers to the Ability Handler, and do not support conditional modifiers in order to accurately keep track of an ability's Castable status without having to check resource costs of every ability on tick to account for any new context. 
+  
+During ability usage, the ability class will call CommitAbilityCost. On the server, this just directly modifies the resource value, updates the latest prediction ID on the resource value struct, calls the OnResourceChanged delegate for other objects subscribed to the resource's behavior, and then calls PostResourceUpdated, which is another BlueprintNative function to allow any internal logic that may need to trigger from a resource changing (the best example of this once again being supporting passive regeneration of a resource).
+  
+On clients that are predicting ability usage, CommitAbilityCost adds a prediction struct that contains the prediction ID and predicted resource cost of the ability, then calls RecalculatePredictedResource, which updates a separate client resource value using the last replicated server value and any additional predictions the client has made. Something on my TODO list for the future is converting this into a system more similar to ability charges, where there isn't a need for a separate client value (and as such, no need to override the getter for the resource's value to change based on net role).
+  
+When the server sends back a response to a predicted ability usage, the updated costs replace the client's original prediction, and RecalculatePredictedResource is called again. When the server replicates the new value down through normal variable replication, all old predictions are cleared and the recalculation can then take into account only predictions newer than the replicated value.
+  
+<a name="resource-delta-modifiers"></a>
+### 3.3 Resource Delta Modifiers
+  
+Though ability costs don't support conditional modifiers due to UI and performance concerns, other modification of resource values does. Resources have a ModifyResource function available on the server that allows manual changing of a resource's value, with the option to ignore modifiers or not. Conditional modifiers for resource deltas take the resource itself, the source object of the modification, and the amount to modify the resource by as context.
+  
+Right now there is no prediction for modifying resources, but it is something that could be supported in the future to handle things like reloading restoring ammo or abilities that instantly grant some resource and make gameplay a bit smoother in such cases. It's on the TODO list as well, but hasn't been a high priority due to reloading being the only current case where it would drastically improve the game experience under lag. This would need to be part of a larger change to Prediction IDs to allow them to carry ability tick number, and sync replicated variables more granularly by tick rather than just by ability usage.
+  
+---
+  
+<a name="stats"></a>
+## 4. Stats
+  
+Stats are any value that needs to be modified at runtime for usage in combat calculation. This includes everything from max health modifiers to generic cast length modifiers, but notably does not replace things like max health VALUES or current health, which are concepts explicitly handled by the damage handler. This is one of the key differences between my approach and Epic's approach in GAS, where ANY modifiable value is handled as an attribute.
+  
+__Available Callbacks:__ _On Stat Changed_  
+  
+__Modifiable Values:__ _Stat Value_  
+  
+__Restrictable Events:__ _None_  
+  
+<a name="stat-initialization"></a>
+### 4.1 Stat Initialization
+  
+Stats are initialized on the server using a DataTable that provides info on each stat's tag, default value, optional max and min clamps, replication needs, and modifiable status. Stat tags are GameplayTags starting with "Stat." and must be unique for each stat. Stats, like resources, currently do not support negative values, and as such are clamped above 0 even when no min clamp is specified. 
+  
+The Stat Handler keeps track of a list of static stats, replicated stats, and non-replicated stats on the server. Static and non-replicated stats are not replicated to clients to save on bandwidth, while replicated stats use a FFastArraySerializer setup to get individual stat callbacks on clients without having to instantiate each one as a UObject. Clients perform stat initialization independently of the server to have default values for all stats in the case that a stat value is needed for a static stat, or before replication of a stat's value has occurred.
+  
+<a name="stat-modifiers"></a>
+### 4.2 Stat Modifiers
+  
+Stat modifiers can only be applied on the server, and any changes to stats are replicated down. Stats that are marked as static do not support modification, and also do not support subscription to their On Stat Changed callback. Stats do not support conditional modifiers, since there isn't really a valid context that would affect a modifier beyond "which stat is being modified."
+  
+Events often use stats as one of the modifiers in a calculation, taking the stat's current value and creating a Multiplicative modifier with it. This is a common approach in many components in the combat system, used in events ranging from cast length calculations to damage. As such, there is no concept of something like a "damage" stat, only a "damage done modifier" stat that represents a generic all-encompassing modifier to outgoing damage, and allowing more specific requirements to be represented in the Damage Handler itself as conditional modifiers.
+  
+One final thing to note is that there are no On Stat Added or On Stat Removed callbacks, since stats are only created in the Stat Handler's InitializeComponent function and not added or removed dynamically during gameplay. As such, there is a possible scenario where another component could try to subscribe to a stat that isn't yet replicated to a client. In this case, the FFastArraySerializer that contains replicated stats also keeps a TMultiMap of pending callbacks for not-yet-replicated stats, subscribing and notifying them when a stat is first replicated. This solves the race condition between stat replication and client-side subscription to stat values.
+  
+---
+  
+<a name="buffs"></a>
+### 5. Buffs
+  
+//TODO!
