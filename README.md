@@ -1,4 +1,30 @@
-# Saiyora Technical Overview
+# Game Overview
+
+Saiyora is a third person shooter game with RPG elements that focuses on speedrunning developer-created "dungeons" with a group of 1-4 players. It features a game world split into two alternate Planes: the modern and the ancient, which players can move between to alter their abilities and change the nature of combat. The modern plane allows players to focus on gunplay, with magical abilities that enhance the player's movement, defenses, damage, or healing, debuff enemies, or provide important utility. The ancient plane allows players to manifest magic as physical attacks, giving them access to a powerful arsenal of spells to fight with instead of their gun.
+
+Currently, the game is planned to be completely PvE (player-vs-environment), with no PvP mode, though I would like to add a PvP mode in the future. It will support listen and dedicated servers, for casual dungeon running and ranked runs for a leaderboard respectively. The game focuses heavily on allowing players to build out characters, with two separate specializations (one for each plane), each with their own talent system allowing customization on a per-dungeon basis. In the future, the game will support saving and sharing builds between players online.
+
+The main influence on the design of the game was World of Warcraft's Challenge Mode system, which existed briefly during the Mists of Pandaria and Warlords of Draenor expansions. Though WoW is not a shooter, the overall nature of pushing for Challenge Mode times is something I hope to replicate. Some core takeaways from this system that I hope to translate into my own game:
+
+- Infinite retries. Limiting attempts or otherwise restricting players from constantly being able to try very difficult strategies places a limit on the maximum amount of risk and complexity a dungeon run can realistically support. For more casual players, the cost of failure in a dungeon with limited retries means that groups often become toxic when mistakes are made, and progressing to more difficult strategies becomes discouraged.  
+
+- Determinism within the dungeon. While some things will always be random (for example, physics in Unreal are not deterministic by default), limiting the effect of randomness on the outcome of a dungeon run is important to making sure that success is contingent on good strategy and execution, rather than handling of bad luck or maximizing good luck. This means that NPC pathing, spawning, ability priority, etc. should involve no randomness, and instead be based strictly on things like time and combat thresholds (like health percentage). It also means that player output should feature little randomness when given the same input.  
+
+- Short goal times. Well-executed dungeon runs by skilled players should be between 5 and 10 minutes long. Casual runs should exist somewhere in the 15-20 minute range. Though poorly executed runs can and will exceed these goal times, players should never feel that their group played correctly and still had to spend half an hour or more in a single dungeon.  
+
+- Lack of artificial caps on speed and difficulty. Things like mandatory cutscenes, dialogue, delays in spawning of certain enemies, or time-based progression blocks can add to the feel or story of a game, but in the case of speedrunning are mostly frustrating for players and inflate the necessary time to complete a dungeon. I also aim to reduce things like hard crowd control or interrupt requirements that limit the number of enemies that can be fought at once based sheerly on the available number of players in the dungeon, enemies that must be fought alone or in small groups due to either lack of movement, progression blocks, or overwhelming combat advantages that discourage larger fights, and any mechanic that unduly punishes players for fighting more enemies, beyond the inherent difficulty of having to deal with more enemy mechanics at a time. I firmly believe that fights involving a larger number of enemies, each with their own skillset to be dealt with, creates chaos that is fun to deal with and rewarding to overcome.  
+
+A few notes about the game:
+
+- I am currently the only developer on this project.  
+
+- The game is made with Unreal Engine 5. Most systems are coded in C++, with Blueprints being heavily used for animation, UI, AI, and content.  
+
+- All art is placeholder. Almost every art asset is either a default UE5 asset, purchased from the Unreal marketplace, or downloaded from a free source such as Mixamo. Some UI elements and animations were created or modified by me.  
+
+---
+
+## Combat System Technical Overview
 
 _A quick note about GAS:_
 _I did experiment with using Unreal Engine's Gameplay Ability System plugin for this project, but ultimately decided that creating my own ability system would give me more control over how certain behaviors like prediction and lag compensation were implemented, as well as more of an opportunity to understand the creation of such systems. Learning was a primary goal of the project alongside actually finishing a prototype of the game. I also disliked the way GAS handled certain concepts, like the disparity between abilities and buffs, the concept of ability cooldowns, and the usage of "meta attributes" like damage for calculated event values. Overall, I had a pretty clear idea of what limitations I wanted in place and didn't need all of the flexibility that GAS offered at the cost of an extremely generic framework, and preferred to go for a less flexible but more understandable (to me) system that I built myself._
