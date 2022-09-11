@@ -8,7 +8,7 @@ The main influence on the design of the game was World of Warcraft's Challenge M
 
 - Infinite retries. Limiting attempts or otherwise restricting players from constantly being able to try very difficult strategies places a limit on the maximum amount of risk and complexity a dungeon run can realistically support. For more casual players, the cost of failure in a dungeon with limited retries means that groups often become toxic when mistakes are made, and progressing to more difficult strategies becomes discouraged.  
 
-- Determinism within the dungeon. While some things will always be random (for example, physics in Unreal are not deterministic by default), limiting the effect of randomness on the outcome of a dungeon run is important to making sure that success is contingent on good strategy and execution, rather than handling of bad luck or maximizing good luck. This means that NPC pathing, spawning, ability priority, etc. should involve no randomness, and instead be based strictly on things like time and combat thresholds (like health percentage). It also means that player output should feature little randomness when given the same input.  
+- Determinism within the dungeon. While some things will always be random (for example, physics in Unreal are not deterministic by default), limiting the effect of randomness on the outcome of a dungeon run is important to making sure that success is contingent on good strategy and execution, rather than handling of bad luck or maximizing of good luck. This means that NPC pathing, spawning, ability priority, etc. should involve no randomness, and instead be based strictly on things like time and combat thresholds (like health percentage). It also means that player output should feature little randomness when given the same input.  
 
 - Short goal times. Well-executed dungeon runs by skilled players should be between 5 and 10 minutes long. Casual runs should exist somewhere in the 15-20 minute range. Though poorly executed runs can and will exceed these goal times, players should never feel that their group played correctly and still had to spend half an hour or more in a single dungeon.  
 
@@ -317,6 +317,71 @@ One final thing to note is that there are no On Stat Added or On Stat Removed ca
 ---
   
 <a name="buffs"></a>
-### 5. Buffs
+## 5. Buffs
   
-//TODO!
+Buffs are essentially any status effect that can be applied to an actor. The UBuffHandler component handles application and receiving of buffs, which are instanced as replicated UBuff objects. Buffs represent any change to combat state that happens for a duration of time, including modification to stats, restriction of events, periodic events like damage or healing over time, or threat actions.
+
+__Available Callbacks:__ _On Incoming Buff Applied, On Incoming Buff Removed, On Outgoing Buff Applied, On Outgoing Buff Removed, On Updated, On Removed_  
+
+__Modifiable Values:__ _None_  
+
+__Restrictable Events:__ _Incoming Buff Application, Outgoing Buff Application_  
+
+<a name="buff-application"></a>
+### 5.1 Buff Application
+
+Buff application is relatively complex, since buffs themselves have a variety of options for stacking, duration, overriding, and being restricted. Buffs in Saiyora are not predicted on clients, and can only be applied and removed on the server before being replicated down. 
+
+When applying a buff, there are a few parameters passed in, including a Duplicate Override flag, a Stack Override type and value, a Refresh Override type and value, an Ignore Restrictions flag, and an array of Buff Parameters. The override flags are a way to bypass the default behavior of a buff class during gameplay when applying multiple buffs of the same class from the same actor. 
+
+- Duplication is a binary behavior, where an application of a buff either creates a new instance each time it is applied with its own parameters, stacks, and duration, or whether it instead just modifies an already existing instance of the same class.  
+- Stacking affects non-duplicating buffs by changing the value of an existing buff instance, usually by multiplying its effectiveness in some capacity or working toward some stack threshold that triggers new behavior. Stacking can be Additive or Overriding, and the amount of stacks to add or override with can also be passed in to bypass the buff's default stacking behavior.  
+- Refreshing affects non-duplicating buffs by changing the remaining duration of an existing buff instance. This also features an Additive or Overriding option to either extend the duration by an amount or set the duration to a new value, bypassing the buff's default refreshing behavior.  
+
+The Buff Handler also has a flag to never receive buffs, in the case of actors that need to apply buffs to other actors but shouldn't ever be considered a viable target of incoming buffs.
+
+During application, an FBuffApplyEvent is generated that contains the buff class, passed parameters, target, source, applying actor, and Plane information of both the target and applying actor. Then, the Buff Handler uses this struct as context to check against any event restrictions on incoming buffs for the target or outgoing buffs from the applying actor. The Ignore Restrictions flag bypasses this step if true.
+
+After restrictions are checked, the Buff Handler then checks for an existing buff of the same class with the same applying actor (currently, multiple actors can apply the same buff to a target with no repercussions by default, and to stop this behavior an event restriction would need to be used). If the buff is duplicable, or a duplicate override is passed in, or no buff of said class and owner is found, a new buff is created. Otherwise the existing buff is passed the FBuffApplyEvent to modify itself. 
+
+Buffs that are modified fire off an On Updated callback inside the Buff instance, and modify the passed in FBuffApplyEvent struct to signify any changes to stacks or duration that occurred because of the application, which is used by the applying Buff Handler to fire off its own On Outgoing Buff Applied callback later. There is also a BlueprintNativeEvent that is called on each new application for any additional logic, and all Buff Functions owned by the buff are notified of any changes in stacks or duration.
+
+<a name="buff-initialization"></a>
+### 5.2 Buff Initialization
+
+When a new buff is created on the server, initialization occurs in a few steps. The buff is passed a reference to its Handler to save, and also retrieves a reference to the GameState, which is needed for keeping track of time (which is important for handling refreshing and expiration). It will then initialize its stacks based on the override type (or lack of one) and value, the default initial stacks, and the maximum stacks the buff class supports. Buffs of finite duration (buffs can have infinite duration, in which case they must be manually removed) then set their application time and start their timer for expiration based on the refresh override type and value, default initial duration, and max duration. 
+
+Buffs also store off their creation event in a replicated struct, that is subsequently used on clients to initialize the buff. This also allows buffs to check their original state, which could be used to affect the behavior of a buff over its lifetime. Buffs also store whether they were applied with the Ignore Restrictions flag, which will cause them to ignore any new restrictions added to the Buff Handler during their lifetime that would otherwise remove them. 
+
+Buff functions, which are detailed below, are set up at this point. The buff then notifies its Handler that it is valid, triggering the Handler's On Incoming Buff Applied callback, before calling each buff function's On Apply behavior, and then the buff's BlueprintNative On Apply behavior.
+
+Client initialization happens in the OnRep_CreationEvent function, which runs essentially the same code including buff function setup, notification of the Handler, and On Apply behavior. The buff then checks if another application event has been replicated down (this can sometimes happen if buffs are reapplied rapidly on the server before the client receives the initial creation event), and runs the logic for the latest application if necessary.
+
+<a name="buff-functions"></a>
+### 5.3 Buff Functions
+
+Buff functions are reusable behaviors that buffs can instantiate and apply with custom parameters, for the purpose of avoiding writing common buff functionality in every buff that needs different values. Examples of buff functions that I have already implemented include:  
+
+- Damage Over Time  
+- Healing Over Time  
+- Stat Modification  
+- Crowd Control  
+- Event Restrictions  
+- Modifier Application  
+- Threat Actions  
+
+Buff function instantiation is set up in a way that isn't the most clear, but allows easy usage in Blueprint buffs inside of the BlueprintNative SetupCommonBuffFunctions function that is run during initialization. Each buff function is its own class derived from UBuffFunction, which contains callbacks for an owning buff's On Apply, On Stacked, On Refreshed, and On Removed events, as well as a SetupBuffFunction and CleanupBuffFunction for pre-initialization setup and post-removal clean up. Each buff function class declares a static BlueprintCallable function that creates an instance of the buff function, registers it with the owning buff, and passes any necessary parameters to a class-specific SetVariables function. From there, buff functions simply override the behavior callbacks that are triggered by the owning buff to do whatever it is they need.  
+
+Because of the diverse nature of required parameters for buff functions, an alternate approach where buff functions are initialized from structs of function classes and parameters wasn't really feasible without creating an extremely generic parameter class, and even then, a lot of buff functions take function delegates as parameters (to enable conditional modifiers and event restrictions), which aren't supported currently as Blueprint variables in the editor beyond some limited functionality.
+
+<a name="buff-removal"></a>
+### 5.4 Buff Removal
+
+Most buffs are simply removed when their timer expires, triggering their own On Removed callback as well as their Handler's On Incoming Buff Removed and their applier's On Outgoing Buff Removed. Buffs can also be removed manually by calling RemoveBuff on the Handler with the buff instance and an expiration reason (with the options Expired, Dispelled, Death, or Absolute). 
+
+One interesting thing with buff removal is the interaction of event restrictions on already applied buffs. Any buff application restriction added to a Buff Handler will check any existing buffs that weren't originally applied with Ignore Restrictions, and remove them if they would now be restricted.
+
+---
+
+<a name="crowd-control"></a>
+## 6. Crowd Control
