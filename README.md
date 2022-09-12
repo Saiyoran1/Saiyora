@@ -2,13 +2,13 @@
 
 Saiyora is a third person shooter game with RPG elements that focuses on speedrunning developer-created "dungeons" with a group of 1-4 players. It features a game world split into two alternate Planes: the modern and the ancient, which players can move between to alter their abilities and change the nature of combat. The modern plane allows players to focus on gunplay, with magical abilities that enhance the player's movement, defenses, damage, or healing, debuff enemies, or provide important utility. The ancient plane allows players to manifest magic as physical attacks, giving them access to a powerful arsenal of spells to fight with instead of their gun.
 
-Currently, the game is planned to be completely PvE (player-vs-environment), with no PvP mode, though I would like to add a PvP mode in the future. It will support listen and dedicated servers, for casual dungeon running and ranked runs for a leaderboard respectively. The game focuses heavily on allowing players to build out characters, with two separate specializations (one for each plane), each with their own talent system allowing customization on a per-dungeon basis. In the future, the game will support saving and sharing builds between players online.
+Currently, the game is planned to be completely PvE (player-vs-environment), with no PvP mode, though I would like to add a PvP mode in the future. It will support listen and dedicated servers, for casual dungeon running and ranked runs for a leaderboard respectively. The game focuses heavily on allowing players to build out characters, with two separate specializations (one for each Plane), each with their own talent system allowing customization on a per-dungeon basis. In the future, the game will support saving and sharing builds between players online.
 
 The main influence on the design of the game was World of Warcraft's Challenge Mode system, which existed briefly during the Mists of Pandaria and Warlords of Draenor expansions. Though WoW is not a shooter, the overall nature of pushing for Challenge Mode times is something I hope to replicate. Some core takeaways from this system that I hope to translate into my own game:
 
 - Infinite retries. Limiting attempts or otherwise restricting players from constantly being able to try very difficult strategies places a limit on the maximum amount of risk and complexity a dungeon run can realistically support. For more casual players, the cost of failure in a dungeon with limited retries means that groups often become toxic when mistakes are made, and progressing to more difficult strategies becomes discouraged.  
 
-- Determinism within the dungeon. While some things will always be random (for example, physics in Unreal are not deterministic by default), limiting the effect of randomness on the outcome of a dungeon run is important to making sure that success is contingent on good strategy and execution, rather than handling of bad luck or maximizing of good luck. This means that NPC pathing, spawning, ability priority, etc. should involve no randomness, and instead be based strictly on things like time and combat thresholds (like health percentage). It also means that player output should feature little randomness when given the same input.  
+- Determinism within the dungeon. While some things will always be random (for example, physics in Unreal are not deterministic by default), limiting the effect of randomness on the outcome of a dungeon run is important to making sure that success is contingent on good strategy and execution, rather than handling of bad luck or maximizing of good luck. This means that NPC patrol pathing, spawning, ability priority, etc. should involve no randomness, and instead be based strictly on things like time and combat thresholds (like health percentage). It also means that player output should feature little randomness when given the same input.  
 
 - Short goal times. Well-executed dungeon runs by skilled players should be between 5 and 10 minutes long. Casual runs should exist somewhere in the 15-20 minute range. Though poorly executed runs can and will exceed these goal times, players should never feel that their group played correctly and still had to spend half an hour or more in a single dungeon.  
 
@@ -18,7 +18,7 @@ A few notes about the game:
 
 - I am currently the only developer on this project.  
 
-- The game is made with Unreal Engine 5. Most systems are coded in C++, with Blueprints being heavily used for animation, UI, AI, and content.  
+- The game is made with Unreal Engine 5. Most underlying systems are coded in C++, with Blueprints being heavily used for animation, UI, AI, and content.  
 
 - All art is placeholder. Almost every art asset is either a default UE5 asset, purchased from the Unreal marketplace, or downloaded from a free source such as Mixamo. Some UI elements and animations were created or modified by me.  
 
@@ -55,6 +55,16 @@ _I did experiment with using Unreal Engine's Gameplay Ability System plugin for 
 >   4.1 [Stat Initialization](#stat-initialization)  
 >   4.2 [Stat Modifiers](#stat-modifiers)  
 > 5. [Buffs](#buffs)  
+>   5.1 [Buff Application](#buff-application)  
+>   5.2 [Buff Initialization](#buff-initialization)  
+>   5.3 [Buff Functions](#buff-functions)  
+>   5.4 [Buff Removal](#buff-removal)
+> 6. [Crowd Control](#crowd-control)
+> 7. [Planes](#planes)  
+>   7.1 [Modern Plane](#modern-plane)  
+>   7.2 [Ancient Plane](#ancient-plane)  
+>   7.3 [Plane Swapping](#plane-swapping)  
+>   7.4 [Plane Attunement](#plane-attunement)  
 
 ---
 
@@ -385,3 +395,81 @@ One interesting thing with buff removal is the interaction of event restrictions
 
 <a name="crowd-control"></a>
 ## 6. Crowd Control
+
+Crowd control is a subset of status effects that remove capabilities from an actor. In Saiyora, all crowd control is applied through buffs, and there are six different types of crowd control.
+
+- Stuns, which prevent essentially all actions (other than abilities that are marked as usable while stunned), including movement.  
+- Roots, which prevent movement and immediately stop an actor's momentum, but do not prevent turning, crouching, or ability usage.  
+- Incapacitates, which are identical to stuns but also immediately stop an actor's movement, and are removed upon receiving damage.  
+- Silences, which prevent ability usage.  
+- Disarms, which prevent usage of abilities derived from the base weapon class.  
+
+Crowd control is handled by the UCrowdControlHandler component, which monitors buffs applied to its owning actor's UBuffHandler, checking their tags for any gameplay tag starting with "CrowdControl.". It maintains a structure representing the status of each of the six crowd control types, including whether they are active, which buffs are applying them, and which of the buffs applying the crowd control have the longest remaining duration (mostly for use in the UI, but also to reduce on checking whether removed buffs should cause crowd control to be removed). It also monitors damage taken by the owning actor's UDamageHandler to remove any buffs applying an Incapacitate effect on damage taken.
+
+Crowd control application is not a restrictable event. The Crowd Control Handler does have a list of crowd control tags that it is immune to, but it is not modifiable during gameplay. Currently, the UBuffHandler actually manually checks during its application of a buff whether the UCrowdControlHandler exists and if its list of immuned crowd controls contains any tags that an applied buff has, and will restrict buff application entirely. I have gone back and forth on this approach vs having the UCrowdControlHandler apply a buff event restriction in BeginPlay, as either one works, but it is unlikely that I will change how crowd control immunity works and this system works fine.
+
+__Available Callbacks:__ _On Crowd Control Changed_  
+
+__Modifiable Values:__ _None_  
+
+__Restrictable Events:__ _None_  
+
+---
+
+<a name="planes"></a>
+## 7. Planes
+
+Planes in Saiyora represent the two different eras of the world that are bleeding together. From a gameplay perspective, playing in each Plane is distinct because it swaps the set of abilities available to the player, provides interactions with different mechanics that may affect one Plane or the other, and can even reveal differences in level geometry. For each Plane, players can choose a specialization out of five different options, each of which corresponds to one of the ability schools used in the Saiyora.
+
+__Available Callbacks:__ _On Plane Changed_  
+
+__Modifiable Values:__ _None_  
+
+__Restrictable Events:__ _Plane Swap_  
+
+<a name="modern-plane"></a>
+### 7.1 Modern Plane
+
+The modern Plane represents a sci-fi world, where player loadouts focus around a primary weapon and a set of abilities that are mostly defensives, movement, and utility. Though there are damage abilities available in modern specializations, they are less fit for creating a cohesive toolkit to maximize output, and more aimed at being situational tools to handle specific situations, while damage primarily comes from shooting the specialization's weapon. Modern specializations for players include:  
+
+- Chronomancer (Sky)  
+- Mutilator (Fire)  
+- Telekinetic (Earth)  
+- Illusionist (Water)  
+- Soldier (Military)  
+
+I have not yet decided on weapons for each specialization, but the idea is that each specialization has a unique weapon which deals damage and also brings some form of utility that is unique to the specialization. Out of the five remaining ability slots on the player's action bar, two are able to be picked from a pool of specialization-exclusive abilities that other specializations can not use, and three are able to be picked from a pool of abilities available to all modern specializations. The talent customization in this Plane's build thus comes from selection of the five non-weapon abilities on the player's bar. In addition, each specialization grants a passive buff called an Echo when the player is in the opposing Plane (so modern specializations grant a passive buff to the player while they are in the ancient Plane, and ancient specializations grant a passive buff to the player while they are in the modern Plane).  
+
+<a name="ancient-plane"></a>
+### 7.2 Ancient Plane
+
+The ancient Plane represents the old world, thousands of years in the past, where player loadouts focus around a set of abilities that come together to create a damage "rotation" similar to how you would expect core abilities to work in something like an RPG game. There is some opportunity for utility, defensives, and mobility, but most abilities serve the purpose of dealing damage (or healing, in the case of one specialization). Ancient specializations for players include:  
+
+- Stormbringer (Sky)  
+  - This specialization is based around a resource called Ethereality that represents the strength of a player's anchor to the ancient Plane. At high ethereality, damage taken is reduced, and at low ethereality damage done is increased. The spec focuses around managing summoned tempests that constantly pull themselves back to the player and must be pushed away at enemies to deal damage and generate ethereality, as well as managing a conductivity debuff on enemies that enhances and is applied by various lightning-based attacks.  
+- Pyromancer (Fire)  
+  - This spec is based around managing damage over time effects called Embers, that gradually deal more damage over their duration. It excels in large-scale battles where a player can spread Embers to many targets, then force them to flare up into infernos that deal damage to nearby enemies. The player can also absorb high-powered Embers from enemies to increase damage from a variety of other fire-based attacks.  
+- Shaman (Earth)  
+  - This spec is actually more of a hybrid option, using manipulation of earth to create defenses for teammates in the form of large stone shields and path-blocking monoliths, while dealing damage primarily by piercing enemies with stone shards. The spec also has the option to sacrifice stone shards to create a sandstorm that protects allies and reduces enemy damage.  
+- Spiritualist (Water)  
+  - This is the only primary healing spec in the game at the moment. Spiritualists draw upon groundwater in an area to create soothing streams of healing, restorative wells of life, and torrential downpours to slow and damage enemies. It can also cleanse allies of damage over time effects and crowd controls, but can only play in one area for so long before exhausting the water supply there and needing to move.  
+- Knight (Military)  
+  - Knight is a melee specialization that focus on different combat stances. Each stance grants the Knight slight modifications to its abilities, resulting in gameplay that can alternate between frantically building toward a large burst of damage from impaling an enemy, parrying and knocking away enemies to survive, and cleaving enemies in a large area and causing huge amounts of threat. Currently, optimal play would result in this being similar to a tanking specialization in other games, due to a lot of threat generation.  
+
+Talent customization in the ancient Plane is ability-based, where each ability in a specialization has two alternative versions that can be picked from, allowing different damage profile opportunities, additional utility, defensives, threat control, or mobility at the cost of damage. In addition, each specialization grants a passive buff called an Echo when the player is in the opposing Plane (so modern specializations grant a passive buff to the player while they are in the ancient Plane, and ancient specializations grant a passive buff to the player while they are in the modern Plane).  
+
+<a name="plane-swapping"></a>
+### 7.3 Plane Swapping
+
+Currently, players can swap to the opposite Plane freely at the press of a button. Plane swapping is a restrictable event handled by the UPlaneComponent, so some mechanics can force players to stay in a specific Plane, but most of the time Plane swapping is a choice that players make based on availability of abilities in each Plane, encounter mechanics, incoming damage, and utility needs.  
+
+The concept of "cross-plane" events exists for damage, healing, buff application, and threat actions, and usually implies a reduction in effectiveness due to the target and instigator of the event being in opposite Planes.  
+
+<a name="plane-attunement"></a>
+### 7.4 Plane Attunement
+
+Plane attunement is a gameplay mechanic intended to encourage playing in one Plane or the other and not treating the two Planes as simply two action bars. Essentially, time spent in a Plane builds up a buff that increases player damage done and reduces player damage taken in that Plane. Swapping Planes causes the buff to slowly lose stacks until it is removed, and then a buff for the new Plane starts to stack. Ideally, this should promote gameplay where swapping Planes for a specific utility button, crowd control, or defensive, then swapping back, would be beneficial, but swapping Planes constantly to get all damaging abilities in both Planes on cooldown at all times would result in an overall loss of damage and survivability.
+
+This is probably going to depend heavily on tuning, as ultimately many mechanics will encourage being in one Plane or the other, and dealing damage to enemies in opposite Planes is less effective, causing Plane swapping itself to be useful as a defensive or offensive boon. An alternative would be simply having Plane swapping be a cooldown of medium length, but that would close off the opportunity to create two builds that do have some synergy with each other.  
+
+Plane attunement is not yet implemented.  
