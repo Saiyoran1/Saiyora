@@ -68,6 +68,9 @@ _I did experiment with using Unreal Engine's Gameplay Ability System plugin for 
 > 8. [Movement](#movement)  
 >   8.1 [Custom Moves](#custom-moves)  
 >   8.2 [Root Motion](#root-motion)  
+> 9. [Damage, Healing, and Absorbs](#damage-healing-and-absorbs)  
+>   9.1 [Health](#health)  
+>   9.2 [Health Events](#health-events)  
 
 ---
 
@@ -545,3 +548,54 @@ Both of these are handled with a multitude of checks preventing duplication of m
 <a name="root-motion"></a>
 ### 8.2 Root Motion
 
+Root motion is handled in a way very similar to how Epic's GAS system addresses root motion ability tasks. Essentially, a USaiyoraRootMotionHandler-derived class is created specific to the type of motion, it is passed all necessary parameters, and then it is applied in a manner similar to how custom moves are handled. This means that predicted sources are applied on the owning client first, then sent as an ability request (exactly how custom moves are handled), then applied on the server, then replicated to other clients. Since root motion sources are UObjects, there is some logic in the Saiyora Movement Component's ReplicateSubobjects function to not replicate root motion sources to the owning client in the case that the root motion was predicted, to avoid duplicating motion. For non-predicted root motion sources applied to a non-server client, there is a separate array called HandlersAwaitingPingDelay that replicates the source to the owning client, then after a delay equivalent to the client's ping, applies the source on the server and replicates it to other clients.
+
+The actual logic for applying the motion itself locally is essentially just using the already existing FRootMotion-derived structs that UE5 already implements, such as FRootMotion_JumpForce or FRootMotion_ConstantForce. I have not found any need to create a custom root motion type yet, as the types already in engine, in addition to teleporting and launching from custom moves, seem to cover pretty much every use case I've needed.
+
+---
+
+<a name="damage-healing-and-absorbs"></a>
+## 9. Damage, Healing, and Absorbs  
+
+At the very core of combat in basically any shooter or RPG game is the concept of dealing damage. In Saiyora, damage, healing, and absorbs are fairly straightforward, but also flexible enough to allow a lot of interaction with stats and modifiers to create more depth and a higher skill cap. All outgoing and incoming damage, healing, and absorbs, as well as health, death, and respawning, are handled by the UDamageHandler component.  
+
+> __Available Callbacks:__ _On Health Changed, On Max Health Changed, On Absorb Changed, On Life Status Changed, On Incoming Health Event, On Outgoing Health Event, On Killing Blow_  
+>
+> __Modifiable Values:__ _Incoming Health Event Value, Outgoing Health Event Value_  
+>
+> __Restrictable Events:__ _Incoming Health Event, Outgoing Health Event, Death_  
+
+<a name="health"></a>
+### 9.1 Health
+
+Health is actually an optional aspect of the Damage Handler. Some NPCs may not have health at all, but need a Damage Handler because they cause damage or healing to other actors. Actors that don't have health can not receive damage, healing, or absorbs, and are always considered alive.
+
+For actors that do have health, they can have either static or variable max health. Variable max health is not modified directly in the Damage Handler, but instead is derived from the max health stat, if the owner has a valid Stat Handler. Current health is kept proportional to max health any time max health changes, and absorb value is clamped to be less than or equal to max health.
+
+Any time health hits zero, the health event that caused this change is saved off as a potential killing blow. Then, any death restrictions are checked (using the killing event as context). If the actor is restricted from dying to this event, then health is left at 0, and a flag called bHasPendingKillingBlow is checked. Any time death restrictions are removed, the pending killing blow is re-checked to see if the actor can now die. Raising health above zero clears the pending killing blow and associated flag. Other damage events during the time where there is a pending killing blow that also fail to kill the actor do not replace the killing blow, so that in the case of a delayed death due to restrictions being removed, the hit that initially brought the actor to zero health is correctly attributed as the killing blow.
+
+All health events, including damage, healing, absorbs, death, respawning, and max health changes are handled on the server only, and replicated down to clients after the fact through replicated values (in the case of health, absorb, and life status) or RPCs (for incoming and outgoing damage, healing, and absorb events).
+
+<a name="health-events"></a>
+### 9.2 Health Events
+
+Health events are damage, healing, or absorb events. They have a number of different parameters that can be checked by modifiers and restrictions, including:  
+
+- Hit style: direct, chronic, area, or authority.  
+- School: physical, fire, water, sky, earth, or military.  
+- Bypass Absorbs: a flag that causes damage to ignore absorbs and be applied to health instead.  
+- Ignore Modifiers: a flag that causes all modifiers to be ignored and the base value to be used.  
+- Ignore Restrictions: a flag that causes all health event restrictions to be ignored (this does not include death restrictions).   
+- Ignore Death Restrictions: a flag that causes all death restrictions to be ignored in the case of a killing blow.  
+- From Snapshot: a flag that causes outgoing health event modifiers to be skipped, as the value has already been pre-calculated with those modifiers at an earlier time. Incoming health event modifiers will still be applied.  
+- Source Modifier: an optional additional modifier that can be passed in to modify a single health event based on the context.  
+
+Health events also pass in parameters for how they should be handled by the threat system, which is discussed later.
+
+Damage is applied to any existing absorbs first, then the remaining amount is applied to the health pool. Attacking players will see 0 as a damage value currently if their attack is fully absorbed, and see only the amount dealt to the actual health in the case of partial absorbs. This is something I may change later on.  
+
+Healing is very straightforward, and just applies directly to the health pool. The only minor complication is clearing any pending killing blows if healing brings health from 0 to any number above 0.
+
+Absorbs do not clear pending killing blows, and are added to their own absorb pool, which is usually processed before health when taking damage (unless the Bypass Absorbs flag is used). As mentioned before, absorbs are clamped at max health to prevent crazy absorb stacking leading to unkillable actors.
+
+There is a KillActor function also available in the Damage Handler, that simply applies a damage event for the actor's current health, using the authority hit style, no damage school, and bypassing all restrictions, death restrictions, absorbs, and modifiers, using the normal flags available for a damage event.  
