@@ -65,6 +65,9 @@ _I did experiment with using Unreal Engine's Gameplay Ability System plugin for 
 >   7.2 [Ancient Plane](#ancient-plane)  
 >   7.3 [Plane Swapping](#plane-swapping)  
 >   7.4 [Plane Attunement](#plane-attunement)  
+> 8. [Movement](#movement)  
+>   8.1 [Custom Moves](#custom-moves)  
+>   8.2 [Root Motion](#root-motion)  
 
 ---
 
