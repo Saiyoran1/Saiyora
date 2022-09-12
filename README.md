@@ -400,7 +400,7 @@ Crowd control is a subset of status effects that remove capabilities from an act
 
 - Stuns, which prevent essentially all actions (other than abilities that are marked as usable while stunned), including movement.  
 - Roots, which prevent movement and immediately stop an actor's momentum, but do not prevent turning, crouching, or ability usage.  
-- Incapacitates, which are identical to stuns but also immediately stop an actor's movement, and are removed upon receiving damage.  
+- Incapacitates, which are identical to stuns but are removed upon receiving damage.  
 - Silences, which prevent ability usage.  
 - Disarms, which prevent usage of abilities derived from the base weapon class.  
 
@@ -433,10 +433,15 @@ __Restrictable Events:__ _Plane Swap_
 The modern Plane represents a sci-fi world, where player loadouts focus around a primary weapon and a set of abilities that are mostly defensives, movement, and utility. Though there are damage abilities available in modern specializations, they are less fit for creating a cohesive toolkit to maximize output, and more aimed at being situational tools to handle specific situations, while damage primarily comes from shooting the specialization's weapon. Modern specializations for players include:  
 
 - Chronomancer (Sky)  
+  - Abilities based around manipulation of time, such as granting quick movements or reversing damage taken.  
 - Mutilator (Fire)  
+  - Abilities based around transformation of the player and enemies, resulting in crowd control, debuffs, and damage buffs, often trading health for utility or damage.  
 - Telekinetic (Earth)  
+  - Abilities based around control of gravity and force, allowing for displacement, mobility, and some burst damage options.  
 - Illusionist (Water)  
+  - Abilities based around changing perception, granting control over threat, aggro radius, and stealth.  
 - Soldier (Military)  
+  - Abilities based around technology and weaponry, sort of a jack-of-all-trades pool of abilities with mobility, healing, damage buffs, and crowd control.  
 
 I have not yet decided on weapons for each specialization, but the idea is that each specialization has a unique weapon which deals damage and also brings some form of utility that is unique to the specialization. Out of the five remaining ability slots on the player's action bar, two are able to be picked from a pool of specialization-exclusive abilities that other specializations can not use, and three are able to be picked from a pool of abilities available to all modern specializations. The talent customization in this Plane's build thus comes from selection of the five non-weapon abilities on the player's bar. In addition, each specialization grants a passive buff called an Echo when the player is in the opposing Plane (so modern specializations grant a passive buff to the player while they are in the ancient Plane, and ancient specializations grant a passive buff to the player while they are in the modern Plane).  
 
@@ -473,3 +478,67 @@ Plane attunement is a gameplay mechanic intended to encourage playing in one Pla
 This is probably going to depend heavily on tuning, as ultimately many mechanics will encourage being in one Plane or the other, and dealing damage to enemies in opposite Planes is less effective, causing Plane swapping itself to be useful as a defensive or offensive boon. An alternative would be simply having Plane swapping be a cooldown of medium length, but that would close off the opportunity to create two builds that do have some synergy with each other.  
 
 Plane attunement is not yet implemented.  
+
+---
+
+<a name="movement"></a>
+## 8. Movement
+
+In Saiyora, movement is handled through a USaiyoraMovementComponent, which is derived from UCharacterMovementComponent to add some interaction with crowd control, stats, and abilities. It also adds functionality for predicting specific movement effects and handling ability-sourced root motion. Epic's Character Movement Component is fairly complicated, and my movement system is built on top of it, so there are quite a lot of small implementation details that are necessary to prevent excessive server corrections, prevent cheating, allow smooth prediction, and support misprediction.  
+
+__Available Callbacks:__ _None_  
+
+__Modifiable Values:__ _None_  
+
+__Restrictable Events:__ _Custom Movement_  
+
+<a name="custom-moves"></a>
+### 8.1 Custom Moves
+
+Currently, Saiyora supports a handful of different movement types beyond the normal walking, jumping, and crouching build in to the Character Movement Component. These movement types are:  
+
+- Root Motion  
+  - This has its own section below.  
+- Teleporting  
+  - This moves an actor to a new location instantly, with options for stopping movement and setting a new rotation.  
+- Launch  
+  - Character Movement Component out of the box has a LaunchCharacter function, but it isn't predicted by default. I have implemented prediction and included options for custom force input and stopping vs adding to current momentum.  
+  
+Here is the flow for executing a custom move:  
+
+- Check that the move can be performed.  
+  - Is the move type valid?  
+  - Is the source of the move valid?  
+  - Does the owning actor have a Damage Handler, and if so, is the owning actor alive?  
+  - If the move is not marked as Ignore Restrictions, is the owner rooted?  
+  - If the move is not marked as Ignore Restrictions, are there any movement restrictions?  
+- Check if the move either doesn't come from a UCombatAbility, is being executed by an actor that isn't the owning actor, or has a prediction ID of 0. Essentially, these are checking if this move should be involved in the prediction system at all. If any of the conditions are true, this move is NOT predicted.  
+  - If any of these conditions are true:  
+    - Check if the move is being performed on the server.  
+    - Check if another custom move from the same source has already been executed this tick. This check is specifically to handle the fact that listen server players will call Predicted Tick and Server Tick back to back, and both will try to execute the same custom move.  
+    - Check if the owning actor is locally controlled.  
+      - If so, multicast the move execution using ExecuteCustomMove, which will cause all clients to perform it.  
+      - If not, set a timer the length of the owning client's ping, RPC the owning client to "predictively" use the move, then after the timer, multicast the move execution to all clients using ExecuteCustomMoveNoOwner (which the owning client will ignore). This avoids server corrections by allowing the owning client to perform the move first. There is some potential to abuse this by falsifying ping to delay the application of moves, but there is an implemented max ping delay of .2 seconds to limit this.  
+  - If all conditions were false (this move comes from an ability, is executed by an actor on itself, and has a valid prediction ID):  
+    - If on the server:  
+      - Check that a custom move with this prediction ID and tick number (from the source ability) has not already been executed. This is to prevent a race condition between an ability request RPC and the Character Movement Component's movement RPCs, which carry custom move data and are unreliable due to being sent on tick.  
+      - Multicast to all clients to execute the move using ExecuteCustomMoveNoOwner (which the owning client will ignore).  
+    - If on the owning client:  
+      - Subscribe to the ability handler's On Ability Tick event with the OnCustomMoveCastPredicted function.  
+      - Set up a pending custom move struct with the ability class, move parameters, prediction ID, and timestamp of prediction.  
+      - When OnCustomMoveCastPredicted is triggered, unsubscribe from On Ability Tick (it was only necessary to allow the ability tick to complete and set any parameters for an ability request). Copy the target and origin parameters from the ability tick into the pending custom move, and mark the movement component's bWantsCustomMove flag as true.  
+      - On the next tick, the component will call OnMovementUpdated as part of its normal movement ticking. In this function, the bWantsCustomMoveFlag being checked will call CustomMoveFromFlag, which locally will execute the custom move.
+      - Also on that tick, the Character Movement Component will create a new Saved Move, which contains the pending custom move and the flag indicating that a custom move should be executed. This move is used for replaying moves when corrections happen on the client, so there must be a record of the custom move here.  
+      - The Character Movement Component will finally fill out its Network Move Data for this tick, which is the data that is actually sent to the server in movement RPCs every tick. Here, an ability request mirroring the one made in the ability handler for the ability usage that caused the custom move will be added to the network move data.  
+      - On the server, this networked move data will be copied back into the Character Movement Component, and the flag for a custom move will once again be checked in OnMovementUpdated, which will once again call CustomMoveFromFlag. This function will now (after checking against the race condition mentioned above for duplicate movement) call UseAbilityFromPredictedMovement in the ability component. At this point, the ability system will call its normal server ability usage logic, and eventually wind up executing the custom move either immediately, or when the correct tick of the ability happens if the RPC came too soon.  
+      - When the movement is executed on the server, it will also be multicast using ExecuteCustomMoveNoOwner (and the owning client will ignore it).  
+      
+Most of this complexity comes from two sources:  
+- The already massive complexity of the custom move system built into the Character Movement Component.  
+- The race condition caused by unreliable RPCs from the Character Movement Component not being guaranteed to happen before or after the reliable RPC from the Ability Handler.  
+
+Both of these are handled with a multitude of checks preventing duplication of movement execution from the same ability tick and integration of the ability request struct into the structs used by the Character Movement Component such as saved moves and network move data.  
+
+<a name="root-motion"></a>
+### 8.2 Root Motion
+
