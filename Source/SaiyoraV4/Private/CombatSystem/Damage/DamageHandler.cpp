@@ -331,6 +331,11 @@ FHealthEvent UDamageHandler::ApplyHealthEvent(const EHealthEventType EventType, 
 		}
 		HealthEvent.Result.NewValue = CurrentHealth;
 		HealthEvent.Result.AppliedValue = CurrentHealth - HealthEvent.Result.PreviousValue;
+		if (bHasPendingKillingBlow && CurrentHealth > 0.0f)
+		{
+			bHasPendingKillingBlow = false;
+			PendingKillingBlow = FHealthEvent();
+		}
 	}
 	else if (EventType == EHealthEventType::Absorb)
 	{

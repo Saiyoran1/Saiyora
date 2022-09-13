@@ -1,5 +1,7 @@
 #pragma once
 #include "CoreMinimal.h"
+#include "AbilityEnums.h"
+#include "AbilityStructs.h"
 #include "CombatEnums.h"
 #include "SaiyoraCombatInterface.h"
 #include "GameFramework/Character.h"
@@ -21,6 +23,7 @@ public:
 	ASaiyoraPlayerCharacter(const class FObjectInitializer& ObjectInitializer);
 	virtual void PostInitializeComponents() override;
 	virtual void BeginPlay() override;
+	virtual void Tick(float DeltaSeconds) override;
 	virtual void PossessedBy(AController* NewController) override;
 	virtual void OnRep_Controller() override;
 	virtual void OnRep_PlayerState() override;
@@ -50,6 +53,9 @@ protected:
 
 	UFUNCTION(BlueprintImplementableEvent)
 	void CreateUserInterface();
+
+	UFUNCTION(BlueprintCallable, Category = "Input")
+	void AbilityInput(const int32 InputNum, const bool bPressed);
 
 private:
 
@@ -82,7 +88,32 @@ private:
 	UPROPERTY()
 	ASaiyoraPlayerController* PlayerControllerRef;
 
+	static const int32 MAXABILITYBINDS;
 	void SetupAbilityMappings();
 	TMap<int32, UCombatAbility*> ModernAbilityMappings;
 	TMap<int32, UCombatAbility*> AncientAbilityMappings;
+	UFUNCTION()
+	void AddAbilityMapping(UCombatAbility* NewAbility);
+	UFUNCTION()
+	void RemoveAbilityMapping(UCombatAbility* RemovedAbility);
+	
+	static const float ABILITYQUEWINDOW;
+	UFUNCTION()
+	void UpdateQueueOnGlobalEnd(const FGlobalCooldown& OldGlobalCooldown, const FGlobalCooldown& NewGlobalCooldown);
+	UFUNCTION()
+	void UpdateQueueOnCastEnd(const FCastingState& OldState, const FCastingState& NewState);
+	UFUNCTION()
+	void ClearQueueAndAutoFireOnPlaneSwap(const ESaiyoraPlane PreviousPlane, const ESaiyoraPlane NewPlane, UObject* Source);
+	UFUNCTION()
+	void UseAbilityFromQueue(const TSubclassOf<UCombatAbility> AbilityClass);
+	EQueueStatus QueueStatus = EQueueStatus::Empty;
+	TSubclassOf<UCombatAbility> QueuedAbility;
+	bool bUsingAbilityFromQueue = false;
+	bool TryQueueAbility(const TSubclassOf<UCombatAbility> AbilityClass);
+	FTimerHandle QueueExpirationHandle;
+	UFUNCTION()
+	void ExpireQueue();
+
+	UPROPERTY()
+	UCombatAbility* AutomaticInputAbility = nullptr;
 };

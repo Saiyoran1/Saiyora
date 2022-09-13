@@ -5,6 +5,7 @@
 #include "DamageEnums.h"
 #include "AbilityStructs.h"
 #include "ResourceStructs.h"
+#include "GameFramework/GameStateBase.h"
 #include "CombatAbility.generated.h"
 
 class UCrowdControl;
@@ -70,6 +71,10 @@ public:
     void GetAbilityTags(FGameplayTagContainer& OutTags) const { OutTags = AbilityTags; }
     UFUNCTION(BlueprintPure, Category = "Abilities")
     bool HasTag(const FGameplayTag Tag) const { return AbilityTags.HasTag(Tag); }
+    UFUNCTION(BlueprintPure, Category = "Abilities")
+    bool IsAutomatic() const { return bAutomatic; }
+    UFUNCTION(BlueprintPure, Category = "Abilities")
+    bool WillCancelOnRelease() const { return bCancelOnRelease; }
     
 private:
     
@@ -85,6 +90,10 @@ private:
     ESaiyoraPlane Plane;
     UPROPERTY(EditDefaultsOnly, Category = "Info")
     FGameplayTagContainer AbilityTags;
+    UPROPERTY(EditDefaultsOnly, Category = "Info")
+    bool bAutomatic = false;
+    UPROPERTY(EditDefaultsOnly, Category = "Info")
+    bool bCancelOnRelease = false;
     
 //Restrictions
     
@@ -105,9 +114,9 @@ protected:
     UFUNCTION(BlueprintNativeEvent)
     void SetupCustomCastRestrictions();
     virtual void SetupCustomCastRestrictions_Implementation() {}
-    UFUNCTION(BlueprintCallable, Category = "Abilities", meta = (GameplayTagFilter = "AbilityRestriction"))
+    UFUNCTION(BlueprintCallable, Category = "Abilities", meta = (GameplayTagFilter = "Ability.Restriction"))
     void ActivateCastRestriction(const FGameplayTag RestrictionTag);
-    UFUNCTION(BlueprintCallable, Category = "Abilities", meta = (GameplayTagFilter = "AbilityRestriction"))
+    UFUNCTION(BlueprintCallable, Category = "Abilities", meta = (GameplayTagFilter = "Ability.Restriction"))
     void DeactivateCastRestriction(const FGameplayTag RestrictionTag);
     
 private:
@@ -188,15 +197,17 @@ public:
     UFUNCTION(BlueprintPure, Category = "Abilities")
     float GetDefaultCooldownLength() const { return DefaultCooldownLength; }
     UFUNCTION(BlueprintPure, Category = "Abilities")
-    float GetCooldownLength();
+    float GetCooldownLength(); //This isn't inline because it requires an include for UAbilityComponent that causes circular dependency :(
     UFUNCTION(BlueprintPure, Category = "Abilities")
     bool HasStaticCooldownLength() const { return bStaticCooldownLength; }
     UFUNCTION(BlueprintPure, Category = "Abilities")
-    bool IsCooldownActive() const;
+    bool IsCooldownActive() const { return AbilityCooldown.OnCooldown; }
     UFUNCTION(BlueprintPure, Category = "Abilities")
-    float GetRemainingCooldown() const;
+    bool IsCooldownAcked() const { return AbilityCooldown.bAcked; }
     UFUNCTION(BlueprintPure, Category = "Abilities")
-    float GetCurrentCooldownLength() const;
+    float GetRemainingCooldown() const { return AbilityCooldown.OnCooldown && AbilityCooldown.bAcked ? FMath::Max(0.0f, AbilityCooldown.CooldownEndTime - GetWorld()->GetGameState()->GetServerWorldTimeSeconds()) : -1.0f; }
+    UFUNCTION(BlueprintPure, Category = "Abilities")
+    float GetCurrentCooldownLength() const { return AbilityCooldown.OnCooldown && AbilityCooldown.bAcked ? FMath::Max(0.0f, AbilityCooldown.CooldownEndTime - AbilityCooldown.CooldownStartTime) : -1.0f; }
     
     UFUNCTION(BlueprintPure, Category = "Abilities")
     int32 GetDefaultMaxCharges() const { return DefaultMaxCharges; }
@@ -232,7 +243,7 @@ public:
     void RecalculateChargesPerCooldown();
     
     UFUNCTION(BlueprintPure, Category = "Abilities")
-    int32 GetCurrentCharges() const;
+    int32 GetCurrentCharges() const { return AbilityCooldown.CurrentCharges; }
     UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
     void ModifyCurrentCharges(const int32 Charges, const EChargeModificationType Modification = EChargeModificationType::Additive);
     UPROPERTY(BlueprintAssignable)
@@ -247,12 +258,12 @@ private:
     UFUNCTION()
     void OnRep_AbilityCooldown(const FAbilityCooldown& PreviousState);
     FTimerHandle CooldownHandle;
-    void StartCooldown(const bool bUseLagCompensation = false);
+    void StartCooldown();
     UFUNCTION()
     void CompleteCooldown();
     void CancelCooldown();
-    FAbilityCooldown ClientCooldown;
     TMap<int32, int32> ChargePredictions;
+    int32 LastReplicatedCharges;
     void RecalculatePredictedCooldown();
 
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
@@ -274,7 +285,7 @@ private:
     UPROPERTY(ReplicatedUsing = OnRep_ChargeCost)
     int32 ChargeCost = 1;
     UFUNCTION()
-    void OnRep_ChargeCost();
+    void OnRep_ChargeCost() { UpdateCastable(); }
     UPROPERTY()
     TMap<UBuff*, FCombatModifier> ChargeCostModifiers;
 

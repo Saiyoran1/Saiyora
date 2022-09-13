@@ -74,6 +74,8 @@ struct FAbilityCooldown
     int32 CurrentCharges = 0;
     UPROPERTY()
     bool OnCooldown = false;
+    UPROPERTY(NotReplicated)
+    bool bAcked = true;
     UPROPERTY()
     float CooldownStartTime = 0.0f;
     UPROPERTY()
@@ -82,6 +84,7 @@ struct FAbilityCooldown
     int32 PredictionID = 0;
     UPROPERTY()
     int32 MaxCharges = 1;
+    
 };
 
 USTRUCT(BlueprintType)
@@ -90,11 +93,11 @@ struct FAbilityOrigin
     GENERATED_BODY()
 
     UPROPERTY(BlueprintReadWrite)
-    FVector AimLocation;
+    FVector AimLocation = FVector::ZeroVector;
     UPROPERTY(BlueprintReadWrite)
-    FVector AimDirection;
+    FVector AimDirection = FVector::ZeroVector;
     UPROPERTY(BlueprintReadWrite)
-    FVector Origin;
+    FVector Origin = FVector::ZeroVector;
 
     void Clear() { AimLocation = FVector::ZeroVector; AimDirection = FVector::ZeroVector; Origin = FVector::ZeroVector; }
     
@@ -242,13 +245,16 @@ struct FGlobalCooldown
     GENERATED_BODY()
 
     UPROPERTY(BlueprintReadOnly)
-    bool bGlobalCooldownActive = false;
+    bool bActive = false;
     UPROPERTY()
     int32 PredictionID = 0;
     UPROPERTY(BlueprintReadOnly)
     float StartTime = 0.0f;
     UPROPERTY(BlueprintReadOnly)
-    float EndTime = 0.0f;
+    float Length = 0.0f;
+
+    FORCEINLINE bool operator==(const FGlobalCooldown& Other) const { return Other.bActive == bActive && Other.StartTime == StartTime && Other.Length == Length; }
+    FORCEINLINE bool operator!=(const FGlobalCooldown& Other) const { return Other.bActive != bActive || Other.StartTime != StartTime || Other.Length != Length; }
 };
 
 USTRUCT(BlueprintType)
@@ -258,6 +264,8 @@ struct FCastingState
 
     UPROPERTY(BlueprintReadOnly)
     bool bIsCasting = false;
+    UPROPERTY(BlueprintReadOnly, NotReplicated)
+    bool bAcked = true;
     UPROPERTY(BlueprintReadOnly)
     UCombatAbility* CurrentCast = nullptr;
     UPROPERTY(NotReplicated)
@@ -280,7 +288,8 @@ struct FClientAbilityPrediction
     UPROPERTY()
     UCombatAbility* Ability = nullptr;
     bool bPredictedGCD = false;
-    bool bPredictedCastBar = false;
+    float GcdLength = 0.0f;
+    float Time = 0.0f;
 };
 
 USTRUCT()

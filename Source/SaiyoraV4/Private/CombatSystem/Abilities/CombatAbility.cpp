@@ -140,76 +140,6 @@ void UCombatAbility::OnRep_Deactivated()
 #pragma endregion
 #pragma region Cooldown
 
-int32 UCombatAbility::GetCurrentCharges() const
-{
-    switch (OwningComponent->GetOwnerRole())
-    {
-    case ROLE_Authority :
-        return AbilityCooldown.CurrentCharges;
-    case ROLE_AutonomousProxy :
-        return ClientCooldown.CurrentCharges;
-    default :
-        return 0;
-    }
-}
-
-bool UCombatAbility::IsCooldownActive() const
-{
-    if (!IsValid(OwningComponent))
-    {
-        return false;
-    }
-    switch (OwningComponent->GetOwnerRole())
-    {
-        case ROLE_Authority :
-            return AbilityCooldown.OnCooldown;
-        case ROLE_AutonomousProxy :
-            return ClientCooldown.OnCooldown;
-        default :
-            return false;
-    }
-}
-
-float UCombatAbility::GetCooldownLength()
-{
-    return !bStaticCooldownLength && IsValid(OwningComponent) && OwningComponent->GetOwnerRole() == ROLE_Authority ?
-        OwningComponent->CalculateCooldownLength(this, false) : DefaultCooldownLength;
-}
-
-float UCombatAbility::GetRemainingCooldown() const
-{
-    if (!IsValid(OwningComponent))
-    {
-        return 0.0f;
-    }
-    switch (OwningComponent->GetOwnerRole())
-    {
-        case ROLE_Authority :
-            return AbilityCooldown.OnCooldown ? FMath::Max(0.0f, AbilityCooldown.CooldownEndTime - OwningComponent->GetGameStateRef()->GetServerWorldTimeSeconds()) : 0.0f;
-        case ROLE_AutonomousProxy :
-            return ClientCooldown.OnCooldown && ClientCooldown.CooldownEndTime != 0.0f ? FMath::Max(0.0f, ClientCooldown.CooldownEndTime - OwningComponent->GetGameStateRef()->GetServerWorldTimeSeconds()) : 0.0f;
-        default :
-            return 0.0f;
-    }
-}
-
-float UCombatAbility::GetCurrentCooldownLength() const
-{
-    if (!IsValid(OwningComponent))
-    {
-        return 0.0f;
-    }
-    switch (OwningComponent->GetOwnerRole())
-    {
-        case ROLE_Authority :
-            return AbilityCooldown.OnCooldown ? FMath::Max(UAbilityComponent::MINCDLENGTH, AbilityCooldown.CooldownEndTime - AbilityCooldown.CooldownStartTime) : 0.0f;
-        case ROLE_AutonomousProxy :
-            return ClientCooldown.OnCooldown && ClientCooldown.CooldownEndTime != 0.0f ? FMath::Max(UAbilityComponent::MINCDLENGTH, ClientCooldown.CooldownEndTime - ClientCooldown.CooldownStartTime) : 0.0f;
-        default :
-            return 0.0f;
-    }
-}
-
 void UCombatAbility::ModifyCurrentCharges(const int32 Charges, const EChargeModificationType ModificationType)
 {
     if (OwningComponent->GetOwnerRole() != ROLE_Authority || ModificationType == EChargeModificationType::None)
@@ -245,24 +175,18 @@ void UCombatAbility::ModifyCurrentCharges(const int32 Charges, const EChargeModi
 
 void UCombatAbility::CommitCharges(const int32 PredictionID)
 {
+    const int32 PreviousCharges = AbilityCooldown.CurrentCharges;
+    const bool bChargeCostPreviouslyMet = AbilityCooldown.CurrentCharges >= ChargeCost;
     if (OwningComponent->GetOwnerRole() == ROLE_Authority)
     {
-        bool bUseLagCompensation = false;
         if (PredictionID != 0)
         {
             AbilityCooldown.PredictionID = PredictionID;
-            bUseLagCompensation = true;
         }
-        const int32 PreviousCharges = AbilityCooldown.CurrentCharges;
         AbilityCooldown.CurrentCharges = FMath::Clamp(AbilityCooldown.CurrentCharges - ChargeCost, 0, AbilityCooldown.MaxCharges);
-        if (AbilityCooldown.CurrentCharges < AbilityCooldown.MaxCharges && !AbilityCooldown.OnCooldown)
+        if (!AbilityCooldown.OnCooldown && AbilityCooldown.CurrentCharges < AbilityCooldown.MaxCharges)
         {
-            StartCooldown(bUseLagCompensation);
-        }
-        if (PreviousCharges != AbilityCooldown.CurrentCharges)
-        {
-            UpdateCastable();
-            OnChargesChanged.Broadcast(this, PreviousCharges, AbilityCooldown.CurrentCharges);
+            StartCooldown();
         }
     }
     else if (OwningComponent->GetOwnerRole() == ROLE_AutonomousProxy)
@@ -270,15 +194,27 @@ void UCombatAbility::CommitCharges(const int32 PredictionID)
         ChargePredictions.Add(PredictionID, ChargeCost);
         RecalculatePredictedCooldown();
     }
+    if (PreviousCharges != AbilityCooldown.CurrentCharges)
+    {
+        if (bChargeCostPreviouslyMet != (AbilityCooldown.CurrentCharges >= ChargeCost))
+        {
+            UpdateCastable();
+        }
+        OnChargesChanged.Broadcast(this, PreviousCharges, AbilityCooldown.CurrentCharges);
+    }
 }
 
-void UCombatAbility::StartCooldown(const bool bUseLagCompensation)
+void UCombatAbility::StartCooldown()
 {
-    const float CooldownLength = OwningComponent->CalculateCooldownLength(this, bUseLagCompensation);
-    GetWorld()->GetTimerManager().SetTimer(CooldownHandle, this, &UCombatAbility::CompleteCooldown, CooldownLength, false);
     AbilityCooldown.OnCooldown = true;
     AbilityCooldown.CooldownStartTime = OwningComponent->GetGameStateRef()->GetServerWorldTimeSeconds();
-    AbilityCooldown.CooldownEndTime = AbilityCooldown.CooldownStartTime + CooldownLength;
+    AbilityCooldown.bAcked = OwningComponent->GetOwnerRole() == ROLE_Authority;
+    const float CooldownLength = OwningComponent->GetOwnerRole() == ROLE_Authority ? OwningComponent->CalculateCooldownLength(this) : -1.0f;
+    AbilityCooldown.CooldownEndTime = OwningComponent->GetOwnerRole() == ROLE_Authority ? AbilityCooldown.CooldownStartTime + CooldownLength : -1.0f;
+    if (OwningComponent->GetOwnerRole() == ROLE_Authority)
+    {
+        GetWorld()->GetTimerManager().SetTimer(CooldownHandle, this, &UCombatAbility::CompleteCooldown, CooldownLength, false);
+    }
 }
 
 void UCombatAbility::CompleteCooldown()
@@ -288,7 +224,7 @@ void UCombatAbility::CompleteCooldown()
     AbilityCooldown.CurrentCharges = FMath::Clamp(AbilityCooldown.CurrentCharges + ChargesPerCooldown, 0, AbilityCooldown.MaxCharges);
     if (PreviousCharges != AbilityCooldown.CurrentCharges)
     {
-        if (!bChargeCostPreviouslyMet && AbilityCooldown.CurrentCharges >= ChargeCost)
+        if (bChargeCostPreviouslyMet != (AbilityCooldown.CurrentCharges >= ChargeCost))
         {
             UpdateCastable();
         }
@@ -300,66 +236,60 @@ void UCombatAbility::CompleteCooldown()
     }
     else
     {
-        AbilityCooldown.OnCooldown = false;
-        AbilityCooldown.CooldownStartTime = 0.0f;
-        AbilityCooldown.CooldownEndTime = 0.0f;
+        CancelCooldown();
     }
 }
 
 void UCombatAbility::CancelCooldown()
 {
     AbilityCooldown.OnCooldown = false;
-    AbilityCooldown.CooldownStartTime = 0.0f;
-    AbilityCooldown.CooldownEndTime = 0.0f;
+    AbilityCooldown.CooldownStartTime = -1.0f;
+    AbilityCooldown.CooldownEndTime = -1.0f;
     GetWorld()->GetTimerManager().ClearTimer(CooldownHandle);
-}
-
-void UCombatAbility::OnRep_AbilityCooldown(FAbilityCooldown const& PreviousState)
-{
-    if (PreviousState.PredictionID != AbilityCooldown.PredictionID)
-    {
-        TArray<int32> OldPredictionIDs;
-        for (TTuple <int32, int32> const& Prediction : ChargePredictions)
-        {
-            if (Prediction.Key <= AbilityCooldown.PredictionID)
-            {
-                OldPredictionIDs.AddUnique(Prediction.Key);
-            }
-        }
-        for (int32 const ID : OldPredictionIDs)
-        {
-            ChargePredictions.Remove(ID);
-        }
-    }
-    RecalculatePredictedCooldown();
 }
 
 void UCombatAbility::RecalculatePredictedCooldown()
 {
-    const int32 PreviousCharges = ClientCooldown.CurrentCharges;
-    ClientCooldown = AbilityCooldown;
+    AbilityCooldown.CurrentCharges = LastReplicatedCharges;
     for (const TTuple<int32, int32>& Prediction : ChargePredictions)
     {
-        ClientCooldown.CurrentCharges = FMath::Clamp(ClientCooldown.CurrentCharges - Prediction.Value, 0, AbilityCooldown.MaxCharges);
+        AbilityCooldown.CurrentCharges = FMath::Clamp(AbilityCooldown.CurrentCharges - Prediction.Value, 0, AbilityCooldown.MaxCharges);
     }
-    //Accept authority cooldown progress if server says we are on cd.
-    //If server is not on CD, but predicted charges are less than max, predict a CD has started but do not predict start/end time.
-    if (!ClientCooldown.OnCooldown && ClientCooldown.CurrentCharges < AbilityCooldown.MaxCharges)
+    if (!AbilityCooldown.OnCooldown && AbilityCooldown.CurrentCharges < AbilityCooldown.MaxCharges)
     {
-        ClientCooldown.OnCooldown = true;
-        ClientCooldown.CooldownStartTime = 0.0f;
-        ClientCooldown.CooldownEndTime = 0.0f;
+        StartCooldown();
     }
-    if (PreviousCharges != ClientCooldown.CurrentCharges)
+    else if (AbilityCooldown.OnCooldown && AbilityCooldown.CurrentCharges == AbilityCooldown.MaxCharges)
     {
-        UpdateCastable();
-        OnChargesChanged.Broadcast(this, PreviousCharges, ClientCooldown.CurrentCharges);
+        CancelCooldown();
     }
 }
 
-void UCombatAbility::OnRep_ChargeCost()
+void UCombatAbility::OnRep_AbilityCooldown(FAbilityCooldown const& PreviousState)
 {
-    UpdateCastable();
+    LastReplicatedCharges = AbilityCooldown.CurrentCharges;
+    AbilityCooldown.bAcked = true;
+    TArray<int32> OldIDs;
+    for (const TTuple<int32, int32>& Prediction : ChargePredictions)
+    {
+        if (Prediction.Key <= AbilityCooldown.PredictionID)
+        {
+            OldIDs.Add(Prediction.Key);
+        }
+    }
+    for (const int32 ID : OldIDs)
+    {
+        ChargePredictions.Remove(ID);
+    }
+    RecalculatePredictedCooldown();
+    if (PreviousState.CurrentCharges != AbilityCooldown.CurrentCharges)
+    {
+        if ((PreviousState.CurrentCharges >= ChargeCost) != (AbilityCooldown.CurrentCharges >= ChargeCost))
+        {
+            UpdateCastable();
+        }
+        OnChargesChanged.Broadcast(this, PreviousState.CurrentCharges, AbilityCooldown.CurrentCharges);
+    }
 }
 
 #pragma endregion
@@ -613,8 +543,18 @@ void UCombatAbility::UpdatePredictionFromServer(const FServerAbilityResult& Resu
 {
     if (AbilityCooldown.PredictionID < Result.PredictionID)
     {
+        const int32 PreviousCharges = AbilityCooldown.CurrentCharges;
+        const bool bPreviouslyMetChargeCost = AbilityCooldown.CurrentCharges >= ChargeCost;
         ChargePredictions.Add(Result.PredictionID, Result.ChargesSpent);
         RecalculatePredictedCooldown();
+        if (PreviousCharges != AbilityCooldown.CurrentCharges)
+        {
+            if (bPreviouslyMetChargeCost != (AbilityCooldown.CurrentCharges >= ChargeCost))
+            {
+                UpdateCastable();
+            }
+            OnChargesChanged.Broadcast(this, PreviousCharges, AbilityCooldown.CurrentCharges);
+        }
     }
     if (!Result.bSuccess)
     {
@@ -884,13 +824,18 @@ void UCombatAbility::RemoveResourceCostModifier(const TSubclassOf<UResource> Res
 float UCombatAbility::GetCastLength()
 {
     return !bStaticCastTime && IsValid(OwningComponent) && OwningComponent->GetOwnerRole() == ROLE_Authority ?
-        OwningComponent->CalculateCastLength(this, false) : DefaultCastTime;
+        OwningComponent->CalculateCastLength(this) : DefaultCastTime;
 }
 
 float UCombatAbility::GetGlobalCooldownLength()
 {
-    return !bStaticGlobalCooldownLength && IsValid(OwningComponent) && OwningComponent->GetOwnerRole() == ROLE_Authority ?
-        OwningComponent->CalculateGlobalCooldownLength(this, false) : DefaultGlobalCooldownLength;
+    return !bStaticGlobalCooldownLength && IsValid(OwningComponent) ?
+        OwningComponent->CalculateGlobalCooldownLength(this) : DefaultGlobalCooldownLength;
+}
+
+float UCombatAbility::GetCooldownLength()
+{
+    return OwningComponent->CalculateCooldownLength(this);
 }
 
 #pragma endregion

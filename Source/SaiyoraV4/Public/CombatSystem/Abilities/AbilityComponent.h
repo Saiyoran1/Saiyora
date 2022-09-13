@@ -84,7 +84,7 @@ class SAIYORAV4_API UAbilityComponent : public UActorComponent
 
 public:
 
-	static const float MAXPINGCOMPENSATION;
+	static const float PINGCOMPENSATIONRATIO;
 	static const float MINCASTLENGTH;
 	static const float MINGCDLENGTH;
 	static const float MINCDLENGTH;
@@ -176,6 +176,7 @@ private:
 	bool ServerPredictAbility_Validate(const FAbilityRequest& Request) { return true; }
 	UFUNCTION(Client, Reliable)
 	void ClientPredictionResult(const FServerAbilityResult& Result);
+	void ClearOldPredictions(const int32 AckedPredictionID);
 	FTimerHandle TickHandle;
 	UFUNCTION()
 	void TickCurrentCast();
@@ -185,6 +186,7 @@ private:
 	TArray<FAbilityEvent> TicksAwaitingParams;
 	TMap<FPredictedTick, FAbilityParams> ParamsAwaitingTicks;
 	void RemoveExpiredTicks();
+	TMap<FPredictedTick, float> PredictedTickHistory;
 
 //Cancelling
 
@@ -236,17 +238,19 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Abilities")
 	UCombatAbility* GetCurrentCast() const { return CastingState.CurrentCast; }
 	UFUNCTION(BlueprintPure, Category = "Abilities")
+	bool IsCastAcked() const { return CastingState.bAcked; }
+	UFUNCTION(BlueprintPure, Category = "Abilities")
 	bool IsInterruptible() const { return CastingState.bIsCasting && CastingState.bInterruptible; }
 	UFUNCTION(BlueprintPure, Category = "Abilities")
-    float GetCurrentCastLength() const { return CastingState.bIsCasting && CastingState.CastEndTime != -1.0f ? FMath::Max(0.0f, CastingState.CastEndTime - CastingState.CastStartTime) : -1.0f; }
+    float GetCurrentCastLength() const { return CastingState.bIsCasting && CastingState.bAcked ? FMath::Max(0.0f, CastingState.CastEndTime - CastingState.CastStartTime) : -1.0f; }
     UFUNCTION(BlueprintPure, Category = "Abilities")
-    float GetCastTimeRemaining() const { return CastingState.bIsCasting && CastingState.CastEndTime != -1.0f ? FMath::Max(0.0f, CastingState.CastEndTime - GameStateRef->GetServerWorldTimeSeconds()) : -1.0f; }
+    float GetCastTimeRemaining() const { return CastingState.bIsCasting && CastingState.bAcked ? FMath::Max(0.0f, CastingState.CastEndTime - GameStateRef->GetServerWorldTimeSeconds()) : -1.0f; }
 	UPROPERTY(BlueprintAssignable)
 	FCastingStateNotification OnCastStateChanged;
 	
 	void AddCastLengthModifier(UBuff* Source, const FAbilityModCondition& Modifier);
 	void RemoveCastLengthModifier(const UBuff* Source);
-	float CalculateCastLength(UCombatAbility* Ability, const bool bWithPingComp) const;
+	float CalculateCastLength(UCombatAbility* Ability) const;
 
 private:
 
@@ -256,6 +260,7 @@ private:
 	void OnRep_CastingState(const FCastingState& Previous) { OnCastStateChanged.Broadcast(Previous, CastingState); }
 	void StartCast(UCombatAbility* Ability, const int32 PredictionID = 0);
 	void EndCast();
+	void UpdateCastFromServerResult(const float PredictionTime, const FServerAbilityResult& Result);
 	TMap<UBuff*, FAbilityModCondition> CastLengthMods;
 	
 
@@ -264,25 +269,26 @@ private:
 public:
 
 	UFUNCTION(BlueprintPure, Category = "Abilities")
-	bool IsGlobalCooldownActive() const { return GlobalCooldownState.bGlobalCooldownActive; }
+	bool IsGlobalCooldownActive() const { return GlobalCooldownState.bActive; }
 	UFUNCTION(BlueprintPure, Category = "Abilities")
-	float GetCurrentGlobalCooldownLength() const { return GlobalCooldownState.bGlobalCooldownActive && GlobalCooldownState.EndTime != -1.0f ? FMath::Max(0.0f, GlobalCooldownState.EndTime - GlobalCooldownState.StartTime) : -1.0f; }
+	float GetCurrentGlobalCooldownLength() const { return GlobalCooldownState.bActive ? GlobalCooldownState.Length : -1.0f; }
 	UFUNCTION(BlueprintPure, Category = "Abilities")
-	float GetGlobalCooldownTimeRemaining() const { return GlobalCooldownState.bGlobalCooldownActive && GlobalCooldownState.EndTime != -1.0f ? FMath::Max(0.0f, GlobalCooldownState.EndTime - GameStateRef->GetServerWorldTimeSeconds()) : -1.0f; }
+	float GetGlobalCooldownTimeRemaining() const { return GlobalCooldownState.bActive ? FMath::Max(0.0f, (GlobalCooldownState.StartTime + GlobalCooldownState.Length) - GameStateRef->GetServerWorldTimeSeconds()) : -1.0f; }
 	UPROPERTY(BlueprintAssignable)
 	FGlobalCooldownNotification OnGlobalCooldownChanged;
 	
 	void AddGlobalCooldownModifier(UBuff* Source, const FAbilityModCondition& Modifier);
 	void RemoveGlobalCooldownModifier(const UBuff* Source);
-	float CalculateGlobalCooldownLength(UCombatAbility* Ability, const bool bWithPingComp) const;
+	float CalculateGlobalCooldownLength(UCombatAbility* Ability) const;
 
 private:
-
+	
 	FGlobalCooldown GlobalCooldownState;
 	void StartGlobalCooldown(UCombatAbility* Ability, const int32 PredictionID = 0);
 	FTimerHandle GlobalCooldownHandle;
 	UFUNCTION()
 	void EndGlobalCooldown();
+	void UpdateGlobalCooldownFromServerResult(const float PredictionTime, const FServerAbilityResult& Result);
 	TMap<UBuff*, FAbilityModCondition> GlobalCooldownMods;
 	
 
@@ -292,7 +298,7 @@ public:
 
 	void AddCooldownModifier(UBuff* Source, const FAbilityModCondition& Modifier);
 	void RemoveCooldownModifier(const UBuff* Source);
-	float CalculateCooldownLength(UCombatAbility* Ability, const bool bWithPingComp) const;
+	float CalculateCooldownLength(UCombatAbility* Ability) const;
 
 private:
 
@@ -304,17 +310,5 @@ public:
 
 	void AddGenericResourceCostModifier(const TSubclassOf<UResource> ResourceClass, const FCombatModifier& Modifier);
 	void RemoveGenericResourceCostModifier(const TSubclassOf<UResource> ResourceClass, UBuff* Source);
-
-//Queueing
-
-private:
-
-	EQueueStatus QueueStatus = EQueueStatus::Empty;
-	TSubclassOf<UCombatAbility> QueuedAbility;
-	bool bUsingAbilityFromQueue = false;
-	bool TryQueueAbility(const TSubclassOf<UCombatAbility> AbilityClass);
-	FTimerHandle QueueExpirationHandle;
-	UFUNCTION()
-	void ExpireQueue();
 	
 };
