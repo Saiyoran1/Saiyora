@@ -11,14 +11,14 @@ The order of modifier application:
 - Multiplicative modifiers are multiplied together (any multiplicative modifier will have 1 subtracted from it, then be multiplied by its source buff's stack count, then have 1 added back to it, then be clamped above 0).
 - The base value will have the Additive sum added to it, then be clamped above 0, then be multiplied by the Multiplicative product, then be clamped above 0 again.
 
-As an example, take an ability with non-static cast length, a default cast length of 5 seconds, and with a stacking additive modifier that increases cast time by .5 seconds per stack at 3 stacks, and a stacking multiplicative modifier that reduces cast time by 10% per stack at 2 stacks.
-
-- Default cast length: 5 seconds
-- Additive Sum: .5 * 3 = 1.5
-- Multiplicative Product: (.9 - 1) * 2 + 1 = .8 (clamped above 0 for no effect)
-- Default (5) + Additive (1.5) = 6.5 (clamped above 0 for no effect)
-- 6.5 * .8 = 5.2 (clamped above zero for no effect)
-- Final cast length: 5.2 seconds
+> As an example, take an ability with non-static cast length, a default cast length of 5 seconds, and with a stacking additive modifier that increases cast time by .5 seconds per stack at 3 stacks, and a stacking multiplicative modifier that reduces cast time by 10% per stack at 2 stacks.
+>
+> - Default cast length: 5 seconds
+> - Additive Sum: .5 * 3 = 1.5
+> - Multiplicative Product: (.9 - 1) * 2 + 1 = .8 (clamped above 0 for no effect)
+> - Default (5) + Additive (1.5) = 6.5 (clamped above 0 for no effect)
+> - 6.5 * .8 = 5.2 (clamped above zero for no effect)
+> - Final cast length: 5.2 seconds
 
 ## Conditional Modifier Functions
 
@@ -37,7 +37,7 @@ FCombatModifier FireDamageBuff(const FHealthEventInfo& EventInfo)
 ```
 > When iterating over conditional modifiers to outgoing health events, this function would return a Multiplicative modifier of value 1.2 for Fire damage, and an invalid modifier for all other health events. Invalid modifiers are ignored entirely during calculation.
 
-Conditional modifier functions are limited to values that need to be calculated with the context of an event, and as such, persistent values like stats, ability charge costs, ability resource costs, ability max charges, and ability charges per cooldown do not support conditional modifier functions. They simply hold a collection of combat modifiers and are recalculated only when new modifiers are added, existing modifiers are removed, or existing modifiers change their stack count.
+Conditional modifier functions are limited to values that need to be calculated with the context of an event, and as such, persistent values like stats do not support conditional modifier functions. They simply hold a collection of combat modifiers and are recalculated only when new modifiers are added, existing modifiers are removed, or existing modifiers change their stack count.
 
 Here is the list of all values that currently support conditional modifier functions:  
 
