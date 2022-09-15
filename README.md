@@ -20,7 +20,7 @@ Below are links to the README files for each of the main parts of Saiyora's comb
 
 > [General Concepts](Source/SaiyoraV4/Public/CombatSystem/Generic/GeneralConceptsREADME.md)  
 > [Planes]()  
-> [Health]()  
+> [Health](Source/SaiyoraV4/Public/CombatSystem/Damage/HealthREADME.md)  
 > [Buffs]()  
 > [Crowd Control]()  
 > [Stats]()  
