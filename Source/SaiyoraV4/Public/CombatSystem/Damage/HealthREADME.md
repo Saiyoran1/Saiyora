@@ -1,3 +1,6 @@
+<a name="top"></a>
+**[Back to Root](/README.md)**
+
 # Health
 
 The UDamageHandler component handles health, death, respawning, kill count reporting, and both incoming and outgoing health events (damage, healing, and absorbs). Health events support a variety of options, including a hit style, an ability school, an optional source modifier, threat parameters, and flags to ignore restrictions, ignore modifiers, bypass absorbs, or use a snapshotted value. All health events and calculations take place exclusively on the server, with the resulting health values being replicated down and events being RPCed to involved clients. While most of the concepts concerning damage and healing are fairly straightforward, there are a few behaviors of note.
@@ -51,3 +54,5 @@ All of this functionality is handled internally in the GameState, so overriding 
 ## Respawning
 
 By default, actors don't support respawning (as most NPCs in the game won't respawn). Setting the bCanRespawn flag to true enables respawning with the option of respawning in place, or at a preset location. An actor's respawn location can be updated on the server at any time, and calling RespawnActor also allows the option of overriding the actor's set respawn point with a passed in location and rotation, as well as an optional health percentage to respawn at (where the default is full health).
+
+**[⬆ Back to Top](#top)**

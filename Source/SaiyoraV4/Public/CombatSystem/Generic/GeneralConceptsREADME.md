@@ -1,3 +1,6 @@
+<a name="top"></a>
+**[Back to Root](/README.md)**
+
 # General Concepts
 
 There are a few patterns that I found myself using in a lot of places in the combat system's code, and wanted to document since they pop up in nearly every component involved in combat.
@@ -86,3 +89,5 @@ The list of events that support conditional restriction functions:
 ## Prediction IDs
 
 Used mostly within the context of the ability system, Prediction IDs are integers that represent an ability usage initiated by a non-server client. Actors controlled on the server (NPCs and players who are hosting as a listen server) always use 0 as a prediction ID. Prediction IDs are used to update predicted structs like the global cooldown, individual ability cooldowns, resource values, and cast status and keep things in sync between server and owning client. Abilities also typically pass their prediction ID to any buffs, projectiles, or predictively spawned actors, in order to sync things like movement stats or handle cleanup in the case of mispredictions.
+
+**[⬆ Back to Top](#top)**
