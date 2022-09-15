@@ -30,7 +30,7 @@ FCombatModifier DealBonusDamageToLowHealth(const FHealthEventInfo& EventInfo)
     return FCombatModifier();
 }
 ```
-The source modifier function's result is added to the list of the instigating actor's outgoing health event modifiers during calculation, which means snapshotting will bypass it.
+This can provide a very different result from an alternative approach where the ability checks this condition before applying damage and adjusts the base value to be passed in, since the source modifier is handled at the same time as other outgoing modifiers. Note that snapshotting bypasses any provided source modifier.
 
 ## Killing Blows  
 
