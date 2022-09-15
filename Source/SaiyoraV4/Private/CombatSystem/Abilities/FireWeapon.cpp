@@ -3,6 +3,18 @@
 #include "SaiyoraCombatInterface.h"
 #include "Weapon.h"
 
+UFireWeapon::UFireWeapon()
+{
+	Plane = ESaiyoraPlane::Modern;
+	bOnGlobalCooldown = false;
+	DefaultChargeCost = 0;
+	bStaticChargeCost = true;
+	DefaultMaxCharges = 1;
+	bStaticMaxCharges = true;
+	CastType = EAbilityCastType::Instant;
+	bAutomatic = true;
+}
+
 void UFireWeapon::EndFireDelay()
 {
 	DeactivateCastRestriction(FSaiyoraCombatTags::Get().AbilityFireRateRestriction);

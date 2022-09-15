@@ -76,7 +76,7 @@ public:
     UFUNCTION(BlueprintPure, Category = "Abilities")
     bool WillCancelOnRelease() const { return bCancelOnRelease; }
     
-private:
+protected:
     
     UPROPERTY(EditDefaultsOnly, Category = "Info")
     FName Name;
@@ -118,15 +118,16 @@ protected:
     void ActivateCastRestriction(const FGameplayTag RestrictionTag);
     UFUNCTION(BlueprintCallable, Category = "Abilities", meta = (GameplayTagFilter = "Ability.Restriction"))
     void DeactivateCastRestriction(const FGameplayTag RestrictionTag);
+
+    UPROPERTY(EditDefaultsOnly, Category = "Restrictions")
+    bool bCastableWhileDead = false;
+    UPROPERTY(EditDefaultsOnly, Category = "Restrictions", meta = (Categories = "CrowdControl"))
+    FGameplayTagContainer RestrictedCrowdControls;
     
 private:
     
     ECastFailReason Castable = ECastFailReason::InvalidAbility;
     void UpdateCastable();
-    UPROPERTY(EditDefaultsOnly, Category = "Restrictions")
-    bool bCastableWhileDead = false;
-    UPROPERTY(EditDefaultsOnly, Category = "Restrictions", meta = (Categories = "CrowdControl"))
-    FGameplayTagContainer RestrictedCrowdControls;
     TSet<FGameplayTag> CustomCastRestrictions;
     TSet<FGameplayTag> RestrictedTags;
     UPROPERTY(ReplicatedUsing = OnRep_TagsRestricted)
@@ -153,7 +154,7 @@ public:
     UFUNCTION(BlueprintPure, Category = "Abilities")
     bool IsInterruptible() const { return bInterruptible; }
 
-private:
+protected:
 
     UPROPERTY(EditDefaultsOnly, Category = "Cast")
     EAbilityCastType CastType = EAbilityCastType::None;
@@ -181,7 +182,7 @@ public:
     UFUNCTION(BlueprintPure, Category = "Abilities")
     bool HasStaticGlobalCooldownLength() const { return bStaticGlobalCooldownLength; }
     
-private:
+protected:
     
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
     bool bOnGlobalCooldown = true;
@@ -250,6 +251,28 @@ public:
     FAbilityChargeNotification OnChargesChanged;
     
     void CommitCharges(const int32 PredictionID = 0);
+
+protected:
+
+    UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
+    float DefaultCooldownLength = 1.0f;
+    UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
+    bool bStaticCooldownLength = true;
+    
+    UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
+    int32 DefaultMaxCharges = 1;
+    UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
+    bool bStaticMaxCharges = true;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
+    int32 DefaultChargeCost = 1;
+    UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
+    bool bStaticChargeCost = true;
+
+    UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
+    int32 DefaultChargesPerCooldown = 1;
+    UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
+    bool bStaticChargesPerCooldown = true;
     
 private:
 
@@ -265,34 +288,17 @@ private:
     TMap<int32, int32> ChargePredictions;
     int32 LastReplicatedCharges;
     void RecalculatePredictedCooldown();
-
-    UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
-    float DefaultCooldownLength = 1.0f;
-    UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
-    bool bStaticCooldownLength = true;
     
-    UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
-    int32 DefaultMaxCharges = 1;
-    UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
-    bool bStaticMaxCharges = true;
     UPROPERTY()
     TMap<UBuff*, FCombatModifier> MaxChargeModifiers;
-
-    UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
-    int32 DefaultChargeCost = 1;
-    UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
-    bool bStaticChargeCost = true;
+    
     UPROPERTY(ReplicatedUsing = OnRep_ChargeCost)
     int32 ChargeCost = 1;
     UFUNCTION()
     void OnRep_ChargeCost() { UpdateCastable(); }
     UPROPERTY()
     TMap<UBuff*, FCombatModifier> ChargeCostModifiers;
-
-    UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
-    int32 DefaultChargesPerCooldown = 1;
-    UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
-    bool bStaticChargesPerCooldown = true;
+    
     int32 ChargesPerCooldown = 1;
     UPROPERTY()
     TMap<UBuff*, FCombatModifier> ChargesPerCooldownModifiers;
@@ -311,11 +317,14 @@ public:
     void RemoveResourceCostModifier(const TSubclassOf<UResource> ResourceClass, UBuff* Source);
     
     void UpdateCostFromReplication(const FAbilityCost& Cost, const bool bNewAdd = false);
+
+protected:
+
+    UPROPERTY(EditDefaultsOnly, Category = "Cost")
+    TArray<FDefaultAbilityCost> DefaultAbilityCosts;
     
 private:
     
-    UPROPERTY(EditDefaultsOnly, Category = "Cost")
-    TArray<FDefaultAbilityCost> DefaultAbilityCosts;
     UPROPERTY(Replicated)
     FAbilityCostArray AbilityCosts;
     TMultiMap<TSubclassOf<UResource>, FCombatModifier> ResourceCostModifiers;

@@ -8,6 +8,10 @@ class SAIYORAV4_API UFireWeapon : public UCombatAbility
 {
 	GENERATED_BODY()
 
+public:
+
+	UFireWeapon();
+
 //Fire Delay
 	
 private:
