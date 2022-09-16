@@ -237,10 +237,10 @@ void UHealthEventRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 		switch (EventDirection)
 		{
 		case ECombatEventDirection::Incoming :
-			TargetHandler->AddIncomingHealthEventRestriction(GetOwningBuff(), Restrict);
+			TargetHandler->AddIncomingHealthEventRestriction(Restrict);
 			break;
 		case ECombatEventDirection::Outgoing :
-			TargetHandler->AddOutgoingHealthEventRestriction(GetOwningBuff(), Restrict);
+			TargetHandler->AddOutgoingHealthEventRestriction(Restrict);
 			break;
 		default :
 			break;
@@ -255,10 +255,10 @@ void UHealthEventRestrictionFunction::OnRemove(const FBuffRemoveEvent& RemoveEve
 		switch (EventDirection)
 		{
 		case ECombatEventDirection::Incoming :
-			TargetHandler->RemoveIncomingHealthEventRestriction(GetOwningBuff());
+			TargetHandler->RemoveIncomingHealthEventRestriction(Restrict);
 			break;
 		case ECombatEventDirection::Outgoing :
-			TargetHandler->RemoveOutgoingHealthEventRestriction(GetOwningBuff());
+			TargetHandler->RemoveOutgoingHealthEventRestriction(Restrict);
 			break;
 		default :
 			break;
@@ -296,7 +296,7 @@ void UDeathRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
 	if (IsValid(TargetHandler))
 	{
-		TargetHandler->AddDeathRestriction(GetOwningBuff(), Restrict);
+		TargetHandler->AddDeathRestriction(Restrict);
 	}
 }
 
@@ -304,7 +304,7 @@ void UDeathRestrictionFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
 	if (IsValid(TargetHandler))
 	{
-		TargetHandler->RemoveDeathRestriction(GetOwningBuff());
+		TargetHandler->RemoveDeathRestriction(Restrict);
 	}
 }
 

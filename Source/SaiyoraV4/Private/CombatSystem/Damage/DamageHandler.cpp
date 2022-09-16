@@ -310,7 +310,7 @@ FHealthEvent UDamageHandler::ApplyHealthEvent(const EHealthEventType EventType, 
 		HealthEvent.Result.AppliedValue = HealthEvent.Result.PreviousValue - CurrentHealth;
 		if (CurrentHealth == 0.0f)
 		{
-			if (bIgnoreDeathRestrictions || !CheckDeathRestricted(HealthEvent))
+			if (bIgnoreDeathRestrictions || !DeathRestrictions.IsRestricted(HealthEvent))
 			{
 				HealthEvent.Result.KillingBlow = true;
 			}
@@ -399,94 +399,15 @@ void UDamageHandler::ClientNotifyOfIncomingHealthEvent_Implementation(const FHea
 #pragma endregion
 #pragma region Restrictions
 
-void UDamageHandler::AddDeathRestriction(UBuff* Source, const FDeathRestriction& Restriction)
+void UDamageHandler::RemoveDeathRestriction(const FDeathRestriction& Restriction)
 {
-	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Restriction.IsBound())
+	if (DeathRestrictions.Remove(Restriction) > 0 && bHasPendingKillingBlow)
 	{
-		DeathRestrictions.Add(Source, Restriction);
-	}
-}
-
-void UDamageHandler::RemoveDeathRestriction(const UBuff* Source)
-{
-	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
-	{
-		if (DeathRestrictions.Remove(Source) > 0 && bHasPendingKillingBlow)
+		if (!DeathRestrictions.IsRestricted(PendingKillingBlow))
 		{
-			if (!CheckDeathRestricted(PendingKillingBlow))
-			{
-				Die();
-			}
+			Die();
 		}
 	}
-}
-
-bool UDamageHandler::CheckDeathRestricted(const FHealthEvent& DamageEvent)
-{
-	for (const TTuple<UBuff*, FDeathRestriction>& Restriction : DeathRestrictions)
-	{
-		if (Restriction.Value.IsBound() && Restriction.Value.Execute(DamageEvent))
-		{
-			return true;
-		}
-	}
-	return false;
-}
-
-void UDamageHandler::AddOutgoingHealthEventRestriction(UBuff* Source, const FHealthEventRestriction& Restriction)
-{
-	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Restriction.IsBound())
-	{
-		OutgoingHealthEventRestrictions.Add(Source, Restriction);
-	}
-}
-
-void UDamageHandler::RemoveOutgoingHealthEventRestriction(const UBuff* Source)
-{
-	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
-	{
-		OutgoingHealthEventRestrictions.Remove(Source);
-	}
-}
-
-bool UDamageHandler::CheckOutgoingHealthEventRestricted(const FHealthEventInfo& DamageInfo)
-{
-	for (const TTuple<UBuff*, FHealthEventRestriction>& Restriction : OutgoingHealthEventRestrictions)
-	{
-		if (Restriction.Value.IsBound() && Restriction.Value.Execute(DamageInfo))
-		{
-			return true;
-		}
-	}
-	return false;
-}
-
-void UDamageHandler::AddIncomingHealthEventRestriction(UBuff* Source, const FHealthEventRestriction& Restriction)
-{
-	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Restriction.IsBound())
-	{
-		IncomingHealthEventRestrictions.Add(Source, Restriction);
-	}
-}
-
-void UDamageHandler::RemoveIncomingHealthEventRestriction(const UBuff* Source)
-{
-	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
-	{
-		IncomingHealthEventRestrictions.Remove(Source);
-	}
-}
-
-bool UDamageHandler::CheckIncomingHealthEventRestricted(const FHealthEventInfo& EventInfo)
-{
-	for (const TTuple<UBuff*, FHealthEventRestriction>& Restriction : IncomingHealthEventRestrictions)
-	{
-		if (Restriction.Value.IsBound() && Restriction.Value.Execute(EventInfo))
-		{
-			return true;
-		}
-	}
-	return false;
 }
 
 #pragma endregion

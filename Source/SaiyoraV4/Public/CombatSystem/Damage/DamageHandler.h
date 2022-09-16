@@ -68,8 +68,8 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FLifeStatusNotification OnLifeStatusChanged;
 
-	void AddDeathRestriction(UBuff* Source, const FDeathRestriction& Restriction);
-	void RemoveDeathRestriction(const UBuff* Source);
+	void AddDeathRestriction(const FDeathRestriction& Restriction) { DeathRestrictions.Add(Restriction); }
+	void RemoveDeathRestriction(const FDeathRestriction& Restriction);
 
 private:
 
@@ -102,14 +102,12 @@ private:
 	void OnRep_LifeStatus(const ELifeStatus PreviousValue);
 	FVector RespawnLocation;
 	
-	UPROPERTY()
-	TMap<UBuff*, FDeathRestriction> DeathRestrictions;
+	TRestrictionList<FDeathRestriction> DeathRestrictions;
 
 	void UpdateMaxHealth(const float NewMaxHealth);
 	FStatCallback MaxHealthStatCallback;
 	UFUNCTION()
 	void ReactToMaxHealthStat(const FGameplayTag StatTag, const float NewValue);
-	bool CheckDeathRestricted(const FHealthEvent& DamageEvent);
 	void Die();
 
 //Kill Count
@@ -152,12 +150,12 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FHealthEventNotification OnKillingBlow;
 
-	void AddIncomingHealthEventRestriction(UBuff* Source, const FHealthEventRestriction& Restriction);
-	void RemoveIncomingHealthEventRestriction(const UBuff* Source);
-	bool CheckIncomingHealthEventRestricted(const FHealthEventInfo& EventInfo);
-   	void AddOutgoingHealthEventRestriction(UBuff* Source, const FHealthEventRestriction& Restriction);
-   	void RemoveOutgoingHealthEventRestriction(const UBuff* Source);
-	bool CheckOutgoingHealthEventRestricted(const FHealthEventInfo& EventInfo);
+	void AddIncomingHealthEventRestriction(const FHealthEventRestriction& Restriction) { IncomingHealthEventRestrictions.Add(Restriction); }
+	void RemoveIncomingHealthEventRestriction(const FHealthEventRestriction& Restriction) { IncomingHealthEventRestrictions.Remove(Restriction); }
+	bool CheckIncomingHealthEventRestricted(const FHealthEventInfo& EventInfo) { return IncomingHealthEventRestrictions.IsRestricted(EventInfo); }
+   	void AddOutgoingHealthEventRestriction(const FHealthEventRestriction& Restriction) { OutgoingHealthEventRestrictions.Add(Restriction); }
+   	void RemoveOutgoingHealthEventRestriction(const FHealthEventRestriction& Restriction) { OutgoingHealthEventRestrictions.Remove(Restriction); }
+	bool CheckOutgoingHealthEventRestricted(const FHealthEventInfo& EventInfo) { return OutgoingHealthEventRestrictions.IsRestricted(EventInfo); }
 	
 	void AddIncomingHealthEventModifier(UBuff* Source, const FHealthEventModCondition& Modifier);
 	void RemoveIncomingHealthEventModifier(const UBuff* Source);
@@ -178,10 +176,9 @@ private:
 	bool bHasPendingKillingBlow = false;
 	FHealthEvent PendingKillingBlow;
 	
-	UPROPERTY()
-	TMap<UBuff*, FHealthEventRestriction> IncomingHealthEventRestrictions;
-	UPROPERTY()
-	TMap<UBuff*, FHealthEventRestriction> OutgoingHealthEventRestrictions;
+
+	TRestrictionList<FHealthEventRestriction> IncomingHealthEventRestrictions;
+	TRestrictionList<FHealthEventRestriction> OutgoingHealthEventRestrictions;
 	UPROPERTY()
 	TMap<UBuff*, FHealthEventModCondition> IncomingHealthEventModifiers;
 	UPROPERTY()

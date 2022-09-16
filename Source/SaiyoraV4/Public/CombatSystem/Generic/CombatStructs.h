@@ -62,6 +62,8 @@ struct SAIYORAV4_API FSaiyoraCombatTags : public FGameplayTagNativeAdder
 
     FORCEINLINE static const FSaiyoraCombatTags& Get() { return SaiyoraCombatTags; }
 
+    virtual ~FSaiyoraCombatTags() {} /* This stops the "polymorphic struct with non-virtual destructor" intellisense error, even though it shouldn't matter in this case. */
+
 protected:
 
     virtual void AddTags() override
@@ -202,4 +204,39 @@ struct FCombatParameter
         }
         return Ar;
     }
+};
+
+template <class T>
+class TRestrictionList
+{
+    
+public:
+
+    template <typename... Args>
+    bool IsRestricted(Args... Context)
+    {
+        for (const T& Restriction : Restrictions)
+        {
+            if (Restriction.IsBound() && Restriction.Execute(Context...))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+    void Add(const T& Restriction)
+    {
+        if (Restriction.IsBound())
+        {
+            Restrictions.Add(Restriction);
+        }
+    }
+    int32 Remove(const T& Restriction)
+    {
+        return Restrictions.Remove(Restriction);
+    }
+
+private:
+    
+    TSet<T> Restrictions;
 };
