@@ -26,14 +26,15 @@ void UFactionComponent::BeginPlay()
 
 void UFactionComponent::UpdateOwnerCustomRendering()
 {
-	const int32 StencilIndex = bIsLocalPlayer ? 0 : static_cast<int>(DefaultFaction) + 1;
+	//Local player gets final stencil value of 200, other players get 100-199, NPCs get 0-99.
+	const int32 StencilIndex = bIsLocalPlayer ? 2 : DefaultFaction == EFaction::Player ? 1 : 0;
 	for (UMeshComponent* Mesh : OwnerMeshes)
 	{
 		if (IsValid(Mesh))
 		{
 			const int32 PreviousStencil = Mesh->CustomDepthStencilValue;
 			Mesh->SetRenderCustomDepth(true);
-			Mesh->SetCustomDepthStencilValue((PreviousStencil - (PreviousStencil % 10)) + StencilIndex);
+			Mesh->SetCustomDepthStencilValue((StencilIndex * 100) + (PreviousStencil % 100));
 		}
 	}
 }

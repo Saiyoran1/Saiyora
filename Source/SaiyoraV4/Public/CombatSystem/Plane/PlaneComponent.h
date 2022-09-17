@@ -27,7 +27,7 @@ private:
 	UPROPERTY()
 	TArray<UMeshComponent*> OwnerMeshes;
 	UFUNCTION()
-	void OnLocalPlayerPlaneSwap(const ESaiyoraPlane Previous, const ESaiyoraPlane New, UObject* Source) { UpdateOwnerCustomRendering(); }
+	void OnLocalPlayerPlaneSwap(const ESaiyoraPlane Previous, const ESaiyoraPlane New, UObject* Source) { UpdateRenderingID(); }
 
 //Plane
 
@@ -59,6 +59,9 @@ private:
 	
 	UPROPERTY()
 	TMap<UBuff*, FPlaneSwapRestriction> PlaneSwapRestrictions;
-	UFUNCTION()
+
+	void UpdateRenderingID();
 	void UpdateOwnerCustomRendering();
+	int32 CurrentID = 0;
+	static TMap<int32, UPlaneComponent*> RenderingIDs;
 };

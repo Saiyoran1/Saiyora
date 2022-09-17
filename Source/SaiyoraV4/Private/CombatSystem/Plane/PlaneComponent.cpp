@@ -1,10 +1,11 @@
 #include "PlaneComponent.h"
-
 #include "Buff.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraCombatLibrary.h"
 #include "UnrealNetwork.h"
 #include "Kismet/GameplayStatics.h"
+
+TMap<int32, UPlaneComponent*> UPlaneComponent::RenderingIDs = TMap<int32, UPlaneComponent*>();
 
 #pragma region Setup
 
@@ -25,6 +26,17 @@ void UPlaneComponent::InitializeComponent()
 {
 	PlaneStatus.CurrentPlane = DefaultPlane;
 	PlaneStatus.LastSwapSource = nullptr;
+	if (RenderingIDs.Num() == 0)
+	{
+		//This is the first PlaneComponent to initialize, fill out the RenderingIDs map.
+		for (int32 i = 1; i <= 99; i++)
+		{
+			if (i != 50)
+			{
+				RenderingIDs.Add(i, nullptr);
+			}
+		}
+	}
 }
 
 void UPlaneComponent::BeginPlay()
@@ -45,7 +57,7 @@ void UPlaneComponent::BeginPlay()
 		}
 	}
 	GetOwner()->GetComponents(OwnerMeshes);
-	UpdateOwnerCustomRendering();
+	UpdateRenderingID();
 }
 
 #pragma endregion
@@ -97,7 +109,7 @@ ESaiyoraPlane UPlaneComponent::PlaneSwap(const bool bIgnoreRestrictions, UObject
 	if (PreviousPlane != PlaneStatus.CurrentPlane)
 	{
 		OnPlaneSwapped.Broadcast(PreviousPlane, PlaneStatus.CurrentPlane, Source);
-		UpdateOwnerCustomRendering();
+		UpdateRenderingID();
 	}
 	return PlaneStatus.CurrentPlane;
 }
@@ -128,7 +140,7 @@ void UPlaneComponent::OnRep_PlaneStatus(const FPlaneStatus& PreviousStatus)
 	if (PreviousStatus.CurrentPlane != PlaneStatus.CurrentPlane)
 	{
 		OnPlaneSwapped.Broadcast(PreviousStatus.CurrentPlane, PlaneStatus.CurrentPlane, PlaneStatus.LastSwapSource);
-		UpdateOwnerCustomRendering();
+		UpdateRenderingID();
 	}
 }
 
@@ -136,17 +148,62 @@ void UPlaneComponent::UpdateOwnerCustomRendering()
 {
 	if (IsValid(LocalPlayerPlaneComponent) && LocalPlayerPlaneComponent != this)
 	{
-		int32 StencilIndex = 0;
-		StencilIndex += CheckForXPlane(PlaneStatus.CurrentPlane, LocalPlayerPlaneComponent->GetCurrentPlane()) ? 10 : 0;
 		for (UMeshComponent* Mesh : OwnerMeshes)
 		{
 			if (IsValid(Mesh))
 			{
 				const int32 PreviousStencil = Mesh->CustomDepthStencilValue;
 				Mesh->SetRenderCustomDepth(true);
-				Mesh->SetCustomDepthStencilValue((PreviousStencil % 10) + StencilIndex);
+				Mesh->SetCustomDepthStencilValue(((PreviousStencil / 100) * 100) + CurrentID);
 			}
 		}
+	}
+}
+
+void UPlaneComponent::UpdateRenderingID()
+{
+	/* ID 0 = Actor is same plane, but no IDs remain OR Actor does not interact with plane rendering.
+	** ID 1-49 = Actor is same plane.
+	** ID 50 = Actor is xplane, but no IDs remain.
+	** ID 51-99 = Actor is xplane.
+	*/
+	const int32 PreviousID = CurrentID;
+	if (IsValid(LocalPlayerPlaneComponent) && LocalPlayerPlaneComponent != this)
+	{
+		const bool bShouldBeXPlane = CheckForXPlane(PlaneStatus.CurrentPlane, LocalPlayerPlaneComponent->GetCurrentPlane());
+		const int32 StartingID = bShouldBeXPlane ? 51 : 1;
+		const int32 EndingID = bShouldBeXPlane ? 99 : 49;
+		if (StartingID <= PreviousID && PreviousID <= EndingID)
+		{
+			//We are already in the correct range of IDs.
+			return;
+		}
+		for (int32 i = StartingID; i <= EndingID; i++)
+		{
+			if (RenderingIDs.FindRef(i) == nullptr)
+			{
+				RenderingIDs.Add(i, this);
+				if (PreviousID != 0 && PreviousID != 50)
+				{
+					RenderingIDs.Add(PreviousID, nullptr);
+					//TODO: Some kind of notification for components currently using ID 0/50 that an ID is available?
+				}
+				CurrentID = i;
+				break;
+			}
+		}
+		if (CurrentID == PreviousID)
+		{
+			CurrentID = bShouldBeXPlane ? 50 : 0;
+		}
+	}
+	else
+	{
+		CurrentID = 0;
+	}
+	if (CurrentID != PreviousID)
+	{
+		UpdateOwnerCustomRendering();
 	}
 }
 
