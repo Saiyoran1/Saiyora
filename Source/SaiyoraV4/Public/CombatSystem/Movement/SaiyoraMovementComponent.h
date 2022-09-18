@@ -71,13 +71,13 @@ public:
 	virtual void InitializeComponent() override;
 	virtual void BeginPlay() override;
 	
-	UAbilityComponent* GetOwnerAbilityHandler() const { return AbilityHandlerRef; }
+	UAbilityComponent* GetOwnerAbilityHandler() const { return AbilityComponentRef; }
 	AGameState* GetGameStateRef() const { return GameStateRef; }
 	
 private:
 	
 	UPROPERTY()
-	UAbilityComponent* AbilityHandlerRef = nullptr;
+	UAbilityComponent* AbilityComponentRef = nullptr;
 	UPROPERTY()
 	UCrowdControlHandler* CcHandlerRef = nullptr;
 	UPROPERTY()

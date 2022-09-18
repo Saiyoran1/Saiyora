@@ -1,5 +1,5 @@
 ﻿#include "LevelGeoPlaneComponent.h"
-#include "PlaneComponent.h"
+#include "CombatStatusComponent.h"
 #include "SaiyoraCombatInterface.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -17,11 +17,11 @@ void ULevelGeoPlaneComponent::BeginPlay()
 		const APawn* LocalPawn = LocalPC->GetPawn();
 		if (IsValid(LocalPawn))
 		{
-			LocalPlayerPlaneComponent = ISaiyoraCombatInterface::Execute_GetPlaneComponent(LocalPawn);
-			if (IsValid(LocalPlayerPlaneComponent))
+			LocalPlayerCombatStatusComponent = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(LocalPawn);
+			if (IsValid(LocalPlayerCombatStatusComponent))
 			{
-				LocalPlayerPlaneComponent->OnPlaneSwapped.AddDynamic(this, &ULevelGeoPlaneComponent::OnLocalPlayerPlaneSwap);
-				bIsRenderedXPlane = UPlaneComponent::CheckForXPlane(LocalPlayerPlaneComponent->GetCurrentPlane(), DefaultPlane);
+				LocalPlayerCombatStatusComponent->OnPlaneSwapped.AddDynamic(this, &ULevelGeoPlaneComponent::OnLocalPlayerPlaneSwap);
+				bIsRenderedXPlane = UCombatStatusComponent::CheckForXPlane(LocalPlayerCombatStatusComponent->GetCurrentPlane(), DefaultPlane);
 				TArray<UMeshComponent*> OwnerMeshes;
 				GetOwner()->GetComponents<UMeshComponent>(OwnerMeshes);
 				for (UMeshComponent* Mesh : OwnerMeshes)
@@ -49,7 +49,7 @@ void ULevelGeoPlaneComponent::OnLocalPlayerPlaneSwap(const ESaiyoraPlane Previou
 	UObject* Source)
 {
 	const bool bPreviouslyXPlane = bIsRenderedXPlane;
-	bIsRenderedXPlane = UPlaneComponent::CheckForXPlane(NewPlane, DefaultPlane);
+	bIsRenderedXPlane = UCombatStatusComponent::CheckForXPlane(NewPlane, DefaultPlane);
 	if (bIsRenderedXPlane == bPreviouslyXPlane)
 	{
 		return;

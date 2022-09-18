@@ -179,7 +179,7 @@ void USaiyoraMovementComponent::InitializeComponent()
 {
 	Super::InitializeComponent();
 	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Custom Movement Component."));
-	AbilityHandlerRef = ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwner());
+	AbilityComponentRef = ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwner());
 	CcHandlerRef = ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(GetOwner());
 	DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
 	StatHandlerRef = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
@@ -212,10 +212,10 @@ void USaiyoraMovementComponent::BeginPlay()
 		UE_LOG(LogTemp, Warning, (TEXT("Custom CMC encountered wrong Game State Ref!")));
 		return;
 	}
-	if (GetOwnerRole() == ROLE_AutonomousProxy && IsValid(AbilityHandlerRef))
+	if (GetOwnerRole() == ROLE_AutonomousProxy && IsValid(AbilityComponentRef))
 	{
 		//Do not sub OnPredictedAbility, this will be added and removed only when custom moves are predicted.
-		AbilityHandlerRef->OnAbilityMispredicted.AddDynamic(this, &USaiyoraMovementComponent::AbilityMispredicted);
+		AbilityComponentRef->OnAbilityMispredicted.AddDynamic(this, &USaiyoraMovementComponent::AbilityMispredicted);
 	}
 	if (IsValid(DamageHandlerRef))
 	{
@@ -437,11 +437,11 @@ void USaiyoraMovementComponent::Client_ExecuteCustomMove_Implementation(const FC
 
 void USaiyoraMovementComponent::SetupCustomMovementPrediction(const UCombatAbility* Source, const FCustomMoveParams& CustomMove)
 {
-	if (GetOwnerRole() != ROLE_AutonomousProxy || CustomMove.MoveType == ESaiyoraCustomMove::None || !IsValid(Source) || !IsValid(AbilityHandlerRef))
+	if (GetOwnerRole() != ROLE_AutonomousProxy || CustomMove.MoveType == ESaiyoraCustomMove::None || !IsValid(Source) || !IsValid(AbilityComponentRef))
 	{
 		return;
 	}
-	AbilityHandlerRef->OnAbilityTick.AddDynamic(this, &USaiyoraMovementComponent::OnCustomMoveCastPredicted);
+	AbilityComponentRef->OnAbilityTick.AddDynamic(this, &USaiyoraMovementComponent::OnCustomMoveCastPredicted);
 	PendingCustomMove.AbilityClass = Source->GetClass();
 	PendingCustomMove.MoveParams = CustomMove;
 	PendingCustomMove.PredictionID = Source->GetPredictionID();
@@ -450,7 +450,7 @@ void USaiyoraMovementComponent::SetupCustomMovementPrediction(const UCombatAbili
 
 void USaiyoraMovementComponent::OnCustomMoveCastPredicted(const FAbilityEvent& Event)
 {
-	AbilityHandlerRef->OnAbilityTick.RemoveDynamic(this, &USaiyoraMovementComponent::OnCustomMoveCastPredicted);
+	AbilityComponentRef->OnAbilityTick.RemoveDynamic(this, &USaiyoraMovementComponent::OnCustomMoveCastPredicted);
 	CompletedCastStatus.Add(Event.PredictionID, true);
 	if (!IsValid(PendingCustomMove.AbilityClass) || PendingCustomMove.AbilityClass != Event.Ability->GetClass()
 		|| PendingCustomMove.PredictionID != Event.PredictionID || PendingCustomMove.MoveParams.MoveType == ESaiyoraCustomMove::None)
@@ -477,11 +477,11 @@ void USaiyoraMovementComponent::CustomMoveFromFlag()
 	if (GetOwnerRole() == ROLE_Authority && !PawnOwner->IsLocallyControlled())
 	{
 		//If we are the server, and have an auto proxy, check that this move hasn't already been sent (duplicating cast IDs), and can actually be performed.
-		if (ServerCompletedMovementIDs.Contains(FPredictedTick(CustomMoveAbilityRequest.PredictionID, CustomMoveAbilityRequest.Tick)) || !IsValid(AbilityHandlerRef))
+		if (ServerCompletedMovementIDs.Contains(FPredictedTick(CustomMoveAbilityRequest.PredictionID, CustomMoveAbilityRequest.Tick)) || !IsValid(AbilityComponentRef))
 		{
 			return;
 		}
-		if (AbilityHandlerRef->UseAbilityFromPredictedMovement(CustomMoveAbilityRequest))
+		if (AbilityComponentRef->UseAbilityFromPredictedMovement(CustomMoveAbilityRequest))
 		{
 			//Document that this prediction ID has already been used, so duplicate moves with this ID do not get re-used.
 			ServerCompletedMovementIDs.Add(FPredictedTick(CustomMoveAbilityRequest.PredictionID, CustomMoveAbilityRequest.Tick));

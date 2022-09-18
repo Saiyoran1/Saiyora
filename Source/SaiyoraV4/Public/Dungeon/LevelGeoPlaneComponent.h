@@ -4,7 +4,7 @@
 #include "Components/ActorComponent.h"
 #include "LevelGeoPlaneComponent.generated.h"
 
-class UPlaneComponent;
+class UCombatStatusComponent;
 
 USTRUCT()
 struct FMeshMaterials
@@ -35,7 +35,7 @@ private:
 	UPROPERTY()
 	TMap<UMeshComponent*, FMeshMaterials> Materials;
 	UPROPERTY()
-	UPlaneComponent* LocalPlayerPlaneComponent;
+	UCombatStatusComponent* LocalPlayerCombatStatusComponent;
 	bool bIsRenderedXPlane = false;
 
 	UFUNCTION()

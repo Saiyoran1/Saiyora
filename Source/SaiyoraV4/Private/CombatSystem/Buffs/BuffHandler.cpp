@@ -1,7 +1,7 @@
 #include "BuffHandler.h"
 #include "Buff.h"
 #include "CombatAbility.h"
-#include "PlaneComponent.h"
+#include "CombatStatusComponent.h"
 #include "SaiyoraCombatInterface.h"
 #include "UnrealNetwork.h"
 #include "Engine/ActorChannel.h"
@@ -34,7 +34,7 @@ void UBuffHandler::BeginPlay()
 void UBuffHandler::InitializeComponent()
 {
 	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Buff Handler."));
-	PlaneComponentRef = ISaiyoraCombatInterface::Execute_GetPlaneComponent(GetOwner());
+	CombatStatusComponentRef = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(GetOwner());
 	DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
 	StatHandlerRef = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
 	ThreatHandlerRef = ISaiyoraCombatInterface::Execute_GetThreatHandler(GetOwner());
@@ -77,17 +77,17 @@ FBuffApplyEvent UBuffHandler::ApplyBuff(const TSubclassOf<UBuff> BuffClass, AAct
     }
 
     Event.AppliedBy = AppliedBy;
-	UPlaneComponent* GeneratorPlane = nullptr;
+	UCombatStatusComponent* GeneratorCombatStatus = nullptr;
 	UBuffHandler* GeneratorBuff = nullptr;
 	if (AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 	{
-		GeneratorPlane = ISaiyoraCombatInterface::Execute_GetPlaneComponent(AppliedBy);
+		GeneratorCombatStatus = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(AppliedBy);
 		GeneratorBuff = ISaiyoraCombatInterface::Execute_GetBuffHandler(AppliedBy);
 	}
-	Event.OriginPlane = IsValid(GeneratorPlane) ? GeneratorPlane->GetCurrentPlane() : ESaiyoraPlane::None;
+	Event.OriginPlane = IsValid(GeneratorCombatStatus) ? GeneratorCombatStatus->GetCurrentPlane() : ESaiyoraPlane::None;
     Event.AppliedTo = GetOwner();
-	Event.TargetPlane = IsValid(PlaneComponentRef) ? PlaneComponentRef->GetCurrentPlane() : ESaiyoraPlane::None;
-	Event.AppliedXPlane = UPlaneComponent::CheckForXPlane(Event.OriginPlane, Event.TargetPlane);
+	Event.TargetPlane = IsValid(CombatStatusComponentRef) ? CombatStatusComponentRef->GetCurrentPlane() : ESaiyoraPlane::None;
+	Event.AppliedXPlane = UCombatStatusComponent::CheckForXPlane(Event.OriginPlane, Event.TargetPlane);
     Event.Source = Source;
     Event.BuffClass = BuffClass;
 	Event.CombatParams = BuffParams;

@@ -27,9 +27,9 @@ public:
 private:
 
 	UPROPERTY()
-	UBuffHandler* BuffHandler = nullptr;
+	UBuffHandler* BuffHandlerRef = nullptr;
 	UPROPERTY()
-	UDamageHandler* DamageHandler = nullptr;
+	UDamageHandler* DamageHandlerRef = nullptr;
 
 //Status
 

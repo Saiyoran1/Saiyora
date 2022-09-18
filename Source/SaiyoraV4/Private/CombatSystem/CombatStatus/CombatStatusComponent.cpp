@@ -1,45 +1,46 @@
-#include "PlaneComponent.h"
+#include "CombatStatusComponent.h"
 #include "Buff.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraCombatLibrary.h"
 #include "UnrealNetwork.h"
 #include "Kismet/GameplayStatics.h"
 
-TMap<int32, UPlaneComponent*> UPlaneComponent::RenderingIDs = TMap<int32, UPlaneComponent*>();
+TMap<int32, UCombatStatusComponent*> UCombatStatusComponent::RenderingIDs = TMap<int32, UCombatStatusComponent*>();
 
 #pragma region Setup
 
-UPlaneComponent::UPlaneComponent()
+UCombatStatusComponent::UCombatStatusComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
 	SetIsReplicatedByDefault(true);
 	bWantsInitializeComponent = true;
 }
 
-void UPlaneComponent::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const
+void UCombatStatusComponent::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME(UPlaneComponent, PlaneStatus);
+	DOREPLIFETIME(UCombatStatusComponent, PlaneStatus);
 }
 
-void UPlaneComponent::InitializeComponent()
+void UCombatStatusComponent::InitializeComponent()
 {
 	PlaneStatus.CurrentPlane = DefaultPlane;
 	PlaneStatus.LastSwapSource = nullptr;
 	if (RenderingIDs.Num() == 0)
 	{
-		//This is the first PlaneComponent to initialize, fill out the RenderingIDs map.
-		for (int32 i = 1; i <= 99; i++)
+		//This is the first CombatStatusComponent to initialize, fill out the RenderingIDs map.
+		for (int32 i = 1; i <= 49; i++)
 		{
-			if (i != 50)
-			{
-				RenderingIDs.Add(i, nullptr);
-			}
+			RenderingIDs.Add(i, nullptr);
+		}
+		for (int32 i = 51; i <= 99; i++)
+		{
+			RenderingIDs.Add(i, nullptr);
 		}
 	}
 }
 
-void UPlaneComponent::BeginPlay()
+void UCombatStatusComponent::BeginPlay()
 {
 	Super::BeginPlay();
 	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Plane Component."));
@@ -49,21 +50,21 @@ void UPlaneComponent::BeginPlay()
 		const APawn* LocalPawn = LocalPC->GetPawn();
 		if (IsValid(LocalPawn))
 		{
-			LocalPlayerPlaneComponent = ISaiyoraCombatInterface::Execute_GetPlaneComponent(LocalPawn);
-			if (IsValid(LocalPlayerPlaneComponent))
+			LocalPlayerStatusComponent = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(LocalPawn);
+			if (IsValid(LocalPlayerStatusComponent))
 			{
-				LocalPlayerPlaneComponent->OnPlaneSwapped.AddDynamic(this, &UPlaneComponent::OnLocalPlayerPlaneSwap);
+				LocalPlayerStatusComponent->OnPlaneSwapped.AddDynamic(this, &UCombatStatusComponent::OnLocalPlayerPlaneSwap);
 			}
 		}
 	}
 	GetOwner()->GetComponents(OwnerMeshes);
-	UpdateRenderingID();
+	UpdateOwnerCustomRendering();
 }
 
 #pragma endregion
 #pragma region Plane
 
-ESaiyoraPlane UPlaneComponent::PlaneSwap(const bool bIgnoreRestrictions, UObject* Source,
+ESaiyoraPlane UCombatStatusComponent::PlaneSwap(const bool bIgnoreRestrictions, UObject* Source,
                                                   const bool bToSpecificPlane, const ESaiyoraPlane TargetPlane)
 {
 	if (GetOwnerRole() != ROLE_Authority || !bCanEverPlaneSwap)
@@ -109,12 +110,12 @@ ESaiyoraPlane UPlaneComponent::PlaneSwap(const bool bIgnoreRestrictions, UObject
 	if (PreviousPlane != PlaneStatus.CurrentPlane)
 	{
 		OnPlaneSwapped.Broadcast(PreviousPlane, PlaneStatus.CurrentPlane, Source);
-		UpdateRenderingID();
+		UpdateOwnerCustomRendering();
 	}
 	return PlaneStatus.CurrentPlane;
 }
 
-bool UPlaneComponent::CheckForXPlane(const ESaiyoraPlane FromPlane, const ESaiyoraPlane ToPlane)
+bool UCombatStatusComponent::CheckForXPlane(const ESaiyoraPlane FromPlane, const ESaiyoraPlane ToPlane)
 {
 	//None is the default value, always return false if it is provided.
 	if (FromPlane == ESaiyoraPlane::None || ToPlane == ESaiyoraPlane::None)
@@ -135,82 +136,118 @@ bool UPlaneComponent::CheckForXPlane(const ESaiyoraPlane FromPlane, const ESaiyo
 	return FromPlane != ToPlane;
 }
 
-void UPlaneComponent::OnRep_PlaneStatus(const FPlaneStatus& PreviousStatus)
+void UCombatStatusComponent::OnRep_PlaneStatus(const FPlaneStatus& PreviousStatus)
 {
 	if (PreviousStatus.CurrentPlane != PlaneStatus.CurrentPlane)
 	{
 		OnPlaneSwapped.Broadcast(PreviousStatus.CurrentPlane, PlaneStatus.CurrentPlane, PlaneStatus.LastSwapSource);
-		UpdateRenderingID();
+		UpdateOwnerCustomRendering();
 	}
 }
 
-void UPlaneComponent::UpdateOwnerCustomRendering()
+void UCombatStatusComponent::UpdateOwnerCustomRendering()
 {
-	if (IsValid(LocalPlayerPlaneComponent) && LocalPlayerPlaneComponent != this)
+	/*
+	 * 0 = XFaction, same Plane, Out of IDs
+	 * 1-49 = XFaction, same Plane
+	 * 50 = XFaction, XPlane, Out of IDs
+	 * 51-99 = XFaction, XPlane
+	 * 100 = Same Faction, same Plane, Out of IDs
+	 * 101-149 = Same Faction, same Plane
+	 * 150 = Same Faction, XPlane, Out of IDs
+	 * 151-199 = Same Faction, XPlane
+	 * 200 = Local player, or no outline
+	 */
+	const int32 PreviousStencil = StencilValue;
+	if (!IsValid(LocalPlayerStatusComponent) || LocalPlayerStatusComponent == this)
+	{
+		StencilValue = 200;
+		CurrentPlaneID = 0;
+	}
+	else
+	{
+		const int32 FactionID = LocalPlayerStatusComponent->GetCurrentFaction() != GetCurrentFaction() ? 0 : 100;
+		if (CheckForXPlane(LocalPlayerStatusComponent->GetCurrentPlane(), GetCurrentPlane()))
+		{
+			AssignXPlaneID();
+		}
+		else
+		{
+			AssignSamePlaneID();
+		}
+		StencilValue = FactionID + CurrentPlaneID;
+	}
+	if (StencilValue != PreviousStencil)
 	{
 		for (UMeshComponent* Mesh : OwnerMeshes)
 		{
 			if (IsValid(Mesh))
 			{
-				const int32 PreviousStencil = Mesh->CustomDepthStencilValue;
 				Mesh->SetRenderCustomDepth(true);
-				Mesh->SetCustomDepthStencilValue(((PreviousStencil / 100) * 100) + CurrentID);
+				Mesh->SetCustomDepthStencilValue(StencilValue);
 			}
 		}
 	}
 }
 
-void UPlaneComponent::UpdateRenderingID()
+void UCombatStatusComponent::AssignXPlaneID()
 {
-	/* ID 0 = Actor is same plane, but no IDs remain OR Actor does not interact with plane rendering.
-	** ID 1-49 = Actor is same plane.
-	** ID 50 = Actor is xplane, but no IDs remain.
-	** ID 51-99 = Actor is xplane.
-	*/
-	const int32 PreviousID = CurrentID;
-	if (IsValid(LocalPlayerPlaneComponent) && LocalPlayerPlaneComponent != this)
+	if (CurrentPlaneID > 0 && CurrentPlaneID < 50)
 	{
-		const bool bShouldBeXPlane = CheckForXPlane(PlaneStatus.CurrentPlane, LocalPlayerPlaneComponent->GetCurrentPlane());
-		const int32 StartingID = bShouldBeXPlane ? 51 : 1;
-		const int32 EndingID = bShouldBeXPlane ? 99 : 49;
-		if (StartingID <= PreviousID && PreviousID <= EndingID)
+		//Already in the right range.
+		return;
+	}
+	const int32 PreviousID = CurrentPlaneID;
+	for (int32 i = 1; i < 50; i++)
+	{
+		if (RenderingIDs.FindRef(i) == nullptr)
 		{
-			//We are already in the correct range of IDs.
-			return;
-		}
-		for (int32 i = StartingID; i <= EndingID; i++)
-		{
-			if (RenderingIDs.FindRef(i) == nullptr)
-			{
-				RenderingIDs.Add(i, this);
-				if (PreviousID != 0 && PreviousID != 50)
-				{
-					RenderingIDs.Add(PreviousID, nullptr);
-					//TODO: Some kind of notification for components currently using ID 0/50 that an ID is available?
-				}
-				CurrentID = i;
-				break;
-			}
-		}
-		if (CurrentID == PreviousID)
-		{
-			CurrentID = bShouldBeXPlane ? 50 : 0;
+			RenderingIDs.Add(i, this);
+			CurrentPlaneID = i;
+			break;
 		}
 	}
-	else
+	if (PreviousID == CurrentPlaneID)
 	{
-		CurrentID = 0;
+		CurrentPlaneID = 0;
 	}
-	if (CurrentID != PreviousID)
+	if (PreviousID != CurrentPlaneID && PreviousID != 0 && PreviousID != 50)
 	{
-		UpdateOwnerCustomRendering();
+		RenderingIDs.Remove(PreviousID);
+	}
+}
+
+void UCombatStatusComponent::AssignSamePlaneID()
+{
+	if (CurrentPlaneID > 50 && CurrentPlaneID < 100)
+	{
+		//Already in right range.
+		return;
+	}
+	const int32 PreviousID = CurrentPlaneID;
+	for (int32 i = 51; i < 100; i++)
+	{
+		if (RenderingIDs.FindRef(i) == nullptr)
+		{
+			RenderingIDs.Add(i, this);
+			CurrentPlaneID = i;
+			break;
+		}
+	}
+	if (PreviousID == CurrentPlaneID)
+	{
+		CurrentPlaneID = 50;
+	}
+	if (PreviousID != CurrentPlaneID && PreviousID != 0 && PreviousID != 50)
+	{
+		RenderingIDs.Remove(PreviousID);
 	}
 }
 
 #pragma endregion
 #pragma region Restrictions
 
-void UPlaneComponent::AddPlaneSwapRestriction(UBuff* Source, const FPlaneSwapRestriction& Restriction)
+void UCombatStatusComponent::AddPlaneSwapRestriction(UBuff* Source, const FPlaneSwapRestriction& Restriction)
 {
 	if (GetOwnerRole() == ROLE_Authority && bCanEverPlaneSwap && IsValid(Source) && Restriction.IsBound())
 	{
@@ -218,7 +255,7 @@ void UPlaneComponent::AddPlaneSwapRestriction(UBuff* Source, const FPlaneSwapRes
 	}
 }
 
-void UPlaneComponent::RemovePlaneSwapRestriction(const UBuff* Source)
+void UCombatStatusComponent::RemovePlaneSwapRestriction(const UBuff* Source)
 {
 	if (GetOwnerRole() == ROLE_Authority && bCanEverPlaneSwap && IsValid(Source))
 	{

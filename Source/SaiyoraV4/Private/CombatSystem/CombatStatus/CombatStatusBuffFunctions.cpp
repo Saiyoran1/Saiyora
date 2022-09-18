@@ -1,6 +1,6 @@
-﻿#include "PlaneBuffFunctions.h"
+﻿#include "CombatStatusBuffFunctions.h"
 #include "Buff.h"
-#include "PlaneComponent.h"
+#include "CombatStatusComponent.h"
 #include "SaiyoraCombatInterface.h"
 
 void UPlaneSwapRestrictionFunction::PlaneSwapRestriction(UBuff* Buff, const FPlaneSwapRestriction& Restriction)
@@ -21,7 +21,7 @@ void UPlaneSwapRestrictionFunction::SetRestrictionVars(const FPlaneSwapRestricti
 {
 	if (GetOwningBuff()->GetAppliedTo()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 	{
-		TargetComponent = ISaiyoraCombatInterface::Execute_GetPlaneComponent(GetOwningBuff()->GetAppliedTo());
+		TargetComponent = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(GetOwningBuff()->GetAppliedTo());
 		Restrict = Restriction;
 	}
 }

@@ -18,8 +18,8 @@ void UCrowdControlHandler::InitializeComponent()
 {
 	Super::InitializeComponent();
 	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Crowd Control Handler."));
-	BuffHandler = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwner());
-	DamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
+	BuffHandlerRef = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwner());
+	DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
 	StunStatus.CrowdControlType = FSaiyoraCombatTags::Get().Cc_Stun;
 	IncapStatus.CrowdControlType = FSaiyoraCombatTags::Get().Cc_Incapacitate;
 	RootStatus.CrowdControlType = FSaiyoraCombatTags::Get().Cc_Root;
@@ -33,12 +33,12 @@ void UCrowdControlHandler::BeginPlay()
 	
 	if (GetOwnerRole() == ROLE_Authority)
 	{
-		checkf(IsValid(BuffHandler), TEXT("Owner does not have a valid Buff Handler, which CC Handler depends on."));
-		BuffHandler->OnIncomingBuffApplied.AddDynamic(this, &UCrowdControlHandler::CheckAppliedBuffForCc);
-		BuffHandler->OnIncomingBuffRemoved.AddDynamic(this, &UCrowdControlHandler::CheckRemovedBuffForCc);
-		if (IsValid(DamageHandler))
+		checkf(IsValid(BuffHandlerRef), TEXT("Owner does not have a valid Buff Handler, which CC Handler depends on."));
+		BuffHandlerRef->OnIncomingBuffApplied.AddDynamic(this, &UCrowdControlHandler::CheckAppliedBuffForCc);
+		BuffHandlerRef->OnIncomingBuffRemoved.AddDynamic(this, &UCrowdControlHandler::CheckRemovedBuffForCc);
+		if (IsValid(DamageHandlerRef))
 		{
-			DamageHandler->OnIncomingHealthEvent.AddDynamic(this, &UCrowdControlHandler::RemoveIncapacitatesOnDamageTaken);
+			DamageHandlerRef->OnIncomingHealthEvent.AddDynamic(this, &UCrowdControlHandler::RemoveIncapacitatesOnDamageTaken);
 		}
 	}
 }
@@ -249,7 +249,7 @@ void UCrowdControlHandler::RemoveIncapacitatesOnDamageTaken(const FHealthEvent& 
 	{
 		for(UBuff* Cc : IncapStatus.Sources)
 		{
-			BuffHandler->RemoveBuff(Cc, EBuffExpireReason::Dispel);
+			BuffHandlerRef->RemoveBuff(Cc, EBuffExpireReason::Dispel);
 		}
 	}
 }

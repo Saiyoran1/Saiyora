@@ -1,8 +1,8 @@
 ﻿#pragma once
 #include "CoreMinimal.h"
 #include "BuffFunction.h"
-#include "PlaneStructs.h"
-#include "PlaneBuffFunctions.generated.h"
+#include "CombatStatusStructs.h"
+#include "CombatStatusBuffFunctions.generated.h"
 
 UCLASS()
 class SAIYORAV4_API UPlaneSwapRestrictionFunction : public UBuffFunction
@@ -11,7 +11,7 @@ class SAIYORAV4_API UPlaneSwapRestrictionFunction : public UBuffFunction
 
 	FPlaneSwapRestriction Restrict;
 	UPROPERTY()
-	UPlaneComponent* TargetComponent = nullptr;
+	UCombatStatusComponent* TargetComponent = nullptr;
 
 	void SetRestrictionVars(const FPlaneSwapRestriction& Restriction);
 

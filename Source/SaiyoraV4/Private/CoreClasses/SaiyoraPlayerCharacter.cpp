@@ -2,8 +2,7 @@
 #include "BuffHandler.h"
 #include "CrowdControlHandler.h"
 #include "DamageHandler.h"
-#include "FactionComponent.h"
-#include "PlaneComponent.h"
+#include "CombatStatusComponent.h"
 #include "ResourceHandler.h"
 #include "SaiyoraMovementComponent.h"
 #include "CoreClasses/SaiyoraPlayerController.h"
@@ -19,8 +18,7 @@ ASaiyoraPlayerCharacter::ASaiyoraPlayerCharacter(const class FObjectInitializer&
 	Super(ObjectInitializer.SetDefaultSubobjectClass<USaiyoraMovementComponent>(ACharacter::CharacterMovementComponentName))
 {
 	PrimaryActorTick.bCanEverTick = true;
-	FactionComponent = CreateDefaultSubobject<UFactionComponent>(TEXT("FactionComponent"));
-	PlaneComponent = CreateDefaultSubobject<UPlaneComponent>(TEXT("PlaneComponent"));
+	CombatStatusComponent = CreateDefaultSubobject<UCombatStatusComponent>(TEXT("CombatStatusComponent"));
 	DamageHandler = CreateDefaultSubobject<UDamageHandler>(TEXT("DamageHandler"));
 	ThreatHandler = CreateDefaultSubobject<UThreatHandler>(TEXT("ThreatHandler"));
 	BuffHandler = CreateDefaultSubobject<UBuffHandler>(TEXT("BuffHandler"));
@@ -89,7 +87,7 @@ void ASaiyoraPlayerCharacter::InitializeCharacter()
 	{
 		SetupAbilityMappings();
 		CreateUserInterface();
-		PlaneComponent->OnPlaneSwapped.AddDynamic(this, &ASaiyoraPlayerCharacter::ClearQueueAndAutoFireOnPlaneSwap);
+		CombatStatusComponent->OnPlaneSwapped.AddDynamic(this, &ASaiyoraPlayerCharacter::ClearQueueAndAutoFireOnPlaneSwap);
 	}
 	GameStateRef->InitPlayer(this);
 	bInitialized = true;
@@ -184,11 +182,11 @@ void ASaiyoraPlayerCharacter::RemoveAbilityMapping(UCombatAbility* RemovedAbilit
 
 void ASaiyoraPlayerCharacter::AbilityInput(const int32 InputNum, const bool bPressed)
 {
-	if (!IsValid(AbilityComponent) || !IsValid(PlaneComponent))
+	if (!IsValid(AbilityComponent) || !IsValid(CombatStatusComponent))
 	{
 		return;
 	}
-	UCombatAbility* AbilityToUse = PlaneComponent->GetCurrentPlane() == ESaiyoraPlane::Ancient ? AncientAbilityMappings.FindRef(InputNum) : ModernAbilityMappings.FindRef(InputNum);
+	UCombatAbility* AbilityToUse = CombatStatusComponent->GetCurrentPlane() == ESaiyoraPlane::Ancient ? AncientAbilityMappings.FindRef(InputNum) : ModernAbilityMappings.FindRef(InputNum);
 	if (!IsValid(AbilityToUse))
 	{
 		return;

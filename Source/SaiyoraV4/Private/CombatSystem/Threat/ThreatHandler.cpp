@@ -4,8 +4,7 @@
 #include "BuffHandler.h"
 #include "DamageHandler.h"
 #include "SaiyoraCombatInterface.h"
-#include "PlaneComponent.h"
-#include "FactionComponent.h"
+#include "CombatStatusComponent.h"
 
 float UThreatHandler::GLOBALHEALINGTHREATMOD = 0.3f;
 float UThreatHandler::GLOBALTAUNTTHREATPERCENT = 1.2f;
@@ -22,10 +21,9 @@ UThreatHandler::UThreatHandler()
 void UThreatHandler::InitializeComponent()
 {
 	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Threat Handler."));
-	FactionCompRef = ISaiyoraCombatInterface::Execute_GetFactionComponent(GetOwner());
-	checkf(IsValid(FactionCompRef), TEXT("Owner does not have a valid Faction Component, which Threat Handler depends on."));
+	CombatStatusComponentRef = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(GetOwner());
+	checkf(IsValid(CombatStatusComponentRef), TEXT("Owner does not have a valid Combat Status Component, which Threat Handler depends on."));
 	DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
-	PlaneCompRef = ISaiyoraCombatInterface::Execute_GetPlaneComponent(GetOwner());
 }
 
 void UThreatHandler::BeginPlay()
@@ -102,8 +100,8 @@ FThreatEvent UThreatHandler::AddThreat(const EThreatType ThreatType, const float
 	{
 		return Result;
 	}
-	const UFactionComponent* GeneratorFaction = ISaiyoraCombatInterface::Execute_GetFactionComponent(AppliedBy);
-	if (!IsValid(GeneratorFaction) || GeneratorFaction->GetCurrentFaction() == FactionCompRef->GetCurrentFaction())
+	const UCombatStatusComponent* GeneratorCombatStatus = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(AppliedBy);
+	if (!IsValid(GeneratorCombatStatus) || GeneratorCombatStatus->GetCurrentFaction() == CombatStatusComponentRef->GetCurrentFaction())
 	{
 		return Result;
 	}
@@ -117,8 +115,8 @@ FThreatEvent UThreatHandler::AddThreat(const EThreatType ThreatType, const float
 			const UDamageHandler* MisdirectHealth = ISaiyoraCombatInterface::Execute_GetDamageHandler(GeneratorThreat->GetMisdirectTarget());
 			if (!IsValid(MisdirectHealth) || !MisdirectHealth->IsDead())
 			{
-				const UFactionComponent* MisdirectFaction = ISaiyoraCombatInterface::Execute_GetFactionComponent(GeneratorThreat->GetMisdirectTarget());
-				if (IsValid(MisdirectFaction) && MisdirectFaction->GetCurrentFaction() != FactionCompRef->GetCurrentFaction())
+				const UCombatStatusComponent* MisdirectCombatStatus = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(GeneratorThreat->GetMisdirectTarget());
+				if (IsValid(MisdirectCombatStatus) && MisdirectCombatStatus->GetCurrentFaction() != CombatStatusComponentRef->GetCurrentFaction())
 				{
 					bUseMisdirectTarget = true;
 				}
@@ -130,10 +128,9 @@ FThreatEvent UThreatHandler::AddThreat(const EThreatType ThreatType, const float
 	Result.AppliedTo = GetOwner();
 	Result.Source = Source;
 	Result.ThreatType = ThreatType;
-	const UPlaneComponent* GeneratorPlane = ISaiyoraCombatInterface::Execute_GetPlaneComponent(AppliedBy);
-	Result.AppliedByPlane = IsValid(GeneratorPlane) ? GeneratorPlane->GetCurrentPlane() : ESaiyoraPlane::None;
-	Result.AppliedToPlane = IsValid(PlaneCompRef) ? PlaneCompRef->GetCurrentPlane() : ESaiyoraPlane::None;
-	Result.AppliedXPlane = UPlaneComponent::CheckForXPlane(Result.AppliedByPlane, Result.AppliedToPlane);
+	Result.AppliedByPlane = IsValid(GeneratorCombatStatus) ? GeneratorCombatStatus->GetCurrentPlane() : ESaiyoraPlane::None;
+	Result.AppliedToPlane = IsValid(CombatStatusComponentRef) ? CombatStatusComponentRef->GetCurrentPlane() : ESaiyoraPlane::None;
+	Result.AppliedXPlane = UCombatStatusComponent::CheckForXPlane(Result.AppliedByPlane, Result.AppliedToPlane);
 	Result.Threat = BaseThreat;
 
 	if (!bIgnoreModifiers)
@@ -199,8 +196,8 @@ void UThreatHandler::AddToThreatTable(const FThreatTarget& NewTarget)
 	{
 		return;
 	}
-	const UFactionComponent* TargetFactionComp = ISaiyoraCombatInterface::Execute_GetFactionComponent(NewTarget.Target);
-	if (!IsValid(TargetFactionComp) || TargetFactionComp->GetCurrentFaction() == FactionCompRef->GetCurrentFaction())
+	const UCombatStatusComponent* TargetCombatStatus = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(NewTarget.Target);
+	if (!IsValid(TargetCombatStatus) || TargetCombatStatus->GetCurrentFaction() == CombatStatusComponentRef->GetCurrentFaction())
 	{
 		return;
 	}
