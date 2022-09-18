@@ -40,4 +40,7 @@ private:
 
 	UFUNCTION()
 	void OnLocalPlayerPlaneSwap(const ESaiyoraPlane PreviousPlane, const ESaiyoraPlane NewPlane, UObject* Source);
+
+	void SetInitialCollision();
+	void UpdateCameraCollision();
 };

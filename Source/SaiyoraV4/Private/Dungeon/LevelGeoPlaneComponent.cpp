@@ -41,6 +41,7 @@ void ULevelGeoPlaneComponent::BeginPlay()
 				}
 			}
 		}
+		SetInitialCollision();
 	}
 	
 }
@@ -64,6 +65,51 @@ void ULevelGeoPlaneComponent::OnLocalPlayerPlaneSwap(const ESaiyoraPlane Previou
 			for (const TTuple<int32, UMaterialInterface*>& Material : MeshMaterials->Materials)
 			{
 				Mesh->SetMaterial(Material.Key, bIsRenderedXPlane ? XPlaneMaterial : Material.Value);
+			}
+		}
+	}
+	UpdateCameraCollision();
+}
+
+void ULevelGeoPlaneComponent::SetInitialCollision()
+{
+	TArray<UPrimitiveComponent*> Primitives;
+	GetOwner()->GetComponents<UPrimitiveComponent>(Primitives);
+	for (UPrimitiveComponent* Component : Primitives)
+	{
+		if (Component->GetCollisionObjectType() == ECC_WorldDynamic)
+		{
+			switch (DefaultPlane)
+			{
+			case ESaiyoraPlane::Ancient :
+				Component->SetCollisionObjectType(ECC_GameTraceChannel12);
+				break;
+			case ESaiyoraPlane::Modern :
+				Component->SetCollisionObjectType(ECC_GameTraceChannel13);
+			default:
+				break;
+			}
+		}
+	}
+	UpdateCameraCollision();
+}
+
+void ULevelGeoPlaneComponent::UpdateCameraCollision()
+{
+	if (IsValid(LocalPlayerCombatStatusComponent))
+	{
+		const bool bXPlane = UCombatStatusComponent::CheckForXPlane(LocalPlayerCombatStatusComponent->GetCurrentPlane(), DefaultPlane);
+		TArray<UPrimitiveComponent*> Primitives;
+		GetOwner()->GetComponents<UPrimitiveComponent>(Primitives);
+		for (UPrimitiveComponent* Component : Primitives)
+		{
+			if (bXPlane)
+			{
+				Component->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
+			}
+			else
+			{
+				Component->SetCollisionResponseToChannel(ECC_Camera, ECR_Block);
 			}
 		}
 	}

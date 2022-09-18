@@ -59,6 +59,7 @@ void UCombatStatusComponent::BeginPlay()
 	}
 	GetOwner()->GetComponents(OwnerMeshes);
 	UpdateOwnerCustomRendering();
+	UpdateOwnerPlaneCollision();
 }
 
 #pragma endregion
@@ -111,6 +112,7 @@ ESaiyoraPlane UCombatStatusComponent::PlaneSwap(const bool bIgnoreRestrictions, 
 	{
 		OnPlaneSwapped.Broadcast(PreviousPlane, PlaneStatus.CurrentPlane, Source);
 		UpdateOwnerCustomRendering();
+		UpdateOwnerPlaneCollision();
 	}
 	return PlaneStatus.CurrentPlane;
 }
@@ -142,6 +144,7 @@ void UCombatStatusComponent::OnRep_PlaneStatus(const FPlaneStatus& PreviousStatu
 	{
 		OnPlaneSwapped.Broadcast(PreviousStatus.CurrentPlane, PlaneStatus.CurrentPlane, PlaneStatus.LastSwapSource);
 		UpdateOwnerCustomRendering();
+		UpdateOwnerPlaneCollision();
 	}
 }
 
@@ -241,6 +244,29 @@ void UCombatStatusComponent::AssignSamePlaneID()
 	if (PreviousID != CurrentPlaneID && PreviousID != 0 && PreviousID != 50)
 	{
 		RenderingIDs.Remove(PreviousID);
+	}
+}
+
+void UCombatStatusComponent::UpdateOwnerPlaneCollision()
+{
+	TArray<UPrimitiveComponent*> Primitives;
+	GetOwner()->GetComponents<UPrimitiveComponent>(Primitives);
+	for (UPrimitiveComponent* Component : Primitives)
+	{
+		if (Component->GetCollisionObjectType() == ECC_Pawn)
+		{
+			switch (GetCurrentPlane())
+			{
+			case ESaiyoraPlane::Ancient :
+				Component->SetCollisionProfileName(FName("AncientPawn"));
+				break;
+			case ESaiyoraPlane::Modern :
+				Component->SetCollisionProfileName(FName("ModernPawn"));
+				break;
+			default :
+				Component->SetCollisionProfileName(FName("Pawn"));
+			}
+		}
 	}
 }
 

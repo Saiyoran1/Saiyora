@@ -86,4 +86,10 @@ private:
 	static TMap<int32, UCombatStatusComponent*> RenderingIDs;
 	void AssignXPlaneID();
 	void AssignSamePlaneID();
+
+	//Collision
+
+private:
+
+	void UpdateOwnerPlaneCollision();
 };
