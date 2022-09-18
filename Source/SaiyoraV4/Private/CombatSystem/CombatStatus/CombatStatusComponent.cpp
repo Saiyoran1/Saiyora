@@ -258,13 +258,13 @@ void UCombatStatusComponent::UpdateOwnerPlaneCollision()
 			switch (GetCurrentPlane())
 			{
 			case ESaiyoraPlane::Ancient :
-				Component->SetCollisionProfileName(FName("AncientPawn"));
+				Component->SetCollisionProfileName(FSaiyoraCollision::P_AncientPawn);
 				break;
 			case ESaiyoraPlane::Modern :
-				Component->SetCollisionProfileName(FName("ModernPawn"));
+				Component->SetCollisionProfileName(FSaiyoraCollision::P_ModernPawn);
 				break;
 			default :
-				Component->SetCollisionProfileName(FName("Pawn"));
+				Component->SetCollisionProfileName(FSaiyoraCollision::P_Pawn);
 			}
 		}
 	}

@@ -7,6 +7,53 @@
 
 class UBuff;
 
+struct SAIYORAV4_API FSaiyoraCollision
+{
+    //Object and Trace Channels
+    static const ECollisionChannel O_WorldAncient; 
+    static const ECollisionChannel O_WorldModern;
+    static const ECollisionChannel O_PlayerHitbox; 
+    static const ECollisionChannel O_NPCHitbox;
+    static const ECollisionChannel O_ProjectileHitbox;
+    static const ECollisionChannel T_Combat;
+
+    //Object Profiles
+    static const FName P_NoCollision;
+    static const FName P_OverlapAll;
+    static const FName P_BlockAll;
+    static const FName P_Pawn;
+    static const FName P_AncientPawn;
+    static const FName P_ModernPawn;
+    static const FName P_PlayerHitbox;
+    static const FName P_NPCHitbox;
+    static const FName P_ProjectileHitboxAll;
+    static const FName P_ProjectileHitboxPlayers;
+    static const FName P_ProjectileHitboxNPCs;
+    static const FName P_ProjectileCollisionAll;
+    static const FName P_ProjectileCollisionAncient;
+    static const FName P_ProjectileCollisionModern;
+
+    //Combat Trace Profiles
+    static const FName CT_All;
+    static const FName CT_Players;
+    static const FName CT_NPCs;
+    static const FName CT_OverlapAll;
+    static const FName CT_OverlapPlayers;
+    static const FName CT_OverlapNPCs;
+    static const FName CT_AncientAll;
+    static const FName CT_AncientPlayers;
+    static const FName CT_AncientNPCs;
+    static const FName CT_AncientOverlapAll;
+    static const FName CT_AncientOverlapPlayers;
+    static const FName CT_AncientOverlapNPCs;
+    static const FName CT_ModernAll;
+    static const FName CT_ModernPlayers;
+    static const FName CT_ModernNPCs;
+    static const FName CT_ModernOverlapAll;
+    static const FName CT_ModernOverlapPlayers;
+    static const FName CT_ModernOverlapNPCs;
+};
+
 struct SAIYORAV4_API FSaiyoraCombatTags : public FGameplayTagNativeAdder
 {
     FGameplayTag DungeonBoss;

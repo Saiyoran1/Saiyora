@@ -46,5 +46,5 @@ enum class EFaction : uint8
  None = 0,
  Enemy = 1,
  Neutral = 2,
- Player = 3,
+ Friendly = 3,
 };

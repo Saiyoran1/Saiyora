@@ -1,5 +1,6 @@
 ﻿#include "AbilityFunctionLibrary.h"
 #include "CombatAbility.h"
+#include "CombatStatusComponent.h"
 #include "Hitbox.h"
 #include "PredictableProjectile.h"
 #include "SaiyoraCombatInterface.h"
@@ -13,6 +14,8 @@
 float const UAbilityFunctionLibrary::CAMTRACELENGTH = 10000.0f;
 float const UAbilityFunctionLibrary::REWINDTRACERADIUS = 300.0f;
 float const UAbilityFunctionLibrary::AIMTOLERANCEDEGREES = 30.0f;
+
+#pragma region Helpers
 
 FAbilityOrigin UAbilityFunctionLibrary::MakeAbilityOrigin(const FVector& AimLocation, const FVector& AimDirection, const FVector& Origin)
 {
@@ -40,6 +43,96 @@ float UAbilityFunctionLibrary::GetCameraTraceMaxRange(const FVector& CameraLoc, 
 	return (UKismetMathLibrary::DegSin(OriginAngle) * TraceRange) / UKismetMathLibrary::DegSin(CamAngle);
 }
 
+FName UAbilityFunctionLibrary::GetRelevantTraceProfile(const ASaiyoraPlayerCharacter* Shooter, const bool bOverlap, const ESaiyoraPlane TracePlane,
+	const EFaction TraceHostility)
+{
+	const UCombatStatusComponent* ShooterCombatStatus = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(Shooter);
+	const EFaction ShooterFaction = IsValid(ShooterCombatStatus) ? ShooterCombatStatus->GetCurrentFaction() : EFaction::Neutral;
+	
+	if (bOverlap)
+	{
+		switch (TraceHostility)
+		{
+			case EFaction::Friendly :
+			{
+				switch (TracePlane)
+				{
+				case ESaiyoraPlane::Ancient :
+					return ShooterFaction == EFaction::Friendly ? FSaiyoraCollision::CT_AncientOverlapPlayers : FSaiyoraCollision::CT_AncientOverlapNPCs;
+				case ESaiyoraPlane::Modern :
+					return ShooterFaction == EFaction::Friendly ? FSaiyoraCollision::CT_ModernOverlapPlayers : FSaiyoraCollision::CT_ModernOverlapNPCs;
+				default :
+					return ShooterFaction == EFaction::Friendly ? FSaiyoraCollision::CT_OverlapPlayers : FSaiyoraCollision::CT_OverlapNPCs;
+				}
+			}
+			case EFaction::Enemy :
+			{
+				switch (TracePlane)
+				{
+				case ESaiyoraPlane::Ancient :
+					return ShooterFaction == EFaction::Friendly ? FSaiyoraCollision::CT_AncientOverlapNPCs : FSaiyoraCollision::CT_AncientOverlapPlayers;
+				case ESaiyoraPlane::Modern :
+					return ShooterFaction == EFaction::Friendly ? FSaiyoraCollision::CT_ModernOverlapNPCs : FSaiyoraCollision::CT_ModernOverlapPlayers;
+				default :
+					return ShooterFaction == EFaction::Friendly ? FSaiyoraCollision::CT_OverlapNPCs : FSaiyoraCollision::CT_OverlapPlayers;
+				}
+			}
+			default :
+			{
+				switch (TracePlane)
+				{
+				case ESaiyoraPlane::Ancient :
+					return FSaiyoraCollision::CT_AncientOverlapAll;
+				case ESaiyoraPlane::Modern :
+					return FSaiyoraCollision::CT_ModernOverlapAll;
+				default :
+					return FSaiyoraCollision::CT_OverlapAll;
+				}
+			}
+		}
+	}
+	switch (TraceHostility)
+	{
+		case EFaction::Friendly :
+		{
+			switch (TracePlane)
+			{
+			case ESaiyoraPlane::Ancient :
+				return ShooterFaction == EFaction::Friendly ? FSaiyoraCollision::CT_AncientPlayers : FSaiyoraCollision::CT_AncientNPCs;
+			case ESaiyoraPlane::Modern :
+				return ShooterFaction == EFaction::Friendly ? FSaiyoraCollision::CT_ModernPlayers : FSaiyoraCollision::CT_ModernNPCs;
+			default :
+				return ShooterFaction == EFaction::Friendly ? FSaiyoraCollision::CT_Players : FSaiyoraCollision::CT_NPCs;
+			}
+		}
+		case EFaction::Enemy :
+		{
+			switch (TracePlane)
+			{
+			case ESaiyoraPlane::Ancient :
+				return ShooterFaction == EFaction::Friendly ? FSaiyoraCollision::CT_AncientNPCs : FSaiyoraCollision::CT_AncientPlayers;
+			case ESaiyoraPlane::Modern :
+				return ShooterFaction == EFaction::Friendly ? FSaiyoraCollision::CT_ModernNPCs : FSaiyoraCollision::CT_ModernPlayers;
+			default :
+				return ShooterFaction == EFaction::Friendly ? FSaiyoraCollision::CT_NPCs : FSaiyoraCollision::CT_Players;
+			}
+		}
+		default :
+		{
+			switch (TracePlane)
+			{
+			case ESaiyoraPlane::Ancient :
+				return FSaiyoraCollision::CT_AncientAll;
+			case ESaiyoraPlane::Modern :
+				return FSaiyoraCollision::CT_ModernAll;
+			default :
+				return FSaiyoraCollision::CT_All;
+			}
+		}
+	}
+}
+
+#pragma endregion 
 #pragma region Snapshotting
 
 void UAbilityFunctionLibrary::RewindRelevantHitboxes(const ASaiyoraPlayerCharacter* Shooter, const FAbilityOrigin& Origin, const TArray<AActor*>& Targets,
@@ -98,7 +191,7 @@ void UAbilityFunctionLibrary::UnrewindHitboxes(const TMap<UHitbox*, FTransform>&
 #pragma region Trace Validation
 
 bool UAbilityFunctionLibrary::PredictLineTrace(ASaiyoraPlayerCharacter* Shooter, const float TraceLength,
-	const bool bHostile, const TArray<AActor*>& ActorsToIgnore, const int32 TargetSetID,
+	const ESaiyoraPlane TracePlane, const EFaction TraceHostility, const TArray<AActor*>& ActorsToIgnore, const int32 TargetSetID,
 	FHitResult& Result, FAbilityOrigin& OutOrigin, FAbilityTargetSet& OutTargetSet)
 {
 	Result = FHitResult();
@@ -134,16 +227,16 @@ bool UAbilityFunctionLibrary::PredictLineTrace(ASaiyoraPlayerCharacter* Shooter,
 
 	const FVector CamTraceEnd = OutOrigin.AimLocation + (CAMTRACELENGTH * OutOrigin.AimDirection);
 	FHitResult CamTraceResult;
-	const ETraceTypeQuery TraceChannel = UEngineTypes::ConvertToTraceType(bHostile ? ECC_GameTraceChannel4 : ECC_GameTraceChannel3);
-	UKismetSystemLibrary::LineTraceSingle(Shooter, OutOrigin.AimLocation, CamTraceEnd, TraceChannel, false,
-		ActorsToIgnore, EDrawDebugTrace::None, CamTraceResult, true, FLinearColor::Green);
+	const FName TraceProfile = GetRelevantTraceProfile(Shooter, false, TracePlane, TraceHostility);
+	UKismetSystemLibrary::LineTraceSingleByProfile(Shooter, OutOrigin.AimLocation, CamTraceEnd, TraceProfile, false,
+		ActorsToIgnore, EDrawDebugTrace::ForDuration, CamTraceResult, true, FLinearColor::Green, FLinearColor::Red, 1.0f);
 
 	//If we hit something and it was in front of the origin, use that as our trace target, otherwise use the end of the trace.
 	const FVector OriginTraceEnd = OutOrigin.Origin + TraceLength *
 			(((CamTraceResult.bBlockingHit && FVector::DotProduct((CamTraceResult.ImpactPoint - OutOrigin.Origin), OutOrigin.AimDirection) > 0.0f)
 				? CamTraceResult.ImpactPoint : CamTraceResult.TraceEnd) - OutOrigin.Origin).GetSafeNormal();
-	UKismetSystemLibrary::LineTraceSingle(Shooter, OutOrigin.Origin, OriginTraceEnd, TraceChannel, false,
-		ActorsToIgnore, EDrawDebugTrace::None, Result, true, FLinearColor::Yellow);
+	UKismetSystemLibrary::LineTraceSingleByProfile(Shooter, OutOrigin.Origin, OriginTraceEnd, TraceProfile, false,
+		ActorsToIgnore, EDrawDebugTrace::ForDuration, Result, true, FLinearColor::Green, FLinearColor::Red, 1.0f);
 
 	OutTargetSet.SetID = TargetSetID;
 	if (IsValid(Result.GetActor()))
@@ -155,7 +248,7 @@ bool UAbilityFunctionLibrary::PredictLineTrace(ASaiyoraPlayerCharacter* Shooter,
 }
 
 bool UAbilityFunctionLibrary::ValidateLineTrace(ASaiyoraPlayerCharacter* Shooter, const FAbilityOrigin& Origin, AActor* Target,
-	const float TraceLength, const bool bHostile, const TArray<AActor*>& ActorsToIgnore)
+	const float TraceLength, const ESaiyoraPlane TracePlane, const EFaction TraceHostility, const TArray<AActor*>& ActorsToIgnore)
 {
 	if (!IsValid(Shooter) || Shooter->GetLocalRole() != ROLE_Authority || !IsValid(Target) || Shooter == Target
 		|| ActorsToIgnore.Contains(Target) || TraceLength <= 0.0f)
@@ -176,8 +269,8 @@ bool UAbilityFunctionLibrary::ValidateLineTrace(ASaiyoraPlayerCharacter* Shooter
 	//TODO: Math to find distance and angle from origin point so that we can calculate the max distance we can trace before we outrange the origin.
 	const FVector CamTraceEnd = Origin.AimLocation + (CAMTRACELENGTH * Origin.AimDirection.GetSafeNormal());
 	FHitResult CamTraceResult;
-	const ETraceTypeQuery TraceChannel = UEngineTypes::ConvertToTraceType(bHostile ? ECC_GameTraceChannel4 : ECC_GameTraceChannel3);
-	UKismetSystemLibrary::LineTraceSingle(Shooter, Origin.AimLocation, CamTraceEnd, TraceChannel, false,
+	const FName TraceProfile = GetRelevantTraceProfile(Shooter, false, TracePlane, TraceHostility);
+	UKismetSystemLibrary::LineTraceSingleByProfile(Shooter, Origin.AimLocation, CamTraceEnd, TraceProfile, false,
 		ActorsToIgnore, EDrawDebugTrace::None, CamTraceResult, true, FLinearColor::Green);
 
 	//If we hit something and it was in front of the origin, use that as our trace target, otherwise use the end of the trace.
@@ -185,7 +278,7 @@ bool UAbilityFunctionLibrary::ValidateLineTrace(ASaiyoraPlayerCharacter* Shooter
 			(((CamTraceResult.bBlockingHit && FVector::DotProduct((CamTraceResult.ImpactPoint - Origin.Origin), Origin.AimDirection) > 0.0f)
 				? CamTraceResult.ImpactPoint : CamTraceResult.TraceEnd) - Origin.Origin).GetSafeNormal();
 	FHitResult OriginResult;
-	UKismetSystemLibrary::LineTraceSingle(Shooter, Origin.Origin, OriginTraceEnd, TraceChannel, false, ActorsToIgnore,
+	UKismetSystemLibrary::LineTraceSingleByProfile(Shooter, Origin.Origin, OriginTraceEnd, TraceProfile, false, ActorsToIgnore,
 		EDrawDebugTrace::None, OriginResult, true, FLinearColor::Yellow);
 	
 	bool bDidHit = false;

@@ -40,13 +40,13 @@ void UHitbox::UpdateFactionCollision(const EFaction NewFaction)
 	switch (NewFaction)
 	{
 	case EFaction::Enemy :
-		SetCollisionProfileName(TEXT("EnemyHitbox"));
+		SetCollisionProfileName(FSaiyoraCollision::P_NPCHitbox);
 		break;
 	case EFaction::Neutral :
-		SetCollisionProfileName(TEXT("EnemyHitbox"));
+		SetCollisionProfileName(FSaiyoraCollision::P_NPCHitbox);
 		break;
-	case EFaction::Player :
-		SetCollisionProfileName(TEXT("PlayerHitbox"));
+	case EFaction::Friendly :
+		SetCollisionProfileName(FSaiyoraCollision::P_PlayerHitbox);
 		break;
 	default:
 		break;

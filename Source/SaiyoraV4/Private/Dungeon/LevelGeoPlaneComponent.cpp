@@ -1,5 +1,6 @@
 ﻿#include "LevelGeoPlaneComponent.h"
 #include "CombatStatusComponent.h"
+#include "CombatStructs.h"
 #include "SaiyoraCombatInterface.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -82,10 +83,10 @@ void ULevelGeoPlaneComponent::SetInitialCollision()
 			switch (DefaultPlane)
 			{
 			case ESaiyoraPlane::Ancient :
-				Component->SetCollisionObjectType(ECC_GameTraceChannel12);
+				Component->SetCollisionObjectType(FSaiyoraCollision::O_WorldAncient);
 				break;
 			case ESaiyoraPlane::Modern :
-				Component->SetCollisionObjectType(ECC_GameTraceChannel13);
+				Component->SetCollisionObjectType(FSaiyoraCollision::O_WorldModern);
 			default:
 				break;
 			}
