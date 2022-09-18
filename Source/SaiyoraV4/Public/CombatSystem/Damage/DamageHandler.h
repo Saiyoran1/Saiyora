@@ -9,7 +9,7 @@
 
 class UStatHandler;
 class UBuffHandler;
-class UPlaneComponent;
+class UCombatStatusComponent;
 class ADungeonGameState;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
@@ -27,9 +27,9 @@ public:
 private:
 	
 	UPROPERTY()
-	UStatHandler* StatHandler = nullptr;
+	UStatHandler* StatHandlerRef = nullptr;
 	UPROPERTY()
-	UPlaneComponent* PlaneComponent = nullptr;
+	UCombatStatusComponent* CombatStatusComponentRef = nullptr;
 	UPROPERTY()
 	APawn* OwnerAsPawn = nullptr;
 	UPROPERTY()

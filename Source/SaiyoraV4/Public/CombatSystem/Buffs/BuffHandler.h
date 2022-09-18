@@ -9,7 +9,7 @@ class UThreatHandler;
 class UCrowdControlHandler;
 class UStatHandler;
 class UDamageHandler;
-class UPlaneComponent;
+class UCombatStatusComponent;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class SAIYORAV4_API UBuffHandler : public UActorComponent
@@ -27,7 +27,7 @@ public:
 private:
 
 	UPROPERTY()
-	UPlaneComponent* PlaneComponentRef;
+	UCombatStatusComponent* CombatStatusComponentRef;
 	UPROPERTY()
 	UDamageHandler* DamageHandlerRef;
 	UPROPERTY()

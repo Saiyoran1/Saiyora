@@ -2,7 +2,7 @@
 #include "Buff.h"
 #include "BuffHandler.h"
 #include "DamageHandler.h"
-#include "PlaneComponent.h"
+#include "CombatStatusComponent.h"
 #include "SaiyoraCombatInterface.h"
 #include "StatHandler.h"
 

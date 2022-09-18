@@ -10,8 +10,7 @@ class UAbilityComponent;
 class UCrowdControlHandler;
 class UResourceHandler;
 class UStatHandler;
-class UPlaneComponent;
-class UFactionComponent;
+class UCombatStatusComponent;
 class USaiyoraMovementComponent;
 
 UINTERFACE(Blueprintable)
@@ -47,11 +46,8 @@ public:
 	UStatHandler* GetStatHandler() const;
 	virtual UStatHandler* GetStatHandler_Implementation() const { return nullptr; }
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Plane")
-	UPlaneComponent* GetPlaneComponent() const;
-	virtual UPlaneComponent* GetPlaneComponent_Implementation() const { return nullptr; }
-	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Faction")
-	UFactionComponent* GetFactionComponent() const;
-	virtual UFactionComponent* GetFactionComponent_Implementation() const { return nullptr; }
+	UCombatStatusComponent* GetCombatStatusComponent() const;
+	virtual UCombatStatusComponent* GetCombatStatusComponent_Implementation() const { return nullptr; }
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = "Threat")
 	UThreatHandler* GetThreatHandler() const;
 	virtual UThreatHandler* GetThreatHandler_Implementation() const { return nullptr; }

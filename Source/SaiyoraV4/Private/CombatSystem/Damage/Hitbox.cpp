@@ -1,7 +1,7 @@
 #include "CombatSystem/Damage/Hitbox.h"
 #include "SaiyoraCombatInterface.h"
 #include "CoreClasses/SaiyoraGameState.h"
-#include "Faction/FactionComponent.h"
+#include "CombatStatusComponent.h"
 
 UHitbox::UHitbox()
 {
@@ -19,10 +19,10 @@ void UHitbox::BeginPlay()
 	Super::BeginPlay();
 	if (GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 	{
-		const UFactionComponent* FactionComponent = ISaiyoraCombatInterface::Execute_GetFactionComponent(GetOwner());
-		if (IsValid(FactionComponent))
+		const UCombatStatusComponent* CombatStatusComponent = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(GetOwner());
+		if (IsValid(CombatStatusComponent))
 		{
-			UpdateFactionCollision(FactionComponent->GetCurrentFaction());
+			UpdateFactionCollision(CombatStatusComponent->GetCurrentFaction());
 		}
 	}
 	if (GetOwnerRole() == ROLE_Authority)

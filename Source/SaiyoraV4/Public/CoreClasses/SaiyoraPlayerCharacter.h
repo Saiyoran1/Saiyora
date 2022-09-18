@@ -29,8 +29,7 @@ public:
 	virtual void OnRep_PlayerState() override;
 
 	virtual USaiyoraMovementComponent* GetCustomMovementComponent_Implementation() const override { return CustomMovementComponent; }
-	virtual UFactionComponent* GetFactionComponent_Implementation() const override { return FactionComponent; }
-	virtual UPlaneComponent* GetPlaneComponent_Implementation() const override { return PlaneComponent; }
+	virtual UCombatStatusComponent* GetCombatStatusComponent_Implementation() const override { return CombatStatusComponent; }
 	virtual UDamageHandler* GetDamageHandler_Implementation() const override { return DamageHandler; }
 	virtual UThreatHandler* GetThreatHandler_Implementation() const override { return ThreatHandler; }
 	virtual UBuffHandler* GetBuffHandler_Implementation() const override { return BuffHandler; }
@@ -65,9 +64,7 @@ private:
 	UPROPERTY()
 	USaiyoraMovementComponent* CustomMovementComponent;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
-	UFactionComponent* FactionComponent;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
-	UPlaneComponent* PlaneComponent;
+	UCombatStatusComponent* CombatStatusComponent;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	UDamageHandler* DamageHandler;
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))

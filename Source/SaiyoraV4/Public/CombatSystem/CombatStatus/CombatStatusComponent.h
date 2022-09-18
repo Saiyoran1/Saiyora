@@ -1,13 +1,14 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
-#include "PlaneStructs.h"
-#include "PlaneComponent.generated.h"
+#include "CombatStatusStructs.h"
+#include "CombatStatusComponent.generated.h"
 
 class UBuff;
+class ASaiyoraGameState;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
-class SAIYORAV4_API UPlaneComponent : public UActorComponent
+class SAIYORAV4_API UCombatStatusComponent : public UActorComponent
 {
 	GENERATED_BODY()
 
@@ -15,7 +16,7 @@ class SAIYORAV4_API UPlaneComponent : public UActorComponent
 
 public:
 	
-	UPlaneComponent();
+	UCombatStatusComponent();
 	virtual void GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void InitializeComponent() override;
 	virtual void BeginPlay() override;
@@ -23,11 +24,7 @@ public:
 private:
 
 	UPROPERTY()
-	UPlaneComponent* LocalPlayerPlaneComponent;
-	UPROPERTY()
-	TArray<UMeshComponent*> OwnerMeshes;
-	UFUNCTION()
-	void OnLocalPlayerPlaneSwap(const ESaiyoraPlane Previous, const ESaiyoraPlane New, UObject* Source) { UpdateOwnerCustomRendering(); }
+	ASaiyoraGameState* GameStateRef;
 
 //Plane
 
@@ -59,6 +56,34 @@ private:
 	
 	UPROPERTY()
 	TMap<UBuff*, FPlaneSwapRestriction> PlaneSwapRestrictions;
+
+	//Faction
+
+public:
+
+	//TODO: Implement faction swapping if needed.
+	UFUNCTION(BlueprintPure, Category = "Faction")
+	EFaction GetCurrentFaction() const { return DefaultFaction; }
+	
+private:
+	
+	UPROPERTY(EditAnywhere, Category = "Faction")
+	EFaction DefaultFaction = EFaction::None;
+
+	//Rendering
+
+private:
+	
+	UPROPERTY()
+	UCombatStatusComponent* LocalPlayerStatusComponent;
+	UPROPERTY()
+	TArray<UMeshComponent*> OwnerMeshes;
 	UFUNCTION()
+	void OnLocalPlayerPlaneSwap(const ESaiyoraPlane Previous, const ESaiyoraPlane New, UObject* Source) { UpdateOwnerCustomRendering(); }
 	void UpdateOwnerCustomRendering();
+	int32 CurrentPlaneID = 0;
+	int32 StencilValue = 200;
+	static TMap<int32, UCombatStatusComponent*> RenderingIDs;
+	void AssignXPlaneID();
+	void AssignSamePlaneID();
 };

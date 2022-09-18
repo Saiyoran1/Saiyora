@@ -2,7 +2,7 @@
 #include "StatHandler.h"
 #include "BuffHandler.h"
 #include "Buff.h"
-#include "PlaneComponent.h"
+#include "CombatStatusComponent.h"
 #include "SaiyoraCombatInterface.h"
 #include "DungeonGameState.h"
 #include "UnrealNetwork.h"
@@ -19,7 +19,7 @@ UDamageHandler::UDamageHandler()
 void UDamageHandler::InitializeComponent()
 {
 	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Damage Handler."));
-	StatHandler = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
+	StatHandlerRef = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
 	if (bHasHealth)
 	{
 		MaxHealth = DefaultMaxHealth;
@@ -40,12 +40,12 @@ void UDamageHandler::BeginPlay()
 		//Set respawn point to initial actor location on BeginPlay.
 		UpdateRespawnPoint(GetOwner()->GetActorLocation());
 		//Bind Max Health stat, create damage and healing modifiers from stats.
-		if (IsValid(StatHandler))
+		if (IsValid(StatHandlerRef))
 		{
-			if (bHasHealth && !bStaticMaxHealth && StatHandler->IsStatValid(FSaiyoraCombatTags::Get().Stat_MaxHealth))
+			if (bHasHealth && !bStaticMaxHealth && StatHandlerRef->IsStatValid(FSaiyoraCombatTags::Get().Stat_MaxHealth))
 			{
-				UpdateMaxHealth(StatHandler->GetStatValue(FSaiyoraCombatTags::Get().Stat_MaxHealth));
-				StatHandler->SubscribeToStatChanged(FSaiyoraCombatTags::Get().Stat_MaxHealth, MaxHealthStatCallback);
+				UpdateMaxHealth(StatHandlerRef->GetStatValue(FSaiyoraCombatTags::Get().Stat_MaxHealth));
+				StatHandlerRef->SubscribeToStatChanged(FSaiyoraCombatTags::Get().Stat_MaxHealth, MaxHealthStatCallback);
 			}
 		}
 		LifeStatus = ELifeStatus::Alive;
@@ -238,15 +238,15 @@ FHealthEvent UDamageHandler::ApplyHealthEvent(const EHealthEventType EventType, 
     HealthEvent.Info.School = School;
 	if (HealthEvent.Info.AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 	{
-		const UPlaneComponent* AppliedByPlaneComp = ISaiyoraCombatInterface::Execute_GetPlaneComponent(HealthEvent.Info.AppliedBy);
-		HealthEvent.Info.AppliedByPlane = IsValid(AppliedByPlaneComp) ? AppliedByPlaneComp->GetCurrentPlane() : ESaiyoraPlane::None;
+		const UCombatStatusComponent* AppliedByCombatStatusComp = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(HealthEvent.Info.AppliedBy);
+		HealthEvent.Info.AppliedByPlane = IsValid(AppliedByCombatStatusComp) ? AppliedByCombatStatusComp->GetCurrentPlane() : ESaiyoraPlane::None;
 	}
 	else
 	{
 		HealthEvent.Info.AppliedByPlane = ESaiyoraPlane::None;
 	}
-    HealthEvent.Info.AppliedToPlane = IsValid(PlaneComponent) ? PlaneComponent->GetCurrentPlane() : ESaiyoraPlane::None;
-    HealthEvent.Info.AppliedXPlane = UPlaneComponent::CheckForXPlane(HealthEvent.Info.AppliedByPlane, HealthEvent.Info.AppliedToPlane);
+    HealthEvent.Info.AppliedToPlane = IsValid(CombatStatusComponentRef) ? CombatStatusComponentRef->GetCurrentPlane() : ESaiyoraPlane::None;
+    HealthEvent.Info.AppliedXPlane = UCombatStatusComponent::CheckForXPlane(HealthEvent.Info.AppliedByPlane, HealthEvent.Info.AppliedToPlane);
 	if (ThreatParams.GeneratesThreat)
 	{
 		HealthEvent.ThreatInfo = ThreatParams;
@@ -443,26 +443,26 @@ float UDamageHandler::GetModifiedOutgoingHealthEventValue(const FHealthEventInfo
 	{
 		Mods.Add(SourceMod.Execute(EventInfo));
 	}
-	if (IsValid(StatHandler))
+	if (IsValid(StatHandlerRef))
 	{
 		switch (EventInfo.EventType)
 		{
 		case EHealthEventType::Damage :
-			if (StatHandler->IsStatValid(FSaiyoraCombatTags::Get().Stat_DamageDone))
+			if (StatHandlerRef->IsStatValid(FSaiyoraCombatTags::Get().Stat_DamageDone))
 			{
-				Mods.Add(FCombatModifier(StatHandler->GetStatValue(FSaiyoraCombatTags::Get().Stat_DamageDone), EModifierType::Multiplicative));
+				Mods.Add(FCombatModifier(StatHandlerRef->GetStatValue(FSaiyoraCombatTags::Get().Stat_DamageDone), EModifierType::Multiplicative));
 			}
 			break;
 		case EHealthEventType::Healing :
-			if (StatHandler->IsStatValid(FSaiyoraCombatTags::Get().Stat_HealingDone))
+			if (StatHandlerRef->IsStatValid(FSaiyoraCombatTags::Get().Stat_HealingDone))
 			{
-				Mods.Add(FCombatModifier(StatHandler->GetStatValue(FSaiyoraCombatTags::Get().Stat_HealingDone), EModifierType::Multiplicative));
+				Mods.Add(FCombatModifier(StatHandlerRef->GetStatValue(FSaiyoraCombatTags::Get().Stat_HealingDone), EModifierType::Multiplicative));
 			}
 			break;
 		case EHealthEventType::Absorb :
-			if (StatHandler->IsStatValid(FSaiyoraCombatTags::Get().Stat_AbsorbDone))
+			if (StatHandlerRef->IsStatValid(FSaiyoraCombatTags::Get().Stat_AbsorbDone))
 			{
-				Mods.Add(FCombatModifier(StatHandler->GetStatValue(FSaiyoraCombatTags::Get().Stat_AbsorbDone), EModifierType::Multiplicative));
+				Mods.Add(FCombatModifier(StatHandlerRef->GetStatValue(FSaiyoraCombatTags::Get().Stat_AbsorbDone), EModifierType::Multiplicative));
 			}
 			break;
 		default :
@@ -498,26 +498,26 @@ float UDamageHandler::GetModifiedIncomingHealthEventValue(const FHealthEventInfo
 			Mods.Add(Modifier.Value.Execute(EventInfo));
 		}
 	}
-	if (IsValid(StatHandler))
+	if (IsValid(StatHandlerRef))
 	{
 		switch (EventInfo.EventType)
 		{
 		case EHealthEventType::Damage :
-			if (StatHandler->IsStatValid(FSaiyoraCombatTags::Get().Stat_DamageTaken))
+			if (StatHandlerRef->IsStatValid(FSaiyoraCombatTags::Get().Stat_DamageTaken))
 			{
-				Mods.Add(FCombatModifier(StatHandler->GetStatValue(FSaiyoraCombatTags::Get().Stat_DamageTaken), EModifierType::Multiplicative));
+				Mods.Add(FCombatModifier(StatHandlerRef->GetStatValue(FSaiyoraCombatTags::Get().Stat_DamageTaken), EModifierType::Multiplicative));
 			}
 			break;
 		case EHealthEventType::Healing :
-			if (StatHandler->IsStatValid(FSaiyoraCombatTags::Get().Stat_HealingTaken))
+			if (StatHandlerRef->IsStatValid(FSaiyoraCombatTags::Get().Stat_HealingTaken))
 			{
-				Mods.Add(FCombatModifier(StatHandler->GetStatValue(FSaiyoraCombatTags::Get().Stat_HealingTaken), EModifierType::Multiplicative));
+				Mods.Add(FCombatModifier(StatHandlerRef->GetStatValue(FSaiyoraCombatTags::Get().Stat_HealingTaken), EModifierType::Multiplicative));
 			}
 			break;
 		case EHealthEventType::Absorb :
-			if (StatHandler->IsStatValid(FSaiyoraCombatTags::Get().Stat_AbsorbTaken))
+			if (StatHandlerRef->IsStatValid(FSaiyoraCombatTags::Get().Stat_AbsorbTaken))
 			{
-				Mods.Add(FCombatModifier(StatHandler->GetStatValue(FSaiyoraCombatTags::Get().Stat_AbsorbTaken), EModifierType::Multiplicative));
+				Mods.Add(FCombatModifier(StatHandlerRef->GetStatValue(FSaiyoraCombatTags::Get().Stat_AbsorbTaken), EModifierType::Multiplicative));
 			}
 			break;
 		default :

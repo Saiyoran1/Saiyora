@@ -2,6 +2,7 @@
 #include "Hitbox.h"
 #include "PredictableProjectile.h"
 #include "SaiyoraPlayerCharacter.h"
+#include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
 
 ASaiyoraGameState::ASaiyoraGameState()
