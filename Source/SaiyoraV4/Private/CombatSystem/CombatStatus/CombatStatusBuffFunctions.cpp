@@ -30,7 +30,7 @@ void UPlaneSwapRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
 	if (IsValid(TargetComponent))
 	{
-		TargetComponent->AddPlaneSwapRestriction(GetOwningBuff(), Restrict);
+		TargetComponent->AddPlaneSwapRestriction(Restrict);
 	}
 }
 
@@ -38,6 +38,6 @@ void UPlaneSwapRestrictionFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent
 {
 	if (IsValid(TargetComponent))
 	{
-		TargetComponent->RemovePlaneSwapRestriction(GetOwningBuff());
+		TargetComponent->RemovePlaneSwapRestriction(Restrict);
 	}
 }

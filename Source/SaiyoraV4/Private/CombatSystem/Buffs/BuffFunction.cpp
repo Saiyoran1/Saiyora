@@ -92,10 +92,10 @@ void UBuffRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
         switch (RestrictType)
         {
             case EBuffRestrictionType::Outgoing :
-                TargetComponent->AddOutgoingBuffRestriction(GetOwningBuff(), Restrict);
+                TargetComponent->AddOutgoingBuffRestriction(Restrict);
                 break;
             case EBuffRestrictionType::Incoming :
-                TargetComponent->AddIncomingBuffRestriction(GetOwningBuff(), Restrict);
+                TargetComponent->AddIncomingBuffRestriction(Restrict);
                 break;
             default :
                 break;
@@ -110,10 +110,10 @@ void UBuffRestrictionFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
         switch (RestrictType)
         {
         case EBuffRestrictionType::Outgoing :
-            TargetComponent->RemoveOutgoingBuffRestriction(GetOwningBuff());
+            TargetComponent->RemoveOutgoingBuffRestriction(Restrict);
             break;
         case EBuffRestrictionType::Incoming :
-            TargetComponent->RemoveIncomingBuffRestriction(GetOwningBuff());
+            TargetComponent->RemoveIncomingBuffRestriction(Restrict);
             break;
         default :
             break;

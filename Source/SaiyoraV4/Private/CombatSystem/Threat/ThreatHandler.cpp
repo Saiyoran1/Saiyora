@@ -145,7 +145,7 @@ FThreatEvent UThreatHandler::AddThreat(const EThreatType ThreatType, const float
 
 	if (!bIgnoreRestrictions)
 	{
-		if (GeneratorThreat->CheckOutgoingThreatRestricted(Result) || CheckIncomingThreatRestricted(Result))
+		if (GeneratorThreat->CheckOutgoingThreatRestricted(Result) || IncomingThreatRestrictions.IsRestricted(Result))
 		{
 			return Result;
 		}
@@ -518,65 +518,6 @@ void UThreatHandler::OnRep_CurrentTarget(AActor* PreviousTarget)
 }
 
 #pragma endregion 
-#pragma region Restrictions
-
-void UThreatHandler::AddIncomingThreatRestriction(UBuff* Source, const FThreatRestriction& Restriction)
-{
-	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Restriction.IsBound())
-	{
-		IncomingThreatRestrictions.Add(Source, Restriction);
-	}
-}
-
-void UThreatHandler::RemoveIncomingThreatRestriction(const UBuff* Source)
-{
-	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
-	{
-		IncomingThreatRestrictions.Remove(Source);
-	}
-}
-
-bool UThreatHandler::CheckIncomingThreatRestricted(const FThreatEvent& Event)
-{
-	for (const TTuple<UBuff*, FThreatRestriction>& Restriction : IncomingThreatRestrictions)
-	{
-		if (Restriction.Value.IsBound() && Restriction.Value.Execute(Event))
-		{
-			return true;
-		}
-	}
-	return false;
-}
-
-void UThreatHandler::AddOutgoingThreatRestriction(UBuff* Source, const FThreatRestriction& Restriction)
-{
-	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Restriction.IsBound())
-	{
-		OutgoingThreatRestrictions.Add(Source, Restriction);
-	}
-}
-
-void UThreatHandler::RemoveOutgoingThreatRestriction(const UBuff* Source)
-{
-	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
-	{
-		OutgoingThreatRestrictions.Remove(Source);
-	}
-}
-
-bool UThreatHandler::CheckOutgoingThreatRestricted(const FThreatEvent& Event)
-{
-	for (const TTuple<UBuff*, FThreatRestriction>& Restriction : OutgoingThreatRestrictions)
-	{
-		if (Restriction.Value.IsBound() && Restriction.Value.Execute(Event))
-		{
-			return true;
-		}
-	}
-	return false;
-}
-
-#pragma endregion
 #pragma region Modifiers
 
 void UThreatHandler::AddIncomingThreatModifier(UBuff* Source, const FThreatModCondition& Modifier)

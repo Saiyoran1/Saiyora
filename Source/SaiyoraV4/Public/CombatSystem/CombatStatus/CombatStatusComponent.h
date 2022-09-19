@@ -2,6 +2,7 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "CombatStatusStructs.h"
+#include "CombatStructs.h"
 #include "CombatStatusComponent.generated.h"
 
 class UBuff;
@@ -40,8 +41,8 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FPlaneSwapNotification OnPlaneSwapped;
 	
-	void AddPlaneSwapRestriction(UBuff* Source, const FPlaneSwapRestriction& Restriction);
-	void RemovePlaneSwapRestriction(const UBuff* Source);
+	void AddPlaneSwapRestriction(const FPlaneSwapRestriction& Restriction) { PlaneSwapRestrictions.Add(Restriction); }
+	void RemovePlaneSwapRestriction(const FPlaneSwapRestriction& Restriction) { PlaneSwapRestrictions.Remove(Restriction); }
 	
 private:
 	
@@ -54,14 +55,12 @@ private:
 	UFUNCTION()
 	void OnRep_PlaneStatus(const FPlaneStatus& PreviousStatus);
 	
-	UPROPERTY()
-	TMap<UBuff*, FPlaneSwapRestriction> PlaneSwapRestrictions;
+	TRestrictionList<FPlaneSwapRestriction> PlaneSwapRestrictions;
 
 	//Faction
 
 public:
-
-	//TODO: Implement faction swapping if needed.
+	
 	UFUNCTION(BlueprintPure, Category = "Faction")
 	EFaction GetCurrentFaction() const { return DefaultFaction; }
 	
@@ -78,6 +77,24 @@ private:
 	UCombatStatusComponent* LocalPlayerStatusComponent;
 	UPROPERTY()
 	TArray<UMeshComponent*> OwnerMeshes;
+	
+	static const int32 DEFAULTENEMYSAMEPLANE;
+	static const int32 ENEMYSAMEPLANESTART;
+	static const int32 ENEMYSAMEPLANEEND;
+	static const int32 DEFAULTENEMYXPLANE;
+	static const int32 ENEMYXPLANESTART;
+	static const int32 ENEMYXPLANEEND;
+	static const int32 DEFAULTNEUTRALSAMEPLANE;
+	static const int32 NEUTRALSAMEPLANESTART;
+	static const int32 NEUTRALSAMEPLANEEND;
+	static const int32 DEFAULTNEUTRALXPLANE;
+	static const int32 NEUTRALXPLANESTART;
+	static const int32 NEUTRALXPLANEEND;
+	static const int32 DEFAULTSTENCIL;
+	static const int32 FRIENDLYSAMEPLANESTART;
+	static const int32 FRIENDLYSAMEPLANEEND;
+	static const int32 FRIENDLYXPLANESTART;
+	static const int32 FRIENDLYXPLANEEND;
 
 	void UpdateOwnerCustomRendering();
 	bool UpdateStencilValue();

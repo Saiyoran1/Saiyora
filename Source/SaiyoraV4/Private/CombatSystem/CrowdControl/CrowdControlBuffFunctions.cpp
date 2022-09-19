@@ -52,7 +52,7 @@ void UCrowdControlImmunityFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 				TargetBuffHandler->RemoveBuff(Cc, EBuffExpireReason::Dispel);
 			}
 		}
-		TargetBuffHandler->AddIncomingBuffRestriction(GetOwningBuff(), CcImmunity);
+		TargetBuffHandler->AddIncomingBuffRestriction(CcImmunity);
 	}
 }
 
@@ -60,7 +60,7 @@ void UCrowdControlImmunityFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent
 {
 	if (IsValid(TargetBuffHandler))
 	{
-		TargetBuffHandler->RemoveIncomingBuffRestriction(GetOwningBuff());
+		TargetBuffHandler->RemoveIncomingBuffRestriction(CcImmunity);
 	}
 }
 

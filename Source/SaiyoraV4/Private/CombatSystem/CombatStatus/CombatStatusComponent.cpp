@@ -6,6 +6,23 @@
 #include "Kismet/GameplayStatics.h"
 
 TMap<int32, UCombatStatusComponent*> UCombatStatusComponent::StencilValues = TMap<int32, UCombatStatusComponent*>();
+const int32 UCombatStatusComponent::DEFAULTENEMYSAMEPLANE = 0;
+const int32 UCombatStatusComponent::ENEMYSAMEPLANESTART = 1;
+const int32 UCombatStatusComponent::ENEMYSAMEPLANEEND = 49;
+const int32 UCombatStatusComponent::DEFAULTENEMYXPLANE = 50;
+const int32 UCombatStatusComponent::ENEMYXPLANESTART = 51;
+const int32 UCombatStatusComponent::ENEMYXPLANEEND = 99;
+const int32 UCombatStatusComponent::DEFAULTNEUTRALSAMEPLANE = 100;
+const int32 UCombatStatusComponent::NEUTRALSAMEPLANESTART = 101;
+const int32 UCombatStatusComponent::NEUTRALSAMEPLANEEND = 149;
+const int32 UCombatStatusComponent::DEFAULTNEUTRALXPLANE = 150;
+const int32 UCombatStatusComponent::NEUTRALXPLANESTART = 151;
+const int32 UCombatStatusComponent::NEUTRALXPLANEEND = 199;
+const int32 UCombatStatusComponent::DEFAULTSTENCIL = 200;
+const int32 UCombatStatusComponent::FRIENDLYSAMEPLANESTART = 201;
+const int32 UCombatStatusComponent::FRIENDLYSAMEPLANEEND = 227;
+const int32 UCombatStatusComponent::FRIENDLYXPLANESTART = 228;
+const int32 UCombatStatusComponent::FRIENDLYXPLANEEND = 255;
 
 #pragma region Setup
 
@@ -84,15 +101,9 @@ ESaiyoraPlane UCombatStatusComponent::PlaneSwap(const bool bIgnoreRestrictions, 
 	{
 		return PlaneStatus.CurrentPlane;
 	}
-	if (!bIgnoreRestrictions)
+	if (!bIgnoreRestrictions && PlaneSwapRestrictions.IsRestricted(this, Source, bToSpecificPlane, TargetPlane))
 	{
-		for (const TTuple<UBuff*, FPlaneSwapRestriction>& Restriction : PlaneSwapRestrictions)
-		{
-			if (Restriction.Value.IsBound() && Restriction.Value.Execute(this, Source, bToSpecificPlane, TargetPlane))
-			{
-				return PlaneStatus.CurrentPlane;
-			}
-		}
+		return PlaneStatus.CurrentPlane;
 	}
 	const ESaiyoraPlane PreviousPlane = PlaneStatus.CurrentPlane;
 	if (bToSpecificPlane && TargetPlane != ESaiyoraPlane::None)
@@ -180,50 +191,37 @@ void UCombatStatusComponent::UpdateOwnerCustomRendering()
 
 bool UCombatStatusComponent::UpdateStencilValue()
 {
-	/*
-	 * 0 = Enemy, same Plane, Out of IDs
-	 * 1-49 = Enemy, same Plane
-	 * 50 = Enemy, XPlane, Out of IDs
-	 * 51-99 = Enemy, XPlane
-	 * 100 = Neutral, same Plane, Out of IDs
-	 * 101-149 = Neutral, same Plane
-	 * 150 = Neutral, XPlane, Out of IDs
-	 * 151-199 = Neutral, XPlane
-	 * 200 = Local player, or no outlines
-	 * 201-227 = Friendly, same Plane
-	 * 228-254 = Friendly, XPlane
-	 */
 	const int32 PreviousStencil = StencilValue;
 	const bool bPreviouslyUsingCustomDepth = bUseCustomDepth;
 	if (!IsValid(LocalPlayerStatusComponent) || LocalPlayerStatusComponent == this)
 	{
-		StencilValue = 200;
+		StencilValue = DEFAULTSTENCIL;
 		bUseCustomDepth = false;
 	}
 	else
 	{
 		bUseCustomDepth = true;
 		
-		int32 RangeStart = 200;
-		int32 RangeEnd = 200;
-		int32 DefaultID = 200;
+		int32 RangeStart = DEFAULTSTENCIL;
+		int32 RangeEnd = DEFAULTSTENCIL;
+		int32 DefaultID = DEFAULTSTENCIL;
 		const bool bIsXPlane = CheckForXPlane(LocalPlayerStatusComponent->GetCurrentPlane(), GetCurrentPlane());
 		switch (GetCurrentFaction())
 		{
 		case EFaction::Friendly :
-			RangeStart = bIsXPlane ? 228 : 201;
-			RangeEnd = bIsXPlane ? 254 : 227;
-			DefaultID = 200;
+			RangeStart = bIsXPlane ? FRIENDLYXPLANESTART : FRIENDLYSAMEPLANESTART;
+			RangeEnd = bIsXPlane ? FRIENDLYXPLANEEND : FRIENDLYSAMEPLANEEND;
+			DefaultID = DEFAULTSTENCIL;
 			break;
 		case EFaction::Neutral :
-			RangeStart = bIsXPlane ? 151 : 101;
-			RangeEnd = bIsXPlane ? 199 : 149;
-			DefaultID = bIsXPlane ? 150 : 100;
+			RangeStart = bIsXPlane ? NEUTRALXPLANESTART : NEUTRALSAMEPLANESTART;
+			RangeEnd = bIsXPlane ? NEUTRALXPLANEEND : NEUTRALSAMEPLANEEND;
+			DefaultID = bIsXPlane ? DEFAULTNEUTRALXPLANE : DEFAULTNEUTRALSAMEPLANE;
 			break;
 		case EFaction::Enemy :
-			RangeStart = bIsXPlane ? 51 : 1;
-			RangeEnd = bIsXPlane ? 99 : 49;
-			DefaultID = bIsXPlane ? 50 : 0;
+			RangeStart = bIsXPlane ? ENEMYXPLANESTART : ENEMYSAMEPLANESTART;
+			RangeEnd = bIsXPlane ? ENEMYXPLANEEND : ENEMYSAMEPLANEEND;
+			DefaultID = bIsXPlane ? DEFAULTENEMYXPLANE : DEFAULTENEMYSAMEPLANE;
 			break;
 		default :
 			break;
@@ -274,25 +272,6 @@ void UCombatStatusComponent::UpdateOwnerPlaneCollision()
 				Component->SetCollisionProfileName(FSaiyoraCollision::P_Pawn);
 			}
 		}
-	}
-}
-
-#pragma endregion
-#pragma region Restrictions
-
-void UCombatStatusComponent::AddPlaneSwapRestriction(UBuff* Source, const FPlaneSwapRestriction& Restriction)
-{
-	if (GetOwnerRole() == ROLE_Authority && bCanEverPlaneSwap && IsValid(Source) && Restriction.IsBound())
-	{
-		PlaneSwapRestrictions.Add(Source, Restriction);
-	}
-}
-
-void UCombatStatusComponent::RemovePlaneSwapRestriction(const UBuff* Source)
-{
-	if (GetOwnerRole() == ROLE_Authority && bCanEverPlaneSwap && IsValid(Source))
-	{
-		PlaneSwapRestrictions.Remove(Source);
 	}
 }
 

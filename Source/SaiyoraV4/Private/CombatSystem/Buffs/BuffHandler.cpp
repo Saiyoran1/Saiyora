@@ -409,30 +409,11 @@ UBuff* UBuffHandler::FindExistingBuff(const TSubclassOf<UBuff> BuffClass, const 
 #pragma endregion 
 #pragma region Restrictions
 
-void UBuffHandler::AddIncomingBuffRestriction(UBuff* Source, const FBuffRestriction& Restriction)
-{
-	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Restriction.IsBound())
-	{
-		IncomingBuffRestrictions.Add(Source, Restriction);
-	}
-}
-
-void UBuffHandler::RemoveIncomingBuffRestriction(const UBuff* Source)
-{
-	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
-	{
-		IncomingBuffRestrictions.Remove(Source);
-	}
-}
-
 bool UBuffHandler::CheckIncomingBuffRestricted(const FBuffApplyEvent& BuffEvent)
 {
-	for (const TTuple<UBuff*, FBuffRestriction>& Restriction : IncomingBuffRestrictions)
+	if (IncomingBuffRestrictions.IsRestricted(BuffEvent))
 	{
-		if (Restriction.Value.IsBound() && Restriction.Value.Execute(BuffEvent))
-		{
-			return true;
-		}
+		return true;
 	}
 	FGameplayTagContainer BuffTags;
 	BuffEvent.BuffClass.GetDefaultObject()->GetBuffTags(BuffTags);
@@ -470,30 +451,11 @@ bool UBuffHandler::CheckIncomingBuffRestricted(const FBuffApplyEvent& BuffEvent)
 	return false;
 }
 
-void UBuffHandler::AddOutgoingBuffRestriction(UBuff* Source, const FBuffRestriction& Restriction)
-{
-	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Restriction.IsBound())
-	{
-		OutgoingBuffRestrictions.Add(Source, Restriction);
-	}
-}
-
-void UBuffHandler::RemoveOutgoingBuffRestriction(const UBuff* Source)
-{
-	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
-	{
-		OutgoingBuffRestrictions.Remove(Source);
-	}
-}
-
 bool UBuffHandler::CheckOutgoingBuffRestricted(const FBuffApplyEvent& BuffEvent)
 {
-	for (const TTuple<UBuff*, FBuffRestriction>& Restriction : OutgoingBuffRestrictions)
+	if (OutgoingBuffRestrictions.IsRestricted(BuffEvent))
 	{
-		if (Restriction.Value.IsBound() && Restriction.Value.Execute(BuffEvent))
-		{
-			return true;
-		}
+		return true;
 	}
 	FGameplayTagContainer BuffTags;
 	BuffEvent.BuffClass.GetDefaultObject()->GetBuffTags(BuffTags);

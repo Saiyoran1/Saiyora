@@ -70,8 +70,8 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FBuffRemoveNotification OnIncomingBuffRemoved;
 
-	void AddIncomingBuffRestriction(UBuff* Source, const FBuffRestriction& Restriction);
-	void RemoveIncomingBuffRestriction(const UBuff* Source);
+	void AddIncomingBuffRestriction(const FBuffRestriction& Restriction) { IncomingBuffRestrictions.Add(Restriction); }
+	void RemoveIncomingBuffRestriction(const FBuffRestriction& Restriction) { IncomingBuffRestrictions.Add(Restriction); }
 	bool CheckIncomingBuffRestricted(const FBuffApplyEvent& BuffEvent);
 	
 	void NotifyOfNewIncomingBuff(const FBuffApplyEvent& ApplicationEvent);
@@ -91,7 +91,7 @@ private:
 	void PostRemoveCleanup(UBuff* Buff);
 	UPROPERTY()
 	TArray<UBuff*> RecentlyRemoved;
-	TMap<UBuff*, FBuffRestriction> IncomingBuffRestrictions;
+	TRestrictionList<FBuffRestriction> IncomingBuffRestrictions;
 	UFUNCTION()
 	void RemoveBuffsOnOwnerDeath(AActor* Actor, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus);
 
@@ -113,8 +113,8 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FBuffRemoveNotification OnOutgoingBuffRemoved;
 
-	void AddOutgoingBuffRestriction(UBuff* Source, const FBuffRestriction& Restriction);
-	void RemoveOutgoingBuffRestriction(const UBuff* Source);
+	void AddOutgoingBuffRestriction(const FBuffRestriction& Restriction) { OutgoingBuffRestrictions.Add(Restriction); }
+	void RemoveOutgoingBuffRestriction(const FBuffRestriction& Restriction) { OutgoingBuffRestrictions.Remove(Restriction); }
 	bool CheckOutgoingBuffRestricted(const FBuffApplyEvent& BuffEvent);
 
 	void NotifyOfNewOutgoingBuff(const FBuffApplyEvent& ApplicationEvent);
@@ -124,5 +124,5 @@ private:
 
 	UPROPERTY()
 	TArray<UBuff*> OutgoingBuffs;
-	TMap<UBuff*, FBuffRestriction> OutgoingBuffRestrictions;
+	TRestrictionList<FBuffRestriction> OutgoingBuffRestrictions;
 };

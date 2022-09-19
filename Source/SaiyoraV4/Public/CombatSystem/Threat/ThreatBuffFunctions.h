@@ -4,6 +4,8 @@
 #include "ThreatStructs.h"
 #include "ThreatBuffFunctions.generated.h"
 
+class UThreatHandler;
+
 UCLASS()
 class SAIYORAV4_API UThreatModifierFunction : public UBuffFunction
 {
@@ -12,7 +14,7 @@ class SAIYORAV4_API UThreatModifierFunction : public UBuffFunction
 	FThreatModCondition Mod;
     EThreatModifierType ModType;
     UPROPERTY()
-    class UThreatHandler* TargetHandler;
+    UThreatHandler* TargetHandler;
     
     void SetModifierVars(EThreatModifierType const ModifierType, FThreatModCondition const& Modifier);
     
@@ -31,7 +33,7 @@ class SAIYORAV4_API UThreatRestrictionFunction : public UBuffFunction
 	FThreatRestriction Restrict;
 	EThreatModifierType RestrictType;
 	UPROPERTY()
-	class UThreatHandler* TargetHandler;
+	UThreatHandler* TargetHandler;
 
 	void SetRestrictionVars(EThreatModifierType const RestrictionType, FThreatRestriction const& Restriction);
 

@@ -103,10 +103,10 @@ void UThreatRestrictionFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
 		switch (RestrictType)
 		{
 		case EThreatModifierType::Incoming :
-			TargetHandler->AddIncomingThreatRestriction(GetOwningBuff(), Restrict);
+			TargetHandler->AddIncomingThreatRestriction(Restrict);
 			break;
 		case EThreatModifierType::Outgoing :
-			TargetHandler->AddOutgoingThreatRestriction(GetOwningBuff(), Restrict);
+			TargetHandler->AddOutgoingThreatRestriction(Restrict);
 			break;
 		default :
 			break;
@@ -121,10 +121,10 @@ void UThreatRestrictionFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
 		switch (RestrictType)
 		{
 		case EThreatModifierType::Incoming :
-			TargetHandler->RemoveIncomingThreatRestriction(GetOwningBuff());
+			TargetHandler->RemoveIncomingThreatRestriction(Restrict);
 			break;
 		case EThreatModifierType::Outgoing :
-			TargetHandler->RemoveOutgoingThreatRestriction(GetOwningBuff());
+			TargetHandler->RemoveOutgoingThreatRestriction(Restrict);
 			break;
 		default :
 			break;
