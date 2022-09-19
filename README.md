@@ -19,7 +19,7 @@ Some features that Saiyora has that I'm particularly proud of:
 Below are links to the README files for each of the main parts of Saiyora's combat system, featuring more in depth explanations on all the different functionality I have implemented.
 
 > [General Concepts](Source/SaiyoraV4/Public/CombatSystem/Generic/GeneralConceptsREADME.md)  
-> [Planes]()  
+> [Combat Status]()  
 > [Health](Source/SaiyoraV4/Public/CombatSystem/Damage/HealthREADME.md)  
 > [Buffs]()  
 > [Crowd Control]()  
