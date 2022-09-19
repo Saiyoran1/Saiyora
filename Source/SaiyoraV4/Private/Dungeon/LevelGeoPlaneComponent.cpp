@@ -87,7 +87,10 @@ void ULevelGeoPlaneComponent::SetInitialCollision()
 				break;
 			case ESaiyoraPlane::Modern :
 				Component->SetCollisionObjectType(FSaiyoraCollision::O_WorldModern);
+			case ESaiyoraPlane::Both :
+				break;
 			default:
+				Component->SetCollisionProfileName(FSaiyoraCollision::P_NoCollision);
 				break;
 			}
 		}

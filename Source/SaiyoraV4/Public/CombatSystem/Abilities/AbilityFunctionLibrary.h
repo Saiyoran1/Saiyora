@@ -31,11 +31,11 @@ public:
 		const ESaiyoraPlane TracePlane, const EFaction TraceHostility, const TArray<AActor*>& ActorsToIgnore);
 
 	UFUNCTION(BlueprintCallable, Category = "Abilities", meta = (AutoCreateRefTerm = "ActorsToIgnore"))
-	static bool PredictMultiLineTrace(ASaiyoraPlayerCharacter* Shooter, const float TraceLength, const bool bHostile, const TArray<AActor*>& ActorsToIgnore,
+	static bool PredictMultiLineTrace(ASaiyoraPlayerCharacter* Shooter, const float TraceLength, const ESaiyoraPlane TracePlane, const EFaction TraceHostility, const TArray<AActor*>& ActorsToIgnore,
 		const int32 TargetSetID, TArray<FHitResult>& Results, FAbilityOrigin& OutOrigin, FAbilityTargetSet& OutTargetSet);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities", meta = (AutoCreateRefTerm = "ActorsToIgnore"))
 	static TArray<AActor*> ValidateMultiLineTrace(ASaiyoraPlayerCharacter* Shooter, const FAbilityOrigin& Origin, const TArray<AActor*>& Targets,
-		const float TraceLength, const bool bHostile, const TArray<AActor*>& ActorsToIgnore);
+		const float TraceLength, const ESaiyoraPlane TracePlane, const EFaction TraceHostility, const TArray<AActor*>& ActorsToIgnore);
 
 	UFUNCTION(BlueprintCallable, Category = "Abilities", meta = (AutoCreateRefTerm = "ActorsToIgnore"))
 	static bool PredictSphereTrace(ASaiyoraPlayerCharacter* Shooter, const float TraceLength, const float TraceRadius, const bool bHostile,
@@ -87,4 +87,5 @@ private:
 	static void UnrewindHitboxes(const TMap<UHitbox*, FTransform>& ReturnTransforms);
 	static float GetCameraTraceMaxRange(const FVector& CameraLoc, const FVector& AimDir, const FVector& OriginLoc, const float TraceRange);
 	static FName GetRelevantTraceProfile(const ASaiyoraPlayerCharacter* Shooter, const bool bOverlap, const ESaiyoraPlane TracePlane, const EFaction TraceHostility);
+	static void GetRelevantHitboxObjectTypes(const ASaiyoraPlayerCharacter* Shooter, const EFaction TraceHostility, TArray<TEnumAsByte<EObjectTypeQuery>>& OutObjectTypes);
 };
