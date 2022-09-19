@@ -5,7 +5,7 @@
 #include "UnrealNetwork.h"
 #include "Kismet/GameplayStatics.h"
 
-TMap<int32, UCombatStatusComponent*> UCombatStatusComponent::RenderingIDs = TMap<int32, UCombatStatusComponent*>();
+TMap<int32, UCombatStatusComponent*> UCombatStatusComponent::StencilValues = TMap<int32, UCombatStatusComponent*>();
 
 #pragma region Setup
 
@@ -26,16 +26,28 @@ void UCombatStatusComponent::InitializeComponent()
 {
 	PlaneStatus.CurrentPlane = DefaultPlane;
 	PlaneStatus.LastSwapSource = nullptr;
-	if (RenderingIDs.Num() == 0)
+	if (StencilValues.Num() == 0)
 	{
 		//This is the first CombatStatusComponent to initialize, fill out the RenderingIDs map.
 		for (int32 i = 1; i <= 49; i++)
 		{
-			RenderingIDs.Add(i, nullptr);
+			StencilValues.Add(i, nullptr);
 		}
 		for (int32 i = 51; i <= 99; i++)
 		{
-			RenderingIDs.Add(i, nullptr);
+			StencilValues.Add(i, nullptr);
+		}
+		for (int32 i = 101; i <= 149; i++)
+		{
+			StencilValues.Add(i, nullptr);
+		}
+		for (int32 i = 151; i <= 199; i++)
+		{
+			StencilValues.Add(i, nullptr);
+		}
+		for (int32 i = 201; i <= 255; i++)
+		{
+			StencilValues.Add(i, nullptr);
 		}
 	}
 }
@@ -150,101 +162,96 @@ void UCombatStatusComponent::OnRep_PlaneStatus(const FPlaneStatus& PreviousStatu
 
 void UCombatStatusComponent::UpdateOwnerCustomRendering()
 {
-	/*
-	 * 0 = XFaction, same Plane, Out of IDs
-	 * 1-49 = XFaction, same Plane
-	 * 50 = XFaction, XPlane, Out of IDs
-	 * 51-99 = XFaction, XPlane
-	 * 100 = Same Faction, same Plane, Out of IDs
-	 * 101-149 = Same Faction, same Plane
-	 * 150 = Same Faction, XPlane, Out of IDs
-	 * 151-199 = Same Faction, XPlane
-	 * 200 = Local player, or no outline
-	 */
-	const int32 PreviousStencil = StencilValue;
-	if (!IsValid(LocalPlayerStatusComponent) || LocalPlayerStatusComponent == this)
-	{
-		StencilValue = 200;
-		CurrentPlaneID = 0;
-	}
-	else
-	{
-		const int32 FactionID = LocalPlayerStatusComponent->GetCurrentFaction() != GetCurrentFaction() ? 0 : 100;
-		if (CheckForXPlane(LocalPlayerStatusComponent->GetCurrentPlane(), GetCurrentPlane()))
-		{
-			AssignXPlaneID();
-		}
-		else
-		{
-			AssignSamePlaneID();
-		}
-		StencilValue = FactionID + CurrentPlaneID;
-	}
-	if (StencilValue != PreviousStencil)
+	if (UpdateStencilValue())
 	{
 		for (UMeshComponent* Mesh : OwnerMeshes)
 		{
 			if (IsValid(Mesh))
 			{
-				Mesh->SetRenderCustomDepth(true);
-				Mesh->SetCustomDepthStencilValue(StencilValue);
+				Mesh->SetRenderCustomDepth(bUseCustomDepth);
+				if (bUseCustomDepth)
+				{
+					Mesh->SetCustomDepthStencilValue(StencilValue);
+				}
 			}
 		}
 	}
 }
 
-void UCombatStatusComponent::AssignXPlaneID()
+bool UCombatStatusComponent::UpdateStencilValue()
 {
-	if (CurrentPlaneID > 0 && CurrentPlaneID < 50)
+	/*
+	 * 0 = Enemy, same Plane, Out of IDs
+	 * 1-49 = Enemy, same Plane
+	 * 50 = Enemy, XPlane, Out of IDs
+	 * 51-99 = Enemy, XPlane
+	 * 100 = Neutral, same Plane, Out of IDs
+	 * 101-149 = Neutral, same Plane
+	 * 150 = Neutral, XPlane, Out of IDs
+	 * 151-199 = Neutral, XPlane
+	 * 200 = Local player, or no outlines
+	 * 201-227 = Friendly, same Plane
+	 * 228-254 = Friendly, XPlane
+	 */
+	const int32 PreviousStencil = StencilValue;
+	const bool bPreviouslyUsingCustomDepth = bUseCustomDepth;
+	if (!IsValid(LocalPlayerStatusComponent) || LocalPlayerStatusComponent == this)
 	{
-		//Already in the right range.
-		return;
+		StencilValue = 200;
+		bUseCustomDepth = false;
 	}
-	const int32 PreviousID = CurrentPlaneID;
-	for (int32 i = 1; i < 50; i++)
+	else
 	{
-		if (RenderingIDs.FindRef(i) == nullptr)
+		bUseCustomDepth = true;
+		
+		int32 RangeStart = 200;
+		int32 RangeEnd = 200;
+		int32 DefaultID = 200;
+		const bool bIsXPlane = CheckForXPlane(LocalPlayerStatusComponent->GetCurrentPlane(), GetCurrentPlane());
+		switch (GetCurrentFaction())
 		{
-			RenderingIDs.Add(i, this);
-			CurrentPlaneID = i;
+		case EFaction::Friendly :
+			RangeStart = bIsXPlane ? 228 : 201;
+			RangeEnd = bIsXPlane ? 254 : 227;
+			DefaultID = 200;
+			break;
+		case EFaction::Neutral :
+			RangeStart = bIsXPlane ? 151 : 101;
+			RangeEnd = bIsXPlane ? 199 : 149;
+			DefaultID = bIsXPlane ? 150 : 100;
+			break;
+		case EFaction::Enemy :
+			RangeStart = bIsXPlane ? 51 : 1;
+			RangeEnd = bIsXPlane ? 99 : 49;
+			DefaultID = bIsXPlane ? 50 : 0;
+			break;
+		default :
 			break;
 		}
-	}
-	if (PreviousID == CurrentPlaneID)
-	{
-		CurrentPlaneID = 0;
-	}
-	if (PreviousID != CurrentPlaneID && PreviousID != 0 && PreviousID != 50)
-	{
-		RenderingIDs.Remove(PreviousID);
-	}
-}
-
-void UCombatStatusComponent::AssignSamePlaneID()
-{
-	if (CurrentPlaneID > 50 && CurrentPlaneID < 100)
-	{
-		//Already in right range.
-		return;
-	}
-	const int32 PreviousID = CurrentPlaneID;
-	for (int32 i = 51; i < 100; i++)
-	{
-		if (RenderingIDs.FindRef(i) == nullptr)
+		if (StencilValue < RangeStart || StencilValue > RangeEnd)
 		{
-			RenderingIDs.Add(i, this);
-			CurrentPlaneID = i;
-			break;
+			bool bFoundNewID = false;
+			for (int32 i = RangeStart; i <= RangeEnd; i++)
+			{
+				if (StencilValues.Contains(i) && StencilValues.FindRef(i) == nullptr)
+				{
+					StencilValues.Add(i, this);
+					StencilValue = i;
+					bFoundNewID = true;
+					break;
+				}
+			}
+			if (!bFoundNewID)
+			{
+				StencilValue = DefaultID;
+			}
 		}
 	}
-	if (PreviousID == CurrentPlaneID)
+	if (PreviousStencil != StencilValue && bPreviouslyUsingCustomDepth && StencilValues.Contains(PreviousStencil))
 	{
-		CurrentPlaneID = 50;
+		StencilValues.Add(PreviousStencil, nullptr);
 	}
-	if (PreviousID != CurrentPlaneID && PreviousID != 0 && PreviousID != 50)
-	{
-		RenderingIDs.Remove(PreviousID);
-	}
+	return PreviousStencil != StencilValue || bPreviouslyUsingCustomDepth != bUseCustomDepth;
 }
 
 void UCombatStatusComponent::UpdateOwnerPlaneCollision()

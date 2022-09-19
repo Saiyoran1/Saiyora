@@ -78,14 +78,15 @@ private:
 	UCombatStatusComponent* LocalPlayerStatusComponent;
 	UPROPERTY()
 	TArray<UMeshComponent*> OwnerMeshes;
+
+	void UpdateOwnerCustomRendering();
+	bool UpdateStencilValue();
+	static TMap<int32, UCombatStatusComponent*> StencilValues;
+	int32 StencilValue = 200;
+	bool bUseCustomDepth = false;
+	
 	UFUNCTION()
 	void OnLocalPlayerPlaneSwap(const ESaiyoraPlane Previous, const ESaiyoraPlane New, UObject* Source) { UpdateOwnerCustomRendering(); }
-	void UpdateOwnerCustomRendering();
-	int32 CurrentPlaneID = 0;
-	int32 StencilValue = 200;
-	static TMap<int32, UCombatStatusComponent*> RenderingIDs;
-	void AssignXPlaneID();
-	void AssignSamePlaneID();
 
 	//Collision
 
