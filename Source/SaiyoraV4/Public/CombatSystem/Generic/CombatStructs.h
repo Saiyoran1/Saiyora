@@ -256,7 +256,6 @@ struct FCombatParameter
 template <class T>
 class TRestrictionList
 {
-    
 public:
 
     template <typename... Args>

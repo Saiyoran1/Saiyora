@@ -101,7 +101,7 @@ ESaiyoraPlane UCombatStatusComponent::PlaneSwap(const bool bIgnoreRestrictions, 
 	{
 		return PlaneStatus.CurrentPlane;
 	}
-	if (!bIgnoreRestrictions && PlaneSwapRestrictions.IsRestricted(this, Source, bToSpecificPlane, TargetPlane))
+	if (!bIgnoreRestrictions && IsPlaneSwapRestricted())
 	{
 		return PlaneStatus.CurrentPlane;
 	}
@@ -159,6 +159,28 @@ bool UCombatStatusComponent::CheckForXPlane(const ESaiyoraPlane FromPlane, const
 	}
 	//Actors in a normal plane will only see actors in the same plane or both planes as the same plane.
 	return FromPlane != ToPlane;
+}
+
+void UCombatStatusComponent::AddPlaneSwapRestriction(UObject* Source)
+{
+	const bool bPreviouslyRestricted = bPlaneSwapRestricted;
+	PlaneSwapRestrictions.Add(Source);
+	if (!bPreviouslyRestricted && PlaneSwapRestrictions.Num() > 0)
+	{
+		bPlaneSwapRestricted = true;
+		OnPlaneSwapRestrictionChanged.Broadcast(bPlaneSwapRestricted);
+	}
+}
+
+void UCombatStatusComponent::RemovePlaneSwapRestriction(UObject* Source)
+{
+	const bool bPreviouslyRestricted = bPlaneSwapRestricted;
+	PlaneSwapRestrictions.Remove(Source);
+	if (bPreviouslyRestricted && PlaneSwapRestrictions.Num() == 0)
+	{
+		bPlaneSwapRestricted = false;
+		OnPlaneSwapRestrictionChanged.Broadcast(bPlaneSwapRestricted);
+	}
 }
 
 void UCombatStatusComponent::OnRep_PlaneStatus(const FPlaneStatus& PreviousStatus)

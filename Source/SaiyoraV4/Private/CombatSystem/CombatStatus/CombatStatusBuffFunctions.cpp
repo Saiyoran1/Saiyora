@@ -3,9 +3,9 @@
 #include "CombatStatusComponent.h"
 #include "SaiyoraCombatInterface.h"
 
-void UPlaneSwapRestrictionFunction::PlaneSwapRestriction(UBuff* Buff, const FPlaneSwapRestriction& Restriction)
+void UPlaneSwapRestrictionFunction::PlaneSwapRestriction(UBuff* Buff)
 {
-	if (!IsValid(Buff) || !Restriction.IsBound() || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
+	if (!IsValid(Buff) || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
 	{
 		return;
 	}
@@ -14,15 +14,14 @@ void UPlaneSwapRestrictionFunction::PlaneSwapRestriction(UBuff* Buff, const FPla
 	{
 		return;
 	}
-	NewPlaneSwapRestrictionFunction->SetRestrictionVars(Restriction);
+	NewPlaneSwapRestrictionFunction->SetRestrictionVars();
 }
 
-void UPlaneSwapRestrictionFunction::SetRestrictionVars(const FPlaneSwapRestriction& Restriction)
+void UPlaneSwapRestrictionFunction::SetRestrictionVars()
 {
 	if (GetOwningBuff()->GetAppliedTo()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 	{
 		TargetComponent = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(GetOwningBuff()->GetAppliedTo());
-		Restrict = Restriction;
 	}
 }
 
@@ -30,7 +29,7 @@ void UPlaneSwapRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
 	if (IsValid(TargetComponent))
 	{
-		TargetComponent->AddPlaneSwapRestriction(Restrict);
+		TargetComponent->AddPlaneSwapRestriction(GetOwningBuff());
 	}
 }
 
@@ -38,6 +37,6 @@ void UPlaneSwapRestrictionFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent
 {
 	if (IsValid(TargetComponent))
 	{
-		TargetComponent->RemovePlaneSwapRestriction(Restrict);
+		TargetComponent->RemovePlaneSwapRestriction(GetOwningBuff());
 	}
 }

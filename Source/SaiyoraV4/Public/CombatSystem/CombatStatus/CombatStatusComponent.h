@@ -38,11 +38,17 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Plane")
 	static bool CheckForXPlane(const ESaiyoraPlane FromPlane, const ESaiyoraPlane ToPlane);
 
+	UFUNCTION(BlueprintCallable, Category = "Plane")
+	void AddPlaneSwapRestriction(UObject* Source);
+	UFUNCTION(BlueprintCallable, Category = "Plane")
+	void RemovePlaneSwapRestriction(UObject* Source);
+	UFUNCTION(BlueprintPure, Category = "Plane")
+	bool IsPlaneSwapRestricted() { return bPlaneSwapRestricted; }
+
 	UPROPERTY(BlueprintAssignable)
 	FPlaneSwapNotification OnPlaneSwapped;
-	
-	void AddPlaneSwapRestriction(const FPlaneSwapRestriction& Restriction) { PlaneSwapRestrictions.Add(Restriction); }
-	void RemovePlaneSwapRestriction(const FPlaneSwapRestriction& Restriction) { PlaneSwapRestrictions.Remove(Restriction); }
+	UPROPERTY(BlueprintAssignable)
+	FPlaneSwapRestrictionNotification OnPlaneSwapRestrictionChanged;
 	
 private:
 	
@@ -55,9 +61,14 @@ private:
 	UFUNCTION()
 	void OnRep_PlaneStatus(const FPlaneStatus& PreviousStatus);
 	
-	TRestrictionList<FPlaneSwapRestriction> PlaneSwapRestrictions;
+	UPROPERTY()
+	TSet<UObject*> PlaneSwapRestrictions;
+	UPROPERTY(ReplicatedUsing=OnRep_PlaneSwapRestricted)
+	bool bPlaneSwapRestricted = false;
+	UFUNCTION()
+	void OnRep_PlaneSwapRestricted() { OnPlaneSwapRestrictionChanged.Broadcast(bPlaneSwapRestricted); }
 
-	//Faction
+//Faction
 
 public:
 	
@@ -69,7 +80,7 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Faction")
 	EFaction DefaultFaction = EFaction::None;
 
-	//Rendering
+//Rendering
 
 private:
 	
@@ -105,7 +116,7 @@ private:
 	UFUNCTION()
 	void OnLocalPlayerPlaneSwap(const ESaiyoraPlane Previous, const ESaiyoraPlane New, UObject* Source) { UpdateOwnerCustomRendering(); }
 
-	//Collision
+//Collision
 
 private:
 
