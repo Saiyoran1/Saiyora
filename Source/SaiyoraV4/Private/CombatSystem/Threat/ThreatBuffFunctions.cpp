@@ -38,10 +38,10 @@ void UThreatModifierFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
 		switch (ModType)
 		{
 		case EThreatModifierType::Incoming :
-			TargetHandler->AddIncomingThreatModifier(GetOwningBuff(), Mod);
+			TargetHandler->AddIncomingThreatModifier(Mod);
 			break;
 		case EThreatModifierType::Outgoing :
-			TargetHandler->AddOutgoingThreatModifier(GetOwningBuff(), Mod);
+			TargetHandler->AddOutgoingThreatModifier(Mod);
 			break;
 		default :
 			break;
@@ -56,10 +56,10 @@ void UThreatModifierFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
 		switch (ModType)
 		{
 		case EThreatModifierType::Incoming :
-			TargetHandler->RemoveIncomingThreatModifier(GetOwningBuff());
+			TargetHandler->RemoveIncomingThreatModifier(Mod);
 			break;
 		case EThreatModifierType::Outgoing :
-			TargetHandler->RemoveOutgoingThreatModifier(GetOwningBuff());
+			TargetHandler->RemoveOutgoingThreatModifier(Mod);
 			break;
 		default :
 			break;

@@ -137,13 +137,7 @@ void UResource::ModifyResource(UObject* Source, const float Amount, const bool b
     if (!bIgnoreModifiers)
     {
         TArray<FCombatModifier> Mods;
-        for (const TTuple<UBuff*, FResourceDeltaModifier>& Mod : ResourceDeltaMods)
-        {
-            if (Mod.Value.IsBound())
-            {
-                Mods.Add(Mod.Value.Execute(this, Source, Amount));
-            }
-        }
+        ResourceDeltaMods.GetModifiers(Mods, this, Source, Amount);
         Delta = FCombatModifier::ApplyModifiers(Mods, Delta);
     }
     SetResourceValue(ResourceState.CurrentValue + Delta, Source);
@@ -272,25 +266,6 @@ void UResource::PurgeOldPredictions()
         {
             ResourcePredictions.Remove(ID);
         }
-    }
-}
-
-#pragma endregion 
-#pragma region Modifiers
-
-void UResource::AddResourceDeltaModifier(UBuff* Source, const FResourceDeltaModifier& Modifier)
-{
-    if (GetHandler()->GetOwnerRole() == ROLE_Authority && IsValid(Source) && Modifier.IsBound())
-    {
-        ResourceDeltaMods.Add(Source, Modifier);
-    }
-}
-
-void UResource::RemoveResourceDeltaModifier(const UBuff* Source)
-{
-    if (GetHandler()->GetOwnerRole() == ROLE_Authority && IsValid(Source))
-    {
-        ResourceDeltaMods.Remove(Source);
     }
 }
 

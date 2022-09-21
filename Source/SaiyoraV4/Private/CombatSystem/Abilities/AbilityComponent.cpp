@@ -905,22 +905,6 @@ void UAbilityComponent::UpdateGlobalCooldownFromServerResult(const float Predict
 #pragma endregion 
 #pragma region Modifiers
 
-void UAbilityComponent::AddGlobalCooldownModifier(UBuff* Source, const FAbilityModCondition& Modifier)
-{
-	if (IsValid(Source) && Modifier.IsBound())
-	{
-		GlobalCooldownMods.Add(Source, Modifier);
-	}
-}
-
-void UAbilityComponent::RemoveGlobalCooldownModifier(const UBuff* Source)
-{
-	if (IsValid(Source))
-	{
-		GlobalCooldownMods.Remove(Source);
-	}
-}
-
 float UAbilityComponent::CalculateGlobalCooldownLength(UCombatAbility* Ability) const
 {
 	if (!IsValid(Ability) || !Ability->HasGlobalCooldown())
@@ -932,34 +916,12 @@ float UAbilityComponent::CalculateGlobalCooldownLength(UCombatAbility* Ability) 
 		return Ability->GetDefaultGlobalCooldownLength();
 	}
 	TArray<FCombatModifier> Mods;
-	for (const TTuple<UBuff*, FAbilityModCondition>& Mod : GlobalCooldownMods)
-	{
-		if (Mod.Value.IsBound())
-		{
-			Mods.Add(Mod.Value.Execute(Ability));
-		}
-	}
+	GlobalCooldownMods.GetModifiers(Mods, Ability);
 	if (IsValid(StatHandlerRef) && StatHandlerRef->IsStatValid(FSaiyoraCombatTags::Get().Stat_GlobalCooldownLength))
 	{
 		Mods.Add(FCombatModifier(StatHandlerRef->GetStatValue(FSaiyoraCombatTags::Get().Stat_GlobalCooldownLength), EModifierType::Multiplicative));
 	}
 	return FMath::Max(MINGCDLENGTH, FCombatModifier::ApplyModifiers(Mods, Ability->GetDefaultGlobalCooldownLength()));
-}
-
-void UAbilityComponent::AddCastLengthModifier(UBuff* Source, const FAbilityModCondition& Modifier)
-{
-	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Modifier.IsBound())
-	{
-		CastLengthMods.Add(Source, Modifier);
-	}
-}
-
-void UAbilityComponent::RemoveCastLengthModifier(const UBuff* Source)
-{
-	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
-	{
-		CastLengthMods.Remove(Source);
-	}
 }
 
 float UAbilityComponent::CalculateCastLength(UCombatAbility* Ability) const
@@ -973,34 +935,12 @@ float UAbilityComponent::CalculateCastLength(UCombatAbility* Ability) const
 		return Ability->GetDefaultCastLength();
 	}
 	TArray<FCombatModifier> Mods;
-	for (const TTuple<UBuff*, FAbilityModCondition>& Mod : CastLengthMods)
-	{
-		if (Mod.Value.IsBound())
-		{
-			Mods.Add(Mod.Value.Execute(Ability));
-		}
-	}
+	CastLengthMods.GetModifiers(Mods, Ability);
 	if (IsValid(StatHandlerRef) && StatHandlerRef->IsStatValid(FSaiyoraCombatTags::Get().Stat_CastLength))
 	{
 		Mods.Add(FCombatModifier(StatHandlerRef->GetStatValue(FSaiyoraCombatTags::Get().Stat_CastLength), EModifierType::Multiplicative));
 	}
 	return FMath::Max(MINCASTLENGTH, FCombatModifier::ApplyModifiers(Mods, Ability->GetDefaultCastLength()));
-}
-
-void UAbilityComponent::AddCooldownModifier(UBuff* Source, const FAbilityModCondition& Modifier)
-{
-	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Modifier.IsBound())
-	{
-		CooldownMods.Add(Source, Modifier);
-	}
-}
-
-void UAbilityComponent::RemoveCooldownModifier(const UBuff* Source)
-{
-	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
-	{
-		CooldownMods.Remove(Source);
-	}
 }
 
 float UAbilityComponent::CalculateCooldownLength(UCombatAbility* Ability) const
@@ -1014,13 +954,7 @@ float UAbilityComponent::CalculateCooldownLength(UCombatAbility* Ability) const
 		return Ability->GetDefaultCooldownLength();
 	}
 	TArray<FCombatModifier> Mods;
-	for (const TTuple<UBuff*, FAbilityModCondition>& Mod : CooldownMods)
-	{
-		if (Mod.Value.IsBound())
-		{
-			Mods.Add(Mod.Value.Execute(Ability));
-		}
-	}
+	CooldownMods.GetModifiers(Mods, Ability);
 	if (IsValid(StatHandlerRef) && StatHandlerRef->IsStatValid(FSaiyoraCombatTags::Get().Stat_CooldownLength))
 	{
 		Mods.Add(FCombatModifier(StatHandlerRef->GetStatValue(FSaiyoraCombatTags::Get().Stat_CooldownLength), EModifierType::Multiplicative));

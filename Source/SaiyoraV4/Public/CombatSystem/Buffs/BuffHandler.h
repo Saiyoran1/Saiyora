@@ -91,7 +91,7 @@ private:
 	void PostRemoveCleanup(UBuff* Buff);
 	UPROPERTY()
 	TArray<UBuff*> RecentlyRemoved;
-	TRestrictionList<FBuffRestriction> IncomingBuffRestrictions;
+	TConditionalRestrictionList<FBuffRestriction> IncomingBuffRestrictions;
 	UFUNCTION()
 	void RemoveBuffsOnOwnerDeath(AActor* Actor, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus);
 
@@ -124,5 +124,5 @@ private:
 
 	UPROPERTY()
 	TArray<UBuff*> OutgoingBuffs;
-	TRestrictionList<FBuffRestriction> OutgoingBuffRestrictions;
+	TConditionalRestrictionList<FBuffRestriction> OutgoingBuffRestrictions;
 };

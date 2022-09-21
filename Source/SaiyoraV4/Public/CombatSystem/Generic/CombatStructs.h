@@ -254,7 +254,7 @@ struct FCombatParameter
 };
 
 template <class T>
-class TRestrictionList
+class TConditionalRestrictionList
 {
 public:
 
@@ -270,6 +270,7 @@ public:
         }
         return false;
     }
+    
     void Add(const T& Restriction)
     {
         if (Restriction.IsBound())
@@ -277,6 +278,7 @@ public:
             Restrictions.Add(Restriction);
         }
     }
+    
     int32 Remove(const T& Restriction)
     {
         return Restrictions.Remove(Restriction);
@@ -285,4 +287,39 @@ public:
 private:
     
     TSet<T> Restrictions;
+};
+
+template <class T>
+class TConditionalModifierList
+{
+public:
+
+    template <typename... Args>
+    void GetModifiers(TArray<FCombatModifier>& OutModifiers, Args... Context) const
+    {
+        for (const T& Mod : Modifiers)
+        {
+            if (Mod.IsBound())
+            {
+                OutModifiers.Add(Mod.Execute(Context...));
+            }
+        }
+    }
+
+    void Add(const T& Modifier)
+    {
+        if (Modifier.IsBound())
+        {
+            Modifiers.Add(Modifier);
+        }
+    }
+
+    void Remove(const T& Modifier)
+    {
+        Modifiers.Remove(Modifier);
+    }
+
+private:
+
+    TSet<T> Modifiers;
 };

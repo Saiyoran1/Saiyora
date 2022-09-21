@@ -143,12 +143,9 @@ FThreatEvent UThreatHandler::AddThreat(const EThreatType ThreatType, const float
 		}
 	}
 
-	if (!bIgnoreRestrictions)
+	if (!bIgnoreRestrictions && (IncomingThreatRestrictions.IsRestricted(Result) || GeneratorThreat->CheckOutgoingThreatRestricted(Result)))
 	{
-		if (GeneratorThreat->CheckOutgoingThreatRestricted(Result) || IncomingThreatRestrictions.IsRestricted(Result))
-		{
-			return Result;
-		}
+		return Result;
 	}
 
 	int32 FoundIndex = ThreatTable.Num();
@@ -520,61 +517,17 @@ void UThreatHandler::OnRep_CurrentTarget(AActor* PreviousTarget)
 #pragma endregion 
 #pragma region Modifiers
 
-void UThreatHandler::AddIncomingThreatModifier(UBuff* Source, const FThreatModCondition& Modifier)
-{
-	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Modifier.IsBound())
-	{
-		IncomingThreatMods.Add(Source, Modifier);
-	}
-}
-
-void UThreatHandler::RemoveIncomingThreatModifier(const UBuff* Source)
-{
-	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
-	{
-		IncomingThreatMods.Remove(Source);
-	}
-}
-
 float UThreatHandler::GetModifiedIncomingThreat(const FThreatEvent& ThreatEvent) const
 {
 	TArray<FCombatModifier> Mods;
-	for (const TTuple<UBuff*, FThreatModCondition>& Modifier : IncomingThreatMods)
-	{
-		if (Modifier.Value.IsBound())
-		{
-			Mods.Add(Modifier.Value.Execute(ThreatEvent));
-		}
-	}
+	IncomingThreatMods.GetModifiers(Mods, ThreatEvent);
 	return FCombatModifier::ApplyModifiers(Mods, ThreatEvent.Threat);
-}
-
-void UThreatHandler::AddOutgoingThreatModifier(UBuff* Source, const FThreatModCondition& Modifier)
-{
-	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Modifier.IsBound())
-	{
-		OutgoingThreatMods.Add(Source, Modifier);
-	}
-}
-
-void UThreatHandler::RemoveOutgoingThreatModifier(const UBuff* Source)
-{
-	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
-	{
-		OutgoingThreatMods.Remove(Source);
-	}
 }
 
 float UThreatHandler::GetModifiedOutgoingThreat(const FThreatEvent& ThreatEvent, const FThreatModCondition& SourceModifier) const
 {
 	TArray<FCombatModifier> Mods;
-	for (const TTuple<UBuff*, FThreatModCondition>& Modifier : OutgoingThreatMods)
-	{
-		if (Modifier.Value.IsBound())
-		{
-			Mods.Add(Modifier.Value.Execute(ThreatEvent));
-		}
-	}
+	OutgoingThreatMods.GetModifiers(Mods, ThreatEvent);
 	if (SourceModifier.IsBound())
 	{
 		Mods.Add(SourceModifier.Execute(ThreatEvent));

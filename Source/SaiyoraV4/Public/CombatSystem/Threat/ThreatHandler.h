@@ -60,19 +60,27 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FCombatStatusNotification OnCombatChanged;
 
+	UFUNCTION(BlueprintCallable, Category = "Threat")
 	void AddIncomingThreatRestriction(const FThreatRestriction& Restriction) { IncomingThreatRestrictions.Add(Restriction); }
+	UFUNCTION(BlueprintCallable, Category = "Threat")
 	void RemoveIncomingThreatRestriction(const FThreatRestriction& Restriction) { IncomingThreatRestrictions.Remove(Restriction); }
-	
+
+	UFUNCTION(BlueprintCallable, Category = "Threat")
 	void AddOutgoingThreatRestriction(const FThreatRestriction& Restriction) { OutgoingThreatRestrictions.Add(Restriction); }
+	UFUNCTION(BlueprintCallable, Category = "Threat")
 	void RemoveOutgoingThreatRestriction(const FThreatRestriction& Restriction) { OutgoingThreatRestrictions.Remove(Restriction); }
 	bool CheckOutgoingThreatRestricted(const FThreatEvent& Event) { return OutgoingThreatRestrictions.IsRestricted(Event); }
-	
-	void AddIncomingThreatModifier(UBuff* Source, const FThreatModCondition& Modifier);
-	void RemoveIncomingThreatModifier(const UBuff* Source);
+
+	UFUNCTION(BlueprintCallable, Category = "Threat")
+	void AddIncomingThreatModifier(const FThreatModCondition& Modifier) { IncomingThreatMods.Add(Modifier); }
+	UFUNCTION(BlueprintCallable, Category = "Threat")
+	void RemoveIncomingThreatModifier(const FThreatModCondition& Modifier) { IncomingThreatMods.Remove(Modifier); }
 	float GetModifiedIncomingThreat(const FThreatEvent& ThreatEvent) const;
-	
-	void AddOutgoingThreatModifier(UBuff* Source, const FThreatModCondition& Modifier);
-	void RemoveOutgoingThreatModifier(const UBuff* Source);
+
+	UFUNCTION(BlueprintCallable, Category = "Threat")
+	void AddOutgoingThreatModifier(const FThreatModCondition& Modifier) { OutgoingThreatMods.Add(Modifier); }
+	UFUNCTION(BlueprintCallable, Category = "Threat")
+	void RemoveOutgoingThreatModifier(const FThreatModCondition& Modifier) { OutgoingThreatMods.Remove(Modifier); }
 	float GetModifiedOutgoingThreat(const FThreatEvent& ThreatEvent, const FThreatModCondition& SourceModifier) const;
 
 	void NotifyOfTargeting(const UThreatHandler* TargetingComponent);
@@ -97,12 +105,12 @@ private:
 	void RemoveFromThreatTable(const AActor* Actor);
 	void ClearThreatTable();
 	void RemoveThreat(const float Amount, const AActor* AppliedBy);
-	UPROPERTY()
-	TMap<UBuff*, FThreatModCondition> OutgoingThreatMods;
-	UPROPERTY()
-	TMap<UBuff*, FThreatModCondition> IncomingThreatMods;
-	TRestrictionList<FThreatRestriction> OutgoingThreatRestrictions;
-	TRestrictionList<FThreatRestriction> IncomingThreatRestrictions;
+	
+	TConditionalModifierList<FThreatModCondition> OutgoingThreatMods;
+	TConditionalModifierList<FThreatModCondition> IncomingThreatMods;
+	TConditionalRestrictionList<FThreatRestriction> OutgoingThreatRestrictions;
+	TConditionalRestrictionList<FThreatRestriction> IncomingThreatRestrictions;
+	
 	UPROPERTY(ReplicatedUsing = OnRep_CurrentTarget)
 	AActor* CurrentTarget = nullptr;
 	UFUNCTION()

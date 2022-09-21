@@ -38,7 +38,7 @@ void UResourceDeltaModifierFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
 	if (IsValid(TargetResource))
 	{
-		TargetResource->AddResourceDeltaModifier(GetOwningBuff(), Mod);
+		TargetResource->AddResourceDeltaModifier(Mod);
 	}
 }
 
@@ -46,7 +46,7 @@ void UResourceDeltaModifierFunction::OnRemove(const FBuffRemoveEvent& RemoveEven
 {
 	if (IsValid(TargetResource))
 	{
-		TargetResource->RemoveResourceDeltaModifier(GetOwningBuff());
+		TargetResource->RemoveResourceDeltaModifier(Mod);
 	}
 }
 

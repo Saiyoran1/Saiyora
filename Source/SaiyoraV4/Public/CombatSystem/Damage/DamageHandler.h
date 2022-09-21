@@ -102,7 +102,7 @@ private:
 	void OnRep_LifeStatus(const ELifeStatus PreviousValue);
 	FVector RespawnLocation;
 	
-	TRestrictionList<FDeathRestriction> DeathRestrictions;
+	TConditionalRestrictionList<FDeathRestriction> DeathRestrictions;
 
 	void UpdateMaxHealth(const float NewMaxHealth);
 	FStatCallback MaxHealthStatCallback;
@@ -150,18 +150,27 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FHealthEventNotification OnKillingBlow;
 
+	UFUNCTION(BlueprintCallable, Category = "Health")
 	void AddIncomingHealthEventRestriction(const FHealthEventRestriction& Restriction) { IncomingHealthEventRestrictions.Add(Restriction); }
+	UFUNCTION(BlueprintCallable, Category = "Health")
 	void RemoveIncomingHealthEventRestriction(const FHealthEventRestriction& Restriction) { IncomingHealthEventRestrictions.Remove(Restriction); }
-	bool CheckIncomingHealthEventRestricted(const FHealthEventInfo& EventInfo) { return IncomingHealthEventRestrictions.IsRestricted(EventInfo); }
+	
+	UFUNCTION(BlueprintCallable, Category = "Health")
    	void AddOutgoingHealthEventRestriction(const FHealthEventRestriction& Restriction) { OutgoingHealthEventRestrictions.Add(Restriction); }
+	UFUNCTION(BlueprintCallable, Category = "Health")
    	void RemoveOutgoingHealthEventRestriction(const FHealthEventRestriction& Restriction) { OutgoingHealthEventRestrictions.Remove(Restriction); }
 	bool CheckOutgoingHealthEventRestricted(const FHealthEventInfo& EventInfo) { return OutgoingHealthEventRestrictions.IsRestricted(EventInfo); }
-	
-	void AddIncomingHealthEventModifier(UBuff* Source, const FHealthEventModCondition& Modifier);
-	void RemoveIncomingHealthEventModifier(const UBuff* Source);
+
+	UFUNCTION(BlueprintCallable, Category = "Health")
+	void AddIncomingHealthEventModifier(const FHealthEventModCondition& Modifier) { IncomingHealthEventModifiers.Add(Modifier); }
+	UFUNCTION(BlueprintCallable, Category = "Health")
+	void RemoveIncomingHealthEventModifier(const FHealthEventModCondition& Modifier) { IncomingHealthEventModifiers.Remove(Modifier); }
 	float GetModifiedIncomingHealthEventValue(const FHealthEventInfo& EventInfo) const;
-    void AddOutgoingHealthEventModifier(UBuff* Source, const FHealthEventModCondition& Modifier);
-   	void RemoveOutgoingHealthEventModifier(const UBuff* Source);
+
+	UFUNCTION(BlueprintCallable, Category = "Health")
+    void AddOutgoingHealthEventModifier(const FHealthEventModCondition& Modifier) { OutgoingHealthEventModifiers.Add(Modifier); }
+	UFUNCTION(BlueprintCallable, Category = "Health")
+   	void RemoveOutgoingHealthEventModifier(const FHealthEventModCondition& Modifier) { OutgoingHealthEventModifiers.Remove(Modifier); }
 	float GetModifiedOutgoingHealthEventValue(const FHealthEventInfo& EventInfo, const FHealthEventModCondition& SourceMod) const;
 	
 	void NotifyOfOutgoingHealthEvent(const FHealthEvent& HealthEvent);
@@ -175,14 +184,12 @@ private:
 
 	bool bHasPendingKillingBlow = false;
 	FHealthEvent PendingKillingBlow;
-	
 
-	TRestrictionList<FHealthEventRestriction> IncomingHealthEventRestrictions;
-	TRestrictionList<FHealthEventRestriction> OutgoingHealthEventRestrictions;
-	UPROPERTY()
-	TMap<UBuff*, FHealthEventModCondition> IncomingHealthEventModifiers;
-	UPROPERTY()
-	TMap<UBuff*, FHealthEventModCondition> OutgoingHealthEventModifiers;
+	TConditionalRestrictionList<FHealthEventRestriction> IncomingHealthEventRestrictions;
+	TConditionalRestrictionList<FHealthEventRestriction> OutgoingHealthEventRestrictions;
+
+	TConditionalModifierList<FHealthEventModCondition> IncomingHealthEventModifiers;
+	TConditionalModifierList<FHealthEventModCondition> OutgoingHealthEventModifiers;
 
 	UFUNCTION(Client, Unreliable)
 	void ClientNotifyOfIncomingHealthEvent(const FHealthEvent& HealthEvent);

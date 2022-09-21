@@ -268,7 +268,7 @@ FHealthEvent UDamageHandler::ApplyHealthEvent(const EHealthEventType EventType, 
         }
         HealthEvent.Info.Value = GetModifiedIncomingHealthEventValue(HealthEvent.Info);
     }
-    if (!bIgnoreRestrictions && (CheckIncomingHealthEventRestricted(HealthEvent.Info) || (IsValid(GeneratorComponent) && GeneratorComponent->CheckOutgoingHealthEventRestricted(HealthEvent.Info))))
+    if (!bIgnoreRestrictions && (IncomingHealthEventRestrictions.IsRestricted(HealthEvent.Info) || (IsValid(GeneratorComponent) && GeneratorComponent->CheckOutgoingHealthEventRestricted(HealthEvent.Info))))
     {
         return HealthEvent;
     }
@@ -413,32 +413,10 @@ void UDamageHandler::RemoveDeathRestriction(const FDeathRestriction& Restriction
 #pragma endregion
 #pragma region Modifiers
 
-void UDamageHandler::AddOutgoingHealthEventModifier(UBuff* Source, const FHealthEventModCondition& Modifier)
-{
-	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Modifier.IsBound())
-	{
-		OutgoingHealthEventModifiers.Add(Source, Modifier);
-	}
-}
-
-void UDamageHandler::RemoveOutgoingHealthEventModifier(const UBuff* Source)
-{
-	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
-	{
-		OutgoingHealthEventModifiers.Remove(Source);
-	}
-}
-
 float UDamageHandler::GetModifiedOutgoingHealthEventValue(const FHealthEventInfo& EventInfo, const FHealthEventModCondition& SourceMod) const
 {
 	TArray<FCombatModifier> Mods;
-	for (const TTuple<UBuff*, FHealthEventModCondition>& Modifier : OutgoingHealthEventModifiers)
-	{
-		if (Modifier.Value.IsBound())
-		{
-			Mods.Add(Modifier.Value.Execute(EventInfo));
-		}
-	}
+	OutgoingHealthEventModifiers.GetModifiers(Mods, EventInfo);
 	if (SourceMod.IsBound())
 	{
 		Mods.Add(SourceMod.Execute(EventInfo));
@@ -472,32 +450,10 @@ float UDamageHandler::GetModifiedOutgoingHealthEventValue(const FHealthEventInfo
 	return FCombatModifier::ApplyModifiers(Mods, EventInfo.Value);
 }
 
-void UDamageHandler::AddIncomingHealthEventModifier(UBuff* Source, const FHealthEventModCondition& Modifier)
-{
-	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Modifier.IsBound())
-	{
-		IncomingHealthEventModifiers.Add(Source, Modifier);
-	}
-}
-
-void UDamageHandler::RemoveIncomingHealthEventModifier(const UBuff* Source)
-{
-	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
-	{
-		IncomingHealthEventModifiers.Remove(Source);
-	}
-}
-
 float UDamageHandler::GetModifiedIncomingHealthEventValue(const FHealthEventInfo& EventInfo) const
 {
 	TArray<FCombatModifier> Mods;
-	for (const TTuple<UBuff*, FHealthEventModCondition>& Modifier : IncomingHealthEventModifiers)
-	{
-		if (Modifier.Value.IsBound())
-		{
-			Mods.Add(Modifier.Value.Execute(EventInfo));
-		}
-	}
+	IncomingHealthEventModifiers.GetModifiers(Mods, EventInfo);
 	if (IsValid(StatHandlerRef))
 	{
 		switch (EventInfo.EventType)

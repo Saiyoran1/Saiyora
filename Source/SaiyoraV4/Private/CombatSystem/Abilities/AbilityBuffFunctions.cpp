@@ -41,13 +41,13 @@ void UComplexAbilityModifierFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 	switch (ModType)
 	{
 		case EComplexAbilityModType::CastLength :
-			TargetHandler->AddCastLengthModifier(GetOwningBuff(), Mod);
+			TargetHandler->AddCastLengthModifier(Mod);
 			break;
 		case EComplexAbilityModType::CooldownLength :
-			TargetHandler->AddCooldownModifier(GetOwningBuff(), Mod);
+			TargetHandler->AddCooldownModifier(Mod);
 			break;
 		case EComplexAbilityModType::GlobalCooldownLength :
-			TargetHandler->AddGlobalCooldownModifier(GetOwningBuff(), Mod);
+			TargetHandler->AddGlobalCooldownModifier(Mod);
 			break;
 		default :
 			break;
@@ -61,13 +61,13 @@ void UComplexAbilityModifierFunction::OnRemove(const FBuffRemoveEvent& RemoveEve
 		switch (ModType)
 		{
 			case EComplexAbilityModType::CastLength :
-				TargetHandler->RemoveCastLengthModifier(GetOwningBuff());
+				TargetHandler->RemoveCastLengthModifier(Mod);
 				break;
 			case EComplexAbilityModType::CooldownLength :
-				TargetHandler->RemoveCooldownModifier(GetOwningBuff());
+				TargetHandler->RemoveCooldownModifier(Mod);
 				break;
 			case EComplexAbilityModType::GlobalCooldownLength :
-				TargetHandler->RemoveGlobalCooldownModifier(GetOwningBuff());
+				TargetHandler->RemoveGlobalCooldownModifier(Mod);
 				break;
 			default :
 				break;

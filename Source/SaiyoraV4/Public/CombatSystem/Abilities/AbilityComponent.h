@@ -247,9 +247,12 @@ public:
     float GetCastTimeRemaining() const { return CastingState.bIsCasting && CastingState.bAcked ? FMath::Max(0.0f, CastingState.CastEndTime - GameStateRef->GetServerWorldTimeSeconds()) : -1.0f; }
 	UPROPERTY(BlueprintAssignable)
 	FCastingStateNotification OnCastStateChanged;
-	
-	void AddCastLengthModifier(UBuff* Source, const FAbilityModCondition& Modifier);
-	void RemoveCastLengthModifier(const UBuff* Source);
+
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	void AddCastLengthModifier(const FAbilityModCondition& Modifier) { CastLengthMods.Add(Modifier); }
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	void RemoveCastLengthModifier(const FAbilityModCondition& Modifier) { CastLengthMods.Remove(Modifier); }
+	UFUNCTION(BlueprintPure, Category = "Abilities")
 	float CalculateCastLength(UCombatAbility* Ability) const;
 
 private:
@@ -261,8 +264,8 @@ private:
 	void StartCast(UCombatAbility* Ability, const int32 PredictionID = 0);
 	void EndCast();
 	void UpdateCastFromServerResult(const float PredictionTime, const FServerAbilityResult& Result);
-	TMap<UBuff*, FAbilityModCondition> CastLengthMods;
 	
+	TConditionalModifierList<FAbilityModCondition> CastLengthMods;
 
 //Global Cooldown
 
@@ -276,9 +279,12 @@ public:
 	float GetGlobalCooldownTimeRemaining() const { return GlobalCooldownState.bActive ? FMath::Max(0.0f, (GlobalCooldownState.StartTime + GlobalCooldownState.Length) - GameStateRef->GetServerWorldTimeSeconds()) : -1.0f; }
 	UPROPERTY(BlueprintAssignable)
 	FGlobalCooldownNotification OnGlobalCooldownChanged;
-	
-	void AddGlobalCooldownModifier(UBuff* Source, const FAbilityModCondition& Modifier);
-	void RemoveGlobalCooldownModifier(const UBuff* Source);
+
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	void AddGlobalCooldownModifier(const FAbilityModCondition& Modifier) { GlobalCooldownMods.Add(Modifier); }
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	void RemoveGlobalCooldownModifier(const FAbilityModCondition& Modifier) { GlobalCooldownMods.Remove(Modifier); }
+	UFUNCTION(BlueprintPure, Category = "Abilities")
 	float CalculateGlobalCooldownLength(UCombatAbility* Ability) const;
 
 private:
@@ -289,20 +295,23 @@ private:
 	UFUNCTION()
 	void EndGlobalCooldown();
 	void UpdateGlobalCooldownFromServerResult(const float PredictionTime, const FServerAbilityResult& Result);
-	TMap<UBuff*, FAbilityModCondition> GlobalCooldownMods;
 	
-
+	TConditionalModifierList<FAbilityModCondition> GlobalCooldownMods;
+	
 //Cooldown
 
 public:
 
-	void AddCooldownModifier(UBuff* Source, const FAbilityModCondition& Modifier);
-	void RemoveCooldownModifier(const UBuff* Source);
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	void AddCooldownModifier(const FAbilityModCondition& Modifier) { CooldownMods.Add(Modifier); }
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	void RemoveCooldownModifier(const FAbilityModCondition& Modifier) { CooldownMods.Remove(Modifier); }
+	UFUNCTION(BlueprintPure, Category = "Abilities")
 	float CalculateCooldownLength(UCombatAbility* Ability) const;
 
 private:
-
-	TMap<UBuff*, FAbilityModCondition> CooldownMods;
+	
+	TConditionalModifierList<FAbilityModCondition> CooldownMods;
 
 //Cost
 

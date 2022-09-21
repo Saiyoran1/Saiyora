@@ -98,8 +98,10 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FResourceValueNotification OnResourceChanged;
 
-	void AddResourceDeltaModifier(UBuff* Source, const FResourceDeltaModifier& Modifier);
-	void RemoveResourceDeltaModifier(const UBuff* Source);
+	UFUNCTION(BlueprintCallable, Category = "Resource")
+	void AddResourceDeltaModifier(const FResourceDeltaModifier& Modifier) { ResourceDeltaMods.Add(Modifier); }
+	UFUNCTION(BlueprintCallable, Category = "Resource")
+	void RemoveResourceDeltaModifier(const FResourceDeltaModifier& Modifier) { ResourceDeltaMods.Remove(Modifier); }
 
 protected:
 
@@ -120,7 +122,8 @@ private:
 	UFUNCTION()
 	void UpdateMaximumFromStatBind(const FGameplayTag StatTag, const float NewValue);
 	void SetResourceValue(const float NewValue, UObject* Source, const int32 PredictionID = 0);
-	TMap<UBuff*, FResourceDeltaModifier> ResourceDeltaMods;
+	
+	TConditionalModifierList<FResourceDeltaModifier> ResourceDeltaMods;
 	
 //Ability Costs
 	

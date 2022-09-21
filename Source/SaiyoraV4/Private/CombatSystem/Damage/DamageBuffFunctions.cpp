@@ -174,10 +174,10 @@ void UHealthEventModifierFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 		switch (EventDirection)
 		{
 		case ECombatEventDirection::Incoming :
-			TargetHandler->AddIncomingHealthEventModifier(GetOwningBuff(), Mod);
+			TargetHandler->AddIncomingHealthEventModifier(Mod);
 			break;
 		case ECombatEventDirection::Outgoing :
-			TargetHandler->AddOutgoingHealthEventModifier(GetOwningBuff(), Mod);
+			TargetHandler->AddOutgoingHealthEventModifier(Mod);
 			break;
 		default :
 			break;
@@ -192,10 +192,10 @@ void UHealthEventModifierFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 		switch (EventDirection)
 		{
 		case ECombatEventDirection::Incoming :
-			TargetHandler->RemoveIncomingHealthEventModifier(GetOwningBuff());
+			TargetHandler->RemoveIncomingHealthEventModifier(Mod);
 			break;
 		case ECombatEventDirection::Outgoing :
-			TargetHandler->RemoveOutgoingHealthEventModifier(GetOwningBuff());
+			TargetHandler->RemoveOutgoingHealthEventModifier(Mod);
 			break;
 		default :
 			break;
