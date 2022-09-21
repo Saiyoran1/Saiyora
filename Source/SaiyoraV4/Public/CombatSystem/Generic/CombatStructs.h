@@ -10,12 +10,13 @@ class UBuff;
 struct SAIYORAV4_API FSaiyoraCollision
 {
     //Object and Trace Channels
-    static const ECollisionChannel O_WorldAncient; 
-    static const ECollisionChannel O_WorldModern;
-    static const ECollisionChannel O_PlayerHitbox; 
-    static const ECollisionChannel O_NPCHitbox;
-    static const ECollisionChannel O_ProjectileHitbox;
-    static const ECollisionChannel T_Combat;
+    
+    static constexpr ECollisionChannel O_WorldAncient = ECC_GameTraceChannel12; 
+    static constexpr ECollisionChannel O_WorldModern = ECC_GameTraceChannel13;
+    static constexpr ECollisionChannel O_PlayerHitbox = ECC_GameTraceChannel10; 
+    static constexpr ECollisionChannel O_NPCHitbox = ECC_GameTraceChannel11;
+    static constexpr ECollisionChannel O_ProjectileHitbox = ECC_GameTraceChannel9;
+    static constexpr ECollisionChannel T_Combat = ECC_GameTraceChannel1;
 
     //Object Profiles
     static const FName P_NoCollision;

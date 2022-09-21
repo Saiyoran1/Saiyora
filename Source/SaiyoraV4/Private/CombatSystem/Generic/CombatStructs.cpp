@@ -1,13 +1,6 @@
 #include "CombatStructs.h"
 #include "Buff.h"
 
-const ECollisionChannel FSaiyoraCollision::O_WorldAncient = ECC_GameTraceChannel12; 
-const ECollisionChannel FSaiyoraCollision::O_WorldModern = ECC_GameTraceChannel13;
-const ECollisionChannel FSaiyoraCollision::O_PlayerHitbox = ECC_GameTraceChannel10; 
-const ECollisionChannel FSaiyoraCollision::O_NPCHitbox = ECC_GameTraceChannel11;
-const ECollisionChannel FSaiyoraCollision::O_ProjectileHitbox = ECC_GameTraceChannel9;
-const ECollisionChannel FSaiyoraCollision::T_Combat = ECC_GameTraceChannel1;
-
 const FName FSaiyoraCollision::P_NoCollision = FName("NoCollision");
 const FName FSaiyoraCollision::P_OverlapAll = FName("OverlapAll");
 const FName FSaiyoraCollision::P_BlockAll = FName("BlockAllDynamic");

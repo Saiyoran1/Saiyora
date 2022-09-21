@@ -8,6 +8,7 @@
 #include "CoreClasses/SaiyoraPlayerController.h"
 #include "StatHandler.h"
 #include "ThreatHandler.h"
+#include "Components/CapsuleComponent.h"
 #include "CoreClasses/SaiyoraGameState.h"
 #include "GameFramework/PlayerState.h"
 
@@ -34,6 +35,8 @@ void ASaiyoraPlayerCharacter::PostInitializeComponents()
 	CustomMovementComponent = Cast<USaiyoraMovementComponent>(Super::GetMovementComponent());
 	AbilityComponent->OnCastStateChanged.AddDynamic(this, &ASaiyoraPlayerCharacter::UpdateQueueOnCastEnd);
 	AbilityComponent->OnGlobalCooldownChanged.AddDynamic(this, &ASaiyoraPlayerCharacter::UpdateQueueOnGlobalEnd);
+	GetCapsuleComponent()->OnComponentBeginOverlap.AddDynamic(this, &ASaiyoraPlayerCharacter::HandleBeginXPlaneOverlap);
+	GetCapsuleComponent()->OnComponentEndOverlap.AddDynamic(this, &ASaiyoraPlayerCharacter::HandleEndXPlaneOverlap);
 }
 
 void ASaiyoraPlayerCharacter::BeginPlay()
@@ -328,8 +331,46 @@ void ASaiyoraPlayerCharacter::ExpireQueue()
 }
 
 void ASaiyoraPlayerCharacter::ClearQueueAndAutoFireOnPlaneSwap(const ESaiyoraPlane PreviousPlane,
-	const ESaiyoraPlane NewPlane, UObject* Source)
+                                                               const ESaiyoraPlane NewPlane, UObject* Source)
 {
 	AutomaticInputAbility = nullptr;
 	ExpireQueue();
+}
+
+void ASaiyoraPlayerCharacter::HandleBeginXPlaneOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
+	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+	const bool bPreviouslyOverlapping = XPlaneOverlaps.Num() > 0;
+	ESaiyoraPlane OtherCompPlane = ESaiyoraPlane::None;
+	switch (OtherComp->GetCollisionObjectType())
+	{
+	case FSaiyoraCollision::O_WorldAncient :
+		OtherCompPlane = ESaiyoraPlane::Ancient;
+		break;
+	case FSaiyoraCollision::O_WorldModern :
+		OtherCompPlane = ESaiyoraPlane::Modern;
+		break;
+	default :
+		OtherCompPlane = ESaiyoraPlane::Both;
+		break;
+	}
+	if (UCombatStatusComponent::CheckForXPlane(CombatStatusComponent->GetCurrentPlane(), OtherCompPlane))
+	{
+		XPlaneOverlaps.Add(OtherComp);
+	}
+	if (!bPreviouslyOverlapping && XPlaneOverlaps.Num() > 0)
+	{
+		CombatStatusComponent->AddPlaneSwapRestriction(GetCapsuleComponent());
+	}
+}
+
+void ASaiyoraPlayerCharacter::HandleEndXPlaneOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
+	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
+{
+	const bool bPreviouslyOverlapping = XPlaneOverlaps.Num() > 0;
+	XPlaneOverlaps.Remove(OtherComp);
+	if (bPreviouslyOverlapping && XPlaneOverlaps.Num() <= 0)
+	{
+		CombatStatusComponent->RemovePlaneSwapRestriction(GetCapsuleComponent());
+	}
 }
