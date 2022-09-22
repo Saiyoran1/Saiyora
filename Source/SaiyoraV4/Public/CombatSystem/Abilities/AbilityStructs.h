@@ -264,8 +264,6 @@ struct FCastingState
 
     UPROPERTY(BlueprintReadOnly)
     bool bIsCasting = false;
-    UPROPERTY(BlueprintReadOnly, NotReplicated)
-    bool bAcked = true;
     UPROPERTY(BlueprintReadOnly)
     UCombatAbility* CurrentCast = nullptr;
     UPROPERTY(NotReplicated)
@@ -273,7 +271,7 @@ struct FCastingState
     UPROPERTY(BlueprintReadOnly)
     float CastStartTime = 0.0f;
     UPROPERTY(BlueprintReadOnly)
-    float CastEndTime = 0.0f;
+    float CastLength = 0.0f;
     UPROPERTY(BlueprintReadOnly)
     bool bInterruptible = true;
     UPROPERTY(BlueprintReadOnly, NotReplicated)

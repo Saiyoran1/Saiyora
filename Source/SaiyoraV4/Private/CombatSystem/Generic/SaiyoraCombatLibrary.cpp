@@ -20,8 +20,13 @@ float USaiyoraCombatLibrary::GetActorPing(const AActor* Actor)
     return Controller->GetPlayerPing();
 }
 
-FCombatModifier USaiyoraCombatLibrary::MakeCombatModifier(UBuff* Source, const EModifierType ModifierType,
-    const float ModifierValue, const bool bStackable)
+FCombatModifier USaiyoraCombatLibrary::MakeCombatModifier(const EModifierType ModifierType, const float ModifierValue)
+{
+    return FCombatModifier(ModifierValue, ModifierType, nullptr, false);
+}
+
+FCombatModifier USaiyoraCombatLibrary::MakeBuffCombatModifier(UBuff* Source, const EModifierType ModifierType,
+                                                              const float ModifierValue, const bool bStackable)
 {
     return FCombatModifier(ModifierValue, ModifierType, Source, bStackable);
 }

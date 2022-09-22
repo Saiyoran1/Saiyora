@@ -302,9 +302,8 @@ void UAbilityComponent::ServerPredictAbility_Implementation(const FAbilityReques
         
         if (Ability->HasGlobalCooldown())
         {
-        	StartGlobalCooldown(Ability, Request.PredictionID);
+        	ServerResult.GlobalLength = StartGlobalCooldown(Ability, Request.PredictionID);
         	ServerResult.bActivatedGlobal = true;
-        	ServerResult.GlobalLength = CalculateGlobalCooldownLength(Ability);
         }
         
         const int32 PreviousCharges = Ability->GetCurrentCharges();
@@ -330,9 +329,8 @@ void UAbilityComponent::ServerPredictAbility_Implementation(const FAbilityReques
         case EAbilityCastType::Channel :
 	        {
         		Result.ActionTaken = ECastAction::Success;
-        		StartCast(Ability, Result.PredictionID);
+        		ServerResult.CastLength = StartCast(Ability, Result.PredictionID);
         		ServerResult.bActivatedCastBar = true;
-        		ServerResult.CastLength = CalculateCastLength(Ability);
         		ServerResult.bInterruptible = CastingState.bInterruptible;
         		if (Ability->HasInitialTick())
         		{
@@ -575,7 +573,7 @@ FCancelEvent UAbilityComponent::CancelCurrentCast()
 	Result.CancelledAbility = CastingState.CurrentCast;
 	Result.CancelTime = GameStateRef->GetServerWorldTimeSeconds();
 	Result.CancelledCastStart = CastingState.CastStartTime;
-	Result.CancelledCastEnd = CastingState.CastEndTime;
+	Result.CancelledCastEnd = CastingState.CastLength;
 	Result.ElapsedTicks = CastingState.ElapsedTicks;
 	Result.bSuccess = true;
 	CastingState.PredictionID = GetOwnerRole() == ROLE_Authority ? CastingState.PredictionID : Result.PredictionID;
@@ -616,7 +614,7 @@ void UAbilityComponent::ServerCancelAbility_Implementation(const FCancelRequest&
 	Result.CancelTime = GameStateRef->GetServerWorldTimeSeconds();
 	Result.PredictionID = Request.CancelID;
 	Result.CancelledCastStart = CastingState.CastStartTime;
-	Result.CancelledCastEnd = CastingState.CastEndTime;
+	Result.CancelledCastEnd = CastingState.CastLength;
 	Result.CancelledCastID = CastID;
 	Result.ElapsedTicks = CastingState.ElapsedTicks;
 	Result.Targets = Request.Targets;
@@ -659,7 +657,7 @@ FInterruptEvent UAbilityComponent::InterruptCurrentCast(AActor* AppliedBy, UObje
 	Result.InterruptSource = InterruptSource;
 	Result.InterruptedAbility = CastingState.CurrentCast;
 	Result.InterruptedCastStart = CastingState.CastStartTime;
-	Result.InterruptedCastEnd = CastingState.CastEndTime;
+	Result.InterruptedCastEnd = CastingState.CastLength;
 	Result.ElapsedTicks = CastingState.ElapsedTicks;
 	Result.InterruptTime = GameStateRef->GetServerWorldTimeSeconds();
 	Result.CancelledCastID = CastingState.PredictionID;
@@ -744,11 +742,10 @@ void UAbilityComponent::InterruptCastOnDeath(AActor* Actor, const ELifeStatus Pr
 #pragma endregion 
 #pragma region Casting
 
-void UAbilityComponent::StartCast(UCombatAbility* Ability, const int32 PredictionID)
+float UAbilityComponent::StartCast(UCombatAbility* Ability, const int32 PredictionID)
 {
 	const FCastingState PreviousState = CastingState;
 	CastingState.bIsCasting = true;
-	CastingState.bAcked = GetOwnerRole() == ROLE_Authority;
 	CastingState.CurrentCast = Ability;
 	if (PredictionID != 0)
 	{
@@ -757,14 +754,20 @@ void UAbilityComponent::StartCast(UCombatAbility* Ability, const int32 Predictio
 	CastingState.CastStartTime = GameStateRef->GetServerWorldTimeSeconds();
 	CastingState.bInterruptible = Ability->IsInterruptible();
 	CastingState.ElapsedTicks = 0;
-	float const CastLength = GetOwnerRole() == ROLE_Authority ? CalculateCastLength(Ability) : -1.0f;
-	CastingState.CastEndTime = GetOwnerRole() == ROLE_Authority ? CastingState.CastStartTime + CastLength : -1.0f;
-	if (GetOwnerRole() == ROLE_Authority)
+	const float CastLength = CalculateCastLength(Ability);
+	if (GetOwnerRole() == ROLE_Authority && !IsLocallyControlled())
 	{
-		GetWorld()->GetTimerManager().SetTimer(TickHandle, this, &UAbilityComponent::TickCurrentCast,
-			(CastLength / Ability->GetNumberOfTicks()), true);
+		//Reduce cast length by a fraction of actor's ping to prevent queued abilities from failing due to arriving too fast.
+		CastingState.CastLength = CastLength - (PINGCOMPENSATIONRATIO * USaiyoraCombatLibrary::GetActorPing(GetOwner()));
 	}
+	else
+	{
+		CastingState.CastLength = CastLength;
+	}
+	GetWorld()->GetTimerManager().SetTimer(TickHandle, this, &UAbilityComponent::TickCurrentCast,
+	(CastingState.CastLength / Ability->GetNumberOfTicks()), true);
     OnCastStateChanged.Broadcast(PreviousState, CastingState);
+	return CastLength;
 }
 
 void UAbilityComponent::EndCast()
@@ -775,7 +778,7 @@ void UAbilityComponent::EndCast()
    	CastingState.bInterruptible = false;
     CastingState.ElapsedTicks = 0;
     CastingState.CastStartTime = 0.0f;
-    CastingState.CastEndTime = 0.0f;
+    CastingState.CastLength = 0.0f;
     GetWorld()->GetTimerManager().ClearTimer(TickHandle);
     OnCastStateChanged.Broadcast(PreviousState, CastingState);
 }
@@ -784,47 +787,63 @@ void UAbilityComponent::UpdateCastFromServerResult(const float PredictionTime, c
 {
 	if (CastingState.PredictionID <= Result.PredictionID)
 	{
+		const FCastingState PreviousState = CastingState;
 		CastingState.PredictionID = Result.PredictionID;
 		if (Result.bSuccess && Result.bActivatedCastBar && PredictionTime + Result.CastLength > GameStateRef->GetServerWorldTimeSeconds())
 		{
-			const FCastingState PreviousState = CastingState;
 			CastingState.bIsCasting = true;
-			CastingState.bAcked = true;
 			CastingState.CastStartTime = PredictionTime;
-			CastingState.CastEndTime = CastingState.CastStartTime + Result.CastLength;
+			CastingState.CastLength = Result.CastLength;
 			CastingState.CurrentCast = ActiveAbilities.FindRef(Result.AbilityClass);
 			CastingState.bInterruptible = Result.bInterruptible;
-			//Check for any missed ticks. We will update the last missed tick (if any, this should be rare) after setting everything else.
-			const float TickInterval = Result.CastLength / CastingState.CurrentCast->GetNumberOfTicks();
-			const int32 ElapsedTicks = FMath::FloorToInt((GameStateRef->GetServerWorldTimeSeconds() - CastingState.CastStartTime) / TickInterval);
-			//First iteration of the tick timer will get time remaining until the next tick (to account for travel time). Subsequent ticks use regular interval.
+			const bool bPredictedInitial = PreviousState.PredictionID == Result.PredictionID && PreviousState.bIsCasting;
+			const int32 PredictedElapsed = PreviousState.PredictionID == Result.PredictionID && PreviousState.bIsCasting ? PreviousState.ElapsedTicks : 0;
+			const float TickInterval = CastingState.CastLength / CastingState.CurrentCast->GetNumberOfTicks();
+			const int32 ActualElapsed = FMath::FloorToInt((GameStateRef->GetServerWorldTimeSeconds() - CastingState.CastStartTime) / TickInterval);
+			if (PredictedElapsed < ActualElapsed)
+			{
+				//Need to immediately predict the missed ticks, including an initial tick if we hadn't already.
+				for (int32 i = PredictedElapsed; i < ActualElapsed; i++)
+				{
+					if (i == 0 && !bPredictedInitial && CastingState.CurrentCast->HasInitialTick())
+					{
+						FAbilityEvent TickEvent;
+						TickEvent.Ability = CastingState.CurrentCast;
+						TickEvent.PredictionID = CastingState.PredictionID;
+						TickEvent.Tick = 0;
+						TickEvent.ActionTaken = ECastAction::Success;
+						FAbilityRequest TickRequest;
+						TickRequest.PredictionID = CastingState.PredictionID;
+						TickRequest.Tick = CastingState.ElapsedTicks;
+						TickRequest.AbilityClass = CastingState.CurrentCast->GetClass();
+						CastingState.CurrentCast->PredictedTick(CastingState.ElapsedTicks, TickEvent.Origin, TickEvent.Targets, CastingState.PredictionID);
+						TickRequest.Targets = TickEvent.Targets;
+						TickRequest.Origin = TickEvent.Origin;
+						ServerPredictAbility(TickRequest);
+						OnAbilityTick.Broadcast(TickEvent);
+					}
+					TickCurrentCast();
+				}
+			}
 			GetWorld()->GetTimerManager().SetTimer(TickHandle, this, &UAbilityComponent::TickCurrentCast, TickInterval, true,
-				(CastingState.CastStartTime + (TickInterval * (ElapsedTicks + 1))) - GameStateRef->GetServerWorldTimeSeconds());
+				(CastingState.CastStartTime + (TickInterval * (CastingState.ElapsedTicks + 1))) - GameStateRef->GetServerWorldTimeSeconds());
+			
 			OnCastStateChanged.Broadcast(PreviousState, CastingState);
-			//Immediately perform the last missed tick if one happened during the wait time between ability prediction and confirmation.
-			if (ElapsedTicks > 0)
-			{
-				//Reduce tick by one since ticking the cast will increment it back up.
-				CastingState.ElapsedTicks = ElapsedTicks - 1;
-				TickCurrentCast();
-			}
-			else
-			{
-				CastingState.ElapsedTicks = ElapsedTicks;
-			}
+			
 		}
 		else if (CastingState.bIsCasting)
 		{
 			//TODO: Potential to miss ticks here if the cast should've already completed.
 			EndCast();
 		}
+		
 	}
 }
 
 #pragma endregion 
 #pragma region Global Cooldown
 
-void UAbilityComponent::StartGlobalCooldown(UCombatAbility* Ability, const int32 PredictionID)
+float UAbilityComponent::StartGlobalCooldown(UCombatAbility* Ability, const int32 PredictionID)
 {
 	const FGlobalCooldown PreviousState = GlobalCooldownState;
 	GlobalCooldownState.bActive = true;
@@ -833,15 +852,20 @@ void UAbilityComponent::StartGlobalCooldown(UCombatAbility* Ability, const int32
 		GlobalCooldownState.PredictionID = PredictionID;
 	}
 	GlobalCooldownState.StartTime = GetGameStateRef()->GetServerWorldTimeSeconds();
-	GlobalCooldownState.Length = CalculateGlobalCooldownLength(Ability);
+	const float GlobalCooldownLength = CalculateGlobalCooldownLength(Ability);
 	if (GetOwnerRole() == ROLE_Authority && !IsLocallyControlled())
 	{
 		//Reduce GCD by a percentage of ping to prevent queued abilities from arriving too fast and failing to cast.
 		//This only happens on the server for non-local players.
-		GlobalCooldownState.Length = FMath::Max(0.0f, GlobalCooldownState.Length - (USaiyoraCombatLibrary::GetActorPing(GetOwner()) * PINGCOMPENSATIONRATIO));
+		GlobalCooldownState.Length = GlobalCooldownLength - (USaiyoraCombatLibrary::GetActorPing(GetOwner()) * PINGCOMPENSATIONRATIO);
+	}
+	else
+	{
+		GlobalCooldownState.Length = GlobalCooldownLength;
 	}
 	GetWorld()->GetTimerManager().SetTimer(GlobalCooldownHandle, this, &UAbilityComponent::EndGlobalCooldown, GlobalCooldownState.Length, false);
 	OnGlobalCooldownChanged.Broadcast(PreviousState, GlobalCooldownState);
+	return GlobalCooldownLength;
 }
 
 void UAbilityComponent::EndGlobalCooldown()

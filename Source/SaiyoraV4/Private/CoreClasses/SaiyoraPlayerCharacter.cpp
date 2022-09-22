@@ -218,7 +218,7 @@ void ASaiyoraPlayerCharacter::AbilityInput(const int32 InputNum, const bool bPre
 	else
 	{
 		//If the input we are releasing is for the current cast, that cast is cancellable on release, AND we aren't within the queue window, cancel our cast. (Within the queue window, we allow the cast to finish).
-		if (AbilityComponent->IsCasting() && AbilityComponent->GetCurrentCast() == AbilityToUse && AbilityComponent->GetCurrentCast()->WillCancelOnRelease() && (AbilityComponent->GetCastTimeRemaining() > ABILITYQUEWINDOW || !AbilityComponent->IsCastAcked()))
+		if (AbilityComponent->IsCasting() && AbilityComponent->GetCurrentCast() == AbilityToUse && AbilityComponent->GetCurrentCast()->WillCancelOnRelease() && (AbilityComponent->GetCastTimeRemaining() > ABILITYQUEWINDOW))
 		{
 			AbilityComponent->CancelCurrentCast();
 		}
@@ -250,8 +250,8 @@ bool ASaiyoraPlayerCharacter::TryQueueAbility(const TSubclassOf<UCombatAbility> 
 	{
 		return false;
 	}
-	//If we are casting and the cast time isn't acked, OR we aren't casting and aren't on GCD, don't queue.
-	if ((AbilityComponent->IsCasting() && !AbilityComponent->IsCastAcked()) || (!AbilityComponent->IsCasting() && !AbilityComponent->IsGlobalCooldownActive()))
+	//If  we aren't casting and aren't on GCD, don't queue.
+	if (!AbilityComponent->IsCasting() && !AbilityComponent->IsGlobalCooldownActive())
 	{
 		return false;
 	}

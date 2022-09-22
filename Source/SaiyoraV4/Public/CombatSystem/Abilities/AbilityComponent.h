@@ -238,13 +238,11 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Abilities")
 	UCombatAbility* GetCurrentCast() const { return CastingState.CurrentCast; }
 	UFUNCTION(BlueprintPure, Category = "Abilities")
-	bool IsCastAcked() const { return CastingState.bAcked; }
-	UFUNCTION(BlueprintPure, Category = "Abilities")
 	bool IsInterruptible() const { return CastingState.bIsCasting && CastingState.bInterruptible; }
 	UFUNCTION(BlueprintPure, Category = "Abilities")
-    float GetCurrentCastLength() const { return CastingState.bIsCasting && CastingState.bAcked ? FMath::Max(0.0f, CastingState.CastEndTime - CastingState.CastStartTime) : -1.0f; }
+    float GetCurrentCastLength() const { return CastingState.bIsCasting ? CastingState.CastLength : -1.0f; }
     UFUNCTION(BlueprintPure, Category = "Abilities")
-    float GetCastTimeRemaining() const { return CastingState.bIsCasting && CastingState.bAcked ? FMath::Max(0.0f, CastingState.CastEndTime - GameStateRef->GetServerWorldTimeSeconds()) : -1.0f; }
+    float GetCastTimeRemaining() const { return CastingState.bIsCasting ? FMath::Max(0.0f, CastingState.CastStartTime + CastingState.CastLength - GameStateRef->GetServerWorldTimeSeconds()) : -1.0f; }
 	UPROPERTY(BlueprintAssignable)
 	FCastingStateNotification OnCastStateChanged;
 
@@ -261,7 +259,8 @@ private:
 	FCastingState CastingState;
 	UFUNCTION()
 	void OnRep_CastingState(const FCastingState& Previous) { OnCastStateChanged.Broadcast(Previous, CastingState); }
-	void StartCast(UCombatAbility* Ability, const int32 PredictionID = 0);
+
+	float StartCast(UCombatAbility* Ability, const int32 PredictionID = 0);
 	void EndCast();
 	void UpdateCastFromServerResult(const float PredictionTime, const FServerAbilityResult& Result);
 	
@@ -290,7 +289,7 @@ public:
 private:
 	
 	FGlobalCooldown GlobalCooldownState;
-	void StartGlobalCooldown(UCombatAbility* Ability, const int32 PredictionID = 0);
+	float StartGlobalCooldown(UCombatAbility* Ability, const int32 PredictionID = 0);
 	FTimerHandle GlobalCooldownHandle;
 	UFUNCTION()
 	void EndGlobalCooldown();
