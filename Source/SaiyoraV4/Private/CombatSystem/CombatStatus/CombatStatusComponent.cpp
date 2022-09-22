@@ -6,23 +6,6 @@
 #include "Kismet/GameplayStatics.h"
 
 TMap<int32, UCombatStatusComponent*> UCombatStatusComponent::StencilValues = TMap<int32, UCombatStatusComponent*>();
-const int32 UCombatStatusComponent::DEFAULTENEMYSAMEPLANE = 0;
-const int32 UCombatStatusComponent::ENEMYSAMEPLANESTART = 1;
-const int32 UCombatStatusComponent::ENEMYSAMEPLANEEND = 49;
-const int32 UCombatStatusComponent::DEFAULTENEMYXPLANE = 50;
-const int32 UCombatStatusComponent::ENEMYXPLANESTART = 51;
-const int32 UCombatStatusComponent::ENEMYXPLANEEND = 99;
-const int32 UCombatStatusComponent::DEFAULTNEUTRALSAMEPLANE = 100;
-const int32 UCombatStatusComponent::NEUTRALSAMEPLANESTART = 101;
-const int32 UCombatStatusComponent::NEUTRALSAMEPLANEEND = 149;
-const int32 UCombatStatusComponent::DEFAULTNEUTRALXPLANE = 150;
-const int32 UCombatStatusComponent::NEUTRALXPLANESTART = 151;
-const int32 UCombatStatusComponent::NEUTRALXPLANEEND = 199;
-const int32 UCombatStatusComponent::DEFAULTSTENCIL = 200;
-const int32 UCombatStatusComponent::FRIENDLYSAMEPLANESTART = 201;
-const int32 UCombatStatusComponent::FRIENDLYSAMEPLANEEND = 227;
-const int32 UCombatStatusComponent::FRIENDLYXPLANESTART = 228;
-const int32 UCombatStatusComponent::FRIENDLYXPLANEEND = 255;
 
 #pragma region Setup
 
@@ -86,7 +69,6 @@ void UCombatStatusComponent::BeginPlay()
 			}
 		}
 	}
-	GetOwner()->GetComponents(OwnerMeshes);
 	UpdateOwnerCustomRendering();
 	UpdateOwnerPlaneCollision();
 }
@@ -195,55 +177,63 @@ void UCombatStatusComponent::OnRep_PlaneStatus(const FPlaneStatus& PreviousStatu
 
 void UCombatStatusComponent::UpdateOwnerCustomRendering()
 {
-	if (UpdateStencilValue())
+	UpdateStencilValue();
+	TArray<UMeshComponent*> Meshes;
+	GetOwner()->GetComponents<UMeshComponent>(Meshes);
+	TArray<AActor*> AttachedActors;
+	GetOwner()->GetAttachedActors(AttachedActors, false, true);
+	for (AActor* AttachedActor : AttachedActors)
 	{
-		for (UMeshComponent* Mesh : OwnerMeshes)
+		TArray<UMeshComponent*> AttachedMeshes;
+		AttachedActor->GetComponents<UMeshComponent>(AttachedMeshes);
+		Meshes.Append(AttachedMeshes);
+	}
+	for (UMeshComponent* Mesh : Meshes)
+	{
+		if (IsValid(Mesh))
 		{
-			if (IsValid(Mesh))
+			Mesh->SetRenderCustomDepth(bUseCustomDepth);
+			if (bUseCustomDepth)
 			{
-				Mesh->SetRenderCustomDepth(bUseCustomDepth);
-				if (bUseCustomDepth)
-				{
-					Mesh->SetCustomDepthStencilValue(StencilValue);
-				}
+				Mesh->SetCustomDepthStencilValue(StencilValue);
 			}
 		}
 	}
 }
 
-bool UCombatStatusComponent::UpdateStencilValue()
+void UCombatStatusComponent::UpdateStencilValue()
 {
 	const int32 PreviousStencil = StencilValue;
 	const bool bPreviouslyUsingCustomDepth = bUseCustomDepth;
 	if (!IsValid(LocalPlayerStatusComponent) || LocalPlayerStatusComponent == this)
 	{
-		StencilValue = DEFAULTSTENCIL;
+		StencilValue = DefaultStencil;
 		bUseCustomDepth = false;
 	}
 	else
 	{
 		bUseCustomDepth = true;
 		
-		int32 RangeStart = DEFAULTSTENCIL;
-		int32 RangeEnd = DEFAULTSTENCIL;
-		int32 DefaultID = DEFAULTSTENCIL;
+		int32 RangeStart = DefaultStencil;
+		int32 RangeEnd = DefaultStencil;
+		int32 DefaultID = DefaultStencil;
 		const bool bIsXPlane = CheckForXPlane(LocalPlayerStatusComponent->GetCurrentPlane(), GetCurrentPlane());
 		switch (GetCurrentFaction())
 		{
 		case EFaction::Friendly :
-			RangeStart = bIsXPlane ? FRIENDLYXPLANESTART : FRIENDLYSAMEPLANESTART;
-			RangeEnd = bIsXPlane ? FRIENDLYXPLANEEND : FRIENDLYSAMEPLANEEND;
-			DefaultID = DEFAULTSTENCIL;
+			RangeStart = bIsXPlane ? FriendlyXPlaneStart : FriendlySamePlaneStart;
+			RangeEnd = bIsXPlane ? FriendlyXPlaneEnd : FriendlySamePlaneEnd;
+			DefaultID = DefaultStencil;
 			break;
 		case EFaction::Neutral :
-			RangeStart = bIsXPlane ? NEUTRALXPLANESTART : NEUTRALSAMEPLANESTART;
-			RangeEnd = bIsXPlane ? NEUTRALXPLANEEND : NEUTRALSAMEPLANEEND;
-			DefaultID = bIsXPlane ? DEFAULTNEUTRALXPLANE : DEFAULTNEUTRALSAMEPLANE;
+			RangeStart = bIsXPlane ? NeutralXPlaneStart : NeutralSamePlaneStart;
+			RangeEnd = bIsXPlane ? NeutralXPlaneEnd : NeutralSamePlaneEnd;
+			DefaultID = bIsXPlane ? DefaultNeutralXPlane : DefaultNeutralSamePlane;
 			break;
 		case EFaction::Enemy :
-			RangeStart = bIsXPlane ? ENEMYXPLANESTART : ENEMYSAMEPLANESTART;
-			RangeEnd = bIsXPlane ? ENEMYXPLANEEND : ENEMYSAMEPLANEEND;
-			DefaultID = bIsXPlane ? DEFAULTENEMYXPLANE : DEFAULTENEMYSAMEPLANE;
+			RangeStart = bIsXPlane ? EnemyXPlaneStart : EnemySamePlaneStart;
+			RangeEnd = bIsXPlane ? EnemyXPlaneEnd : EnemySamePlaneEnd;
+			DefaultID = bIsXPlane ? DefaultEnemyXPlane : DefaultEnemySamePlane;
 			break;
 		default :
 			break;
@@ -271,7 +261,6 @@ bool UCombatStatusComponent::UpdateStencilValue()
 	{
 		StencilValues.Add(PreviousStencil, nullptr);
 	}
-	return PreviousStencil != StencilValue || bPreviouslyUsingCustomDepth != bUseCustomDepth;
 }
 
 void UCombatStatusComponent::UpdateOwnerPlaneCollision()

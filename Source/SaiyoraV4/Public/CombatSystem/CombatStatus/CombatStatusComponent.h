@@ -82,33 +82,35 @@ private:
 
 //Rendering
 
+public:
+
+	void RefreshRendering() { UpdateOwnerCustomRendering(); }
+
 private:
 	
 	UPROPERTY()
 	UCombatStatusComponent* LocalPlayerStatusComponent;
-	UPROPERTY()
-	TArray<UMeshComponent*> OwnerMeshes;
 	
-	static const int32 DEFAULTENEMYSAMEPLANE;
-	static const int32 ENEMYSAMEPLANESTART;
-	static const int32 ENEMYSAMEPLANEEND;
-	static const int32 DEFAULTENEMYXPLANE;
-	static const int32 ENEMYXPLANESTART;
-	static const int32 ENEMYXPLANEEND;
-	static const int32 DEFAULTNEUTRALSAMEPLANE;
-	static const int32 NEUTRALSAMEPLANESTART;
-	static const int32 NEUTRALSAMEPLANEEND;
-	static const int32 DEFAULTNEUTRALXPLANE;
-	static const int32 NEUTRALXPLANESTART;
-	static const int32 NEUTRALXPLANEEND;
-	static const int32 DEFAULTSTENCIL;
-	static const int32 FRIENDLYSAMEPLANESTART;
-	static const int32 FRIENDLYSAMEPLANEEND;
-	static const int32 FRIENDLYXPLANESTART;
-	static const int32 FRIENDLYXPLANEEND;
+	static constexpr int32 DefaultEnemySamePlane = 0;
+	static constexpr int32 EnemySamePlaneStart = 1;
+	static constexpr int32 EnemySamePlaneEnd = 49;
+	static constexpr int32 DefaultEnemyXPlane = 50;
+	static constexpr int32 EnemyXPlaneStart = 51;
+	static constexpr int32 EnemyXPlaneEnd = 99;
+	static constexpr int32 DefaultNeutralSamePlane = 100;
+	static constexpr int32 NeutralSamePlaneStart = 101;
+	static constexpr int32 NeutralSamePlaneEnd = 149;
+	static constexpr int32 DefaultNeutralXPlane = 150;
+	static constexpr int32 NeutralXPlaneStart = 151;
+	static constexpr int32 NeutralXPlaneEnd = 199;
+	static constexpr int32 DefaultStencil = 200;
+	static constexpr int32 FriendlySamePlaneStart = 201;
+	static constexpr int32 FriendlySamePlaneEnd = 227;
+	static constexpr int32 FriendlyXPlaneStart = 228;
+	static constexpr int32 FriendlyXPlaneEnd = 255;
 
 	void UpdateOwnerCustomRendering();
-	bool UpdateStencilValue();
+	void UpdateStencilValue();
 	static TMap<int32, UCombatStatusComponent*> StencilValues;
 	int32 StencilValue = 200;
 	bool bUseCustomDepth = false;

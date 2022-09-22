@@ -310,6 +310,19 @@ FORCEINLINE uint32 GetTypeHash(const FPredictedTick& Tick)
     return HashCombine(GetTypeHash(Tick.PredictionID), GetTypeHash(Tick.TickNumber));
 }
 
+USTRUCT(BlueprintType)
+struct FAutoReloadState
+{
+    GENERATED_BODY()
+
+    UPROPERTY()
+    bool bIsAutoReloading = false;
+    UPROPERTY()
+    float StartTime = 0.0f;
+    UPROPERTY()
+    float EndTime = 0.0f;
+};
+
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FAbilityModCondition, UCombatAbility*, Ability);
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FAbilityClassRestriction, TSubclassOf<UCombatAbility>, AbilityClass);
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FInterruptRestriction, const FInterruptEvent&, InterruptEvent);

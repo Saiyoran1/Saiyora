@@ -1,6 +1,7 @@
 #pragma once
 #include "CombatEnums.h"
 #include "CombatStructs.h"
+#include "Engine/EngineTypes.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "SaiyoraCombatLibrary.generated.h"
 
@@ -25,6 +26,12 @@ public:
 	static FCombatModifier MakeCombatModifier(UBuff* Source, const EModifierType ModifierType, const float ModifierValue, const bool bStackable);
 	UFUNCTION(BlueprintPure, Category = "Modifier", meta = (DefaultToSelf = "Source", HidePin = "Source", NativeMakeFunc))
 	static FCombatModifier MakeBuffFunctionCombatModifier(const UBuffFunction* Source, const EModifierType ModifierType, const float ModifierValue, const bool bStackable);
+
+	//Attachment
+
+	UFUNCTION(BlueprintCallable, Category = "Attachment")
+	static void AttachCombatActorToComponent(AActor* Target, USceneComponent* Parent, const FName SocketName, const EAttachmentRule LocationRule,
+		const EAttachmentRule RotationRule, const EAttachmentRule ScaleRule, const bool bWeldSimulatedBodies);
 };
 
 

@@ -11,6 +11,7 @@ class SAIYORAV4_API UFireWeapon : public UCombatAbility
 public:
 
 	UFireWeapon();
+	virtual void GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 //Fire Delay
 	
@@ -28,12 +29,44 @@ protected:
 
 //Ammo
 
+public:
+
+	UFUNCTION(BlueprintPure, Category = "Weapon")
+	bool IsAutoReloading() const { return AutoReloadState.bIsAutoReloading; }
+	UFUNCTION(BlueprintPure, Category = "Weapon")
+	float GetAutoReloadStartTime() const { return AutoReloadState.StartTime; }
+	UFUNCTION(BlueprintPure, Category = "Weapon")
+	float GetAutoReloadEndTime() const { return AutoReloadState.EndTime; }
+	UFUNCTION(BlueprintPure, Category = "Weapon")
+	float GetAutoReloadTimeRemaining() const { return AutoReloadState.bIsAutoReloading ? FMath::Max(0.0f, AutoReloadState.EndTime - GetWorld()->GetGameState()->GetServerWorldTimeSeconds()) : 0.0f; }
+	UFUNCTION(BlueprintPure, Category = "Weapon")
+	float GetAutoReloadTime() const { return AutoReloadTime; }
+
 private:
 
-	UPROPERTY(EditDefaultsOnly, Category = "Ammo")
+	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
 	TSubclassOf<UCombatAbility> ReloadAbilityClass;
+	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
+	bool bAutoReloadXPlane = true;
+	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
+	float AutoReloadTime = 5.0f;
+	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
+	FResourceInitInfo AmmoInitInfo;
+	
 	UPROPERTY()
 	UCombatAbility* ReloadAbility;
+	UPROPERTY(Replicated)
+	FAutoReloadState AutoReloadState;
+	FTimerHandle AutoReloadHandle;
+	UFUNCTION()
+	void StartAutoReloadOnPlaneSwap(const ESaiyoraPlane PreviousPlane, const ESaiyoraPlane NewPlane, UObject* Source);
+	UFUNCTION()
+	void FinishAutoReload();
+
+	UPROPERTY()
+	UResourceHandler* ResourceHandlerRef;
+	UPROPERTY()
+	UResource* AmmoResourceRef;
 	
 //Weapon
 
@@ -45,6 +78,7 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
 	TSubclassOf<class AWeapon> WeaponClass;
+	
 	UPROPERTY()
 	AWeapon* Weapon = nullptr;
 };

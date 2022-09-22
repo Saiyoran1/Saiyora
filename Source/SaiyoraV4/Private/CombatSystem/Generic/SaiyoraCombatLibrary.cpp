@@ -1,6 +1,8 @@
 #include "SaiyoraCombatLibrary.h"
 #include "CoreClasses/SaiyoraPlayerController.h"
 #include "BuffFunction.h"
+#include "CombatStatusComponent.h"
+#include "SaiyoraCombatInterface.h"
 #include "Kismet/KismetSystemLibrary.h"
 
 float USaiyoraCombatLibrary::GetActorPing(const AActor* Actor)
@@ -28,4 +30,23 @@ FCombatModifier USaiyoraCombatLibrary::MakeBuffFunctionCombatModifier(const UBuf
     const EModifierType ModifierType, const float ModifierValue, const bool bStackable)
 {
     return FCombatModifier(ModifierValue, ModifierType, Source->GetOwningBuff(), bStackable);
+}
+
+void USaiyoraCombatLibrary::AttachCombatActorToComponent(AActor* Target, USceneComponent* Parent, const FName SocketName,
+    const EAttachmentRule LocationRule, const EAttachmentRule RotationRule, const EAttachmentRule ScaleRule, const bool bWeldSimulatedBodies)
+{
+    if (!IsValid(Target) || !IsValid(Parent))
+    {
+        return;
+    }
+    Target->AttachToComponent(Parent, FAttachmentTransformRules(LocationRule, RotationRule, ScaleRule, bWeldSimulatedBodies), SocketName);
+    AActor* ParentActor = Parent->GetOwner();
+    if (ParentActor->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+    {
+        UCombatStatusComponent* CombatStatusComponent = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(ParentActor);
+        if (IsValid(CombatStatusComponent))
+        {
+            CombatStatusComponent->RefreshRendering();
+        }
+    }
 }
