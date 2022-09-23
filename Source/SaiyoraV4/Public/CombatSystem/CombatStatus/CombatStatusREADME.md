@@ -17,28 +17,28 @@ Collision can also change based on plane. Actors using WorldDynamic collision by
 
 ## Combat Actor Rendering  
 
-Combat actors appear differently to the local player depending on their faction and plane relationship to that player. Typically, combat actors that are xplane from a player will appear to be shaded in purple, while same plane actors have their normal shading. Actors that are of the Friendly faction are outlined in green, with Enemy and Neutral actors in red.
+Combat actors appear differently to the local player depending on their faction and plane relationship to that player. Typically, combat actors that are xplane from a player will appear to be shaded in purple, while same plane actors have their normal shading. Actors that are of the Friendly faction are outlined in green, with Neutral actors in yellow and Enemy actors in red.
 
 This is accomplished using a custom post-process material applied to the entire world. The UCombatStatusComponent keeps track of the local player's current faction and plane, as well as it's own faction and plane, and updates the custom stencil value of its owner's primitive components to represent the correct faction and plane relationships.  
 
 The custom stencil value provided in Unreal has a range of 0-255 (8 bytes). For the outline material to display when an actor is overlapping another actor, each actor must have a unique stencil value for the post-process material to be able to handle edge detection. That led to this distribution of stencil values:
 
-> 200 = Local Player (no outline, no xplane shading)  
-> 151-199 = Friendly actors, same plane (green outline, no xplane shading)  
-> 150 = Friendly actors, same plane (default value for cases where every value from 151-199 is already assigned)  
-> 101-149 = Friendly actors, xplane (green outline, xplane shading)  
-> 100 = Friendly actors, xplane (default value for cases where every value from 101-149 is already assigned)  
-> 51-99 = Enemy/Neutral actors, same plane (red outline, no xplane shading)  
-> 50 = Enemy/Neutral actors, same plane (default value for cases where every value from 51-99 is already assigned)  
-> 1-49 = Enemy/Neutral actors, xplane (red outline, xplane shading)  
-> 0 = Enemy/Neutral actors, xplane (default value for cases where every value from 1-49 is already assigned)  
+> 0 = Enemy actors, same plane (default value if all values from 1-49 are assigned)  
+> 1-49 = Enemy actors, same plane  
+> 50 = Enemy actors, xplane (default value if all values from 51-99 are assigned)  
+> 51-99 = Enemy actors, xplane  
+> 100 = Neutral actors, same plane (default value if all values from 101-149 are assigned)  
+> 101-149 = Neutral actors, same plane  
+> 150 = Neutral actors, xplane (default value if all values from 151-199 are assigned)  
+> 151-199 = Neutral actors, xplane   
+> 200 = Local player, or target with no shading/outline  
+> 201-227 = Friendly players, same plane  
+> 228-255 = Friendly players, xplane  
 
-There is a static map of render values to UCombatStatusComponents that keeps track of which stencil values are already in use on the local machine. When a local player swaps planes, or a UCombatStatusComponent swaps planes, this value is re-evaluated to find a new appropriate value, and the old value is opened up. Due to the limited number of values the custom stencil supports, there is a possible situation where more than 49 actors of the same faction/plane relationship to the local player could be active at once. In this case, additional actors receive a default value (the lowest value in their appropriate range) that is shared with other actors in the same situation. These actors will render correctly in all situations except when they overlap each other, in which case their outlines will not show up on any pixel where they overlap (as they have the same custom stencil value). I am currently working on solving this issue, and also finding a way to allow yellow outlines for Neutral actors to distinguish them from Enemy actors.  
+There is a static map of render values to UCombatStatusComponents that keeps track of which stencil values are already in use on the local machine. When a local player swaps planes, or a UCombatStatusComponent swaps planes, this value is re-evaluated to find a new appropriate value, and the old value is opened up. Due to the limited number of values the custom stencil supports, there is a possible situation where more than 49 actors of the same faction/plane relationship to the local player could be active at once. In this case, additional actors receive a default value (the lowest value in their appropriate range) that is shared with other actors in the same situation. These actors will render correctly in all situations except when they overlap each other, in which case their outlines will not show up on any pixel where they overlap (as they have the same custom stencil value). This issue does not apply to players, as currently there is no situation in which more than 4 players are in the same game at a time, let alone 27. In the future, if Friendly NPCs become common, this may need to be refactored to use the Neutral range for Friendly instead, depending on which is more common.
 
 ## Combat Collision  
 
-There are three main types of collision that are relevant to combat. The first is pawn movement, which collides with level geometry and can be plane-dependent or not. The second is projectile collision, which has two separate categories: one for collision with geometry, which can be plane-dependent or not, and one for hitbox collision, which can be faction-dependent or not. The third is tracing, which can be affected by both plane and faction if necessary.  
-
-All of these collisions are handled with a large number of collision profiles in the default collision settings of the engine covering every permutation necessary. Level geometry can use WorldDynamic, WorldModern, or WorldAncient, which are determined by the ULevelGeoPlaneComponent. Pawns can use Pawn, PawnModern, or PawnAncient, which are determined by the UCombatStatusComponent. Projectiles use ProjectileCollisionAll, ProjectileCollisionModern, or ProjectileCollisionAncient for their level geometry collision, and ProjectileHitboxAll, ProjectileHitboxPlayers, or ProjectileHitboxNPCs profiles to determine what hitboxes they hit, both of which are determined during initialization of projectiles. Tracing uses any of the many "CT_..." profiles to pick a combination of planes and factions they interact with, and whether they overlap hitboxes or are blocked by hitboxes.
+One of the more interesting features of Saiyora is the changing nature of collision based on plane, allowing pawns, projectiles, and traces to ignore level geometry that is xplane to them. This behavior is achieved by assigning level geometry one of three object types: WorldDynamic (the default), WorldAncient, or WorldModern. Pawns can then use one of three collision profiles: Pawn (default), PawnAncient, or PawnModern to conditionally ignore xplane geometry. Hitboxes for pawns are assigned either PlayerHitbox or NPCHitbox. Projectiles have their collision divided between level collision (Projectile, ProjectileAncient, ProjectileModern) and hitbox collision (ProjectileHitbox, ProjectileHitboxPlayer, ProjectileHitboxNPC). Tracing features a large number of profile options for ignoring or colliding with xplane level geometry and overlapping or colliding with the different hitbox types.
 
 **[⬆ Back to Top](#top)**
