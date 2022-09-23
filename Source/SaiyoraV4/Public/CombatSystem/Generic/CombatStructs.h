@@ -180,16 +180,16 @@ struct FCombatModifier
     static int32 ApplyModifiers(const TArray<FCombatModifier>& ModArray, const int32 BaseValue);
     FCombatModifier() {}
     FCombatModifier(const float BaseValue, const EModifierType ModifierType, UBuff* SourceBuff = nullptr, const bool Stackable = false);
-    UPROPERTY()
+    UPROPERTY(BlueprintReadWrite)
     EModifierType Type = EModifierType::Invalid;
-    UPROPERTY()
+    UPROPERTY(BlueprintReadWrite)
     float Value = 0.0f;
-    UPROPERTY()
+    UPROPERTY(BlueprintReadWrite)
     bool bStackable = true;
-    UPROPERTY(NotReplicated)
-    UBuff* Source = nullptr;
+    UPROPERTY(BlueprintReadWrite)
+    UBuff* BuffSource = nullptr;
 
-    FORCEINLINE bool operator==(const FCombatModifier& Other) const { return Other.Type == Type && Other.Source == Source && Other.Value == Value; }
+    FORCEINLINE bool operator==(const FCombatModifier& Other) const { return Other.Type == Type && Other.BuffSource == BuffSource && Other.Value == Value; }
 };
 
 USTRUCT(BlueprintType)

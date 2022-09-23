@@ -20,23 +20,6 @@ float USaiyoraCombatLibrary::GetActorPing(const AActor* Actor)
     return Controller->GetPlayerPing();
 }
 
-FCombatModifier USaiyoraCombatLibrary::MakeCombatModifier(const EModifierType ModifierType, const float ModifierValue)
-{
-    return FCombatModifier(ModifierValue, ModifierType, nullptr, false);
-}
-
-FCombatModifier USaiyoraCombatLibrary::MakeBuffCombatModifier(UBuff* Source, const EModifierType ModifierType,
-                                                              const float ModifierValue, const bool bStackable)
-{
-    return FCombatModifier(ModifierValue, ModifierType, Source, bStackable);
-}
-
-FCombatModifier USaiyoraCombatLibrary::MakeBuffFunctionCombatModifier(const UBuffFunction* Source,
-    const EModifierType ModifierType, const float ModifierValue, const bool bStackable)
-{
-    return FCombatModifier(ModifierValue, ModifierType, Source->GetOwningBuff(), bStackable);
-}
-
 void USaiyoraCombatLibrary::AttachCombatActorToComponent(AActor* Target, USceneComponent* Parent, const FName SocketName,
     const EAttachmentRule LocationRule, const EAttachmentRule RotationRule, const EAttachmentRule ScaleRule, const bool bWeldSimulatedBodies)
 {

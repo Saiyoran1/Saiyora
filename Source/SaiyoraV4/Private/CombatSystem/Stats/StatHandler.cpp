@@ -236,7 +236,7 @@ void UStatHandler::AddStatModifier(const FGameplayTag StatTag, const FCombatModi
 {
 	if (GetOwnerRole() != ROLE_Authority || Modifier.Type == EModifierType::Invalid ||
 		!StatTag.IsValid() || !StatTag.MatchesTag(FSaiyoraCombatTags::Get().Stat) || StatTag.MatchesTagExact(FSaiyoraCombatTags::Get().Stat) ||
-		!IsValid(Modifier.Source) || Modifier.Source->GetAppliedTo() != GetOwner())
+		!IsValid(Modifier.BuffSource) || Modifier.BuffSource->GetAppliedTo() != GetOwner())
 	{
 		return;
 	}

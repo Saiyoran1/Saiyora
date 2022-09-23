@@ -84,11 +84,16 @@ class SAIYORAV4_API UAbilityComponent : public UActorComponent
 
 public:
 
-	static const float PINGCOMPENSATIONRATIO;
-	static const float MINCASTLENGTH;
-	static const float MINGCDLENGTH;
-	static const float MINCDLENGTH;
-	static const float ABILITYQUEWINDOW;
+	//This ratio is used to reduce server cast and GCD lengths by a fraction of a player's ping, to prevent ping fluctuation from preventing otherwise valid cast predictions. Should always be less than 1.
+	static constexpr float LagCompensationRatio = 0.2f;
+	//This is the max lag compensation a player is allowed. For cooldowns, this is the max reduction. For GCDs and casts, this * the ratio above is used to determine max reduction.
+	static constexpr float MaxLagCompensation = 0.2f;
+	//These 3 values must always be higher than MaxLagCompensation, so we don't get negative or 0 length timers.
+	static constexpr float MinCastLength = 0.5f;
+	static constexpr float MinGcdLength = 0.5f;
+	static constexpr float MinCooldownLength = 0.5f;
+	//TODO: This should probably be adjustable by players.
+	static constexpr float AbilityQueueWindow = 0.2f;
 
 	UAbilityComponent();
 	virtual void BeginPlay() override;

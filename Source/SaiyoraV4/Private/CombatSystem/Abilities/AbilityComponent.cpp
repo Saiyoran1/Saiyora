@@ -14,12 +14,6 @@
 
 #pragma region Setup
 
-const float UAbilityComponent::PINGCOMPENSATIONRATIO = 0.2f;
-const float UAbilityComponent::MINCASTLENGTH = 0.5f;
-const float UAbilityComponent::MINGCDLENGTH = 0.05f;
-const float UAbilityComponent::MINCDLENGTH = 0.05f;
-const float UAbilityComponent::ABILITYQUEWINDOW = 0.2f;
-
 UAbilityComponent::UAbilityComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
@@ -758,7 +752,7 @@ float UAbilityComponent::StartCast(UCombatAbility* Ability, const int32 Predicti
 	if (GetOwnerRole() == ROLE_Authority && !IsLocallyControlled())
 	{
 		//Reduce cast length by a fraction of actor's ping to prevent queued abilities from failing due to arriving too fast.
-		CastingState.CastLength = CastLength - (PINGCOMPENSATIONRATIO * USaiyoraCombatLibrary::GetActorPing(GetOwner()));
+		CastingState.CastLength = CastLength - (LagCompensationRatio * FMath::Min(MaxLagCompensation, USaiyoraCombatLibrary::GetActorPing(GetOwner())));
 	}
 	else
 	{
@@ -857,7 +851,7 @@ float UAbilityComponent::StartGlobalCooldown(UCombatAbility* Ability, const int3
 	{
 		//Reduce GCD by a percentage of ping to prevent queued abilities from arriving too fast and failing to cast.
 		//This only happens on the server for non-local players.
-		GlobalCooldownState.Length = GlobalCooldownLength - (USaiyoraCombatLibrary::GetActorPing(GetOwner()) * PINGCOMPENSATIONRATIO);
+		GlobalCooldownState.Length = GlobalCooldownLength - (LagCompensationRatio * FMath::Min(MaxLagCompensation, USaiyoraCombatLibrary::GetActorPing(GetOwner())));
 	}
 	else
 	{
@@ -945,7 +939,7 @@ float UAbilityComponent::CalculateGlobalCooldownLength(UCombatAbility* Ability) 
 	{
 		Mods.Add(FCombatModifier(StatHandlerRef->GetStatValue(FSaiyoraCombatTags::Get().Stat_GlobalCooldownLength), EModifierType::Multiplicative));
 	}
-	return FMath::Max(MINGCDLENGTH, FCombatModifier::ApplyModifiers(Mods, Ability->GetDefaultGlobalCooldownLength()));
+	return FMath::Max(MinGcdLength, FCombatModifier::ApplyModifiers(Mods, Ability->GetDefaultGlobalCooldownLength()));
 }
 
 float UAbilityComponent::CalculateCastLength(UCombatAbility* Ability) const
@@ -964,7 +958,7 @@ float UAbilityComponent::CalculateCastLength(UCombatAbility* Ability) const
 	{
 		Mods.Add(FCombatModifier(StatHandlerRef->GetStatValue(FSaiyoraCombatTags::Get().Stat_CastLength), EModifierType::Multiplicative));
 	}
-	return FMath::Max(MINCASTLENGTH, FCombatModifier::ApplyModifiers(Mods, Ability->GetDefaultCastLength()));
+	return FMath::Max(MinCastLength, FCombatModifier::ApplyModifiers(Mods, Ability->GetDefaultCastLength()));
 }
 
 float UAbilityComponent::CalculateCooldownLength(UCombatAbility* Ability) const
@@ -983,12 +977,12 @@ float UAbilityComponent::CalculateCooldownLength(UCombatAbility* Ability) const
 	{
 		Mods.Add(FCombatModifier(StatHandlerRef->GetStatValue(FSaiyoraCombatTags::Get().Stat_CooldownLength), EModifierType::Multiplicative));
 	}
-	return FMath::Max(MINCDLENGTH, FCombatModifier::ApplyModifiers(Mods, Ability->GetDefaultCooldownLength()));
+	return FMath::Max(MinCooldownLength, FCombatModifier::ApplyModifiers(Mods, Ability->GetDefaultCooldownLength()));
 }
 
 void UAbilityComponent::AddGenericResourceCostModifier(const TSubclassOf<UResource> ResourceClass, const FCombatModifier& Modifier)
 {
-	if (GetOwnerRole() != ROLE_Authority || !IsValid(ResourceClass) || !IsValid(Modifier.Source))
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(ResourceClass) || !IsValid(Modifier.BuffSource))
 	{
 		return;
 	}

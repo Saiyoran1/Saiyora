@@ -3,6 +3,7 @@
 #include "Buff.h"
 #include "Resource.h"
 #include "ResourceHandler.h"
+#include "SaiyoraCombatLibrary.h"
 #include "UnrealNetwork.h"
 #include "Kismet/KismetSystemLibrary.h"
 
@@ -191,7 +192,8 @@ void UCombatAbility::CommitCharges(const int32 PredictionID)
         AbilityCooldown.CurrentCharges = FMath::Clamp(AbilityCooldown.CurrentCharges - GetChargeCost(), 0, AbilityCooldown.MaxCharges);
         if (!AbilityCooldown.OnCooldown && AbilityCooldown.CurrentCharges < AbilityCooldown.MaxCharges)
         {
-            StartCooldown();
+            //If prediction ID is non-zero, we are not locally controlled, so we should use lag compensation.
+            StartCooldown(PredictionID != 0);
         }
     }
     else if (OwningComponent->GetOwnerRole() == ROLE_AutonomousProxy)
@@ -206,16 +208,26 @@ void UCombatAbility::CommitCharges(const int32 PredictionID)
     }
 }
 
-void UCombatAbility::StartCooldown()
+void UCombatAbility::StartCooldown(const bool bUseLagCompensation)
 {
     AbilityCooldown.OnCooldown = true;
     AbilityCooldown.CooldownStartTime = OwningComponent->GetGameStateRef()->GetServerWorldTimeSeconds();
-    AbilityCooldown.bAcked = OwningComponent->GetOwnerRole() == ROLE_Authority;
-    const float CooldownLength = OwningComponent->GetOwnerRole() == ROLE_Authority ? OwningComponent->CalculateCooldownLength(this) : -1.0f;
-    AbilityCooldown.CooldownEndTime = OwningComponent->GetOwnerRole() == ROLE_Authority ? AbilityCooldown.CooldownStartTime + CooldownLength : -1.0f;
     if (OwningComponent->GetOwnerRole() == ROLE_Authority)
     {
+        AbilityCooldown.bAcked = true;
+        float CooldownLength = OwningComponent->CalculateCooldownLength(this);
+        if (bUseLagCompensation)
+        {
+            //Since there is no cooldown length prediction, we reduce cooldowns started from predicted ability usage (not from rolling over) by the actor's ping, up to a reasonable max.
+            CooldownLength = CooldownLength - (FMath::Min(UAbilityComponent::MaxLagCompensation, USaiyoraCombatLibrary::GetActorPing(GetHandler()->GetOwner())));
+        }
+        AbilityCooldown.CooldownEndTime = AbilityCooldown.CooldownStartTime + CooldownLength;
         GetWorld()->GetTimerManager().SetTimer(CooldownHandle, this, &UCombatAbility::CompleteCooldown, CooldownLength, false);
+    }
+    else
+    {
+        AbilityCooldown.bAcked = false;
+        AbilityCooldown.CooldownEndTime = -1.0f;
     }
 }
 
@@ -677,7 +689,7 @@ void UCombatAbility::OnMaxChargesUpdated(const int32 NewValue)
 
 void UCombatAbility::AddResourceCostModifier(const TSubclassOf<UResource> ResourceClass, const FCombatModifier& Modifier)
 {
-    if (OwningComponent->GetOwnerRole() != ROLE_Authority || !IsValid(ResourceClass) || !IsValid(Modifier.Source))
+    if (OwningComponent->GetOwnerRole() != ROLE_Authority || !IsValid(ResourceClass) || !IsValid(Modifier.BuffSource))
     {
         return;
     }
@@ -686,7 +698,7 @@ void UCombatAbility::AddResourceCostModifier(const TSubclassOf<UResource> Resour
     bool bFound = false;
     for (FCombatModifier* Mod : Modifiers)
     {
-        if (Mod->Source == Modifier.Source)
+        if (Mod->BuffSource == Modifier.BuffSource)
         {
             *Mod = Modifier;
             bFound = true;
@@ -711,7 +723,7 @@ void UCombatAbility::RemoveResourceCostModifier(const TSubclassOf<UResource> Res
     bool bFound = false;
     for (const FCombatModifier* Mod : Modifiers)
     {
-        if (Mod->Source == Source)
+        if (Mod->BuffSource == Source)
         {
             ResourceCostModifiers.Remove(ResourceClass, *Mod);
             bFound = true;

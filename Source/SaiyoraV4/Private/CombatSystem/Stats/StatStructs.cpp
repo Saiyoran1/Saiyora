@@ -30,11 +30,11 @@ FCombatStat::FCombatStat(const FStatInfo& InitInfo)
 
 void FCombatStat::AddModifier(const FCombatModifier& Modifier)
 {
-	if (!Defaults.bModifiable || !IsValid(Modifier.Source))
+	if (!Defaults.bModifiable || !IsValid(Modifier.BuffSource))
 	{
 		return;
 	}
-	Modifiers.Add(Modifier.Source, Modifier);
+	Modifiers.Add(Modifier.BuffSource, Modifier);
 	RecalculateValue();
 }
 
