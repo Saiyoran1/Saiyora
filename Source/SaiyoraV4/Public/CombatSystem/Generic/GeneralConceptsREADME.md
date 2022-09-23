@@ -30,7 +30,7 @@ Modifiable values are represented as one of two structs: FModifiableFloat or FMo
 The current modifiable values are:  
 
 > Ability Charge Cost  
-> Ability Charges Per Cooldown
+> Ability Charges Per Cooldown  
 > Ability Max Charges  
 
 ## Conditional Modifier Functions
