@@ -7,9 +7,9 @@ There are a few patterns that I found myself using in a lot of places in the com
 
 ## Combat Modifiers
 
-A large number of actions players can take in combat result in calculating a value that can be affected by various modifiers from stats, buffs, or other sources. Modifiers can be either Additive or Multiplicative, and can optionally stack on themselves if added from a buff. A lot of modifiable values also have an optional static flag that can prevent the application of any modifiers on a per-instance basis, in which case the default value will always be used and all modifiers will be ignored.
+A large number of actions players can take in combat result in calculating a value that can be affected by various modifiers from stats, buffs, or other sources. Modifiers can be either Additive or Multiplicative, and can optionally stack on themselves if sourced from a buff.  
 
-The order of modifier application:
+The order of modifier application when calculating a value:
 - Additive modifiers are summed (any additive modifier that stacks will be multiplied by its source buff's stack count before being added to the sum).
 - Multiplicative modifiers are multiplied together (any multiplicative modifier will have 1 subtracted from it, then be multiplied by its source buff's stack count, then have 1 added back to it, then be clamped above 0).
 - The base value will have the Additive sum added to it, then be clamped above 0, then be multiplied by the Multiplicative product, then be clamped above 0 again.
@@ -21,7 +21,17 @@ The order of modifier application:
 > - Multiplicative Product: (.9 - 1) * 2 + 1 = .8 (clamped above 0 for no effect)
 > - Default (5) + Additive (1.5) = 6.5 (clamped above 0 for no effect)
 > - 6.5 * .8 = 5.2 (clamped above zero for no effect)
-> - Final cast length: 5.2 seconds
+> - Final cast length: 5.2 seconds  
+
+## Modifiable Values  
+
+Modifiable values are represented as one of two structs: FModifiableFloat or FModifiableInt. Since these are editor-exposed structs, templating them would have resulted in considerably more work than just having two near-identical alternatives. Each of these structs takes a default value, set in the editor or in a class' constructor in the case of C++-inherited classes, as well as an optional bModifiable flag that determines whether the value can actually be modified during gameplay. Their primary functionality is to hold a list of modifiers and constantly update a calculated value any time a modifier is added, removed, or updated. They also have an optional callback function that can be called any time the calculated value changes. They also support replication of the calculated value to trigger callbacks on the client.  
+
+The current modifiable values are:  
+
+> Ability Charge Cost  
+> Ability Charges Per Cooldown
+> Ability Max Charges  
 
 ## Conditional Modifier Functions
 
@@ -40,7 +50,9 @@ FCombatModifier FireDamageBuff(const FHealthEventInfo& EventInfo)
 ```
 > When iterating over conditional modifiers to outgoing health events, this function would return a Multiplicative modifier of value 1.2 for Fire damage, and an invalid modifier for all other health events. Invalid modifiers are ignored entirely during calculation.
 
-Conditional modifier functions are limited to values that need to be calculated with the context of an event, and as such, persistent values like stats do not support conditional modifier functions. They simply hold a collection of combat modifiers and are recalculated only when new modifiers are added, existing modifiers are removed, or existing modifiers change their stack count.
+Conditional modifier functions are limited to values that need to be calculated with the context of an event, and as such, persistent values like stats do not support conditional modifier functions. They simply hold a collection of combat modifiers and are recalculated only when new modifiers are added, existing modifiers are removed, or existing modifiers change their stack count.  
+
+Conditional modifiers are handled using the templated TConditionalModifierList, which simply holds a set of conditional modifier functions and has a GetModifiers function that takes in event context and returns all modifiers given that context.
 
 Here is the list of all values that currently support conditional modifier functions:  
 
@@ -53,11 +65,8 @@ Here is the list of all values that currently support conditional modifier funct
 > Global Cooldown Length  
 > Resource Delta Magnitude  
 
-And here are the values that only support simple modifiers:  
+And here are the remaining values that only support simple modifiers but have not yet been refactored to use FModifiableInt/FModifiableFloat:  
 
-> Ability Max Charges  
-> Ability Charges per Cooldown  
-> Ability Charge Cost  
 > Ability Resource Cost  
 > Stat Value  
 
