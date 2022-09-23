@@ -56,11 +56,17 @@ void UCombatAbility::InitializeAbility(UAbilityComponent* AbilityComponent)
         return;
     }
     OwningComponent = AbilityComponent;
-    AbilityCooldown.MaxCharges = FMath::Max(1, DefaultMaxCharges);
+    AbilityCooldown.MaxCharges = FMath::Max(1, MaxCharges.GetDefaultValue());
     AbilityCooldown.CurrentCharges = AbilityCooldown.MaxCharges;
-    ChargesPerCooldown = FMath::Max(0, DefaultChargesPerCooldown);
-    ChargeCost = FMath::Max(0, DefaultChargeCost);
     AbilityCosts.OwningAbility = this;
+
+    FModifiableIntCallback MaxChargeCallback;
+    MaxChargeCallback.BindDynamic(this, &UCombatAbility::OnMaxChargesUpdated);
+    MaxCharges.SetUpdatedCallback(MaxChargeCallback);
+    FModifiableIntCallback ChargeCostCallback;
+    ChargeCostCallback.BindDynamic(this, &UCombatAbility::OnChargeCostUpdated);
+    ChargeCost.SetUpdatedCallback(ChargeCostCallback);
+    
     for (const FDefaultAbilityCost& DefaultCost : DefaultAbilityCosts)
     {
         if (DefaultCost.ResourceClass)
@@ -176,14 +182,13 @@ void UCombatAbility::ModifyCurrentCharges(const int32 Charges, const EChargeModi
 void UCombatAbility::CommitCharges(const int32 PredictionID)
 {
     const int32 PreviousCharges = AbilityCooldown.CurrentCharges;
-    const bool bChargeCostPreviouslyMet = AbilityCooldown.CurrentCharges >= ChargeCost;
     if (OwningComponent->GetOwnerRole() == ROLE_Authority)
     {
         if (PredictionID != 0)
         {
             AbilityCooldown.PredictionID = PredictionID;
         }
-        AbilityCooldown.CurrentCharges = FMath::Clamp(AbilityCooldown.CurrentCharges - ChargeCost, 0, AbilityCooldown.MaxCharges);
+        AbilityCooldown.CurrentCharges = FMath::Clamp(AbilityCooldown.CurrentCharges - GetChargeCost(), 0, AbilityCooldown.MaxCharges);
         if (!AbilityCooldown.OnCooldown && AbilityCooldown.CurrentCharges < AbilityCooldown.MaxCharges)
         {
             StartCooldown();
@@ -191,15 +196,12 @@ void UCombatAbility::CommitCharges(const int32 PredictionID)
     }
     else if (OwningComponent->GetOwnerRole() == ROLE_AutonomousProxy)
     {
-        ChargePredictions.Add(PredictionID, ChargeCost);
+        ChargePredictions.Add(PredictionID, GetChargeCost());
         RecalculatePredictedCooldown();
     }
     if (PreviousCharges != AbilityCooldown.CurrentCharges)
     {
-        if (bChargeCostPreviouslyMet != (AbilityCooldown.CurrentCharges >= ChargeCost))
-        {
-            UpdateCastable();
-        }
+        UpdateCastable();
         OnChargesChanged.Broadcast(this, PreviousCharges, AbilityCooldown.CurrentCharges);
     }
 }
@@ -220,14 +222,10 @@ void UCombatAbility::StartCooldown()
 void UCombatAbility::CompleteCooldown()
 {
     const int32 PreviousCharges = AbilityCooldown.CurrentCharges;
-    const bool bChargeCostPreviouslyMet = PreviousCharges >= ChargeCost;
-    AbilityCooldown.CurrentCharges = FMath::Clamp(AbilityCooldown.CurrentCharges + ChargesPerCooldown, 0, AbilityCooldown.MaxCharges);
+    AbilityCooldown.CurrentCharges = FMath::Clamp(AbilityCooldown.CurrentCharges + GetChargesPerCooldown(), 0, AbilityCooldown.MaxCharges);
     if (PreviousCharges != AbilityCooldown.CurrentCharges)
     {
-        if (bChargeCostPreviouslyMet != (AbilityCooldown.CurrentCharges >= ChargeCost))
-        {
-            UpdateCastable();
-        }
+        UpdateCastable();
         OnChargesChanged.Broadcast(this, PreviousCharges, AbilityCooldown.CurrentCharges);
     }
     if (AbilityCooldown.CurrentCharges < AbilityCooldown.MaxCharges)
@@ -284,10 +282,7 @@ void UCombatAbility::OnRep_AbilityCooldown(FAbilityCooldown const& PreviousState
     RecalculatePredictedCooldown();
     if (PreviousState.CurrentCharges != AbilityCooldown.CurrentCharges)
     {
-        if ((PreviousState.CurrentCharges >= ChargeCost) != (AbilityCooldown.CurrentCharges >= ChargeCost))
-        {
-            UpdateCastable();
-        }
+        UpdateCastable();
         OnChargesChanged.Broadcast(this, PreviousState.CurrentCharges, AbilityCooldown.CurrentCharges);
     }
 }
@@ -544,15 +539,11 @@ void UCombatAbility::UpdatePredictionFromServer(const FServerAbilityResult& Resu
     if (AbilityCooldown.PredictionID < Result.PredictionID)
     {
         const int32 PreviousCharges = AbilityCooldown.CurrentCharges;
-        const bool bPreviouslyMetChargeCost = AbilityCooldown.CurrentCharges >= ChargeCost;
         ChargePredictions.Add(Result.PredictionID, Result.ChargesSpent);
         RecalculatePredictedCooldown();
         if (PreviousCharges != AbilityCooldown.CurrentCharges)
         {
-            if (bPreviouslyMetChargeCost != (AbilityCooldown.CurrentCharges >= ChargeCost))
-            {
-                UpdateCastable();
-            }
+            UpdateCastable();
             OnChargesChanged.Broadcast(this, PreviousCharges, AbilityCooldown.CurrentCharges);
         }
     }
@@ -653,35 +644,11 @@ bool UCombatAbility::GetTargetSetByID(const int32 SetID, FAbilityTargetSet& OutT
 #pragma endregion 
 #pragma region Modifiers
 
-void UCombatAbility::AddMaxChargeModifier(const FCombatModifier& Modifier)
-{
-    if (OwningComponent->GetOwnerRole() != ROLE_Authority || bStaticMaxCharges || !IsValid(Modifier.Source))
-    {
-        return;
-    }
-    MaxChargeModifiers.Add(Modifier.Source, Modifier);
-    RecalculateMaxCharges();
-}
-
-void UCombatAbility::RemoveMaxChargeModifier(const UBuff* Source)
-{
-    if (OwningComponent->GetOwnerRole() != ROLE_Authority || bStaticMaxCharges || !IsValid(Source))
-    {
-        return;
-    }
-    if (MaxChargeModifiers.Remove(Source) > 0)
-    {
-        RecalculateMaxCharges();
-    }
-}
-
-void UCombatAbility::RecalculateMaxCharges()
+void UCombatAbility::OnMaxChargesUpdated(const int32 NewValue)
 {
     const int32 PreviousMaxCharges = AbilityCooldown.MaxCharges;
     const int32 PreviousCharges = AbilityCooldown.CurrentCharges;
-    TArray<FCombatModifier> Modifiers;
-    MaxChargeModifiers.GenerateValueArray(Modifiers);
-    AbilityCooldown.MaxCharges = FCombatModifier::ApplyModifiers(Modifiers, DefaultMaxCharges);
+    AbilityCooldown.MaxCharges = FMath::Max(1, NewValue);
     if (PreviousMaxCharges != AbilityCooldown.MaxCharges)
     {
         if (PreviousCharges == PreviousMaxCharges)
@@ -706,69 +673,6 @@ void UCombatAbility::RecalculateMaxCharges()
         UpdateCastable();
         OnChargesChanged.Broadcast(this, PreviousCharges, AbilityCooldown.CurrentCharges);
     }
-}
-
-void UCombatAbility::AddChargeCostModifier(const FCombatModifier& Modifier)
-{
-    if (OwningComponent->GetOwnerRole() != ROLE_Authority || bStaticChargeCost || !IsValid(Modifier.Source))
-    {
-        return;
-    }
-    ChargeCostModifiers.Add(Modifier.Source, Modifier);
-    RecalculateChargeCost();
-}
-
-void UCombatAbility::RemoveChargeCostModifier(const UBuff* Source)
-{
-    if (OwningComponent->GetOwnerRole() != ROLE_Authority || bStaticChargeCost || !IsValid(Source))
-    {
-        return;
-    }
-    if (ChargeCostModifiers.Remove(Source) > 0)
-    {
-        RecalculateChargeCost();
-    }
-}
-
-void UCombatAbility::RecalculateChargeCost()
-{
-    const int32 PreviousCost = ChargeCost;
-    TArray<FCombatModifier> Modifiers;
-    ChargeCostModifiers.GenerateValueArray(Modifiers);
-    ChargeCost = FCombatModifier::ApplyModifiers(Modifiers, DefaultChargeCost);
-    if (ChargeCost != PreviousCost)
-    {
-        UpdateCastable();
-    }
-}
-
-void UCombatAbility::AddChargesPerCooldownModifier(const FCombatModifier& Modifier)
-{
-    if (OwningComponent->GetOwnerRole() != ROLE_Authority || bStaticChargesPerCooldown || !IsValid(Modifier.Source))
-    {
-        return;
-    }
-    ChargesPerCooldownModifiers.Add(Modifier.Source, Modifier);
-    RecalculateChargesPerCooldown();
-}
-
-void UCombatAbility::RemoveChargesPerCooldownModifier(const UBuff* Source)
-{
-    if (OwningComponent->GetOwnerRole() != ROLE_Authority || bStaticChargesPerCooldown || !IsValid(Source))
-    {
-        return;
-    }
-    if (ChargesPerCooldownModifiers.Remove(Source) > 0)
-    {
-        RecalculateChargesPerCooldown();
-    }
-}
-
-void UCombatAbility::RecalculateChargesPerCooldown()
-{
-    TArray<FCombatModifier> Modifiers;
-    ChargesPerCooldownModifiers.GenerateValueArray(Modifiers);
-    ChargesPerCooldown = FCombatModifier::ApplyModifiers(Modifiers, DefaultChargesPerCooldown);
 }
 
 void UCombatAbility::AddResourceCostModifier(const TSubclassOf<UResource> ResourceClass, const FCombatModifier& Modifier)
@@ -847,7 +751,7 @@ void UCombatAbility::UpdateCastable()
     {
         Castable = ECastFailReason::InvalidAbility;
     }
-    else if (GetCurrentCharges() < ChargeCost)
+    else if (GetCurrentCharges() < GetChargeCost())
     {
         Castable = ECastFailReason::ChargesNotMet;
     }

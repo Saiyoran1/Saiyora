@@ -50,6 +50,7 @@ class USimpleAbilityModifierFunction : public UBuffFunction
 
 	FCombatModifier Mod;
 	ESimpleAbilityModType ModType = ESimpleAbilityModType::None;
+	FCombatModifierHandle ModHandle;
 	UPROPERTY()
 	UCombatAbility* TargetAbility = nullptr;
 

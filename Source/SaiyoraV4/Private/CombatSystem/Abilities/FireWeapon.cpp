@@ -12,10 +12,8 @@ UFireWeapon::UFireWeapon()
 {
 	Plane = ESaiyoraPlane::Modern;
 	bOnGlobalCooldown = false;
-	DefaultChargeCost = 0;
-	bStaticChargeCost = true;
-	DefaultMaxCharges = 1;
-	bStaticMaxCharges = true;
+	ChargeCost = FModifiableInt(0, false);
+	MaxCharges = FModifiableInt(1, false);
 	CastType = EAbilityCastType::Instant;
 	bAutomatic = true;
 }

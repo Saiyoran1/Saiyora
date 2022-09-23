@@ -324,3 +324,89 @@ private:
 
     TSet<T> Modifiers;
 };
+
+USTRUCT(BlueprintType)
+struct FCombatModifierHandle
+{
+    GENERATED_BODY()
+    
+    int32 ModifierID = -1;
+
+    FCombatModifierHandle() {}
+    FCombatModifierHandle(const int32 NewID) { ModifierID = NewID; }
+};
+
+DECLARE_DYNAMIC_DELEGATE_OneParam(FModifiableFloatCallback, const float, NewValue);
+DECLARE_DYNAMIC_DELEGATE_OneParam(FModifiableIntCallback, const int32, NewValue);
+
+USTRUCT()
+struct FModifiableFloat
+{
+    GENERATED_BODY()
+
+public:
+
+    FCombatModifierHandle AddModifier(const FCombatModifier& Modifier);
+    void RemoveModifier(const FCombatModifierHandle& ModifierHandle);
+    void UpdateModifier(const FCombatModifierHandle& ModifierHandle, const FCombatModifier& NewModifier);
+    void SetUpdatedCallback(const FModifiableFloatCallback& Callback);
+
+    float GetCurrentValue() const { return CurrentValue; }
+    float GetDefaultValue() const { return DefaultValue; }
+    bool IsModifiable() const { return bIsModifiable; }
+
+    FModifiableFloat() {}
+    FModifiableFloat(const float Default, const bool bModifiable) { DefaultValue = Default; bIsModifiable = bModifiable; CurrentValue = DefaultValue; }
+    
+private:
+
+    UPROPERTY(EditDefaultsOnly, NotReplicated)
+    float DefaultValue = 0.0f;
+    UPROPERTY(EditDefaultsOnly, NotReplicated)
+    bool bIsModifiable = true;
+
+    void Recalculate();
+    UPROPERTY()
+    float CurrentValue = 0.0f;
+    FModifiableFloatCallback OnUpdated;
+    
+    int32 ModifierID = 0;
+    int32 GetNewModifierID() { return ModifierID++; }
+    TMap<int32, FCombatModifier> Modifiers;
+};
+
+USTRUCT()
+struct FModifiableInt
+{
+    GENERATED_BODY()
+
+public:
+
+    FCombatModifierHandle AddModifier(const FCombatModifier& Modifier);
+    void RemoveModifier(const FCombatModifierHandle& ModifierHandle);
+    void UpdateModifier(const FCombatModifierHandle& ModifierHandle, const FCombatModifier& NewModifier);
+    void SetUpdatedCallback(const FModifiableIntCallback& Callback);
+
+    int32 GetCurrentValue() const { return CurrentValue; }
+    int32 GetDefaultValue() const { return DefaultValue; }
+    bool IsModifiable() const { return bIsModifiable; }
+
+    FModifiableInt() {}
+    FModifiableInt(const int32 Default, const bool bModifiable) { DefaultValue = Default; bIsModifiable = bModifiable; CurrentValue = DefaultValue; }
+    
+private:
+
+    UPROPERTY(EditDefaultsOnly)
+    int32 DefaultValue = 0;
+    UPROPERTY(EditDefaultsOnly)
+    bool bIsModifiable = true;
+
+    void Recalculate();
+    UPROPERTY()
+    int32 CurrentValue = 0;
+    FModifiableIntCallback OnUpdated;
+    
+    int32 ModifierID = 0;
+    int32 GetNewModifierID() { return ModifierID++; }
+    TMap<int32, FCombatModifier> Modifiers;
+};

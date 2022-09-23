@@ -211,37 +211,43 @@ public:
     float GetCurrentCooldownLength() const { return AbilityCooldown.OnCooldown && AbilityCooldown.bAcked ? FMath::Max(0.0f, AbilityCooldown.CooldownEndTime - AbilityCooldown.CooldownStartTime) : -1.0f; }
     
     UFUNCTION(BlueprintPure, Category = "Abilities")
-    int32 GetDefaultMaxCharges() const { return DefaultMaxCharges; }
+    int32 GetDefaultMaxCharges() const { return MaxCharges.GetDefaultValue(); }
     UFUNCTION(BlueprintPure, Category = "Abilities")
     int32 GetMaxCharges() const { return AbilityCooldown.MaxCharges; }
     UFUNCTION(BlueprintPure, Category = "Abilities")
-    bool HasStaticMaxCharges() const { return bStaticMaxCharges; }
-    
-    void AddMaxChargeModifier(const FCombatModifier& Modifier);
-    void RemoveMaxChargeModifier(const UBuff* Source);
-    void RecalculateMaxCharges();
+    bool HasStaticMaxCharges() const { return !MaxCharges.IsModifiable(); }
+
+    UFUNCTION(BlueprintCallable, Category = "Abilities")
+    FCombatModifierHandle AddMaxChargeModifier(const FCombatModifier& Modifier) { return MaxCharges.AddModifier(Modifier); }
+    UFUNCTION(BlueprintCallable, Category = "Abilities")
+    void RemoveMaxChargeModifier(const FCombatModifierHandle& ModifierHandle) { MaxCharges.RemoveModifier(ModifierHandle); }
+    void UpdateMaxChargeModifier(const FCombatModifierHandle& ModifierHandle, const FCombatModifier& NewModifier) { MaxCharges.UpdateModifier(ModifierHandle, NewModifier); }
 
     UFUNCTION(BlueprintPure, Category = "Abilities")
-    int32 GetDefaultChargeCost() const { return DefaultChargeCost; }
+    int32 GetDefaultChargeCost() const { return ChargeCost.GetDefaultValue(); }
     UFUNCTION(BlueprintPure, Category = "Abilities")
-    int32 GetChargeCost() const { return ChargeCost; }
+    int32 GetChargeCost() const { return ChargeCost.GetCurrentValue(); }
     UFUNCTION(BlueprintPure, Category = "Abilities")
-    bool HasStaticChargeCost() const { return bStaticChargeCost; }
-    
-    void AddChargeCostModifier(const FCombatModifier& Modifier);
-    void RemoveChargeCostModifier(const UBuff* Source);
-    void RecalculateChargeCost();
+    bool HasStaticChargeCost() const { return !ChargeCost.IsModifiable(); }
+
+    UFUNCTION(BlueprintCallable, Category = "Abilities")
+    FCombatModifierHandle AddChargeCostModifier(const FCombatModifier& Modifier) { return ChargeCost.AddModifier(Modifier); }
+    UFUNCTION(BlueprintCallable, Category = "Abilities")
+    void RemoveChargeCostModifier(const FCombatModifierHandle& ModifierHandle) { ChargeCost.RemoveModifier(ModifierHandle); }
+    void UpdateChargeCostModifier(const FCombatModifierHandle& ModifierHandle, const FCombatModifier& NewModifier) { ChargeCost.UpdateModifier(ModifierHandle, NewModifier); }
 
     UFUNCTION(BlueprintPure, Category = "Abilities")
-    int32 GetDefaultChargesPerCooldown() const { return DefaultChargesPerCooldown; }
+    int32 GetDefaultChargesPerCooldown() const { return ChargesPerCooldown.GetDefaultValue(); }
     UFUNCTION(BlueprintPure, Category = "Abilities")
-    int32 GetChargesPerCooldown() const { return ChargesPerCooldown; }
+    int32 GetChargesPerCooldown() const { return ChargesPerCooldown.GetCurrentValue(); }
     UFUNCTION(BlueprintPure, Category = "Abilities")
-    bool HasStaticChargesPerCooldown() const { return bStaticChargesPerCooldown; }
-    
-    void AddChargesPerCooldownModifier(const FCombatModifier& Modifier);
-    void RemoveChargesPerCooldownModifier(const UBuff* Source);
-    void RecalculateChargesPerCooldown();
+    bool HasStaticChargesPerCooldown() const { return !ChargesPerCooldown.IsModifiable(); }
+
+    UFUNCTION(BlueprintCallable, Category = "Abilities")
+    FCombatModifierHandle AddChargesPerCooldownModifier(const FCombatModifier& Modifier) { return ChargesPerCooldown.AddModifier(Modifier); }
+    UFUNCTION(BlueprintCallable, Category = "Abilities")
+    void RemoveChargesPerCooldownModifier(const FCombatModifierHandle& ModifierHandle) { ChargesPerCooldown.RemoveModifier(ModifierHandle); }
+    void UpdateChargesPerCooldownModifier(const FCombatModifierHandle& ModifierHandle, const FCombatModifier& NewModifier) { ChargesPerCooldown.UpdateModifier(ModifierHandle, NewModifier); }
     
     UFUNCTION(BlueprintPure, Category = "Abilities")
     int32 GetCurrentCharges() const { return AbilityCooldown.CurrentCharges; }
@@ -260,19 +266,13 @@ protected:
     bool bStaticCooldownLength = true;
     
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
-    int32 DefaultMaxCharges = 1;
-    UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
-    bool bStaticMaxCharges = true;
+    FModifiableInt MaxCharges = FModifiableInt(1, true);
+
+    UPROPERTY(EditDefaultsOnly, ReplicatedUsing=OnRep_ChargeCost, Category = "Cooldown")
+    FModifiableInt ChargeCost = FModifiableInt(1, true);
 
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
-    int32 DefaultChargeCost = 1;
-    UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
-    bool bStaticChargeCost = true;
-
-    UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
-    int32 DefaultChargesPerCooldown = 1;
-    UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
-    bool bStaticChargesPerCooldown = true;
+    FModifiableInt ChargesPerCooldown = FModifiableInt(1, true);
     
 private:
 
@@ -288,20 +288,13 @@ private:
     TMap<int32, int32> ChargePredictions;
     int32 LastReplicatedCharges;
     void RecalculatePredictedCooldown();
-    
-    UPROPERTY()
-    TMap<UBuff*, FCombatModifier> MaxChargeModifiers;
-    
-    UPROPERTY(ReplicatedUsing = OnRep_ChargeCost)
-    int32 ChargeCost = 1;
+
+    UFUNCTION()
+    void OnMaxChargesUpdated(const int32 NewValue);
+    UFUNCTION()
+    void OnChargeCostUpdated(const int32 NewValue) { UpdateCastable(); }
     UFUNCTION()
     void OnRep_ChargeCost() { UpdateCastable(); }
-    UPROPERTY()
-    TMap<UBuff*, FCombatModifier> ChargeCostModifiers;
-    
-    int32 ChargesPerCooldown = 1;
-    UPROPERTY()
-    TMap<UBuff*, FCombatModifier> ChargesPerCooldownModifiers;
     
 //Costs
     

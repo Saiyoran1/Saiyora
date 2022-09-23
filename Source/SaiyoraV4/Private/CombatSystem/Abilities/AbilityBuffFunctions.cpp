@@ -115,13 +115,13 @@ void USimpleAbilityModifierFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 		switch (ModType)
 		{
 			case ESimpleAbilityModType::ChargeCost :
-				TargetAbility->AddChargeCostModifier(Mod);
+				ModHandle = TargetAbility->AddChargeCostModifier(Mod);
 				break;
 			case ESimpleAbilityModType::MaxCharges :
-				TargetAbility->AddMaxChargeModifier(Mod);
+				ModHandle = TargetAbility->AddMaxChargeModifier(Mod);
 				break;
 			case ESimpleAbilityModType::ChargesPerCooldown :
-				TargetAbility->AddChargesPerCooldownModifier(Mod);
+				ModHandle = TargetAbility->AddChargesPerCooldownModifier(Mod);
 				break;
 			default :
 				break;
@@ -138,13 +138,13 @@ void USimpleAbilityModifierFunction::OnStack(const FBuffApplyEvent& ApplyEvent)
 			switch (ModType)
 			{
 			case ESimpleAbilityModType::ChargeCost :
-				TargetAbility->AddChargeCostModifier(Mod);
+				TargetAbility->UpdateChargeCostModifier(ModHandle, Mod);
 				break;
 			case ESimpleAbilityModType::MaxCharges :
-				TargetAbility->AddMaxChargeModifier(Mod);
+				TargetAbility->UpdateMaxChargeModifier(ModHandle, Mod);
 				break;
 			case ESimpleAbilityModType::ChargesPerCooldown :
-				TargetAbility->AddChargesPerCooldownModifier(Mod);
+				TargetAbility->UpdateChargesPerCooldownModifier(ModHandle, Mod);
 				break;
 			default :
 				break;
@@ -160,13 +160,13 @@ void USimpleAbilityModifierFunction::OnRemove(const FBuffRemoveEvent& RemoveEven
 		switch (ModType)
 		{
 			case ESimpleAbilityModType::ChargeCost :
-				TargetAbility->RemoveChargeCostModifier(GetOwningBuff());
+				TargetAbility->RemoveChargeCostModifier(ModHandle);
 				break;
 			case ESimpleAbilityModType::MaxCharges :
-				TargetAbility->RemoveMaxChargeModifier(GetOwningBuff());
+				TargetAbility->RemoveMaxChargeModifier(ModHandle);
 				break;
 			case ESimpleAbilityModType::ChargesPerCooldown :
-				TargetAbility->RemoveChargesPerCooldownModifier(GetOwningBuff());
+				TargetAbility->RemoveChargesPerCooldownModifier(ModHandle);
 				break;
 			default :
 				break;

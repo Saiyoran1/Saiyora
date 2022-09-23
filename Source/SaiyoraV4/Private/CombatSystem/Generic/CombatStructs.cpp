@@ -76,3 +76,139 @@ int32 FCombatModifier::ApplyModifiers(const TArray<FCombatModifier>& ModArray, c
     const float ValueAsFloat = static_cast<float>(BaseValue);
     return static_cast<int32>(ApplyModifiers(ModArray, ValueAsFloat));
 }
+
+FCombatModifierHandle FModifiableFloat::AddModifier(const FCombatModifier& Modifier)
+{
+    if (!bIsModifiable || Modifier.Type == EModifierType::Invalid)
+    {
+        return FCombatModifierHandle();
+    }
+    const FCombatModifierHandle OutHandle = FCombatModifierHandle(GetNewModifierID());
+    Modifiers.Add(OutHandle.ModifierID, Modifier);
+    Recalculate();
+    return OutHandle;
+}
+
+void FModifiableFloat::RemoveModifier(const FCombatModifierHandle& ModifierHandle)
+{
+    if (!bIsModifiable || ModifierHandle.ModifierID == -1)
+    {
+        return;
+    }
+    const int32 Removed = Modifiers.Remove(ModifierHandle.ModifierID);
+    if (Removed != 0)
+    {
+        Recalculate();
+    }
+}
+
+void FModifiableFloat::UpdateModifier(const FCombatModifierHandle& ModifierHandle, const FCombatModifier& NewModifier)
+{
+    if (!bIsModifiable || NewModifier.Type == EModifierType::Invalid)
+    {
+        return;
+    }
+    const FCombatModifier* FoundMod = Modifiers.Find(ModifierHandle.ModifierID);
+    if (!FoundMod || *FoundMod == NewModifier)
+    {
+        return;
+    }
+    Modifiers.Add(ModifierHandle.ModifierID, NewModifier);
+    Recalculate();
+}
+
+void FModifiableFloat::SetUpdatedCallback(const FModifiableFloatCallback& Callback)
+{
+    if (!Callback.IsBound())
+    {
+        return;
+    }
+    OnUpdated = Callback;
+}
+
+void FModifiableFloat::Recalculate()
+{
+    const float PreviousValue = CurrentValue;
+    if (bIsModifiable)
+    {
+        TArray<FCombatModifier> Mods;
+        Modifiers.GenerateValueArray(Mods);
+        CurrentValue = FCombatModifier::ApplyModifiers(Mods, DefaultValue);
+    }
+    else
+    {
+        CurrentValue = DefaultValue;
+    }
+    if (PreviousValue != CurrentValue && OnUpdated.IsBound())
+    {
+        OnUpdated.Execute(CurrentValue);
+    }
+}
+
+FCombatModifierHandle FModifiableInt::AddModifier(const FCombatModifier& Modifier)
+{
+    if (!bIsModifiable || Modifier.Type == EModifierType::Invalid)
+    {
+        return FCombatModifierHandle();
+    }
+    const FCombatModifierHandle OutHandle = FCombatModifierHandle(GetNewModifierID());
+    Modifiers.Add(OutHandle.ModifierID, Modifier);
+    Recalculate();
+    return OutHandle;
+}
+
+void FModifiableInt::RemoveModifier(const FCombatModifierHandle& ModifierHandle)
+{
+    if (!bIsModifiable || ModifierHandle.ModifierID == -1)
+    {
+        return;
+    }
+    const int32 Removed = Modifiers.Remove(ModifierHandle.ModifierID);
+    if (Removed != 0)
+    {
+        Recalculate();
+    }
+}
+
+void FModifiableInt::UpdateModifier(const FCombatModifierHandle& ModifierHandle, const FCombatModifier& NewModifier)
+{
+    if (!bIsModifiable || NewModifier.Type == EModifierType::Invalid)
+    {
+        return;
+    }
+    const FCombatModifier* FoundMod = Modifiers.Find(ModifierHandle.ModifierID);
+    if (!FoundMod || *FoundMod == NewModifier)
+    {
+        return;
+    }
+    Modifiers.Add(ModifierHandle.ModifierID, NewModifier);
+    Recalculate();
+}
+
+void FModifiableInt::SetUpdatedCallback(const FModifiableIntCallback& Callback)
+{
+    if (!Callback.IsBound())
+    {
+        return;
+    }
+    OnUpdated = Callback;
+}
+
+void FModifiableInt::Recalculate()
+{
+    const int32 PreviousValue = CurrentValue;
+    if (bIsModifiable)
+    {
+        TArray<FCombatModifier> Mods;
+        Modifiers.GenerateValueArray(Mods);
+        CurrentValue = FCombatModifier::ApplyModifiers(Mods, DefaultValue);
+    }
+    else
+    {
+        CurrentValue = DefaultValue;
+    }
+    if (PreviousValue != CurrentValue && OnUpdated.IsBound())
+    {
+        OnUpdated.Execute(CurrentValue);
+    }
+}
