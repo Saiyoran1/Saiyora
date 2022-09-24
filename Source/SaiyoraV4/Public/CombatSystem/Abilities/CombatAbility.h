@@ -26,7 +26,7 @@ public:
     virtual void GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const override;
     virtual void PostNetReceive() override;
     
-    UFUNCTION(BlueprintPure)
+    UFUNCTION(BlueprintPure, Category = "Abilities")
     UAbilityComponent* GetHandler() const { return OwningComponent; }
     
     void InitializeAbility(UAbilityComponent* AbilityComponent);
@@ -198,7 +198,7 @@ public:
     UFUNCTION(BlueprintPure, Category = "Abilities")
     float GetDefaultCooldownLength() const { return DefaultCooldownLength; }
     UFUNCTION(BlueprintPure, Category = "Abilities")
-    float GetCooldownLength(); //This isn't inline because it requires an include for UAbilityComponent that causes circular dependency :(
+    float GetCooldownLength();
     UFUNCTION(BlueprintPure, Category = "Abilities")
     bool HasStaticCooldownLength() const { return bStaticCooldownLength; }
     UFUNCTION(BlueprintPure, Category = "Abilities")
@@ -217,11 +217,11 @@ public:
     UFUNCTION(BlueprintPure, Category = "Abilities")
     bool HasStaticMaxCharges() const { return !MaxCharges.IsModifiable(); }
 
-    UFUNCTION(BlueprintCallable, Category = "Abilities")
-    FCombatModifierHandle AddMaxChargeModifier(const FCombatModifier& Modifier) { return MaxCharges.AddModifier(Modifier); }
-    UFUNCTION(BlueprintCallable, Category = "Abilities")
-    void RemoveMaxChargeModifier(const FCombatModifierHandle& ModifierHandle) { MaxCharges.RemoveModifier(ModifierHandle); }
-    void UpdateMaxChargeModifier(const FCombatModifierHandle& ModifierHandle, const FCombatModifier& NewModifier) { MaxCharges.UpdateModifier(ModifierHandle, NewModifier); }
+    UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+    FCombatModifierHandle AddMaxChargeModifier(const FCombatModifier& Modifier);
+    UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+    void RemoveMaxChargeModifier(const FCombatModifierHandle& ModifierHandle);
+    void UpdateMaxChargeModifier(const FCombatModifierHandle& ModifierHandle, const FCombatModifier& NewModifier);
 
     UFUNCTION(BlueprintPure, Category = "Abilities")
     int32 GetDefaultChargeCost() const { return ChargeCost.GetDefaultValue(); }
@@ -230,11 +230,11 @@ public:
     UFUNCTION(BlueprintPure, Category = "Abilities")
     bool HasStaticChargeCost() const { return !ChargeCost.IsModifiable(); }
 
-    UFUNCTION(BlueprintCallable, Category = "Abilities")
-    FCombatModifierHandle AddChargeCostModifier(const FCombatModifier& Modifier) { return ChargeCost.AddModifier(Modifier); }
-    UFUNCTION(BlueprintCallable, Category = "Abilities")
-    void RemoveChargeCostModifier(const FCombatModifierHandle& ModifierHandle) { ChargeCost.RemoveModifier(ModifierHandle); }
-    void UpdateChargeCostModifier(const FCombatModifierHandle& ModifierHandle, const FCombatModifier& NewModifier) { ChargeCost.UpdateModifier(ModifierHandle, NewModifier); }
+    UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+    FCombatModifierHandle AddChargeCostModifier(const FCombatModifier& Modifier);
+    UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+    void RemoveChargeCostModifier(const FCombatModifierHandle& ModifierHandle);
+    void UpdateChargeCostModifier(const FCombatModifierHandle& ModifierHandle, const FCombatModifier& NewModifier);
 
     UFUNCTION(BlueprintPure, Category = "Abilities")
     int32 GetDefaultChargesPerCooldown() const { return ChargesPerCooldown.GetDefaultValue(); }
@@ -243,11 +243,11 @@ public:
     UFUNCTION(BlueprintPure, Category = "Abilities")
     bool HasStaticChargesPerCooldown() const { return !ChargesPerCooldown.IsModifiable(); }
 
+    UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+    FCombatModifierHandle AddChargesPerCooldownModifier(const FCombatModifier& Modifier);
     UFUNCTION(BlueprintCallable, Category = "Abilities")
-    FCombatModifierHandle AddChargesPerCooldownModifier(const FCombatModifier& Modifier) { return ChargesPerCooldown.AddModifier(Modifier); }
-    UFUNCTION(BlueprintCallable, Category = "Abilities")
-    void RemoveChargesPerCooldownModifier(const FCombatModifierHandle& ModifierHandle) { ChargesPerCooldown.RemoveModifier(ModifierHandle); }
-    void UpdateChargesPerCooldownModifier(const FCombatModifierHandle& ModifierHandle, const FCombatModifier& NewModifier) { ChargesPerCooldown.UpdateModifier(ModifierHandle, NewModifier); }
+    void RemoveChargesPerCooldownModifier(const FCombatModifierHandle& ModifierHandle);
+    void UpdateChargesPerCooldownModifier(const FCombatModifierHandle& ModifierHandle, const FCombatModifier& NewModifier);
     
     UFUNCTION(BlueprintPure, Category = "Abilities")
     int32 GetCurrentCharges() const { return AbilityCooldown.CurrentCharges; }
@@ -266,13 +266,11 @@ protected:
     bool bStaticCooldownLength = true;
     
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
-    FModifiableInt MaxCharges = FModifiableInt(1, true);
-
+    FModifiableInt MaxCharges = FModifiableInt(1, true, true, 1);
     UPROPERTY(EditDefaultsOnly, ReplicatedUsing=OnRep_ChargeCost, Category = "Cooldown")
-    FModifiableInt ChargeCost = FModifiableInt(1, true);
-
+    FModifiableInt ChargeCost = FModifiableInt(1, true, true, 0);
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
-    FModifiableInt ChargesPerCooldown = FModifiableInt(1, true);
+    FModifiableInt ChargesPerCooldown = FModifiableInt(1, true, true, 0);
     
 private:
 
@@ -288,10 +286,8 @@ private:
     TMap<int32, int32> ChargePredictions;
     int32 LastReplicatedCharges;
     void RecalculatePredictedCooldown();
-
-    UFUNCTION()
+    
     void OnMaxChargesUpdated(const int32 NewValue);
-    UFUNCTION()
     void OnChargeCostUpdated(const int32 NewValue) { UpdateCastable(); }
     UFUNCTION()
     void OnRep_ChargeCost() { UpdateCastable(); }
@@ -299,34 +295,30 @@ private:
 //Costs
     
 public:
-
+    
     UFUNCTION(BlueprintPure, Category = "Abilities")
-    void GetDefaultAbilityCosts(TArray<FDefaultAbilityCost>& OutCosts) const { OutCosts = DefaultAbilityCosts; }
-    UFUNCTION(BlueprintPure, Category = "Abilities")
-    void GetAbilityCosts(TArray<FAbilityCost>& OutCosts) const { OutCosts = AbilityCosts.Items; }
+    void GetAbilityCosts(TArray<FSimpleAbilityCost>& OutCosts) const;
     UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
-    void AddResourceCostModifier(const TSubclassOf<UResource> ResourceClass, const FCombatModifier& Modifier);
+    FCombatModifierHandle AddResourceCostModifier(const TSubclassOf<UResource> ResourceClass, const FCombatModifier& Modifier);
     UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
-    void RemoveResourceCostModifier(const TSubclassOf<UResource> ResourceClass, UBuff* Source);
+    void RemoveResourceCostModifier(const TSubclassOf<UResource> ResourceClass, const FCombatModifierHandle& ModifierHandle);
+    void UpdateResourceCostModifier(const TSubclassOf<UResource> ResourceClass, const FCombatModifierHandle& ModifierHandle, const FCombatModifier& Modifier);
     
     void UpdateCostFromReplication(const FAbilityCost& Cost, const bool bNewAdd = false);
-
-protected:
-
-    UPROPERTY(EditDefaultsOnly, Category = "Cost")
-    TArray<FDefaultAbilityCost> DefaultAbilityCosts;
     
 private:
-    
-    UPROPERTY(Replicated)
+
+    UPROPERTY(Replicated, EditDefaultsOnly, Category = "Cost")
     FAbilityCostArray AbilityCosts;
-    TMultiMap<TSubclassOf<UResource>, FCombatModifier> ResourceCostModifiers;
+    void SetupResourceCosts();
     UFUNCTION()
-    void CheckResourceCostOnResourceChanged(UResource* Resource, UObject* ChangeSource, const FResourceState& PreviousState, const FResourceState& NewState);
+    void OnResourceValueChanged(UResource* Resource, UObject* ChangeSource, const FResourceState& PreviousState, const FResourceState& NewState);
+    void OnResourceCostChanged(FAbilityCost& AbilityCost);
     UFUNCTION()
     void SetupCostCheckingForNewResource(UResource* Resource);
-    void UpdateCost(const TSubclassOf<UResource> ResourceClass);
-    void CheckCostMet(const TSubclassOf<UResource> ResourceClass);
+    float GetResourceCost(const TSubclassOf<UResource> ResourceClass) const;
+    float GetResourceValue(const TSubclassOf<UResource> ResourceClass) const;
+    void UpdateCostMet(const TSubclassOf<UResource> ResourceClass, const bool bMet);
     TSet<TSubclassOf<UResource>> UnmetCosts;
     TSet<TSubclassOf<UResource>> UninitializedResources;
 

@@ -145,9 +145,9 @@ void UResourceHandler::CommitAbilityCosts(UCombatAbility* Ability, const int32 P
 	{
 		return;
 	}
-	TArray<FAbilityCost> Costs;
+	TArray<FSimpleAbilityCost> Costs;
 	Ability->GetAbilityCosts(Costs);
-	for (const FAbilityCost& Cost : Costs)
+	for (const FSimpleAbilityCost& Cost : Costs)
 	{
 		if (IsValid(Cost.ResourceClass))
 		{
@@ -167,9 +167,9 @@ void UResourceHandler::CommitAbilityCosts(UCombatAbility* Ability, const int32 P
 
 void UResourceHandler::UpdatePredictedCostsFromServer(const FServerAbilityResult& ServerResult)
 {
-	TArray<FAbilityCost> PredictedCosts;
+	TArray<FSimpleAbilityCost> PredictedCosts;
 	CostPredictions.MultiFind(ServerResult.PredictionID, PredictedCosts);
-	for (const FAbilityCost& Cost : ServerResult.AbilityCosts)
+	for (const FSimpleAbilityCost& Cost : ServerResult.AbilityCosts)
 	{
 		if (IsValid(Cost.ResourceClass))
 		{
@@ -191,7 +191,7 @@ void UResourceHandler::UpdatePredictedCostsFromServer(const FServerAbilityResult
 			}
 		}
 	}
-	for (const FAbilityCost& Misprediction : PredictedCosts)
+	for (const FSimpleAbilityCost& Misprediction : PredictedCosts)
 	{
 		if (IsValid(Misprediction.ResourceClass))
 		{

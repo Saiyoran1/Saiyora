@@ -336,8 +336,8 @@ struct FCombatModifierHandle
     FCombatModifierHandle(const int32 NewID) { ModifierID = NewID; }
 };
 
-DECLARE_DYNAMIC_DELEGATE_OneParam(FModifiableFloatCallback, const float, NewValue);
-DECLARE_DYNAMIC_DELEGATE_OneParam(FModifiableIntCallback, const int32, NewValue);
+DECLARE_DELEGATE_OneParam(FModifiableFloatCallback, const float);
+DECLARE_DELEGATE_OneParam(FModifiableIntCallback, const int32);
 
 USTRUCT()
 struct FModifiableFloat
@@ -351,12 +351,26 @@ public:
     void UpdateModifier(const FCombatModifierHandle& ModifierHandle, const FCombatModifier& NewModifier);
     void SetUpdatedCallback(const FModifiableFloatCallback& Callback);
 
-    float GetCurrentValue() const { return CurrentValue; }
+    float GetCurrentValue() const { return bInitialized ? CurrentValue : DefaultValue; }
     float GetDefaultValue() const { return DefaultValue; }
     bool IsModifiable() const { return bIsModifiable; }
 
+    void SetDefaultValue(const float NewDefault) { DefaultValue = NewDefault; Recalculate(); }
+    void SetIsModifiable(const bool bNewModifiable) { bIsModifiable = bNewModifiable; Recalculate(); }
+    void SetMinClamp(const bool bClamp, const float NewClamp) { bClampMin = bClamp; MinClamp = bClampMin ? NewClamp : 0.0f; Recalculate(); }
+    void SetMaxClamp(const bool bClamp, const float NewClamp) { bClampMax = bClamp; MaxClamp = bClampMax ? NewClamp : 0.0f; Recalculate(); }
+
     FModifiableFloat() {}
-    FModifiableFloat(const float Default, const bool bModifiable) { DefaultValue = Default; bIsModifiable = bModifiable; CurrentValue = DefaultValue; }
+    FModifiableFloat(const float Default, const bool bModifiable, const bool bClampLow = false, const float LowClamp = 0.0f, const bool bClampHigh = false, const float HighClamp = 0.0f)
+    {
+        DefaultValue = Default;
+        bIsModifiable = bModifiable;
+        bClampMin = bClampLow;
+        MinClamp = bClampMin ? LowClamp : 0.0f;
+        bClampMax = bClampHigh;
+        MaxClamp = bClampMax ? HighClamp : 0.0f;
+        Recalculate();
+    }
     
 private:
 
@@ -364,6 +378,12 @@ private:
     float DefaultValue = 0.0f;
     UPROPERTY(EditDefaultsOnly, NotReplicated)
     bool bIsModifiable = true;
+
+    bool bClampMin = false;
+    float MinClamp = 0;
+
+    bool bClampMax = false;
+    float MaxClamp = 0;
 
     void Recalculate();
     UPROPERTY()
@@ -373,6 +393,8 @@ private:
     int32 ModifierID = 0;
     int32 GetNewModifierID() { return ModifierID++; }
     TMap<int32, FCombatModifier> Modifiers;
+
+    bool bInitialized = false;
 };
 
 USTRUCT()
@@ -387,12 +409,26 @@ public:
     void UpdateModifier(const FCombatModifierHandle& ModifierHandle, const FCombatModifier& NewModifier);
     void SetUpdatedCallback(const FModifiableIntCallback& Callback);
 
-    int32 GetCurrentValue() const { return CurrentValue; }
+    int32 GetCurrentValue() const { return bInitialized ? CurrentValue : DefaultValue; }
     int32 GetDefaultValue() const { return DefaultValue; }
     bool IsModifiable() const { return bIsModifiable; }
 
+    void SetDefaultValue(const int32 NewDefault) { DefaultValue = NewDefault; Recalculate(); }
+    void SetIsModifiable(const bool bNewModifiable) { bIsModifiable = bNewModifiable; Recalculate(); }
+    void SetMinClamp(const bool bClamp, const int32 NewClamp) { bClampMin = bClamp; MinClamp = bClampMin ? NewClamp : 0; Recalculate(); }
+    void SetMaxClamp(const bool bClamp, const int32 NewClamp) { bClampMax = bClamp; MaxClamp = bClampMax ? NewClamp : 0; Recalculate(); }
+
     FModifiableInt() {}
-    FModifiableInt(const int32 Default, const bool bModifiable) { DefaultValue = Default; bIsModifiable = bModifiable; CurrentValue = DefaultValue; }
+    FModifiableInt(const int32 Default, const bool bModifiable, const bool bClampLow = false, const int32 LowClamp = 0, const bool bClampHigh = false, const int32 HighClamp = 0)
+    {
+        DefaultValue = Default;
+        bIsModifiable = bModifiable;
+        bClampMin = bClampLow;
+        MinClamp = bClampMin ? LowClamp : 0;
+        bClampMax = bClampHigh;
+        MaxClamp = bClampMax ? HighClamp : 0;
+        Recalculate();
+    }
     
 private:
 
@@ -400,6 +436,12 @@ private:
     int32 DefaultValue = 0;
     UPROPERTY(EditDefaultsOnly)
     bool bIsModifiable = true;
+
+    bool bClampMin = false;
+    int32 MinClamp = 0;
+
+    bool bClampMax = false;
+    int32 MaxClamp = 0;
 
     void Recalculate();
     UPROPERTY()
@@ -409,4 +451,6 @@ private:
     int32 ModifierID = 0;
     int32 GetNewModifierID() { return ModifierID++; }
     TMap<int32, FCombatModifier> Modifiers;
+
+    bool bInitialized = false;
 };

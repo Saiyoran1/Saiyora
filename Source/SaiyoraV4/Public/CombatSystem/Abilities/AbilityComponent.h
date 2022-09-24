@@ -72,7 +72,7 @@ struct FServerAbilityResult
 	UPROPERTY()
 	bool bInterruptible = false;
 	UPROPERTY()
-	TArray<FAbilityCost> AbilityCosts;
+	TArray<FSimpleAbilityCost> AbilityCosts;
 };
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
@@ -92,7 +92,6 @@ public:
 	static constexpr float MinCastLength = 0.5f;
 	static constexpr float MinGcdLength = 0.5f;
 	static constexpr float MinCooldownLength = 0.5f;
-	//TODO: This should probably be adjustable by players.
 	static constexpr float AbilityQueueWindow = 0.2f;
 
 	UAbilityComponent();
@@ -218,9 +217,11 @@ public:
 	FInterruptEvent InterruptCurrentCast(AActor* AppliedBy, UObject* InterruptSource, const bool bIgnoreRestrictions);
 	UPROPERTY(BlueprintAssignable)
 	FInterruptNotification OnAbilityInterrupted;
-	
-	void AddInterruptRestriction(UBuff* Source, const FInterruptRestriction& Restriction);
-	void RemoveInterruptRestriction(const UBuff* Source);
+
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	void AddInterruptRestriction(const FInterruptRestriction& Restriction) { InterruptRestrictions.Add(Restriction); }
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	void RemoveInterruptRestriction(const FInterruptRestriction& Restriction) { InterruptRestrictions.Remove(Restriction); }
 
 private:
 
@@ -228,11 +229,12 @@ private:
 	void MulticastAbilityInterrupt(const FInterruptEvent& InterruptEvent);
 	UFUNCTION(Client, Reliable)
 	void ClientAbilityInterrupt(const FInterruptEvent& InterruptEvent);
-	TMap<UBuff*, FInterruptRestriction> InterruptRestrictions;
 	UFUNCTION()
 	void InterruptCastOnCrowdControl(const FCrowdControlStatus& PreviousStatus, const FCrowdControlStatus& NewStatus);
 	UFUNCTION()
 	void InterruptCastOnDeath(AActor* Actor, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus);
+
+	TConditionalRestrictionList<FInterruptRestriction> InterruptRestrictions;
 
 //Casting
 
@@ -321,7 +323,12 @@ private:
 
 public:
 
-	void AddGenericResourceCostModifier(const TSubclassOf<UResource> ResourceClass, const FCombatModifier& Modifier);
-	void RemoveGenericResourceCostModifier(const TSubclassOf<UResource> ResourceClass, UBuff* Source);
+	//TODO: Learning a new ability would not inherit already-applied modifiers :( Could have multiple-modifier handles have their own ID as well, store them on the component, then when remove is called you can also remove any later-applied mods?
+	
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+	FMultipleModifierHandle AddGenericResourceCostModifier(const TSubclassOf<UResource> ResourceClass, const FCombatModifier& Modifier);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+	void RemoveGenericResourceCostModifier(const TSubclassOf<UResource> ResourceClass, const FMultipleModifierHandle& ModifierHandle);
+	void UpdateGenericResourceCostModifier(const TSubclassOf<UResource> ResourceClass, const FMultipleModifierHandle& ModifierHandle, const FCombatModifier& Modifier);
 	
 };

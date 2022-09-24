@@ -3,6 +3,19 @@
 #include "CombatAbility.h"
 #include "FireWeapon.generated.h"
 
+USTRUCT(BlueprintType)
+struct FAutoReloadState
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	bool bIsAutoReloading = false;
+	UPROPERTY()
+	float StartTime = 0.0f;
+	UPROPERTY()
+	float EndTime = 0.0f;
+};
+
 UCLASS(Abstract, Blueprintable)
 class SAIYORAV4_API UFireWeapon : public UCombatAbility
 {

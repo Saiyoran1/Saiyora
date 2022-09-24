@@ -657,18 +657,10 @@ FInterruptEvent UAbilityComponent::InterruptCurrentCast(AActor* AppliedBy, UObje
 	Result.CancelledCastID = CastingState.PredictionID;
 	if (!bIgnoreRestrictions)
 	{
-		if (!CastingState.bInterruptible)
+		if (!CastingState.bInterruptible || InterruptRestrictions.IsRestricted(Result))
 		{
 			Result.FailReason = EInterruptFailReason::Restricted;
 			return Result;
-		}
-		for (const TTuple<UBuff*, FInterruptRestriction>& Restriction : InterruptRestrictions)
-		{
-			if (Restriction.Value.IsBound() && Restriction.Value.Execute(Result))
-			{
-				Result.FailReason = EInterruptFailReason::Restricted;
-				return Result;
-			}
 		}
 	}
 	Result.bSuccess = true;
@@ -980,56 +972,59 @@ float UAbilityComponent::CalculateCooldownLength(UCombatAbility* Ability) const
 	return FMath::Max(MinCooldownLength, FCombatModifier::ApplyModifiers(Mods, Ability->GetDefaultCooldownLength()));
 }
 
-void UAbilityComponent::AddGenericResourceCostModifier(const TSubclassOf<UResource> ResourceClass, const FCombatModifier& Modifier)
+FMultipleModifierHandle UAbilityComponent::AddGenericResourceCostModifier(const TSubclassOf<UResource> ResourceClass, const FCombatModifier& Modifier)
 {
 	if (GetOwnerRole() != ROLE_Authority || !IsValid(ResourceClass) || !IsValid(Modifier.BuffSource))
 	{
-		return;
+		return FMultipleModifierHandle();
 	}
+	FMultipleModifierHandle Handle;
 	for (const TTuple<TSubclassOf<UCombatAbility>, UCombatAbility*>& AbilityTuple : ActiveAbilities)
 	{
 		if (IsValid(AbilityTuple.Value))
 		{
-			TArray<FDefaultAbilityCost> Costs;
-			AbilityTuple.Value->GetDefaultAbilityCosts(Costs);
-			for (const FDefaultAbilityCost& Cost : Costs)
+			TArray<FSimpleAbilityCost> Costs;
+			AbilityTuple.Value->GetAbilityCosts(Costs);
+			for (const FSimpleAbilityCost& Cost : Costs)
 			{
 				if (Cost.ResourceClass == ResourceClass)
 				{
-					if (!Cost.bStaticCost)
-					{
-						AbilityTuple.Value->AddResourceCostModifier(ResourceClass, Modifier);
-					}
+					Handle.ModifierHandles.Add(AbilityTuple.Value, AbilityTuple.Value->AddResourceCostModifier(ResourceClass, Modifier));
 					break;
 				}
 			}
 		}
 	}
+	return Handle;
 }
 
-void UAbilityComponent::RemoveGenericResourceCostModifier(const TSubclassOf<UResource> ResourceClass, UBuff* Source)
+void UAbilityComponent::RemoveGenericResourceCostModifier(const TSubclassOf<UResource> ResourceClass, const FMultipleModifierHandle& ModifierHandle)
 {
-	if (GetOwnerRole() != ROLE_Authority || !IsValid(ResourceClass) || !IsValid(Source))
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(ResourceClass))
 	{
 		return;
 	}
-	for (const TTuple<TSubclassOf<UCombatAbility>, UCombatAbility*>& AbilityTuple : ActiveAbilities)
+	for (const TTuple<UCombatAbility*, FCombatModifierHandle>& HandlePair : ModifierHandle.ModifierHandles)
 	{
-		if (IsValid(AbilityTuple.Value))
+		if (IsValid(HandlePair.Key))
 		{
-			TArray<FDefaultAbilityCost> Costs;
-			AbilityTuple.Value->GetDefaultAbilityCosts(Costs);
-			for (const FDefaultAbilityCost& Cost : Costs)
-			{
-				if (Cost.ResourceClass == ResourceClass)
-				{
-					if (!Cost.bStaticCost)
-					{
-						AbilityTuple.Value->RemoveResourceCostModifier(ResourceClass, Source);
-					}
-					break;
-				}
-			}
+			HandlePair.Key->RemoveResourceCostModifier(ResourceClass, HandlePair.Value);
+		}
+	}
+}
+
+void UAbilityComponent::UpdateGenericResourceCostModifier(const TSubclassOf<UResource> ResourceClass,
+	const FMultipleModifierHandle& ModifierHandle, const FCombatModifier& Modifier)
+{
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(ResourceClass))
+	{
+		return;
+	}
+	for (const TTuple<UCombatAbility*, FCombatModifierHandle>& HandlePair : ModifierHandle.ModifierHandles)
+	{
+		if (IsValid(HandlePair.Key))
+		{
+			HandlePair.Key->UpdateResourceCostModifier(ResourceClass, HandlePair.Value, Modifier);
 		}
 	}
 }
@@ -1147,22 +1142,6 @@ bool UAbilityComponent::CanUseAbility(const UCombatAbility* Ability, ECastFailRe
 		return false;
 	}
 	return true;
-}
-
-void UAbilityComponent::AddInterruptRestriction(UBuff* Source, const FInterruptRestriction& Restriction)
-{
-	if (GetOwnerRole() == ROLE_Authority && IsValid(Source) && Restriction.IsBound())
-	{
-		InterruptRestrictions.Add(Source, Restriction);
-	}
-}
-
-void UAbilityComponent::RemoveInterruptRestriction(const UBuff* Source)
-{
-	if (GetOwnerRole() == ROLE_Authority && IsValid(Source))
-	{
-		InterruptRestrictions.Remove(Source);
-	}
 }
 
 #pragma endregion

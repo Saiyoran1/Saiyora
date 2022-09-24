@@ -64,5 +64,5 @@ public:
 
 private:
 
-	TMultiMap<int32, FAbilityCost> CostPredictions;
+	TMultiMap<int32, FSimpleAbilityCost> CostPredictions;
 };

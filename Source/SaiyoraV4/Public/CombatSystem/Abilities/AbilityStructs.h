@@ -7,37 +7,39 @@
 
 class UCombatAbility;
 
+//Used for server ability usage confirmation RPCs and for quick Blueprint display of ability costs.
 USTRUCT(BlueprintType)
-struct FDefaultAbilityCost
+struct FSimpleAbilityCost
 {
     GENERATED_BODY();
 
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+    UPROPERTY(BlueprintReadOnly)
     TSubclassOf<UResource> ResourceClass;
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+    UPROPERTY(BlueprintReadOnly)
     float Cost = 0.0f;
-    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
-    bool bStaticCost = false;
+
+    FSimpleAbilityCost() {}
+    FSimpleAbilityCost(const TSubclassOf<UResource> InResource, const float InCost) : ResourceClass(InResource), Cost(InCost) {}
 };
 
-//This struct is used for prediction confirmation RPCs from the server, as well as normal replicated ability costs.
-USTRUCT(BlueprintType)
+//Used for actual ability costs stored in the abilities and replicated.
+USTRUCT()
 struct FAbilityCost : public FFastArraySerializerItem
 {
     GENERATED_BODY()
 
-    UPROPERTY(BlueprintReadOnly)
+    UPROPERTY(EditDefaultsOnly)
     TSubclassOf<UResource> ResourceClass;
-    UPROPERTY(BlueprintReadOnly)
-    float Cost = 0.0f;
+    UPROPERTY(EditDefaultsOnly)
+    FModifiableFloat Cost;
 
     FAbilityCost() {}
-    FAbilityCost(const TSubclassOf<UResource> InResourceClass, const float InCost) : ResourceClass(InResourceClass), Cost(InCost) {}
+    FAbilityCost(const TSubclassOf<UResource> InResourceClass, const FModifiableFloat& InCost) : ResourceClass(InResourceClass), Cost(InCost) {}
 
     void PostReplicatedAdd(const struct FAbilityCostArray& InArraySerializer);
     void PostReplicatedChange(const struct FAbilityCostArray& InArraySerializer);
 
-    FORCEINLINE bool operator==(const FAbilityCost& Other) const;
+    FORCEINLINE bool operator==(const FAbilityCost& Other) const { return ResourceClass == Other.ResourceClass && Cost.GetCurrentValue() == Other.Cost.GetCurrentValue(); }
 };
 
 USTRUCT()
@@ -45,7 +47,7 @@ struct FAbilityCostArray: public FFastArraySerializer
 {
     GENERATED_USTRUCT_BODY()
 
-    UPROPERTY()
+    UPROPERTY(EditDefaultsOnly)
     TArray<FAbilityCost> Items;
     UPROPERTY(NotReplicated)
     UCombatAbility* OwningAbility = nullptr;
@@ -309,16 +311,11 @@ FORCEINLINE uint32 GetTypeHash(const FPredictedTick& Tick)
 }
 
 USTRUCT(BlueprintType)
-struct FAutoReloadState
+struct FMultipleModifierHandle
 {
     GENERATED_BODY()
 
-    UPROPERTY()
-    bool bIsAutoReloading = false;
-    UPROPERTY()
-    float StartTime = 0.0f;
-    UPROPERTY()
-    float EndTime = 0.0f;
+    TMap<UCombatAbility*, FCombatModifierHandle> ModifierHandles;
 };
 
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FAbilityModCondition, UCombatAbility*, Ability);

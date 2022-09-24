@@ -218,12 +218,12 @@ void UAbilityCostModifierFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 		{
 			if (IsValid(TargetAbility))
 			{
-				TargetAbility->AddResourceCostModifier(Resource, Mod);
+				Handle = TargetAbility->AddResourceCostModifier(Resource, Mod);
 			}
 		}
 		else
 		{
-			TargetHandler->AddGenericResourceCostModifier(Resource, Mod);
+			MultiHandle = TargetHandler->AddGenericResourceCostModifier(Resource, Mod);
 		}
 	}
 }
@@ -238,12 +238,12 @@ void UAbilityCostModifierFunction::OnStack(const FBuffApplyEvent& ApplyEvent)
 			{
 				if (IsValid(TargetAbility))
 				{
-					TargetAbility->AddResourceCostModifier(Resource, Mod);
+					TargetAbility->UpdateResourceCostModifier(Resource, Handle, Mod);
 				}
 			}
 			else
 			{
-				TargetHandler->AddGenericResourceCostModifier(Resource, Mod);
+				TargetHandler->UpdateGenericResourceCostModifier(Resource, MultiHandle, Mod);
 			}
 		}
 	}
@@ -257,12 +257,12 @@ void UAbilityCostModifierFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 		{
 			if (IsValid(TargetAbility))
 			{
-				TargetAbility->RemoveResourceCostModifier(Resource, GetOwningBuff());
+				TargetAbility->RemoveResourceCostModifier(Resource, Handle);
 			}
 		}
 		else
 		{
-			TargetHandler->RemoveGenericResourceCostModifier(Resource, GetOwningBuff());
+			TargetHandler->RemoveGenericResourceCostModifier(Resource, MultiHandle);
 		}
 	}
 }
@@ -409,7 +409,7 @@ void UInterruptRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
 	if (IsValid(TargetComponent))
 	{
-		TargetComponent->AddInterruptRestriction(GetOwningBuff(), Restrict);
+		TargetComponent->AddInterruptRestriction(Restrict);
 	}
 }
 
@@ -417,7 +417,7 @@ void UInterruptRestrictionFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent
 {
 	if (IsValid(TargetComponent))
 	{
-		TargetComponent->RemoveInterruptRestriction(GetOwningBuff());
+		TargetComponent->RemoveInterruptRestriction(Restrict);
 	}
 }
 

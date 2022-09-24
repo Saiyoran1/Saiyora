@@ -33,6 +33,8 @@ class UPeriodicHealthEventFunction : public UBuffFunction
 	EHealthEventSchool InitialEventSchool = EHealthEventSchool::None;
 
 	FThreatFromDamage ThreatInfo;
+
+	FHealthEventCallback Callback;
 	
 	FTimerHandle TickHandle;
 
@@ -40,22 +42,22 @@ class UPeriodicHealthEventFunction : public UBuffFunction
 	UFUNCTION()
 	void TickHealthEvent();
 
-	void SetEventVars(const float Amount, const EHealthEventSchool School,
+	void SetEventVars(const EHealthEventType HealthEventType, const float Amount, const EHealthEventSchool School,
 		const float Interval, const bool bBypassAbsorbs, const bool bIgnoreRestrictions, const bool bIgnoreModifiers,
 		const bool bSnapshot, const bool bScaleWithStacks, const bool bPartialTickOnExpire,
 		const bool bInitialTick, const bool bUseSeparateInitialAmount, const float InitialAmount,
-		const EHealthEventSchool InitialSchool, const FThreatFromDamage& ThreatParams);
+		const EHealthEventSchool InitialSchool, const FThreatFromDamage& ThreatParams, const FHealthEventCallback& TickCallback);
 	
 	virtual void OnApply(const FBuffApplyEvent& ApplyEvent) override;
 	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) override;
 	virtual void CleanupBuffFunction() override;
 
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Health", meta = (DefaultToSelf = "Buff", HidePin = "Buff"))
-	static void PeriodicHealthEvent(UBuff* Buff, const float Amount, const EHealthEventSchool School,
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Health", meta = (DefaultToSelf = "Buff", HidePin = "Buff", AutoCreateRefTerm = "ThreatParams, TickCallback"))
+	static void PeriodicHealthEvent(UBuff* Buff, const EHealthEventType EventType, const float Amount, const EHealthEventSchool School,
 		const float Interval, const bool bBypassAbsorbs, const bool bIgnoreRestrictions, const bool bIgnoreModifiers,
 		const bool bSnapshots, const bool bScaleWithStacks, const bool bPartialTickOnExpire,
 		const bool bInitialTick, const bool bUseSeparateInitialAmount, const float InitialAmount,
-		const EHealthEventSchool InitialSchool, const FThreatFromDamage& ThreatParams);
+		const EHealthEventSchool InitialSchool, const FThreatFromDamage& ThreatParams, const FHealthEventCallback& TickCallback);
 };
 
 UCLASS()

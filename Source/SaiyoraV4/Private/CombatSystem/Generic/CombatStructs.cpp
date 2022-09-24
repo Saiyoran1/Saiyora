@@ -128,6 +128,10 @@ void FModifiableFloat::SetUpdatedCallback(const FModifiableFloatCallback& Callba
 
 void FModifiableFloat::Recalculate()
 {
+    if (!bInitialized)
+    {
+        bInitialized = true;
+    }
     const float PreviousValue = CurrentValue;
     if (bIsModifiable)
     {
@@ -196,6 +200,10 @@ void FModifiableInt::SetUpdatedCallback(const FModifiableIntCallback& Callback)
 
 void FModifiableInt::Recalculate()
 {
+    if (!bInitialized)
+    {
+        bInitialized = true;
+    }
     const int32 PreviousValue = CurrentValue;
     if (bIsModifiable)
     {
@@ -207,6 +215,7 @@ void FModifiableInt::Recalculate()
     {
         CurrentValue = DefaultValue;
     }
+    CurrentValue = FMath::Clamp(CurrentValue, bClampMin ? MinClamp : CurrentValue, bClampMax ? MaxClamp : CurrentValue);
     if (PreviousValue != CurrentValue && OnUpdated.IsBound())
     {
         OnUpdated.Execute(CurrentValue);

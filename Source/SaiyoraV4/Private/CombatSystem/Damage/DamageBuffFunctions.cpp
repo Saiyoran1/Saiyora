@@ -7,10 +7,10 @@
 
 #pragma region Periodic Health Event
 
-void UPeriodicHealthEventFunction::PeriodicHealthEvent(UBuff* Buff, const float Amount, const EHealthEventSchool School, const float Interval,
+void UPeriodicHealthEventFunction::PeriodicHealthEvent(UBuff* Buff, const EHealthEventType HealthEventType, const float Amount, const EHealthEventSchool School, const float Interval,
 	const bool bBypassAbsorbs, const bool bIgnoreRestrictions, const bool bIgnoreModifiers, const bool bSnapshots, const bool bScaleWithStacks,
 	const bool bPartialTickOnExpire, const bool bInitialTick, const bool bUseSeparateInitialAmount,
-	const float InitialAmount, const EHealthEventSchool InitialSchool, const FThreatFromDamage& ThreatParams)
+	const float InitialAmount, const EHealthEventSchool InitialSchool, const FThreatFromDamage& ThreatParams, const FHealthEventCallback& TickCallback)
 {
 	if (!IsValid(Buff) || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
 	{
@@ -21,14 +21,14 @@ void UPeriodicHealthEventFunction::PeriodicHealthEvent(UBuff* Buff, const float 
 	{
 		return;
 	}
-	NewDotFunction->SetEventVars(Amount, School, Interval, bBypassAbsorbs, bIgnoreRestrictions, bIgnoreModifiers, bSnapshots,
-		bScaleWithStacks, bPartialTickOnExpire, bInitialTick, bUseSeparateInitialAmount, InitialAmount, InitialSchool, ThreatParams);
+	NewDotFunction->SetEventVars(HealthEventType, Amount, School, Interval, bBypassAbsorbs, bIgnoreRestrictions, bIgnoreModifiers, bSnapshots,
+		bScaleWithStacks, bPartialTickOnExpire, bInitialTick, bUseSeparateInitialAmount, InitialAmount, InitialSchool, ThreatParams, TickCallback);
 }
 
-void UPeriodicHealthEventFunction::SetEventVars(const float Amount, const EHealthEventSchool School, const float Interval,
+void UPeriodicHealthEventFunction::SetEventVars(const EHealthEventType HealthEventType, const float Amount, const EHealthEventSchool School, const float Interval,
 	const bool bBypassAbsorbs, const bool bIgnoreRestrictions, const bool bIgnoreModifiers, const bool bSnapshot, const bool bScaleWithStacks,
 	const bool bPartialTickOnExpire, const bool bInitialTick, const bool bUseSeparateInitialAmount,
-	const float InitialAmount, const EHealthEventSchool InitialSchool, const FThreatFromDamage& ThreatParams)
+	const float InitialAmount, const EHealthEventSchool InitialSchool, const FThreatFromDamage& ThreatParams, const FHealthEventCallback& TickCallback)
 {
 	if (GetOwningBuff()->GetAppliedTo()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 	{
@@ -37,6 +37,7 @@ void UPeriodicHealthEventFunction::SetEventVars(const float Amount, const EHealt
 		{
 			GeneratorComponent = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwningBuff()->GetAppliedBy());
 		}
+		EventType = HealthEventType;
 		BaseValue = Amount;
 		EventSchool = School;
 		EventInterval = Interval;
@@ -51,6 +52,7 @@ void UPeriodicHealthEventFunction::SetEventVars(const float Amount, const EHealt
 		InitialValue = InitialAmount;
 		InitialEventSchool = InitialSchool;
 		ThreatInfo = ThreatParams;
+		Callback = TickCallback;
 	}
 }
 
@@ -104,9 +106,13 @@ void UPeriodicHealthEventFunction::InitialTick()
         const float InitAmount = bUsesSeparateInitialValue ? InitialValue : BaseValue;
         const EHealthEventSchool InitSchool = bUsesSeparateInitialValue ? InitialEventSchool : EventSchool;
         const bool FromSnapshot = bSnapshots && !bUsesSeparateInitialValue;
-        TargetComponent->ApplyHealthEvent(EventType, InitAmount, GetOwningBuff()->GetAppliedBy(),
+        const FHealthEvent TickResult = TargetComponent->ApplyHealthEvent(EventType, InitAmount, GetOwningBuff()->GetAppliedBy(),
                                           GetOwningBuff(), EEventHitStyle::Chronic, InitSchool, bBypassesAbsorbs, bIgnoresModifiers,
                                           bIgnoresRestrictions, false, FromSnapshot, FHealthEventModCondition(), ThreatInfo);
+    	if (Callback.IsBound())
+    	{
+    		Callback.Execute(TickResult);
+    	}
     }
 }
 
@@ -115,9 +121,13 @@ void UPeriodicHealthEventFunction::TickHealthEvent()
     if (IsValid(TargetComponent))
     {
         const float TickAmount = bScalesWithStacks ? BaseValue * GetOwningBuff()->GetCurrentStacks() : BaseValue;
-        TargetComponent->ApplyHealthEvent(EventType, TickAmount, GetOwningBuff()->GetAppliedBy(), GetOwningBuff(),
+        const FHealthEvent TickResult = TargetComponent->ApplyHealthEvent(EventType, TickAmount, GetOwningBuff()->GetAppliedBy(), GetOwningBuff(),
                                           EEventHitStyle::Chronic, EventSchool, bBypassesAbsorbs, bIgnoresModifiers,
                                           bIgnoresRestrictions, false, bSnapshots, FHealthEventModCondition(), ThreatInfo);
+    	if (Callback.IsBound())
+    	{
+    		Callback.Execute(TickResult);
+    	}
     }
 }
 
@@ -125,13 +135,18 @@ void UPeriodicHealthEventFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
     if (IsValid(TargetComponent) && bTicksOnExpire && RemoveEvent.ExpireReason == EBuffExpireReason::TimedOut && EventInterval > 0.0f)
     {
-        if (const float TickFraction = GetWorld()->GetTimerManager().GetTimerRemaining(TickHandle) / EventInterval > 0.0f)
-        {
-            const float ExpireTickAmount = (bScalesWithStacks ? BaseValue * GetOwningBuff()->GetCurrentStacks() : BaseValue) * TickFraction;
-            TargetComponent->ApplyHealthEvent(EventType, ExpireTickAmount,GetOwningBuff()->GetAppliedBy(), GetOwningBuff(),
-				EEventHitStyle::Chronic, EventSchool, bBypassesAbsorbs, bIgnoresModifiers, bIgnoresRestrictions, false,
-				bSnapshots, FHealthEventModCondition(), ThreatInfo);
-        }
+    	const float TickFraction = GetWorld()->GetTimerManager().GetTimerElapsed(TickHandle) / EventInterval;
+    	const float ExpireTickAmount = (bScalesWithStacks ? BaseValue * GetOwningBuff()->GetCurrentStacks() : BaseValue) * TickFraction;
+    	if (ExpireTickAmount > 0.0f)
+    	{
+    		const FHealthEvent TickResult = TargetComponent->ApplyHealthEvent(EventType, ExpireTickAmount, GetOwningBuff()->GetAppliedBy(), GetOwningBuff(),
+			EEventHitStyle::Chronic, EventSchool, bBypassesAbsorbs, bIgnoresModifiers, bIgnoresRestrictions, false,
+			bSnapshots, FHealthEventModCondition(), ThreatInfo);
+    		if (Callback.IsBound())
+    		{
+    			Callback.Execute(TickResult);
+    		}
+    	}
     }
 }
 

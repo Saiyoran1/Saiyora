@@ -16,8 +16,3 @@ void FAbilityCost::PostReplicatedChange(const FAbilityCostArray& InArraySerializ
 		InArraySerializer.OwningAbility->UpdateCostFromReplication(*this);
 	}
 }
-
-bool FAbilityCost::operator==(const FAbilityCost& Other) const
-{
-	{ return Other.ResourceClass == ResourceClass && Other.Cost == Cost; }
-}

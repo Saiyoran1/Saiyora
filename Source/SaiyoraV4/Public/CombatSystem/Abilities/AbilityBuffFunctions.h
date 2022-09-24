@@ -76,6 +76,8 @@ class UAbilityCostModifierFunction : public UBuffFunction
 	UAbilityComponent* TargetHandler = nullptr;
 	UPROPERTY()
 	UCombatAbility* TargetAbility = nullptr;
+	FCombatModifierHandle Handle;
+	FMultipleModifierHandle MultiHandle;
 
 	void SetModifierVars(const TSubclassOf<UResource> ResourceClass, const TSubclassOf<UCombatAbility> AbilityClass, const FCombatModifier& Modifier);
 

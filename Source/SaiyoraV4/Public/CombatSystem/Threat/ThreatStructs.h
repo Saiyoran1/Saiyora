@@ -83,16 +83,16 @@ struct FThreatFromDamage
 {
 	GENERATED_BODY()
 
-	UPROPERTY(BlueprintReadWrite, Category = "Threat")
+	UPROPERTY()
 	bool GeneratesThreat = true;
-	UPROPERTY(BlueprintReadWrite, Category = "Threat")
+	UPROPERTY()
 	bool SeparateBaseThreat = false;
-	UPROPERTY(BlueprintReadWrite, Category = "Threat")
+	UPROPERTY()
 	float BaseThreat = 0.0f;
-	UPROPERTY(BlueprintReadWrite, Category = "Threat")
+	UPROPERTY()
 	bool IgnoreModifiers = false;
-	UPROPERTY(BlueprintReadWrite, Category = "Threat")
+	UPROPERTY()
 	bool IgnoreRestrictions = false;
-	UPROPERTY(BlueprintReadWrite, Category = "Threat")
+	UPROPERTY()
 	FThreatModCondition SourceModifier;
 };
