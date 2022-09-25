@@ -8,64 +8,30 @@ DECLARE_DYNAMIC_DELEGATE_TwoParams(FStatCallback, const FGameplayTag, StatTag, c
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FStatNotification, const FGameplayTag&, StatTag, const float, NewValue);
 
 USTRUCT()
-struct FStatInfo : public FTableRowBase
-{
-    GENERATED_BODY()
-
-    UPROPERTY(EditAnywhere, Category = "Stat", meta = (Categories = "Stat"))
-    FGameplayTag StatTag;
-    UPROPERTY(EditAnywhere, Category = "Stat", meta = (ClampMin = "0"))
-    float DefaultValue = 0.0f;
-    UPROPERTY(EditAnywhere, Category = "Stat")
-    bool bModifiable = false;
-    UPROPERTY(EditAnywhere, Category = "Stat")
-    bool bCappedLow = false;
-    UPROPERTY(EditAnywhere, Category = "Stat", meta = (ClampMin = "0"))
-    float MinClamp = 0.0f;
-    UPROPERTY(EditAnywhere, Category = "Stat")
-    bool bCappedHigh = false;
-    UPROPERTY(EditAnywhere, Category = "Stat", meta = (ClampMin = "0"))
-    float MaxClamp = 0.0f;
-    UPROPERTY(EditAnywhere, Category = "Stat")
-    bool bShouldReplicate = false;
-};
-
-USTRUCT()
 struct FCombatStat : public FFastArraySerializerItem
 {
     GENERATED_BODY()
 
-    FCombatStat(const FStatInfo& InitInfo);
-    FCombatStat() {}
-    void SubscribeToStatChanged(const FStatCallback& Callback);
-    void UnsubscribeFromStatChanged(const FStatCallback& Callback);
-    void AddModifier(const FCombatModifier& Modifier);
-    void RemoveModifier(const UBuff* Source);
-	
-    FGameplayTag GetStatTag() const { return Defaults.StatTag; }
-    bool ShouldReplicate() const { return Defaults.bShouldReplicate; }
-    bool IsModifiable() const { return Defaults.bModifiable; }
-    bool IsInitialized() const { return bInitialized; }
-    float GetValue() const { return Value; }
-    float GetDefaultValue() const { return Defaults.DefaultValue; }
-    bool HasMinimum() const { return Defaults.bCappedLow; }
-    float GetMinimum() const { return Defaults.MinClamp; }
-    bool HasMaximum() const { return Defaults.bCappedHigh; }
-    float GetMaximum() const { return Defaults.MaxClamp; }
-
     void PostReplicatedAdd(const struct FCombatStatArray& InArraySerializer);
     void PostReplicatedChange(const struct FCombatStatArray& InArraySerializer);
 
-private:
-
-    UPROPERTY()
-    float Value = 0.0f;
-    void RecalculateValue();
-    UPROPERTY()
-    FStatInfo Defaults;
-    TMap<UBuff*, FCombatModifier> Modifiers;
-    bool bInitialized = false;
+    UPROPERTY(EditAnywhere, NotReplicated, meta = (Categories = "Stat"))
+    FGameplayTag StatTag;
+    UPROPERTY(EditAnywhere)
+    FModifiableFloat StatValue;
+    UPROPERTY(EditAnywhere, NotReplicated)
+    bool bUseCustomMin = false;
+    UPROPERTY(EditAnywhere, NotReplicated, meta = (ClampMin = "0"))
+    float CustomMin = 0.0f;
+    UPROPERTY(EditAnywhere, NotReplicated)
+    bool bUseCustomMax = false;
+    UPROPERTY(EditAnywhere, NotReplicated, meta = (ClampMin = "0"))
+    float CustomMax = 0.0f;
+    
     FStatNotification OnStatChanged;
+    bool bInitialized = false;
+    //TODO: Add global stat replication rules somewhere to check whether to mark a stat dirty when it changes, probably in CombatStructs with a set of Replicated Tags.
+    //Currently all stats replicate to everyone.
 };
 
 USTRUCT()
@@ -73,7 +39,7 @@ struct FCombatStatArray : public FFastArraySerializer
 {
     GENERATED_BODY()
 
-    UPROPERTY()
+    UPROPERTY(EditAnywhere)
     TArray<FCombatStat> Items;
     UPROPERTY(NotReplicated)
     class UStatHandler* Handler = nullptr;

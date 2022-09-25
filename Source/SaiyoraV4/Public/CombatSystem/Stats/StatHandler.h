@@ -30,17 +30,15 @@ public:
 	void SubscribeToStatChanged(const FGameplayTag StatTag, const FStatCallback& Callback);
 	UFUNCTION(BlueprintCallable, Category = "Stat", meta = (GameplayTagFilter = "Stat"))
 	void UnsubscribeFromStatChanged(const FGameplayTag StatTag, const FStatCallback& Callback);
-	
-	void AddStatModifier(const FGameplayTag StatTag, const FCombatModifier& Modifier);
-	void RemoveStatModifier(const FGameplayTag StatTag, const UBuff* Source);	
+
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Stat", meta = (GameplayTagFilter = "Stat"))
+	FCombatModifierHandle AddStatModifier(const FGameplayTag StatTag, const FCombatModifier& Modifier);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Stat", meta = (GameplayTagFilter = "Stat"))
+	void RemoveStatModifier(const FGameplayTag StatTag, const FCombatModifierHandle& ModifierHandle);
+	void UpdateStatModifier(const FGameplayTag StatTag, const FCombatModifierHandle& ModifierHandle, const FCombatModifier& Modifier);
 	
 private:
 	
-	UPROPERTY(EditAnywhere, Category = "Stat")
-	UDataTable* InitialStats;
-	TMap<FGameplayTag, FStatInfo> StatDefaults;
-	UPROPERTY(Replicated)
-	FCombatStatArray ReplicatedStats;
-	TMap<FGameplayTag, FCombatStat> NonReplicatedStats;
-	FGameplayTagContainer StaticStats;
+	UPROPERTY(EditAnywhere, Replicated, Category = "Stats")
+	FCombatStatArray Stats;
 };

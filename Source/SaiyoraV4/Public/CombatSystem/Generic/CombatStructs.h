@@ -356,8 +356,8 @@ FORCEINLINE uint32 GetTypeHash(const FCombatModifierHandle& Handle)
     return GetTypeHash(Handle.ModifierID);
 }
 
-DECLARE_DELEGATE_OneParam(FModifiableFloatCallback, const float);
-DECLARE_DELEGATE_OneParam(FModifiableIntCallback, const int32);
+DECLARE_DELEGATE_TwoParams(FModifiableFloatCallback, const float, const float);
+DECLARE_DELEGATE_TwoParams(FModifiableIntCallback, const int32, const int32);
 
 USTRUCT()
 struct FModifiableFloat

@@ -17,43 +17,25 @@ UStatHandler::UStatHandler()
 void UStatHandler::InitializeComponent()
 {
 	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Stat Handler."));
-	ReplicatedStats.Handler = this;
-	if (IsValid(InitialStats))
+	Stats.Handler = this;
+	for (FCombatStat& Stat : Stats.Items)
 	{
-		TArray<FStatInfo*> InitialStatArray;
-		InitialStats->GetAllRows<FStatInfo>(nullptr, InitialStatArray);
-		for (const FStatInfo* InitInfo : InitialStatArray)
+		const FModifiableFloatCallback Callback = FModifiableFloatCallback::CreateLambda([&](const float OldValue, const float NewValue)
 		{
-			if (!InitInfo || !InitInfo->StatTag.MatchesTag(FSaiyoraCombatTags::Get().Stat) || InitInfo->StatTag.MatchesTagExact(FSaiyoraCombatTags::Get().Stat))
-			{
-				continue;
-			}
-			StatDefaults.Add(InitInfo->StatTag, *InitInfo);
-			if (GetOwnerRole() == ROLE_Authority)
-			{
-				if (!InitInfo->bModifiable)
-				{
-					StaticStats.AddTag(InitInfo->StatTag);
-					continue;
-				}
-				if (InitInfo->bShouldReplicate)
-				{
-					FCombatStat& NewStat = ReplicatedStats.Items.Add_GetRef(FCombatStat(*InitInfo));
-					ReplicatedStats.MarkItemDirty(NewStat);
-				}
-				else
-				{
-					NonReplicatedStats.Add(InitInfo->StatTag, FCombatStat(*InitInfo));
-				}
-			}
-		}
+			Stats.MarkItemDirty(Stat);
+			Stat.OnStatChanged.Broadcast(Stat.StatTag, NewValue);
+		});
+		Stat.StatValue.SetUpdatedCallback(Callback);
+		Stat.StatValue.SetMinClamp(true, Stat.bUseCustomMin ? FMath::Max(0.0f, Stat.CustomMin) : 0.0f);
+		Stat.StatValue.SetMaxClamp(Stat.bUseCustomMax, FMath::Max(0.0f, Stat.CustomMax));
+		Stats.MarkItemDirty(Stat);
 	}
 }
 
 void UStatHandler::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME(UStatHandler, ReplicatedStats);
+	DOREPLIFETIME(UStatHandler, Stats);
 }
 
 #pragma endregion
@@ -61,15 +43,14 @@ void UStatHandler::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLi
 
 bool UStatHandler::IsStatValid(const FGameplayTag StatTag) const
 {
-	if (!StatTag.IsValid() || !StatTag.MatchesTag(FSaiyoraCombatTags::Get().Stat) || StatTag.MatchesTagExact(FSaiyoraCombatTags::Get().Stat))
+	if (StatTag.IsValid() && StatTag.MatchesTag(FSaiyoraCombatTags::Get().Stat) && !StatTag.MatchesTagExact(FSaiyoraCombatTags::Get().Stat))
 	{
-		return false;
-	}
-	for (const TTuple<FGameplayTag, FStatInfo>& DefaultInfo : StatDefaults)
-	{
-		if (DefaultInfo.Key.MatchesTagExact(StatTag))
+		for (const FCombatStat& Stat : Stats.Items)
 		{
-			return true;
+			if (Stat.StatTag == StatTag)
+			{
+				return true;
+			}
 		}
 	}
 	return false;
@@ -77,66 +58,29 @@ bool UStatHandler::IsStatValid(const FGameplayTag StatTag) const
 
 float UStatHandler::GetStatValue(const FGameplayTag StatTag) const
 {
-	if (!StatTag.IsValid() || !StatTag.MatchesTag(FSaiyoraCombatTags::Get().Stat) || StatTag.MatchesTagExact(FSaiyoraCombatTags::Get().Stat))
+	if (StatTag.IsValid() && StatTag.MatchesTag(FSaiyoraCombatTags::Get().Stat) && !StatTag.MatchesTagExact(FSaiyoraCombatTags::Get().Stat))
 	{
-		return -1.0f;
-	}
-	bool bFoundInDefaults = false;
-	bool bStatReplicates = false;
-	float DefaultValue = -1.0f;
-	for (const TTuple<FGameplayTag, FStatInfo>& DefaultInfo : StatDefaults)
-	{
-		if (DefaultInfo.Key.MatchesTagExact(StatTag))
+		for (const FCombatStat& Stat : Stats.Items)
 		{
-			if (!DefaultInfo.Value.bModifiable || (!DefaultInfo.Value.bShouldReplicate && GetOwnerRole() != ROLE_Authority))
+			if (Stat.StatTag == StatTag)
 			{
-				return DefaultInfo.Value.DefaultValue;
-			}
-			bFoundInDefaults = true;
-			bStatReplicates = DefaultInfo.Value.bShouldReplicate;
-			DefaultValue = DefaultInfo.Value.DefaultValue;
-			break;
-		}
-	}
-	if (!bFoundInDefaults)
-	{
-		return -1.0f;
-	}
-	if (bStatReplicates)
-	{
-		for (const FCombatStat& Stat : ReplicatedStats.Items)
-		{
-			if (Stat.GetStatTag().MatchesTagExact(StatTag))
-			{
-				if (Stat.IsInitialized())
-				{
-					return Stat.GetValue();
-				}
-				break;
+				return Stat.StatValue.GetCurrentValue();
 			}
 		}
 	}
-	else
-	{
-		if (const FCombatStat* Stat = NonReplicatedStats.Find(StatTag))
-		{
-			return Stat->GetValue();
-		}
-	}
-	return DefaultValue;
+	return -1.0f;
 }
 
 bool UStatHandler::IsStatModifiable(const FGameplayTag StatTag) const
 {
-	if (!StatTag.IsValid() || !StatTag.MatchesTag(FSaiyoraCombatTags::Get().Stat) || StatTag.MatchesTagExact(FSaiyoraCombatTags::Get().Stat))
+	if (StatTag.IsValid() && StatTag.MatchesTag(FSaiyoraCombatTags::Get().Stat) && !StatTag.MatchesTagExact(FSaiyoraCombatTags::Get().Stat))
 	{
-		return false;
-	}
-	for (const TTuple<FGameplayTag, FStatInfo>& DefaultInfo : StatDefaults)
-	{
-		if (DefaultInfo.Key.MatchesTagExact(StatTag))
+		for (const FCombatStat& Stat : Stats.Items)
 		{
-			return DefaultInfo.Value.bModifiable;
+			if (Stat.StatTag == StatTag)
+			{
+				return Stat.StatValue.IsModifiable();
+			}
 		}
 	}
 	return false;
@@ -151,39 +95,19 @@ void UStatHandler::SubscribeToStatChanged(const FGameplayTag StatTag, const FSta
 	{
 		return;
 	}
-	for (const TTuple<FGameplayTag, FStatInfo>& DefaultInfo : StatDefaults)
+	bool bFound = false;
+	for (FCombatStat& Stat : Stats.Items)
 	{
-		if (DefaultInfo.Key.MatchesTagExact(StatTag))
+		if (Stat.StatTag == StatTag)
 		{
-			if (!DefaultInfo.Value.bModifiable)
-			{
-				return;
-			}
-			if (DefaultInfo.Value.bShouldReplicate)
-			{
-				for (FCombatStat& Stat : ReplicatedStats.Items)
-				{
-					if (Stat.GetStatTag().MatchesTagExact(StatTag))
-					{
-						if (Stat.IsInitialized())
-						{
-							Stat.SubscribeToStatChanged(Callback);
-							return;
-						}
-						break;
-					}
-				}
-				ReplicatedStats.PendingSubscriptions.AddUnique(StatTag, Callback);
-			}
-			else if (GetOwnerRole() == ROLE_Authority)
-			{
-				if (FCombatStat* Stat = NonReplicatedStats.Find(StatTag))
-				{
-					Stat->SubscribeToStatChanged(Callback);
-				}
-			}	
-			return;
+			Stat.OnStatChanged.AddUnique(Callback);
+			bFound = true;
+			break;
 		}
+	}
+	if (!bFound)
+	{
+		Stats.PendingSubscriptions.Add(StatTag, Callback);
 	}
 }
 
@@ -193,126 +117,70 @@ void UStatHandler::UnsubscribeFromStatChanged(const FGameplayTag StatTag, const 
 	{
 		return;
 	}
-	for (const TTuple<FGameplayTag, FStatInfo>& DefaultInfo : StatDefaults)
+	bool bFound = false;
+	for (FCombatStat& Stat : Stats.Items)
 	{
-		if (DefaultInfo.Key.MatchesTagExact(StatTag))
+		if (Stat.StatTag == StatTag)
 		{
-			if (!DefaultInfo.Value.bModifiable)
-			{
-				return;
-			}
-			if (DefaultInfo.Value.bShouldReplicate)
-			{
-				for (FCombatStat& Stat : ReplicatedStats.Items)
-				{
-					if (Stat.GetStatTag().MatchesTagExact(StatTag))
-					{
-						if (Stat.IsInitialized())
-						{
-							Stat.UnsubscribeFromStatChanged(Callback);
-							return;
-						}
-						break;
-					}
-				}
-				ReplicatedStats.PendingSubscriptions.Remove(StatTag, Callback);
-			}
-			else if (GetOwnerRole() == ROLE_Authority)
-			{
-				if (FCombatStat* Stat = NonReplicatedStats.Find(StatTag))
-				{
-					Stat->UnsubscribeFromStatChanged(Callback);
-				}
-			}	
-			return;
+			Stat.OnStatChanged.Remove(Callback);
+			bFound = true;
+			break;
 		}
+	}
+	if (!bFound)
+	{
+		Stats.PendingSubscriptions.Remove(StatTag, Callback);
 	}
 }
 
 #pragma endregion
 #pragma region Modifiers
 
-void UStatHandler::AddStatModifier(const FGameplayTag StatTag, const FCombatModifier& Modifier)
+FCombatModifierHandle UStatHandler::AddStatModifier(const FGameplayTag StatTag, const FCombatModifier& Modifier)
 {
-	if (GetOwnerRole() != ROLE_Authority || Modifier.Type == EModifierType::Invalid ||
-		!StatTag.IsValid() || !StatTag.MatchesTag(FSaiyoraCombatTags::Get().Stat) || StatTag.MatchesTagExact(FSaiyoraCombatTags::Get().Stat) ||
-		!IsValid(Modifier.BuffSource) || Modifier.BuffSource->GetAppliedTo() != GetOwner())
+	if (GetOwnerRole() == ROLE_Authority && Modifier.Type != EModifierType::Invalid &&
+		StatTag.IsValid() && StatTag.MatchesTag(FSaiyoraCombatTags::Get().Stat) && !StatTag.MatchesTagExact(FSaiyoraCombatTags::Get().Stat))
 	{
-		return;
-	}
-	for (const TTuple<FGameplayTag, FStatInfo>& DefaultInfo : StatDefaults)
-	{
-		if (DefaultInfo.Key.MatchesTagExact(StatTag))
+		for (FCombatStat& Stat : Stats.Items)
 		{
-			if (!DefaultInfo.Value.bModifiable)
+			if (Stat.StatTag == StatTag)
 			{
+				return Stat.StatValue.AddModifier(Modifier);
+			}
+		}
+	}
+	return FCombatModifierHandle::Invalid;
+}
+
+void UStatHandler::RemoveStatModifier(const FGameplayTag StatTag, const FCombatModifierHandle& ModifierHandle)
+{
+	if (GetOwnerRole() == ROLE_Authority && ModifierHandle.IsValid() && StatTag.IsValid() &&
+		StatTag.MatchesTag(FSaiyoraCombatTags::Get().Stat) && !StatTag.MatchesTagExact(FSaiyoraCombatTags::Get().Stat))
+	{
+		for (FCombatStat& Stat : Stats.Items)
+		{
+			if (Stat.StatTag == StatTag)
+			{
+				Stat.StatValue.RemoveModifier(ModifierHandle);
 				return;
 			}
-			if (DefaultInfo.Value.bShouldReplicate)
-			{
-				for (FCombatStat& Stat : ReplicatedStats.Items)
-				{
-					if (Stat.GetStatTag().MatchesTagExact(StatTag))
-					{
-						if (Stat.IsInitialized())
-						{
-							Stat.AddModifier(Modifier);
-							ReplicatedStats.MarkItemDirty(Stat);
-						}
-						return;
-					}
-				}
-			}
-			else
-			{
-				if (FCombatStat* Stat = NonReplicatedStats.Find(StatTag))
-				{
-					Stat->AddModifier(Modifier);
-				}
-			}	
-			return;
 		}
 	}
 }
 
-void UStatHandler::RemoveStatModifier(const FGameplayTag StatTag, const UBuff* Source)
+void UStatHandler::UpdateStatModifier(const FGameplayTag StatTag, const FCombatModifierHandle& ModifierHandle,
+	const FCombatModifier& Modifier)
 {
-	if (GetOwnerRole() != ROLE_Authority || !StatTag.IsValid() || !StatTag.MatchesTag(FSaiyoraCombatTags::Get().Stat) ||
-		StatTag.MatchesTagExact(FSaiyoraCombatTags::Get().Stat) || !IsValid(Source) || Source->GetAppliedTo() != GetOwner())
+	if (GetOwnerRole() == ROLE_Authority && ModifierHandle.IsValid() && StatTag.IsValid() &&
+		StatTag.MatchesTag(FSaiyoraCombatTags::Get().Stat) && !StatTag.MatchesTagExact(FSaiyoraCombatTags::Get().Stat))
 	{
-		return;
-	}
-	for (const TTuple<FGameplayTag, FStatInfo>& DefaultInfo : StatDefaults)
-	{
-		if (DefaultInfo.Key.MatchesTagExact(StatTag))
+		for (FCombatStat& Stat : Stats.Items)
 		{
-			if (!DefaultInfo.Value.bModifiable)
+			if (Stat.StatTag == StatTag)
 			{
+				Stat.StatValue.UpdateModifier(ModifierHandle, Modifier);
 				return;
 			}
-			if (DefaultInfo.Value.bShouldReplicate)
-			{
-				for (FCombatStat& Stat : ReplicatedStats.Items)
-				{
-					if (Stat.GetStatTag().MatchesTagExact(StatTag))
-					{
-						if (Stat.IsInitialized())
-						{
-							Stat.RemoveModifier(Source);
-							ReplicatedStats.MarkItemDirty(Stat);
-						}
-						return;
-					}
-				}
-			}
-			else
-			{
-				if (FCombatStat* Stat = NonReplicatedStats.Find(StatTag))
-				{
-					Stat->RemoveModifier(Source);
-				}
-			}	
-			return;
 		}
 	}
 }

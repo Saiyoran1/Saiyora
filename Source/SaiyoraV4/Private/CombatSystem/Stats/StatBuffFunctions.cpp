@@ -40,7 +40,7 @@ void UStatModifierFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 	{
 		for (const TTuple<FGameplayTag, FCombatModifier>& Mod : StatMods)
 		{
-			TargetHandler->AddStatModifier(Mod.Key, Mod.Value);
+			StatModHandles.Add(Mod.Key, TargetHandler->AddStatModifier(Mod.Key, Mod.Value));
 		}
 	}
 }
@@ -53,7 +53,7 @@ void UStatModifierFunction::OnStack(const FBuffApplyEvent& ApplyEvent)
 		{
 			if (Mod.Value.bStackable)
 			{
-				TargetHandler->AddStatModifier(Mod.Key, Mod.Value);
+				TargetHandler->UpdateStatModifier(Mod.Key, StatModHandles.FindRef(Mod.Key), Mod.Value);
 			}
 		}
 	}
@@ -63,9 +63,9 @@ void UStatModifierFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
 	if (IsValid(TargetHandler))
 	{
-		for (const TTuple<FGameplayTag, FCombatModifier>& Mod : StatMods)
+		for (const TTuple<FGameplayTag, FCombatModifierHandle>& ModHandle : StatModHandles)
 		{
-			TargetHandler->RemoveStatModifier(Mod.Key, GetOwningBuff());
+			TargetHandler->RemoveStatModifier(ModHandle.Key, ModHandle.Value);
 		}
 	}
 }

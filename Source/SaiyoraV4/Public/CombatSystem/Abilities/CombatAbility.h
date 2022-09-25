@@ -287,8 +287,8 @@ private:
     int32 LastReplicatedCharges;
     void RecalculatePredictedCooldown();
     
-    void OnMaxChargesUpdated(const int32 NewValue);
-    void OnChargeCostUpdated(const int32 NewValue) { UpdateCastable(); }
+    void OnMaxChargesUpdated(const int32 OldValue, const int32 NewValue);
+    void OnChargeCostUpdated(const int32 OldValue, const int32 NewValue) { UpdateCastable(); }
     UFUNCTION()
     void OnRep_ChargeCost() { UpdateCastable(); }
     

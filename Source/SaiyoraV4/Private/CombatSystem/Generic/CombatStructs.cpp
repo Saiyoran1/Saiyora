@@ -147,7 +147,7 @@ void FModifiableFloat::Recalculate()
     }
     if (PreviousValue != CurrentValue && OnUpdated.IsBound())
     {
-        OnUpdated.Execute(CurrentValue);
+        OnUpdated.Execute(PreviousValue, CurrentValue);
     }
 }
 
@@ -220,6 +220,6 @@ void FModifiableInt::Recalculate()
     CurrentValue = FMath::Clamp(CurrentValue, bClampMin ? MinClamp : CurrentValue, bClampMax ? MaxClamp : CurrentValue);
     if (PreviousValue != CurrentValue && OnUpdated.IsBound())
     {
-        OnUpdated.Execute(CurrentValue);
+        OnUpdated.Execute(PreviousValue, CurrentValue);
     }
 }

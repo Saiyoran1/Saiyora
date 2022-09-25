@@ -287,7 +287,7 @@ void UCombatAbility::SetupResourceCosts()
     AbilityCosts.OwningAbility = this;
     for (FAbilityCost& AbilityCost : AbilityCosts.Items)
     {
-        const FModifiableFloatCallback CostChangeCallback = FModifiableFloatCallback::CreateLambda([&](const float NewValue)
+        const FModifiableFloatCallback CostChangeCallback = FModifiableFloatCallback::CreateLambda([&](const float OldValue, const float NewValue)
         {
             OnResourceCostChanged(AbilityCost);
         });
@@ -632,7 +632,7 @@ void UCombatAbility::UpdateMaxChargeModifier(const FCombatModifierHandle& Modifi
     }
 }
 
-void UCombatAbility::OnMaxChargesUpdated(const int32 NewValue)
+void UCombatAbility::OnMaxChargesUpdated(const int32 OldValue, const int32 NewValue)
 {
     const int32 PreviousMaxCharges = AbilityCooldown.MaxCharges;
     const int32 PreviousCharges = AbilityCooldown.CurrentCharges;

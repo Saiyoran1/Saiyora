@@ -10,6 +10,7 @@ class UStatModifierFunction : public UBuffFunction
 	GENERATED_BODY()
 	
 	TMap<FGameplayTag, FCombatModifier> StatMods;
+	TMap<FGameplayTag, FCombatModifierHandle> StatModHandles;
 	UPROPERTY()
 	class UStatHandler* TargetHandler = nullptr;
 
