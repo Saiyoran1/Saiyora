@@ -102,6 +102,7 @@ UCombatAbility* UAbilityComponent::AddNewAbility(const TSubclassOf<UCombatAbilit
 				NewAbility->AddRestrictedTag(Tag);
 			}
 		}
+		ApplyGenericCostModsToNewAbility(NewAbility);
 		OnAbilityAdded.Broadcast(NewAbility);
 	}
 	return NewAbility;
@@ -972,13 +973,14 @@ float UAbilityComponent::CalculateCooldownLength(UCombatAbility* Ability) const
 	return FMath::Max(MinCooldownLength, FCombatModifier::ApplyModifiers(Mods, Ability->GetDefaultCooldownLength()));
 }
 
-FMultipleModifierHandle UAbilityComponent::AddGenericResourceCostModifier(const TSubclassOf<UResource> ResourceClass, const FCombatModifier& Modifier)
+FCombatModifierHandle UAbilityComponent::AddGenericResourceCostModifier(const TSubclassOf<UResource> ResourceClass, const FCombatModifier& Modifier)
 {
-	if (GetOwnerRole() != ROLE_Authority || !IsValid(ResourceClass) || !IsValid(Modifier.BuffSource))
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(ResourceClass))
 	{
-		return FMultipleModifierHandle();
+		return FCombatModifierHandle::Invalid;
 	}
-	FMultipleModifierHandle Handle;
+	FCombatModifierHandle Handle = FCombatModifierHandle::MakeHandle();
+	FResourceCostModMap& ModMap = GenericResourceCostMods.Add(Handle, FResourceCostModMap(ResourceClass, Modifier));
 	for (const TTuple<TSubclassOf<UCombatAbility>, UCombatAbility*>& AbilityTuple : ActiveAbilities)
 	{
 		if (IsValid(AbilityTuple.Value))
@@ -989,7 +991,7 @@ FMultipleModifierHandle UAbilityComponent::AddGenericResourceCostModifier(const 
 			{
 				if (Cost.ResourceClass == ResourceClass)
 				{
-					Handle.ModifierHandles.Add(AbilityTuple.Value, AbilityTuple.Value->AddResourceCostModifier(ResourceClass, Modifier));
+					ModMap.ModifierHandles.Add(AbilityTuple.Value, AbilityTuple.Value->AddResourceCostModifier(ResourceClass, Modifier));
 					break;
 				}
 			}
@@ -998,33 +1000,62 @@ FMultipleModifierHandle UAbilityComponent::AddGenericResourceCostModifier(const 
 	return Handle;
 }
 
-void UAbilityComponent::RemoveGenericResourceCostModifier(const TSubclassOf<UResource> ResourceClass, const FMultipleModifierHandle& ModifierHandle)
+void UAbilityComponent::RemoveGenericResourceCostModifier(const TSubclassOf<UResource> ResourceClass, const FCombatModifierHandle& ModifierHandle)
 {
-	if (GetOwnerRole() != ROLE_Authority || !IsValid(ResourceClass))
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(ResourceClass) || !ModifierHandle.IsValid())
 	{
 		return;
 	}
-	for (const TTuple<UCombatAbility*, FCombatModifierHandle>& HandlePair : ModifierHandle.ModifierHandles)
+	if (FResourceCostModMap* ModMap = GenericResourceCostMods.Find(ModifierHandle))
 	{
-		if (IsValid(HandlePair.Key))
+		for (const TTuple<UCombatAbility*, FCombatModifierHandle>& HandlePair : ModMap->ModifierHandles)
 		{
-			HandlePair.Key->RemoveResourceCostModifier(ResourceClass, HandlePair.Value);
+			if (IsValid(HandlePair.Key))
+			{
+				HandlePair.Key->RemoveResourceCostModifier(ResourceClass, HandlePair.Value);
+			}
+		}
+	}
+	GenericResourceCostMods.Remove(ModifierHandle);
+}
+
+void UAbilityComponent::UpdateGenericResourceCostModifier(const TSubclassOf<UResource> ResourceClass,
+	const FCombatModifierHandle& ModifierHandle, const FCombatModifier& Modifier)
+{
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(ResourceClass) || !ModifierHandle.IsValid())
+	{
+		return;
+	}
+	if (FResourceCostModMap* ModMap = GenericResourceCostMods.Find(ModifierHandle))
+	{
+		if (ResourceClass != ModMap->ResourceClass)
+		{
+			return;
+		}
+		ModMap->Modifier = Modifier;
+		for (const TTuple<UCombatAbility*, FCombatModifierHandle>& HandlePair : ModMap->ModifierHandles)
+		{
+			if (IsValid(HandlePair.Key))
+			{
+				HandlePair.Key->UpdateResourceCostModifier(ResourceClass, HandlePair.Value, Modifier);
+			}
 		}
 	}
 }
 
-void UAbilityComponent::UpdateGenericResourceCostModifier(const TSubclassOf<UResource> ResourceClass,
-	const FMultipleModifierHandle& ModifierHandle, const FCombatModifier& Modifier)
+void UAbilityComponent::ApplyGenericCostModsToNewAbility(UCombatAbility* NewAbility)
 {
-	if (GetOwnerRole() != ROLE_Authority || !IsValid(ResourceClass))
+	TArray<FSimpleAbilityCost> AbilityCosts;
+	NewAbility->GetAbilityCosts(AbilityCosts);
+	for (TTuple<FCombatModifierHandle, FResourceCostModMap>& ModMapTuple : GenericResourceCostMods)
 	{
-		return;
-	}
-	for (const TTuple<UCombatAbility*, FCombatModifierHandle>& HandlePair : ModifierHandle.ModifierHandles)
-	{
-		if (IsValid(HandlePair.Key))
+		for (const FSimpleAbilityCost& Cost : AbilityCosts)
 		{
-			HandlePair.Key->UpdateResourceCostModifier(ResourceClass, HandlePair.Value, Modifier);
+			if (Cost.ResourceClass == ModMapTuple.Value.ResourceClass)
+			{
+				ModMapTuple.Value.ModifierHandles.Add(NewAbility, NewAbility->AddResourceCostModifier(Cost.ResourceClass, ModMapTuple.Value.Modifier));
+				break;
+			}
 		}
 	}
 }

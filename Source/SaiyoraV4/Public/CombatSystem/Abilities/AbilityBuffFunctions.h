@@ -50,7 +50,7 @@ class USimpleAbilityModifierFunction : public UBuffFunction
 
 	FCombatModifier Mod;
 	ESimpleAbilityModType ModType = ESimpleAbilityModType::None;
-	FCombatModifierHandle ModHandle;
+	FCombatModifierHandle ModHandle = FCombatModifierHandle::Invalid;
 	UPROPERTY()
 	UCombatAbility* TargetAbility = nullptr;
 
@@ -77,7 +77,6 @@ class UAbilityCostModifierFunction : public UBuffFunction
 	UPROPERTY()
 	UCombatAbility* TargetAbility = nullptr;
 	FCombatModifierHandle Handle;
-	FMultipleModifierHandle MultiHandle;
 
 	void SetModifierVars(const TSubclassOf<UResource> ResourceClass, const TSubclassOf<UCombatAbility> AbilityClass, const FCombatModifier& Modifier);
 

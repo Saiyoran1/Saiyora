@@ -329,12 +329,32 @@ USTRUCT(BlueprintType)
 struct FCombatModifierHandle
 {
     GENERATED_BODY()
-    
-    int32 ModifierID = -1;
 
     FCombatModifierHandle() {}
-    FCombatModifierHandle(const int32 NewID) { ModifierID = NewID; }
+    FCombatModifierHandle(const FCombatModifierHandle& Other) : ModifierID(Other.ModifierID) {}
+    static FCombatModifierHandle Invalid;
+    static FCombatModifierHandle MakeHandle() { return FCombatModifierHandle(GetNextModifierID()); }
+    
+    bool IsValid() const { return ModifierID > 0; }
+
+    FORCEINLINE bool operator==(const FCombatModifierHandle& Other) const { return Other.ModifierID == ModifierID; }
+
+private:
+
+    int32 ModifierID = -1;
+    
+    static int32 NextModifier;
+    static int32 GetNextModifierID() { NextModifier++; return NextModifier; }
+
+    FCombatModifierHandle(const int32 ID) : ModifierID(ID) {}
+
+    friend uint32 GetTypeHash(const FCombatModifierHandle& Handle);
 };
+
+FORCEINLINE uint32 GetTypeHash(const FCombatModifierHandle& Handle)
+{
+    return GetTypeHash(Handle.ModifierID);
+}
 
 DECLARE_DELEGATE_OneParam(FModifiableFloatCallback, const float);
 DECLARE_DELEGATE_OneParam(FModifiableIntCallback, const int32);
@@ -390,9 +410,7 @@ private:
     float CurrentValue = 0.0f;
     FModifiableFloatCallback OnUpdated;
     
-    int32 ModifierID = 0;
-    int32 GetNewModifierID() { return ModifierID++; }
-    TMap<int32, FCombatModifier> Modifiers;
+    TMap<FCombatModifierHandle, FCombatModifier> Modifiers;
 
     bool bInitialized = false;
 };
@@ -448,9 +466,7 @@ private:
     int32 CurrentValue = 0;
     FModifiableIntCallback OnUpdated;
     
-    int32 ModifierID = 0;
-    int32 GetNewModifierID() { return ModifierID++; }
-    TMap<int32, FCombatModifier> Modifiers;
+    TMap<FCombatModifierHandle, FCombatModifier> Modifiers;
 
     bool bInitialized = false;
 };

@@ -27,6 +27,7 @@ void UCombatAbility::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& Out
     DOREPLIFETIME_CONDITION(UCombatAbility, bTagsRestricted, COND_OwnerOnly);
     DOREPLIFETIME_CONDITION(UCombatAbility, ChargeCost, COND_OwnerOnly);
     DOREPLIFETIME_CONDITION(UCombatAbility, AbilityCosts, COND_OwnerOnly);
+    DOREPLIFETIME_CONDITION(UCombatAbility, ChargesPerCooldown, COND_OwnerOnly);
 }
 
 void UCombatAbility::PostNetReceive()
@@ -57,16 +58,21 @@ void UCombatAbility::InitializeAbility(UAbilityComponent* AbilityComponent)
         return;
     }
     OwningComponent = AbilityComponent;
-    AbilityCooldown.MaxCharges = FMath::Max(1, MaxCharges.GetDefaultValue());
-    AbilityCooldown.CurrentCharges = AbilityCooldown.MaxCharges;
-    AbilityCosts.OwningAbility = this;
 
     FModifiableIntCallback MaxChargeCallback;
     MaxChargeCallback.BindUObject(this, &UCombatAbility::OnMaxChargesUpdated);
     MaxCharges.SetUpdatedCallback(MaxChargeCallback);
+    MaxCharges.SetMinClamp(true, 1);
+    AbilityCooldown.MaxCharges = FMath::Max(1, MaxCharges.GetCurrentValue());
+    AbilityCooldown.CurrentCharges = AbilityCooldown.MaxCharges;
+    
     FModifiableIntCallback ChargeCostCallback;
     ChargeCostCallback.BindUObject(this, &UCombatAbility::OnChargeCostUpdated);
     ChargeCost.SetUpdatedCallback(ChargeCostCallback);
+    ChargeCost.SetMinClamp(true, 0);
+    
+    ChargesPerCooldown.SetMinClamp(true, 0);
+    
     SetupResourceCosts();
     
     SetupCustomCastRestrictions();
@@ -278,6 +284,7 @@ void UCombatAbility::GetAbilityCosts(TArray<FSimpleAbilityCost>& OutCosts) const
 
 void UCombatAbility::SetupResourceCosts()
 {
+    AbilityCosts.OwningAbility = this;
     for (FAbilityCost& AbilityCost : AbilityCosts.Items)
     {
         const FModifiableFloatCallback CostChangeCallback = FModifiableFloatCallback::CreateLambda([&](const float NewValue)
@@ -285,6 +292,7 @@ void UCombatAbility::SetupResourceCosts()
             OnResourceCostChanged(AbilityCost);
         });
         AbilityCost.Cost.SetUpdatedCallback(CostChangeCallback);
+        AbilityCost.Cost.SetMinClamp(true, 0.0f);
         bool bValidResource = false;
         if (IsValid(OwningComponent->GetResourceHandlerRef()))
         {
@@ -604,7 +612,7 @@ bool UCombatAbility::GetTargetSetByID(const int32 SetID, FAbilityTargetSet& OutT
 
 FCombatModifierHandle UCombatAbility::AddMaxChargeModifier(const FCombatModifier& Modifier)
 {
-    return OwningComponent->GetOwnerRole() == ROLE_Authority ? MaxCharges.AddModifier(Modifier) : FCombatModifierHandle();
+    return OwningComponent->GetOwnerRole() == ROLE_Authority ? MaxCharges.AddModifier(Modifier) : FCombatModifierHandle::Invalid;
 }
 
 void UCombatAbility::RemoveMaxChargeModifier(const FCombatModifierHandle& ModifierHandle)
@@ -657,32 +665,30 @@ void UCombatAbility::OnMaxChargesUpdated(const int32 NewValue)
 
 FCombatModifierHandle UCombatAbility::AddResourceCostModifier(const TSubclassOf<UResource> ResourceClass, const FCombatModifier& Modifier)
 {
-    if (OwningComponent->GetOwnerRole() != ROLE_Authority || !IsValid(ResourceClass) || !IsValid(Modifier.BuffSource))
+    if (OwningComponent->GetOwnerRole() == ROLE_Authority && IsValid(ResourceClass))
     {
-        return FCombatModifierHandle();
-    }
-    for (FAbilityCost& AbilityCost : AbilityCosts.Items)
-    {
-        if (AbilityCost.ResourceClass == ResourceClass)
+        for (FAbilityCost& AbilityCost : AbilityCosts.Items)
         {
-            return AbilityCost.Cost.AddModifier(Modifier);
+            if (AbilityCost.ResourceClass == ResourceClass)
+            {
+                return AbilityCost.Cost.AddModifier(Modifier);
+            }
         }
     }
-    return FCombatModifierHandle();
+    return FCombatModifierHandle::Invalid;
 }
 
 void UCombatAbility::RemoveResourceCostModifier(const TSubclassOf<UResource> ResourceClass, const FCombatModifierHandle& ModifierHandle)
 {
-    if (OwningComponent->GetOwnerRole() != ROLE_Authority || !IsValid(ResourceClass))
+    if (OwningComponent->GetOwnerRole() == ROLE_Authority && IsValid(ResourceClass))
     {
-        return;
-    }
-    for (FAbilityCost& AbilityCost : AbilityCosts.Items)
-    {
-        if (AbilityCost.ResourceClass == ResourceClass)
+        for (FAbilityCost& AbilityCost : AbilityCosts.Items)
         {
-            AbilityCost.Cost.RemoveModifier(ModifierHandle);
-            return;
+            if (AbilityCost.ResourceClass == ResourceClass)
+            {
+                AbilityCost.Cost.RemoveModifier(ModifierHandle);
+                return;
+            }
         }
     }
 }
@@ -690,16 +696,15 @@ void UCombatAbility::RemoveResourceCostModifier(const TSubclassOf<UResource> Res
 void UCombatAbility::UpdateResourceCostModifier(const TSubclassOf<UResource> ResourceClass,
     const FCombatModifierHandle& ModifierHandle, const FCombatModifier& Modifier)
 {
-    if (OwningComponent->GetOwnerRole() != ROLE_Authority || !IsValid(ResourceClass))
+    if (OwningComponent->GetOwnerRole() == ROLE_Authority && IsValid(ResourceClass))
     {
-        return;
-    }
-    for (FAbilityCost& AbilityCost : AbilityCosts.Items)
-    {
-        if (AbilityCost.ResourceClass == ResourceClass)
+        for (FAbilityCost& AbilityCost : AbilityCosts.Items)
         {
-            AbilityCost.Cost.UpdateModifier(ModifierHandle, Modifier);
-            return;
+            if (AbilityCost.ResourceClass == ResourceClass)
+            {
+                AbilityCost.Cost.UpdateModifier(ModifierHandle, Modifier);
+                return;
+            }
         }
     }
 }
@@ -721,7 +726,7 @@ float UCombatAbility::GetCooldownLength()
 
 FCombatModifierHandle UCombatAbility::AddChargeCostModifier(const FCombatModifier& Modifier)
 {
-    return OwningComponent->GetOwnerRole() == ROLE_Authority ? ChargeCost.AddModifier(Modifier) : FCombatModifierHandle();
+    return OwningComponent->GetOwnerRole() == ROLE_Authority ? ChargeCost.AddModifier(Modifier) : FCombatModifierHandle::Invalid;
 }
 
 void UCombatAbility::RemoveChargeCostModifier(const FCombatModifierHandle& ModifierHandle)
@@ -743,7 +748,7 @@ void UCombatAbility::UpdateChargeCostModifier(const FCombatModifierHandle& Modif
 
 FCombatModifierHandle UCombatAbility::AddChargesPerCooldownModifier(const FCombatModifier& Modifier)
 {
-    return OwningComponent->GetOwnerRole() == ROLE_Authority ? ChargesPerCooldown.AddModifier(Modifier) : FCombatModifierHandle();
+    return OwningComponent->GetOwnerRole() == ROLE_Authority ? ChargesPerCooldown.AddModifier(Modifier) : FCombatModifierHandle::Invalid;
 }
 
 void UCombatAbility::RemoveChargesPerCooldownModifier(const FCombatModifierHandle& ModifierHandle)

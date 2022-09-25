@@ -47,7 +47,7 @@ struct FAbilityCostArray: public FFastArraySerializer
 {
     GENERATED_USTRUCT_BODY()
 
-    UPROPERTY(EditDefaultsOnly)
+    UPROPERTY(EditDefaultsOnly, meta = (DisplayName = "Costs"))
     TArray<FAbilityCost> Items;
     UPROPERTY(NotReplicated)
     UCombatAbility* OwningAbility = nullptr;
@@ -311,11 +311,16 @@ FORCEINLINE uint32 GetTypeHash(const FPredictedTick& Tick)
 }
 
 USTRUCT(BlueprintType)
-struct FMultipleModifierHandle
+struct FResourceCostModMap
 {
     GENERATED_BODY()
 
+    TSubclassOf<UResource> ResourceClass;
+    FCombatModifier Modifier;
     TMap<UCombatAbility*, FCombatModifierHandle> ModifierHandles;
+
+    FResourceCostModMap() {}
+    FResourceCostModMap(const TSubclassOf<UResource> InResourceClass, const FCombatModifier& InModifier) : ResourceClass(InResourceClass), Modifier(InModifier) {}
 };
 
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FAbilityModCondition, UCombatAbility*, Ability);

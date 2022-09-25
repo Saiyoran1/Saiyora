@@ -37,6 +37,9 @@ const FName FSaiyoraCollision::CT_ModernOverlapNPCs = FName("CombatTraceModernOv
 
 FSaiyoraCombatTags FSaiyoraCombatTags::SaiyoraCombatTags;
 
+int32 FCombatModifierHandle::NextModifier = 0;
+FCombatModifierHandle FCombatModifierHandle::Invalid = FCombatModifierHandle(-1);
+
 FCombatModifier::FCombatModifier(const float BaseValue, const EModifierType ModifierType, UBuff* SourceBuff, const bool Stackable)
 {
     Value = BaseValue;
@@ -81,22 +84,21 @@ FCombatModifierHandle FModifiableFloat::AddModifier(const FCombatModifier& Modif
 {
     if (!bIsModifiable || Modifier.Type == EModifierType::Invalid)
     {
-        return FCombatModifierHandle();
+        return FCombatModifierHandle::Invalid;
     }
-    const FCombatModifierHandle OutHandle = FCombatModifierHandle(GetNewModifierID());
-    Modifiers.Add(OutHandle.ModifierID, Modifier);
+    const FCombatModifierHandle OutHandle = FCombatModifierHandle::MakeHandle();
+    Modifiers.Add(OutHandle, Modifier);
     Recalculate();
     return OutHandle;
 }
 
 void FModifiableFloat::RemoveModifier(const FCombatModifierHandle& ModifierHandle)
 {
-    if (!bIsModifiable || ModifierHandle.ModifierID == -1)
+    if (!bIsModifiable || !ModifierHandle.IsValid())
     {
         return;
     }
-    const int32 Removed = Modifiers.Remove(ModifierHandle.ModifierID);
-    if (Removed != 0)
+    if (Modifiers.Remove(ModifierHandle) != 0)
     {
         Recalculate();
     }
@@ -108,12 +110,12 @@ void FModifiableFloat::UpdateModifier(const FCombatModifierHandle& ModifierHandl
     {
         return;
     }
-    const FCombatModifier* FoundMod = Modifiers.Find(ModifierHandle.ModifierID);
+    const FCombatModifier* FoundMod = Modifiers.Find(ModifierHandle);
     if (!FoundMod || *FoundMod == NewModifier)
     {
         return;
     }
-    Modifiers.Add(ModifierHandle.ModifierID, NewModifier);
+    Modifiers.Add(ModifierHandle, NewModifier);
     Recalculate();
 }
 
@@ -153,21 +155,21 @@ FCombatModifierHandle FModifiableInt::AddModifier(const FCombatModifier& Modifie
 {
     if (!bIsModifiable || Modifier.Type == EModifierType::Invalid)
     {
-        return FCombatModifierHandle();
+        return FCombatModifierHandle::Invalid;
     }
-    const FCombatModifierHandle OutHandle = FCombatModifierHandle(GetNewModifierID());
-    Modifiers.Add(OutHandle.ModifierID, Modifier);
+    const FCombatModifierHandle OutHandle = FCombatModifierHandle::MakeHandle();
+    Modifiers.Add(OutHandle, Modifier);
     Recalculate();
     return OutHandle;
 }
 
 void FModifiableInt::RemoveModifier(const FCombatModifierHandle& ModifierHandle)
 {
-    if (!bIsModifiable || ModifierHandle.ModifierID == -1)
+    if (!bIsModifiable || !ModifierHandle.IsValid())
     {
         return;
     }
-    const int32 Removed = Modifiers.Remove(ModifierHandle.ModifierID);
+    const int32 Removed = Modifiers.Remove(ModifierHandle);
     if (Removed != 0)
     {
         Recalculate();
@@ -180,12 +182,12 @@ void FModifiableInt::UpdateModifier(const FCombatModifierHandle& ModifierHandle,
     {
         return;
     }
-    const FCombatModifier* FoundMod = Modifiers.Find(ModifierHandle.ModifierID);
+    const FCombatModifier* FoundMod = Modifiers.Find(ModifierHandle);
     if (!FoundMod || *FoundMod == NewModifier)
     {
         return;
     }
-    Modifiers.Add(ModifierHandle.ModifierID, NewModifier);
+    Modifiers.Add(ModifierHandle, NewModifier);
     Recalculate();
 }
 

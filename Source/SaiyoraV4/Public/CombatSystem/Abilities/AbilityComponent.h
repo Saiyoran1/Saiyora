@@ -308,11 +308,11 @@ private:
 
 public:
 
-	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
 	void AddCooldownModifier(const FAbilityModCondition& Modifier) { CooldownMods.Add(Modifier); }
-	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
 	void RemoveCooldownModifier(const FAbilityModCondition& Modifier) { CooldownMods.Remove(Modifier); }
-	UFUNCTION(BlueprintPure, Category = "Abilities")
+	UFUNCTION(BlueprintPure, BlueprintAuthorityOnly, Category = "Abilities")
 	float CalculateCooldownLength(UCombatAbility* Ability) const;
 
 private:
@@ -322,13 +322,15 @@ private:
 //Cost
 
 public:
+	
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+	FCombatModifierHandle AddGenericResourceCostModifier(const TSubclassOf<UResource> ResourceClass, const FCombatModifier& Modifier);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+	void RemoveGenericResourceCostModifier(const TSubclassOf<UResource> ResourceClass, const FCombatModifierHandle& ModifierHandle);
+	void UpdateGenericResourceCostModifier(const TSubclassOf<UResource> ResourceClass, const FCombatModifierHandle& ModifierHandle, const FCombatModifier& Modifier);
 
-	//TODO: Learning a new ability would not inherit already-applied modifiers :( Could have multiple-modifier handles have their own ID as well, store them on the component, then when remove is called you can also remove any later-applied mods?
-	
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
-	FMultipleModifierHandle AddGenericResourceCostModifier(const TSubclassOf<UResource> ResourceClass, const FCombatModifier& Modifier);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
-	void RemoveGenericResourceCostModifier(const TSubclassOf<UResource> ResourceClass, const FMultipleModifierHandle& ModifierHandle);
-	void UpdateGenericResourceCostModifier(const TSubclassOf<UResource> ResourceClass, const FMultipleModifierHandle& ModifierHandle, const FCombatModifier& Modifier);
-	
+private:
+
+	TMap<FCombatModifierHandle, FResourceCostModMap> GenericResourceCostMods;
+	void ApplyGenericCostModsToNewAbility(UCombatAbility* NewAbility);
 };

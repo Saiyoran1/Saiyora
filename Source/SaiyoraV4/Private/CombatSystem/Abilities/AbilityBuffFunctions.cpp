@@ -223,7 +223,7 @@ void UAbilityCostModifierFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 		}
 		else
 		{
-			MultiHandle = TargetHandler->AddGenericResourceCostModifier(Resource, Mod);
+			Handle = TargetHandler->AddGenericResourceCostModifier(Resource, Mod);
 		}
 	}
 }
@@ -243,7 +243,7 @@ void UAbilityCostModifierFunction::OnStack(const FBuffApplyEvent& ApplyEvent)
 			}
 			else
 			{
-				TargetHandler->UpdateGenericResourceCostModifier(Resource, MultiHandle, Mod);
+				TargetHandler->UpdateGenericResourceCostModifier(Resource, Handle, Mod);
 			}
 		}
 	}
@@ -262,7 +262,7 @@ void UAbilityCostModifierFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 		}
 		else
 		{
-			TargetHandler->RemoveGenericResourceCostModifier(Resource, MultiHandle);
+			TargetHandler->RemoveGenericResourceCostModifier(Resource, Handle);
 		}
 	}
 }

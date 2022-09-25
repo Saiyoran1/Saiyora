@@ -245,7 +245,7 @@ public:
 
     UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
     FCombatModifierHandle AddChargesPerCooldownModifier(const FCombatModifier& Modifier);
-    UFUNCTION(BlueprintCallable, Category = "Abilities")
+    UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
     void RemoveChargesPerCooldownModifier(const FCombatModifierHandle& ModifierHandle);
     void UpdateChargesPerCooldownModifier(const FCombatModifierHandle& ModifierHandle, const FCombatModifier& NewModifier);
     
@@ -266,11 +266,11 @@ protected:
     bool bStaticCooldownLength = true;
     
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
-    FModifiableInt MaxCharges = FModifiableInt(1, true, true, 1);
+    FModifiableInt MaxCharges = FModifiableInt(1, true);
     UPROPERTY(EditDefaultsOnly, ReplicatedUsing=OnRep_ChargeCost, Category = "Cooldown")
-    FModifiableInt ChargeCost = FModifiableInt(1, true, true, 0);
-    UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
-    FModifiableInt ChargesPerCooldown = FModifiableInt(1, true, true, 0);
+    FModifiableInt ChargeCost = FModifiableInt(1, true);
+    UPROPERTY(EditDefaultsOnly, Replicated, Category = "Cooldown")
+    FModifiableInt ChargesPerCooldown = FModifiableInt(1, true);
     
 private:
 
