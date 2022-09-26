@@ -32,7 +32,7 @@ void UFireWeapon::OnPredictedTick_Implementation(const int32 TickNumber)
 {
 	Super::OnPredictedTick_Implementation(TickNumber);
 	ActivateCastRestriction(FSaiyoraCombatTags::Get().AbilityFireRateRestriction);
-	GetWorld()->GetTimerManager().SetTimer(FireDelayTimer, this, &UFireWeapon::EndFireDelay, GetHandler()->CalculateCooldownLength(this));
+	GetWorld()->GetTimerManager().SetTimer(FireDelayTimer, this, &UFireWeapon::EndFireDelay, GetHandler()->CalculateCooldownLength(this, true));
 	if (IsValid(Weapon))
 	{
 		Weapon->StartFiring();

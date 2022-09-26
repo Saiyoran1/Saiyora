@@ -75,24 +75,29 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Abilities", meta = (DefaultToSelf = "Ability", HidePin = "Ability"))
 	static APredictableProjectile* PredictProjectile(UCombatAbility* Ability, ASaiyoraPlayerCharacter* Shooter, const TSubclassOf<APredictableProjectile> ProjectileClass,
-		FAbilityOrigin& OutOrigin);
+		const ESaiyoraPlane ProjectilePlane, const EFaction ProjectileHostility, FAbilityOrigin& OutOrigin);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities", meta = (DefaultToSelf = "Ability", HidePin = "Ability"))
 	static APredictableProjectile* ValidateProjectile(UCombatAbility* Ability, ASaiyoraPlayerCharacter* Shooter, const TSubclassOf<APredictableProjectile> ProjectileClass,
-		const FAbilityOrigin& Origin);
+		const ESaiyoraPlane ProjectilePlane, const EFaction ProjectileHostility, const FAbilityOrigin& Origin);
 
 private:
 
-	static const float CAMTRACELENGTH;
-	static const float REWINDTRACERADIUS;
-	static const float AIMTOLERANCEDEGREES;
+	static constexpr float CamTraceLength = 10000.0f;
+	static constexpr float RewindTraceRadius = 300.0f;
+	static constexpr float AimToleranceDegrees = 15.0f;
+
+	static int32 ProjectileID;
+	static FPredictedTick ProjectileScope;
 
 //Helpers
 
 	static void GenerateOriginInfo(const ASaiyoraPlayerCharacter* Shooter, FAbilityOrigin& OutOrigin);
-	static void RewindRelevantHitboxes(const ASaiyoraPlayerCharacter* Shooter, const FAbilityOrigin& Origin, const TArray<AActor*>& Targets,
+	static void RewindRelevantHitboxesForShooter(const ASaiyoraPlayerCharacter* Shooter, const FAbilityOrigin& Origin, const TArray<AActor*>& Targets,
 		const TArray<AActor*>& ActorsToIgnore, TMap<UHitbox*, FTransform>& ReturnTransforms);
+	static void RewindHitboxesToTimestamp(const TArray<UHitbox*>& Hitboxes, const float Timestamp, TMap<UHitbox*, FTransform>& ReturnTransforms);
 	static void UnrewindHitboxes(const TMap<UHitbox*, FTransform>& ReturnTransforms);
 	static float GetCameraTraceMaxRange(const FVector& CameraLoc, const FVector& AimDir, const FVector& OriginLoc, const float TraceRange);
 	static FName GetRelevantTraceProfile(const ASaiyoraPlayerCharacter* Shooter, const bool bOverlap, const ESaiyoraPlane TracePlane, const EFaction TraceHostility);
 	static void GetRelevantHitboxObjectTypes(const ASaiyoraPlayerCharacter* Shooter, const EFaction TraceHostility, TArray<TEnumAsByte<EObjectTypeQuery>>& OutObjectTypes);
+	static void GetRelevantCollisionObjectTypes(const ESaiyoraPlane ProjectilePlane, TArray<TEnumAsByte<EObjectTypeQuery>>& OutObjectTypes);
 };

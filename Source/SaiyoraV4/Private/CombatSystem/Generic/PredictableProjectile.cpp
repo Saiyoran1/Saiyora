@@ -1,14 +1,10 @@
 ﻿#include "PredictableProjectile.h"
 #include "AbilityComponent.h"
 #include "CombatAbility.h"
-#include "CoreClasses/SaiyoraGameState.h"
+#include "SaiyoraCombatLibrary.h"
 #include "UnrealNetwork.h"
 #include "CoreClasses/SaiyoraPlayerCharacter.h"
 #include "GameFramework/ProjectileMovementComponent.h"
-#include "Kismet/GameplayStatics.h"
-
-int32 APredictableProjectile::ProjectileID = 0;
-FPredictedTick APredictableProjectile::PredictionScope = FPredictedTick();
 
 APredictableProjectile::APredictableProjectile(const class FObjectInitializer& ObjectInitializer)
 {
@@ -24,44 +20,70 @@ void APredictableProjectile::PostNetReceiveLocationAndRotation()
     Super::PostNetReceiveLocationAndRotation();
 }
 
-void APredictableProjectile::InitializeProjectile(UCombatAbility* Source)
+void APredictableProjectile::InitializeProjectile(UCombatAbility* Source, const FPredictedTick& Tick, const int32 ID,
+	const ESaiyoraPlane ProjectilePlane, const EFaction ProjectileHostility)
 {
 	if (!IsValid(Source))
 	{
 		return;
 	}
-	GameState = GetWorld()->GetGameState<ASaiyoraGameState>();
-	if (!IsValid(GameState))
-	{
-		return;
-	}
-	bIsFake = Source->GetHandler()->GetOwnerRole() == ROLE_Authority ? false : true;
+	bIsFake = GetOwner()->GetLocalRole() != ROLE_Authority;
 	SourceInfo.Owner = Cast<ASaiyoraPlayerCharacter>(GetOwner());
 	SourceInfo.SourceClass = Source->GetClass();
-	SourceInfo.SourceTick = FPredictedTick(Source->GetPredictionID(), Source->GetCurrentTick());
-	SourceInfo.ID = GenerateProjectileID(SourceInfo.SourceTick);
+	SourceInfo.SourceTick = Tick;
+	SourceInfo.ID = ID;
 	SourceInfo.SourceAbility = Source;
 	if (Source->GetHandler()->GetOwnerRole() == ROLE_AutonomousProxy)
 	{
 		Source->GetHandler()->OnAbilityMispredicted.AddDynamic(this, &APredictableProjectile::DeleteOnMisprediction);
-		GameState->RegisterClientProjectile(this);
+		SourceInfo.Owner->RegisterClientProjectile(this);
 	}
 	DestroyDelegate.BindUObject(this, &APredictableProjectile::DelayedDestroy);
-}
-
-int32 APredictableProjectile::GenerateProjectileID(FPredictedTick const& Scope)
-{
-	if (!(Scope == PredictionScope))
+	
+	TArray<UPrimitiveComponent*> Components;
+	GetComponents<UPrimitiveComponent>(Components);
+	for (UPrimitiveComponent* Comp : Components)
 	{
-		ProjectileID = 0;
-		PredictionScope = Scope;
+		if (Comp->GetCollisionObjectType() == FSaiyoraCollision::O_ProjectileHitbox)
+		{
+			switch (ProjectileHostility)
+			{
+			case EFaction::Friendly :
+				Comp->SetCollisionProfileName(FSaiyoraCollision::P_ProjectileHitboxPlayers);
+				break;
+			case EFaction::Enemy :
+				Comp->SetCollisionProfileName(FSaiyoraCollision::P_ProjectileHitboxNPCs);
+				break;
+			case EFaction::Neutral :
+				Comp->SetCollisionProfileName(FSaiyoraCollision::P_ProjectileHitboxAll);
+				break;
+			default :
+				Comp->SetCollisionProfileName(FSaiyoraCollision::P_NoCollision);
+				break;
+			}
+		}
+		else if (Comp->GetCollisionObjectType() == FSaiyoraCollision::O_ProjectileCollision)
+		{
+			switch (ProjectilePlane)
+			{
+			case ESaiyoraPlane::Ancient :
+				Comp->SetCollisionProfileName(FSaiyoraCollision::P_ProjectileCollisionAncient);
+				break;
+			case ESaiyoraPlane::Modern :
+				Comp->SetCollisionProfileName(FSaiyoraCollision::P_ProjectileCollisionModern);
+				break;
+			case ESaiyoraPlane::Both :
+				Comp->SetCollisionProfileName(FSaiyoraCollision::P_ProjectileCollisionAll);
+				break;
+			case ESaiyoraPlane::Neither :
+				Comp->SetCollisionProfileName(FSaiyoraCollision::P_NoCollision);
+				break;
+			default :
+				//TODO: A profile for projectiles that only hit non-plane geometry?
+				break;
+			}
+		}
 	}
-	ProjectileID++;
-	if (ProjectileID == 0)
-	{
-		ProjectileID++;
-	}
-	return ProjectileID;
 }
 
 void APredictableProjectile::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -75,12 +97,7 @@ void APredictableProjectile::OnRep_SourceInfo()
 {
 	if (IsValid(SourceInfo.Owner) && SourceInfo.Owner->IsLocallyControlled() && !bReplaced)
 	{
-		GameState = GetWorld()->GetGameState<ASaiyoraGameState>();
-		if (!IsValid(GameState))
-		{
-			return;
-		}
-		GameState->ReplaceProjectile(this);
+		SourceInfo.Owner->ReplaceProjectile(this);
 		bReplaced = true;
 	}
 }
@@ -162,7 +179,7 @@ void APredictableProjectile::HideProjectile()
 	for (UPrimitiveComponent* Comp : PrimitiveComponents)
 	{
 		Comp->SetVisibility(false, true);
-		Comp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Comp->SetCollisionProfileName(FSaiyoraCollision::P_NoCollision);
 	}
 }
 

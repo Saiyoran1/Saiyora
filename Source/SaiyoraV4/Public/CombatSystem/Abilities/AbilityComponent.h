@@ -308,12 +308,12 @@ private:
 
 public:
 
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void AddCooldownModifier(const FAbilityModCondition& Modifier) { CooldownMods.Add(Modifier); }
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void RemoveCooldownModifier(const FAbilityModCondition& Modifier) { CooldownMods.Remove(Modifier); }
-	UFUNCTION(BlueprintPure, BlueprintAuthorityOnly, Category = "Abilities")
-	float CalculateCooldownLength(UCombatAbility* Ability) const;
+	UFUNCTION(BlueprintPure, Category = "Abilities")
+	float CalculateCooldownLength(UCombatAbility* Ability, const bool bIgnoreGlobalMin = false) const;
 
 private:
 	

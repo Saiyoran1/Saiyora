@@ -10,8 +10,18 @@
 class ASaiyoraGameState;
 class ASaiyoraPlayerController;
 class UCombatAbility;
+class APredictableProjectile;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnMappingChanged, const ESaiyoraPlane, Plane, const int32, MappingID, UCombatAbility*, Ability);
+
+USTRUCT()
+struct FPredictedTickProjectiles
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	TMap<int32, APredictableProjectile*> Projectiles;
+};
 
 UCLASS()
 class SAIYORAV4_API ASaiyoraPlayerCharacter : public ACharacter, public ISaiyoraCombatInterface
@@ -120,4 +130,18 @@ private:
 	void HandleEndXPlaneOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
 	UPROPERTY()
 	TSet<UPrimitiveComponent*> XPlaneOverlaps;
+
+//Projectiles
+
+public:
+
+	void RegisterClientProjectile(APredictableProjectile* Projectile);
+	void ReplaceProjectile(APredictableProjectile* AuthProjectile);
+
+	UFUNCTION(Client, Reliable)
+	void ClientNotifyFailedProjectileSpawn(const FPredictedTick& Tick, const int32 ProjectileID);
+
+private:
+	
+	TMap<FPredictedTick, FPredictedTickProjectiles> PredictedProjectiles;
 };

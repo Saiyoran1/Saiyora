@@ -3,6 +3,7 @@
 #include "CrowdControlHandler.h"
 #include "DamageHandler.h"
 #include "CombatStatusComponent.h"
+#include "PredictableProjectile.h"
 #include "ResourceHandler.h"
 #include "SaiyoraMovementComponent.h"
 #include "CoreClasses/SaiyoraPlayerController.h"
@@ -374,3 +375,63 @@ void ASaiyoraPlayerCharacter::HandleEndXPlaneOverlap(UPrimitiveComponent* Overla
 		CombatStatusComponent->RemovePlaneSwapRestriction(GetCapsuleComponent());
 	}
 }
+
+#pragma region Projectiles
+
+void ASaiyoraPlayerCharacter::RegisterClientProjectile(APredictableProjectile* Projectile)
+{
+	if (GetLocalRole() != ROLE_AutonomousProxy || !IsValid(Projectile))
+	{
+		return;
+	}
+	FPredictedTickProjectiles* TickProjectiles = PredictedProjectiles.Find(Projectile->GetSourceInfo().SourceTick);
+	if (!TickProjectiles)
+	{
+		TickProjectiles = &PredictedProjectiles.Add(Projectile->GetSourceInfo().SourceTick, FPredictedTickProjectiles());
+	}
+	TickProjectiles->Projectiles.Add(Projectile->GetSourceInfo().ID, Projectile);
+}
+
+void ASaiyoraPlayerCharacter::ClientNotifyFailedProjectileSpawn_Implementation(const FPredictedTick& Tick,
+                                                                               const int32 ProjectileID)
+{
+	FPredictedTickProjectiles* Projectiles = PredictedProjectiles.Find(Tick);
+	if (Projectiles)
+	{
+		APredictableProjectile* Projectile = Projectiles->Projectiles.FindRef(ProjectileID);
+		if (IsValid(Projectile))
+		{
+			Projectile->Destroy();
+		}
+		Projectiles->Projectiles.Remove(ProjectileID);
+		if (Projectiles->Projectiles.Num() == 0)
+		{
+			PredictedProjectiles.Remove(Tick);
+		}
+	}
+}
+
+void ASaiyoraPlayerCharacter::ReplaceProjectile(APredictableProjectile* AuthProjectile)
+{
+	if (!IsValid(AuthProjectile) || AuthProjectile->IsFake())
+	{
+		return;
+	}
+	FPredictedTickProjectiles* TickProjectiles = PredictedProjectiles.Find(AuthProjectile->GetSourceInfo().SourceTick);
+	if (TickProjectiles)
+	{
+		APredictableProjectile* FakeProjectile = TickProjectiles->Projectiles.FindRef(AuthProjectile->GetSourceInfo().ID);
+		if (IsValid(FakeProjectile))
+		{
+			const bool bWasLocallyDestroyed = FakeProjectile->Replace();
+			AuthProjectile->UpdateLocallyDestroyed(bWasLocallyDestroyed);
+		}
+		TickProjectiles->Projectiles.Remove(AuthProjectile->GetSourceInfo().ID);
+		if (TickProjectiles->Projectiles.Num() == 0)
+		{
+			PredictedProjectiles.Remove(AuthProjectile->GetSourceInfo().SourceTick);
+		}
+	}
+}
+
+#pragma endregion 

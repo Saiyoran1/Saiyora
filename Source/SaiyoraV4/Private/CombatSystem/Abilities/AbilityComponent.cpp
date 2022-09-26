@@ -954,7 +954,7 @@ float UAbilityComponent::CalculateCastLength(UCombatAbility* Ability) const
 	return FMath::Max(MinCastLength, FCombatModifier::ApplyModifiers(Mods, Ability->GetDefaultCastLength()));
 }
 
-float UAbilityComponent::CalculateCooldownLength(UCombatAbility* Ability) const
+float UAbilityComponent::CalculateCooldownLength(UCombatAbility* Ability, const bool bIgnoreGlobalMin) const
 {
 	if (!IsValid(Ability))
 	{
@@ -970,7 +970,7 @@ float UAbilityComponent::CalculateCooldownLength(UCombatAbility* Ability) const
 	{
 		Mods.Add(FCombatModifier(StatHandlerRef->GetStatValue(FSaiyoraCombatTags::Get().Stat_CooldownLength), EModifierType::Multiplicative));
 	}
-	return FMath::Max(MinCooldownLength, FCombatModifier::ApplyModifiers(Mods, Ability->GetDefaultCooldownLength()));
+	return FMath::Max(bIgnoreGlobalMin ? 0.0f : MinCooldownLength, FCombatModifier::ApplyModifiers(Mods, Ability->GetDefaultCooldownLength()));
 }
 
 FCombatModifierHandle UAbilityComponent::AddGenericResourceCostModifier(const TSubclassOf<UResource> ResourceClass, const FCombatModifier& Modifier)

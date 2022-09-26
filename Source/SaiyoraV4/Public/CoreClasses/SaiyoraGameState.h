@@ -5,7 +5,6 @@
 #include "SaiyoraGameState.generated.h"
 
 class UHitbox;
-class APredictableProjectile;
 class ASaiyoraPlayerCharacter;
 
 USTRUCT()
@@ -34,7 +33,7 @@ private:
 
 	float WorldTime = 0.0f;
 
-	//Player Handling
+//Player Handling
 
 public:
 
@@ -49,22 +48,19 @@ private:
 	UPROPERTY()
 	TArray<ASaiyoraPlayerCharacter*> ActivePlayers;
 
-	//Rewinding
+//Rewinding
 
 public:
 
 	void RegisterNewHitbox(UHitbox* Hitbox);
-	void RegisterClientProjectile(APredictableProjectile* Projectile);
-	void ReplaceProjectile(APredictableProjectile* ServerProjectile);
-	FTransform RewindHitbox(UHitbox* Hitbox, const float Ping);
+	FTransform RewindHitbox(UHitbox* Hitbox, const float Timestamp);
 
 private:
 
-	static const float SNAPSHOTINTERVAL;
-	static const float MAXLAGCOMPENSATION;
+	static constexpr float SnapshotInterval = 0.03f;
+	static constexpr float MaxLagCompensation = 0.2f;
 	TMap<UHitbox*, FRewindRecord> Snapshots;
 	UFUNCTION()
 	void CreateSnapshot();
 	FTimerHandle SnapshotHandle;
-	TMultiMap<FPredictedTick, APredictableProjectile*> FakeProjectiles;
 };

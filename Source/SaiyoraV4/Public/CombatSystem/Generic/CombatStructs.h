@@ -16,6 +16,7 @@ struct SAIYORAV4_API FSaiyoraCollision
     static constexpr ECollisionChannel O_PlayerHitbox = ECC_GameTraceChannel10; 
     static constexpr ECollisionChannel O_NPCHitbox = ECC_GameTraceChannel11;
     static constexpr ECollisionChannel O_ProjectileHitbox = ECC_GameTraceChannel9;
+    static constexpr ECollisionChannel O_ProjectileCollision = ECC_GameTraceChannel2;
     static constexpr ECollisionChannel T_Combat = ECC_GameTraceChannel1;
 
     //Object Profiles

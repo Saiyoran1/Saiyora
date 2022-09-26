@@ -1,8 +1,6 @@
 ﻿#include "CoreClasses/SaiyoraGameState.h"
 #include "Hitbox.h"
-#include "PredictableProjectile.h"
 #include "SaiyoraPlayerCharacter.h"
-#include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
 
 ASaiyoraGameState::ASaiyoraGameState()
@@ -29,9 +27,6 @@ void ASaiyoraGameState::InitPlayer(ASaiyoraPlayerCharacter* Player)
 
 #pragma region Snapshotting
 
-float const ASaiyoraGameState::SNAPSHOTINTERVAL = .03f;
-float const ASaiyoraGameState::MAXLAGCOMPENSATION = .3f;
-
 void ASaiyoraGameState::RegisterNewHitbox(UHitbox* Hitbox)
 {
     if (Snapshots.Contains(Hitbox))
@@ -41,7 +36,7 @@ void ASaiyoraGameState::RegisterNewHitbox(UHitbox* Hitbox)
     Snapshots.Add(Hitbox);
     if (Snapshots.Num() == 1)
     {
-        GetWorld()->GetTimerManager().SetTimer(SnapshotHandle, this, &ASaiyoraGameState::CreateSnapshot, SNAPSHOTINTERVAL, true);
+        GetWorld()->GetTimerManager().SetTimer(SnapshotHandle, this, &ASaiyoraGameState::CreateSnapshot, SnapshotInterval, true);
     }
 }
 
@@ -56,7 +51,7 @@ void ASaiyoraGameState::CreateSnapshot()
             int32 LowestAcceptableIndex = -1;
             for (int i = 0; i < Snapshot.Value.Transforms.Num(); i++)
             {
-                if (Snapshot.Value.Transforms[i].Key < GetServerWorldTimeSeconds() - MAXLAGCOMPENSATION)
+                if (Snapshot.Value.Transforms[i].Key < GetServerWorldTimeSeconds() - MaxLagCompensation)
                 {
                     LowestAcceptableIndex = i;
                 }
@@ -73,17 +68,15 @@ void ASaiyoraGameState::CreateSnapshot()
     }
 }
 
-FTransform ASaiyoraGameState::RewindHitbox(UHitbox* Hitbox, const float Ping)
+FTransform ASaiyoraGameState::RewindHitbox(UHitbox* Hitbox, const float Timestamp)
 {
-    //Clamp rewinding between 0 (current time) and max lag compensation.
-    const float RewindTime = FMath::Clamp(Ping, 0.0f, MAXLAGCOMPENSATION);
+	const float RewindTimestamp = FMath::Clamp(Timestamp, GetServerWorldTimeSeconds() - MaxLagCompensation, GetServerWorldTimeSeconds());
     const FTransform OriginalTransform = Hitbox->GetComponentTransform();
     //Zero rewind time means just use the current transform.
-    if (RewindTime == 0.0f)
+    if (RewindTimestamp == GetServerWorldTimeSeconds())
     {
     	return OriginalTransform;
     }
-    const float Timestamp = GetServerWorldTimeSeconds() - RewindTime;
     FRewindRecord* Record = Snapshots.Find(Hitbox);
     //If this hitbox wasn't registered or hasn't had a snapshot yet, we won't rewind it.
     if (!Record)
@@ -98,7 +91,7 @@ FTransform ASaiyoraGameState::RewindHitbox(UHitbox* Hitbox, const float Ping)
     //Iterate trying to find the first record that comes AFTER the timestamp.
     for (int i = 0; i < Record->Transforms.Num(); i++)
     {
-    	if (Timestamp <= Record->Transforms[i].Key)
+    	if (RewindTimestamp <= Record->Transforms[i].Key)
     	{
     		AfterIndex = i;
     		break;
@@ -133,7 +126,7 @@ FTransform ASaiyoraGameState::RewindHitbox(UHitbox* Hitbox, const float Ping)
     }
     //Find out what fraction of the way from the before timestamp to the after timestamp our target timestamp is.
     const float SnapshotGap = AfterTimestamp - BeforeTimestamp;
-    const float SnapshotFraction = (Timestamp - BeforeTimestamp) / SnapshotGap;
+    const float SnapshotFraction = (RewindTimestamp - BeforeTimestamp) / SnapshotGap;
     //Interpolate location.
     const FVector LocDiff = AfterTransform.GetLocation() - BeforeTransform.GetLocation();
     const FVector InterpVector = LocDiff * SnapshotFraction;
@@ -147,38 +140,6 @@ FTransform ASaiyoraGameState::RewindHitbox(UHitbox* Hitbox, const float Ping)
     UKismetSystemLibrary::DrawDebugBox(Hitbox, Hitbox->GetComponentLocation(), Hitbox->Bounds.BoxExtent, FLinearColor::Blue, Hitbox->GetComponentRotation(), 5.0f, 2);
     UKismetSystemLibrary::DrawDebugBox(Hitbox, OriginalTransform.GetLocation(), Hitbox->Bounds.BoxExtent, FLinearColor::Green, OriginalTransform.Rotator(), 5.0f, 2);
     return OriginalTransform;
-}
-
-#pragma endregion
-#pragma region Projectile Management
-
-void ASaiyoraGameState::RegisterClientProjectile(APredictableProjectile* Projectile)
-{
-	if (!IsValid(Projectile) || Projectile->GetOwner()->GetLocalRole() != ROLE_AutonomousProxy || !Projectile->IsFake())
-	{
-		return;
-	}
-	FakeProjectiles.Add(Projectile->GetSourceInfo().SourceTick, Projectile);
-}
-
-void ASaiyoraGameState::ReplaceProjectile(APredictableProjectile* ServerProjectile)
-{
-	if (!IsValid(ServerProjectile) || ServerProjectile->IsFake())
-	{
-		return;
-	}
-	TArray<APredictableProjectile*> MatchingProjectiles;
-	FakeProjectiles.MultiFind(ServerProjectile->GetSourceInfo().SourceTick, MatchingProjectiles);
-	for (APredictableProjectile* Proj : MatchingProjectiles)
-	{
-		if (IsValid(Proj) && Proj->GetClass() == ServerProjectile->GetClass() && Proj->GetSourceInfo().ID == ServerProjectile->GetSourceInfo().ID)
-		{
-			bool const bLocallyDestroyed = Proj->Replace();
-			ServerProjectile->UpdateLocallyDestroyed(bLocallyDestroyed);
-			FakeProjectiles.RemoveSingle(ServerProjectile->GetSourceInfo().SourceTick, Proj);
-			return;
-		}
-	}
 }
 
 #pragma endregion
