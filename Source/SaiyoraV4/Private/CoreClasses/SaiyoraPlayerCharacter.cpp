@@ -3,6 +3,7 @@
 #include "CrowdControlHandler.h"
 #include "DamageHandler.h"
 #include "CombatStatusComponent.h"
+#include "Weapons/FireWeapon.h"
 #include "PredictableProjectile.h"
 #include "ResourceHandler.h"
 #include "SaiyoraMovementComponent.h"
@@ -12,9 +13,10 @@
 #include "Components/CapsuleComponent.h"
 #include "CoreClasses/SaiyoraGameState.h"
 #include "GameFramework/PlayerState.h"
+#include "Weapons/StopFiring.h"
+#include "Weapons/Weapon.h"
 
-const int32 ASaiyoraPlayerCharacter::MAXABILITYBINDS = 6;
-const float ASaiyoraPlayerCharacter::ABILITYQUEWINDOW = 0.2f;
+#pragma region Initialization
 
 ASaiyoraPlayerCharacter::ASaiyoraPlayerCharacter(const class FObjectInitializer& ObjectInitializer) :
 	Super(ObjectInitializer.SetDefaultSubobjectClass<USaiyoraMovementComponent>(ACharacter::CharacterMovementComponentName))
@@ -97,9 +99,12 @@ void ASaiyoraPlayerCharacter::InitializeCharacter()
 	bInitialized = true;
 }
 
+#pragma endregion
+#pragma region Ability Mappings
+
 void ASaiyoraPlayerCharacter::SetupAbilityMappings()
 {
-	for (int i = 0; i < MAXABILITYBINDS; i++)
+	for (int i = 0; i < MaxAbilityBinds; i++)
 	{
 		AncientAbilityMappings.Add(i, nullptr);
 		ModernAbilityMappings.Add(i, nullptr);
@@ -116,17 +121,21 @@ void ASaiyoraPlayerCharacter::SetupAbilityMappings()
 
 void ASaiyoraPlayerCharacter::AddAbilityMapping(UCombatAbility* NewAbility)
 {
-	if (NewAbility->HasTag(FSaiyoraCombatTags::Get().ReloadAbility) || NewAbility->HasTag(FSaiyoraCombatTags::Get().StopFireAbility))
-	{
-		return;
-	}
 	if (NewAbility->HasTag(FSaiyoraCombatTags::Get().FireWeaponAbility))
 	{
 		ModernAbilityMappings.Add(0, NewAbility);
+		FireWeaponAbility = Cast<UFireWeapon>(NewAbility);
 		OnMappingChanged.Broadcast(ESaiyoraPlane::Modern, 0, NewAbility);
-		return;
 	}
-	if (NewAbility->GetAbilityPlane() == ESaiyoraPlane::Ancient)
+	else if (NewAbility->HasTag(FSaiyoraCombatTags::Get().ReloadAbility))
+	{
+		ReloadAbility = NewAbility;
+	}
+	else if (NewAbility->HasTag(FSaiyoraCombatTags::Get().StopFireAbility))
+	{
+		StopFiringAbility = Cast<UStopFiring>(NewAbility);
+	}
+	else if (NewAbility->GetAbilityPlane() == ESaiyoraPlane::Ancient)
 	{
 		for (TTuple<int32, UCombatAbility*>& Mapping : AncientAbilityMappings)
 		{
@@ -184,6 +193,9 @@ void ASaiyoraPlayerCharacter::RemoveAbilityMapping(UCombatAbility* RemovedAbilit
 	}
 }
 
+#pragma endregion
+#pragma region Ability Input
+
 void ASaiyoraPlayerCharacter::AbilityInput(const int32 InputNum, const bool bPressed)
 {
 	if (!IsValid(AbilityComponent) || !IsValid(CombatStatusComponent))
@@ -197,6 +209,11 @@ void ASaiyoraPlayerCharacter::AbilityInput(const int32 InputNum, const bool bPre
 	}
 	if (bPressed)
 	{
+		//If we are firing and we press a new ability that isn't fire weapon, stop firing first.
+		if (AbilityToUse != FireWeaponAbility && IsValid(Weapon) && Weapon->IsFiring() && IsValid(StopFiringAbility))
+		{
+			AbilityComponent->UseAbility(StopFiringAbility->GetClass());
+		}
 		//Attempt to use the ability.
 		const FAbilityEvent InitialAttempt = AbilityComponent->UseAbility(AbilityToUse->GetClass());
 		if (InitialAttempt.ActionTaken == ECastAction::Fail && (InitialAttempt.FailReason == ECastFailReason::AlreadyCasting || InitialAttempt.FailReason == ECastFailReason::OnGlobalCooldown))
@@ -211,6 +228,18 @@ void ASaiyoraPlayerCharacter::AbilityInput(const int32 InputNum, const bool bPre
 				}
 			}
 		}
+		//If this was a failure to fire a weapon, stop firing and try to reload.
+		else if (AbilityToUse == FireWeaponAbility && InitialAttempt.ActionTaken == ECastAction::Fail)
+		{
+			if (IsValid(Weapon) && Weapon->IsFiring() && IsValid(StopFiringAbility))
+			{
+				AbilityComponent->UseAbility(StopFiringAbility->GetClass());
+			}
+			if (InitialAttempt.FailReason == ECastFailReason::CostsNotMet && IsValid(ReloadAbility))
+			{
+				AbilityComponent->UseAbility(ReloadAbility->GetClass());
+			}
+		}
 		if (AbilityToUse->IsAutomatic())
 		{
 			AutomaticInputAbility = AbilityToUse;
@@ -218,8 +247,12 @@ void ASaiyoraPlayerCharacter::AbilityInput(const int32 InputNum, const bool bPre
 	}
 	else
 	{
+		if (AbilityToUse == FireWeaponAbility && IsValid(Weapon) && Weapon->IsFiring() && IsValid(StopFiringAbility))
+		{
+			AbilityComponent->UseAbility(StopFiringAbility->GetClass());
+		}
 		//If the input we are releasing is for the current cast, that cast is cancellable on release, AND we aren't within the queue window, cancel our cast. (Within the queue window, we allow the cast to finish).
-		if (AbilityComponent->IsCasting() && AbilityComponent->GetCurrentCast() == AbilityToUse && AbilityComponent->GetCurrentCast()->WillCancelOnRelease() && (AbilityComponent->GetCastTimeRemaining() > ABILITYQUEWINDOW))
+		if (AbilityComponent->IsCasting() && AbilityComponent->GetCurrentCast() == AbilityToUse && AbilityComponent->GetCurrentCast()->WillCancelOnRelease() && (AbilityComponent->GetCastTimeRemaining() > AbilityQueueWindow))
 		{
 			AbilityComponent->CancelCurrentCast();
 		}
@@ -241,7 +274,18 @@ void ASaiyoraPlayerCharacter::Tick(float DeltaSeconds)
 	Super::Tick(DeltaSeconds);
 	if (IsLocallyControlled() && QueueStatus == EQueueStatus::Empty && IsValid(AutomaticInputAbility))
 	{
-		AbilityComponent->UseAbility(AutomaticInputAbility->GetClass());
+		const FAbilityEvent Event = AbilityComponent->UseAbility(AutomaticInputAbility->GetClass());
+		if (AutomaticInputAbility == FireWeaponAbility && Event.ActionTaken == ECastAction::Fail)
+		{
+			if (Event.FailReason != ECastFailReason::AbilityConditionsNotMet && IsValid(Weapon) && Weapon->IsFiring() && IsValid(StopFiringAbility))
+			{
+				AbilityComponent->UseAbility(StopFiringAbility->GetClass());
+			}
+			if (Event.FailReason == ECastFailReason::CostsNotMet && IsValid(ReloadAbility))
+			{
+				AbilityComponent->UseAbility(ReloadAbility->GetClass());
+			}
+		}
 	}
 }
 
@@ -258,7 +302,7 @@ bool ASaiyoraPlayerCharacter::TryQueueAbility(const TSubclassOf<UCombatAbility> 
 	}
 	const float GlobalTimeRemaining = AbilityComponent->GetGlobalCooldownTimeRemaining();
 	const float CastTimeRemaining = AbilityComponent->GetCastTimeRemaining();
-	if (GlobalTimeRemaining > ABILITYQUEWINDOW || CastTimeRemaining > ABILITYQUEWINDOW)
+	if (GlobalTimeRemaining > AbilityQueueWindow || CastTimeRemaining > AbilityQueueWindow)
 	{
 		return false;
 	}
@@ -275,7 +319,7 @@ bool ASaiyoraPlayerCharacter::TryQueueAbility(const TSubclassOf<UCombatAbility> 
 		QueueStatus = EQueueStatus::WaitForCast;
 	}
 	QueuedAbility = AbilityClass;
-	GetWorld()->GetTimerManager().SetTimer(QueueExpirationHandle, this, &ASaiyoraPlayerCharacter::ExpireQueue, ABILITYQUEWINDOW);
+	GetWorld()->GetTimerManager().SetTimer(QueueExpirationHandle, this, &ASaiyoraPlayerCharacter::ExpireQueue, AbilityQueueWindow);
 	return true;
 }
 
@@ -321,7 +365,18 @@ void ASaiyoraPlayerCharacter::UpdateQueueOnCastEnd(const FCastingState& OldState
 
 void ASaiyoraPlayerCharacter::UseAbilityFromQueue(const TSubclassOf<UCombatAbility> AbilityClass)
 {
-	AbilityComponent->UseAbility(AbilityClass);
+	const FAbilityEvent Event = AbilityComponent->UseAbility(AbilityClass);
+	if (AbilityClass == FireWeaponAbility->GetClass() && Event.ActionTaken == ECastAction::Fail)
+	{
+		if (IsValid(Weapon) && Weapon->IsFiring() && IsValid(StopFiringAbility))
+		{
+			AbilityComponent->UseAbility(StopFiringAbility->GetClass());
+		}
+		if (Event.FailReason == ECastFailReason::CostsNotMet && IsValid(ReloadAbility))
+		{
+			AbilityComponent->UseAbility(ReloadAbility->GetClass());
+		}
+	}
 }
 
 void ASaiyoraPlayerCharacter::ExpireQueue()
@@ -337,6 +392,9 @@ void ASaiyoraPlayerCharacter::ClearQueueAndAutoFireOnPlaneSwap(const ESaiyoraPla
 	AutomaticInputAbility = nullptr;
 	ExpireQueue();
 }
+
+#pragma endregion
+#pragma region Collision
 
 void ASaiyoraPlayerCharacter::HandleBeginXPlaneOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
 	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
@@ -376,6 +434,7 @@ void ASaiyoraPlayerCharacter::HandleEndXPlaneOverlap(UPrimitiveComponent* Overla
 	}
 }
 
+#pragma endregion 
 #pragma region Projectiles
 
 void ASaiyoraPlayerCharacter::RegisterClientProjectile(APredictableProjectile* Projectile)

@@ -1,18 +1,23 @@
-﻿#include "FireWeapon.h"
+﻿#include "Weapons/FireWeapon.h"
 #include "AbilityComponent.h"
 #include "AmmoResource.h"
 #include "CombatStatusComponent.h"
 #include "ResourceHandler.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraCombatLibrary.h"
+#include "SaiyoraPlayerCharacter.h"
 #include "UnrealNetwork.h"
-#include "Weapon.h"
+#include "Weapons/StopFiring.h"
+#include "Weapons/Weapon.h"
 
 UFireWeapon::UFireWeapon()
 {
 	Plane = ESaiyoraPlane::Modern;
 	bOnGlobalCooldown = false;
 	ChargeCost.SetDefaultValue(0);
+	ChargeCost.SetIsModifiable(false);
+	MaxCharges.SetDefaultValue(1);
+	MaxCharges.SetIsModifiable(false);
 	CastType = EAbilityCastType::Instant;
 	bAutomatic = true;
 }
@@ -35,7 +40,25 @@ void UFireWeapon::OnPredictedTick_Implementation(const int32 TickNumber)
 	GetWorld()->GetTimerManager().SetTimer(FireDelayTimer, this, &UFireWeapon::EndFireDelay, GetHandler()->CalculateCooldownLength(this, true));
 	if (IsValid(Weapon))
 	{
-		Weapon->StartFiring();
+		Weapon->FireWeapon();
+	}
+}
+
+void UFireWeapon::OnServerTick_Implementation(const int32 TickNumber)
+{
+	Super::OnServerTick_Implementation(TickNumber);
+	if (IsValid(Weapon))
+	{
+		Weapon->FireWeapon();
+	}
+}
+
+void UFireWeapon::OnSimulatedTick_Implementation(const int32 TickNumber)
+{
+	Super::OnSimulatedTick_Implementation(TickNumber);
+	if (IsValid(Weapon))
+	{
+		Weapon->FireWeapon();
 	}
 }
 
@@ -59,6 +82,11 @@ void UFireWeapon::PreInitializeAbility_Implementation()
 		if (IsValid(Weapon))
 		{
 			USaiyoraCombatLibrary::AttachCombatActorToComponent(Weapon, WeaponSocketComp, WeaponSocketName, EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, EAttachmentRule::SnapToTarget, false);
+			ASaiyoraPlayerCharacter* PlayerOwner = Cast<ASaiyoraPlayerCharacter>(GetHandler()->GetOwner());
+			if (IsValid(PlayerOwner))
+			{
+				PlayerOwner->SetWeapon(Weapon);
+			}
 		}
 	}
 	if (GetHandler()->GetOwnerRole() == ROLE_Authority)
@@ -82,9 +110,9 @@ void UFireWeapon::PreInitializeAbility_Implementation()
 		}
 		if (IsValid(ReloadAbilityClass))
 		{
-			ReloadAbility = GetHandler()->AddNewAbility(ReloadAbilityClass);
+			GetHandler()->AddNewAbility(ReloadAbilityClass);
 		}
-		//TODO: StopFiring ability, this might be able to be generic?
+		GetHandler()->AddNewAbility(UStopFiring::StaticClass());
 	}
 }
 

@@ -114,6 +114,7 @@ private:
 	static TMap<int32, UCombatStatusComponent*> StencilValues;
 	int32 StencilValue = 200;
 	bool bUseCustomDepth = false;
+	bool bUsingDefaultID = true;
 	
 	UFUNCTION()
 	void OnLocalPlayerPlaneSwap(const ESaiyoraPlane Previous, const ESaiyoraPlane New, UObject* Source) { UpdateOwnerCustomRendering(); }

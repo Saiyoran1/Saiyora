@@ -13,6 +13,12 @@ class SAIYORAV4_API AWeapon : public AActor
 public:
 
 	AWeapon();
+	void FireWeapon() { if (!bFiring) { bFiring = true; StartFiring(); } }
+	void StopFiringWeapon() { if (bFiring) { bFiring = false; StopFiring(); } }
+	bool IsFiring() const { return bFiring; }
+
+protected:
+	
 	UFUNCTION(BlueprintImplementableEvent)
 	void StartFiring();
 	UFUNCTION(BlueprintImplementableEvent)
@@ -22,5 +28,7 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Mesh")
 	UStaticMeshComponent* WeaponMesh;
+
+	bool bFiring = false;
 
 };

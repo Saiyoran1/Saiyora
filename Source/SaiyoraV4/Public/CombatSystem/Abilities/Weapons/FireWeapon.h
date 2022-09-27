@@ -3,6 +3,8 @@
 #include "CombatAbility.h"
 #include "FireWeapon.generated.h"
 
+class AWeapon;
+
 USTRUCT(BlueprintType)
 struct FAutoReloadState
 {
@@ -39,6 +41,8 @@ private:
 protected:
 
 	virtual void OnPredictedTick_Implementation(const int32 TickNumber) override;
+	virtual void OnServerTick_Implementation(const int32 TickNumber) override;
+	virtual void OnSimulatedTick_Implementation(const int32 TickNumber) override;
 
 //Ammo
 
@@ -66,8 +70,6 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
 	FResourceInitInfo AmmoInitInfo;
 	
-	UPROPERTY()
-	UCombatAbility* ReloadAbility;
 	UPROPERTY(Replicated)
 	FAutoReloadState AutoReloadState;
 	FTimerHandle AutoReloadHandle;
@@ -82,6 +84,11 @@ private:
 	UResource* AmmoResourceRef;
 	
 //Weapon
+	
+public:
+
+	UFUNCTION(BlueprintPure, Category = "Weapon")
+	AWeapon* GetWeapon() const { return Weapon; }
 
 protected:
 
@@ -90,7 +97,7 @@ protected:
 private:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
-	TSubclassOf<class AWeapon> WeaponClass;
+	TSubclassOf<AWeapon> WeaponClass;
 	
 	UPROPERTY()
 	AWeapon* Weapon = nullptr;

@@ -1,4 +1,4 @@
-#include "CombatSystem/Abilities/Weapon.h"
+#include "CombatSystem/Abilities/Weapons/Weapon.h"
 
 AWeapon::AWeapon()
 {

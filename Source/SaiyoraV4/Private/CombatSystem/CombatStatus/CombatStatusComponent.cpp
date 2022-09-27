@@ -26,30 +26,6 @@ void UCombatStatusComponent::InitializeComponent()
 {
 	PlaneStatus.CurrentPlane = DefaultPlane;
 	PlaneStatus.LastSwapSource = nullptr;
-	if (StencilValues.Num() == 0)
-	{
-		//This is the first CombatStatusComponent to initialize, fill out the RenderingIDs map.
-		for (int32 i = 1; i <= 49; i++)
-		{
-			StencilValues.Add(i, nullptr);
-		}
-		for (int32 i = 51; i <= 99; i++)
-		{
-			StencilValues.Add(i, nullptr);
-		}
-		for (int32 i = 101; i <= 149; i++)
-		{
-			StencilValues.Add(i, nullptr);
-		}
-		for (int32 i = 151; i <= 199; i++)
-		{
-			StencilValues.Add(i, nullptr);
-		}
-		for (int32 i = 201; i <= 255; i++)
-		{
-			StencilValues.Add(i, nullptr);
-		}
-	}
 }
 
 void UCombatStatusComponent::BeginPlay()
@@ -205,10 +181,12 @@ void UCombatStatusComponent::UpdateStencilValue()
 {
 	const int32 PreviousStencil = StencilValue;
 	const bool bPreviouslyUsingCustomDepth = bUseCustomDepth;
+	const bool bPreviouslyUsingDefaultID = bUsingDefaultID;
 	if (!IsValid(LocalPlayerStatusComponent) || LocalPlayerStatusComponent == this)
 	{
 		StencilValue = DefaultStencil;
 		bUseCustomDepth = false;
+		bUsingDefaultID = true;
 	}
 	else
 	{
@@ -243,23 +221,25 @@ void UCombatStatusComponent::UpdateStencilValue()
 			bool bFoundNewID = false;
 			for (int32 i = RangeStart; i <= RangeEnd; i++)
 			{
-				if (StencilValues.Contains(i) && StencilValues.FindRef(i) == nullptr)
+				if (!StencilValues.Contains(i))
 				{
 					StencilValues.Add(i, this);
 					StencilValue = i;
 					bFoundNewID = true;
+					bUsingDefaultID = false;
 					break;
 				}
 			}
 			if (!bFoundNewID)
 			{
 				StencilValue = DefaultID;
+				bUsingDefaultID = true;
 			}
 		}
 	}
-	if (PreviousStencil != StencilValue && bPreviouslyUsingCustomDepth && StencilValues.Contains(PreviousStencil))
+	if (PreviousStencil != StencilValue && bPreviouslyUsingCustomDepth && StencilValues.Contains(PreviousStencil) && !bPreviouslyUsingDefaultID)
 	{
-		StencilValues.Add(PreviousStencil, nullptr);
+		StencilValues.Remove(PreviousStencil);
 	}
 }
 
