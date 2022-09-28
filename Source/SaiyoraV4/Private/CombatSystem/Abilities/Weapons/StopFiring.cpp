@@ -45,6 +45,6 @@ void UStopFiring::StopFiringWeapon()
 {
 	if (IsValid(OwningPlayer) && IsValid(OwningPlayer->GetWeapon()))
 	{
-		OwningPlayer->GetWeapon()->StopFiringWeapon();
+		OwningPlayer->GetWeapon()->StopFiring();
 	}
 }

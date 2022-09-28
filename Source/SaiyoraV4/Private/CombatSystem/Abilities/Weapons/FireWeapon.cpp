@@ -85,6 +85,7 @@ void UFireWeapon::PreInitializeAbility_Implementation()
 			ASaiyoraPlayerCharacter* PlayerOwner = Cast<ASaiyoraPlayerCharacter>(GetHandler()->GetOwner());
 			if (IsValid(PlayerOwner))
 			{
+				Weapon->Initialize(PlayerOwner, this);
 				PlayerOwner->SetWeapon(Weapon);
 			}
 		}

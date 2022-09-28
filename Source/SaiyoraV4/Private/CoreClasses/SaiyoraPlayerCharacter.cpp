@@ -210,7 +210,7 @@ void ASaiyoraPlayerCharacter::AbilityInput(const int32 InputNum, const bool bPre
 	if (bPressed)
 	{
 		//If we are firing and we press a new ability that isn't fire weapon, stop firing first.
-		if (AbilityToUse != FireWeaponAbility && IsValid(Weapon) && Weapon->IsFiring() && IsValid(StopFiringAbility))
+		if (AbilityToUse != FireWeaponAbility && IsValid(Weapon) && Weapon->IsBurstFiring() && IsValid(StopFiringAbility))
 		{
 			AbilityComponent->UseAbility(StopFiringAbility->GetClass());
 		}
@@ -231,7 +231,7 @@ void ASaiyoraPlayerCharacter::AbilityInput(const int32 InputNum, const bool bPre
 		//If this was a failure to fire a weapon, stop firing and try to reload.
 		else if (AbilityToUse == FireWeaponAbility && InitialAttempt.ActionTaken == ECastAction::Fail)
 		{
-			if (IsValid(Weapon) && Weapon->IsFiring() && IsValid(StopFiringAbility))
+			if (IsValid(Weapon) && Weapon->IsBurstFiring() && IsValid(StopFiringAbility))
 			{
 				AbilityComponent->UseAbility(StopFiringAbility->GetClass());
 			}
@@ -247,7 +247,7 @@ void ASaiyoraPlayerCharacter::AbilityInput(const int32 InputNum, const bool bPre
 	}
 	else
 	{
-		if (AbilityToUse == FireWeaponAbility && IsValid(Weapon) && Weapon->IsFiring() && IsValid(StopFiringAbility))
+		if (AbilityToUse == FireWeaponAbility && IsValid(Weapon) && Weapon->IsBurstFiring() && IsValid(StopFiringAbility))
 		{
 			AbilityComponent->UseAbility(StopFiringAbility->GetClass());
 		}
@@ -277,7 +277,7 @@ void ASaiyoraPlayerCharacter::Tick(float DeltaSeconds)
 		const FAbilityEvent Event = AbilityComponent->UseAbility(AutomaticInputAbility->GetClass());
 		if (AutomaticInputAbility == FireWeaponAbility && Event.ActionTaken == ECastAction::Fail)
 		{
-			if (Event.FailReason != ECastFailReason::AbilityConditionsNotMet && IsValid(Weapon) && Weapon->IsFiring() && IsValid(StopFiringAbility))
+			if (Event.FailReason != ECastFailReason::AbilityConditionsNotMet && IsValid(Weapon) && Weapon->IsBurstFiring() && IsValid(StopFiringAbility))
 			{
 				AbilityComponent->UseAbility(StopFiringAbility->GetClass());
 			}
@@ -368,7 +368,7 @@ void ASaiyoraPlayerCharacter::UseAbilityFromQueue(const TSubclassOf<UCombatAbili
 	const FAbilityEvent Event = AbilityComponent->UseAbility(AbilityClass);
 	if (AbilityClass == FireWeaponAbility->GetClass() && Event.ActionTaken == ECastAction::Fail)
 	{
-		if (IsValid(Weapon) && Weapon->IsFiring() && IsValid(StopFiringAbility))
+		if (IsValid(Weapon) && Weapon->IsBurstFiring() && IsValid(StopFiringAbility))
 		{
 			AbilityComponent->UseAbility(StopFiringAbility->GetClass());
 		}

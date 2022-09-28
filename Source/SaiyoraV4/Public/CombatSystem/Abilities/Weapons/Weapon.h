@@ -4,6 +4,7 @@
 #include "Weapon.generated.h"
 
 class UFireWeapon;
+class ASaiyoraPlayerCharacter;
 
 UCLASS(Abstract, Blueprintable)
 class SAIYORAV4_API AWeapon : public AActor
@@ -13,22 +14,34 @@ class SAIYORAV4_API AWeapon : public AActor
 public:
 
 	AWeapon();
-	void FireWeapon() { if (!bFiring) { bFiring = true; StartFiring(); } }
-	void StopFiringWeapon() { if (bFiring) { bFiring = false; StopFiring(); } }
-	bool IsFiring() const { return bFiring; }
+	void Initialize(ASaiyoraPlayerCharacter* NewPlayerOwner, UFireWeapon* FireWeaponAbility) { PlayerOwnerRef = NewPlayerOwner; FireWeaponRef = FireWeaponAbility; }
+	void FireWeapon();
+	void StopFiring();
+
+	bool IsBurstFiring() const { return bBurstFiring; }
 
 protected:
 	
 	UFUNCTION(BlueprintImplementableEvent)
-	void StartFiring();
+	void FireEffect();
 	UFUNCTION(BlueprintImplementableEvent)
-	void StopFiring();
+	void StopFireEffect();
 
 private:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Mesh")
 	UStaticMeshComponent* WeaponMesh;
+	UPROPERTY(EditDefaultsOnly, Category = "Weapon")
+	bool bFireSingleShots = true;
 
-	bool bFiring = false;
+	bool bBurstFiring = false;
+	UPROPERTY()
+	ASaiyoraPlayerCharacter* PlayerOwnerRef;
+	UPROPERTY()
+	UFireWeapon* FireWeaponRef;
 
+	FTimerHandle RefireTimer;
+	float ThisBurstRefireDelay = -1.0f;
+	UFUNCTION()
+	void RefireWeapon();
 };
