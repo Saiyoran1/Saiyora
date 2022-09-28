@@ -13,6 +13,7 @@
 #include "Components/CapsuleComponent.h"
 #include "CoreClasses/SaiyoraGameState.h"
 #include "GameFramework/PlayerState.h"
+#include "Weapons/Reload.h"
 #include "Weapons/StopFiring.h"
 #include "Weapons/Weapon.h"
 
@@ -129,7 +130,7 @@ void ASaiyoraPlayerCharacter::AddAbilityMapping(UCombatAbility* NewAbility)
 	}
 	else if (NewAbility->HasTag(FSaiyoraCombatTags::Get().ReloadAbility))
 	{
-		ReloadAbility = NewAbility;
+		ReloadAbility = Cast<UReload>(NewAbility);
 	}
 	else if (NewAbility->HasTag(FSaiyoraCombatTags::Get().StopFireAbility))
 	{

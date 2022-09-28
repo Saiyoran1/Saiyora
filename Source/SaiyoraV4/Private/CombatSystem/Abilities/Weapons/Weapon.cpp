@@ -31,6 +31,7 @@ void AWeapon::FireWeapon()
 			//Start firing!
 			bBurstFiring = true;
 			FireEffect();
+			//Non-local players will re-fire regardless of receiving the next shot RPC to keep visuals consistent, until they are told to stop.
 			if (IsValid(PlayerOwnerRef) && !PlayerOwnerRef->IsLocallyControlled() && IsValid(FireWeaponRef))
 			{
 				ThisBurstRefireDelay = FireWeaponRef->GetHandler()->CalculateCooldownLength(FireWeaponRef, true);

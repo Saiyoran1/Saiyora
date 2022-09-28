@@ -14,6 +14,7 @@ class APredictableProjectile;
 class UFireWeapon;
 class UStopFiring;
 class AWeapon;
+class UReload;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnMappingChanged, const ESaiyoraPlane, Plane, const int32, MappingID, UCombatAbility*, Ability);
 
@@ -136,7 +137,7 @@ private:
 	UPROPERTY()
 	UStopFiring* StopFiringAbility;
 	UPROPERTY()
-	UCombatAbility* ReloadAbility;
+	UReload* ReloadAbility;
 
 //Ability Input
 
