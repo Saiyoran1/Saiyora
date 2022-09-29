@@ -10,9 +10,12 @@
 #include "CoreClasses/SaiyoraPlayerController.h"
 #include "StatHandler.h"
 #include "ThreatHandler.h"
+#include "UnrealNetwork.h"
 #include "Components/CapsuleComponent.h"
 #include "CoreClasses/SaiyoraGameState.h"
+#include "Engine/ActorChannel.h"
 #include "GameFramework/PlayerState.h"
+#include "Specialization/AncientSpecialization.h"
 #include "Weapons/Reload.h"
 #include "Weapons/StopFiring.h"
 #include "Weapons/Weapon.h"
@@ -70,6 +73,26 @@ void ASaiyoraPlayerCharacter::OnRep_PlayerState()
 	Super::OnRep_PlayerState();
 	//Initialize character called here with valid player state, on client.
 	InitializeCharacter();
+}
+
+void ASaiyoraPlayerCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(ASaiyoraPlayerCharacter, AncientSpec);
+}
+
+bool ASaiyoraPlayerCharacter::ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags)
+{
+	bool bWroteSomething = Super::ReplicateSubobjects(Channel, Bunch, RepFlags);
+	if (IsValid(AncientSpec))
+	{
+		bWroteSomething |= Channel->ReplicateSubobject(AncientSpec, *Bunch, *RepFlags);
+	}
+	if (IsValid(RecentlyUnlearnedAncientSpec))
+	{
+		bWroteSomething |= Channel->ReplicateSubobject(AncientSpec, *Bunch, *RepFlags);
+	}
+	return bWroteSomething;
 }
 
 void ASaiyoraPlayerCharacter::InitializeCharacter()
@@ -491,6 +514,49 @@ void ASaiyoraPlayerCharacter::ReplaceProjectile(APredictableProjectile* AuthProj
 		{
 			PredictedProjectiles.Remove(AuthProjectile->GetSourceInfo().SourceTick);
 		}
+	}
+}
+
+#pragma endregion 
+#pragma region Specialization
+
+void ASaiyoraPlayerCharacter::SetAncientSpecialization(const TSubclassOf<UAncientSpecialization> NewSpec)
+{
+	if (GetLocalRole() != ROLE_Authority)
+	{
+		return;
+	}
+	if (IsValid(AncientSpec))
+	{
+		if (AncientSpec->GetClass() == NewSpec)
+		{
+			return;
+		}
+		AncientSpec->UnlearnSpec();
+		RecentlyUnlearnedAncientSpec = AncientSpec;
+		FTimerHandle CleanupHandle;
+		GetWorld()->GetTimerManager().SetTimer(CleanupHandle, this, &ASaiyoraPlayerCharacter::CleanupOldAncientSpecialization, 1.0f);
+		AncientSpec = nullptr;
+	}
+	if (IsValid(NewSpec))
+	{
+		AncientSpec = NewObject<UAncientSpecialization>(this, NewSpec);
+		if (IsValid(AncientSpec))
+		{
+			AncientSpec->InitializeSpecialization(this);
+		}
+	}
+}
+
+void ASaiyoraPlayerCharacter::OnRep_AncientSpec(UAncientSpecialization* PreviousSpec)
+{
+	if (AncientSpec != PreviousSpec && IsValid(PreviousSpec))
+	{
+		PreviousSpec->UnlearnSpec();
+	}
+	if (IsValid(AncientSpec))
+	{
+		AncientSpec->InitializeSpecialization(this);
 	}
 }
 

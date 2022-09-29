@@ -15,6 +15,7 @@ class UFireWeapon;
 class UStopFiring;
 class AWeapon;
 class UReload;
+class UAncientSpecialization;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnMappingChanged, const ESaiyoraPlane, Plane, const int32, MappingID, UCombatAbility*, Ability);
 
@@ -43,6 +44,8 @@ public:
 	virtual void PossessedBy(AController* NewController) override;
 	virtual void OnRep_Controller() override;
 	virtual void OnRep_PlayerState() override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual bool ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags) override;
 
 	UFUNCTION(BlueprintPure)
 	ASaiyoraGameState* GetSaiyoraGameState() const { return GameStateRef; }
@@ -191,4 +194,22 @@ public:
 private:
 	
 	TMap<FPredictedTick, FPredictedTickProjectiles> PredictedProjectiles;
+
+//Specialization
+
+public:
+
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Specialization")
+	void SetAncientSpecialization(const TSubclassOf<UAncientSpecialization> NewSpec);
+
+private:
+
+	UPROPERTY(ReplicatedUsing = OnRep_AncientSpec)
+	UAncientSpecialization* AncientSpec;
+	UFUNCTION()
+	void OnRep_AncientSpec(UAncientSpecialization* PreviousSpec);
+	UPROPERTY()
+	UAncientSpecialization* RecentlyUnlearnedAncientSpec;
+	UFUNCTION()
+	void CleanupOldAncientSpecialization() { RecentlyUnlearnedAncientSpec = nullptr; }
 };
