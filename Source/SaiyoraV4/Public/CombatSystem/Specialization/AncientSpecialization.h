@@ -36,11 +36,18 @@ public:
 
 private:
 
-	UPROPERTY(EditDefaultsOnly, Replicated, Category = "Talents")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Specialization", meta = (AllowPrivateAccess = "true"))
+	FName SpecName;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Specialization", meta = (AllowPrivateAccess = "true"))
+	FText SpecDescription;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Specialization", meta = (AllowPrivateAccess = "true"))
+	UTexture2D* SpecImage;
+	
+	UPROPERTY(EditDefaultsOnly, Replicated, Category = "Specialization")
 	FAncientTalentSet Loadout;
-	UPROPERTY(EditDefaultsOnly, Category = "Resources")
+	UPROPERTY(EditDefaultsOnly, Category = "Specialization")
 	TSubclassOf<UResource> ResourceClass;
-	UPROPERTY(EditDefaultsOnly, Category = "Resources")
+	UPROPERTY(EditDefaultsOnly, Category = "Specialization")
 	FResourceInitInfo ResourceInitInfo;
 
 	UPROPERTY()
