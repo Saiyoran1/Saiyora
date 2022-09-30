@@ -20,10 +20,19 @@ public:
 	
 	void InitializeSpecialization(ASaiyoraPlayerCharacter* PlayerCharacter);
 	void UnlearnSpec();
-	void SelectTalent(const TSubclassOf<UCombatAbility> BaseAbility, const TSubclassOf<UAncientTalent> TalentSelection);
 
 	UPROPERTY(BlueprintAssignable)
 	FTalentChangeNotification OnTalentChanged;
+
+	UFUNCTION(BlueprintPure, Category = "Specialization")
+	ASaiyoraPlayerCharacter* GetOwningPlayer() const { return OwningPlayer; }
+	
+	UFUNCTION(BlueprintPure, Category = "Specialization")
+	void GetLoadout(TArray<FAncientTalentChoice>& OutLoadout) const { OutLoadout = Loadout.Items; }
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Specialization")
+	void SelectAncientTalent(const TSubclassOf<UCombatAbility> BaseAbility, const TSubclassOf<UAncientTalent> TalentSelection);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Specialization")
+	void ClearTalentSelection(const TSubclassOf<UCombatAbility> BaseAbility);
 
 private:
 

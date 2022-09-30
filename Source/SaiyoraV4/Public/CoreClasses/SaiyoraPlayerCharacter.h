@@ -16,6 +16,7 @@ class UStopFiring;
 class AWeapon;
 class UReload;
 class UAncientSpecialization;
+class UAncientTalent;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnMappingChanged, const ESaiyoraPlane, Plane, const int32, MappingID, UCombatAbility*, Ability);
 
@@ -199,6 +200,8 @@ private:
 
 public:
 
+	UFUNCTION(BlueprintPure, Category = "Specialization")
+	UAncientSpecialization* GetAncientSpecialization() const { return AncientSpec; }
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Specialization")
 	void SetAncientSpecialization(const TSubclassOf<UAncientSpecialization> NewSpec);
 

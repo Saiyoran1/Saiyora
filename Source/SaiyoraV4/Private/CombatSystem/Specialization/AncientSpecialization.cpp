@@ -110,10 +110,10 @@ void UAncientSpecialization::UnlearnSpec()
 	}
 }
 
-void UAncientSpecialization::SelectTalent(const TSubclassOf<UCombatAbility> BaseAbility,
+void UAncientSpecialization::SelectAncientTalent(const TSubclassOf<UCombatAbility> BaseAbility,
 	const TSubclassOf<UAncientTalent> TalentSelection)
 {
-	if (!IsValid(BaseAbility) || !IsValid(TalentSelection))
+	if (!GetOwningPlayer()->HasAuthority() || !IsValid(BaseAbility) || !IsValid(TalentSelection))
 	{
 		return;
 	}
@@ -137,6 +137,33 @@ void UAncientSpecialization::SelectTalent(const TSubclassOf<UCombatAbility> Base
 				}
 				Loadout.MarkItemDirty(TalentChoice);
 				OnTalentChanged.Broadcast(TalentChoice.BaseAbility, PreviousTalent, TalentChoice.CurrentSelection);
+			}
+			break;
+		}
+	}
+}
+
+void UAncientSpecialization::ClearTalentSelection(const TSubclassOf<UCombatAbility> BaseAbility)
+{
+	if (!OwningPlayer->HasAuthority() || !IsValid(BaseAbility))
+	{
+		return;
+	}
+	for (FAncientTalentChoice& TalentChoice : Loadout.Items)
+	{
+		if (TalentChoice.BaseAbility == BaseAbility)
+		{
+			if (IsValid(TalentChoice.CurrentSelection))
+			{
+				const TSubclassOf<UAncientTalent> PreviousTalent = TalentChoice.CurrentSelection;
+				if (IsValid(TalentChoice.ActiveTalent))
+				{
+					TalentChoice.ActiveTalent->UnselectTalent();
+				}
+				TalentChoice.ActiveTalent = nullptr;
+				TalentChoice.CurrentSelection = nullptr;
+				Loadout.MarkItemDirty(TalentChoice);
+				OnTalentChanged.Broadcast(BaseAbility, PreviousTalent, nullptr);
 			}
 			break;
 		}

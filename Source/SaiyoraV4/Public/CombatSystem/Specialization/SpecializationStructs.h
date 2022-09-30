@@ -17,7 +17,7 @@ struct FAncientTalentChoice : public FFastArraySerializerItem
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Specialization")
 	TSubclassOf<UCombatAbility> BaseAbility;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Specialization")
-	TSet<TSubclassOf<UAncientTalent>> Talents;
+	TArray<TSubclassOf<UAncientTalent>> Talents;
 	UPROPERTY(BlueprintReadOnly)
 	TSubclassOf<UAncientTalent> CurrentSelection = nullptr;
 	UPROPERTY(NotReplicated)
