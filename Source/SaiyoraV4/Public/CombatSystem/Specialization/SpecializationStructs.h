@@ -49,4 +49,5 @@ struct TStructOpsTypeTraits<FAncientTalentSet> : public TStructOpsTypeTraitsBase
 	};
 };
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FAncientSpecChangeNotification, UAncientSpecialization*, PreviousSpec, UAncientSpecialization*, NewSpec);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FTalentChangeNotification, TSubclassOf<UCombatAbility>, BaseAbility, TSubclassOf<UAncientTalent>, PreviousTalent, TSubclassOf<UAncientTalent>, NewTalent);

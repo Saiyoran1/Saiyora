@@ -526,6 +526,7 @@ void ASaiyoraPlayerCharacter::SetAncientSpecialization(const TSubclassOf<UAncien
 	{
 		return;
 	}
+	UAncientSpecialization* PreviousSpec = AncientSpec;
 	if (IsValid(AncientSpec))
 	{
 		if (AncientSpec->GetClass() == NewSpec)
@@ -546,6 +547,7 @@ void ASaiyoraPlayerCharacter::SetAncientSpecialization(const TSubclassOf<UAncien
 			AncientSpec->InitializeSpecialization(this);
 		}
 	}
+	OnAncientSpecChanged.Broadcast(PreviousSpec, AncientSpec);
 }
 
 void ASaiyoraPlayerCharacter::OnRep_AncientSpec(UAncientSpecialization* PreviousSpec)
@@ -558,6 +560,7 @@ void ASaiyoraPlayerCharacter::OnRep_AncientSpec(UAncientSpecialization* Previous
 	{
 		AncientSpec->InitializeSpecialization(this);
 	}
+	OnAncientSpecChanged.Broadcast(PreviousSpec, AncientSpec);
 }
 
 #pragma endregion 

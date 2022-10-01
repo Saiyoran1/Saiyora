@@ -4,6 +4,7 @@
 #include "AbilityStructs.h"
 #include "CombatEnums.h"
 #include "SaiyoraCombatInterface.h"
+#include "SpecializationStructs.h"
 #include "GameFramework/Character.h"
 #include "SaiyoraPlayerCharacter.generated.h"
 
@@ -204,6 +205,9 @@ public:
 	UAncientSpecialization* GetAncientSpecialization() const { return AncientSpec; }
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Specialization")
 	void SetAncientSpecialization(const TSubclassOf<UAncientSpecialization> NewSpec);
+
+	UPROPERTY(BlueprintAssignable)
+	FAncientSpecChangeNotification OnAncientSpecChanged;
 
 private:
 

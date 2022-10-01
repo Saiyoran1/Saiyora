@@ -78,15 +78,15 @@ public:
     
 protected:
     
-    UPROPERTY(EditDefaultsOnly, Category = "Info")
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Info", meta = (AllowPrivateAccess = "true"))
     FName Name;
-    UPROPERTY(EditDefaultsOnly, Category = "Info")
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Info", meta = (AllowPrivateAccess = "true"))
     FText Description;
-    UPROPERTY(EditDefaultsOnly, Category = "Info")
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Info", meta = (AllowPrivateAccess = "true"))
     UTexture2D* Icon;
-    UPROPERTY(EditDefaultsOnly, Category = "Info")
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Info", meta = (AllowPrivateAccess = "true"))
     EHealthEventSchool School;
-    UPROPERTY(EditDefaultsOnly, Category = "Info")
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Info", meta = (AllowPrivateAccess = "true"))
     ESaiyoraPlane Plane;
     UPROPERTY(EditDefaultsOnly, Category = "Info")
     FGameplayTagContainer AbilityTags;
