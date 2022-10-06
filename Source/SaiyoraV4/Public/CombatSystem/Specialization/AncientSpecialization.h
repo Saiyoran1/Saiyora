@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "CoreMinimal.h"
+#include "DamageEnums.h"
 #include "Object.h"
 #include "ResourceStructs.h"
 #include "SpecializationStructs.h"
@@ -42,6 +43,8 @@ private:
 	FText SpecDescription;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Specialization", meta = (AllowPrivateAccess = "true"))
 	UTexture2D* SpecImage;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Specialization", meta = (AllowPrivateAccess = "true"))
+	EHealthEventSchool SpecSchool;
 	
 	UPROPERTY(EditDefaultsOnly, Replicated, Category = "Specialization")
 	FAncientTalentSet Loadout;

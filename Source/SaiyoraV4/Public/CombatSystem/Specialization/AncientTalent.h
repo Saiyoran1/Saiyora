@@ -28,6 +28,15 @@ protected:
 
 private:
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Specialization", meta = (AllowPrivateAccess = "true"))
+	FName TalentName;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Specialization", meta = (AllowPrivateAccess = "true"))
+	FText TalentDescription;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Specialization", meta = (AllowPrivateAccess = "true"))
+	UTexture2D* TalentIcon;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Specialization", meta = (AllowPrivateAccess = "true"))
+	EHealthEventSchool TalentSchool;
+	
 	UPROPERTY()
 	UAncientSpecialization* OwningSpec;
 };

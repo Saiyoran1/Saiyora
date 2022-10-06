@@ -113,8 +113,6 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Abilities")
 	void GetAbilityMappings(TMap<int32, UCombatAbility*>& AncientMappings, TMap<int32, UCombatAbility*>& ModernMappings) const { AncientMappings = AncientAbilityMappings; ModernMappings = ModernAbilityMappings; }
 
-
-
 private:
 	
 	static constexpr int32 MaxAbilityBinds = 6;
