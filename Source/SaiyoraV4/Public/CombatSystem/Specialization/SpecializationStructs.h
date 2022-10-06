@@ -24,14 +24,14 @@ struct FAncientTalentChoice : public FFastArraySerializerItem
 	UAncientTalent* ActiveTalent = nullptr;
 };
 
-USTRUCT()
+USTRUCT(BlueprintType)
 struct FAncientTalentSet : public FFastArraySerializer
 {
 	GENERATED_BODY()
 
 	UPROPERTY(NotReplicated)
 	UAncientSpecialization* OwningSpecialization = nullptr;
-	UPROPERTY(EditDefaultsOnly, meta = (DisplayName = "Talents"))
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, meta = (DisplayName = "Talents"))
 	TArray<FAncientTalentChoice> Items;
 
 	bool NetDeltaSerialize(FNetDeltaSerializeInfo& DeltaParms)

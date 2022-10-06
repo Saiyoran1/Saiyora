@@ -35,7 +35,7 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Specialization")
 	void ClearTalentSelection(const TSubclassOf<UCombatAbility> BaseAbility);
 
-private:
+protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Specialization", meta = (AllowPrivateAccess = "true"))
 	FName SpecName;
@@ -46,12 +46,14 @@ private:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Specialization", meta = (AllowPrivateAccess = "true"))
 	EHealthEventSchool SpecSchool;
 	
-	UPROPERTY(EditDefaultsOnly, Replicated, Category = "Specialization")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Replicated, Category = "Specialization", meta = (AllowPrivateAccess = "true"))
 	FAncientTalentSet Loadout;
 	UPROPERTY(EditDefaultsOnly, Category = "Specialization")
 	TSubclassOf<UResource> ResourceClass;
 	UPROPERTY(EditDefaultsOnly, Category = "Specialization")
 	FResourceInitInfo ResourceInitInfo;
+
+private:
 
 	UPROPERTY()
 	ASaiyoraPlayerCharacter* OwningPlayer;
