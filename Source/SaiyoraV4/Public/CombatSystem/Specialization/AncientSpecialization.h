@@ -53,6 +53,13 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Specialization")
 	FResourceInitInfo ResourceInitInfo;
 
+	UFUNCTION(BlueprintNativeEvent)
+	void OnLearn();
+	void OnLearn_Implementation() {}
+	UFUNCTION(BlueprintNativeEvent)
+	void OnUnlearn();
+	void OnUnlearn_Implementation() {}
+
 private:
 
 	UPROPERTY()

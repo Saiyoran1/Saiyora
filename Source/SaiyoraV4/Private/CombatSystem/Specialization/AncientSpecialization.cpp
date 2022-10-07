@@ -72,11 +72,11 @@ void UAncientSpecialization::InitializeSpecialization(ASaiyoraPlayerCharacter* P
 		}
 	}
 	bInitialized = true;
+	OnLearn();
 }
 
 void UAncientSpecialization::UnlearnSpec()
 {
-	//TODO: Unlearn talents, then remove abilities and resource.
 	for (FAncientTalentChoice& TalentChoice : Loadout.Items)
 	{
 		if (IsValid(TalentChoice.ActiveTalent))
@@ -108,6 +108,7 @@ void UAncientSpecialization::UnlearnSpec()
 			}
 		}
 	}
+	OnUnlearn();
 }
 
 void UAncientSpecialization::SelectAncientTalent(const TSubclassOf<UCombatAbility> BaseAbility,
