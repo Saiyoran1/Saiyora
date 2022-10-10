@@ -7,6 +7,17 @@ class UAncientTalent;
 class UAncientSpecialization;
 
 USTRUCT(BlueprintType)
+struct FAncientTalentSelection
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadWrite)
+	TSubclassOf<UCombatAbility> BaseAbility;
+	UPROPERTY(BlueprintReadWrite)
+	TSubclassOf<UAncientTalent> Selection;
+};
+
+USTRUCT(BlueprintType)
 struct FAncientTalentChoice : public FFastArraySerializerItem
 {
 	GENERATED_BODY()
