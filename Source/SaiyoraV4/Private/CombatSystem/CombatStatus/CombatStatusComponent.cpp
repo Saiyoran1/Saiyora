@@ -20,6 +20,7 @@ void UCombatStatusComponent::GetLifetimeReplicatedProps(::TArray<FLifetimeProper
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(UCombatStatusComponent, PlaneStatus);
+	DOREPLIFETIME_CONDITION(UCombatStatusComponent, bPlaneSwapRestricted, COND_OwnerOnly);
 }
 
 void UCombatStatusComponent::InitializeComponent()
