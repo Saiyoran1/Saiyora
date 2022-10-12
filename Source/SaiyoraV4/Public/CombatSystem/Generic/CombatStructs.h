@@ -385,7 +385,14 @@ public:
     void SetMinClamp(const bool bClamp, const float NewClamp) { bClampMin = bClamp; MinClamp = bClampMin ? NewClamp : 0.0f; Recalculate(); }
     void SetMaxClamp(const bool bClamp, const float NewClamp) { bClampMax = bClamp; MaxClamp = bClampMax ? NewClamp : 0.0f; Recalculate(); }
 
-    FModifiableFloat() {}
+    FModifiableFloat() { Recalculate(); }
+    //This constructor gets called when making the in-game struct from the editor struct I think.
+    //This allows a recalculation to happen immediately, instead of needing to manually initialize the struct.
+    FModifiableFloat(const FModifiableFloat& Other)
+    {
+        *this = Other;
+        Recalculate();
+    }
     FModifiableFloat(const float Default, const bool bModifiable, const bool bClampLow = false, const float LowClamp = 0.0f, const bool bClampHigh = false, const float HighClamp = 0.0f)
     {
         DefaultValue = Default;
@@ -404,10 +411,14 @@ private:
     UPROPERTY(EditDefaultsOnly, NotReplicated)
     bool bIsModifiable = true;
 
+    UPROPERTY(EditDefaultsOnly, NotReplicated)
     bool bClampMin = false;
+    UPROPERTY(EditDefaultsOnly, NotReplicated)
     float MinClamp = 0;
 
+    UPROPERTY(EditDefaultsOnly, NotReplicated)
     bool bClampMax = false;
+    UPROPERTY(EditDefaultsOnly, NotReplicated)
     float MaxClamp = 0;
 
     void Recalculate();
@@ -441,7 +452,14 @@ public:
     void SetMinClamp(const bool bClamp, const int32 NewClamp) { bClampMin = bClamp; MinClamp = bClampMin ? NewClamp : 0; Recalculate(); }
     void SetMaxClamp(const bool bClamp, const int32 NewClamp) { bClampMax = bClamp; MaxClamp = bClampMax ? NewClamp : 0; Recalculate(); }
 
-    FModifiableInt() {}
+    FModifiableInt() { Recalculate(); }
+    //This constructor gets called when making the in-game struct from the editor struct I think.
+    //This allows a recalculation to happen immediately, instead of needing to manually initialize the struct.
+    FModifiableInt(const FModifiableInt& Other)
+    {
+        *this = Other;
+        Recalculate();
+    }
     FModifiableInt(const int32 Default, const bool bModifiable, const bool bClampLow = false, const int32 LowClamp = 0, const bool bClampHigh = false, const int32 HighClamp = 0)
     {
         DefaultValue = Default;

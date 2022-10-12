@@ -15,6 +15,7 @@ public:
 	UStatHandler();
 	virtual void InitializeComponent() override;
 	virtual void GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 
 //Stats
 
@@ -38,7 +39,9 @@ public:
 	void UpdateStatModifier(const FGameplayTag StatTag, const FCombatModifierHandle& ModifierHandle, const FCombatModifier& Modifier);
 	
 private:
-	
+
+	UPROPERTY(EditAnywhere, Category = "Stats")
+	UDataTable* StatTemplate;
 	UPROPERTY(EditAnywhere, Replicated, Category = "Stats")
 	FCombatStatArray Stats;
 };

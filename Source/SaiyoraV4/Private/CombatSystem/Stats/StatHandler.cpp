@@ -26,8 +26,6 @@ void UStatHandler::InitializeComponent()
 			Stat.OnStatChanged.Broadcast(Stat.StatTag, NewValue);
 		});
 		Stat.StatValue.SetUpdatedCallback(Callback);
-		Stat.StatValue.SetMinClamp(true, Stat.bUseCustomMin ? FMath::Max(0.0f, Stat.CustomMin) : 0.0f);
-		Stat.StatValue.SetMaxClamp(Stat.bUseCustomMax, FMath::Max(0.0f, Stat.CustomMax));
 		Stats.MarkItemDirty(Stat);
 	}
 }
@@ -36,6 +34,28 @@ void UStatHandler::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLi
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(UStatHandler, Stats);
+}
+
+void UStatHandler::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	const FName PropertyName = PropertyChangedEvent.GetPropertyName();
+	if (PropertyName == GET_MEMBER_NAME_CHECKED(UStatHandler, StatTemplate))
+	{
+		Stats.Items.Empty();
+		if (IsValid(StatTemplate))
+		{
+			TArray<FStatInitInfo*> StatInitInfo;
+			StatTemplate->GetAllRows(TEXT("Stat Init Info"), StatInitInfo);
+			for (const FStatInitInfo* InitInfo : StatInitInfo)
+			{
+				if (InitInfo)
+				{
+					Stats.Items.Add(FCombatStat(InitInfo));
+				}
+			}
+		}
+	}
+	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
 
 #pragma endregion

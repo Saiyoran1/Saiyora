@@ -111,7 +111,7 @@ void FModifiableFloat::UpdateModifier(const FCombatModifierHandle& ModifierHandl
         return;
     }
     const FCombatModifier* FoundMod = Modifiers.Find(ModifierHandle);
-    if (!FoundMod || *FoundMod == NewModifier)
+    if (!FoundMod)
     {
         return;
     }
@@ -144,6 +144,14 @@ void FModifiableFloat::Recalculate()
     else
     {
         CurrentValue = DefaultValue;
+    }
+    if (bClampMin)
+    {
+        CurrentValue = FMath::Max(CurrentValue, MinClamp);
+    }
+    if (bClampMax)
+    {
+        CurrentValue = FMath::Min(CurrentValue, MaxClamp);
     }
     if (PreviousValue != CurrentValue && OnUpdated.IsBound())
     {
@@ -217,7 +225,14 @@ void FModifiableInt::Recalculate()
     {
         CurrentValue = DefaultValue;
     }
-    CurrentValue = FMath::Clamp(CurrentValue, bClampMin ? MinClamp : CurrentValue, bClampMax ? MaxClamp : CurrentValue);
+    if (bClampMin)
+    {
+        CurrentValue = FMath::Max(CurrentValue, MinClamp);
+    }
+    if (bClampMax)
+    {
+        CurrentValue = FMath::Min(CurrentValue, MaxClamp);
+    }
     if (PreviousValue != CurrentValue && OnUpdated.IsBound())
     {
         OnUpdated.Execute(PreviousValue, CurrentValue);
