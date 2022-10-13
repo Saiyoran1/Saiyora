@@ -39,20 +39,17 @@ void UDamageHandler::BeginPlay()
 	{
 		//Set respawn point to initial actor location on BeginPlay.
 		UpdateRespawnPoint(GetOwner()->GetActorLocation());
-	}
-	if (IsValid(StatHandlerRef))
-	{
-		if (bHasHealth && !bStaticMaxHealth && StatHandlerRef->IsStatValid(FSaiyoraCombatTags::Get().Stat_MaxHealth))
+		if (IsValid(StatHandlerRef))
 		{
-			UpdateMaxHealth(StatHandlerRef->GetStatValue(FSaiyoraCombatTags::Get().Stat_MaxHealth));
-			if (GetOwnerRole() == ROLE_Authority)
+			if (bHasHealth && !bStaticMaxHealth && StatHandlerRef->IsStatValid(FSaiyoraCombatTags::Get().Stat_MaxHealth))
 			{
+				UpdateMaxHealth(StatHandlerRef->GetStatValue(FSaiyoraCombatTags::Get().Stat_MaxHealth));
 				StatHandlerRef->SubscribeToStatChanged(FSaiyoraCombatTags::Get().Stat_MaxHealth, MaxHealthStatCallback);
 			}
 		}
+		LifeStatus = ELifeStatus::Alive;
+		OnLifeStatusChanged.Broadcast(GetOwner(), ELifeStatus::Invalid, LifeStatus);
 	}
-	LifeStatus = ELifeStatus::Alive;
-	OnLifeStatusChanged.Broadcast(GetOwner(), ELifeStatus::Invalid, LifeStatus);
 }
 
 void UDamageHandler::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const
