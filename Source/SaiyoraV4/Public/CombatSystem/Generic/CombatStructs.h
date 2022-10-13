@@ -10,7 +10,6 @@ class UBuff;
 struct SAIYORAV4_API FSaiyoraCollision
 {
     //Object and Trace Channels
-    
     static constexpr ECollisionChannel O_WorldAncient = ECC_GameTraceChannel12; 
     static constexpr ECollisionChannel O_WorldModern = ECC_GameTraceChannel13;
     static constexpr ECollisionChannel O_PlayerHitbox = ECC_GameTraceChannel10; 

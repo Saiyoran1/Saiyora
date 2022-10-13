@@ -39,18 +39,20 @@ void UDamageHandler::BeginPlay()
 	{
 		//Set respawn point to initial actor location on BeginPlay.
 		UpdateRespawnPoint(GetOwner()->GetActorLocation());
-		//Bind Max Health stat, create damage and healing modifiers from stats.
-		if (IsValid(StatHandlerRef))
+	}
+	if (IsValid(StatHandlerRef))
+	{
+		if (bHasHealth && !bStaticMaxHealth && StatHandlerRef->IsStatValid(FSaiyoraCombatTags::Get().Stat_MaxHealth))
 		{
-			if (bHasHealth && !bStaticMaxHealth && StatHandlerRef->IsStatValid(FSaiyoraCombatTags::Get().Stat_MaxHealth))
+			UpdateMaxHealth(StatHandlerRef->GetStatValue(FSaiyoraCombatTags::Get().Stat_MaxHealth));
+			if (GetOwnerRole() == ROLE_Authority)
 			{
-				UpdateMaxHealth(StatHandlerRef->GetStatValue(FSaiyoraCombatTags::Get().Stat_MaxHealth));
 				StatHandlerRef->SubscribeToStatChanged(FSaiyoraCombatTags::Get().Stat_MaxHealth, MaxHealthStatCallback);
 			}
 		}
-		LifeStatus = ELifeStatus::Alive;
-		OnLifeStatusChanged.Broadcast(GetOwner(), ELifeStatus::Invalid, LifeStatus);
 	}
+	LifeStatus = ELifeStatus::Alive;
+	OnLifeStatusChanged.Broadcast(GetOwner(), ELifeStatus::Invalid, LifeStatus);
 }
 
 void UDamageHandler::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -77,7 +79,7 @@ void UDamageHandler::UpdateMaxHealth(const float NewMaxHealth)
 	if (MaxHealth != PreviousMaxHealth)
 	{
 		const float PreviousHealth = CurrentHealth;
-		CurrentHealth = FMath::Clamp((CurrentHealth / PreviousMaxHealth) * MaxHealth, 0.0f, MaxHealth);
+		CurrentHealth = FMath::Clamp((CurrentHealth / PreviousMaxHealth) * MaxHealth, 1.0f, MaxHealth);
 		if (CurrentHealth != PreviousHealth)
 		{
 			OnHealthChanged.Broadcast(GetOwner(), PreviousHealth, CurrentHealth);

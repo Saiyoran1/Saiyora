@@ -40,16 +40,6 @@ struct FCombatStat : public FFastArraySerializerItem
     FGameplayTag StatTag;
     UPROPERTY(EditAnywhere)
     FModifiableFloat StatValue;
-    /*UPROPERTY(EditAnywhere, NotReplicated)
-    bool bModifiable = true;
-    UPROPERTY(EditAnywhere, NotReplicated)
-    bool bUseCustomMin = false;
-    UPROPERTY(EditAnywhere, NotReplicated, meta = (ClampMin = "0"))
-    float CustomMin = 0.0f;
-    UPROPERTY(EditAnywhere, NotReplicated)
-    bool bUseCustomMax = false;
-    UPROPERTY(EditAnywhere, NotReplicated, meta = (ClampMin = "0"))
-    float CustomMax = 0.0f;*/
     
     FStatNotification OnStatChanged;
     bool bInitialized = false;
