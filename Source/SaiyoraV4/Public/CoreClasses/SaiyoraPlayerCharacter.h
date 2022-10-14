@@ -207,6 +207,14 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FAncientSpecChangeNotification OnAncientSpecChanged;
 
+	UFUNCTION(BlueprintPure, Category = "Specialization")
+	UModernSpecialization* GetModernSpecialization() const { return ModernSpec; }
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Specialization")
+	void SetModernSpecialization(const TSubclassOf<UModernSpecialization> NewSpec);
+
+	UPROPERTY(BlueprintAssignable)
+	FModernSpecChangeNotification OnModernSpecChanged;
+
 private:
 
 	UPROPERTY(ReplicatedUsing = OnRep_AncientSpec)
@@ -217,4 +225,13 @@ private:
 	UAncientSpecialization* RecentlyUnlearnedAncientSpec;
 	UFUNCTION()
 	void CleanupOldAncientSpecialization() { RecentlyUnlearnedAncientSpec = nullptr; }
+
+	UPROPERTY(ReplicatedUsing = OnRep_ModernSpec)
+	UModernSpecialization* ModernSpec;
+	UFUNCTION()
+	void OnRep_ModernSpec(UModernSpecialization* PreviousSpec);
+	UPROPERTY()
+	UModernSpecialization* RecentlyUnlearnedModernSpec;
+	UFUNCTION()
+	void CleanupOldModernSpecialization() { RecentlyUnlearnedModernSpec = nullptr; }
 };

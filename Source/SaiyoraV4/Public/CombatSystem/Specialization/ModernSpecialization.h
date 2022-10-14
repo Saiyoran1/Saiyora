@@ -2,20 +2,22 @@
 #include "CoreMinimal.h"
 #include "DamageEnums.h"
 #include "Object.h"
-#include "ResourceStructs.h"
 #include "SpecializationStructs.h"
-#include "AncientSpecialization.generated.h"
+#include "ResourceStructs.h"
+#include "ModernSpecialization.generated.h"
 
 class ASaiyoraPlayerCharacter;
 class UResource;
+class UAbilityComponent;
 
 UCLASS(Blueprintable)
-class SAIYORAV4_API UAncientSpecialization : public UObject
+class SAIYORAV4_API UModernSpecialization : public UObject
 {
 	GENERATED_BODY()
 
 public:
 
+	UModernSpecialization();
 	virtual bool IsSupportedForNetworking() const override { return true; }
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	
@@ -23,17 +25,17 @@ public:
 	void UnlearnSpec();
 
 	UPROPERTY(BlueprintAssignable)
-	FAncientTalentChangeNotification OnTalentChanged;
+	FModernTalentChangeNotification OnTalentChanged;
 
 	UFUNCTION(BlueprintPure, Category = "Specialization")
 	ASaiyoraPlayerCharacter* GetOwningPlayer() const { return OwningPlayer; }
 	
 	UFUNCTION(BlueprintPure, Category = "Specialization")
-	void GetLoadout(TArray<FAncientTalentChoice>& OutLoadout) const { OutLoadout = Loadout.Items; }
+	void GetLoadout(TArray<FModernTalentChoice>& OutLoadout) const { OutLoadout = Loadout.Items; }
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Specialization")
-	void SelectAncientTalent(const TSubclassOf<UCombatAbility> BaseAbility, const TSubclassOf<UAncientTalent> TalentSelection);
+	void SelectModernAbility(const int32 Slot, const TSubclassOf<UCombatAbility> Ability);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Specialization")
-	void ClearTalentSelection(const TSubclassOf<UCombatAbility> BaseAbility);
+	void ClearAbilitySelection(const int32 Slot);
 
 protected:
 
@@ -45,14 +47,13 @@ protected:
 	UTexture2D* SpecImage;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Specialization", meta = (AllowPrivateAccess = "true"))
 	EHealthEventSchool SpecSchool;
-	
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Replicated, Category = "Specialization", meta = (AllowPrivateAccess = "true"))
-	FAncientTalentSet Loadout;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Specialization", meta = (AllowPrivateAccess = "true"))
+	TArray<TSubclassOf<UCombatAbility>> CoreAbilities;
 	UPROPERTY(EditDefaultsOnly, Category = "Specialization")
 	TSubclassOf<UResource> ResourceClass;
 	UPROPERTY(EditDefaultsOnly, Category = "Specialization")
 	FResourceInitInfo ResourceInitInfo;
-
 	UFUNCTION(BlueprintNativeEvent)
 	void OnLearn();
 	void OnLearn_Implementation() {}
@@ -64,5 +65,11 @@ private:
 
 	UPROPERTY()
 	ASaiyoraPlayerCharacter* OwningPlayer;
+	UPROPERTY()
+	UAbilityComponent* OwnerAbilityCompRef;
 	bool bInitialized = false;
+	UPROPERTY()
+	UAbilityPool* AbilityPool;
+	UPROPERTY(Replicated)
+	FModernTalentSet Loadout;
 };

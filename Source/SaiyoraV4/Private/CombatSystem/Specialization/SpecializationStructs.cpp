@@ -1,4 +1,6 @@
 ﻿#include "Specialization/SpecializationStructs.h"
+
+#include "ModernSpecialization.h"
 #include "Specialization/AncientSpecialization.h"
 #include "SaiyoraPlayerCharacter.h"
 #include "Specialization/AncientTalent.h"
@@ -41,5 +43,22 @@ void FAncientTalentChoice::PostReplicatedChange(const FAncientTalentSet& InArray
 			}
 			InArraySerializer.OwningSpecialization->OnTalentChanged.Broadcast(BaseAbility, PreviousTalent, CurrentSelection);
 		}
+	}
+}
+
+void FModernTalentChoice::PostReplicatedAdd(const FModernTalentSet& InArraySerializer)
+{
+	if (IsValid(InArraySerializer.OwningSpecialization) && IsValid(InArraySerializer.OwningSpecialization->GetOwningPlayer()))
+	{
+		InArraySerializer.OwningSpecialization->OnTalentChanged.Broadcast(SlotNumber, nullptr, Selection);
+	}
+}
+
+void FModernTalentChoice::PostReplicatedChange(const FModernTalentSet& InArraySerializer)
+{
+	if (IsValid(InArraySerializer.OwningSpecialization) && IsValid(InArraySerializer.OwningSpecialization->GetOwningPlayer()))
+	{
+		//TODO: There's no way to know what the previous selection was here unless I keep a ref to the ability elsewhere.
+		InArraySerializer.OwningSpecialization->OnTalentChanged.Broadcast(SlotNumber, nullptr, Selection);
 	}
 }

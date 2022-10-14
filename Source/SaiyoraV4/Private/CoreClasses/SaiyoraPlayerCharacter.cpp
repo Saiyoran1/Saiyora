@@ -3,6 +3,7 @@
 #include "CrowdControlHandler.h"
 #include "DamageHandler.h"
 #include "CombatStatusComponent.h"
+#include "ModernSpecialization.h"
 #include "Weapons/FireWeapon.h"
 #include "PredictableProjectile.h"
 #include "ResourceHandler.h"
@@ -79,6 +80,7 @@ void ASaiyoraPlayerCharacter::GetLifetimeReplicatedProps(TArray<FLifetimePropert
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(ASaiyoraPlayerCharacter, AncientSpec);
+	DOREPLIFETIME(ASaiyoraPlayerCharacter, ModernSpec);
 }
 
 bool ASaiyoraPlayerCharacter::ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags)
@@ -90,7 +92,15 @@ bool ASaiyoraPlayerCharacter::ReplicateSubobjects(UActorChannel* Channel, FOutBu
 	}
 	if (IsValid(RecentlyUnlearnedAncientSpec))
 	{
-		bWroteSomething |= Channel->ReplicateSubobject(AncientSpec, *Bunch, *RepFlags);
+		bWroteSomething |= Channel->ReplicateSubobject(RecentlyUnlearnedAncientSpec, *Bunch, *RepFlags);
+	}
+	if (IsValid(ModernSpec))
+	{
+		bWroteSomething |= Channel->ReplicateSubobject(ModernSpec, *Bunch, *RepFlags);
+	}
+	if (IsValid(RecentlyUnlearnedModernSpec))
+	{
+		bWroteSomething |= Channel->ReplicateSubobject(RecentlyUnlearnedModernSpec, *Bunch, *RepFlags);
 	}
 	return bWroteSomething;
 }
@@ -561,6 +571,49 @@ void ASaiyoraPlayerCharacter::OnRep_AncientSpec(UAncientSpecialization* Previous
 		AncientSpec->InitializeSpecialization(this);
 	}
 	OnAncientSpecChanged.Broadcast(PreviousSpec, AncientSpec);
+}
+
+void ASaiyoraPlayerCharacter::SetModernSpecialization(const TSubclassOf<UModernSpecialization> NewSpec)
+{
+	if (GetLocalRole() != ROLE_Authority)
+	{
+		return;
+	}
+	UModernSpecialization* PreviousSpec = ModernSpec;
+	if (IsValid(ModernSpec))
+	{
+		if (ModernSpec->GetClass() == NewSpec)
+		{
+			return;
+		}
+		ModernSpec->UnlearnSpec();
+		RecentlyUnlearnedModernSpec = ModernSpec;
+		FTimerHandle CleanupHandle;
+		GetWorld()->GetTimerManager().SetTimer(CleanupHandle, this, &ASaiyoraPlayerCharacter::CleanupOldModernSpecialization, 1.0f);
+		ModernSpec = nullptr;
+	}
+	if (IsValid(NewSpec))
+	{
+		ModernSpec = NewObject<UModernSpecialization>(this, NewSpec);
+		if (IsValid(ModernSpec))
+		{
+			ModernSpec->InitializeSpecialization(this);
+		}
+	}
+	OnModernSpecChanged.Broadcast(PreviousSpec, ModernSpec);
+}
+
+void ASaiyoraPlayerCharacter::OnRep_ModernSpec(UModernSpecialization* PreviousSpec)
+{
+	if (ModernSpec != PreviousSpec && IsValid(PreviousSpec))
+	{
+		PreviousSpec->UnlearnSpec();
+	}
+	if (IsValid(ModernSpec))
+	{
+		ModernSpec->InitializeSpecialization(this);
+	}
+	OnModernSpecChanged.Broadcast(PreviousSpec, ModernSpec);
 }
 
 #pragma endregion 
