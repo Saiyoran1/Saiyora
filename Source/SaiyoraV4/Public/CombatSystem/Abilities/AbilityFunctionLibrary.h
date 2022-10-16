@@ -18,7 +18,7 @@ class SAIYORAV4_API UAbilityFunctionLibrary : public UBlueprintFunctionLibrary
 
 public:
 
-	UFUNCTION(BlueprintPure, Category = "Abilities", meta = (NativeMakeFunc))
+	UFUNCTION(BlueprintPure, Category = "Abilities", meta = (NativeMakeFunc, AutoCreateRefTerm = "AimLocation, AimDirection, Origin"))
 	static FAbilityOrigin MakeAbilityOrigin(const FVector& AimLocation, const FVector& AimDirection, const FVector& Origin);
 
 //Trace Prediction

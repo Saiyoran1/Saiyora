@@ -61,10 +61,10 @@ void UCombatAbility::InitializeAbility(UAbilityComponent* AbilityComponent)
 
     FModifiableIntCallback MaxChargeCallback;
     MaxChargeCallback.BindUObject(this, &UCombatAbility::OnMaxChargesUpdated);
-    MaxCharges.SetUpdatedCallback(MaxChargeCallback);
     MaxCharges.SetMinClamp(true, 1);
     AbilityCooldown.MaxCharges = FMath::Max(1, MaxCharges.GetCurrentValue());
     AbilityCooldown.CurrentCharges = AbilityCooldown.MaxCharges;
+    MaxCharges.SetUpdatedCallback(MaxChargeCallback);
     
     FModifiableIntCallback ChargeCostCallback;
     ChargeCostCallback.BindUObject(this, &UCombatAbility::OnChargeCostUpdated);

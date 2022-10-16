@@ -217,7 +217,7 @@ FAbilityEvent UAbilityComponent::UseAbility(const TSubclassOf<UCombatAbility> Ab
 			case EAbilityCastType::Instant :
 				{
 					Result.ActionTaken = ECastAction::Success;
-					Result.Ability->PredictedTick(0, Result.Origin, Result.Targets);
+					Result.Ability->PredictedTick(0, Result.Origin, Result.Targets, Result.PredictionID);
 					Request.Targets = Result.Targets;
 					Request.Origin = Result.Origin;
 					OnAbilityTick.Broadcast(Result);
@@ -229,7 +229,7 @@ FAbilityEvent UAbilityComponent::UseAbility(const TSubclassOf<UCombatAbility> Ab
 					StartCast(Result.Ability, Result.PredictionID);
                     if (Result.Ability->HasInitialTick())
                     {
-                    	Result.Ability->PredictedTick(0, Result.Origin, Result.Targets);
+                    	Result.Ability->PredictedTick(0, Result.Origin, Result.Targets, Result.PredictionID);
                     	Request.Targets = Result.Targets;
                     	Request.Origin = Result.Origin;
                     	OnAbilityTick.Broadcast(Result);

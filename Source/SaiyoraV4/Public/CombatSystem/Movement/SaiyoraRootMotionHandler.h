@@ -52,7 +52,7 @@ public:
 	UPROPERTY(Replicated)
 	ERootMotionAccumulateMode AccumulateMode = ERootMotionAccumulateMode::Override;
 	UPROPERTY(Replicated)
-	ERootMotionFinishVelocityMode FinishVelocityMode = ERootMotionFinishVelocityMode::MaintainLastRootMotionVelocity;
+	ERootMotionFinishVelocityMode FinishVelocityMode = ERootMotionFinishVelocityMode::ClampVelocity;
 	UPROPERTY(Replicated)
 	FVector FinishSetVelocity = FVector::ZeroVector;
 	UPROPERTY(Replicated)
