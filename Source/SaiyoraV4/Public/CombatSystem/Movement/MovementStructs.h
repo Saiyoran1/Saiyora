@@ -21,6 +21,8 @@ struct FCustomMoveParams
 	bool bStopMovement = false;
 	UPROPERTY()
 	bool bIgnoreRestrictions = false;
+	UPROPERTY()
+	bool bExternal = false;
 };
 
 USTRUCT()

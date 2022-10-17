@@ -106,9 +106,7 @@ private:
 	FAbilityRequest CustomMoveAbilityRequest;
 	TMap<int32, bool> CompletedCastStatus;
 	TSet<FPredictedTick> ServerCompletedMovementIDs;
-	TArray<UObject*> CurrentTickServerCustomMoveSources;
 	virtual void MoveAutonomous(float ClientTimeStamp, float DeltaTime, uint8 CompressedFlags, const FVector& NewAccel) override;
-	bool ApplyCustomMove(const FCustomMoveParams& CustomMove, UObject* Source);
 	void SetupCustomMovementPrediction(const UCombatAbility* Source, const FCustomMoveParams& CustomMove);
 	UFUNCTION()
 	void OnCustomMoveCastPredicted(const FAbilityEvent& Event);
@@ -132,15 +130,41 @@ private:
 public:
 	
 	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf="Source", HidePin="Source"))
-	bool TeleportToLocation(UObject* Source, const FVector& Target, const FRotator& DesiredRotation, const bool bStopMovement, const bool bIgnoreRestrictions);
+	void TeleportToLocation(UObject* Source, const FVector& Target, const FRotator& DesiredRotation, const bool bStopMovement, const bool bIgnoreRestrictions);
 	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf="Source", HidePin="Source"))
-	bool LaunchPlayer(UObject* Source, const FVector& LaunchVector, const bool bStopMovement, const bool bIgnoreRestrictions);
+	void LaunchPlayer(UObject* Source, const FVector& LaunchVector, const bool bStopMovement, const bool bIgnoreRestrictions);
+	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf = "Source", HidePin = "Source"))
+	void ApplyJumpForce(UObject* Source, const ERootMotionAccumulateMode AccumulateMode, const int32 Priority, const float Duration, const FRotator& Rotation,
+		const float Distance, const float Height, const bool bFinishOnLanded, UCurveVector* PathOffsetCurve, UCurveFloat* TimeMappingCurve, const bool bIgnoreRestrictions);
+	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf = "Source", HidePin = "Source"))
+	void ApplyConstantForce(UObject* Source, const ERootMotionAccumulateMode AccumulateMode, const int32 Priority, const float Duration, const FVector& Force,
+		UCurveFloat* StrengthOverTime, const bool bIgnoreRestrictions);
+
+	void RemoveRootMotionHandler(USaiyoraRootMotionHandler* Handler);
+	void AddRootMotionHandlerFromReplication(USaiyoraRootMotionHandler* Handler);
 	
 private:
-	
+
+	void ApplyCustomMove(UObject* Source, const FCustomMoveParams& CustomMove, USaiyoraRootMotionHandler* RootMotionHandler = nullptr);
+	//Tracks move sources already handled this tick to avoid doubling moves on listen servers (since Predicted and Server tick are called back to back).
+	TSet<UObject*> CurrentTickHandledMovement;
+	//Flag checked during custom move calls to see if the call is from the UseAbility RPC or the custom move RPC.
+	bool bUsingAbilityFromCustomMove = false;
+	//Root motion sources created on the server via the AbilityComponent's UseAbility RPC, awaiting the custom move RPC to be applied.
+	TMap<FPredictedTick, USaiyoraRootMotionHandler*> ServerWaitingRootMotion;
+	//Custom moves created on the server via the AbilityComponent's UseAbility RPC, awaiting the custom move RPC to be applied.
+	TMap<FPredictedTick, FCustomMoveParams> ServerWaitingCustomMoves;
 	void ExecuteTeleportToLocation(const FCustomMoveParams& CustomMove);
 	void ExecuteLaunchPlayer(const FCustomMoveParams& CustomMove);
-
+	UPROPERTY()
+	TArray<USaiyoraRootMotionHandler*> CurrentRootMotionHandlers;
+	UPROPERTY()
+	TArray<USaiyoraRootMotionHandler*> ReplicatedRootMotionHandlers;
+	UPROPERTY()
+	TArray<USaiyoraRootMotionHandler*> HandlersAwaitingPingDelay;
+	UFUNCTION()
+	void DelayedHandlerApplication(USaiyoraRootMotionHandler* Handler);
+	
 //Restrictions
 	
 private:
@@ -148,7 +172,7 @@ private:
 	UPROPERTY()
 	TArray<UBuff*> MovementRestrictions;
 	UPROPERTY(ReplicatedUsing = OnRep_MovementRestricted)
-	bool bMovementRestricted = false;
+	bool bExternalMovementRestricted = false;
 	UFUNCTION()
 	void OnRep_MovementRestricted();
 	virtual bool CanAttemptJump() const override;
@@ -201,32 +225,5 @@ private:
 	FStatCallback AirControlStatCallback;
 	UFUNCTION()
 	void OnAirControlStatChanged(const FGameplayTag StatTag, const float NewValue);
-
-//Root Motion Sources
 	
-public:
-	
-	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf = "Source", HidePin = "Source"))
-	void ApplyJumpForce(UObject* Source, const ERootMotionAccumulateMode AccumulateMode, const int32 Priority, const float Duration, const FRotator& Rotation,
-		const float Distance, const float Height, const bool bFinishOnLanded, UCurveVector* PathOffsetCurve, UCurveFloat* TimeMappingCurve, const bool bIgnoreRestrictions);
-	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf = "Source", HidePin = "Source"))
-	void ApplyConstantForce(UObject* Source, const ERootMotionAccumulateMode AccumulateMode, const int32 Priority, const float Duration, const FVector& Force,
-		UCurveFloat* StrengthOverTime, const bool bIgnoreRestrictions);
-	
-	void RemoveRootMotionHandler(USaiyoraRootMotionHandler* Handler);
-	void AddRootMotionHandlerFromReplication(USaiyoraRootMotionHandler* Handler);
-	
-private:
-	
-	UPROPERTY()
-	TArray<USaiyoraRootMotionHandler*> CurrentRootMotionHandlers;
-	UPROPERTY()
-	TArray<USaiyoraRootMotionHandler*> ReplicatedRootMotionHandlers;
-	UPROPERTY()
-	TArray<USaiyoraRootMotionHandler*> HandlersAwaitingPingDelay;
-	UPROPERTY()
-	TArray<UObject*> CurrentTickServerRootMotionSources;
-	bool ApplyCustomRootMotionHandler(USaiyoraRootMotionHandler* Handler, UObject* Source);
-	UFUNCTION()
-	void DelayedHandlerApplication(USaiyoraRootMotionHandler* Handler);
 };
