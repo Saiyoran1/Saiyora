@@ -620,6 +620,8 @@ void USaiyoraMovementComponent::ApplyCustomMove(UObject* Source, const FCustomMo
 			break;
 		case ROLE_AutonomousProxy :
 			{
+				//GAS calls this before ability usage to avoid some net corrections.
+				FlushServerMoves();
 				SetupCustomMovementPrediction(SourceAsAbility, CustomMove);
 				if (CustomMove.MoveType == ESaiyoraCustomMove::RootMotion)
 				{
