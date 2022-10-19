@@ -1,10 +1,13 @@
 ﻿#include "AbilityFunctionLibrary.h"
+
+#include "AbilityComponent.h"
 #include "CombatAbility.h"
 #include "CombatStatusComponent.h"
 #include "Hitbox.h"
 #include "PredictableProjectile.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraCombatLibrary.h"
+#include "SaiyoraRootMotionHandler.h"
 #include "CoreClasses/SaiyoraGameState.h"
 #include "CoreClasses/SaiyoraPlayerCharacter.h"
 #include "Kismet/GameplayStatics.h"

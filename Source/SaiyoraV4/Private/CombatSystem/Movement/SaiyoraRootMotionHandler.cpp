@@ -1,4 +1,7 @@
 ﻿#include "SaiyoraRootMotionHandler.h"
+
+#include "SaiyoraCombatInterface.h"
+#include "SaiyoraCombatLibrary.h"
 #include "SaiyoraMovementComponent.h"
 #include "UnrealNetwork.h"
 #include "GameFramework/Character.h"
@@ -224,4 +227,94 @@ TSharedPtr<FRootMotionSource> UConstantForceHandler::MakeRootMotionSource()
 	ConstantForce->Force = Force;
 	ConstantForce->StrengthOverTime = StrengthOverTime;
 	return ConstantForce;
+}
+
+//Base Root Motion Task
+
+void USaiyoraRootMotionTask::Init(USaiyoraMovementComponent* Movement, UObject* MoveSource)
+{
+	if (!IsValid(Movement))
+	{
+		return;
+	}
+	MovementRef = Movement;
+	Source = MoveSource;
+	if (IsValid(Source))
+	{
+		const UCombatAbility* SourceAsAbility = Cast<UCombatAbility>(Source);
+		if (IsValid(SourceAsAbility))
+		{
+			PredictedTick = FPredictedTick(SourceAsAbility->GetPredictionID(), SourceAsAbility->GetCurrentTick());
+			AbilityCompRef = SourceAsAbility->GetHandler();
+			if (AbilityCompRef->GetOwnerRole() == ROLE_AutonomousProxy)
+			{
+				AbilityCompRef->OnAbilityMispredicted.AddDynamic(this, &USaiyoraRootMotionTask::OnMispredicted);
+			}
+		}
+	}
+	
+}
+
+void USaiyoraRootMotionTask::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(USaiyoraRootMotionTask, Source);
+	DOREPLIFETIME(USaiyoraRootMotionTask, Priority);
+	DOREPLIFETIME(USaiyoraRootMotionTask, AccumulateMode);
+	DOREPLIFETIME(USaiyoraRootMotionTask, FinishVelocityMode);
+	DOREPLIFETIME(USaiyoraRootMotionTask, FinishSetVelocity);
+	DOREPLIFETIME(USaiyoraRootMotionTask, FinishClampVelocity);
+	DOREPLIFETIME(USaiyoraRootMotionTask, Duration);
+	DOREPLIFETIME(USaiyoraRootMotionTask, bIgnoreRestrictions);
+}
+
+void USaiyoraRootMotionTask::Activate()
+{
+	Super::Activate();
+	if (IsValid(MovementRef))
+	{
+		TSharedPtr<FRootMotionSource> RMSource = MakeRootMotionSource();
+		RMSHandle = MovementRef->ApplyRootMotionSource(RMSource);
+	}
+}
+
+void USaiyoraRootMotionTask::OnDestroy(bool bInOwnerFinished)
+{
+	if (IsValid(MovementRef) && RMSHandle != (uint16)ERootMotionSourceID::Invalid)
+	{
+		MovementRef->RemoveRootMotionSourceByID(RMSHandle);
+	}
+	Super::OnDestroy(bInOwnerFinished);
+}
+
+void USaiyoraRootMotionTask::OnMispredicted(const int32 PredictionID)
+{
+	if (PredictionID == PredictedTick.PredictionID)
+	{
+		EndTask();
+	}
+}
+
+void USaiyoraConstantForce::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(USaiyoraConstantForce, Force);
+	DOREPLIFETIME(USaiyoraConstantForce, StrengthOverTime);
+}
+
+TSharedPtr<FRootMotionSource> USaiyoraConstantForce::MakeRootMotionSource()
+{
+	TSharedPtr<FRootMotionSource_ConstantForce> RMSource = MakeShared<FRootMotionSource_ConstantForce>(FRootMotionSource_ConstantForce());
+	if (RMSource.IsValid())
+	{
+		RMSource->Duration = Duration;
+		RMSource->Priority = Priority;
+		RMSource->AccumulateMode = AccumulateMode;
+		RMSource->FinishVelocityParams.Mode = FinishVelocityMode;
+		RMSource->FinishVelocityParams.SetVelocity = FinishSetVelocity;
+		RMSource->FinishVelocityParams.ClampVelocity = FinishClampVelocity;
+		RMSource->Force = Force;
+		RMSource->StrengthOverTime = StrengthOverTime;
+	}
+	return RMSource;
 }

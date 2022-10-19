@@ -716,22 +716,15 @@ void USaiyoraMovementComponent::ApplyJumpForce(UObject* Source, const ERootMotio
 void USaiyoraMovementComponent::ApplyConstantForce(UObject* Source, const ERootMotionAccumulateMode AccumulateMode, const int32 Priority,
 	const float Duration, const FVector& Force, UCurveFloat* StrengthOverTime, const bool bIgnoreRestrictions)
 {
-	UConstantForceHandler* ConstantForce = NewObject<UConstantForceHandler>(GetOwner(), UConstantForceHandler::StaticClass());
-	if (!IsValid(ConstantForce))
-	{
-		return;
-	}
-	ConstantForce->AccumulateMode = AccumulateMode;
-	ConstantForce->Priority = Priority;
+	USaiyoraConstantForce* ConstantForce = UGameplayTask::NewTask<USaiyoraConstantForce>(AbilityComponentRef);
+	ConstantForce->Init(this, Source);
 	ConstantForce->Duration = Duration;
+	ConstantForce->Priority = Priority;
+	ConstantForce->AccumulateMode = AccumulateMode;
 	ConstantForce->Force = Force;
 	ConstantForce->StrengthOverTime = StrengthOverTime;
-	ConstantForce->FinishVelocityMode = ERootMotionFinishVelocityMode::MaintainLastRootMotionVelocity;
 	ConstantForce->bIgnoreRestrictions = bIgnoreRestrictions;
-	//ApplyCustomRootMotionHandler(ConstantForce, Source);
-	FCustomMoveParams NewCustomMove = FCustomMoveParams();
-	NewCustomMove.MoveType = ESaiyoraCustomMove::RootMotion;
-	ApplyCustomMove(Source, NewCustomMove, ConstantForce);
+	AbilityComponentRef->RunGameplayTask(*AbilityComponentRef, *ConstantForce, Priority, FGameplayResourceSet(), FGameplayResourceSet());
 }
 
 #pragma endregion

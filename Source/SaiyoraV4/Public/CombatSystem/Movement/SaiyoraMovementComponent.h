@@ -5,6 +5,7 @@
 #include "MovementStructs.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "BuffStructs.h"
+#include "GameplayTaskOwnerInterface.h"
 #include "StatStructs.h"
 #include "SaiyoraMovementComponent.generated.h"
 

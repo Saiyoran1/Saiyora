@@ -14,9 +14,10 @@
 
 #pragma region Setup
 
-UAbilityComponent::UAbilityComponent()
+UAbilityComponent::UAbilityComponent(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
-	PrimaryComponentTick.bCanEverTick = false;
+	//Since this is now a GameplayTasksComponent, we do need to tick.
+	//PrimaryComponentTick.bCanEverTick = false;
 	SetIsReplicatedByDefault(true);
 	bWantsInitializeComponent = true;
 }
@@ -34,6 +35,7 @@ void UAbilityComponent::InitializeComponent()
 	StatHandlerRef = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
 	CrowdControlHandlerRef = ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(GetOwner());
 	DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
+	Super::InitializeComponent();
 }
 
 void UAbilityComponent::BeginPlay()

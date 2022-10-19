@@ -5,6 +5,7 @@
 #include "CrowdControlStructs.h"
 #include "DamageStructs.h"
 #include "CombatAbility.h"
+#include "GameplayTasksComponent.h"
 #include "AbilityComponent.generated.h"
 
 class UCrowdControlHandler;
@@ -76,7 +77,7 @@ struct FServerAbilityResult
 };
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
-class SAIYORAV4_API UAbilityComponent : public UActorComponent
+class SAIYORAV4_API UAbilityComponent : public UGameplayTasksComponent
 {
 	GENERATED_BODY()
 
@@ -94,7 +95,7 @@ public:
 	static constexpr float MinCooldownLength = 0.5f;
 	static constexpr float AbilityQueueWindow = 0.2f;
 
-	UAbilityComponent();
+	UAbilityComponent(const FObjectInitializer& ObjectInitializer);
 	virtual void BeginPlay() override;
 	virtual void InitializeComponent() override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
