@@ -5,7 +5,7 @@
 #include "MovementStructs.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "BuffStructs.h"
-#include "GameplayTaskOwnerInterface.h"
+#include "SaiyoraRootMotionHandler.h"
 #include "StatStructs.h"
 #include "SaiyoraMovementComponent.generated.h"
 
@@ -67,7 +67,6 @@ private:
 public:
 	
 	USaiyoraMovementComponent(const FObjectInitializer& ObjectInitializer);
-	virtual bool ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void InitializeComponent() override;
 	virtual void BeginPlay() override;
@@ -135,36 +134,25 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf="Source", HidePin="Source"))
 	void LaunchPlayer(UObject* Source, const FVector& LaunchVector, const bool bStopMovement, const bool bIgnoreRestrictions);
 	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf = "Source", HidePin = "Source"))
-	void ApplyJumpForce(UObject* Source, const ERootMotionAccumulateMode AccumulateMode, const int32 Priority, const float Duration, const FRotator& Rotation,
-		const float Distance, const float Height, const bool bFinishOnLanded, UCurveVector* PathOffsetCurve, UCurveFloat* TimeMappingCurve, const bool bIgnoreRestrictions);
-	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf = "Source", HidePin = "Source"))
 	void ApplyConstantForce(UObject* Source, const ERootMotionAccumulateMode AccumulateMode, const int32 Priority, const float Duration, const FVector& Force,
 		UCurveFloat* StrengthOverTime, const bool bIgnoreRestrictions);
 
-	void RemoveRootMotionHandler(USaiyoraRootMotionHandler* Handler);
-	void AddRootMotionHandlerFromReplication(USaiyoraRootMotionHandler* Handler);
+	uint16 ApplyRootMotionTask(USaiyoraRootMotionTask* Task);
 	
 private:
-
-	void ApplyCustomMove(UObject* Source, const FCustomMoveParams& CustomMove, USaiyoraRootMotionHandler* RootMotionHandler = nullptr);
+	
+	void ApplyCustomMove(UObject* Source, const FCustomMoveParams& CustomMove);
 	//Tracks move sources already handled this tick to avoid doubling moves on listen servers (since Predicted and Server tick are called back to back).
 	TSet<UObject*> CurrentTickHandledMovement;
 	//Flag checked during custom move calls to see if the call is from the UseAbility RPC or the custom move RPC.
 	bool bUsingAbilityFromCustomMove = false;
-	//Root motion sources created on the server via the AbilityComponent's UseAbility RPC, awaiting the custom move RPC to be applied.
-	TMap<FPredictedTick, USaiyoraRootMotionHandler*> ServerWaitingRootMotion;
 	//Custom moves created on the server via the AbilityComponent's UseAbility RPC, awaiting the custom move RPC to be applied.
 	TMap<FPredictedTick, FCustomMoveParams> ServerWaitingCustomMoves;
 	void ExecuteTeleportToLocation(const FCustomMoveParams& CustomMove);
 	void ExecuteLaunchPlayer(const FCustomMoveParams& CustomMove);
+
 	UPROPERTY()
-	TArray<USaiyoraRootMotionHandler*> CurrentRootMotionHandlers;
-	UPROPERTY()
-	TArray<USaiyoraRootMotionHandler*> ReplicatedRootMotionHandlers;
-	UPROPERTY()
-	TArray<USaiyoraRootMotionHandler*> HandlersAwaitingPingDelay;
-	UFUNCTION()
-	void DelayedHandlerApplication(USaiyoraRootMotionHandler* Handler);
+	TArray<USaiyoraRootMotionTask*> ActiveRootMotionTasks;
 	
 //Restrictions
 	
@@ -172,10 +160,10 @@ private:
 
 	UPROPERTY()
 	TArray<UBuff*> MovementRestrictions;
-	UPROPERTY(ReplicatedUsing = OnRep_MovementRestricted)
+	UPROPERTY(ReplicatedUsing = OnRep_ExternalMovementRestricted)
 	bool bExternalMovementRestricted = false;
 	UFUNCTION()
-	void OnRep_MovementRestricted();
+	void OnRep_ExternalMovementRestricted();
 	virtual bool CanAttemptJump() const override;
 	virtual bool CanCrouchInCurrentState() const override;
 	virtual FVector ConsumeInputVector() override;
@@ -226,5 +214,4 @@ private:
 	FStatCallback AirControlStatCallback;
 	UFUNCTION()
 	void OnAirControlStatChanged(const FGameplayTag StatTag, const float NewValue);
-	
 };
