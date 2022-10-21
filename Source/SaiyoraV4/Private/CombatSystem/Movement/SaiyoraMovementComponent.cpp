@@ -12,7 +12,7 @@
 #include "SaiyoraRootMotionHandler.h"
 #include "StatHandler.h"
 
-float const USaiyoraMovementComponent::MAXPINGDELAY = 0.2f;
+int32 USaiyoraMovementComponent::ServerMoveID = 0;
 
 #pragma region Move Structs
 
@@ -21,7 +21,11 @@ bool USaiyoraMovementComponent::FSavedMove_Saiyora::CanCombineWith(const FSavedM
 {
 	if (const FSavedMove_Saiyora* CastMove = (FSavedMove_Saiyora*)&NewMove)
 	{
-		if (bSavedWantsCustomMove != CastMove->bSavedWantsCustomMove || SavedPendingCustomMove.MoveParams.MoveType != CastMove->SavedPendingCustomMove.MoveParams.MoveType)
+		if (bSavedWantsPredictedMove != CastMove->bSavedWantsPredictedMove || SavedPredictedCustomMove.MoveParams.MoveType != CastMove->SavedPredictedCustomMove.MoveParams.MoveType)
+		{
+			return false;
+		}
+		if (bSavedPerformedServerMove != CastMove->bSavedPerformedServerMove || SavedServerMoveID != CastMove->SavedServerMoveID)
 		{
 			return false;
 		}
@@ -32,16 +36,23 @@ bool USaiyoraMovementComponent::FSavedMove_Saiyora::CanCombineWith(const FSavedM
 void USaiyoraMovementComponent::FSavedMove_Saiyora::Clear()
 {
 	Super::Clear();
-	bSavedWantsCustomMove = false;
-	SavedPendingCustomMove.Clear();
+	bSavedWantsPredictedMove = false;
+	SavedPredictedCustomMove.Clear();
+	bSavedPerformedServerMove = false;
+	SavedServerMoveID = 0;
+	SavedServerMove = FCustomMoveParams();
 }
 
 uint8 USaiyoraMovementComponent::FSavedMove_Saiyora::GetCompressedFlags() const
 {
 	uint8 Result = Super::GetCompressedFlags();
-	if (bSavedWantsCustomMove)
+	if (bSavedWantsPredictedMove)
 	{
 		Result |= FLAG_Custom_1;
+	}
+	if (bSavedPerformedServerMove)
+	{
+		Result |= FLAG_Custom_2;
 	}
 	return Result;
 }
@@ -52,7 +63,8 @@ void USaiyoraMovementComponent::FSavedMove_Saiyora::PrepMoveFor(ACharacter* C)
 	//Used for replaying on client. Copy data from an unacked saved move into the CMC.
 	if (USaiyoraMovementComponent* Movement = Cast<USaiyoraMovementComponent>(C->GetCharacterMovement()))
 	{
-		Movement->PendingCustomMove = SavedPendingCustomMove;
+		Movement->PendingPredictedCustomMove = SavedPredictedCustomMove;
+		Movement->PerformingServerMove = SavedServerMove;
 	}
 }
 
@@ -63,8 +75,11 @@ void USaiyoraMovementComponent::FSavedMove_Saiyora::SetMoveFor(ACharacter* C, fl
 	//Used for setting up the move before it is saved off. Sets the SavedMove params from the CMC.
 	if (const USaiyoraMovementComponent* Movement = Cast<USaiyoraMovementComponent>(C->GetCharacterMovement()))
 	{
-		bSavedWantsCustomMove = Movement->bWantsCustomMove;
-		SavedPendingCustomMove = Movement->PendingCustomMove;
+		bSavedWantsPredictedMove = Movement->bWantsPredictedMove;
+		SavedPredictedCustomMove = Movement->PendingPredictedCustomMove;
+		bSavedPerformedServerMove = Movement->bPerformingServerMove;
+		SavedServerMoveID = Movement->PerformingServerMoveID;
+		SavedServerMove = Movement->PerformingServerMove;
 	}
 }
 
@@ -72,7 +87,8 @@ void USaiyoraMovementComponent::UpdateFromCompressedFlags(uint8 Flags)
 {
 	Super::UpdateFromCompressedFlags(Flags);
 	//Updates the CMC when replaying a client move or receiving the move on the server. Only affects flags.
-	bWantsCustomMove = (Flags & FSavedMove_Character::FLAG_Custom_1) != 0;
+	bWantsPredictedMove = (Flags & FSavedMove_Character::FLAG_Custom_1) != 0;
+	bPerformingServerMove = (Flags & FSavedMove_Character::FLAG_Custom_2) != 0;
 }
 
 USaiyoraMovementComponent::FNetworkPredictionData_Client_Saiyora::FNetworkPredictionData_Client_Saiyora(
@@ -93,12 +109,13 @@ void USaiyoraMovementComponent::FSaiyoraNetworkMoveData::ClientFillNetworkMoveDa
 	//Sets up the Network Move Data for sending to the server or replaying. Copies Saved Move data into the Network Move Data.
 	if (const FSavedMove_Saiyora* CastMove = (FSavedMove_Saiyora*)&ClientMove)
 	{
-		CustomMoveAbilityRequest.AbilityClass = CastMove->SavedPendingCustomMove.AbilityClass;
-		CustomMoveAbilityRequest.PredictionID = CastMove->SavedPendingCustomMove.PredictionID;
+		CustomMoveAbilityRequest.AbilityClass = CastMove->SavedPredictedCustomMove.AbilityClass;
+		CustomMoveAbilityRequest.PredictionID = CastMove->SavedPredictedCustomMove.PredictionID;
 		CustomMoveAbilityRequest.Tick = 0;
-		CustomMoveAbilityRequest.Targets = CastMove->SavedPendingCustomMove.Targets;
-		CustomMoveAbilityRequest.Origin = CastMove->SavedPendingCustomMove.Origin;
-		CustomMoveAbilityRequest.ClientStartTime = CastMove->SavedPendingCustomMove.OriginalTimestamp;
+		CustomMoveAbilityRequest.Targets = CastMove->SavedPredictedCustomMove.Targets;
+		CustomMoveAbilityRequest.Origin = CastMove->SavedPredictedCustomMove.Origin;
+		CustomMoveAbilityRequest.ClientStartTime = CastMove->SavedPredictedCustomMove.OriginalTimestamp;
+		ServerMoveID = CastMove->SavedServerMoveID;
 	}
 }
 
@@ -107,6 +124,7 @@ bool USaiyoraMovementComponent::FSaiyoraNetworkMoveData::Serialize(UCharacterMov
 {
 	Super::Serialize(CharacterMovement, Ar, PackageMap, MoveType);
 	Ar << CustomMoveAbilityRequest;
+	Ar << ServerMoveID;
 	return !Ar.IsError();
 }
 
@@ -255,12 +273,19 @@ void USaiyoraMovementComponent::OnMovementUpdated(float DeltaSeconds, const FVec
 	{
 		return;
 	}
-	if (bWantsCustomMove)
+	if (bWantsPredictedMove)
 	{
 		CustomMoveFromFlag();
-		bWantsCustomMove = false;
+		bWantsPredictedMove = false;
 		CustomMoveAbilityRequest.Clear();
-		PendingCustomMove.Clear();
+		PendingPredictedCustomMove.Clear();
+	}
+	if (bPerformingServerMove)
+	{
+		ServerMoveFromFlag();
+		bPerformingServerMove = false;
+		PerformingServerMove = FCustomMoveParams();
+		PerformingServerMoveID = 0;
 	}
 }
 
@@ -271,6 +296,7 @@ void USaiyoraMovementComponent::MoveAutonomous(float ClientTimeStamp, float Delt
 	if (const FSaiyoraNetworkMoveData* MoveData = static_cast<FSaiyoraNetworkMoveData*>(GetCurrentNetworkMoveData()))
 	{
 		CustomMoveAbilityRequest = MoveData->CustomMoveAbilityRequest;
+		PerformingServerMoveID = MoveData->ServerMoveID;
 	}
 	Super::MoveAutonomous(ClientTimeStamp, DeltaTime, CompressedFlags, NewAccel);
 }
@@ -281,14 +307,28 @@ void USaiyoraMovementComponent::TickComponent(float DeltaTime, ELevelTick TickTy
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 	//Clear this every tick, as it only exists to prevent listen servers from double-applying moves.
 	//This happens because the ability system calls Predicted and Server tick of an ability back to back on listen servers.
-	CurrentTickHandledMovement.Empty();
+	ServerCurrentTickHandledMovement.Empty();
 }
 
 #pragma endregion
 #pragma region Custom Moves
 
-void USaiyoraMovementComponent::ExecuteCustomMove(const FCustomMoveParams& CustomMove)
+void USaiyoraMovementComponent::ApplyCustomMove(UObject* Source, const FCustomMoveParams& CustomMove)
 {
+	if (CustomMove.MoveType == ESaiyoraCustomMove::None)
+	{
+		return;
+	}
+	if (!IsValid(Source))
+	{
+		return;
+	}
+	if (IsValid(DamageHandlerRef) && DamageHandlerRef->GetLifeStatus() != ELifeStatus::Alive)
+	{
+		return;
+	}
+	const UCombatAbility* SourceAsAbility = Cast<UCombatAbility>(Source);
+	const bool bExternal = !IsValid(SourceAsAbility) || SourceAsAbility->GetHandler()->GetOwner() != GetOwner();
 	//If not ignoring restrictions, check for roots or for active movement restriction.
 	if (!CustomMove.bIgnoreRestrictions)
 	{
@@ -296,11 +336,76 @@ void USaiyoraMovementComponent::ExecuteCustomMove(const FCustomMoveParams& Custo
 		{
 			return;
 		}
-		if (CustomMove.bExternal && bExternalMovementRestricted)
+		if (bExternal && bExternalMovementRestricted)
 		{
 			return;
 		}
 	}
+	if (bExternal || SourceAsAbility->GetPredictionID() == 0)
+	{
+		//Not dealing with prediction, must happen on server.
+		if (GetOwnerRole() != ROLE_Authority)
+		{
+			return;
+		}
+		//Avoid doubling up in the case of listen servers moving on Predicted and Server tick back to back. This also places a limit of one custom move per source per game tick.
+		if (ServerCurrentTickHandledMovement.Contains(Source))
+		{
+			return;
+		}
+		ServerCurrentTickHandledMovement.Add(Source);
+		if (PawnOwner->IsLocallyControlled())
+		{
+			Multicast_ExecuteCustomMove(CustomMove);
+		}
+		else
+		{
+			//Generate an ID for this move, and then wait until the client sends a move that says it has executed this move ID to then execute it on server.
+			const int32 WaitingMoveID = GenerateServerMoveID();
+			Client_ExecuteCustomMove(WaitingMoveID, CustomMove);
+			FServerWaitingCustomMove WaitingMove = FServerWaitingCustomMove(CustomMove);
+			//Set a timer for a max amount of time we will wait, if the client doesn't send by this point, execute the move anyway.
+			const FTimerDelegate WaitingMoveDelegate = FTimerDelegate::CreateUObject(this, &USaiyoraMovementComponent::ExecuteWaitingCustomMove, WaitingMoveID);
+			GetWorld()->GetTimerManager().SetTimer(WaitingMove.TimerHandle, WaitingMoveDelegate, MaxMoveDelay, false);
+			WaitingServerMoves.Add(WaitingMoveID, WaitingMove);
+		}
+	}
+	else
+	{
+		//Dealing with prediction.
+		switch (GetOwnerRole())
+		{
+		case ROLE_Authority :
+			{
+				if (bUsingAbilityFromCustomMove)
+				{
+					//We received the RPC from the client that requested an ability use, and the ability is now requesting custom movement.
+					Multicast_ExecuteCustomMove(CustomMove, true);
+				}
+				else
+				{
+					//We didn't yet receive a client RPC requesting this move, the ability RPC arrived first, so we can just save that the ability was successful.
+					//When we get a move RPC that requests this predicted tick, we don't re-perform the ability, we just perform the move.
+					ServerCompletedMovementIDs.Add(FPredictedTick(SourceAsAbility->GetPredictionID(), SourceAsAbility->GetCurrentTick()));
+					ServerConfirmedCustomMoves.Add(FPredictedTick(SourceAsAbility->GetPredictionID(), SourceAsAbility->GetCurrentTick()), CustomMove);
+				}
+			}
+			break;
+		case ROLE_AutonomousProxy :
+			{
+				//GAS calls this before ability usage to avoid some net corrections.
+				FlushServerMoves();
+				SetupCustomMovementPrediction(SourceAsAbility, CustomMove);
+			}
+			break;
+		default :
+			return;
+		}
+	}
+}
+
+void USaiyoraMovementComponent::ExecuteCustomMove(const FCustomMoveParams& CustomMove)
+{
 	switch (CustomMove.MoveType)
 	{
 	case ESaiyoraCustomMove::Launch :
@@ -314,28 +419,50 @@ void USaiyoraMovementComponent::ExecuteCustomMove(const FCustomMoveParams& Custo
 	}
 }
 
-void USaiyoraMovementComponent::DelayedCustomMoveExecution(const FCustomMoveParams CustomMove)
+void USaiyoraMovementComponent::Client_ExecuteCustomMove_Implementation(const int32 MoveID, const FCustomMoveParams& CustomMove)
 {
-	Multicast_ExecuteCustomMoveNoOwner(CustomMove);
+	bPerformingServerMove = true;
+	PerformingServerMove = CustomMove;
+	PerformingServerMoveID = MoveID;
 }
 
-void USaiyoraMovementComponent::Multicast_ExecuteCustomMove_Implementation(const FCustomMoveParams& CustomMove)
+void USaiyoraMovementComponent::Multicast_ExecuteCustomMove_Implementation(const FCustomMoveParams& CustomMove, const bool bSkipOwner)
 {
-	ExecuteCustomMove(CustomMove);
-}
-
-void USaiyoraMovementComponent::Multicast_ExecuteCustomMoveNoOwner_Implementation(const FCustomMoveParams& CustomMove)
-{
-	if (GetOwnerRole() == ROLE_AutonomousProxy)
+	if (bSkipOwner && GetOwnerRole() == ROLE_AutonomousProxy)
 	{
 		return;
 	}
 	ExecuteCustomMove(CustomMove);
 }
 
-void USaiyoraMovementComponent::Client_ExecuteCustomMove_Implementation(const FCustomMoveParams& CustomMove)
+void USaiyoraMovementComponent::ExecuteWaitingCustomMove(const int32 MoveID)
 {
-	ExecuteCustomMove(CustomMove);
+	FServerWaitingCustomMove* WaitingMove = WaitingServerMoves.Find(MoveID);
+	if (!WaitingMove)
+	{
+		return;
+	}
+	GetWorld()->GetTimerManager().ClearTimer(WaitingMove->TimerHandle);
+	Multicast_ExecuteCustomMove(WaitingMove->MoveParams, true);
+	WaitingServerMoves.Remove(MoveID);
+}
+
+void USaiyoraMovementComponent::ServerMoveFromFlag()
+{
+	if (GetOwnerRole() == ROLE_Authority && PawnOwner->IsLocallyControlled())
+	{
+		//Bypass need for flags on listen servers.
+		return;
+	}
+	if (GetOwnerRole() == ROLE_Authority && !PawnOwner->IsLocallyControlled())
+	{
+		ExecuteWaitingCustomMove(PerformingServerMoveID);
+		return;
+	}
+	if (GetOwnerRole() == ROLE_AutonomousProxy)
+	{
+		ExecuteCustomMove(PerformingServerMove);
+	}
 }
 
 void USaiyoraMovementComponent::SetupCustomMovementPrediction(const UCombatAbility* Source, const FCustomMoveParams& CustomMove)
@@ -345,25 +472,25 @@ void USaiyoraMovementComponent::SetupCustomMovementPrediction(const UCombatAbili
 		return;
 	}
 	AbilityComponentRef->OnAbilityTick.AddDynamic(this, &USaiyoraMovementComponent::OnCustomMoveCastPredicted);
-	PendingCustomMove.AbilityClass = Source->GetClass();
-	PendingCustomMove.MoveParams = CustomMove;
-	PendingCustomMove.PredictionID = Source->GetPredictionID();
-	PendingCustomMove.OriginalTimestamp = GameStateRef->GetServerWorldTimeSeconds();
+	PendingPredictedCustomMove.AbilityClass = Source->GetClass();
+	PendingPredictedCustomMove.MoveParams = CustomMove;
+	PendingPredictedCustomMove.PredictionID = Source->GetPredictionID();
+	PendingPredictedCustomMove.OriginalTimestamp = GameStateRef->GetServerWorldTimeSeconds();
 }
 
 void USaiyoraMovementComponent::OnCustomMoveCastPredicted(const FAbilityEvent& Event)
 {
 	AbilityComponentRef->OnAbilityTick.RemoveDynamic(this, &USaiyoraMovementComponent::OnCustomMoveCastPredicted);
 	CompletedCastStatus.Add(Event.PredictionID, true);
-	if (!IsValid(PendingCustomMove.AbilityClass) || PendingCustomMove.AbilityClass != Event.Ability->GetClass()
-		|| PendingCustomMove.PredictionID != Event.PredictionID || PendingCustomMove.MoveParams.MoveType == ESaiyoraCustomMove::None)
+	if (!IsValid(PendingPredictedCustomMove.AbilityClass) || PendingPredictedCustomMove.AbilityClass != Event.Ability->GetClass()
+		|| PendingPredictedCustomMove.PredictionID != Event.PredictionID || PendingPredictedCustomMove.MoveParams.MoveType == ESaiyoraCustomMove::None)
 	{
-		PendingCustomMove.Clear();
+		PendingPredictedCustomMove.Clear();
 		return;
 	}
-	PendingCustomMove.Targets = Event.Targets;
-	PendingCustomMove.Origin = Event.Origin;
-	bWantsCustomMove = true;
+	PendingPredictedCustomMove.Targets = Event.Targets;
+	PendingPredictedCustomMove.Origin = Event.Origin;
+	bWantsPredictedMove = true;
 }
 
 void USaiyoraMovementComponent::CustomMoveFromFlag()
@@ -382,11 +509,11 @@ void USaiyoraMovementComponent::CustomMoveFromFlag()
 		//If we are the server, and have an auto proxy, check that this move hasn't already been sent (duplicating cast IDs), and can actually be performed.
 		if (ServerCompletedMovementIDs.Contains(FPredictedTick(CustomMoveAbilityRequest.PredictionID, CustomMoveAbilityRequest.Tick)) || !IsValid(AbilityComponentRef))
 		{
-			FCustomMoveParams* ExistingMove = ServerWaitingCustomMoves.Find(FPredictedTick(CustomMoveAbilityRequest.PredictionID, CustomMoveAbilityRequest.Tick));
+			FCustomMoveParams* ExistingMove = ServerConfirmedCustomMoves.Find(FPredictedTick(CustomMoveAbilityRequest.PredictionID, CustomMoveAbilityRequest.Tick));
 			if (ExistingMove)
 			{
-				Multicast_ExecuteCustomMoveNoOwner(*ExistingMove);
-				ServerWaitingCustomMoves.Remove(FPredictedTick(CustomMoveAbilityRequest.PredictionID, CustomMoveAbilityRequest.Tick));
+				Multicast_ExecuteCustomMove(*ExistingMove, true);
+				ServerConfirmedCustomMoves.Remove(FPredictedTick(CustomMoveAbilityRequest.PredictionID, CustomMoveAbilityRequest.Tick));
 			}
 		}
 		else
@@ -404,11 +531,11 @@ void USaiyoraMovementComponent::CustomMoveFromFlag()
 	if (GetOwnerRole() == ROLE_AutonomousProxy)
 	{
 		//Check to see if the pending move has been marked as a misprediction, to prevent it from being replayed.
-		if (!CompletedCastStatus.FindRef(PendingCustomMove.PredictionID))
+		if (!CompletedCastStatus.FindRef(PendingPredictedCustomMove.PredictionID))
 		{
 			return;
 		}
-		ExecuteCustomMove(PendingCustomMove.MoveParams);
+		ExecuteCustomMove(PendingPredictedCustomMove.MoveParams);
 	}
 }
 
@@ -459,83 +586,6 @@ void USaiyoraMovementComponent::ExecuteLaunchPlayer(const FCustomMoveParams& Cus
 
 #pragma endregion
 #pragma region Root Motion
-
-void USaiyoraMovementComponent::ApplyCustomMove(UObject* Source, const FCustomMoveParams& CustomMove)
-{
-	if (CustomMove.MoveType == ESaiyoraCustomMove::None)
-	{
-		return;
-	}
-	if (!IsValid(Source))
-	{
-		return;
-	}
-	if (IsValid(DamageHandlerRef) && DamageHandlerRef->GetLifeStatus() != ELifeStatus::Alive)
-	{
-		return;
-	}
-	const UCombatAbility* SourceAsAbility = Cast<UCombatAbility>(Source);
-	if (!IsValid(SourceAsAbility) || SourceAsAbility->GetHandler()->GetOwner() != GetOwner() || SourceAsAbility->GetPredictionID() == 0)
-	{
-		//Not dealing with prediction.
-		//Must happen on server.
-		if (GetOwnerRole() != ROLE_Authority)
-		{
-			return;
-		}
-		//Avoid doubling up in the case of listen servers moving on Predicted and Server tick back to back. This also places a limit of one custom move per source per game tick.
-		if (CurrentTickHandledMovement.Contains(Source))
-		{
-			return;
-		}
-		CurrentTickHandledMovement.Add(Source);
-		if (PawnOwner->IsLocallyControlled())
-		{
-			Multicast_ExecuteCustomMove(CustomMove);
-		}
-		else
-		{
-			//Need to delay move by ping (up to a certain amount) to prevent jitter.
-			//TODO: Cap ping, testing with no ping cap first.
-			//Set timer to apply custom move after ping delay.
-			const FTimerDelegate PingDelayDelegate = FTimerDelegate::CreateUObject(this, &USaiyoraMovementComponent::DelayedCustomMoveExecution, CustomMove);
-			FTimerHandle PingDelayHandle;
-			//const float PingDelay = FMath::Min(MAXPINGDELAY, USaiyoraCombatLibrary::GetActorPing(GetOwner()));
-			const float PingDelay = USaiyoraCombatLibrary::GetActorPing(GetOwner());
-			GetWorld()->GetTimerManager().SetTimer(PingDelayHandle, PingDelayDelegate, PingDelay, false);
-			Client_ExecuteCustomMove(CustomMove);
-		}
-	}
-	else
-	{
-		//Dealing with prediction.
-		switch (GetOwnerRole())
-		{
-		case ROLE_Authority :
-			{
-				if (bUsingAbilityFromCustomMove)
-				{
-					Multicast_ExecuteCustomMoveNoOwner(CustomMove);
-				}
-				else
-				{
-					ServerCompletedMovementIDs.Add(FPredictedTick(SourceAsAbility->GetPredictionID(), SourceAsAbility->GetCurrentTick()));
-					ServerWaitingCustomMoves.Add(FPredictedTick(SourceAsAbility->GetPredictionID(), SourceAsAbility->GetCurrentTick()), CustomMove);
-				}
-			}
-			break;
-		case ROLE_AutonomousProxy :
-			{
-				//GAS calls this before ability usage to avoid some net corrections.
-				FlushServerMoves();
-				SetupCustomMovementPrediction(SourceAsAbility, CustomMove);
-			}
-			break;
-		default :
-			return;
-		}
-	}
-}
 
 void USaiyoraMovementComponent::ApplyConstantForce(UObject* Source, const ERootMotionAccumulateMode AccumulateMode, const int32 Priority,
 	const float Duration, const FVector& Force, UCurveFloat* StrengthOverTime, const bool bIgnoreRestrictions)

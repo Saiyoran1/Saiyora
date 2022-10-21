@@ -21,8 +21,18 @@ struct FCustomMoveParams
 	bool bStopMovement = false;
 	UPROPERTY()
 	bool bIgnoreRestrictions = false;
-	UPROPERTY()
-	bool bExternal = false;
+};
+
+USTRUCT()
+struct FServerWaitingCustomMove
+{
+	GENERATED_BODY();
+	
+	FCustomMoveParams MoveParams;
+	FTimerHandle TimerHandle;
+
+	FServerWaitingCustomMove() {}
+	FServerWaitingCustomMove(const FCustomMoveParams& Move) : MoveParams(Move) {}
 };
 
 USTRUCT()

@@ -34,8 +34,11 @@ private:
 		virtual void PrepMoveFor(ACharacter* C) override;
 		virtual void SetMoveFor(ACharacter* C, float InDeltaTime, const FVector& NewAccel, FNetworkPredictionData_Client_Character& ClientData) override;
 
-		uint8 bSavedWantsCustomMove : 1;
-		FClientPendingCustomMove SavedPendingCustomMove;
+		uint8 bSavedWantsPredictedMove : 1;
+		FClientPendingCustomMove SavedPredictedCustomMove;
+		uint8 bSavedPerformedServerMove : 1;
+		FCustomMoveParams SavedServerMove;
+		int32 SavedServerMoveID;
 	};
 
 	class FNetworkPredictionData_Client_Saiyora : public FNetworkPredictionData_Client_Character
@@ -51,6 +54,7 @@ private:
 	{
 		typedef FCharacterNetworkMoveData Super;
 		FAbilityRequest CustomMoveAbilityRequest;
+		int32 ServerMoveID;
 		virtual void ClientFillNetworkMoveData(const FSavedMove_Character& ClientMove, ENetworkMoveType MoveType) override;
 		virtual bool Serialize(UCharacterMovementComponent& CharacterMovement, FArchive& Ar, UPackageMap* PackageMap, ENetworkMoveType MoveType) override;
 	};
@@ -97,33 +101,11 @@ public:
 
 private:
 
-	static const float MAXPINGDELAY;
+	static constexpr float MaxMoveDelay = 0.5f;
 	FSaiyoraNetworkMoveDataContainer CustomNetworkMoveDataContainer;
-	uint8 bWantsCustomMove : 1;
-	//Client-side move struct, used for replaying the move without access to the original ability.
-	FClientPendingCustomMove PendingCustomMove;
-	//Ability request received by the server, used to activate an ability resulting in a custom move.
-	FAbilityRequest CustomMoveAbilityRequest;
-	TMap<int32, bool> CompletedCastStatus;
-	TSet<FPredictedTick> ServerCompletedMovementIDs;
 	virtual void MoveAutonomous(float ClientTimeStamp, float DeltaTime, uint8 CompressedFlags, const FVector& NewAccel) override;
-	void SetupCustomMovementPrediction(const UCombatAbility* Source, const FCustomMoveParams& CustomMove);
-	UFUNCTION()
-	void OnCustomMoveCastPredicted(const FAbilityEvent& Event);
 	virtual void UpdateFromCompressedFlags(uint8 Flags) override;
-	UFUNCTION(NetMulticast, Unreliable)
-	void Multicast_ExecuteCustomMove(const FCustomMoveParams& CustomMove);
-	UFUNCTION(NetMulticast, Unreliable)
-	void Multicast_ExecuteCustomMoveNoOwner(const FCustomMoveParams& CustomMove);
-	UFUNCTION(Client, Unreliable)
-	void Client_ExecuteCustomMove(const FCustomMoveParams& CustomMove);
-	UFUNCTION()
-	void DelayedCustomMoveExecution(const FCustomMoveParams CustomMove);
 	virtual void OnMovementUpdated(float DeltaSeconds, const FVector& OldLocation, const FVector& OldVelocity) override;
-	void CustomMoveFromFlag();
-	void ExecuteCustomMove(const FCustomMoveParams& CustomMove);
-	UFUNCTION()
-	void AbilityMispredicted(const int32 PredictionID);
 
 //Custom Moves
 	
@@ -143,11 +125,45 @@ private:
 	
 	void ApplyCustomMove(UObject* Source, const FCustomMoveParams& CustomMove);
 	//Tracks move sources already handled this tick to avoid doubling moves on listen servers (since Predicted and Server tick are called back to back).
-	TSet<UObject*> CurrentTickHandledMovement;
+	TSet<UObject*> ServerCurrentTickHandledMovement;
+	UFUNCTION(NetMulticast, Unreliable)
+	void Multicast_ExecuteCustomMove(const FCustomMoveParams& CustomMove, const bool bSkipOwner = false);
+	UFUNCTION(Client, Reliable)
+	void Client_ExecuteCustomMove(const int32 MoveID, const FCustomMoveParams& CustomMove);
+	void ExecuteCustomMove(const FCustomMoveParams& CustomMove);
+
+	static int32 ServerMoveID;
+	static int32 GenerateServerMoveID() { ServerMoveID++; return ServerMoveID; }
+	TMap<int32, FServerWaitingCustomMove> WaitingServerMoves;
+	UFUNCTION()
+	void ExecuteWaitingCustomMove(const int32 MoveID);
+	uint8 bPerformingServerMove : 1;
+	int32 PerformingServerMoveID = 0;
+	FCustomMoveParams PerformingServerMove;
+	void ServerMoveFromFlag();
+	
+	uint8 bWantsPredictedMove : 1;
+	//Client-side move struct, used for replaying the move without access to the original ability.
+	FClientPendingCustomMove PendingPredictedCustomMove;
+	//Ability request received by the server, used to activate an ability resulting in a custom move.
+	FAbilityRequest CustomMoveAbilityRequest;
+	TMap<int32, bool> CompletedCastStatus;
+	TSet<FPredictedTick> ServerCompletedMovementIDs;
+	
+	void SetupCustomMovementPrediction(const UCombatAbility* Source, const FCustomMoveParams& CustomMove);
+	UFUNCTION()
+	void OnCustomMoveCastPredicted(const FAbilityEvent& Event);
+	
+	void CustomMoveFromFlag();
+	
+	UFUNCTION()
+	void AbilityMispredicted(const int32 PredictionID);
+	
 	//Flag checked during custom move calls to see if the call is from the UseAbility RPC or the custom move RPC.
 	bool bUsingAbilityFromCustomMove = false;
 	//Custom moves created on the server via the AbilityComponent's UseAbility RPC, awaiting the custom move RPC to be applied.
-	TMap<FPredictedTick, FCustomMoveParams> ServerWaitingCustomMoves;
+	TMap<FPredictedTick, FCustomMoveParams> ServerConfirmedCustomMoves;
+	
 	void ExecuteTeleportToLocation(const FCustomMoveParams& CustomMove);
 	void ExecuteLaunchPlayer(const FCustomMoveParams& CustomMove);
 
