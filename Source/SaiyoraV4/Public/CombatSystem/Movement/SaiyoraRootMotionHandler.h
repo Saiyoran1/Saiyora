@@ -14,13 +14,16 @@ class SAIYORAV4_API USaiyoraRootMotionTask : public UGameplayTask
 	GENERATED_BODY()
 
 public:
-
+	
 	void Init(USaiyoraMovementComponent* Movement, UObject* MoveSource);
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void Activate() override;;
 	virtual void OnDestroy(bool bInOwnerFinished) override;
 	bool IsExternal() const { return bExternal; }
 	TSharedPtr<FRootMotionSource> GetRootMotionSource() const { return RMSource; }
+	UObject* GetSource() const { return Source; }
+	FPredictedTick GetPredictedTick() const { return PredictedTick; }
+	virtual bool IsSupportedForNetworking() const override { return true; }
 
 	UPROPERTY(Replicated)
 	int32 Priority = 0;
@@ -36,13 +39,18 @@ public:
 	float Duration = 0.0f;
 	UPROPERTY(Replicated)
 	bool bIgnoreRestrictions = false;
+	UPROPERTY(ReplicatedUsing = OnRep_ServerWaitID)
+	int32 ServerWaitID = 0;
+
+	FTimerHandle ServerWaitHandle;
 
 private:
 
+	UPROPERTY(Replicated)
 	bool bExternal = true;
 	UPROPERTY(Replicated)
 	UObject* Source;
-	UPROPERTY()
+	UPROPERTY(Replicated)
 	USaiyoraMovementComponent* MovementRef;
 	UPROPERTY()
 	UAbilityComponent* AbilityCompRef;
@@ -53,6 +61,8 @@ private:
 	virtual TSharedPtr<FRootMotionSource> MakeRootMotionSource() { return nullptr; }
 	UFUNCTION()
 	void OnMispredicted(const int32 PredictionID);
+	UFUNCTION()
+	void OnRep_ServerWaitID();
 };
 
 UCLASS()

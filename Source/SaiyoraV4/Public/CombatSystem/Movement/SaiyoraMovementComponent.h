@@ -72,6 +72,7 @@ public:
 	
 	USaiyoraMovementComponent(const FObjectInitializer& ObjectInitializer);
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual bool ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags) override;
 	virtual void InitializeComponent() override;
 	virtual void BeginPlay() override;
 	
@@ -115,11 +116,6 @@ public:
 	void TeleportToLocation(UObject* Source, const FVector& Target, const FRotator& DesiredRotation, const bool bStopMovement, const bool bIgnoreRestrictions);
 	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf="Source", HidePin="Source"))
 	void LaunchPlayer(UObject* Source, const FVector& LaunchVector, const bool bStopMovement, const bool bIgnoreRestrictions);
-	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf = "Source", HidePin = "Source"))
-	void ApplyConstantForce(UObject* Source, const ERootMotionAccumulateMode AccumulateMode, const int32 Priority, const float Duration, const FVector& Force,
-		UCurveFloat* StrengthOverTime, const bool bIgnoreRestrictions);
-
-	uint16 ApplyRootMotionTask(USaiyoraRootMotionTask* Task);
 	
 private:
 	
@@ -129,17 +125,17 @@ private:
 	UFUNCTION(NetMulticast, Unreliable)
 	void Multicast_ExecuteCustomMove(const FCustomMoveParams& CustomMove, const bool bSkipOwner = false);
 	UFUNCTION(Client, Reliable)
-	void Client_ExecuteCustomMove(const int32 MoveID, const FCustomMoveParams& CustomMove);
+	void Client_ExecuteServerMove(const int32 MoveID, const FCustomMoveParams& CustomMove);
 	void ExecuteCustomMove(const FCustomMoveParams& CustomMove);
 
 	static int32 ServerMoveID;
 	static int32 GenerateServerMoveID() { ServerMoveID++; return ServerMoveID; }
 	TMap<int32, FServerWaitingCustomMove> WaitingServerMoves;
 	UFUNCTION()
-	void ExecuteWaitingCustomMove(const int32 MoveID);
-	uint8 bPerformingServerMove : 1;
-	int32 PerformingServerMoveID = 0;
-	FCustomMoveParams PerformingServerMove;
+	void ExecuteWaitingServerMove(const int32 MoveID);
+	uint8 bWantsServerMove : 1;
+	int32 ServerMoveToExecuteID = 0;
+	FCustomMoveParams ServerMoveToExecute;
 	void ServerMoveFromFlag();
 	
 	uint8 bWantsPredictedMove : 1;
@@ -150,25 +146,43 @@ private:
 	TMap<int32, bool> CompletedCastStatus;
 	TSet<FPredictedTick> ServerCompletedMovementIDs;
 	
-	void SetupCustomMovementPrediction(const UCombatAbility* Source, const FCustomMoveParams& CustomMove);
+	void SetupCustomMovePrediction(const UCombatAbility* Source, const FCustomMoveParams& CustomMove);
 	UFUNCTION()
 	void OnCustomMoveCastPredicted(const FAbilityEvent& Event);
-	
-	void CustomMoveFromFlag();
-	
+	void PredictedMoveFromFlag();
 	UFUNCTION()
 	void AbilityMispredicted(const int32 PredictionID);
 	
 	//Flag checked during custom move calls to see if the call is from the UseAbility RPC or the custom move RPC.
-	bool bUsingAbilityFromCustomMove = false;
+	bool bUsingAbilityFromPredictedMove = false;
 	//Custom moves created on the server via the AbilityComponent's UseAbility RPC, awaiting the custom move RPC to be applied.
 	TMap<FPredictedTick, FCustomMoveParams> ServerConfirmedCustomMoves;
 	
 	void ExecuteTeleportToLocation(const FCustomMoveParams& CustomMove);
 	void ExecuteLaunchPlayer(const FCustomMoveParams& CustomMove);
+	
+//Root Motion
 
+public:
+
+	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf = "Source", HidePin = "Source"))
+	void ApplyConstantForce(UObject* Source, const ERootMotionAccumulateMode AccumulateMode, const int32 Priority, const float Duration, const FVector& Force,
+		UCurveFloat* StrengthOverTime, const bool bIgnoreRestrictions);
+
+	void ExecuteServerRootMotion(USaiyoraRootMotionTask* Task);
+	//Function called during RunGameplayTask to finally apply root motion.
+	uint16 ExecuteRootMotionTask(USaiyoraRootMotionTask* Task);
+
+private:
+
+	void ApplyRootMotionTask(USaiyoraRootMotionTask* Task);
 	UPROPERTY()
 	TArray<USaiyoraRootMotionTask*> ActiveRootMotionTasks;
+	UPROPERTY()
+	TArray<USaiyoraRootMotionTask*> WaitingServerRootMotionTasks;
+	void ExecuteWaitingServerRootMotionTask(const int32 TaskID);
+	UFUNCTION(Server, Reliable)
+	void Server_ConfirmClientExecutedServerRootMotion(const int32 TaskID);
 	
 //Restrictions
 	

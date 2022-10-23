@@ -47,6 +47,9 @@ void USaiyoraRootMotionTask::GetLifetimeReplicatedProps(TArray<FLifetimeProperty
 	DOREPLIFETIME(USaiyoraRootMotionTask, FinishClampVelocity);
 	DOREPLIFETIME(USaiyoraRootMotionTask, Duration);
 	DOREPLIFETIME(USaiyoraRootMotionTask, bIgnoreRestrictions);
+	DOREPLIFETIME(USaiyoraRootMotionTask, ServerWaitID);
+	DOREPLIFETIME(USaiyoraRootMotionTask, MovementRef);
+	DOREPLIFETIME(USaiyoraRootMotionTask, bExternal);
 }
 
 void USaiyoraRootMotionTask::Activate()
@@ -56,7 +59,7 @@ void USaiyoraRootMotionTask::Activate()
 	{
 		RMSource = MakeRootMotionSource();
 		MovementRef->FlushServerMoves();
-		RMSHandle = MovementRef->ApplyRootMotionTask(this);
+		RMSHandle = MovementRef->ExecuteRootMotionTask(this);
 	}
 }
 
@@ -74,6 +77,14 @@ void USaiyoraRootMotionTask::OnMispredicted(const int32 PredictionID)
 	if (PredictionID == PredictedTick.PredictionID)
 	{
 		EndTask();
+	}
+}
+
+void USaiyoraRootMotionTask::OnRep_ServerWaitID()
+{
+	if (ServerWaitID != 0 && IsValid(MovementRef))
+	{
+		MovementRef->ExecuteServerRootMotion(this);
 	}
 }
 

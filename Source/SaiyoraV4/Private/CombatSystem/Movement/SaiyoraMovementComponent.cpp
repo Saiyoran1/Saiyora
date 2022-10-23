@@ -64,7 +64,7 @@ void USaiyoraMovementComponent::FSavedMove_Saiyora::PrepMoveFor(ACharacter* C)
 	if (USaiyoraMovementComponent* Movement = Cast<USaiyoraMovementComponent>(C->GetCharacterMovement()))
 	{
 		Movement->PendingPredictedCustomMove = SavedPredictedCustomMove;
-		Movement->PerformingServerMove = SavedServerMove;
+		Movement->ServerMoveToExecute = SavedServerMove;
 	}
 }
 
@@ -77,9 +77,9 @@ void USaiyoraMovementComponent::FSavedMove_Saiyora::SetMoveFor(ACharacter* C, fl
 	{
 		bSavedWantsPredictedMove = Movement->bWantsPredictedMove;
 		SavedPredictedCustomMove = Movement->PendingPredictedCustomMove;
-		bSavedPerformedServerMove = Movement->bPerformingServerMove;
-		SavedServerMoveID = Movement->PerformingServerMoveID;
-		SavedServerMove = Movement->PerformingServerMove;
+		bSavedPerformedServerMove = Movement->bWantsServerMove;
+		SavedServerMoveID = Movement->ServerMoveToExecuteID;
+		SavedServerMove = Movement->ServerMoveToExecute;
 	}
 }
 
@@ -88,7 +88,7 @@ void USaiyoraMovementComponent::UpdateFromCompressedFlags(uint8 Flags)
 	Super::UpdateFromCompressedFlags(Flags);
 	//Updates the CMC when replaying a client move or receiving the move on the server. Only affects flags.
 	bWantsPredictedMove = (Flags & FSavedMove_Character::FLAG_Custom_1) != 0;
-	bPerformingServerMove = (Flags & FSavedMove_Character::FLAG_Custom_2) != 0;
+	bWantsServerMove = (Flags & FSavedMove_Character::FLAG_Custom_2) != 0;
 }
 
 USaiyoraMovementComponent::FNetworkPredictionData_Client_Saiyora::FNetworkPredictionData_Client_Saiyora(
@@ -160,6 +160,17 @@ void USaiyoraMovementComponent::GetLifetimeReplicatedProps(TArray<FLifetimePrope
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(USaiyoraMovementComponent, bExternalMovementRestricted);
+}
+
+bool USaiyoraMovementComponent::ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch,
+	FReplicationFlags* RepFlags)
+{
+	bool bWroteSomething = Super::ReplicateSubobjects(Channel, Bunch, RepFlags);
+	if (RepFlags->bNetOwner)
+	{
+		bWroteSomething |= Channel->ReplicateSubobjectList(WaitingServerRootMotionTasks, *Bunch, *RepFlags);
+	}
+	return bWroteSomething;
 }
 
 void USaiyoraMovementComponent::InitializeComponent()
@@ -275,17 +286,17 @@ void USaiyoraMovementComponent::OnMovementUpdated(float DeltaSeconds, const FVec
 	}
 	if (bWantsPredictedMove)
 	{
-		CustomMoveFromFlag();
+		PredictedMoveFromFlag();
 		bWantsPredictedMove = false;
 		CustomMoveAbilityRequest.Clear();
 		PendingPredictedCustomMove.Clear();
 	}
-	if (bPerformingServerMove)
+	if (bWantsServerMove)
 	{
 		ServerMoveFromFlag();
-		bPerformingServerMove = false;
-		PerformingServerMove = FCustomMoveParams();
-		PerformingServerMoveID = 0;
+		bWantsServerMove = false;
+		ServerMoveToExecute = FCustomMoveParams();
+		ServerMoveToExecuteID = 0;
 	}
 }
 
@@ -296,7 +307,7 @@ void USaiyoraMovementComponent::MoveAutonomous(float ClientTimeStamp, float Delt
 	if (const FSaiyoraNetworkMoveData* MoveData = static_cast<FSaiyoraNetworkMoveData*>(GetCurrentNetworkMoveData()))
 	{
 		CustomMoveAbilityRequest = MoveData->CustomMoveAbilityRequest;
-		PerformingServerMoveID = MoveData->ServerMoveID;
+		ServerMoveToExecuteID = MoveData->ServerMoveID;
 	}
 	Super::MoveAutonomous(ClientTimeStamp, DeltaTime, CompressedFlags, NewAccel);
 }
@@ -362,10 +373,10 @@ void USaiyoraMovementComponent::ApplyCustomMove(UObject* Source, const FCustomMo
 		{
 			//Generate an ID for this move, and then wait until the client sends a move that says it has executed this move ID to then execute it on server.
 			const int32 WaitingMoveID = GenerateServerMoveID();
-			Client_ExecuteCustomMove(WaitingMoveID, CustomMove);
+			Client_ExecuteServerMove(WaitingMoveID, CustomMove);
 			FServerWaitingCustomMove WaitingMove = FServerWaitingCustomMove(CustomMove);
 			//Set a timer for a max amount of time we will wait, if the client doesn't send by this point, execute the move anyway.
-			const FTimerDelegate WaitingMoveDelegate = FTimerDelegate::CreateUObject(this, &USaiyoraMovementComponent::ExecuteWaitingCustomMove, WaitingMoveID);
+			const FTimerDelegate WaitingMoveDelegate = FTimerDelegate::CreateUObject(this, &USaiyoraMovementComponent::ExecuteWaitingServerMove, WaitingMoveID);
 			GetWorld()->GetTimerManager().SetTimer(WaitingMove.TimerHandle, WaitingMoveDelegate, MaxMoveDelay, false);
 			WaitingServerMoves.Add(WaitingMoveID, WaitingMove);
 		}
@@ -377,7 +388,7 @@ void USaiyoraMovementComponent::ApplyCustomMove(UObject* Source, const FCustomMo
 		{
 		case ROLE_Authority :
 			{
-				if (bUsingAbilityFromCustomMove)
+				if (bUsingAbilityFromPredictedMove)
 				{
 					//We received the RPC from the client that requested an ability use, and the ability is now requesting custom movement.
 					Multicast_ExecuteCustomMove(CustomMove, true);
@@ -395,7 +406,7 @@ void USaiyoraMovementComponent::ApplyCustomMove(UObject* Source, const FCustomMo
 			{
 				//GAS calls this before ability usage to avoid some net corrections.
 				FlushServerMoves();
-				SetupCustomMovementPrediction(SourceAsAbility, CustomMove);
+				SetupCustomMovePrediction(SourceAsAbility, CustomMove);
 			}
 			break;
 		default :
@@ -419,11 +430,11 @@ void USaiyoraMovementComponent::ExecuteCustomMove(const FCustomMoveParams& Custo
 	}
 }
 
-void USaiyoraMovementComponent::Client_ExecuteCustomMove_Implementation(const int32 MoveID, const FCustomMoveParams& CustomMove)
+void USaiyoraMovementComponent::Client_ExecuteServerMove_Implementation(const int32 MoveID, const FCustomMoveParams& CustomMove)
 {
-	bPerformingServerMove = true;
-	PerformingServerMove = CustomMove;
-	PerformingServerMoveID = MoveID;
+	bWantsServerMove = true;
+	ServerMoveToExecute = CustomMove;
+	ServerMoveToExecuteID = MoveID;
 }
 
 void USaiyoraMovementComponent::Multicast_ExecuteCustomMove_Implementation(const FCustomMoveParams& CustomMove, const bool bSkipOwner)
@@ -435,7 +446,7 @@ void USaiyoraMovementComponent::Multicast_ExecuteCustomMove_Implementation(const
 	ExecuteCustomMove(CustomMove);
 }
 
-void USaiyoraMovementComponent::ExecuteWaitingCustomMove(const int32 MoveID)
+void USaiyoraMovementComponent::ExecuteWaitingServerMove(const int32 MoveID)
 {
 	FServerWaitingCustomMove* WaitingMove = WaitingServerMoves.Find(MoveID);
 	if (!WaitingMove)
@@ -456,16 +467,16 @@ void USaiyoraMovementComponent::ServerMoveFromFlag()
 	}
 	if (GetOwnerRole() == ROLE_Authority && !PawnOwner->IsLocallyControlled())
 	{
-		ExecuteWaitingCustomMove(PerformingServerMoveID);
+		ExecuteWaitingServerMove(ServerMoveToExecuteID);
 		return;
 	}
 	if (GetOwnerRole() == ROLE_AutonomousProxy)
 	{
-		ExecuteCustomMove(PerformingServerMove);
+		ExecuteCustomMove(ServerMoveToExecute);
 	}
 }
 
-void USaiyoraMovementComponent::SetupCustomMovementPrediction(const UCombatAbility* Source, const FCustomMoveParams& CustomMove)
+void USaiyoraMovementComponent::SetupCustomMovePrediction(const UCombatAbility* Source, const FCustomMoveParams& CustomMove)
 {
 	if (GetOwnerRole() != ROLE_AutonomousProxy || CustomMove.MoveType == ESaiyoraCustomMove::None || !IsValid(Source) || !IsValid(AbilityComponentRef))
 	{
@@ -493,7 +504,7 @@ void USaiyoraMovementComponent::OnCustomMoveCastPredicted(const FAbilityEvent& E
 	bWantsPredictedMove = true;
 }
 
-void USaiyoraMovementComponent::CustomMoveFromFlag()
+void USaiyoraMovementComponent::PredictedMoveFromFlag()
 {
 	if (GetOwnerRole() == ROLE_SimulatedProxy)
 	{
@@ -518,13 +529,13 @@ void USaiyoraMovementComponent::CustomMoveFromFlag()
 		}
 		else
 		{
-			bUsingAbilityFromCustomMove = true;
+			bUsingAbilityFromPredictedMove = true;
 			if (AbilityComponentRef->UseAbilityFromPredictedMovement(CustomMoveAbilityRequest))
 			{
 				//Document that this prediction ID has already been used, so duplicate moves with this ID do not get re-used.
 				ServerCompletedMovementIDs.Add(FPredictedTick(CustomMoveAbilityRequest.PredictionID, CustomMoveAbilityRequest.Tick));
 			}
-			bUsingAbilityFromCustomMove = false;
+			bUsingAbilityFromPredictedMove = false;
 		}
 		return;
 	}
@@ -598,10 +609,78 @@ void USaiyoraMovementComponent::ApplyConstantForce(UObject* Source, const ERootM
 	ConstantForce->Force = Force;
 	ConstantForce->StrengthOverTime = StrengthOverTime;
 	ConstantForce->bIgnoreRestrictions = bIgnoreRestrictions;
-	AbilityComponentRef->RunGameplayTask(*AbilityComponentRef, *ConstantForce, Priority, FGameplayResourceSet(), FGameplayResourceSet());
+	ApplyRootMotionTask(ConstantForce);
 }
 
-uint16 USaiyoraMovementComponent::ApplyRootMotionTask(USaiyoraRootMotionTask* Task)
+void USaiyoraMovementComponent::ApplyRootMotionTask(USaiyoraRootMotionTask* Task)
+{
+	if (GetOwnerRole() == ROLE_SimulatedProxy)
+	{
+		return;
+	}
+	if (!IsValid(Task))
+	{
+		return;
+	}
+	if (IsValid(DamageHandlerRef) && DamageHandlerRef->GetLifeStatus() != ELifeStatus::Alive)
+	{
+		return;
+	}
+	//If not ignoring restrictions, check for roots or for active movement restriction.
+	if (!Task->bIgnoreRestrictions)
+	{
+		if (IsValid(CcHandlerRef) && CcHandlerRef->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Root))
+		{
+			return;
+		}
+		if (Task->IsExternal() && bExternalMovementRestricted)
+		{
+			return;
+		}
+	}
+	if (!PawnOwner->IsLocallyControlled() && (Task->IsExternal() || Task->GetPredictedTick().PredictionID == 0))
+	{
+		//Generate an ID for this move, and then wait until the client sends an RPC that says it has executed this move ID to then execute it on server.
+		Task->ServerWaitID = GenerateServerMoveID();
+		//Set a timer for a max amount of time we will wait, if the client doesn't send by this point, execute the move anyway.
+		const FTimerDelegate WaitingMoveDelegate = FTimerDelegate::CreateUObject(this, &USaiyoraMovementComponent::ExecuteWaitingServerRootMotionTask, Task->ServerWaitID);
+		GetWorld()->GetTimerManager().SetTimer(Task->ServerWaitHandle, WaitingMoveDelegate, MaxMoveDelay, false);
+		WaitingServerRootMotionTasks.Add(Task);
+		ForceReplicationUpdate();
+	}
+	else
+	{
+		if (IsValid(AbilityComponentRef))
+		{
+			AbilityComponentRef->RunGameplayTask(*AbilityComponentRef, *Task, 0, FGameplayResourceSet(), FGameplayResourceSet());
+		}
+	}
+}
+
+void USaiyoraMovementComponent::ExecuteWaitingServerRootMotionTask(const int32 TaskID)
+{
+	for (USaiyoraRootMotionTask* WaitingTask : WaitingServerRootMotionTasks)
+	{
+		if (WaitingTask->ServerWaitID == TaskID)
+		{
+			WaitingServerRootMotionTasks.Remove(WaitingTask);
+			GetWorld()->GetTimerManager().ClearTimer(WaitingTask->ServerWaitHandle);
+			if (IsValid(AbilityComponentRef))
+			{
+				AbilityComponentRef->RunGameplayTask(*AbilityComponentRef, *WaitingTask, 0, FGameplayResourceSet(), FGameplayResourceSet());
+			}
+			//TODO: How to run root motion with no ability comp?
+			return;
+		}
+	}
+}
+
+void USaiyoraMovementComponent::Server_ConfirmClientExecutedServerRootMotion_Implementation(const int32 TaskID)
+{
+	ExecuteWaitingServerRootMotionTask(TaskID);
+}
+
+uint16 USaiyoraMovementComponent::ExecuteRootMotionTask(USaiyoraRootMotionTask* Task)
 {
 	if (!IsValid(Task))
 	{
@@ -617,6 +696,18 @@ uint16 USaiyoraMovementComponent::ApplyRootMotionTask(USaiyoraRootMotionTask* Ta
 	}
 	ActiveRootMotionTasks.Add(Task);
 	return ApplyRootMotionSource(Task->GetRootMotionSource());
+}
+
+void USaiyoraMovementComponent::ExecuteServerRootMotion(USaiyoraRootMotionTask* Task)
+{
+	if (PawnOwner->IsLocallyControlled())
+	{
+		if (IsValid(AbilityComponentRef))
+		{
+			AbilityComponentRef->RunGameplayTask(*AbilityComponentRef, *Task, 0, FGameplayResourceSet(), FGameplayResourceSet());
+		}
+		Server_ConfirmClientExecutedServerRootMotion(Task->ServerWaitID);
+	}
 }
 
 #pragma endregion
