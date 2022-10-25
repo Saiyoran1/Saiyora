@@ -153,6 +153,8 @@ public:
     int32 GetNumberOfTicks() const { return NonInitialTicks; }
     UFUNCTION(BlueprintPure, Category = "Abilities")
     bool IsInterruptible() const { return bInterruptible; }
+    UFUNCTION(BlueprintPure, Category = "Abilities")
+    bool CanCastWhileCasting() const { return bCastableWhileCasting; }
 
 protected:
 
@@ -168,6 +170,8 @@ protected:
     int32 NonInitialTicks = 0;
     UPROPERTY(EditDefaultsOnly, Category = "Cast")
     bool bInterruptible = true;
+    UPROPERTY(EditDefaultsOnly, Category = "Cast")
+    bool bCastableWhileCasting = false;
  
 //Global Cooldown
     

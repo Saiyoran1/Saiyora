@@ -45,6 +45,7 @@ void UReload::OnPredictedTick_Implementation(const int32 TickNumber)
 	{
 		ActivateCastRestriction(FSaiyoraCombatTags::Get().AbilityDoubleReloadRestriction);
 		bWaitingOnReloadResult = true;
+		UE_LOG(LogTemp, Warning, TEXT("Activated double reload restriction."));
 	}
 }
 
@@ -60,7 +61,7 @@ void UReload::OnServerTick_Implementation(const int32 TickNumber)
 void UReload::OnSimulatedTick_Implementation(const int32 TickNumber)
 {
 	Super::OnSimulatedTick_Implementation(TickNumber);
-	if (CastType == EAbilityCastType::Instant || TickNumber != GetNumberOfTicks())
+	if (IsValid(OwningPlayer) && !OwningPlayer->IsLocallyControlled() && CastType == EAbilityCastType::Instant || TickNumber != GetNumberOfTicks())
 	{
 		StartReloadMontage();
 	}
@@ -120,6 +121,7 @@ void UReload::OnAmmoChanged(UResource* Resource, UObject* ChangeSource, const FR
 	{
 		bWaitingOnReloadResult = false;
 		DeactivateCastRestriction(FSaiyoraCombatTags::Get().AbilityDoubleReloadRestriction);
+		UE_LOG(LogTemp, Warning, TEXT("Deactivated double reload restriction."));
 	}
 	if (bFullAmmo)
 	{

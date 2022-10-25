@@ -259,6 +259,9 @@ void UAbilityComponent::ServerPredictAbility_Implementation(const FAbilityReques
 	{
 		return;
 	}
+	UE_LOG(LogTemp, Warning, TEXT("ServerPredictAbility: Request ID %i Tick %i AbilityClass %s, CastingState %s ID %i ElapsedTick %i AbilityClass %s"),
+		Request.PredictionID, Request.Tick, *Request.AbilityClass->GetName(),
+		CastingState.bIsCasting ? *FString("true") : *FString("false"), CastingState.PredictionID, CastingState.ElapsedTicks, IsValid(CastingState.CurrentCast) ? *CastingState.CurrentCast->GetName() : *FString("null"));
 	if (Request.Tick == 0)
 	{
 		FServerAbilityResult ServerResult;
@@ -776,10 +779,14 @@ void UAbilityComponent::UpdateCastFromServerResult(const float PredictionTime, c
 {
 	if (CastingState.PredictionID <= Result.PredictionID)
 	{
+		if (Result.AbilityClass->GetDefaultObject<UCombatAbility>()->CanCastWhileCasting())
+		{
+			return;
+		}
 		const FCastingState PreviousState = CastingState;
-		CastingState.PredictionID = Result.PredictionID;
 		if (Result.bSuccess && Result.bActivatedCastBar && PredictionTime + Result.CastLength > GameStateRef->GetServerWorldTimeSeconds())
 		{
+			CastingState.PredictionID = Result.PredictionID;
 			CastingState.bIsCasting = true;
 			CastingState.CastStartTime = PredictionTime;
 			CastingState.CastLength = Result.CastLength;
@@ -816,16 +823,13 @@ void UAbilityComponent::UpdateCastFromServerResult(const float PredictionTime, c
 			}
 			GetWorld()->GetTimerManager().SetTimer(TickHandle, this, &UAbilityComponent::TickCurrentCast, TickInterval, true,
 				(CastingState.CastStartTime + (TickInterval * (CastingState.ElapsedTicks + 1))) - GameStateRef->GetServerWorldTimeSeconds());
-			
 			OnCastStateChanged.Broadcast(PreviousState, CastingState);
-			
 		}
 		else if (CastingState.bIsCasting)
 		{
 			//TODO: Potential to miss ticks here if the cast should've already completed.
 			EndCast();
 		}
-		
 	}
 }
 
@@ -1169,7 +1173,7 @@ bool UAbilityComponent::CanUseAbility(const UCombatAbility* Ability, ECastFailRe
 		OutFailReason = ECastFailReason::OnGlobalCooldown;
 		return false;
 	}
-	if (CastingState.bIsCasting)
+	if ((Ability->GetCastType() != EAbilityCastType::Instant || !Ability->CanCastWhileCasting()) && CastingState.bIsCasting)
 	{
 		OutFailReason = ECastFailReason::AlreadyCasting;
 		return false;
