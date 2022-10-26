@@ -69,9 +69,9 @@ struct FModernTalentChoice : public FFastArraySerializerItem
 	void PostReplicatedAdd(const struct FModernTalentSet& InArraySerializer);
 	void PostReplicatedChange(const struct FModernTalentSet& InArraySerializer);
 
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite)
 	int32 SlotNumber = 0;
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite)
 	TSubclassOf<UCombatAbility> Selection;
 
 	FModernTalentChoice() {}
