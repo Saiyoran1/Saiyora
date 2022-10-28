@@ -45,7 +45,6 @@ void UReload::OnPredictedTick_Implementation(const int32 TickNumber)
 	{
 		ActivateCastRestriction(FSaiyoraCombatTags::Get().AbilityDoubleReloadRestriction);
 		bWaitingOnReloadResult = true;
-		UE_LOG(LogTemp, Warning, TEXT("Activated double reload restriction."));
 	}
 }
 
@@ -121,7 +120,6 @@ void UReload::OnAmmoChanged(UResource* Resource, UObject* ChangeSource, const FR
 	{
 		bWaitingOnReloadResult = false;
 		DeactivateCastRestriction(FSaiyoraCombatTags::Get().AbilityDoubleReloadRestriction);
-		UE_LOG(LogTemp, Warning, TEXT("Deactivated double reload restriction."));
 	}
 	if (bFullAmmo)
 	{

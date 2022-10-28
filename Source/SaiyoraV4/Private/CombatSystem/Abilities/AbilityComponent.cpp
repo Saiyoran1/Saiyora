@@ -259,9 +259,6 @@ void UAbilityComponent::ServerPredictAbility_Implementation(const FAbilityReques
 	{
 		return;
 	}
-	UE_LOG(LogTemp, Warning, TEXT("ServerPredictAbility: Request ID %i Tick %i AbilityClass %s, CastingState %s ID %i ElapsedTick %i AbilityClass %s"),
-		Request.PredictionID, Request.Tick, *Request.AbilityClass->GetName(),
-		CastingState.bIsCasting ? *FString("true") : *FString("false"), CastingState.PredictionID, CastingState.ElapsedTicks, IsValid(CastingState.CurrentCast) ? *CastingState.CurrentCast->GetName() : *FString("null"));
 	if (Request.Tick == 0)
 	{
 		FServerAbilityResult ServerResult;
