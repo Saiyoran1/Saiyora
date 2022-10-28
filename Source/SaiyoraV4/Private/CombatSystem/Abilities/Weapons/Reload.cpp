@@ -51,7 +51,7 @@ void UReload::OnPredictedTick_Implementation(const int32 TickNumber)
 void UReload::OnServerTick_Implementation(const int32 TickNumber)
 {
 	Super::OnServerTick_Implementation(TickNumber);
-	if (IsValid(OwningPlayer) && !OwningPlayer->IsLocallyControlled() && CastType == EAbilityCastType::Instant || TickNumber != GetNumberOfTicks())
+	if (IsValid(OwningPlayer) && !OwningPlayer->IsLocallyControlled() && (CastType == EAbilityCastType::Instant || TickNumber != GetNumberOfTicks()))
 	{
 		StartReloadMontage();
 	}
@@ -60,7 +60,7 @@ void UReload::OnServerTick_Implementation(const int32 TickNumber)
 void UReload::OnSimulatedTick_Implementation(const int32 TickNumber)
 {
 	Super::OnSimulatedTick_Implementation(TickNumber);
-	if (IsValid(OwningPlayer) && !OwningPlayer->IsLocallyControlled() && CastType == EAbilityCastType::Instant || TickNumber != GetNumberOfTicks())
+	if (IsValid(OwningPlayer) && !OwningPlayer->IsLocallyControlled() && (CastType == EAbilityCastType::Instant || TickNumber != GetNumberOfTicks()))
 	{
 		StartReloadMontage();
 	}
