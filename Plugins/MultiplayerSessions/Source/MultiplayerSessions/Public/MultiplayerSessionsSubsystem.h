@@ -21,6 +21,17 @@ struct FMapInformation : public FTableRowBase
 	UTexture2D* Image = nullptr;
 };
 
+UCLASS(Blueprintable)
+class UMapPool : public UDataAsset
+{
+	GENERATED_BODY()
+
+public:
+	
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Maps")
+	TArray<FMapInformation> Maps;
+};
+
 USTRUCT(BlueprintType)
 struct FSaiyoraSession
 {
