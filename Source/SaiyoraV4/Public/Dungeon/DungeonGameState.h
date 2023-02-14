@@ -117,6 +117,8 @@ public:
 	bool IsDungeonDepleted() const { return DungeonProgress.bDepleted; }
 	UFUNCTION(BlueprintPure)
 	float GetDungeonCompletionTime() const { return DungeonProgress.CompletionTime; }
+	UFUNCTION(BlueprintPure)
+	float GetCountdownTimeRemaining() const { return DungeonProgress.DungeonPhase == EDungeonPhase::Countdown ? FMath::Max(0.0f, CountdownLength - (GetServerWorldTimeSeconds() - DungeonProgress.PhaseStartTime)) : 0.0f; }
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly)
 	void ReportPlayerDeath();
