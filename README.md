@@ -22,7 +22,7 @@ Below are links to the README files for each of the main parts of Saiyora's comb
 > [Combat Status](Source/SaiyoraV4/Public/CombatSystem/CombatStatus/CombatStatusREADME.md)  
 > [Health](Source/SaiyoraV4/Public/CombatSystem/Damage/HealthREADME.md)  
 > [Buffs](Source/SaiyoraV4/Public/CombatSystem/Buffs/BuffsREADME.md)  
-> [Crowd Control]()  
+> [Crowd Control](Source/SaiyoraV4/Public/CombatSystem/CrowdControl/CrowdControlREADME.md)  
 > [Stats]()  
 > [Resources]()  
 > [Abilities]()  
