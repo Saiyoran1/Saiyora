@@ -33,6 +33,8 @@ private:
 
 	UPROPERTY(EditDefaultsOnly, meta = (AllowPrivateAccess = true))
 	UBehaviorTree* BehaviorTree = nullptr;
+	UPROPERTY()
+	AAIController* Controller = nullptr;
 
 //Patrolling
 
