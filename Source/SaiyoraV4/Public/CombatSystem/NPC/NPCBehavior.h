@@ -1,5 +1,6 @@
 #pragma once
 #include "CoreMinimal.h"
+#include "DamageEnums.h"
 #include "BehaviorTree/BehaviorTree.h"
 #include "Components/ActorComponent.h"
 #include "Engine/TargetPoint.h"
@@ -35,6 +36,8 @@ private:
 	UBehaviorTree* BehaviorTree = nullptr;
 	UPROPERTY()
 	AAIController* Controller = nullptr;
+	UPROPERTY()
+	UBlackboardComponent* Blackboard;
 
 //Patrolling
 
@@ -53,12 +56,23 @@ protected:
 	TArray<FPatrolPoint> Patrol;
 	UPROPERTY(EditAnywhere, Category = "Patrol")
 	bool bLoopPatrol = true;
-
+	UPROPERTY(EditAnywhere, Category = "Patrol")
+	float PatrolMoveSpeedModifier = 0.0f;
+	
 	//Combat
 
 protected:
 
 	UPROPERTY(EditAnywhere, Category = "Combat")
 	UBehaviorTree* CombatTree = nullptr;
+
+private:
+
+	UFUNCTION()
+	void UpdateBehaviorOnLifeStatusChanged(AActor* Target, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus);
+	UFUNCTION()
+	void UpdateBehaviorOnCombatChanged(const bool bInCombat);
+	UFUNCTION()
+	void UpdateBehaviorOnTargetChanged(AActor* PreviousTarget, AActor* NewTarget);
 	
 };

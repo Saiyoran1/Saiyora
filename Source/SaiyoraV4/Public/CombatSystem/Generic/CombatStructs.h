@@ -409,19 +409,19 @@ public:
     
 private:
 
-    UPROPERTY(EditDefaultsOnly, NotReplicated)
+    UPROPERTY(EditAnywhere, NotReplicated)
     float DefaultValue = 0.0f;
-    UPROPERTY(EditDefaultsOnly, NotReplicated)
+    UPROPERTY(EditAnywhere, NotReplicated)
     bool bIsModifiable = true;
 
-    UPROPERTY(EditDefaultsOnly, NotReplicated)
+    UPROPERTY(EditAnywhere, NotReplicated)
     bool bClampMin = false;
-    UPROPERTY(EditDefaultsOnly, NotReplicated)
+    UPROPERTY(EditAnywhere, NotReplicated)
     float MinClamp = 0;
 
-    UPROPERTY(EditDefaultsOnly, NotReplicated)
+    UPROPERTY(EditAnywhere, NotReplicated)
     bool bClampMax = false;
-    UPROPERTY(EditDefaultsOnly, NotReplicated)
+    UPROPERTY(EditAnywhere, NotReplicated)
     float MaxClamp = 0;
 
     void Recalculate();
@@ -476,9 +476,9 @@ public:
     
 private:
 
-    UPROPERTY(EditDefaultsOnly)
+    UPROPERTY(EditAnywhere)
     int32 DefaultValue = 0;
-    UPROPERTY(EditDefaultsOnly)
+    UPROPERTY(EditAnywhere)
     bool bIsModifiable = true;
 
     bool bClampMin = false;
