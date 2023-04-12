@@ -24,6 +24,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Attachment")
 	static void AttachCombatActorToComponent(AActor* Target, USceneComponent* Parent, const FName SocketName, const EAttachmentRule LocationRule,
 		const EAttachmentRule RotationRule, const EAttachmentRule ScaleRule, const bool bWeldSimulatedBodies);
+
+	//Modifier
+
+	UFUNCTION(BlueprintPure, Category = "Modifier")
+	static bool IsModifierValid(const FCombatModifierHandle& Handle) { return Handle.IsValid(); }
+	UFUNCTION(BlueprintPure, Category = "Modifier")
+	static FCombatModifierHandle GetInvalidModifier() { return FCombatModifierHandle::Invalid; }
 };
 
 

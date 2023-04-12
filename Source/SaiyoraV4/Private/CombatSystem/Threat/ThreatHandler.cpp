@@ -592,7 +592,8 @@ void UThreatHandler::Vanish()
 	{
 		return;
 	}
-	for (const AActor* Targeting : TargetedBy)
+	const TArray<AActor*> TargetingActors = TargetedBy;
+	for (const AActor* Targeting : TargetingActors)
 	{
 		UThreatHandler* TargetThreatHandler = ISaiyoraCombatInterface::Execute_GetThreatHandler(Targeting);
 		if (IsValid(TargetThreatHandler))
