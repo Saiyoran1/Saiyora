@@ -171,7 +171,7 @@ protected:
         Threat_Fade = Manager.AddNativeGameplayTag(TEXT("Threat.Fade"));
         Threat_Misdirect = Manager.AddNativeGameplayTag(TEXT("Threat.Misdirect"));
 
-        Behavior_Combat = Manager.AddNativeGameplayTag(TEXT("Behavior.Combat"));
+        Behavior_Combat = Manager.AddNativeGameplayTag(TEXT("Behavior.CombatTree"));
     }
 
 private:

@@ -58,6 +58,7 @@ void UNPCBehavior::UpdateBehaviorOnLifeStatusChanged(AActor* Target, const ELife
 		{
 			Blackboard->SetValueAsBool("bShouldPatrol", ShouldPatrol());
 			Blackboard->SetValueAsFloat("PatrolMoveSpeedMod", PatrolMoveSpeedModifier);
+			Blackboard->SetValueAsVector("ResetGoal", GetOwner()->GetActorLocation());
 			UThreatHandler* ThreatHandler = ISaiyoraCombatInterface::Execute_GetThreatHandler(GetOwner());
 			if (IsValid(ThreatHandler))
 			{
