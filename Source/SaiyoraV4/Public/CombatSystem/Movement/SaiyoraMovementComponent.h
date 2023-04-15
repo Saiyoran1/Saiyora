@@ -209,6 +209,11 @@ private:
 	void RemoveMoveRestrictionFromBuff(const FBuffRemoveEvent& RemoveEvent);
 
 //Stats
+
+public:
+
+	UFUNCTION()
+	float GetDefaultMaxWalkSpeed() const { return DefaultMaxWalkSpeed; }
 	
 private:
 	

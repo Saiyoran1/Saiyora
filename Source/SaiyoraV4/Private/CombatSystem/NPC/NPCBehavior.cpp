@@ -1,106 +1,216 @@
 #include "NPC/NPCBehavior.h"
 #include "AIController.h"
-#include "CombatStructs.h"
 #include "DamageHandler.h"
 #include "SaiyoraCombatInterface.h"
+#include "SaiyoraMovementComponent.h"
+#include "StatHandler.h"
 #include "ThreatHandler.h"
 #include "BehaviorTree/BlackboardComponent.h"
 
 UNPCBehavior::UNPCBehavior()
 {
 	PrimaryComponentTick.bCanEverTick = false;
+	bWantsInitializeComponent = true;
+}
+
+void UNPCBehavior::InitializeComponent()
+{
+	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has NPC Behavior Component."));
+	DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
+	ThreatHandlerRef = ISaiyoraCombatInterface::Execute_GetThreatHandler(GetOwner());
+	StatHandlerRef = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
+	MovementComponentRef = ISaiyoraCombatInterface::Execute_GetCustomMovementComponent(GetOwner());
+	Super::InitializeComponent();
 }
 
 void UNPCBehavior::BeginPlay()
 {
 	Super::BeginPlay();
-	if (GetOwnerRole() == ROLE_Authority)
+	if (GetOwnerRole() != ROLE_Authority)
 	{
-		const APawn* OwnerAsPawn = Cast<APawn>(GetOwner());
-		if (IsValid(OwnerAsPawn))
+		return;
+	}
+	OwnerAsPawn = Cast<APawn>(GetOwner());
+	checkf(IsValid(OwnerAsPawn), TEXT("NPC Behavior Component's owner was not a valid pawn."));
+	GameStateRef = Cast<ADungeonGameState>(GetWorld()->GetGameState());
+	checkf(IsValid(GameStateRef), TEXT("Got an invalid Game State Ref in NPC Behavior Component."));
+	
+	OwnerAsPawn->ReceiveControllerChangedDelegate.AddDynamic(this, &UNPCBehavior::OnControllerChanged);
+	GameStateRef->OnDungeonPhaseChanged.AddDynamic(this, &UNPCBehavior::OnDungeonPhaseChanged);
+	if (IsValid(DamageHandlerRef))
+	{
+		DamageHandlerRef->OnLifeStatusChanged.AddDynamic(this, &UNPCBehavior::OnLifeStatusChanged);
+	}
+	if (IsValid(ThreatHandlerRef))
+	{
+		ThreatHandlerRef->OnCombatChanged.AddDynamic(this, &UNPCBehavior::OnCombatChanged);
+	}
+	
+}
+
+void UNPCBehavior::OnLifeStatusChanged(AActor* Target, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus)
+{
+
+}
+
+void UNPCBehavior::OnCombatChanged(const bool bInCombat)
+{
+
+}
+
+void UNPCBehavior::OnControllerChanged(APawn* PossessedPawn, AController* OldController, AController* NewController)
+{
+	AIController = Cast<AAIController>(NewController);
+	if (!IsValid(AIController))
+	{
+		StopBehavior();
+		return;
+	}
+	if (CombatStatus == ENPCCombatStatus::None)
+	{
+		//Check criteria for activation.
+	}
+}
+
+void UNPCBehavior::StopBehavior()
+{
+	switch (CombatStatus)
+	{
+	case ENPCCombatStatus::Patrolling :
+		//TODO: Leave patrolling state.
+		break;
+	case ENPCCombatStatus::Combat :
+		//TODO: Leave combat state.
+		break;
+	case ENPCCombatStatus::Resetting :
+		//TODO: Leave resetting state?
+		break;
+	default:
+		break;
+	}
+}
+
+void UNPCBehavior::UpdateCombatStatus()
+{
+	ENPCCombatStatus NewCombatStatus = ENPCCombatStatus::None;
+	if (GameStateRef->GetDungeonPhase() == EDungeonPhase::InProgress)
+	{
+		if (IsValid(AIController))
 		{
-			Controller = Cast<AAIController>(OwnerAsPawn->GetController());
-			if (IsValid(Controller) && IsValid(BehaviorTree))
+			if (!IsValid(DamageHandlerRef) || DamageHandlerRef->GetLifeStatus() == ELifeStatus::Alive)
 			{
-				UDamageHandler* DamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
-				if (IsValid(DamageHandler))
+				if (IsValid(ThreatHandlerRef) && ThreatHandlerRef->IsInCombat())
 				{
-					//If there's a damage handler, we subscribe to life status updates.
-					DamageHandler->OnLifeStatusChanged.AddDynamic(this, &UNPCBehavior::UpdateBehaviorOnLifeStatusChanged);
+					NewCombatStatus = ENPCCombatStatus::Combat;
 				}
-				const ELifeStatus InitialLifeStatus = IsValid(DamageHandler) ? DamageHandler->GetLifeStatus() : ELifeStatus::Alive;
-				UpdateBehaviorOnLifeStatusChanged(GetOwner(), InitialLifeStatus, InitialLifeStatus);
+				else
+				{
+					NewCombatStatus = bNeedsReset ? ENPCCombatStatus::Resetting : ENPCCombatStatus::Patrolling;
+				}
 			}
+		}
+	}
+	if (NewCombatStatus != CombatStatus)
+	{
+		switch(CombatStatus)
+		{
+		case ENPCCombatStatus::Combat :
+			//TODO: Leave combat.
+			break;
+		case ENPCCombatStatus::Patrolling :
+			//TODO: Leave patrolling.
+			break;
+		case ENPCCombatStatus::Resetting :
+			//TODO: Leave resetting.
+			break;
+		default:
+			break;
+		}
+		CombatStatus = NewCombatStatus;
+		switch (CombatStatus)
+		{
+		case ENPCCombatStatus::Combat :
+			//TODO: Enter combat.
+			break;
+		case ENPCCombatStatus::Patrolling :
+			EnterPatrolState();
+			break;
+		case ENPCCombatStatus::Resetting :
+			//TODO: Enter resetting.
+			break;
+		default:
+			break;
 		}
 	}
 }
 
-void UNPCBehavior::UpdateBehaviorOnLifeStatusChanged(AActor* Target, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus)
+void UNPCBehavior::EnterPatrolState()
 {
-	if (!IsValid(Controller))
+	CombatStatus = ENPCCombatStatus::Patrolling;
+	if (Patrol.Num() < 1)
 	{
+		//This NPC doesn't need to patrol.
 		return;
 	}
-	if (NewStatus == ELifeStatus::Alive)
+	//Apply patrol move speed mod.
+	if (PatrolMoveSpeedModifier > 0.0f)
 	{
-		//If the NPC is coming alive (either spawning or respawning), run the behavior tree, set the combat subtree, and set up subscriptions for blackboard variables.
-		Controller->RunBehaviorTree(BehaviorTree);
-		if (IsValid(CombatTree))
+		if (IsValid(StatHandlerRef))
 		{
-			UBehaviorTreeComponent* BehaviorTreeComponent = Cast<UBehaviorTreeComponent>(Controller->GetBrainComponent());
-			if (IsValid(BehaviorTreeComponent))
-			{
-				BehaviorTreeComponent->SetDynamicSubtree(FSaiyoraCombatTags::Get().Behavior_Combat, CombatTree);
-			}
+			PatrolMoveSpeedModHandle = StatHandlerRef->AddStatModifier(FSaiyoraCombatTags::Get().Stat_MaxWalkSpeed, FCombatModifier(PatrolMoveSpeedModifier, EModifierType::Multiplicative));
 		}
-		Blackboard = Controller->GetBlackboardComponent();
-		if (IsValid(Blackboard))
+		else if (IsValid(MovementComponentRef))
 		{
-			Blackboard->SetValueAsBool("bShouldPatrol", ShouldPatrol());
-			Blackboard->SetValueAsFloat("PatrolMoveSpeedMod", PatrolMoveSpeedModifier);
-			Blackboard->SetValueAsVector("ResetGoal", GetOwner()->GetActorLocation());
-			UThreatHandler* ThreatHandler = ISaiyoraCombatInterface::Execute_GetThreatHandler(GetOwner());
-			if (IsValid(ThreatHandler))
+			//TODO: This could easily go wrong if anything else modifies max walk speed while the mob is patrolling. Maybe just don't let this happen?
+			DefaultMaxWalkSpeed = MovementComponentRef->GetDefaultMaxWalkSpeed();
+			MovementComponentRef->MaxWalkSpeed = DefaultMaxWalkSpeed * PatrolMoveSpeedModifier;
+		}
+	}
+	StartPatrol();
+}
+
+void UNPCBehavior::StartPatrol()
+{
+	const int32 StartingIndex = NextPatrolIndex;
+	while (!Patrol.IsValidIndex(NextPatrolIndex) || !IsValid(Patrol[NextPatrolIndex].Point))
+	{
+		if (NextPatrolIndex > Patrol.Num() - 1)
+		{
+			if (bLoopPatrol)
 			{
-				//If there is a threat handler, we subscribe to combat status updates and target updates.
-				//TODO: Are these subscriptions unique? For respawning, will we get multiple calls?
-				ThreatHandler->OnCombatChanged.AddDynamic(this, &UNPCBehavior::UpdateBehaviorOnCombatChanged);
-				ThreatHandler->OnTargetChanged.AddDynamic(this, &UNPCBehavior::UpdateBehaviorOnTargetChanged);
-				Blackboard->SetValueAsBool("bInCombat", ThreatHandler->IsInCombat());
-				Blackboard->SetValueAsObject("Target", ThreatHandler->GetCurrentTarget());
+				NextPatrolIndex = 0;
 			}
 			else
 			{
-				//If no threat handler, we don't run the combat tree at all.
-				Blackboard->SetValueAsBool("bInCombat", false);
-				Blackboard->SetValueAsObject("Target", nullptr);
+				bFinishedPatrolling = true;
+				break;
 			}
 		}
+		else
+		{
+			NextPatrolIndex += 1;
+		}
+		if (NextPatrolIndex == StartingIndex)
+		{
+			bFinishedPatrolling = true;
+			break;
+		}
 	}
-	else if (IsValid(Controller->GetBrainComponent()))
-	{
-		//If the NPC is dying or becoming inactive, simply stop the current behavior tree if one exists.
-		Controller->GetBrainComponent()->StopLogic(TEXT("Death"));
-		Blackboard = nullptr;
-	}
-}
-
-void UNPCBehavior::UpdateBehaviorOnCombatChanged(const bool bInCombat)
-{
-	if (!IsValid(Blackboard))
-	{
-		return;
-	}
-	Blackboard->SetValueAsBool("bInCombat", bInCombat);
-}
-
-void UNPCBehavior::UpdateBehaviorOnTargetChanged(AActor* PreviousTarget, AActor* NewTarget)
-{
-	if (!IsValid(Blackboard))
+	if (bFinishedPatrolling)
 	{
 		return;
 	}
-	Blackboard->SetValueAsObject("Target", NewTarget);
+	EPathFollowingRequestResult::Type Result = AIController->MoveToLocation(Patrol[NextPatrolIndex].Point->GetActorLocation());
+	switch (Result)
+	{
+	case EPathFollowingRequestResult::RequestSuccessful :
+		AIController->ReceiveMoveCompleted.AddDynamic(this, &UNPCBehavior::OnPatrolComplete);
+		break;
+	default :
+		OnPatrolComplete(//TODO: No idea what to put here?);
+		break;
+	}
 }
+
 
 

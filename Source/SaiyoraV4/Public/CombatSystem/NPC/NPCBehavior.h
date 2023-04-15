@@ -1,10 +1,19 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "DamageEnums.h"
+#include "DungeonGameState.h"
+#include "NPCEnums.h"
+#include "SaiyoraAIController.h"
 #include "BehaviorTree/BehaviorTree.h"
 #include "Components/ActorComponent.h"
 #include "Engine/TargetPoint.h"
+#include "Navigation/PathFollowingComponent.h"
 #include "NPCBehavior.generated.h"
+
+class UDamageHandler;
+class UThreatHandler;
+class UStatHandler;
+class USaiyoraMovementComponent;
 
 USTRUCT(BlueprintType)
 struct FPatrolPoint
@@ -29,15 +38,32 @@ public:
 protected:
 
 	virtual void BeginPlay() override;
+	virtual void InitializeComponent() override;
 
 private:
 
-	UPROPERTY(EditDefaultsOnly, meta = (AllowPrivateAccess = true))
-	UBehaviorTree* BehaviorTree = nullptr;
+	ENPCCombatStatus CombatStatus = ENPCCombatStatus::None;
 	UPROPERTY()
-	AAIController* Controller = nullptr;
+	ADungeonGameState* GameStateRef;
 	UPROPERTY()
-	UBlackboardComponent* Blackboard;
+	UDamageHandler* DamageHandlerRef;
+	UPROPERTY()
+	UThreatHandler* ThreatHandlerRef;
+	UPROPERTY()
+	UStatHandler* StatHandlerRef;
+	UPROPERTY()
+	USaiyoraMovementComponent* MovementComponentRef;
+	UPROPERTY()
+	APawn* OwnerAsPawn;
+	UPROPERTY()
+	AAIController* AIController;
+	UFUNCTION()
+	void OnControllerChanged(APawn* PossessedPawn, AController* OldController, AController* NewController);
+	UFUNCTION()
+	void OnDungeonPhaseChanged(const EDungeonPhase PreviousPhase, const EDungeonPhase NewPhase);
+
+	void StopBehavior();
+	void UpdateCombatStatus();
 
 //Patrolling
 
@@ -58,6 +84,18 @@ protected:
 	bool bLoopPatrol = true;
 	UPROPERTY(EditAnywhere, Category = "Patrol")
 	float PatrolMoveSpeedModifier = 0.0f;
+
+private:
+
+	FCombatModifierHandle PatrolMoveSpeedModHandle;
+	float DefaultMaxWalkSpeed = 0.0f;
+	int32 NextPatrolIndex = 0;
+	bool bFinishedPatrolling = false;
+	void EnterPatrolState();
+	void StartPatrol();
+	UFUNCTION()
+	void OnPatrolComplete(FAIRequestID RequestID, EPathFollowingResult::Type Result);
+	
 	
 	//Combat
 
@@ -69,10 +107,15 @@ protected:
 private:
 
 	UFUNCTION()
-	void UpdateBehaviorOnLifeStatusChanged(AActor* Target, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus);
+	void OnLifeStatusChanged(AActor* Target, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus);
 	UFUNCTION()
-	void UpdateBehaviorOnCombatChanged(const bool bInCombat);
-	UFUNCTION()
-	void UpdateBehaviorOnTargetChanged(AActor* PreviousTarget, AActor* NewTarget);
+	void OnCombatChanged(const bool bInCombat);
+
+	//Resetting
+
+private:
+
+	bool bNeedsReset = false;
+	FVector ResetGoal;
 	
 };
