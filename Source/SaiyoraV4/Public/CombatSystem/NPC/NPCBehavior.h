@@ -3,7 +3,6 @@
 #include "DamageEnums.h"
 #include "DungeonGameState.h"
 #include "NPCEnums.h"
-#include "SaiyoraAIController.h"
 #include "BehaviorTree/BehaviorTree.h"
 #include "Components/ActorComponent.h"
 #include "Engine/TargetPoint.h"
@@ -33,12 +32,15 @@ class SAIYORAV4_API UNPCBehavior : public UActorComponent
 
 public:	
 
-	UNPCBehavior();
+	UNPCBehavior(const FObjectInitializer& ObjectInitializer);
 
 protected:
 
 	virtual void BeginPlay() override;
 	virtual void InitializeComponent() override;
+
+	UPROPERTY(EditAnywhere, Category = "Behavior")
+	UBehaviorTree* BehaviorTree;
 
 private:
 
@@ -68,13 +70,11 @@ private:
 //Patrolling
 
 public:
-	
-	UFUNCTION(BlueprintPure, Category = "Patrol")
-	void GetPatrol(TArray<FPatrolPoint>& OutPatrol) const { OutPatrol = Patrol; }
-	UFUNCTION(BlueprintPure, Category = "Patrol")
-	bool ShouldPatrol() const { return Patrol.Num() > 1; }
-	UFUNCTION(BlueprintPure, Category = "Patrol")
-	bool ShouldLoopPatrol() const { return bLoopPatrol; }
+
+	UFUNCTION(BlueprintCallable, Category = "Patrol")
+	void SetNextPatrolPoint(UBlackboardComponent* Blackboard);
+	UFUNCTION(BlueprintCallable, Category = "Patrol")
+	void ReachedPatrolPoint();
 
 protected:
 
@@ -92,10 +92,6 @@ private:
 	int32 NextPatrolIndex = 0;
 	bool bFinishedPatrolling = false;
 	void EnterPatrolState();
-	void StartPatrol();
-	UFUNCTION()
-	void OnPatrolComplete(FAIRequestID RequestID, EPathFollowingResult::Type Result);
-	
 	
 	//Combat
 

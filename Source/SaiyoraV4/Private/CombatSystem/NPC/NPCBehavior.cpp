@@ -7,10 +7,12 @@
 #include "ThreatHandler.h"
 #include "BehaviorTree/BlackboardComponent.h"
 
-UNPCBehavior::UNPCBehavior()
+UNPCBehavior::UNPCBehavior(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	PrimaryComponentTick.bCanEverTick = false;
 	bWantsInitializeComponent = true;
+	static ConstructorHelpers::FObjectFinder<UBehaviorTree> DefaultTree(TEXT("/Game/Saiyora/AI/Generic/BT_AITest"));
+	BehaviorTree = DefaultTree.Object;
 }
 
 void UNPCBehavior::InitializeComponent()
@@ -45,49 +47,33 @@ void UNPCBehavior::BeginPlay()
 	{
 		ThreatHandlerRef->OnCombatChanged.AddDynamic(this, &UNPCBehavior::OnCombatChanged);
 	}
-	
+	OnControllerChanged(OwnerAsPawn, nullptr, OwnerAsPawn->GetController());
 }
 
 void UNPCBehavior::OnLifeStatusChanged(AActor* Target, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus)
 {
-
+	UpdateCombatStatus();
 }
 
 void UNPCBehavior::OnCombatChanged(const bool bInCombat)
 {
-
+	UpdateCombatStatus();
 }
 
 void UNPCBehavior::OnControllerChanged(APawn* PossessedPawn, AController* OldController, AController* NewController)
 {
 	AIController = Cast<AAIController>(NewController);
-	if (!IsValid(AIController))
-	{
-		StopBehavior();
-		return;
-	}
-	if (CombatStatus == ENPCCombatStatus::None)
-	{
-		//Check criteria for activation.
-	}
+	UpdateCombatStatus();
+}
+
+void UNPCBehavior::OnDungeonPhaseChanged(const EDungeonPhase PreviousPhase, const EDungeonPhase NewPhase)
+{
+	UpdateCombatStatus();
 }
 
 void UNPCBehavior::StopBehavior()
 {
-	switch (CombatStatus)
-	{
-	case ENPCCombatStatus::Patrolling :
-		//TODO: Leave patrolling state.
-		break;
-	case ENPCCombatStatus::Combat :
-		//TODO: Leave combat state.
-		break;
-	case ENPCCombatStatus::Resetting :
-		//TODO: Leave resetting state?
-		break;
-	default:
-		break;
-	}
+	
 }
 
 void UNPCBehavior::UpdateCombatStatus()
@@ -124,6 +110,9 @@ void UNPCBehavior::UpdateCombatStatus()
 			//TODO: Leave resetting.
 			break;
 		default:
+			//TODO: Leave none, so maybe set up the right behavior tree?
+			AIController->RunBehaviorTree(BehaviorTree);
+			AIController->GetBlackboardComponent()->SetValueAsObject("BehaviorComponent", this);
 			break;
 		}
 		CombatStatus = NewCombatStatus;
@@ -141,17 +130,52 @@ void UNPCBehavior::UpdateCombatStatus()
 		default:
 			break;
 		}
+		AIController->GetBlackboardComponent()->SetValueAsEnum("CombatStatus", uint8(CombatStatus));
 	}
+}
+
+void UNPCBehavior::ReachedPatrolPoint()
+{
+	NextPatrolIndex += 1;
+}
+
+void UNPCBehavior::SetNextPatrolPoint(UBlackboardComponent* Blackboard)
+{
+	if (!IsValid(Blackboard))
+	{
+		return;
+	}
+	const int32 StartingIndex = NextPatrolIndex;
+	while (!Patrol.IsValidIndex(NextPatrolIndex) || !IsValid(Patrol[NextPatrolIndex].Point))
+	{
+		if (NextPatrolIndex > Patrol.Num() - 1)
+		{
+			if (bLoopPatrol)
+			{
+				NextPatrolIndex = 0;
+			}
+			else
+			{
+				Blackboard->SetValueAsBool("FinishedPatrolling", true);
+				return;
+			}
+		}
+		else
+		{
+			NextPatrolIndex += 1;
+		}
+		if (NextPatrolIndex == StartingIndex)
+		{
+			Blackboard->SetValueAsBool("FinishedPatrolling", true);
+			return;
+		}
+	}
+	Blackboard->SetValueAsObject("PatrolGoal", Patrol[NextPatrolIndex].Point);
+	Blackboard->SetValueAsFloat("WaitTime", Patrol[NextPatrolIndex].WaitTime);
 }
 
 void UNPCBehavior::EnterPatrolState()
 {
-	CombatStatus = ENPCCombatStatus::Patrolling;
-	if (Patrol.Num() < 1)
-	{
-		//This NPC doesn't need to patrol.
-		return;
-	}
 	//Apply patrol move speed mod.
 	if (PatrolMoveSpeedModifier > 0.0f)
 	{
@@ -165,50 +189,6 @@ void UNPCBehavior::EnterPatrolState()
 			DefaultMaxWalkSpeed = MovementComponentRef->GetDefaultMaxWalkSpeed();
 			MovementComponentRef->MaxWalkSpeed = DefaultMaxWalkSpeed * PatrolMoveSpeedModifier;
 		}
-	}
-	StartPatrol();
-}
-
-void UNPCBehavior::StartPatrol()
-{
-	const int32 StartingIndex = NextPatrolIndex;
-	while (!Patrol.IsValidIndex(NextPatrolIndex) || !IsValid(Patrol[NextPatrolIndex].Point))
-	{
-		if (NextPatrolIndex > Patrol.Num() - 1)
-		{
-			if (bLoopPatrol)
-			{
-				NextPatrolIndex = 0;
-			}
-			else
-			{
-				bFinishedPatrolling = true;
-				break;
-			}
-		}
-		else
-		{
-			NextPatrolIndex += 1;
-		}
-		if (NextPatrolIndex == StartingIndex)
-		{
-			bFinishedPatrolling = true;
-			break;
-		}
-	}
-	if (bFinishedPatrolling)
-	{
-		return;
-	}
-	EPathFollowingRequestResult::Type Result = AIController->MoveToLocation(Patrol[NextPatrolIndex].Point->GetActorLocation());
-	switch (Result)
-	{
-	case EPathFollowingRequestResult::RequestSuccessful :
-		AIController->ReceiveMoveCompleted.AddDynamic(this, &UNPCBehavior::OnPatrolComplete);
-		break;
-	default :
-		OnPatrolComplete(//TODO: No idea what to put here?);
-		break;
 	}
 }
 
