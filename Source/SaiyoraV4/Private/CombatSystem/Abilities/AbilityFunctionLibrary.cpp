@@ -72,11 +72,15 @@ float UAbilityFunctionLibrary::GetCameraTraceMaxRange(const FVector& CameraLoc, 
 	return (UKismetMathLibrary::DegSin(OriginAngle) * TraceRange) / UKismetMathLibrary::DegSin(CamAngle);
 }
 
-FName UAbilityFunctionLibrary::GetRelevantTraceProfile(const ASaiyoraPlayerCharacter* Shooter, const bool bOverlap, const ESaiyoraPlane TracePlane,
+FName UAbilityFunctionLibrary::GetRelevantTraceProfile(const AActor* Shooter, const bool bOverlap, const ESaiyoraPlane TracePlane,
 	const EFaction TraceHostility)
 {
-	const UCombatStatusComponent* ShooterCombatStatus = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(Shooter);
-	const EFaction ShooterFaction = IsValid(ShooterCombatStatus) ? ShooterCombatStatus->GetCurrentFaction() : EFaction::Neutral;
+	EFaction ShooterFaction = EFaction::Neutral;
+	if (Shooter->Implements<USaiyoraCombatInterface>())
+	{
+		const UCombatStatusComponent* ShooterCombatStatus = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(Shooter);
+		ShooterFaction = IsValid(ShooterCombatStatus) ? ShooterCombatStatus->GetCurrentFaction() : EFaction::Neutral;
+	}
 	
 	if (bOverlap)
 	{

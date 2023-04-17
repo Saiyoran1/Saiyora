@@ -25,6 +25,8 @@ struct FPatrolPoint
 	float WaitTime = 0.0f;
 };
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPatrolLocationNotification, const FVector&, Location);
+
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class SAIYORAV4_API UNPCBehavior : public UActorComponent
 {
@@ -63,8 +65,7 @@ private:
 	void OnControllerChanged(APawn* PossessedPawn, AController* OldController, AController* NewController);
 	UFUNCTION()
 	void OnDungeonPhaseChanged(const EDungeonPhase PreviousPhase, const EDungeonPhase NewPhase);
-
-	void StopBehavior();
+	
 	void UpdateCombatStatus();
 
 //Patrolling
@@ -74,7 +75,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Patrol")
 	void SetNextPatrolPoint(UBlackboardComponent* Blackboard);
 	UFUNCTION(BlueprintCallable, Category = "Patrol")
-	void ReachedPatrolPoint();
+	void ReachedPatrolPoint(const FVector& Location);
+
+	UPROPERTY(BlueprintAssignable)
+	FPatrolLocationNotification OnPatrolLocationReached;
 
 protected:
 
@@ -108,6 +112,11 @@ private:
 	void OnCombatChanged(const bool bInCombat);
 
 	//Resetting
+
+public:
+
+	UFUNCTION(BlueprintCallable, Category = "Resetting")
+	void MarkResetComplete();
 
 private:
 

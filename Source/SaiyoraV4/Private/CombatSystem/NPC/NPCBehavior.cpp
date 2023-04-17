@@ -60,6 +60,12 @@ void UNPCBehavior::OnCombatChanged(const bool bInCombat)
 	UpdateCombatStatus();
 }
 
+void UNPCBehavior::MarkResetComplete()
+{
+	bNeedsReset = false;
+	UpdateCombatStatus();
+}
+
 void UNPCBehavior::OnControllerChanged(APawn* PossessedPawn, AController* OldController, AController* NewController)
 {
 	AIController = Cast<AAIController>(NewController);
@@ -69,11 +75,6 @@ void UNPCBehavior::OnControllerChanged(APawn* PossessedPawn, AController* OldCon
 void UNPCBehavior::OnDungeonPhaseChanged(const EDungeonPhase PreviousPhase, const EDungeonPhase NewPhase)
 {
 	UpdateCombatStatus();
-}
-
-void UNPCBehavior::StopBehavior()
-{
-	
 }
 
 void UNPCBehavior::UpdateCombatStatus()
@@ -134,9 +135,10 @@ void UNPCBehavior::UpdateCombatStatus()
 	}
 }
 
-void UNPCBehavior::ReachedPatrolPoint()
+void UNPCBehavior::ReachedPatrolPoint(const FVector& Location)
 {
 	NextPatrolIndex += 1;
+	OnPatrolLocationReached.Broadcast(Location);
 }
 
 void UNPCBehavior::SetNextPatrolPoint(UBlackboardComponent* Blackboard)
