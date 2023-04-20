@@ -13,6 +13,7 @@ class UDamageHandler;
 class UThreatHandler;
 class UStatHandler;
 class USaiyoraMovementComponent;
+class UAbilityChoice;
 
 USTRUCT(BlueprintType)
 struct FPatrolPoint
@@ -23,6 +24,21 @@ struct FPatrolPoint
 	ATargetPoint* Point = nullptr;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	float WaitTime = 0.0f;
+};
+
+USTRUCT(BlueprintType)
+struct FCombatPhase
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	int32 PhaseIndex = -1;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	TSet<TSubclassOf<UAbilityChoice>> AbilityChoices;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	bool bHighPriority = false;
+
+	bool operator==(const FCombatPhase& Other) const { return Other.PhaseIndex == PhaseIndex; }
 };
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPatrolLocationNotification, const FVector&, Location);
@@ -99,13 +115,30 @@ private:
 	
 	//Combat
 
+public:
+	
+	UFUNCTION(BlueprintPure, BlueprintAuthorityOnly, Category = "Combat")
+	FCombatPhase GetCurrentPhase() const;
+
 protected:
 
-	UPROPERTY(EditAnywhere, Category = "Combat")
-	UBehaviorTree* CombatTree = nullptr;
+	UFUNCTION(BlueprintAuthorityOnly, Category = "Combat")
+	void EnterPhase(const int32 PhaseIndex);
 
 private:
 
+	UFUNCTION(BlueprintImplementableEvent)
+	void SetupPhaseTransitions();
+	
+	TSet<FCombatPhase> Phases;
+	int32 CurrentPhaseIndex = 0;
+	UPROPERTY()
+	TArray<UAbilityChoice*> CurrentChoices;
+	int32 NewPhaseIndex = -1;
+	bool bReadyForPhaseChange = false;
+	void InterruptCurrentAction();
+	void StartNewAction();
+	
 	UFUNCTION()
 	void OnLifeStatusChanged(AActor* Target, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus);
 	UFUNCTION()

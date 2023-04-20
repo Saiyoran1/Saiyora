@@ -1,4 +1,6 @@
 #include "NPC/NPCBehavior.h"
+
+#include "AbilityChoice.h"
 #include "AIController.h"
 #include "DamageHandler.h"
 #include "SaiyoraCombatInterface.h"
@@ -194,5 +196,61 @@ void UNPCBehavior::EnterPatrolState()
 	}
 }
 
+FCombatPhase UNPCBehavior::GetCurrentPhase() const
+{
+	for (const FCombatPhase& Phase : Phases)
+	{
+		if (Phase.PhaseIndex == CurrentPhaseIndex)
+		{
+			return Phase;
+		}
+	}
+	return FCombatPhase();
+}
 
+void UNPCBehavior::EnterPhase(const int32 PhaseIndex)
+{
+	if (PhaseIndex == CurrentPhaseIndex)
+	{
+		return;
+	}
+	for (const FCombatPhase& Phase : Phases)
+	{
+		if (Phase.PhaseIndex == PhaseIndex)
+		{
+			NewPhaseIndex = PhaseIndex;
+			bReadyForPhaseChange = true;
+			if (Phase.bHighPriority)
+			{
+				InterruptCurrentAction();
+				StartNewAction();
+			}
+		}
+	}
+}
 
+void UNPCBehavior::InterruptCurrentAction()
+{
+	//TODO: Interrupt cast if one is active.
+	//Unsubscribe from ability finished casting?
+	//Should we stop movement? BT can probably handle that part of things?
+}
+
+void UNPCBehavior::StartNewAction()
+{
+	if (bReadyForPhaseChange)
+	{
+		//Destroy old choice objects
+		for (UAbilityChoice* Choice : CurrentChoices)
+		{
+			Choice->CleanUp();
+		}
+		CurrentChoices.Empty();
+		//Set new phase index
+		CurrentPhaseIndex = NewPhaseIndex;
+		NewPhaseIndex = -1;
+		//Instantiate new choice objects?
+		
+		//Calculate score for new objects
+	}
+}
