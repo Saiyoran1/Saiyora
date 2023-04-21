@@ -190,6 +190,7 @@ void UNPCBehavior::EnterPatrolState()
 		else if (IsValid(MovementComponentRef))
 		{
 			//TODO: This could easily go wrong if anything else modifies max walk speed while the mob is patrolling. Maybe just don't let this happen?
+			//TODO: Is there a way to do this through a service?
 			DefaultMaxWalkSpeed = MovementComponentRef->GetDefaultMaxWalkSpeed();
 			MovementComponentRef->MaxWalkSpeed = DefaultMaxWalkSpeed * PatrolMoveSpeedModifier;
 		}
@@ -240,17 +241,60 @@ void UNPCBehavior::StartNewAction()
 {
 	if (bReadyForPhaseChange)
 	{
-		//Destroy old choice objects
 		for (UAbilityChoice* Choice : CurrentChoices)
 		{
 			Choice->CleanUp();
 		}
 		CurrentChoices.Empty();
-		//Set new phase index
 		CurrentPhaseIndex = NewPhaseIndex;
 		NewPhaseIndex = -1;
-		//Instantiate new choice objects?
-		
-		//Calculate score for new objects
+		for (const FCombatPhase& Phase : Phases)
+		{
+			if (Phase.PhaseIndex == CurrentPhaseIndex)
+			{
+				for (const TSubclassOf<UAbilityChoice> Choice : Phase.AbilityChoices)
+				{
+					UAbilityChoice* NewChoice = NewObject<UAbilityChoice>(this, Choice);
+					if (IsValid(NewChoice))
+					{
+						NewChoice->OnScoreChanged.BindDynamic(this, &UNPCBehavior::OnChoiceScoreChanged);
+						NewChoice->InitializeChoice(this);
+						CurrentChoices.Add(NewChoice);
+					}
+				}
+				break;
+			}
+		}
+	}
+}
+
+void UNPCBehavior::OnChoiceScoreChanged(UAbilityChoice* Choice, const float NewScore)
+{
+	for (int32 i = 0; i < CurrentChoices.Num(); i++)
+	{
+		if (CurrentChoices[i] == Choice)
+		{
+			//If score is now higher than the previous item's score:
+			if (CurrentChoices.IsValidIndex(i - 1) && CurrentChoices[i - 1]->GetCurrentScore() < NewScore)
+			{
+				do
+				{
+					CurrentChoices.Swap(i, i - 1);
+					i--;
+				}
+				while (CurrentChoices.IsValidIndex(i - 1) && CurrentChoices[i - 1]->GetCurrentScore() < NewScore);
+			}
+			//else If score is now lower than next item's score.
+			else if (CurrentChoices.IsValidIndex(i + 1) && CurrentChoices[i + 1]->GetCurrentScore() > NewScore)
+			{
+				do
+				{
+					CurrentChoices.Swap(i, i + 1);
+					i++;
+				}
+				while (CurrentChoices.IsValidIndex(i + 1) && CurrentChoices[i + 1]->GetCurrentScore() > NewScore);
+			}
+			break;
+		}
 	}
 }

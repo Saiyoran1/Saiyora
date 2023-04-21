@@ -138,6 +138,8 @@ private:
 	bool bReadyForPhaseChange = false;
 	void InterruptCurrentAction();
 	void StartNewAction();
+	UFUNCTION()
+	void OnChoiceScoreChanged(UAbilityChoice* Choice, const float NewScore);
 	
 	UFUNCTION()
 	void OnLifeStatusChanged(AActor* Target, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus);

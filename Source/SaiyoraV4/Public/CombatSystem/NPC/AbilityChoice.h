@@ -6,6 +6,9 @@
 
 class UCombatAbility;
 class UNPCBehavior;
+class UAbilityChoice;
+
+DECLARE_DYNAMIC_DELEGATE_TwoParams(FChoiceScoreCallback, UAbilityChoice*, Choice, const float, NewScore);
 
 UCLASS(Blueprintable)
 class SAIYORAV4_API UAbilityChoice : public UObject
@@ -15,18 +18,23 @@ class SAIYORAV4_API UAbilityChoice : public UObject
 public:
 	
 	void InitializeChoice(UNPCBehavior* BehaviorComp);
+	FChoiceScoreCallback OnScoreChanged;
 	
 	UFUNCTION(BlueprintImplementableEvent)
 	void Setup();
 	UFUNCTION(BlueprintImplementableEvent)
 	void CleanUp();
 
+	float GetCurrentScore() const { return CurrentScore.GetCurrentValue(); }
+
+protected:
+
 	UFUNCTION(BlueprintCallable)
-	FCombatModifierHandle ApplyScoreModifier(const FCombatModifier& Modifier) { return CurrentScore.AddModifier(Modifier); }
+	FCombatModifierHandle ApplyScoreMultiplier(const float Multiplier);
 	UFUNCTION(BlueprintCallable)
-	void RemoveScoreModifier(const FCombatModifierHandle& ModifierHandle) { CurrentScore.RemoveModifier(ModifierHandle); }
+	void RemoveScoreMultiplier(const FCombatModifierHandle& ModifierHandle) { CurrentScore.RemoveModifier(ModifierHandle); }
 	UFUNCTION(BlueprintCallable)
-	void UpdateScoreModifier(const FCombatModifierHandle& ModifierHandle, const FCombatModifier& Modifier) { CurrentScore.UpdateModifier(ModifierHandle, Modifier); }
+	void UpdateScoreMultiplier(const FCombatModifierHandle& ModifierHandle, const float Multiplier);
 
 private:
 
@@ -36,22 +44,9 @@ private:
 	float DefaultScore = 0.0f;
 	UPROPERTY(EditDefaultsOnly, Category = "Behavior")
 	bool bHighPriority = false;
-	
-	UPROPERTY(EditDefaultsOnly, Category = "Behavior")
-	bool bRequiresRange = true;
-	UPROPERTY(EditDefaultsOnly, Category = "Behavior")
-	float MaxRange = 0.0f;
-	UPROPERTY(EditDefaultsOnly, Category = "Behavior")
-	float OutOfRangeScoreMultiplier = 0.0f;
-	FCombatModifierHandle RangeModifierHandle;
-
-	UPROPERTY(EditDefaultsOnly, Category = "Behavior")
-	bool bRequiresLineOfSight = true;
-	UPROPERTY(EditDefaultsOnly, Category = "Behavior")
-	float OutOfLineMultiplier = 0.0f;
-	FCombatModifierHandle LineModifierHandle;
 
 	UPROPERTY()
 	UNPCBehavior* BehaviorComponentRef = nullptr;
 	FModifiableFloat CurrentScore;
+	void ScoreCallback(const float OldValue, const float NewValue) { OnScoreChanged.ExecuteIfBound(this, NewValue); }
 };
