@@ -112,6 +112,7 @@ private:
 	int32 NextPatrolIndex = 0;
 	bool bFinishedPatrolling = false;
 	void EnterPatrolState();
+	void LeavePatrolState();
 	
 	//Combat
 
@@ -124,16 +125,18 @@ protected:
 
 	UFUNCTION(BlueprintAuthorityOnly, Category = "Combat")
 	void EnterPhase(const int32 PhaseIndex);
-
-private:
-
+	
 	UFUNCTION(BlueprintImplementableEvent)
 	void SetupPhaseTransitions();
+
+private:
 	
 	TSet<FCombatPhase> Phases;
 	int32 CurrentPhaseIndex = 0;
 	UPROPERTY()
 	TArray<UAbilityChoice*> CurrentChoices;
+	UPROPERTY()
+	UAbilityChoice* ActionInProgress;
 	int32 NewPhaseIndex = -1;
 	bool bReadyForPhaseChange = false;
 	void InterruptCurrentAction();

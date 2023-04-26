@@ -107,7 +107,7 @@ void UNPCBehavior::UpdateCombatStatus()
 			//TODO: Leave combat.
 			break;
 		case ENPCCombatStatus::Patrolling :
-			//TODO: Leave patrolling.
+			LeavePatrolState();
 			break;
 		case ENPCCombatStatus::Resetting :
 			//TODO: Leave resetting.
@@ -197,6 +197,23 @@ void UNPCBehavior::EnterPatrolState()
 	}
 }
 
+void UNPCBehavior::LeavePatrolState()
+{
+	if (PatrolMoveSpeedModHandle.IsValid())
+	{
+		if (IsValid(StatHandlerRef))
+		{
+			StatHandlerRef->RemoveStatModifier(FSaiyoraCombatTags::Get().Stat_MaxWalkSpeed, PatrolMoveSpeedModHandle);
+			PatrolMoveSpeedModHandle = FCombatModifierHandle::Invalid;
+		}
+		else if (IsValid(MovementComponentRef) && DefaultMaxWalkSpeed > 0.0f)
+		{
+			MovementComponentRef->MaxWalkSpeed = DefaultMaxWalkSpeed;
+			DefaultMaxWalkSpeed = 0.0f;
+		}
+	}
+}
+
 FCombatPhase UNPCBehavior::GetCurrentPhase() const
 {
 	for (const FCombatPhase& Phase : Phases)
@@ -257,14 +274,36 @@ void UNPCBehavior::StartNewAction()
 					UAbilityChoice* NewChoice = NewObject<UAbilityChoice>(this, Choice);
 					if (IsValid(NewChoice))
 					{
+						CurrentChoices.Add(NewChoice);
 						NewChoice->OnScoreChanged.BindDynamic(this, &UNPCBehavior::OnChoiceScoreChanged);
 						NewChoice->InitializeChoice(this);
-						CurrentChoices.Add(NewChoice);
 					}
 				}
 				break;
 			}
 		}
+	}
+	//Set blackboard keys for ability class, target, line of sight, distance?
+	if (IsValid(CurrentChoices[0]))
+	{
+		ActionInProgress = CurrentChoices[0];
+		AIController->GetBlackboardComponent()->SetValueAsClass("AbilityToUse", ActionInProgress->GetAbilityClass());
+		AIController->GetBlackboardComponent()->SetValueAsBool("CanUseAbilityWhileMoving", ActionInProgress->CanUseWhileMoving());
+		AIController->GetBlackboardComponent()->SetValueAsBool("AbilityNeedsTarget", ActionInProgress->RequiresTarget());
+		if (ActionInProgress->RequiresTarget())
+		{
+			AIController->GetBlackboardComponent()->SetValueAsObject("Target", ActionInProgress->GetTarget());
+			AIController->GetBlackboardComponent()->SetValueAsFloat("AbilityRange", ActionInProgress->GetAbilityRange());
+			AIController->GetBlackboardComponent()->SetValueAsBool("NeedsLineOfSight", ActionInProgress->RequiresLineOfSight());
+			if (ActionInProgress->RequiresLineOfSight())
+			{
+				AIController->GetBlackboardComponent()->SetValueAsEnum("LineOfSightPlane", (uint8)ActionInProgress->GetLineOfSightPlane());
+			}
+		}
+	}
+	else
+	{
+		//TODO: No valid choices?
 	}
 }
 
