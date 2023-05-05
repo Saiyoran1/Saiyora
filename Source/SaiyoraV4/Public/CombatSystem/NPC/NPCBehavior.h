@@ -13,6 +13,7 @@ class UDamageHandler;
 class UThreatHandler;
 class UStatHandler;
 class USaiyoraMovementComponent;
+class UCombatStatusComponent;
 class UAbilityChoice;
 
 USTRUCT(BlueprintType)
@@ -73,6 +74,8 @@ private:
 	UStatHandler* StatHandlerRef;
 	UPROPERTY()
 	USaiyoraMovementComponent* MovementComponentRef;
+	UPROPERTY()
+	UCombatStatusComponent* CombatStatusComponentRef;
 	UPROPERTY()
 	APawn* OwnerAsPawn;
 	UPROPERTY()
@@ -148,6 +151,14 @@ private:
 	void OnLifeStatusChanged(AActor* Target, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus);
 	UFUNCTION()
 	void OnCombatChanged(const bool bInCombat);
+
+	UFUNCTION()
+	void UpdateLosAndRangeInfo();
+
+	void EnterCombatState();
+
+	bool bInLineOfSight = false;
+	float Range = -1.0f;
 
 	//Resetting
 

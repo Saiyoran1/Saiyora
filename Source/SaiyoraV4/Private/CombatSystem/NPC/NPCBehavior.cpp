@@ -1,13 +1,16 @@
 #include "NPC/NPCBehavior.h"
 
 #include "AbilityChoice.h"
+#include "AbilityFunctionLibrary.h"
 #include "AIController.h"
+#include "CombatStatusComponent.h"
 #include "DamageHandler.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraMovementComponent.h"
 #include "StatHandler.h"
 #include "ThreatHandler.h"
 #include "BehaviorTree/BlackboardComponent.h"
+#include "Kismet/KismetSystemLibrary.h"
 
 UNPCBehavior::UNPCBehavior(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -24,6 +27,7 @@ void UNPCBehavior::InitializeComponent()
 	ThreatHandlerRef = ISaiyoraCombatInterface::Execute_GetThreatHandler(GetOwner());
 	StatHandlerRef = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
 	MovementComponentRef = ISaiyoraCombatInterface::Execute_GetCustomMovementComponent(GetOwner());
+	CombatStatusComponentRef = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(GetOwner());
 	Super::InitializeComponent();
 }
 
@@ -60,6 +64,42 @@ void UNPCBehavior::OnLifeStatusChanged(AActor* Target, const ELifeStatus Previou
 void UNPCBehavior::OnCombatChanged(const bool bInCombat)
 {
 	UpdateCombatStatus();
+}
+
+void UNPCBehavior::UpdateLosAndRangeInfo()
+{
+	if (CombatStatus == ENPCCombatStatus::Combat && IsValid(ThreatHandlerRef) && IsValid(ThreatHandlerRef->GetCurrentTarget()))
+	{
+		const ESaiyoraPlane OwnerPlane = IsValid(CombatStatusComponentRef) ? CombatStatusComponentRef->GetCurrentPlane() : ESaiyoraPlane::Both;
+		const FName TraceProfile = UAbilityFunctionLibrary::GetRelevantTraceProfile(GetOwner(), true, OwnerPlane, EFaction::Enemy);
+		FName OriginSocket = NAME_None;
+		const USceneComponent* OriginComponent = ISaiyoraCombatInterface::Execute_GetAbilityOriginSocket(GetOwner(), OriginSocket);
+		FVector FromLocation = IsValid(OriginComponent) ? OriginComponent->GetSocketLocation(OriginSocket) : GetOwner()->GetActorLocation();
+		TArray<AActor*> ToIgnore;
+		ToIgnore.Add(GetOwner());
+		ToIgnore.Add(ThreatHandlerRef->GetCurrentTarget());
+		FHitResult TraceResult;
+		const bool bBlockingHit = UKismetSystemLibrary::LineTraceSingleByProfile(GetOwner(), FromLocation, ThreatHandlerRef->GetCurrentTarget()->GetActorLocation(), TraceProfile,
+			false, ToIgnore, EDrawDebugTrace::ForDuration, TraceResult, true, FLinearColor::Blue, FLinearColor::Red, 1.0f);
+	
+		bInLineOfSight = !bBlockingHit;
+		Range = (ThreatHandlerRef->GetCurrentTarget()->GetActorLocation() - FromLocation).Length();
+	}
+	else
+	{
+		bInLineOfSight = false;
+		Range = -1.0f;
+	}
+	for (UAbilityChoice* Choice : CurrentChoices)
+	{
+		Choice->UpdateRangeAndLos(Range, bInLineOfSight);
+	}
+}
+
+void UNPCBehavior::EnterCombatState()
+{
+	//Set up line of sight and range checking on an interval.
+	//Update ability choices that care about line of sight specifically to target (not to friendlies).
 }
 
 void UNPCBehavior::MarkResetComplete()
@@ -289,7 +329,7 @@ void UNPCBehavior::StartNewAction()
 		ActionInProgress = CurrentChoices[0];
 		AIController->GetBlackboardComponent()->SetValueAsClass("AbilityToUse", ActionInProgress->GetAbilityClass());
 		AIController->GetBlackboardComponent()->SetValueAsBool("CanUseAbilityWhileMoving", ActionInProgress->CanUseWhileMoving());
-		AIController->GetBlackboardComponent()->SetValueAsBool("AbilityNeedsTarget", ActionInProgress->RequiresTarget());
+		/*AIController->GetBlackboardComponent()->SetValueAsBool("AbilityNeedsTarget", ActionInProgress->RequiresTarget());
 		if (ActionInProgress->RequiresTarget())
 		{
 			AIController->GetBlackboardComponent()->SetValueAsObject("Target", ActionInProgress->GetTarget());
@@ -299,7 +339,7 @@ void UNPCBehavior::StartNewAction()
 			{
 				AIController->GetBlackboardComponent()->SetValueAsEnum("LineOfSightPlane", (uint8)ActionInProgress->GetLineOfSightPlane());
 			}
-		}
+		}*/
 	}
 	else
 	{

@@ -16,6 +16,39 @@ void UAbilityChoice::InitializeChoice(UNPCBehavior* BehaviorComp)
 	OnScoreChanged.ExecuteIfBound(this, CurrentScore.GetCurrentValue());
 }
 
+void UAbilityChoice::UpdateRangeAndLos(const float Range, const bool LineOfSight)
+{
+	if (!bUsesDefaultTargeting)
+	{
+		//Abilities that target things other than the highest threat target need to manually check LoS and range if they want multipliers.
+		return;
+	}
+	if (OutOfRangeModifier != 1.0f)
+	{
+		if (Range > AbilityRange && !RangeModifierHandle.IsValid())
+		{
+			RangeModifierHandle = ApplyScoreMultiplier(OutOfRangeModifier);
+		}
+		else if (Range <= AbilityRange && RangeModifierHandle.IsValid())
+		{
+			RemoveScoreMultiplier(RangeModifierHandle);
+			RangeModifierHandle = FCombatModifierHandle::Invalid;
+		}
+	}
+	if (OutOfLosModifier != 1.0f)
+	{
+		if (LineOfSight && LosModifierHandle.IsValid())
+		{
+			RemoveScoreMultiplier(LosModifierHandle);
+			LosModifierHandle = FCombatModifierHandle::Invalid;
+		}
+		else if (!LineOfSight && !LosModifierHandle.IsValid())
+		{
+			LosModifierHandle = ApplyScoreMultiplier(OutOfLosModifier);
+		}
+	}
+}
+
 FCombatModifierHandle UAbilityChoice::ApplyScoreMultiplier(const float Multiplier)
 {
 	if (Multiplier < 0.0f)
