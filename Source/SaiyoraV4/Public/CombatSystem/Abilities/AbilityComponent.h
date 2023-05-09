@@ -104,7 +104,7 @@ public:
 	AGameState* GetGameStateRef() const { return GameStateRef; }
 	UResourceHandler* GetResourceHandlerRef() const { return ResourceHandlerRef; }
 
-private:
+protected:
 
 	bool IsLocallyControlled() const;
 	UPROPERTY()
