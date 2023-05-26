@@ -16,7 +16,7 @@ class USaiyoraMovementComponent;
 class UCombatStatusComponent;
 class UAbilityChoice;
 
-USTRUCT(BlueprintType)
+/*USTRUCT(BlueprintType)
 struct FPatrolPoint
 {
 	GENERATED_BODY()
@@ -40,7 +40,7 @@ struct FCombatPhase
 	bool bHighPriority = false;
 
 	bool operator==(const FCombatPhase& Other) const { return Other.PhaseIndex == PhaseIndex; }
-};
+};*/
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPatrolLocationNotification, const FVector&, Location);
 

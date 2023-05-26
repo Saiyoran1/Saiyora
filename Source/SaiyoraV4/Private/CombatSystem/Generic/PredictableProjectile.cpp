@@ -20,8 +20,23 @@ void APredictableProjectile::PostNetReceiveLocationAndRotation()
     Super::PostNetReceiveLocationAndRotation();
 }
 
+void APredictableProjectile::Tick(float DeltaSeconds)
+{
+	if (RemainingLag > 0.0f)
+	{
+		//Calculate time to add, we want to tick twice as fast until we catch up.
+		const float AddTime = FMath::Min(DeltaSeconds, RemainingLag);
+		RemainingLag -= AddTime;
+		Super::Tick(DeltaSeconds + AddTime);
+	}
+	else
+	{
+		Super::Tick(DeltaSeconds);
+	}
+}
+
 void APredictableProjectile::InitializeProjectile(UCombatAbility* Source, const FPredictedTick& Tick, const int32 ID,
-	const ESaiyoraPlane ProjectilePlane, const EFaction ProjectileHostility)
+                                                  const ESaiyoraPlane ProjectilePlane, const EFaction ProjectileHostility)
 {
 	if (!IsValid(Source))
 	{
@@ -37,6 +52,10 @@ void APredictableProjectile::InitializeProjectile(UCombatAbility* Source, const 
 	{
 		Source->GetHandler()->OnAbilityMispredicted.AddDynamic(this, &APredictableProjectile::DeleteOnMisprediction);
 		SourceInfo.Owner->RegisterClientProjectile(this);
+	}
+	else if (Source->GetHandler()->GetOwnerRole() == ROLE_Authority)
+	{
+		RemainingLag = USaiyoraCombatLibrary::GetActorPing(Source->GetHandler()->GetOwner());
 	}
 	DestroyDelegate.BindUObject(this, &APredictableProjectile::DelayedDestroy);
 	

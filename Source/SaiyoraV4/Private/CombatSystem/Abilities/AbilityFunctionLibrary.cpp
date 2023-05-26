@@ -1145,7 +1145,9 @@ APredictableProjectile* UAbilityFunctionLibrary::ValidateProjectile(UCombatAbili
 	{
 		return nullptr;
 	}
-	
+
+	//TODO: This scope is global per machine, so it will probably not work with multiple players since this is on the server?
+	//Move projectile scope to wherever we're handling projectiles (player class, ability component?).
 	const FPredictedTick CurrentTick = FPredictedTick(Ability->GetPredictionID(), Ability->GetCurrentTick());
 	if (CurrentTick == ProjectileScope)
 	{
@@ -1158,8 +1160,9 @@ APredictableProjectile* UAbilityFunctionLibrary::ValidateProjectile(UCombatAbili
 	}
 	const int32 NewProjectileID = ProjectileID;
 
-	TMap<UHitbox*, FTransform> ReturnTransforms;
-	RewindRelevantHitboxesForShooter(Shooter, Origin, TArray<AActor*>(), TArray<AActor*>(), ReturnTransforms);
+	//Going to try this without rewinding for now due to performance issues.
+	/*TMap<UHitbox*, FTransform> ReturnTransforms;
+	RewindRelevantHitboxesForShooter(Shooter, Origin, TArray<AActor*>(), TArray<AActor*>(), ReturnTransforms);*/
 	
 	if (!IsValid(ProjectileClass))
 	{
@@ -1200,8 +1203,10 @@ APredictableProjectile* UAbilityFunctionLibrary::ValidateProjectile(UCombatAbili
 		return nullptr;
 	}
 	NewProjectile->InitializeProjectile(Ability, CurrentTick, NewProjectileID, ProjectilePlane, ProjectileHostility);
-	
-	if (!Shooter->IsLocallyControlled())
+
+	//TODO: This method rewinds everything and does 50ms steps for the projectile until it is caught up to client time.
+	//This appears to be super heavy computationally because firing a lot of projectiles lags the game.
+	/*if (!Shooter->IsLocallyControlled())
 	{
 		AGameStateBase* GameState = Shooter->GetWorld()->GetGameState();
 		if (IsValid(GameState))
@@ -1249,7 +1254,7 @@ APredictableProjectile* UAbilityFunctionLibrary::ValidateProjectile(UCombatAbili
 		}
 	}
 
-	UnrewindHitboxes(ReturnTransforms);
+	UnrewindHitboxes(ReturnTransforms);*/
 	return NewProjectile;
 }
 

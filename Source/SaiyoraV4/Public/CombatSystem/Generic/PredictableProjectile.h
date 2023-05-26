@@ -36,6 +36,7 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	APredictableProjectile(const class FObjectInitializer& ObjectInitializer);
 	virtual void PostNetReceiveLocationAndRotation() override;
+	virtual void Tick(float DeltaSeconds) override;
 	void InitializeProjectile(UCombatAbility* Source, const FPredictedTick& Tick, const int32 ID, const ESaiyoraPlane ProjectilePlane, const EFaction ProjectileHostility);
 	
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Projectile")
@@ -79,4 +80,6 @@ private:
 	UFUNCTION()
 	void DelayedDestroy();
 	void HideProjectile();
+
+	float RemainingLag = 0.0f;
 };

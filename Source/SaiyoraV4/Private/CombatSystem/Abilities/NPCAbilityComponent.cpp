@@ -2,6 +2,8 @@
 #include "DamageHandler.h"
 #include "NPCBehavior.h"
 #include "SaiyoraCombatInterface.h"
+#include "SaiyoraMovementComponent.h"
+#include "StatHandler.h"
 #include "ThreatHandler.h"
 #include "BehaviorTree/BehaviorTree.h"
 #include "BehaviorTree/BlackboardComponent.h"
@@ -21,12 +23,10 @@ void UNPCAbilityComponent::InitializeComponent()
 	ThreatHandlerRef = ISaiyoraCombatInterface::Execute_GetThreatHandler(GetOwner());
 	MovementComponentRef = ISaiyoraCombatInterface::Execute_GetCustomMovementComponent(GetOwner());
 	CombatStatusComponentRef = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(GetOwner());
-	Super::InitializeComponent();
 }
 
 void UNPCAbilityComponent::BeginPlay()
 {
-	Super::BeginPlay();
 	Super::BeginPlay();
 	if (GetOwnerRole() != ROLE_Authority)
 	{
@@ -78,7 +78,7 @@ void UNPCAbilityComponent::UpdateCombatStatus()
 			//TODO: Leave combat.
 			break;
 		case ENPCCombatStatus::Patrolling :
-			//LeavePatrolState();
+			LeavePatrolState();
 			break;
 		case ENPCCombatStatus::Resetting :
 			//TODO: Leave resetting.
@@ -96,7 +96,7 @@ void UNPCAbilityComponent::UpdateCombatStatus()
 			//TODO: Enter combat.
 			break;
 		case ENPCCombatStatus::Patrolling :
-			//EnterPatrolState();
+			EnterPatrolState();
 			break;
 		case ENPCCombatStatus::Resetting :
 			//TODO: Enter resetting.
@@ -107,3 +107,78 @@ void UNPCAbilityComponent::UpdateCombatStatus()
 		AIController->GetBlackboardComponent()->SetValueAsEnum("CombatStatus", uint8(CombatStatus));
 	}
 }
+
+#pragma region Combat
+
+FCombatPhase UNPCAbilityComponent::GetCombatPhase() const
+{
+	for (const FCombatPhase& Phase : Phases)
+	{
+		if (Phase.PhaseTag.MatchesTagExact(CurrentPhase))
+		{
+			return Phase;
+		}
+	}
+	return FCombatPhase();
+}
+
+void UNPCAbilityComponent::EnterPhase(const FGameplayTag PhaseTag)
+{
+	if (GetOwnerRole() != ROLE_Authority || CurrentPhase.MatchesTagExact(PhaseTag))
+	{
+		return;
+	}
+	for (const FCombatPhase& Phase : Phases)
+	{
+		if (Phase.PhaseTag.MatchesTagExact(PhaseTag))
+		{
+			CurrentPhase = PhaseTag;
+			if (Phase.bHighPriority)
+			{
+				//TODO: Interrupt current action, determine new action.
+				return;
+			}
+		}
+	}
+}
+
+#pragma endregion
+#pragma region Patrolling
+
+void UNPCAbilityComponent::EnterPatrolState()
+{
+	//Apply patrol move speed mod.
+	if (PatrolMoveSpeedModifier > 0.0f)
+	{
+		if (IsValid(StatHandlerRef))
+		{
+			PatrolMoveSpeedModHandle = StatHandlerRef->AddStatModifier(FSaiyoraCombatTags::Get().Stat_MaxWalkSpeed, FCombatModifier(PatrolMoveSpeedModifier, EModifierType::Multiplicative));
+		}
+		else if (IsValid(MovementComponentRef))
+		{
+			//TODO: This could easily go wrong if anything else modifies max walk speed while the mob is patrolling. Maybe just don't let this happen?
+			//TODO: Is there a way to do this through a service?
+			DefaultMaxWalkSpeed = MovementComponentRef->GetDefaultMaxWalkSpeed();
+			MovementComponentRef->MaxWalkSpeed = DefaultMaxWalkSpeed * PatrolMoveSpeedModifier;
+		}
+	}
+}
+
+void UNPCAbilityComponent::LeavePatrolState()
+{
+	if (PatrolMoveSpeedModHandle.IsValid())
+	{
+		if (IsValid(StatHandlerRef))
+		{
+			StatHandlerRef->RemoveStatModifier(FSaiyoraCombatTags::Get().Stat_MaxWalkSpeed, PatrolMoveSpeedModHandle);
+			PatrolMoveSpeedModHandle = FCombatModifierHandle::Invalid;
+		}
+		else if (IsValid(MovementComponentRef) && DefaultMaxWalkSpeed > 0.0f)
+		{
+			MovementComponentRef->MaxWalkSpeed = DefaultMaxWalkSpeed;
+			DefaultMaxWalkSpeed = 0.0f;
+		}
+	}
+}
+
+#pragma endregion
