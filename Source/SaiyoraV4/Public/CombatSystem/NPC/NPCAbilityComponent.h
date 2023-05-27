@@ -1,11 +1,10 @@
 ﻿#pragma once
 #include <NPCEnums.h>
 #include "CoreMinimal.h"
-#include "AbilityChoice.h"
 #include "AbilityComponent.h"
 #include "AIController.h"
 #include "DungeonGameState.h"
-#include "Engine/TargetPoint.h"
+#include "NPCStructs.h"
 #include "NPCAbilityComponent.generated.h"
 
 class UBehaviorTree;
@@ -13,38 +12,12 @@ class UThreatHandler;
 class UCombatStatusComponent;
 class USaiyoraMovementComponent;
 
-USTRUCT(BlueprintType)
-struct FPatrolPoint
-{
-	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	ATargetPoint* Point = nullptr;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	float WaitTime = 0.0f;
-};
-
-USTRUCT(BlueprintType)
-struct FCombatPhase
-{
-	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (Categories = "Phase"))
-	FGameplayTag PhaseTag;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	TSet<TSubclassOf<UAbilityChoice>> AbilityChoices;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	bool bHighPriority = false;
-
-	bool operator==(const FCombatPhase& Other) const { return Other.PhaseTag.MatchesTagExact(PhaseTag); }
-};
-
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class SAIYORAV4_API UNPCAbilityComponent : public UAbilityComponent
 {
 	GENERATED_BODY()
 
-	UNPCAbilityComponent(const FObjectInitializer& ObjectInitializer)
+	UNPCAbilityComponent(const FObjectInitializer& ObjectInitializer);
 
 protected:
 
@@ -97,10 +70,20 @@ protected:
 private:
 
 	UPROPERTY(EditAnywhere, Category = "Behavior")
-	TSet<FCombatPhase> Phases;
+	TArray<FCombatPhase> Phases;
 	FGameplayTag CurrentPhase;
 
 	//Patrolling
+
+public:
+
+	UFUNCTION(BlueprintCallable, Category = "Patrol")
+	void SetNextPatrolPoint(UBlackboardComponent* Blackboard);
+	UFUNCTION(BlueprintCallable, Category = "Patrol")
+	void ReachedPatrolPoint(const FVector& Location);
+
+	UPROPERTY(BlueprintAssignable)
+	FPatrolLocationNotification OnPatrolLocationReached;
 
 protected:
 
@@ -118,11 +101,18 @@ private:
 
 	FCombatModifierHandle PatrolMoveSpeedModHandle;
 	float DefaultMaxWalkSpeed = 0.0f;
+	int32 NextPatrolIndex = 0;
+	bool bFinishedPatrolling = false;
 
 	//Resetting
+
+public:
+
+	UFUNCTION(BlueprintCallable)
+	void MarkResetComplete() { bNeedsReset = false; UpdateCombatStatus(); }
 
 private:
 
 	bool bNeedsReset = false;
-	
+	FVector ResetGoal;
 };

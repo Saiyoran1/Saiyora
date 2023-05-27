@@ -1,6 +1,5 @@
 ﻿#include "NPCAbilityComponent.h"
 #include "DamageHandler.h"
-#include "NPCBehavior.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraMovementComponent.h"
 #include "StatHandler.h"
@@ -179,6 +178,47 @@ void UNPCAbilityComponent::LeavePatrolState()
 			DefaultMaxWalkSpeed = 0.0f;
 		}
 	}
+}
+
+void UNPCAbilityComponent::ReachedPatrolPoint(const FVector& Location)
+{
+	NextPatrolIndex += 1;
+	OnPatrolLocationReached.Broadcast(Location);
+}
+
+void UNPCAbilityComponent::SetNextPatrolPoint(UBlackboardComponent* Blackboard)
+{
+	if (!IsValid(Blackboard))
+	{
+		return;
+	}
+	const int32 StartingIndex = NextPatrolIndex;
+	while (!Patrol.IsValidIndex(NextPatrolIndex) || !IsValid(Patrol[NextPatrolIndex].Point))
+	{
+		if (NextPatrolIndex > Patrol.Num() - 1)
+		{
+			if (bLoopPatrol)
+			{
+				NextPatrolIndex = 0;
+			}
+			else
+			{
+				Blackboard->SetValueAsBool("FinishedPatrolling", true);
+				return;
+			}
+		}
+		else
+		{
+			NextPatrolIndex += 1;
+		}
+		if (NextPatrolIndex == StartingIndex)
+		{
+			Blackboard->SetValueAsBool("FinishedPatrolling", true);
+			return;
+		}
+	}
+	Blackboard->SetValueAsObject("PatrolGoal", Patrol[NextPatrolIndex].Point);
+	Blackboard->SetValueAsFloat("WaitTime", Patrol[NextPatrolIndex].WaitTime);
 }
 
 #pragma endregion
