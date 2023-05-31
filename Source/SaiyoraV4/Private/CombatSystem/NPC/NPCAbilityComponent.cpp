@@ -1,4 +1,6 @@
 ﻿#include "NPCAbilityComponent.h"
+
+#include "AbilityCondition.h"
 #include "DamageHandler.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraMovementComponent.h"
@@ -35,6 +37,22 @@ void UNPCAbilityComponent::BeginPlay()
 	checkf(IsValid(OwnerAsPawn), TEXT("NPC Ability Component's owner was not a valid pawn."));
 	DungeonGameStateRef = Cast<ADungeonGameState>(GameStateRef);
 	checkf(IsValid(GameStateRef), TEXT("Got an invalid Game State Ref in NPC Ability Component."));
+
+	TSet<TSubclassOf<UCombatAbility>> PhaseAbilities;
+	for (const FCombatPhase& Phase : Phases)
+	{
+		for (const FAbilityChoice& Choice :  Phase.AbilityChoices)
+		{
+			if (IsValid(Choice.AbilityClass))
+			{
+				PhaseAbilities.Add(Choice.AbilityClass);	
+			}
+		}
+	}
+	for (const TSubclassOf<UCombatAbility> AbilityClass : PhaseAbilities)
+	{
+		AddNewAbility(AbilityClass);
+	}
 
 	OwnerAsPawn->ReceiveControllerChangedDelegate.AddDynamic(this, &UNPCAbilityComponent::OnControllerChanged);
 	DungeonGameStateRef->OnDungeonPhaseChanged.AddDynamic(this, &UNPCAbilityComponent::OnDungeonPhaseChanged);
@@ -138,6 +156,56 @@ void UNPCAbilityComponent::EnterPhase(const FGameplayTag PhaseTag)
 				return;
 			}
 		}
+	}
+}
+
+void UNPCAbilityComponent::DetermineNewAction()
+{
+	const FCombatPhase CurrentPhase = GetCombatPhase();
+	TSubclassOf<UCombatAbility> ChosenAbility = nullptr;
+	for (const FAbilityChoice& Choice : CurrentPhase.AbilityChoices)
+	{
+		if (!IsValid(Choice.AbilityClass))
+		{
+			continue;
+		}
+		const UCombatAbility* Ability = FindActiveAbility(Choice.AbilityClass);
+		ECastFailReason FailReason = ECastFailReason::None;
+		if (!CanUseAbility(Ability, FailReason))
+		{
+			continue;
+		}
+		bool bConditionFailed = false;
+		for (const TSubclassOf<UAbilityCondition> ConditionClass : Choice.AbilityConditions)
+		{
+			if (IsValid(ConditionClass))
+			{
+				const UAbilityCondition* DefaultCondition = ConditionClass.GetDefaultObject();
+				if (!IsValid(DefaultCondition))
+				{
+					bConditionFailed = true;
+					break;
+				}
+				if (!DefaultCondition->IsConditionMet(GetOwner(), Choice.AbilityClass))
+				{
+					bConditionFailed = true;
+					break;
+				}
+			}
+		}
+		if (!bConditionFailed)
+		{
+			ChosenAbility = Choice.AbilityClass;
+			break;
+		}
+	}
+	if (IsValid(ChosenAbility))
+	{
+		//TODO: Set BB key for ability.
+	}
+	else
+	{
+		//TODO: Set BB key for null ability.
 	}
 }
 

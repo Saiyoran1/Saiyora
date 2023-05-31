@@ -3,6 +3,8 @@
 #include "Object.h"
 #include "AbilityCondition.generated.h"
 
+class UCombatAbility;
+
 UCLASS(Blueprintable)
 class SAIYORAV4_API UAbilityCondition : public UObject
 {
@@ -11,6 +13,6 @@ class SAIYORAV4_API UAbilityCondition : public UObject
 public:
 	
 	UFUNCTION(BlueprintNativeEvent)
-	bool IsConditionMet(AActor* Owner) const;
-	virtual bool IsConditionMet_Implementation(AActor* Owner) const { return true; }
+	bool IsConditionMet(AActor* Owner, TSubclassOf<UCombatAbility> AbilityClass) const;
+	virtual bool IsConditionMet_Implementation(AActor* Owner, TSubclassOf<UCombatAbility> AbilityClass) const { return true; }
 };

@@ -12,9 +12,9 @@ struct FAbilityChoice
 {
 	GENERATED_BODY()
 
-	UPROPERTY()
+	UPROPERTY(EditAnywhere)
 	TSubclassOf<UCombatAbility> AbilityClass;
-	UPROPERTY()
+	UPROPERTY(EditAnywhere)
 	TArray<TSubclassOf<UAbilityCondition>> AbilityConditions;
 };
 
@@ -34,11 +34,11 @@ struct FCombatPhase
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (Categories = "Phase"))
+	UPROPERTY(EditAnywhere, meta = (Categories = "Phase"))
 	FGameplayTag PhaseTag;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	UPROPERTY(EditAnywhere)
 	TArray<FAbilityChoice> AbilityChoices;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	UPROPERTY(EditAnywhere)
 	bool bHighPriority = false;
 
 	bool operator==(const FCombatPhase& Other) const { return Other.PhaseTag.MatchesTagExact(PhaseTag); }

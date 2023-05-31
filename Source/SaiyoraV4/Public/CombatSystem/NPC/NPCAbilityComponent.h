@@ -73,6 +73,8 @@ private:
 	TArray<FCombatPhase> Phases;
 	FGameplayTag CurrentPhase;
 
+	void DetermineNewAction();
+
 	//Patrolling
 
 public:
