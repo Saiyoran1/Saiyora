@@ -105,6 +105,8 @@ public:
     bool IsCastableWhileDead() const { return bCastableWhileDead; }
     UFUNCTION(BlueprintPure, Category = "Abilities")
     void GetRestrictedCrowdControls(FGameplayTagContainer& OutCrowdControls) const { OutCrowdControls = RestrictedCrowdControls; }
+    UFUNCTION(BlueprintPure, Category = "Abilities")
+    bool IsCastableWhileMoving() const { return bCastableWhileMoving; }
     
     void AddRestrictedTag(const FGameplayTag RestrictedTag);
     void RemoveRestrictedTag(const FGameplayTag RestrictedTag);
@@ -123,6 +125,8 @@ protected:
     bool bCastableWhileDead = false;
     UPROPERTY(EditDefaultsOnly, Category = "Restrictions", meta = (Categories = "CrowdControl"))
     FGameplayTagContainer RestrictedCrowdControls;
+    UPROPERTY(EditDefaultsOnly, Category = "Restrictions")
+    bool bCastableWhileMoving = true;
     
 private:
     

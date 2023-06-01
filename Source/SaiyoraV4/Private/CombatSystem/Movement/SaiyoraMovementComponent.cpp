@@ -319,6 +319,12 @@ void USaiyoraMovementComponent::TickComponent(float DeltaTime, ELevelTick TickTy
 	//Clear this every tick, as it only exists to prevent listen servers from double-applying moves.
 	//This happens because the ability system calls Predicted and Server tick of an ability back to back on listen servers.
 	ServerCurrentTickHandledMovement.Empty();
+	const bool bNewMove = Velocity.Length() != 0.0f;
+	if (bNewMove != bIsMoving)
+	{
+		bIsMoving = bNewMove;
+		OnMovementChanged.Broadcast(GetOwner(), bIsMoving);
+	}
 }
 
 #pragma endregion

@@ -9,6 +9,7 @@
 #include "StatHandler.h"
 #include "ResourceHandler.h"
 #include "SaiyoraCombatLibrary.h"
+#include "SaiyoraMovementComponent.h"
 #include "UnrealNetwork.h"
 #include "Engine/ActorChannel.h"
 
@@ -35,6 +36,7 @@ void UAbilityComponent::InitializeComponent()
 	StatHandlerRef = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
 	CrowdControlHandlerRef = ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(GetOwner());
 	DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
+	MovementComponentRef = ISaiyoraCombatInterface::Execute_GetCustomMovementComponent(GetOwner());
 	Super::InitializeComponent();
 }
 
@@ -53,6 +55,10 @@ void UAbilityComponent::BeginPlay()
 		if (IsValid(DamageHandlerRef))
 		{
 			DamageHandlerRef->OnLifeStatusChanged.AddDynamic(this, &UAbilityComponent::InterruptCastOnDeath);
+		}
+		if (IsValid(MovementComponentRef))
+		{
+			MovementComponentRef->OnMovementChanged.AddDynamic(this, &UAbilityComponent::InterruptCastOnMovement);
 		}
 		for (const TSubclassOf<UCombatAbility> AbilityClass : DefaultAbilities)
 		{
@@ -728,6 +734,18 @@ void UAbilityComponent::InterruptCastOnDeath(AActor* Actor, const ELifeStatus Pr
 	}
 }
 
+void UAbilityComponent::InterruptCastOnMovement(AActor* Actor, const bool bNewMovement)
+{
+	if (CastingState.bIsCasting && IsValid(CastingState.CurrentCast) && bNewMovement)
+	{
+		if (!CastingState.CurrentCast->IsCastableWhileMoving())
+		{
+			InterruptCurrentCast(GetOwner(), nullptr, true);
+		}
+	}
+}
+
+
 #pragma endregion 
 #pragma region Casting
 
@@ -1158,6 +1176,11 @@ bool UAbilityComponent::CanUseAbility(const UCombatAbility* Ability, ECastFailRe
 	if (!Ability->IsCastableWhileDead() && IsValid(DamageHandlerRef) && DamageHandlerRef->GetLifeStatus() != ELifeStatus::Alive)
 	{
 		OutFailReason = ECastFailReason::Dead;
+		return false;
+	}
+	if (!Ability->IsCastableWhileMoving() && IsValid(MovementComponentRef) && MovementComponentRef->IsMoving())
+	{
+		OutFailReason = ECastFailReason::Moving;
 		return false;
 	}
 	OutFailReason = Ability->IsCastable();

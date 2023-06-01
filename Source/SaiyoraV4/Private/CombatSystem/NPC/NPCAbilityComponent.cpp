@@ -131,7 +131,7 @@ FCombatPhase UNPCAbilityComponent::GetCombatPhase() const
 {
 	for (const FCombatPhase& Phase : Phases)
 	{
-		if (Phase.PhaseTag.MatchesTagExact(CurrentPhase))
+		if (Phase.PhaseTag.MatchesTagExact(CurrentPhaseTag))
 		{
 			return Phase;
 		}
@@ -141,7 +141,7 @@ FCombatPhase UNPCAbilityComponent::GetCombatPhase() const
 
 void UNPCAbilityComponent::EnterPhase(const FGameplayTag PhaseTag)
 {
-	if (GetOwnerRole() != ROLE_Authority || CurrentPhase.MatchesTagExact(PhaseTag))
+	if (GetOwnerRole() != ROLE_Authority || CurrentPhaseTag.MatchesTagExact(PhaseTag))
 	{
 		return;
 	}
@@ -149,7 +149,7 @@ void UNPCAbilityComponent::EnterPhase(const FGameplayTag PhaseTag)
 	{
 		if (Phase.PhaseTag.MatchesTagExact(PhaseTag))
 		{
-			CurrentPhase = PhaseTag;
+			CurrentPhaseTag = PhaseTag;
 			if (Phase.bHighPriority)
 			{
 				//TODO: Interrupt current action, determine new action.
@@ -161,9 +161,9 @@ void UNPCAbilityComponent::EnterPhase(const FGameplayTag PhaseTag)
 
 void UNPCAbilityComponent::DetermineNewAction()
 {
-	const FCombatPhase CurrentPhase = GetCombatPhase();
+	const FCombatPhase CombatPhase = GetCombatPhase();
 	TSubclassOf<UCombatAbility> ChosenAbility = nullptr;
-	for (const FAbilityChoice& Choice : CurrentPhase.AbilityChoices)
+	for (const FAbilityChoice& Choice : CombatPhase.AbilityChoices)
 	{
 		if (!IsValid(Choice.AbilityClass))
 		{

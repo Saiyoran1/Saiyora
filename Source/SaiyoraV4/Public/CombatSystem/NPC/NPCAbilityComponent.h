@@ -10,7 +10,6 @@
 class UBehaviorTree;
 class UThreatHandler;
 class UCombatStatusComponent;
-class USaiyoraMovementComponent;
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class SAIYORAV4_API UNPCAbilityComponent : public UAbilityComponent
@@ -39,8 +38,6 @@ private:
 	UThreatHandler* ThreatHandlerRef;
 	UPROPERTY()
 	UCombatStatusComponent* CombatStatusComponentRef;
-	UPROPERTY()
-	USaiyoraMovementComponent* MovementComponentRef;
 
 	ENPCCombatStatus CombatStatus = ENPCCombatStatus::None;
 	void UpdateCombatStatus();
@@ -71,7 +68,7 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Behavior")
 	TArray<FCombatPhase> Phases;
-	FGameplayTag CurrentPhase;
+	FGameplayTag CurrentPhaseTag;
 
 	void DetermineNewAction();
 

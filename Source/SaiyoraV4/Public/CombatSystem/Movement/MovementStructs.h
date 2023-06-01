@@ -50,3 +50,5 @@ struct FClientPendingCustomMove
 
 	void Clear() { AbilityClass = nullptr; PredictionID = 0; OriginalTimestamp = 0.0f; MoveParams = FCustomMoveParams(); Targets.Empty(); }
 };
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnMovementChanged, AActor*, Actor, const bool, bNewMovement);

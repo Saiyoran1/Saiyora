@@ -99,6 +99,10 @@ private:
 public:
 
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+	UFUNCTION(BlueprintPure)
+	bool IsMoving() const { return bIsMoving; }
+	UPROPERTY(BlueprintAssignable)
+	FOnMovementChanged OnMovementChanged;
 
 private:
 
@@ -107,6 +111,7 @@ private:
 	virtual void MoveAutonomous(float ClientTimeStamp, float DeltaTime, uint8 CompressedFlags, const FVector& NewAccel) override;
 	virtual void UpdateFromCompressedFlags(uint8 Flags) override;
 	virtual void OnMovementUpdated(float DeltaSeconds, const FVector& OldLocation, const FVector& OldVelocity) override;
+	bool bIsMoving = false;
 
 //Custom Moves
 	
