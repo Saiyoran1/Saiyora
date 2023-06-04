@@ -92,7 +92,7 @@ void UNPCAbilityComponent::UpdateCombatStatus()
 		switch(CombatStatus)
 		{
 		case ENPCCombatStatus::Combat :
-			//TODO: Leave combat.
+			LeaveCombatState();
 			break;
 		case ENPCCombatStatus::Patrolling :
 			LeavePatrolState();
@@ -101,16 +101,14 @@ void UNPCAbilityComponent::UpdateCombatStatus()
 			//TODO: Leave resetting.
 			break;
 		default:
-			//TODO: Leave none, so maybe set up the right behavior tree?
-			AIController->RunBehaviorTree(BehaviorTree);
-			AIController->GetBlackboardComponent()->SetValueAsObject("BehaviorComponent", this);
+			SetupBehavior();
 			break;
 		}
 		CombatStatus = NewCombatStatus;
 		switch (CombatStatus)
 		{
 		case ENPCCombatStatus::Combat :
-			//TODO: Enter combat.
+			EnterCombatState();
 			break;
 		case ENPCCombatStatus::Patrolling :
 			EnterPatrolState();
@@ -121,7 +119,44 @@ void UNPCAbilityComponent::UpdateCombatStatus()
 		default:
 			break;
 		}
-		AIController->GetBlackboardComponent()->SetValueAsEnum("CombatStatus", uint8(CombatStatus));
+		if (IsValid(AIController) && IsValid(AIController->GetBlackboardComponent()))
+		{
+			AIController->GetBlackboardComponent()->SetValueAsEnum("CombatStatus", uint8(CombatStatus));
+		}
+	}
+}
+
+void UNPCAbilityComponent::SetupBehavior()
+{
+	if (bInitialized)
+	{
+		return;
+	}
+	if (!IsValid(AIController))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Invalid AI controller ref in NPCAbilityComponent."));
+		return;
+	}
+	AIController->RunBehaviorTree(BehaviorTree);
+	if (!IsValid(AIController->GetBlackboardComponent()))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Invalid Blackboard Component ref in NPCAbilityComponent."));
+		return;
+	}
+	AIController->GetBlackboardComponent()->SetValueAsObject("BehaviorComponent", this);
+	if (IsValid(ThreatHandlerRef))
+	{
+		ThreatHandlerRef->OnTargetChanged.AddDynamic(this, &UNPCAbilityComponent::OnTargetChanged);
+		OnTargetChanged(nullptr, ThreatHandlerRef->GetCurrentTarget());
+	}
+	bInitialized = true;
+}
+
+void UNPCAbilityComponent::OnTargetChanged(AActor* PreviousTarget, AActor* NewTarget)
+{
+	if (IsValid(AIController) && IsValid(AIController->GetBlackboardComponent()))
+	{
+		AIController->GetBlackboardComponent()->SetValueAsObject("Target", NewTarget);
 	}
 }
 
@@ -145,6 +180,7 @@ void UNPCAbilityComponent::EnterPhase(const FGameplayTag PhaseTag)
 	{
 		return;
 	}
+	//TODO: Add some protection for not having a default phase?
 	for (const FCombatPhase& Phase : Phases)
 	{
 		if (Phase.PhaseTag.MatchesTagExact(PhaseTag))
@@ -152,10 +188,31 @@ void UNPCAbilityComponent::EnterPhase(const FGameplayTag PhaseTag)
 			CurrentPhaseTag = PhaseTag;
 			if (Phase.bHighPriority)
 			{
-				//TODO: Interrupt current action, determine new action.
-				return;
+				InterruptCurrentAction();
+				DetermineNewAction();
 			}
+			//If not high priority, next DetermineNewAction will simply just be looking at the new phase list.
 		}
+	}
+}
+
+void UNPCAbilityComponent::EnterCombatState()
+{
+	EnterPhase(DefaultPhase);
+	if (!GetCombatPhase().bHighPriority)
+	{
+		//Manually determine a new action, since only high priority phases will instantly determine one.
+		DetermineNewAction();
+	}
+}
+
+void UNPCAbilityComponent::LeaveCombatState()
+{
+	InterruptCurrentAction();
+	CurrentPhaseTag = FGameplayTag::EmptyTag;
+	if (IsValid(AIController) && IsValid(AIController->GetBlackboardComponent()))
+	{
+		AIController->GetBlackboardComponent()->SetValueAsBool("CombatMoving", false);
 	}
 }
 
@@ -201,11 +258,64 @@ void UNPCAbilityComponent::DetermineNewAction()
 	}
 	if (IsValid(ChosenAbility))
 	{
-		//TODO: Set BB key for ability.
+		const FAbilityEvent AbilityEvent = UseAbility(ChosenAbility);
+		if (AbilityEvent.ActionTaken == ECastAction::Fail)
+		{
+			if (IsValid(AIController) && IsValid(AIController->GetBlackboardComponent()))
+			{
+				AIController->GetBlackboardComponent()->SetValueAsBool("CombatMoving", true);
+			}
+			GetWorld()->GetTimerManager().SetTimer(ActionRetryHandle, this, &UNPCAbilityComponent::DetermineNewAction, ActionRetryFrequency);
+		}
+		else
+		{
+			if (IsCasting())
+			{
+				OnCastStateChanged.AddDynamic(this, &UNPCAbilityComponent::OnCastEnded);
+				if (IsValid(AIController) && IsValid(AIController->GetBlackboardComponent()))
+				{
+					AIController->GetBlackboardComponent()->SetValueAsBool("CombatMoving", GetCurrentCast()->IsCastableWhileMoving());
+				}
+			}
+			else
+			{
+				if (IsValid(AIController) && IsValid(AIController->GetBlackboardComponent()))
+				{
+					AIController->GetBlackboardComponent()->SetValueAsBool("CombatMoving", true);
+				}
+				DetermineNewAction();
+			}
+		}
 	}
 	else
 	{
-		//TODO: Set BB key for null ability.
+		if (IsValid(AIController) && IsValid(AIController->GetBlackboardComponent()))
+		{
+			AIController->GetBlackboardComponent()->SetValueAsBool("CombatMoving", true);
+		}
+		GetWorld()->GetTimerManager().SetTimer(ActionRetryHandle, this, &UNPCAbilityComponent::DetermineNewAction, ActionRetryFrequency);
+	}
+}
+
+void UNPCAbilityComponent::InterruptCurrentAction()
+{
+	OnCastStateChanged.RemoveDynamic(this, &UNPCAbilityComponent::OnCastEnded);
+	GetWorld()->GetTimerManager().ClearTimer(ActionRetryHandle);
+	if (IsCasting())
+	{
+		CancelCurrentCast();
+	}
+}
+
+void UNPCAbilityComponent::OnCastEnded(const FCastingState& PreviousState, const FCastingState& NewState)
+{
+	if (!NewState.bIsCasting)
+	{
+		OnCastStateChanged.RemoveDynamic(this, &UNPCAbilityComponent::OnCastEnded);
+		if (CombatStatus == ENPCCombatStatus::Combat)
+		{
+			DetermineNewAction();
+		}
 	}
 }
 

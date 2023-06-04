@@ -50,6 +50,9 @@ private:
 	UFUNCTION()
 	void OnCombatChanged(const bool bInCombat) { UpdateCombatStatus(); }
 
+	void SetupBehavior();
+	bool bInitialized = false;
+
 	//Combat
 
 public:
@@ -69,8 +72,19 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Behavior")
 	TArray<FCombatPhase> Phases;
 	FGameplayTag CurrentPhaseTag;
+	static constexpr float ActionRetryFrequency = 0.5f;
+	FTimerHandle ActionRetryHandle;
 
+	void EnterCombatState();
+	void LeaveCombatState();
+	UFUNCTION()
 	void DetermineNewAction();
+	void InterruptCurrentAction();
+
+	UFUNCTION()
+	void OnCastEnded(const FCastingState& PreviousState, const FCastingState& NewState);
+	UFUNCTION()
+	void OnTargetChanged(AActor* PreviousTarget, AActor* NewTarget);
 
 	//Patrolling
 
