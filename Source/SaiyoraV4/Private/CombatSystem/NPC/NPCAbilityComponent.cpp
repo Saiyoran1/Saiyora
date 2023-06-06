@@ -98,7 +98,7 @@ void UNPCAbilityComponent::UpdateCombatStatus()
 			LeavePatrolState();
 			break;
 		case ENPCCombatStatus::Resetting :
-			//TODO: Leave resetting.
+			LeaveResetState();
 			break;
 		default:
 			SetupBehavior();
@@ -114,7 +114,7 @@ void UNPCAbilityComponent::UpdateCombatStatus()
 			EnterPatrolState();
 			break;
 		case ENPCCombatStatus::Resetting :
-			//TODO: Enter resetting.
+			EnterResetState();
 			break;
 		default:
 			break;
@@ -333,8 +333,7 @@ void UNPCAbilityComponent::EnterPatrolState()
 		}
 		else if (IsValid(MovementComponentRef))
 		{
-			//TODO: This could easily go wrong if anything else modifies max walk speed while the mob is patrolling. Maybe just don't let this happen?
-			//TODO: Is there a way to do this through a service?
+			//This could easily go wrong if anything else modifies max walk speed while the mob is patrolling. Maybe just don't let this happen?
 			DefaultMaxWalkSpeed = MovementComponentRef->GetDefaultMaxWalkSpeed();
 			MovementComponentRef->MaxWalkSpeed = DefaultMaxWalkSpeed * PatrolMoveSpeedModifier;
 		}
@@ -356,6 +355,8 @@ void UNPCAbilityComponent::LeavePatrolState()
 			DefaultMaxWalkSpeed = 0.0f;
 		}
 	}
+	ResetGoal = GetOwner()->GetActorLocation();
+	bNeedsReset = true;
 }
 
 void UNPCAbilityComponent::ReachedPatrolPoint(const FVector& Location)
@@ -400,3 +401,35 @@ void UNPCAbilityComponent::SetNextPatrolPoint(UBlackboardComponent* Blackboard)
 }
 
 #pragma endregion
+#pragma region Resetting
+
+void UNPCAbilityComponent::MarkResetComplete()
+{
+	if (CombatStatus != ENPCCombatStatus::Resetting)
+	{
+		return;
+	}
+	bNeedsReset = false;
+	UpdateCombatStatus();
+}
+
+void UNPCAbilityComponent::EnterResetState()
+{
+	if (IsValid(AIController) && IsValid(AIController->GetBlackboardComponent()))
+	{
+		AIController->GetBlackboardComponent()->SetValueAsVector("ResetGoal", ResetGoal);
+	}
+	//Reset health
+	//Prevent damage
+	//Prevent threat
+	//Disable hitboxes
+}
+
+void UNPCAbilityComponent::LeaveResetState()
+{
+	//Re-enable damage
+	//Re-enable threat
+	//Re-enable hitboxes
+}
+
+#pragma endregion 

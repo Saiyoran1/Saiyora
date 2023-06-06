@@ -122,10 +122,12 @@ private:
 public:
 
 	UFUNCTION(BlueprintCallable)
-	void MarkResetComplete() { bNeedsReset = false; UpdateCombatStatus(); }
+	void MarkResetComplete();
 
 private:
 
+	void EnterResetState();
+	void LeaveResetState();
 	bool bNeedsReset = false;
 	FVector ResetGoal;
 };
