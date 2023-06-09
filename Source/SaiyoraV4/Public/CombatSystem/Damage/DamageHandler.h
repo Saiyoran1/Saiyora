@@ -43,7 +43,7 @@ private:
 	void OnCombatBehaviorChanged(const ENPCCombatBehavior PreviousBehavior, const ENPCCombatBehavior NewBehavior);
 	FHealthEventRestriction DisableHealthEvents;
 	UFUNCTION()
-	bool DisableAllHealthEvents(const FHealthEventInfo& Event) { return false; }
+	bool DisableAllHealthEvents(const FHealthEventInfo& Event) { return true; }
 
 //Health
 	

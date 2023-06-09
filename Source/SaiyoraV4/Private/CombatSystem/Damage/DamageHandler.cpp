@@ -92,6 +92,8 @@ void UDamageHandler::OnCombatBehaviorChanged(const ENPCCombatBehavior PreviousBe
 	{
 		AddOutgoingHealthEventRestriction(DisableHealthEvents);
 		AddIncomingHealthEventRestriction(DisableHealthEvents);
+		ApplyHealthEvent(EHealthEventType::Healing, MaxHealth, GetOwner(), this, EEventHitStyle::Authority, EHealthEventSchool::None, true,
+			true, true, true, false, FHealthEventModCondition(), FThreatFromDamage());
 	}
 }
 
