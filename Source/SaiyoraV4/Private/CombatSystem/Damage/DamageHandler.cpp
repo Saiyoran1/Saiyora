@@ -1,10 +1,11 @@
 #include "DamageHandler.h"
+#include "AbilityComponent.h"
 #include "StatHandler.h"
-#include "BuffHandler.h"
 #include "Buff.h"
 #include "CombatStatusComponent.h"
 #include "SaiyoraCombatInterface.h"
 #include "DungeonGameState.h"
+#include "NPCAbilityComponent.h"
 #include "UnrealNetwork.h"
 
 #pragma region Initialization
@@ -27,6 +28,12 @@ void UDamageHandler::InitializeComponent()
 	}
 	LifeStatus = ELifeStatus::Invalid;
 	MaxHealthStatCallback.BindDynamic(this, &UDamageHandler::ReactToMaxHealthStat);
+	UAbilityComponent* AbilityComponent = ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwner());
+	if (IsValid(AbilityComponent))
+	{
+		NPCComponentRef = Cast<UNPCAbilityComponent>(AbilityComponent);
+	}
+	DisableHealthEvents.BindDynamic(this, &UDamageHandler::DisableAllHealthEvents);
 }
 
 void UDamageHandler::BeginPlay()
@@ -47,6 +54,15 @@ void UDamageHandler::BeginPlay()
 				StatHandlerRef->SubscribeToStatChanged(FSaiyoraCombatTags::Get().Stat_MaxHealth, MaxHealthStatCallback);
 			}
 		}
+		if (IsValid(NPCComponentRef))
+		{
+			NPCComponentRef->OnCombatBehaviorChanged.AddDynamic(this, &UDamageHandler::OnCombatBehaviorChanged);
+			if (NPCComponentRef->GetCombatBehavior() == ENPCCombatBehavior::None || NPCComponentRef->GetCombatBehavior() == ENPCCombatBehavior::Resetting)
+			{
+				AddOutgoingHealthEventRestriction(DisableHealthEvents);
+				AddIncomingHealthEventRestriction(DisableHealthEvents);
+			}
+		}
 		LifeStatus = ELifeStatus::Alive;
 		OnLifeStatusChanged.Broadcast(GetOwner(), ELifeStatus::Invalid, LifeStatus);
 	}
@@ -60,6 +76,23 @@ void UDamageHandler::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& Out
 	DOREPLIFETIME(UDamageHandler, MaxHealth);
 	DOREPLIFETIME(UDamageHandler, CurrentAbsorb);
 	DOREPLIFETIME(UDamageHandler, LifeStatus);
+}
+
+void UDamageHandler::OnCombatBehaviorChanged(const ENPCCombatBehavior PreviousBehavior,
+	const ENPCCombatBehavior NewBehavior)
+{
+	const bool bWasDisabled = PreviousBehavior == ENPCCombatBehavior::None || PreviousBehavior == ENPCCombatBehavior::Resetting;
+	const bool bShouldBeDisabled = NewBehavior == ENPCCombatBehavior::None || NewBehavior == ENPCCombatBehavior::Resetting;
+	if (bWasDisabled && !bShouldBeDisabled)
+	{
+		RemoveOutgoingHealthEventRestriction(DisableHealthEvents);
+		RemoveIncomingHealthEventRestriction(DisableHealthEvents);
+	}
+	else if (!bWasDisabled && bShouldBeDisabled)
+	{
+		AddOutgoingHealthEventRestriction(DisableHealthEvents);
+		AddIncomingHealthEventRestriction(DisableHealthEvents);
+	}
 }
 
 #pragma endregion 

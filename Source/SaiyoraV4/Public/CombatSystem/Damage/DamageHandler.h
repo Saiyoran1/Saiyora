@@ -4,6 +4,7 @@
 #include "Components/ActorComponent.h"
 #include "GameplayTagContainer.h"
 #include "BuffStructs.h"
+#include "NPCEnums.h"
 #include "StatStructs.h"
 #include "DamageHandler.generated.h"
 
@@ -11,6 +12,7 @@ class UStatHandler;
 class UBuffHandler;
 class UCombatStatusComponent;
 class ADungeonGameState;
+class UNPCAbilityComponent;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class SAIYORAV4_API UDamageHandler : public UActorComponent
@@ -31,9 +33,17 @@ private:
 	UPROPERTY()
 	UCombatStatusComponent* CombatStatusComponentRef = nullptr;
 	UPROPERTY()
+	UNPCAbilityComponent* NPCComponentRef = nullptr;
+	UPROPERTY()
 	APawn* OwnerAsPawn = nullptr;
 	UPROPERTY()
 	ADungeonGameState* GameStateRef = nullptr;
+
+	UFUNCTION()
+	void OnCombatBehaviorChanged(const ENPCCombatBehavior PreviousBehavior, const ENPCCombatBehavior NewBehavior);
+	FHealthEventRestriction DisableHealthEvents;
+	UFUNCTION()
+	bool DisableAllHealthEvents(const FHealthEventInfo& Event) { return false; }
 
 //Health
 	

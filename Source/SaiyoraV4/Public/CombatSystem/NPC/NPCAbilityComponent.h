@@ -18,6 +18,13 @@ class SAIYORAV4_API UNPCAbilityComponent : public UAbilityComponent
 
 	UNPCAbilityComponent(const FObjectInitializer& ObjectInitializer);
 
+public:
+
+	UPROPERTY(BlueprintAssignable)
+	FCombatBehaviorNotification OnCombatBehaviorChanged;
+	UFUNCTION(BlueprintPure)
+	ENPCCombatBehavior GetCombatBehavior() const { return CombatBehavior; }
+
 protected:
 
 	virtual void InitializeComponent() override;
@@ -39,16 +46,16 @@ private:
 	UPROPERTY()
 	UCombatStatusComponent* CombatStatusComponentRef;
 
-	ENPCCombatStatus CombatStatus = ENPCCombatStatus::None;
-	void UpdateCombatStatus();
+	ENPCCombatBehavior CombatBehavior = ENPCCombatBehavior::None;
+	void UpdateCombatBehavior();
 	UFUNCTION()
-	void OnControllerChanged(APawn* PossessedPawn, AController* OldController, AController* NewController) { AIController = Cast<AAIController>(NewController); UpdateCombatStatus(); }
+	void OnControllerChanged(APawn* PossessedPawn, AController* OldController, AController* NewController) { AIController = Cast<AAIController>(NewController); UpdateCombatBehavior(); }
 	UFUNCTION()
-	void OnDungeonPhaseChanged(const EDungeonPhase PreviousPhase, const EDungeonPhase NewPhase) { UpdateCombatStatus(); }
+	void OnDungeonPhaseChanged(const EDungeonPhase PreviousPhase, const EDungeonPhase NewPhase) { UpdateCombatBehavior(); }
 	UFUNCTION()
-	void OnLifeStatusChanged(AActor* Target, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus) { UpdateCombatStatus(); }
+	void OnLifeStatusChanged(AActor* Target, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus) { UpdateCombatBehavior(); }
 	UFUNCTION()
-	void OnCombatChanged(const bool bInCombat) { UpdateCombatStatus(); }
+	void OnCombatChanged(const bool bInCombat) { UpdateCombatBehavior(); }
 
 	void SetupBehavior();
 	bool bInitialized = false;

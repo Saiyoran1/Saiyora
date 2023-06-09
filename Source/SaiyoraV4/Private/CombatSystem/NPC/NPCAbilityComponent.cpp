@@ -67,9 +67,9 @@ void UNPCAbilityComponent::BeginPlay()
 	OnControllerChanged(OwnerAsPawn, nullptr, OwnerAsPawn->GetController());
 }
 
-void UNPCAbilityComponent::UpdateCombatStatus()
+void UNPCAbilityComponent::UpdateCombatBehavior()
 {
-	ENPCCombatStatus NewCombatStatus = ENPCCombatStatus::None;
+	ENPCCombatBehavior NewCombatBehavior = ENPCCombatBehavior::None;
 	if (DungeonGameStateRef->GetDungeonPhase() == EDungeonPhase::InProgress)
 	{
 		if (IsValid(AIController))
@@ -78,42 +78,43 @@ void UNPCAbilityComponent::UpdateCombatStatus()
 			{
 				if (IsValid(ThreatHandlerRef) && ThreatHandlerRef->IsInCombat())
 				{
-					NewCombatStatus = ENPCCombatStatus::Combat;
+					NewCombatBehavior = ENPCCombatBehavior::Combat;
 				}
 				else
 				{
-					NewCombatStatus = bNeedsReset ? ENPCCombatStatus::Resetting : ENPCCombatStatus::Patrolling;
+					NewCombatBehavior = bNeedsReset ? ENPCCombatBehavior::Resetting : ENPCCombatBehavior::Patrolling;
 				}
 			}
 		}
 	}
-	if (NewCombatStatus != CombatStatus)
+	if (NewCombatBehavior != CombatBehavior)
 	{
-		switch(CombatStatus)
+		const ENPCCombatBehavior PreviousBehavior = CombatBehavior;
+		switch(PreviousBehavior)
 		{
-		case ENPCCombatStatus::Combat :
+		case ENPCCombatBehavior::Combat :
 			LeaveCombatState();
 			break;
-		case ENPCCombatStatus::Patrolling :
+		case ENPCCombatBehavior::Patrolling :
 			LeavePatrolState();
 			break;
-		case ENPCCombatStatus::Resetting :
+		case ENPCCombatBehavior::Resetting :
 			LeaveResetState();
 			break;
 		default:
 			SetupBehavior();
 			break;
 		}
-		CombatStatus = NewCombatStatus;
-		switch (CombatStatus)
+		CombatBehavior = NewCombatBehavior;
+		switch (CombatBehavior)
 		{
-		case ENPCCombatStatus::Combat :
+		case ENPCCombatBehavior::Combat :
 			EnterCombatState();
 			break;
-		case ENPCCombatStatus::Patrolling :
+		case ENPCCombatBehavior::Patrolling :
 			EnterPatrolState();
 			break;
-		case ENPCCombatStatus::Resetting :
+		case ENPCCombatBehavior::Resetting :
 			EnterResetState();
 			break;
 		default:
@@ -121,8 +122,9 @@ void UNPCAbilityComponent::UpdateCombatStatus()
 		}
 		if (IsValid(AIController) && IsValid(AIController->GetBlackboardComponent()))
 		{
-			AIController->GetBlackboardComponent()->SetValueAsEnum("CombatStatus", uint8(CombatStatus));
+			AIController->GetBlackboardComponent()->SetValueAsEnum("CombatStatus", uint8(CombatBehavior));
 		}
+		OnCombatBehaviorChanged.Broadcast(PreviousBehavior, CombatBehavior);
 	}
 }
 
@@ -312,7 +314,7 @@ void UNPCAbilityComponent::OnCastEnded(const FCastingState& PreviousState, const
 	if (!NewState.bIsCasting)
 	{
 		OnCastStateChanged.RemoveDynamic(this, &UNPCAbilityComponent::OnCastEnded);
-		if (CombatStatus == ENPCCombatStatus::Combat)
+		if (CombatBehavior == ENPCCombatBehavior::Combat)
 		{
 			DetermineNewAction();
 		}
@@ -405,12 +407,12 @@ void UNPCAbilityComponent::SetNextPatrolPoint(UBlackboardComponent* Blackboard)
 
 void UNPCAbilityComponent::MarkResetComplete()
 {
-	if (CombatStatus != ENPCCombatStatus::Resetting)
+	if (CombatBehavior != ENPCCombatBehavior::Resetting)
 	{
 		return;
 	}
 	bNeedsReset = false;
-	UpdateCombatStatus();
+	UpdateCombatBehavior();
 }
 
 void UNPCAbilityComponent::EnterResetState()
@@ -419,17 +421,11 @@ void UNPCAbilityComponent::EnterResetState()
 	{
 		AIController->GetBlackboardComponent()->SetValueAsVector("ResetGoal", ResetGoal);
 	}
-	//Reset health
-	//Prevent damage
-	//Prevent threat
-	//Disable hitboxes
 }
 
 void UNPCAbilityComponent::LeaveResetState()
 {
-	//Re-enable damage
-	//Re-enable threat
-	//Re-enable hitboxes
+	//If I need any specific behavior not handled by other components it can go here.
 }
 
 #pragma endregion 

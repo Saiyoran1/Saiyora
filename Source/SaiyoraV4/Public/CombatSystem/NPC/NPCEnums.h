@@ -3,7 +3,7 @@
 #include "NPCEnums.generated.h"
 
 UENUM(BlueprintType)
-enum class ENPCCombatStatus : uint8
+enum class ENPCCombatBehavior : uint8
 {
 	None = 0,
 	Patrolling = 1,
