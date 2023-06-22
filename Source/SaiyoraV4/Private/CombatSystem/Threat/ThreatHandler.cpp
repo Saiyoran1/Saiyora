@@ -1,10 +1,11 @@
 ﻿#include "Threat/ThreatHandler.h"
+#include "AbilityComponent.h"
 #include "UnrealNetwork.h"
 #include "Buff.h"
-#include "BuffHandler.h"
 #include "DamageHandler.h"
 #include "SaiyoraCombatInterface.h"
 #include "CombatStatusComponent.h"
+#include "NPCAbilityComponent.h"
 
 float UThreatHandler::GLOBALHEALINGTHREATMOD = 0.3f;
 float UThreatHandler::GLOBALTAUNTTHREATPERCENT = 1.2f;
@@ -24,21 +25,38 @@ void UThreatHandler::InitializeComponent()
 	CombatStatusComponentRef = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(GetOwner());
 	checkf(IsValid(CombatStatusComponentRef), TEXT("Owner does not have a valid Combat Status Component, which Threat Handler depends on."));
 	DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
+	UAbilityComponent* AbilityComponent = ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwner());
+	if (IsValid(AbilityComponent))
+	{
+		NPCComponentRef = Cast<UNPCAbilityComponent>(AbilityComponent);
+	}
+	DisableThreatEvents.BindDynamic(this, &UThreatHandler::DisableAllThreatEvents);
 }
 
 void UThreatHandler::BeginPlay()
 {
 	Super::BeginPlay();
-	
-	if (GetOwnerRole() == ROLE_Authority && IsValid(DamageHandlerRef))
+	if (GetOwnerRole() == ROLE_Authority)
 	{
-		if (DamageHandlerRef->HasHealth())
+		if (IsValid(DamageHandlerRef))
 		{
-			DamageHandlerRef->OnLifeStatusChanged.AddDynamic(this, &UThreatHandler::OnOwnerLifeStatusChanged);
+			if (DamageHandlerRef->HasHealth())
+			{
+				DamageHandlerRef->OnLifeStatusChanged.AddDynamic(this, &UThreatHandler::OnOwnerLifeStatusChanged);
+			}
+			if (DamageHandlerRef->CanEverReceiveDamage())
+			{
+				DamageHandlerRef->OnIncomingHealthEvent.AddDynamic(this, &UThreatHandler::OnOwnerDamageTaken);
+			}
 		}
-		if (DamageHandlerRef->CanEverReceiveDamage())
+		if (IsValid(NPCComponentRef))
 		{
-			DamageHandlerRef->OnIncomingHealthEvent.AddDynamic(this, &UThreatHandler::OnOwnerDamageTaken);
+			NPCComponentRef->OnCombatBehaviorChanged.AddDynamic(this, &UThreatHandler::OnCombatBehaviorChanged);
+			if (NPCComponentRef->GetCombatBehavior() == ENPCCombatBehavior::None || NPCComponentRef->GetCombatBehavior() == ENPCCombatBehavior::Resetting)
+			{
+				AddOutgoingThreatRestriction(DisableThreatEvents);
+				AddIncomingThreatRestriction(DisableThreatEvents);
+			}
 		}
 	}
 }
@@ -48,6 +66,23 @@ void UThreatHandler::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(UThreatHandler, CurrentTarget);
 	DOREPLIFETIME(UThreatHandler, bInCombat);
+}
+
+void UThreatHandler::OnCombatBehaviorChanged(const ENPCCombatBehavior PreviousBehavior,
+	const ENPCCombatBehavior NewBehavior)
+{
+	const bool bWasDisabled = PreviousBehavior == ENPCCombatBehavior::None || PreviousBehavior == ENPCCombatBehavior::Resetting;
+	const bool bShouldBeDisabled = NewBehavior == ENPCCombatBehavior::None || NewBehavior == ENPCCombatBehavior::Resetting;
+	if (bWasDisabled && !bShouldBeDisabled)
+	{
+		RemoveOutgoingThreatRestriction(DisableThreatEvents);
+		RemoveIncomingThreatRestriction(DisableThreatEvents);
+	}
+	else if (!bWasDisabled && bShouldBeDisabled)
+	{
+		AddOutgoingThreatRestriction(DisableThreatEvents);
+		AddIncomingThreatRestriction(DisableThreatEvents);
+	}
 }
 
 void UThreatHandler::OnOwnerDamageTaken(const FHealthEvent& DamageEvent)

@@ -2,12 +2,14 @@
 #include "CoreMinimal.h"
 #include "ThreatStructs.h"
 #include "DamageStructs.h"
+#include "NPCEnums.h"
 #include "Components/ActorComponent.h"
 #include "ThreatHandler.generated.h"
 
 class UDamageHandler;
 class UBuffHandler;
 class UCombatStatusComponent;
+class UNPCAbilityComponent;
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class SAIYORAV4_API UThreatHandler : public UActorComponent
@@ -30,6 +32,14 @@ private:
 	UDamageHandler* DamageHandlerRef = nullptr;
 	UPROPERTY()
 	UCombatStatusComponent* CombatStatusComponentRef = nullptr;
+	UPROPERTY()
+	UNPCAbilityComponent* NPCComponentRef = nullptr;
+
+	UFUNCTION()
+	void OnCombatBehaviorChanged(const ENPCCombatBehavior PreviousBehavior, const ENPCCombatBehavior NewBehavior);
+	FThreatRestriction DisableThreatEvents;
+	UFUNCTION()
+	bool DisableAllThreatEvents(const FThreatEvent& Event) { return true; }
 
 //Threat
 
