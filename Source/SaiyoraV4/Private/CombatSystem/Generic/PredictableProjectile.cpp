@@ -2,13 +2,14 @@
 #include "AbilityComponent.h"
 #include "CombatAbility.h"
 #include "SaiyoraCombatLibrary.h"
+#include "SaiyoraProjectileComponent.h"
 #include "UnrealNetwork.h"
 #include "CoreClasses/SaiyoraPlayerCharacter.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 
 APredictableProjectile::APredictableProjectile(const class FObjectInitializer& ObjectInitializer)
 {
-	ProjectileMovement = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("Projectile Movement"));
+	ProjectileMovement = CreateDefaultSubobject<USaiyoraProjectileComponent>(TEXT("Projectile Movement"));
 	PrimaryActorTick.bCanEverTick = true;
 	bReplicates = true;
 	SetReplicatingMovement(true);
@@ -18,21 +19,6 @@ void APredictableProjectile::PostNetReceiveLocationAndRotation()
 {
     ProjectileMovement->MoveInterpolationTarget(GetActorLocation(), GetActorRotation());
     Super::PostNetReceiveLocationAndRotation();
-}
-
-void APredictableProjectile::Tick(float DeltaSeconds)
-{
-	if (RemainingLag > 0.0f)
-	{
-		//Calculate time to add, we want to tick twice as fast until we catch up.
-		const float AddTime = FMath::Min(DeltaSeconds, RemainingLag);
-		RemainingLag -= AddTime;
-		Super::Tick(DeltaSeconds + AddTime);
-	}
-	else
-	{
-		Super::Tick(DeltaSeconds);
-	}
 }
 
 void APredictableProjectile::InitializeProjectile(UCombatAbility* Source, const FPredictedTick& Tick, const int32 ID,
@@ -55,7 +41,8 @@ void APredictableProjectile::InitializeProjectile(UCombatAbility* Source, const 
 	}
 	else if (Source->GetHandler()->GetOwnerRole() == ROLE_Authority)
 	{
-		RemainingLag = USaiyoraCombatLibrary::GetActorPing(Source->GetHandler()->GetOwner());
+		//TODO: Currently no lag comp cap here?
+		ProjectileMovement->SetInitialCatchUpTime(USaiyoraCombatLibrary::GetActorPing(Source->GetHandler()->GetOwner()));
 	}
 	DestroyDelegate.BindUObject(this, &APredictableProjectile::DelayedDestroy);
 	

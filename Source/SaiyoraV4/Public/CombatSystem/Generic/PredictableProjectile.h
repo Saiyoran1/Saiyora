@@ -4,6 +4,7 @@
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "PredictableProjectile.generated.h"
 
+class USaiyoraProjectileComponent;
 class ASaiyoraPlayerCharacter;
 class UCombatAbility;
 
@@ -36,7 +37,6 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	APredictableProjectile(const class FObjectInitializer& ObjectInitializer);
 	virtual void PostNetReceiveLocationAndRotation() override;
-	virtual void Tick(float DeltaSeconds) override;
 	void InitializeProjectile(UCombatAbility* Source, const FPredictedTick& Tick, const int32 ID, const ESaiyoraPlane ProjectilePlane, const EFaction ProjectileHostility);
 	
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Projectile")
@@ -61,7 +61,7 @@ protected:
 private:
 	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
-	UProjectileMovementComponent* ProjectileMovement;
+	USaiyoraProjectileComponent* ProjectileMovement;
 	bool bIsFake = false;
 	UPROPERTY(ReplicatedUsing=OnRep_SourceInfo)
 	FProjectileSource SourceInfo;
@@ -80,6 +80,4 @@ private:
 	UFUNCTION()
 	void DelayedDestroy();
 	void HideProjectile();
-
-	float RemainingLag = 0.0f;
 };
