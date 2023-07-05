@@ -44,7 +44,7 @@ public:
 	bool IsFake() const { return bIsFake; }
 	bool Replace();
 	void UpdateLocallyDestroyed(bool const bLocallyDestroyed);
-	void MarkCatchupComplete() { bShouldReplace = true; }
+	void MarkCatchupComplete() { bShouldReplace = true; SetReplicateMovement(false); }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Projectile")
 	UCombatAbility* GetSource() const { return SourceInfo.SourceAbility; }
