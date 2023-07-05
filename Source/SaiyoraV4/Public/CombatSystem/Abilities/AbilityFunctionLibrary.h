@@ -86,9 +86,6 @@ private:
 	static constexpr float RewindTraceRadius = 300.0f;
 	static constexpr float AimToleranceDegrees = 15.0f;
 
-	static int32 ProjectileID;
-	static FPredictedTick ProjectileScope;
-
 //Helpers
 
 public:

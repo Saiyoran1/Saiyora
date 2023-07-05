@@ -3,6 +3,8 @@
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "SaiyoraProjectileComponent.generated.h"
 
+class APredictableProjectile;
+
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class SAIYORAV4_API USaiyoraProjectileComponent : public UProjectileMovementComponent
 {
@@ -11,9 +13,11 @@ class SAIYORAV4_API USaiyoraProjectileComponent : public UProjectileMovementComp
 public:
 
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
-	void SetInitialCatchUpTime(const float CatchUpTime);
+	void SetInitialCatchUpTime(APredictableProjectile* Projectile, const float CatchUpTime);
 
 private:
 
 	float RemainingLag = 0.0f;
+	UPROPERTY()
+	APredictableProjectile* OwningProjectile;
 };

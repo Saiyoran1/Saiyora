@@ -527,6 +527,22 @@ void ASaiyoraPlayerCharacter::ReplaceProjectile(APredictableProjectile* AuthProj
 	}
 }
 
+int32 ASaiyoraPlayerCharacter::GetNewProjectileID(const FPredictedTick& Tick)
+{
+	int32 ID = 0;
+	int32* IDPtr = ProjectileIDs.Find(Tick);
+	if (!IDPtr)
+	{
+		ProjectileIDs.Add(Tick, 1);
+	}
+	else
+	{
+		ID = *IDPtr;
+		(*IDPtr)++;
+	}
+	return ID;
+}
+
 #pragma endregion 
 #pragma region Specialization
 

@@ -1,5 +1,5 @@
 ﻿#include "SaiyoraProjectileComponent.h"
-
+#include "PredictableProjectile.h"
 
 void USaiyoraProjectileComponent::TickComponent(float DeltaTime, ELevelTick TickType,
                                                 FActorComponentTickFunction* ThisTickFunction)
@@ -12,7 +12,10 @@ void USaiyoraProjectileComponent::TickComponent(float DeltaTime, ELevelTick Tick
 		Super::TickComponent(DeltaTime + AddTime, TickType, ThisTickFunction);
 		if (RemainingLag <= 0.0f)
 		{
-			//TODO: Call projectile parent catchup complete.
+			if (IsValid(OwningProjectile))
+			{
+				OwningProjectile->MarkCatchupComplete();
+			}
 		}
 	}
 	else
@@ -21,8 +24,16 @@ void USaiyoraProjectileComponent::TickComponent(float DeltaTime, ELevelTick Tick
 	}
 }
 
-void USaiyoraProjectileComponent::SetInitialCatchUpTime(const float CatchUpTime)
+void USaiyoraProjectileComponent::SetInitialCatchUpTime(APredictableProjectile* Projectile, const float CatchUpTime)
 {
+	OwningProjectile = Projectile;
 	RemainingLag = CatchUpTime;
+	if (RemainingLag <= 0.0f)
+	{
+		if (IsValid(OwningProjectile))
+		{
+			OwningProjectile->MarkCatchupComplete();
+		}
+	}
 }
 

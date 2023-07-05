@@ -37,12 +37,14 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	APredictableProjectile(const class FObjectInitializer& ObjectInitializer);
 	virtual void PostNetReceiveLocationAndRotation() override;
+	virtual void PostNetInit() override;
 	void InitializeProjectile(UCombatAbility* Source, const FPredictedTick& Tick, const int32 ID, const ESaiyoraPlane ProjectilePlane, const EFaction ProjectileHostility);
 	
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Projectile")
 	bool IsFake() const { return bIsFake; }
 	bool Replace();
 	void UpdateLocallyDestroyed(bool const bLocallyDestroyed);
+	void MarkCatchupComplete() { bShouldReplace = true; }
 
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Projectile")
 	UCombatAbility* GetSource() const { return SourceInfo.SourceAbility; }
@@ -69,6 +71,10 @@ private:
 	void OnRep_SourceInfo();
 	UFUNCTION()
 	void DeleteOnMisprediction(int32 const PredictionID);
+	UPROPERTY(ReplicatedUsing=OnRep_ShouldReplace)
+	bool bShouldReplace = false;
+	UFUNCTION()
+	void OnRep_ShouldReplace();
 	bool bReplaced = false;
 	UPROPERTY(ReplicatedUsing=OnRep_Destroyed)
 	bool bDestroyed = false;
@@ -80,4 +86,6 @@ private:
 	UFUNCTION()
 	void DelayedDestroy();
 	void HideProjectile();
+	UPROPERTY()
+	TMap<UPrimitiveComponent*, FName> PreHideCollision;
 };

@@ -297,7 +297,9 @@ struct FPredictedTick
 {
     GENERATED_BODY()
 
+    UPROPERTY()
     int32 PredictionID = 0;
+    UPROPERTY()
     int32 TickNumber = 0;
 
     FPredictedTick() {}

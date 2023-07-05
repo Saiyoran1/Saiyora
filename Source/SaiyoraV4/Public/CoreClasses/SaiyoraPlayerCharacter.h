@@ -188,12 +188,15 @@ public:
 	void RegisterClientProjectile(APredictableProjectile* Projectile);
 	void ReplaceProjectile(APredictableProjectile* AuthProjectile);
 
+	int32 GetNewProjectileID(const FPredictedTick& Tick);
+
 	UFUNCTION(Client, Reliable)
 	void ClientNotifyFailedProjectileSpawn(const FPredictedTick& Tick, const int32 ProjectileID);
 
 private:
 	
 	TMap<FPredictedTick, FPredictedTickProjectiles> PredictedProjectiles;
+	TMap<FPredictedTick, int32> ProjectileIDs;
 
 //Specialization
 

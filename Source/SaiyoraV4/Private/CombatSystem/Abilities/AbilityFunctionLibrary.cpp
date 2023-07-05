@@ -14,9 +14,6 @@
 #include "Kismet/KismetMathLibrary.h"
 #include "Kismet/KismetSystemLibrary.h"
 
-int32 UAbilityFunctionLibrary::ProjectileID = 0;
-FPredictedTick UAbilityFunctionLibrary::ProjectileScope = FPredictedTick(0, 0);
-
 #pragma region Helpers
 
 FAbilityOrigin UAbilityFunctionLibrary::MakeAbilityOrigin(const FVector& AimLocation, const FVector& AimDirection, const FVector& Origin)
@@ -1094,16 +1091,7 @@ APredictableProjectile* UAbilityFunctionLibrary::PredictProjectile(UCombatAbilit
 	}
 
 	const FPredictedTick CurrentTick = FPredictedTick(Ability->GetPredictionID(), Ability->GetCurrentTick());
-	if (CurrentTick == ProjectileScope)
-	{
-		ProjectileID++;
-	}
-	else
-	{
-		ProjectileScope = CurrentTick;
-		ProjectileID = 0;
-	}
-	const int32 NewProjectileID = ProjectileID;
+	const int32 NewProjectileID = Shooter->GetNewProjectileID(CurrentTick);
 	
 	FTransform SpawnTransform;
 	SpawnTransform.SetLocation(OutOrigin.Origin);
@@ -1149,16 +1137,7 @@ APredictableProjectile* UAbilityFunctionLibrary::ValidateProjectile(UCombatAbili
 	//TODO: This scope is global per machine, so it will probably not work with multiple players since this is on the server?
 	//Move projectile scope to wherever we're handling projectiles (player class, ability component?).
 	const FPredictedTick CurrentTick = FPredictedTick(Ability->GetPredictionID(), Ability->GetCurrentTick());
-	if (CurrentTick == ProjectileScope)
-	{
-		ProjectileID++;
-	}
-	else
-	{
-		ProjectileScope = CurrentTick;
-		ProjectileID = 0;
-	}
-	const int32 NewProjectileID = ProjectileID;
+	const int32 NewProjectileID = Shooter->GetNewProjectileID(CurrentTick);
 
 	//Going to try this without rewinding for now due to performance issues.
 	/*TMap<UHitbox*, FTransform> ReturnTransforms;

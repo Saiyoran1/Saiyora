@@ -21,6 +21,21 @@ void APredictableProjectile::PostNetReceiveLocationAndRotation()
     Super::PostNetReceiveLocationAndRotation();
 }
 
+void APredictableProjectile::PostNetInit()
+{
+	Super::PostNetInit();
+	if (IsValid(SourceInfo.Owner) && SourceInfo.Owner->IsLocallyControlled() && !bShouldReplace)
+	{
+		TArray<UPrimitiveComponent*> PrimitiveComponents;
+		GetComponents<UPrimitiveComponent>(PrimitiveComponents);
+		for (UPrimitiveComponent* Comp : PrimitiveComponents)
+		{
+			PreHideCollision.Add(Comp, Comp->GetCollisionProfileName());
+		}
+		HideProjectile();
+	}
+}
+
 void APredictableProjectile::InitializeProjectile(UCombatAbility* Source, const FPredictedTick& Tick, const int32 ID,
                                                   const ESaiyoraPlane ProjectilePlane, const EFaction ProjectileHostility)
 {
@@ -42,7 +57,7 @@ void APredictableProjectile::InitializeProjectile(UCombatAbility* Source, const 
 	else if (Source->GetHandler()->GetOwnerRole() == ROLE_Authority)
 	{
 		//TODO: Currently no lag comp cap here?
-		ProjectileMovement->SetInitialCatchUpTime(USaiyoraCombatLibrary::GetActorPing(Source->GetHandler()->GetOwner()));
+		ProjectileMovement->SetInitialCatchUpTime(this, USaiyoraCombatLibrary::GetActorPing(Source->GetHandler()->GetOwner()));
 	}
 	DestroyDelegate.BindUObject(this, &APredictableProjectile::DelayedDestroy);
 	
@@ -96,14 +111,32 @@ void APredictableProjectile::GetLifetimeReplicatedProps(TArray<FLifetimeProperty
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME_CONDITION(APredictableProjectile, SourceInfo, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(APredictableProjectile, bShouldReplace, COND_OwnerOnly);
 	DOREPLIFETIME(APredictableProjectile, bDestroyed);
 }
 
 void APredictableProjectile::OnRep_SourceInfo()
 {
-	if (IsValid(SourceInfo.Owner) && SourceInfo.Owner->IsLocallyControlled() && !bReplaced)
+	if (!bReplaced && bShouldReplace && IsValid(SourceInfo.Owner) && SourceInfo.Owner->IsLocallyControlled())
 	{
 		SourceInfo.Owner->ReplaceProjectile(this);
+		bReplaced = true;
+	}
+}
+
+void APredictableProjectile::OnRep_ShouldReplace()
+{
+	if (!bReplaced && bShouldReplace && IsValid(SourceInfo.Owner) && SourceInfo.Owner->IsLocallyControlled())
+	{
+		SourceInfo.Owner->ReplaceProjectile(this);
+		for (const TTuple<UPrimitiveComponent*, FName>& Collision : PreHideCollision)
+		{
+			if (IsValid(Collision.Key))
+			{
+				Collision.Key->SetCollisionProfileName(Collision.Value);
+				Collision.Key->SetVisibility(true);
+			}
+		}
 		bReplaced = true;
 	}
 }
