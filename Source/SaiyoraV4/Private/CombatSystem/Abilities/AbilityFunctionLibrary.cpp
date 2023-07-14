@@ -1133,9 +1133,7 @@ APredictableProjectile* UAbilityFunctionLibrary::ValidateProjectile(UCombatAbili
 	{
 		return nullptr;
 	}
-
-	//TODO: This scope is global per machine, so it will probably not work with multiple players since this is on the server?
-	//Move projectile scope to wherever we're handling projectiles (player class, ability component?).
+	
 	const FPredictedTick CurrentTick = FPredictedTick(Ability->GetPredictionID(), Ability->GetCurrentTick());
 	const int32 NewProjectileID = Shooter->GetNewProjectileID(CurrentTick);
 
@@ -1183,7 +1181,7 @@ APredictableProjectile* UAbilityFunctionLibrary::ValidateProjectile(UCombatAbili
 	}
 	NewProjectile->InitializeProjectile(Ability, CurrentTick, NewProjectileID, ProjectilePlane, ProjectileHostility);
 
-	//TODO: This method rewinds everything and does 50ms steps for the projectile until it is caught up to client time.
+	//This method rewinds everything and does 50ms steps for the projectile until it is caught up to client time.
 	//This appears to be super heavy computationally because firing a lot of projectiles lags the game.
 	/*if (!Shooter->IsLocallyControlled())
 	{
