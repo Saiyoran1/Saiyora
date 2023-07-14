@@ -1,5 +1,4 @@
 ﻿#include "NPCAbilityComponent.h"
-
 #include "AbilityCondition.h"
 #include "DamageHandler.h"
 #include "SaiyoraCombatInterface.h"
