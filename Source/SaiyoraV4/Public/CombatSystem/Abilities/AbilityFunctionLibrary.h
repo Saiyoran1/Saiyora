@@ -86,6 +86,13 @@ private:
 	static constexpr float RewindTraceRadius = 300.0f;
 	static constexpr float AimToleranceDegrees = 15.0f;
 
+	//Add Spawning
+
+public:
+
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	static AActor* SpawnAdd(AActor* Summoner, const TSubclassOf<AActor> AddClass, const FTransform& SpawnTransform);
+
 //Helpers
 
 public:

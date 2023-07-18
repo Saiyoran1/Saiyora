@@ -8,6 +8,7 @@
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraCombatLibrary.h"
 #include "SaiyoraRootMotionHandler.h"
+#include "SummonedMobComponent.h"
 #include "CoreClasses/SaiyoraGameState.h"
 #include "CoreClasses/SaiyoraPlayerCharacter.h"
 #include "Kismet/GameplayStatics.h"
@@ -70,7 +71,7 @@ float UAbilityFunctionLibrary::GetCameraTraceMaxRange(const FVector& CameraLoc, 
 }
 
 FName UAbilityFunctionLibrary::GetRelevantTraceProfile(const AActor* Shooter, const bool bOverlap, const ESaiyoraPlane TracePlane,
-	const EFaction TraceHostility)
+                                                       const EFaction TraceHostility)
 {
 	EFaction ShooterFaction = EFaction::Neutral;
 	if (Shooter->Implements<USaiyoraCombatInterface>())
@@ -1236,3 +1237,28 @@ APredictableProjectile* UAbilityFunctionLibrary::ValidateProjectile(UCombatAbili
 }
 
 #pragma endregion 
+#pragma region Add Spawning
+
+AActor* UAbilityFunctionLibrary::SpawnAdd(AActor* Summoner, const TSubclassOf<AActor> AddClass,
+	const FTransform& SpawnTransform)
+{
+	if (!IsValid(Summoner) || !Summoner->HasAuthority())
+	{
+		return nullptr;
+	}
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.Owner = Summoner;
+	AActor* SpawnedAdd = Summoner->GetWorld()->SpawnActor(AddClass, &SpawnTransform, SpawnParams);
+	if (!IsValid(SpawnedAdd))
+	{
+		return nullptr;
+	}
+	USummonedMobComponent* MobComponent = Cast<USummonedMobComponent>(SpawnedAdd->AddComponentByClass(USummonedMobComponent::StaticClass(), false, FTransform::Identity, false));
+	if (IsValid(MobComponent))
+	{
+		MobComponent->Initialize(Summoner);
+	}
+	return SpawnedAdd;
+}
+
+#pragma endregion
