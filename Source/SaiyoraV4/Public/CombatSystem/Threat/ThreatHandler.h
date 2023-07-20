@@ -10,6 +10,7 @@ class UDamageHandler;
 class UBuffHandler;
 class UCombatStatusComponent;
 class UNPCAbilityComponent;
+class UAggroRadius;
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class SAIYORAV4_API UThreatHandler : public UActorComponent
@@ -172,4 +173,16 @@ private:
 	TArray<UBuff*> Fades;
 	UPROPERTY()
 	TArray<FMisdirect> Misdirects;
+
+	//Detection
+
+private:
+
+	UPROPERTY(EditAnywhere, Category = "Threat")
+	bool bProximityAggro = false;
+	UPROPERTY(EditAnywhere, Category = "Threat")
+	float DefaultDetectionRadius = 0.0f;
+
+	UPROPERTY()
+	UAggroRadius* AggroRadius;
 };

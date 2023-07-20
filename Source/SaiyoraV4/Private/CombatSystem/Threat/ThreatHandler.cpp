@@ -1,5 +1,6 @@
 ﻿#include "Threat/ThreatHandler.h"
 #include "AbilityComponent.h"
+#include "AggroRadius.h"
 #include "UnrealNetwork.h"
 #include "Buff.h"
 #include "DamageHandler.h"
@@ -56,6 +57,14 @@ void UThreatHandler::BeginPlay()
 			{
 				AddOutgoingThreatRestriction(DisableThreatEvents);
 				AddIncomingThreatRestriction(DisableThreatEvents);
+			}
+		}
+		if (bProximityAggro && DefaultDetectionRadius > 0.0f)
+		{
+			AggroRadius = Cast<UAggroRadius>(GetOwner()->AddComponentByClass(UAggroRadius::StaticClass(), false, FTransform::Identity, false));
+			if (IsValid(AggroRadius))
+			{
+				AggroRadius->Initialize(this, DefaultDetectionRadius);
 			}
 		}
 	}

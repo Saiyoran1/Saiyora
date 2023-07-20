@@ -133,6 +133,7 @@ void FModifiableFloat::SetUpdatedCallback(const FModifiableFloatCallback& Callba
 
 void FModifiableFloat::Recalculate()
 {
+    bool bJustInitializing = bInitialized;
     if (!bInitialized)
     {
         bInitialized = true;
@@ -155,6 +156,10 @@ void FModifiableFloat::Recalculate()
     if (bClampMax)
     {
         CurrentValue = FMath::Min(CurrentValue, MaxClamp);
+    }
+    if (bJustInitializing)
+    {
+        UE_LOG(LogTemp, Warning, TEXT("Current value = %f"), CurrentValue);
     }
     if (PreviousValue != CurrentValue && OnUpdated.IsBound())
     {

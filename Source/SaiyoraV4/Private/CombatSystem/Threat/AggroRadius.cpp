@@ -3,12 +3,31 @@
 #include "CombatStatusComponent.h"
 #include "NPCAbilityComponent.h"
 #include "SaiyoraCombatInterface.h"
+#include "SaiyoraCombatLibrary.h"
 #include "StatHandler.h"
+#include "ThreatHandler.h"
 
 UAggroRadius::UAggroRadius()
 {
-	PrimaryComponentTick.bCanEverTick = false;
+	PrimaryComponentTick.bCanEverTick = true;
 	bWantsInitializeComponent = true;
+}
+
+void UAggroRadius::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+{
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+	if (GetCollisionProfileName() == FSaiyoraCollision::P_NPCNonCombatAggro)
+	{
+		DrawDebugSphere(GetWorld(), GetComponentLocation(), GetScaledSphereRadius(), 32, FColor::Yellow);
+	}
+	else if (GetCollisionProfileName() == FSaiyoraCollision::P_NPCCombatAggro)
+	{
+		DrawDebugSphere(GetWorld(), GetComponentLocation(), GetScaledSphereRadius(), 32, FColor::Red);
+	}
+	else if (GetCollisionProfileName() == FSaiyoraCollision::P_PlayerAggro)
+	{
+		DrawDebugSphere(GetWorld(), GetComponentLocation(), GetScaledSphereRadius(), 32, FColor::Blue);
+	}
 }
 
 void UAggroRadius::InitializeComponent()
@@ -17,9 +36,14 @@ void UAggroRadius::InitializeComponent()
 	OnComponentBeginOverlap.AddDynamic(this, &UAggroRadius::OnOverlap);
 }
 
-void UAggroRadius::Initialize(const float DefaultRadius)
+void UAggroRadius::Initialize(UThreatHandler* ThreatHandler, const float DefaultRadius)
 {
-	DefaultAggroRadius = DefaultRadius;
+	if (!IsValid(ThreatHandler) || GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
+	DefaultAggroRadius = FMath::Max(0.0f, DefaultRadius);
+	ThreatHandlerRef = ThreatHandler;
 	SetSphereRadius(DefaultRadius);
 	if (GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 	{
@@ -74,14 +98,19 @@ void UAggroRadius::OnCombatBehaviorChanged(const ENPCCombatBehavior PreviousBeha
 
 void UAggroRadius::OnOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	if (IsValid(OtherActor) && OtherActor->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	UAggroRadius* OverlappedAggro = Cast<UAggroRadius>(OtherComp);
+	if (IsValid(OverlappedAggro))
 	{
-		UCombatStatusComponent* OtherCombatStatus = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(OtherActor);
-		if (IsValid(OtherCombatStatus))
+		if (OwnerFaction == EFaction::Enemy && OverlappedAggro->GetOwnerFaction() == EFaction::Friendly)
 		{
-			
+			if (IsValid(ThreatHandlerRef))
+			{
+				if (!ThreatHandlerRef->IsActorInThreatTable(OtherActor))
+				{
+					ThreatHandlerRef->AddThreat(EThreatType::Absolute, 1.0f, OtherActor, nullptr, false, false, FThreatModCondition());
+				}
+			}
 		}
-		UThreatHandler* OtherActorThreat = ISaiyoraCombatInterface::Execute_GetThreatHandler(OtherActor);
 	}
 }
 

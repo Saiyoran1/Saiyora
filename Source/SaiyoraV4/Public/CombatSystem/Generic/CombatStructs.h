@@ -406,6 +406,7 @@ public:
     }
     FModifiableFloat(const float Default, const bool bModifiable, const bool bClampLow = false, const float LowClamp = 0.0f, const bool bClampHigh = false, const float HighClamp = 0.0f)
     {
+        UE_LOG(LogTemp, Warning, TEXT("Default value = %f"), Default);
         DefaultValue = Default;
         bIsModifiable = bModifiable;
         bClampMin = bClampLow;

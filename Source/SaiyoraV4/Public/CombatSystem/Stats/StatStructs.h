@@ -51,6 +51,7 @@ struct FCombatStat : public FFastArraySerializerItem
     FCombatStat(const FStatInitInfo* InitInfo)
     {
         StatTag = InitInfo->StatTag;
+        UE_LOG(LogTemp, Warning, TEXT("Initializing %s stat"), *StatTag.ToString());
         StatValue = FModifiableFloat(InitInfo->DefaultValue, InitInfo->bModifiable, InitInfo->bUseCustomMin, InitInfo->CustomMin, InitInfo->bUseCustomMax, InitInfo->CustomMax);
     }
 };

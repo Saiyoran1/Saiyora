@@ -8,6 +8,7 @@
 
 class UNPCAbilityComponent;
 class UStatHandler;
+class UThreatHandler;
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class SAIYORAV4_API UAggroRadius : public USphereComponent
@@ -17,14 +18,18 @@ class SAIYORAV4_API UAggroRadius : public USphereComponent
 public:
 	
 	UAggroRadius();
+	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 	virtual void InitializeComponent() override;
-	void Initialize(const float DefaultRadius);
+	void Initialize(UThreatHandler* ThreatHandler, const float DefaultRadius);
+
+	EFaction GetOwnerFaction() const { return OwnerFaction; }
 
 private:
 
 	float DefaultAggroRadius = 0.0f;
 	EFaction OwnerFaction = EFaction::None;
-	
+	UPROPERTY()
+	UThreatHandler* ThreatHandlerRef;
 	UPROPERTY()
 	UNPCAbilityComponent* NPCComponentRef;
 	UFUNCTION()
