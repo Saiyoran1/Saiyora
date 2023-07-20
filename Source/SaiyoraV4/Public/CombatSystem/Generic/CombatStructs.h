@@ -17,6 +17,8 @@ struct SAIYORAV4_API FSaiyoraCollision
     static constexpr ECollisionChannel O_ProjectileHitbox = ECC_GameTraceChannel9;
     static constexpr ECollisionChannel O_ProjectileCollision = ECC_GameTraceChannel2;
     static constexpr ECollisionChannel T_Combat = ECC_GameTraceChannel1;
+    static constexpr ECollisionChannel O_NPCDetection = ECC_GameTraceChannel3;
+    static constexpr ECollisionChannel O_PlayerDetection = ECC_GameTraceChannel4;
 
     //Object Profiles
     static const FName P_NoCollision;
@@ -33,6 +35,9 @@ struct SAIYORAV4_API FSaiyoraCollision
     static const FName P_ProjectileCollisionAll;
     static const FName P_ProjectileCollisionAncient;
     static const FName P_ProjectileCollisionModern;
+    static const FName P_NPCNonCombatAggro;
+    static const FName P_NPCCombatAggro;
+    static const FName P_PlayerAggro;
 
     //Combat Trace Profiles
     static const FName CT_All;
@@ -104,6 +109,8 @@ struct SAIYORAV4_API FSaiyoraCombatTags : public FGameplayTagNativeAdder
     FGameplayTag Stat_JumpZVelocity;
     FGameplayTag Stat_AirControl;
 
+    FGameplayTag Stat_AggroRadius;
+
     FGameplayTag Threat;
     FGameplayTag Threat_Fixate;
     FGameplayTag Threat_Blind;
@@ -153,6 +160,7 @@ protected:
         Stat_HealingDone = Manager.AddNativeGameplayTag(TEXT("Stat.HealingDone"));
         Stat_HealingTaken = Manager.AddNativeGameplayTag(TEXT("Stat.HealingTaken"));
         Stat_MaxHealth = Manager.AddNativeGameplayTag(TEXT("Stat.MaxHealth"));
+        Stat_AggroRadius = Manager.AddNativeGameplayTag(TEXT("Stat.AggroRadius"));
         Stat_GlobalCooldownLength = Manager.AddNativeGameplayTag(TEXT("Stat.GlobalCooldownLength"));
         Stat_CastLength = Manager.AddNativeGameplayTag(TEXT("Stat.CastLength"));
         Stat_CooldownLength = Manager.AddNativeGameplayTag(TEXT("Stat.CooldownLength"));

@@ -13,7 +13,7 @@ UHitbox::UHitbox()
 
 void UHitbox::InitializeComponent()
 {
-	SetCollisionProfileName(TEXT("NoCollision"));
+	SetCollisionProfileName(FSaiyoraCollision::P_NoCollision);
 	if (GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 	{
 		CombatStatusComponentRef = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(GetOwner());

@@ -3,6 +3,7 @@
 #include "DamageHandler.h"
 #include "NPCAbilityComponent.h"
 #include "SaiyoraCombatInterface.h"
+#include "ThreatHandler.h"
 
 USummonedMobComponent::USummonedMobComponent()
 {
@@ -29,8 +30,21 @@ void USummonedMobComponent::Initialize(AActor* Spawner)
 		{
 			SpawningActorNPCComponent->OnCombatBehaviorChanged.AddDynamic(this, &USummonedMobComponent::OnCombatBehaviorChanged);
 		}
+		UThreatHandler* OwnerThreat = ISaiyoraCombatInterface::Execute_GetThreatHandler(GetOwner());
+		if (IsValid(OwnerThreat) && OwnerThreat->HasThreatTable())
+		{
+			UThreatHandler* SpawnerThreat = ISaiyoraCombatInterface::Execute_GetThreatHandler(SpawningActor);
+			if (IsValid(SpawnerThreat) && SpawnerThreat->HasThreatTable())
+			{
+				TArray<AActor*> Targets;
+				SpawnerThreat->GetActorsInThreatTable(Targets);
+				for (AActor* Target : Targets)
+				{
+					OwnerThreat->AddThreat(EThreatType::Absolute, 1.0f, Target, nullptr, true, true, FThreatModCondition());
+				}
+			}
+		}
 	}
-	
 }
 
 void USummonedMobComponent::Despawn()
