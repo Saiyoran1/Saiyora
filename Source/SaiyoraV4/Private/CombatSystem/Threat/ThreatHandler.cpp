@@ -75,6 +75,7 @@ void UThreatHandler::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(UThreatHandler, CurrentTarget);
 	DOREPLIFETIME(UThreatHandler, bInCombat);
+	DOREPLIFETIME_CONDITION(UThreatHandler, CombatStartTime, COND_OwnerOnly);
 }
 
 void UThreatHandler::OnCombatBehaviorChanged(const ENPCCombatBehavior PreviousBehavior,
@@ -112,6 +113,19 @@ void UThreatHandler::OnOwnerLifeStatusChanged(AActor* Actor, const ELifeStatus P
 	{
 		ClearThreatTable();
 	}
+}
+
+float UThreatHandler::GetCombatTime() const
+{
+	if (CombatStartTime <= 0.0f)
+	{
+		return 0.0f;
+	}
+	if (!IsValid(GetWorld()) || !IsValid(GetWorld()->GetGameState()))
+	{
+		return 0.0f;
+	}
+	return GetWorld()->GetGameState()->GetServerWorldTimeSeconds() - CombatStartTime;
 }
 
 #pragma endregion 
@@ -544,6 +558,7 @@ void UThreatHandler::UpdateCombat()
 	bInCombat = ThreatTable.Num() > 0 || TargetedBy.Num() > 0;
 	if (bInCombat != PreviouslyInCombat)
 	{
+		CombatStartTime = bInCombat ? GetWorld()->GetGameState()->GetServerWorldTimeSeconds() : 0.0f;
 		OnCombatChanged.Broadcast(bInCombat);
 	}
 }
@@ -639,10 +654,13 @@ void UThreatHandler::Vanish()
 	const TArray<AActor*> TargetingActors = TargetedBy;
 	for (const AActor* Targeting : TargetingActors)
 	{
-		UThreatHandler* TargetThreatHandler = ISaiyoraCombatInterface::Execute_GetThreatHandler(Targeting);
-		if (IsValid(TargetThreatHandler))
+		if (IsValid(Targeting))
 		{
-			TargetThreatHandler->NotifyOfTargetVanished(GetOwner());
+			UThreatHandler* TargetThreatHandler = ISaiyoraCombatInterface::Execute_GetThreatHandler(Targeting);
+			if (IsValid(TargetThreatHandler))
+			{
+				TargetThreatHandler->NotifyOfTargetVanished(GetOwner());
+			}
 		}
 	}
 }

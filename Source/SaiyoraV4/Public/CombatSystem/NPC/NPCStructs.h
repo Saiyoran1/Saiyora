@@ -8,6 +8,19 @@ class UCombatAbility;
 class UAbilityCondition;
 
 USTRUCT(BlueprintType)
+struct FAbilityConditionContext
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere)
+	TSubclassOf<UAbilityCondition> AbilityCondition;
+	UPROPERTY(EditAnywhere)
+	float OptionalParameter = 0.0f;
+	UPROPERTY(EditAnywhere)
+	UObject* OptionalObject = nullptr;
+};
+
+USTRUCT(BlueprintType)
 struct FAbilityChoice
 {
 	GENERATED_BODY()
@@ -15,7 +28,7 @@ struct FAbilityChoice
 	UPROPERTY(EditAnywhere)
 	TSubclassOf<UCombatAbility> AbilityClass;
 	UPROPERTY(EditAnywhere)
-	TArray<TSubclassOf<UAbilityCondition>> AbilityConditions;
+	TArray<FAbilityConditionContext> AbilityConditions;
 };
 
 USTRUCT(BlueprintType)

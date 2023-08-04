@@ -234,17 +234,17 @@ void UNPCAbilityComponent::DetermineNewAction()
 			continue;
 		}
 		bool bConditionFailed = false;
-		for (const TSubclassOf<UAbilityCondition> ConditionClass : Choice.AbilityConditions)
+		for (const FAbilityConditionContext& Condition : Choice.AbilityConditions)
 		{
-			if (IsValid(ConditionClass))
+			if (IsValid(Condition.AbilityCondition))
 			{
-				const UAbilityCondition* DefaultCondition = ConditionClass.GetDefaultObject();
+				const UAbilityCondition* DefaultCondition = Condition.AbilityCondition.GetDefaultObject();
 				if (!IsValid(DefaultCondition))
 				{
 					bConditionFailed = true;
 					break;
 				}
-				if (!DefaultCondition->IsConditionMet(GetOwner(), Choice.AbilityClass))
+				if (!DefaultCondition->IsConditionMet(GetOwner(), Choice.AbilityClass, Condition.OptionalParameter, Condition.OptionalObject))
 				{
 					bConditionFailed = true;
 					break;

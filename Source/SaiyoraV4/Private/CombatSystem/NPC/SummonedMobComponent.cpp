@@ -50,6 +50,7 @@ void USummonedMobComponent::Initialize(AActor* Spawner)
 void USummonedMobComponent::Despawn()
 {
 	//TODO: Unsure what, if any, cleanup needs to happen.
+	//TODO: Threat cleanup. Currently the mob won't leave enemy threat tables. This should probably go along with a combat group/threat rework.
 	if (GetOwnerRole() == ROLE_Authority)
 	{
 		GetOwner()->Destroy();

@@ -13,6 +13,6 @@ class SAIYORAV4_API UAbilityCondition : public UObject
 public:
 	
 	UFUNCTION(BlueprintNativeEvent)
-	bool IsConditionMet(AActor* Owner, TSubclassOf<UCombatAbility> AbilityClass) const;
-	virtual bool IsConditionMet_Implementation(AActor* Owner, TSubclassOf<UCombatAbility> AbilityClass) const { return true; }
+	bool IsConditionMet(AActor* Owner, TSubclassOf<UCombatAbility> AbilityClass, const float OptionalParameter, UObject* OptionaObject) const;
+	virtual bool IsConditionMet_Implementation(AActor* Owner, TSubclassOf<UCombatAbility> AbilityClass, const float OptionalParameter, UObject* OptionaObject) const { return true; }
 };

@@ -51,6 +51,10 @@ public:
 		UObject* Source, const bool bIgnoreRestrictions, const bool bIgnoreModifiers, const FThreatModCondition& SourceModifier);
 	UFUNCTION(BlueprintPure, Category = "Combat")
 	bool IsInCombat() const { return bInCombat; }
+	UFUNCTION(BlueprintPure, Category = "Combat")
+	float GetCombatTime() const;
+	UFUNCTION(BlueprintPure, Category = "Combat")
+	float GetCombatStartTime() const { return CombatStartTime; }
 	UFUNCTION(BlueprintPure, Category = "Threat")
 	bool HasThreatTable() const { return bHasThreatTable; }
 	UFUNCTION(BlueprintPure, Category = "Threat")
@@ -101,6 +105,8 @@ private:
 
 	UPROPERTY(ReplicatedUsing = OnRep_bInCombat)
 	bool bInCombat = false;
+	UPROPERTY(Replicated)
+	float CombatStartTime = 0.0f;
 	UFUNCTION()
 	void OnRep_bInCombat();
 	void UpdateCombat();
