@@ -1,11 +1,13 @@
 ﻿#include "AggroRadius.h"
 #include "AbilityComponent.h"
+#include "AbilityFunctionLibrary.h"
 #include "CombatStatusComponent.h"
 #include "NPCAbilityComponent.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraCombatLibrary.h"
 #include "StatHandler.h"
 #include "ThreatHandler.h"
+#include "Kismet/KismetSystemLibrary.h"
 
 UAggroRadius::UAggroRadius()
 {
@@ -103,7 +105,11 @@ void UAggroRadius::OnOverlap(UPrimitiveComponent* OverlappedComponent, AActor* O
 	{
 		if (OwnerFaction == EFaction::Enemy && OverlappedAggro->GetOwnerFaction() == EFaction::Friendly)
 		{
-			if (IsValid(ThreatHandlerRef))
+			FHitResult SightResult;
+			UKismetSystemLibrary::LineTraceSingle(this, GetComponentLocation(), OverlappedAggro->GetComponentLocation(),
+				UEngineTypes::ConvertToTraceType(ECC_Visibility), false,TArray<AActor*>(),
+				EDrawDebugTrace::None, SightResult, true);
+			if (!SightResult.bBlockingHit && IsValid(ThreatHandlerRef))
 			{
 				if (!ThreatHandlerRef->IsActorInThreatTable(OtherActor))
 				{
@@ -111,6 +117,8 @@ void UAggroRadius::OnOverlap(UPrimitiveComponent* OverlappedComponent, AActor* O
 				}
 			}
 		}
+		// TODO: else if (OwnerFaction == EFaction::Enemy && OverlappedAggro->GetOwnerFaction == EFaction::Enemy), then we add to combat group, pending combat group rework.
+		// This should work since npc aggro radius can only overlap each other when in combat.
 	}
 }
 
