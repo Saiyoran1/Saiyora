@@ -11,6 +11,7 @@ class UBuffHandler;
 class UCombatStatusComponent;
 class UNPCAbilityComponent;
 class UAggroRadius;
+class UCombatGroup;
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class SAIYORAV4_API UThreatHandler : public UActorComponent
@@ -191,4 +192,21 @@ private:
 
 	UPROPERTY()
 	UAggroRadius* AggroRadius;
+
+	//Combat Group
+
+public:
+
+	UFUNCTION(BlueprintPure, BlueprintAuthorityOnly, Category = "Threat")
+	UCombatGroup* GetCombatGroup() const { return CombatGroup; }
+
+	void NotifyOfCombat(UCombatGroup* Group);
+	void NotifyOfNewCombatant(UThreatHandler* Combatant);
+	void NotifyOfCombatantLeft(UThreatHandler* Combatant);
+
+private:
+
+	void EnterCombatWith(UThreatHandler* OtherCombatant);
+	UPROPERTY()
+	UCombatGroup* CombatGroup;
 };

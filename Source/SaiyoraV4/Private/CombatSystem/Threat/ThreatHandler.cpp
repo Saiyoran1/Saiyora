@@ -3,6 +3,7 @@
 #include "AggroRadius.h"
 #include "UnrealNetwork.h"
 #include "Buff.h"
+#include "CombatGroup.h"
 #include "DamageHandler.h"
 #include "SaiyoraCombatInterface.h"
 #include "CombatStatusComponent.h"
@@ -958,6 +959,86 @@ void UThreatHandler::RemoveMisdirect(const UBuff* Source)
 		{
 			Misdirects.Remove(Misdirect);
 			return;
+		}
+	}
+}
+
+#pragma endregion
+#pragma region Combat Group
+
+void UThreatHandler::NotifyOfCombat(UCombatGroup* Group)
+{
+	const bool bPreviouslyInCombat = !IsValid(CombatGroup);
+	if (!IsValid(Group))
+	{
+		if (bPreviouslyInCombat)
+		{
+			CombatGroup = nullptr;
+			CombatStartTime = 0.0f;
+			ClearThreatTable();
+			OnCombatChanged.Broadcast(false);
+		}
+		return;
+	}
+	CombatGroup = Group;
+	if (!bPreviouslyInCombat)
+	{
+		CombatStartTime = GetWorld()->GetGameState()->GetServerWorldTimeSeconds();
+		OnCombatChanged.Broadcast(true);
+	}
+}
+
+void UThreatHandler::NotifyOfNewCombatant(UThreatHandler* Combatant)
+{
+	FThreatTarget NewTarget;
+	NewTarget.Target = Combatant->GetOwner();
+	NewTarget.Threat = 0.0f;
+	NewTarget.Faded = Combatant->HasActiveFade();
+	AddToThreatTable(NewTarget);
+}
+
+void UThreatHandler::NotifyOfCombatantLeft(UThreatHandler* Combatant)
+{
+	RemoveFromThreatTable(Combatant->GetOwner());
+}
+
+void UThreatHandler::EnterCombatWith(UThreatHandler* OtherCombatant)
+{
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(OtherCombatant))
+	{
+		return;
+	}
+	if (IsValid(CombatGroup))
+	{
+		if (IsValid(OtherCombatant->GetCombatGroup()))
+		{
+			//Both handlers are already in separate combat groups.
+			//TODO: Merge combat groups.
+		}
+		else
+		{
+			//This handler is in combat but enemy isn't.
+			CombatGroup->AddCombatant(OtherCombatant);
+		}
+	}
+	else
+	{
+		if (IsValid(OtherCombatant->GetCombatGroup()))
+		{
+			//This handler is not in combat, but the enemy is.
+			OtherCombatant->GetCombatGroup()->AddCombatant(this);
+		}
+		else
+		{
+			//Neither handler is in combat.
+			UCombatGroup* NewCombat = NewObject<UCombatGroup>();
+			if (!IsValid(CombatGroup))
+			{
+				CombatGroup = nullptr;
+				return;
+			}
+			NewCombat->AddCombatant(this);
+			NewCombat->AddCombatant(OtherCombatant);
 		}
 	}
 }
