@@ -99,9 +99,6 @@ public:
 	void RemoveOutgoingThreatModifier(const FThreatModCondition& Modifier) { OutgoingThreatMods.Remove(Modifier); }
 	float GetModifiedOutgoingThreat(const FThreatEvent& ThreatEvent, const FThreatModCondition& SourceModifier) const;
 
-	void NotifyOfTargeting(const UThreatHandler* TargetingComponent);
-	void NotifyOfTargetingEnded(const UThreatHandler* TargetingComponent);
-
 private:
 
 	UPROPERTY(ReplicatedUsing = OnRep_bInCombat)
@@ -136,12 +133,6 @@ private:
 	void UpdateTarget();
 	UFUNCTION()
 	void OnOwnerDamageTaken(const FHealthEvent& DamageEvent);
-	UFUNCTION()
-	void OnTargetHealingTaken(const FHealthEvent& HealthEvent);
-	UFUNCTION()
-	void OnTargetHealingDone(const FHealthEvent& HealthEvent);
-	UFUNCTION()
-	void OnTargetLifeStatusChanged(AActor* Actor, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus);
 	UFUNCTION()
 	void OnOwnerLifeStatusChanged(AActor* Actor, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus);
 	
@@ -201,12 +192,12 @@ public:
 	UCombatGroup* GetCombatGroup() const { return CombatGroup; }
 
 	void NotifyOfCombat(UCombatGroup* Group);
-	void NotifyOfNewCombatant(UThreatHandler* Combatant);
-	void NotifyOfCombatantLeft(UThreatHandler* Combatant);
+	void NotifyOfNewCombatant(const UThreatHandler* Combatant) { AddToThreatTable(FThreatTarget(Combatant)); }
+	void NotifyOfCombatantLeft(const UThreatHandler* Combatant) { RemoveFromThreatTable(Combatant->GetOwner()); }
 
 private:
-
-	void EnterCombatWith(UThreatHandler* OtherCombatant);
+	
+	int32 FindOrAddToThreatTable(UThreatHandler* Combatant, bool& bAdded);
 	UPROPERTY()
 	UCombatGroup* CombatGroup;
 };

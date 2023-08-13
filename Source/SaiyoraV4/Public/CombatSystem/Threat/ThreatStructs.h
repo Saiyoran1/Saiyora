@@ -5,6 +5,7 @@
 #include "ThreatStructs.generated.h"
 
 class UBuff;
+class UThreatHandler;
 
 USTRUCT(BlueprintType)
 struct FThreatEvent
@@ -47,7 +48,8 @@ struct FThreatTarget
 	TArray<UBuff*> Blinds;
 	bool Faded = false;
 
-	FThreatTarget() {} 
+	FThreatTarget() {}
+	FThreatTarget(const UThreatHandler* TargetThreat);
 	FThreatTarget(AActor* ThreatTarget, const float InitialThreat, const bool bFaded = false, UBuff* InitialFixate = nullptr, UBuff* InitialBlind = nullptr);
 
 	FORCEINLINE bool operator<(const FThreatTarget& Other) const { return LessThan(Other); }

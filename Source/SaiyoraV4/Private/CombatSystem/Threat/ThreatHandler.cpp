@@ -206,69 +206,35 @@ FThreatEvent UThreatHandler::AddThreat(const EThreatType ThreatType, const float
 	{
 		return Result;
 	}
-
-	int32 FoundIndex = ThreatTable.Num();
-	bool bFound = false;
-	for (; FoundIndex > 0; FoundIndex--)
+	
+	const int32 InitialIndex = FindOrAddToThreatTable(GeneratorThreat, Result.bInitialThreat);
+	if (InitialIndex == -1)
 	{
-		if (ThreatTable[FoundIndex - 1].Target == Result.AppliedBy)
-		{
-			bFound = true;
-			ThreatTable[FoundIndex - 1].Threat += Result.Threat;
-			while (FoundIndex < ThreatTable.Num() && ThreatTable[FoundIndex] < ThreatTable[FoundIndex - 1])
-			{
-				ThreatTable.Swap(FoundIndex, FoundIndex - 1);
-				FoundIndex++;
-			}
-			break;
-		}
+		//Failed to add to threat table.
+		return Result;
 	}
-	if (bFound && FoundIndex == ThreatTable.Num())
+	ThreatTable[InitialIndex].Threat += Result.Threat;
+	int32 TargetIndex = InitialIndex;
+	while (TargetIndex + 1 < ThreatTable.Num() && ThreatTable[TargetIndex + 1].Threat < ThreatTable[TargetIndex].Threat)
+	{
+		ThreatTable.Swap(TargetIndex, TargetIndex + 1);
+		TargetIndex++;
+	}
+	if (TargetIndex == ThreatTable.Num() - 1 && InitialIndex != ThreatTable.Num() - 1)
 	{
 		UpdateTarget();
 	}
-	if (!bFound)
-	{
-		Result.bInitialThreat = true;
-		AddToThreatTable(FThreatTarget(Result.AppliedBy, Result.Threat, GeneratorThreat->HasActiveFade()));
-	}
 	Result.bSuccess = true;
-
 	return Result;
 }
 
 void UThreatHandler::AddToThreatTable(const FThreatTarget& NewTarget)
 {
-	if (GetOwnerRole() != ROLE_Authority || !bHasThreatTable || !IsValid(NewTarget.Target) || IsActorInThreatTable(NewTarget.Target))
-	{
-		return;
-	}
-	if (!NewTarget.Target->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
-	{
-		return;
-	}
-	UThreatHandler* TargetThreatHandler = ISaiyoraCombatInterface::Execute_GetThreatHandler(NewTarget.Target);
-	if (!IsValid(TargetThreatHandler) || !TargetThreatHandler->CanBeInThreatTable())
-	{
-		return;
-	}
-	const UCombatStatusComponent* TargetCombatStatus = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(NewTarget.Target);
-	if (!IsValid(TargetCombatStatus) || TargetCombatStatus->GetCurrentFaction() == CombatStatusComponentRef->GetCurrentFaction())
-	{
-		return;
-	}
-	UDamageHandler* TargetDamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(NewTarget.Target);
-	if (IsValid(TargetDamageHandler) && TargetDamageHandler->IsDead())
-	{
-		return;
-	}
 	bool bShouldUpdateTarget = false;
-	bool bShouldUpdateCombat = false;
 	if (ThreatTable.Num() == 0)
 	{
 		ThreatTable.Add(NewTarget);
 		bShouldUpdateTarget = true;
-		bShouldUpdateCombat = true;
 	}
 	else
 	{
@@ -286,85 +252,9 @@ void UThreatHandler::AddToThreatTable(const FThreatTarget& NewTarget)
 			bShouldUpdateTarget = true;
 		}
 	}
-	if (IsValid(TargetDamageHandler))
-	{
-		TargetDamageHandler->OnOutgoingHealthEvent.AddDynamic(this, &UThreatHandler::OnTargetHealingDone);
-		if (TargetDamageHandler->HasHealth())
-		{
-			TargetDamageHandler->OnLifeStatusChanged.AddDynamic(this, &UThreatHandler::OnTargetLifeStatusChanged);
-		}
-		if (TargetDamageHandler->CanEverReceiveHealing())
-		{
-			TargetDamageHandler->OnIncomingHealthEvent.AddDynamic(this, &UThreatHandler::OnTargetHealingTaken);
-		}
-	}
 	if (bShouldUpdateTarget)
 	{
 		UpdateTarget();
-	}
-	if (bShouldUpdateCombat)
-	{
-		UpdateCombat();
-	}
-	TargetThreatHandler->NotifyOfTargeting(this);
-}
-
-void UThreatHandler::NotifyOfTargeting(const UThreatHandler* TargetingComponent)
-{
-	if (GetOwnerRole() != ROLE_Authority || !bCanBeInThreatTable || !IsValid(TargetingComponent) || TargetedBy.Contains(TargetingComponent->GetOwner()))
-	{
-		return;
-	}
-	TargetedBy.Add(TargetingComponent->GetOwner());
-	if (TargetedBy.Num() == 1)
-	{
-		UpdateCombat();
-	}
-	if (bHasThreatTable)
-	{
-		AddToThreatTable(FThreatTarget(TargetingComponent->GetOwner(), 0.0f, TargetingComponent->HasActiveFade()));
-	}
-}
-
-void UThreatHandler::OnTargetHealingTaken(const FHealthEvent& HealthEvent)
-{
-	if (!HealthEvent.Result.Success || !HealthEvent.ThreatInfo.GeneratesThreat || HealthEvent.Info.EventType == EHealthEventType::Damage)
-	{
-		return;
-	}
-	AddThreat(EThreatType::Healing, (HealthEvent.ThreatInfo.BaseThreat * GLOBALHEALINGTHREATMOD), HealthEvent.Info.AppliedBy,
-		HealthEvent.Info.Source, HealthEvent.ThreatInfo.IgnoreRestrictions, HealthEvent.ThreatInfo.IgnoreModifiers,
-		HealthEvent.ThreatInfo.SourceModifier);
-}
-
-void UThreatHandler::OnTargetHealingDone(const FHealthEvent& HealthEvent)
-{
-	if (!HealthEvent.Result.Success || !HealthEvent.ThreatInfo.GeneratesThreat || HealthEvent.Info.EventType == EHealthEventType::Damage)
-	{
-		return;
-	}
-	//If a target heals someone not already in our threat table, we won't get a callback from that actor receiving the healing.
-	if (!IsActorInThreatTable(HealthEvent.Info.AppliedTo))
-	{
-		//Add the threat, since we don't get the received healing callback to add it.
-		AddThreat(EThreatType::Healing,(HealthEvent.ThreatInfo.BaseThreat * GLOBALHEALINGTHREATMOD), HealthEvent.Info.AppliedBy,
-			HealthEvent.Info.Source, HealthEvent.ThreatInfo.IgnoreRestrictions, HealthEvent.ThreatInfo.IgnoreModifiers,
-			HealthEvent.ThreatInfo.SourceModifier);
-		//Then add the healed target to the threat table as well.
-		const UThreatHandler* TargetThreatHandler = ISaiyoraCombatInterface::Execute_GetThreatHandler(HealthEvent.Info.AppliedTo);
-		if (IsValid(TargetThreatHandler))
-		{
-			AddToThreatTable(FThreatTarget(HealthEvent.Info.AppliedTo, 0.0f, TargetThreatHandler->HasActiveFade()));
-		}
-	}
-}
-
-void UThreatHandler::OnTargetLifeStatusChanged(AActor* Actor, const ELifeStatus PreviousStatus,
-	const ELifeStatus NewStatus)
-{
-	if (NewStatus != ELifeStatus::Alive)
-	{
-		RemoveFromThreatTable(Actor);
 	}
 }
 
@@ -423,24 +313,6 @@ void UThreatHandler::RemoveFromThreatTable(const AActor* Actor)
 	}
 	if (bFound)
 	{
-		UThreatHandler* TargetThreatHandler = ISaiyoraCombatInterface::Execute_GetThreatHandler(Actor);
-		if (IsValid(TargetThreatHandler))
-		{
-			TargetThreatHandler->NotifyOfTargetingEnded(this);
-		}
-		UDamageHandler* TargetDamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(Actor);
-		if (IsValid(TargetDamageHandler))
-		{
-			TargetDamageHandler->OnOutgoingHealthEvent.RemoveDynamic(this, &UThreatHandler::OnTargetHealingDone);
-			if (TargetDamageHandler->CanEverReceiveHealing())
-			{
-				TargetDamageHandler->OnIncomingHealthEvent.RemoveDynamic(this, &UThreatHandler::OnTargetHealingTaken);
-			}
-			if (TargetDamageHandler->HasHealth())
-			{
-				TargetDamageHandler->OnLifeStatusChanged.RemoveDynamic(this, &UThreatHandler::OnTargetLifeStatusChanged);
-			}
-		}
 		if (bAffectedTarget)
 		{
 			UpdateTarget();
@@ -452,44 +324,10 @@ void UThreatHandler::RemoveFromThreatTable(const AActor* Actor)
 	}
 }
 
-void UThreatHandler::NotifyOfTargetingEnded(const UThreatHandler* TargetingComponent)
-{
-	if (GetOwnerRole() != ROLE_Authority || !bCanBeInThreatTable || !IsValid(TargetingComponent) || !TargetedBy.Contains(TargetingComponent->GetOwner()))
-	{
-		return;
-	}
-	if (TargetedBy.Remove(TargetingComponent->GetOwner()) > 0 && TargetedBy.Num() == 0)
-	{
-		UpdateCombat();
-	}
-}
-
 void UThreatHandler::ClearThreatTable()
 {
-	for (const FThreatTarget& ThreatTarget : ThreatTable)
-	{
-		UDamageHandler* TargetDamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(ThreatTarget.Target);
-		if (IsValid(TargetDamageHandler))
-		{
-			TargetDamageHandler->OnOutgoingHealthEvent.RemoveDynamic(this, &UThreatHandler::OnTargetHealingDone);
-			if (TargetDamageHandler->CanEverReceiveHealing())
-			{
-				TargetDamageHandler->OnIncomingHealthEvent.RemoveDynamic(this, &UThreatHandler::OnTargetHealingTaken);
-			}
-			if (TargetDamageHandler->HasHealth())
-			{
-				TargetDamageHandler->OnLifeStatusChanged.RemoveDynamic(this, &UThreatHandler::OnTargetLifeStatusChanged);
-			}
-		}
-		UThreatHandler* TargetThreatHandler = ISaiyoraCombatInterface::Execute_GetThreatHandler(ThreatTarget.Target);
-		if (IsValid(TargetThreatHandler))
-		{
-			TargetThreatHandler->NotifyOfTargetingEnded(this);
-		}
-	}
 	ThreatTable.Empty();
 	UpdateTarget();
-	UpdateCombat();
 }
 
 bool UThreatHandler::IsActorInThreatTable(const AActor* Target) const
@@ -988,29 +826,25 @@ void UThreatHandler::NotifyOfCombat(UCombatGroup* Group)
 	}
 }
 
-void UThreatHandler::NotifyOfNewCombatant(UThreatHandler* Combatant)
+int32 UThreatHandler::FindOrAddToThreatTable(UThreatHandler* Combatant, bool& bAdded)
 {
-	FThreatTarget NewTarget;
-	NewTarget.Target = Combatant->GetOwner();
-	NewTarget.Threat = 0.0f;
-	NewTarget.Faded = Combatant->HasActiveFade();
-	AddToThreatTable(NewTarget);
-}
-
-void UThreatHandler::NotifyOfCombatantLeft(UThreatHandler* Combatant)
-{
-	RemoveFromThreatTable(Combatant->GetOwner());
-}
-
-void UThreatHandler::EnterCombatWith(UThreatHandler* OtherCombatant)
-{
-	if (GetOwnerRole() != ROLE_Authority || !IsValid(OtherCombatant))
+	bAdded = false;
+	if (!IsValid(Combatant))
 	{
-		return;
+		return -1;
 	}
+	//Check threat table for already existing entry.
+	for (int i = 0; i < ThreatTable.Num(); i++)
+	{
+		if (ThreatTable[i].Target == Combatant->GetOwner())
+		{
+			return i;
+		}
+	}
+	//Not in threat table, need to enter combat with the target.
 	if (IsValid(CombatGroup))
 	{
-		if (IsValid(OtherCombatant->GetCombatGroup()))
+		if (IsValid(Combatant->GetCombatGroup()))
 		{
 			//Both handlers are already in separate combat groups.
 			//TODO: Merge combat groups.
@@ -1018,15 +852,15 @@ void UThreatHandler::EnterCombatWith(UThreatHandler* OtherCombatant)
 		else
 		{
 			//This handler is in combat but enemy isn't.
-			CombatGroup->AddCombatant(OtherCombatant);
+			CombatGroup->AddCombatant(Combatant);
 		}
 	}
 	else
 	{
-		if (IsValid(OtherCombatant->GetCombatGroup()))
+		if (IsValid(Combatant->GetCombatGroup()))
 		{
 			//This handler is not in combat, but the enemy is.
-			OtherCombatant->GetCombatGroup()->AddCombatant(this);
+			Combatant->GetCombatGroup()->AddCombatant(this);
 		}
 		else
 		{
@@ -1035,12 +869,22 @@ void UThreatHandler::EnterCombatWith(UThreatHandler* OtherCombatant)
 			if (!IsValid(CombatGroup))
 			{
 				CombatGroup = nullptr;
-				return;
+				return -1;
 			}
 			NewCombat->AddCombatant(this);
-			NewCombat->AddCombatant(OtherCombatant);
+			NewCombat->AddCombatant(Combatant);
 		}
 	}
+	//After entering combat, check the threat table again, as the combat group should've added the new combatant.
+	for (int i = 0; i < ThreatTable.Num(); i++)
+	{
+		if (ThreatTable[i].Target == Combatant->GetOwner())
+		{
+			bAdded = true;
+			return i;
+		}
+	}
+	return -1;
 }
 
 #pragma endregion

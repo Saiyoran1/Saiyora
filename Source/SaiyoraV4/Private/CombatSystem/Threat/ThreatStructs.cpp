@@ -2,8 +2,15 @@
 #include "Buff.h"
 #include "ThreatHandler.h"
 
+FThreatTarget::FThreatTarget(const UThreatHandler* TargetThreat)
+{
+	Target = TargetThreat->GetOwner();
+	Threat = 0.0f;
+	Faded = TargetThreat->HasActiveFade();
+}
+
 FThreatTarget::FThreatTarget(AActor* ThreatTarget, const float InitialThreat, const bool bFaded, UBuff* InitialFixate,
-	UBuff* InitialBlind)
+                             UBuff* InitialBlind)
 {
 	Target = ThreatTarget;
 	Threat = InitialThreat;
