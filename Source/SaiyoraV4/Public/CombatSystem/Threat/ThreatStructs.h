@@ -40,7 +40,7 @@ struct FThreatTarget
 	GENERATED_BODY()
 
 	UPROPERTY()
-	AActor* Target = nullptr;
+	UThreatHandler* TargetThreat = nullptr;
 	float Threat = 0.0f;
 	UPROPERTY()
 	TArray<UBuff*> Fixates;
@@ -49,8 +49,7 @@ struct FThreatTarget
 	bool Faded = false;
 
 	FThreatTarget() {}
-	FThreatTarget(const UThreatHandler* TargetThreat);
-	FThreatTarget(AActor* ThreatTarget, const float InitialThreat, const bool bFaded = false, UBuff* InitialFixate = nullptr, UBuff* InitialBlind = nullptr);
+	FThreatTarget(UThreatHandler* NewTarget);
 
 	FORCEINLINE bool operator<(const FThreatTarget& Other) const { return LessThan(Other); }
 	bool LessThan(const FThreatTarget& Other) const;

@@ -63,7 +63,7 @@ public:
 	UFUNCTION(BlueprintPure, BlueprintAuthorityOnly, Category = "Threat")
 	bool IsActorInThreatTable(const AActor* Target) const;
 	UFUNCTION(BlueprintPure, BlueprintAuthorityOnly, Category = "Threat")
-	float GetActorThreatValue(const AActor* Actor) const;
+	float GetActorThreatValue(const AActor* Target) const;
 	UFUNCTION(BlueprintPure, Category = "Threat")
 	AActor* GetCurrentTarget() const { return CurrentTarget; }
 	UFUNCTION(BlueprintPure, BlueprintAuthorityOnly, Category = "Threat")
@@ -133,8 +133,6 @@ private:
 	void UpdateTarget();
 	UFUNCTION()
 	void OnOwnerDamageTaken(const FHealthEvent& DamageEvent);
-	UFUNCTION()
-	void OnOwnerLifeStatusChanged(AActor* Actor, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus);
 	
 //Threat Actions
 
@@ -148,7 +146,6 @@ public:
 	void TransferThreat(AActor* FromActor, AActor* ToActor, const float Percentage);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
 	void Vanish();
-	void NotifyOfTargetVanished(AActor* Target) { RemoveFromThreatTable(Target); }
 
 	void AddFixate(AActor* Target, UBuff* Source);
 	void RemoveFixate(const AActor* Target, UBuff* Source);
@@ -192,12 +189,13 @@ public:
 	UCombatGroup* GetCombatGroup() const { return CombatGroup; }
 
 	void NotifyOfCombat(UCombatGroup* Group);
-	void NotifyOfNewCombatant(const UThreatHandler* Combatant) { AddToThreatTable(FThreatTarget(Combatant)); }
+	void NotifyOfNewCombatant(UThreatHandler* Combatant) { AddToThreatTable(FThreatTarget(Combatant)); }
 	void NotifyOfCombatantLeft(const UThreatHandler* Combatant) { RemoveFromThreatTable(Combatant->GetOwner()); }
 
 private:
 	
-	int32 FindOrAddToThreatTable(UThreatHandler* Combatant, bool& bAdded);
+	int32 FindOrAddToThreatTable(UThreatHandler* Target, bool& bAdded);
+	int32 FindInThreatTable(const UThreatHandler* Target) const;
 	UPROPERTY()
 	UCombatGroup* CombatGroup;
 };

@@ -2,27 +2,11 @@
 #include "Buff.h"
 #include "ThreatHandler.h"
 
-FThreatTarget::FThreatTarget(const UThreatHandler* TargetThreat)
+FThreatTarget::FThreatTarget(UThreatHandler* NewTarget)
 {
-	Target = TargetThreat->GetOwner();
+	TargetThreat = NewTarget;
 	Threat = 0.0f;
 	Faded = TargetThreat->HasActiveFade();
-}
-
-FThreatTarget::FThreatTarget(AActor* ThreatTarget, const float InitialThreat, const bool bFaded, UBuff* InitialFixate,
-                             UBuff* InitialBlind)
-{
-	Target = ThreatTarget;
-	Threat = InitialThreat;
-	Faded = bFaded;
-	if (IsValid(InitialFixate))
-	{
-		Fixates.Add(InitialFixate);
-	}
-	if (IsValid(InitialBlind))
-	{
-		Blinds.Add(InitialBlind);
-	}
 }
 
 bool FThreatTarget::LessThan(const FThreatTarget& Other) const
