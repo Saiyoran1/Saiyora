@@ -13,8 +13,12 @@ class SAIYORAV4_API UCombatGroup : public UObject
 
 public:
 	
-	void AddCombatant(UThreatHandler* Combatant);
+	bool AddCombatant(UThreatHandler* Combatant);
 	void RemoveCombatant(UThreatHandler* Combatant);
+	void UpdateCombatantFadeStatus(const UThreatHandler* Combatant, const bool bFaded);
+	
+	void MergeWith(UCombatGroup* OtherGroup);
+	void NotifyOfMerge();
 
 private:
 	
@@ -24,7 +28,9 @@ private:
 	TArray<UThreatHandler*> Enemies;
 
 	UFUNCTION()
-	void OnCombatantHealthEvent(const FHealthEvent& Event);
+	void OnCombatantIncomingHealthEvent(const FHealthEvent& Event);
+	UFUNCTION()
+	void OnCombatantOutgoingHealthEvent(const FHealthEvent& Event);
 	UFUNCTION()
 	void OnCombatantLifeStatusChanged(AActor* Actor, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus);
 };

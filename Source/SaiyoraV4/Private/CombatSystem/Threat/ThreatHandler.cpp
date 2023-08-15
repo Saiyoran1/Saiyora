@@ -119,6 +119,138 @@ float UThreatHandler::GetCombatTime() const
 #pragma endregion 
 #pragma region Threat
 
+void UThreatHandler::NotifyOfNewCombatant(UThreatHandler* Combatant)
+{
+	const FThreatTarget NewTarget = FThreatTarget(Combatant);
+	int32 InsertIndex = 0;
+	for (; InsertIndex < ThreatTable.Num(); InsertIndex++)
+	{
+		if (!(ThreatTable[InsertIndex] < NewTarget))
+		{
+			break;
+		}
+	}
+	ThreatTable.Insert(NewTarget, InsertIndex);
+	if (InsertIndex == ThreatTable.Num() - 1)
+	{
+		UpdateTarget();
+	}
+}
+
+void UThreatHandler::NotifyOfCombatantLeft(const UThreatHandler* Combatant)
+{
+	for (int i = 0; i < ThreatTable.Num(); i++)
+	{
+		if (ThreatTable[i].TargetThreat == Combatant)
+		{
+			ThreatTable.RemoveAt(i);
+			if (i == ThreatTable.Num())
+			{
+				UpdateTarget();
+			}
+			break;
+		}
+	}
+}
+
+int32 UThreatHandler::FindOrAddToThreatTable(UThreatHandler* Target, bool& bAdded)
+{
+	bAdded = false;
+	if (!IsValid(Target))
+	{
+		return -1;
+	}
+	//Check threat table for already existing entry.
+	for (int i = 0; i < ThreatTable.Num(); i++)
+	{
+		if (ThreatTable[i].TargetThreat == Target)
+		{
+			return i;
+		}
+	}
+	//Not in threat table, need to enter combat with the target.
+	if (bInCombat && IsValid(CombatGroup))
+	{
+		if (Target->IsInCombat() && IsValid(Target->GetCombatGroup()))
+		{
+			//Both handlers are already in separate combat groups.
+			CombatGroup->MergeWith(Target->GetCombatGroup());
+		}
+		else
+		{
+			//This handler is in combat but enemy isn't.
+			CombatGroup->AddCombatant(Target);
+		}
+	}
+	else
+	{
+		if (Target->IsInCombat() && IsValid(Target->GetCombatGroup()))
+		{
+			//This handler is not in combat, but the enemy is.
+			Target->GetCombatGroup()->AddCombatant(this);
+		}
+		else
+		{
+			//Neither handler is in combat.
+			UCombatGroup* NewCombat = NewObject<UCombatGroup>();
+			if (!IsValid(NewCombat))
+			{
+				return -1;
+			}
+			NewCombat->AddCombatant(this);
+			NewCombat->AddCombatant(Target);
+		}
+	}
+	//After entering combat, check the threat table again, as the combat group should've added the new combatant.
+	for (int i = 0; i < ThreatTable.Num(); i++)
+	{
+		if (ThreatTable[i].TargetThreat == Target)
+		{
+			bAdded = true;
+			return i;
+		}
+	}
+	return -1;
+}
+
+int32 UThreatHandler::FindInThreatTable(const UThreatHandler* Target) const
+{
+	if (!IsValid(Target) || !Target->CanBeInThreatTable())
+	{
+		return -1;
+	}
+	for (int i = 0; i < ThreatTable.Num(); i++)
+	{
+		if (ThreatTable[i].TargetThreat == Target)
+		{
+			return i;
+		}
+	}
+	return -1;
+}
+
+int32 UThreatHandler::FindInThreatTable(const AActor* Target) const
+{
+	if (!IsValid(Target))
+	{
+		return -1;
+	}
+	for (int i = 0; i < ThreatTable.Num(); i++)
+	{
+		if (ThreatTable[i].TargetThreat->GetOwner() == Target)
+		{
+			return i;
+		}
+	}
+	return -1;
+}
+
+void UThreatHandler::ClearThreatTable()
+{
+	ThreatTable.Empty();
+	UpdateTarget();
+}
+
 FThreatEvent UThreatHandler::AddThreat(const EThreatType ThreatType, const float BaseThreat, AActor* AppliedBy,
                                        UObject* Source, const bool bIgnoreRestrictions, const bool bIgnoreModifiers, const FThreatModCondition& SourceModifier)
 {
@@ -128,7 +260,7 @@ FThreatEvent UThreatHandler::AddThreat(const EThreatType ThreatType, const float
 	{
 		return Result;
 	}
-	if (!bHasThreatTable || BaseThreat < 0.0f || (IsValid(DamageHandlerRef) && DamageHandlerRef->IsDead()))
+	if (!bHasThreatTable || BaseThreat <= 0.0f || (IsValid(DamageHandlerRef) && DamageHandlerRef->IsDead()))
 	{
 		return Result;		
 	}
@@ -201,196 +333,70 @@ FThreatEvent UThreatHandler::AddThreat(const EThreatType ThreatType, const float
 		return Result;
 	}
 	
-	int32 TargetIndex = FindOrAddToThreatTable(bUseMisdirectTarget ? MisdirectThreat : GeneratorThreat, Result.bInitialThreat);
+	const int32 TargetIndex = FindOrAddToThreatTable(bUseMisdirectTarget ? MisdirectThreat : GeneratorThreat, Result.bInitialThreat);
 	if (TargetIndex == -1)
 	{
 		//Failed to add to threat table.
 		return Result;
 	}
 	ThreatTable[TargetIndex].Threat += Result.Threat;
-	if (CurrentTarget != ThreatTable[TargetIndex].TargetThreat->GetOwner())
-	{
-		while (TargetIndex + 1 < ThreatTable.Num() && ThreatTable[TargetIndex + 1].Threat < ThreatTable[TargetIndex].Threat)
-		{
-			ThreatTable.Swap(TargetIndex, TargetIndex + 1);
-			TargetIndex++;
-		}
-		if (TargetIndex == ThreatTable.Num() - 1)
-		{
-			UpdateTarget();
-		}
-	}
+	SortModifiedThreatTarget(TargetIndex);
 	Result.bSuccess = true;
 	return Result;
 }
 
 void UThreatHandler::RemoveThreat(const float Amount, const AActor* AppliedBy)
 {
-	if (GetOwnerRole() != ROLE_Authority || !bHasThreatTable || !IsValid(AppliedBy))
+	if (GetOwnerRole() != ROLE_Authority || !bHasThreatTable || !IsValid(AppliedBy) || Amount <= 0.0f)
 	{
 		return;
 	}
-	//TODO: Remove Threat.
-	/*int32 TargetIndex = FindInThreatTable()
-	bool bAffectedTarget = false;
-	bool bFound = false;
-	for (int i = 0; i < ThreatTable.Num(); i++)
+	if (!AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 	{
-		if (ThreatTable[i].TargetThreat == AppliedBy)
-		{
-			bFound = true;
-			ThreatTable[i].Threat = FMath::Max(0.0f, ThreatTable[i].Threat - Amount);
-			while (i > 0 && ThreatTable[i] < ThreatTable[i - 1])
-			{
-				ThreatTable.Swap(i, i - 1);
-				if (!bAffectedTarget && i == ThreatTable.Num() - 1)
-				{
-					bAffectedTarget = true;
-				}
-				i--;
-			}
-			break;
-		}
+		return;
 	}
-	if (bFound && bAffectedTarget)
+	const UThreatHandler* TargetThreat = ISaiyoraCombatInterface::Execute_GetThreatHandler(AppliedBy);
+	if (!IsValid(TargetThreat) || !TargetThreat->CanBeInThreatTable())
 	{
-		UpdateTarget();
-	}*/
+		return;
+	}
+	const int32 TargetIndex = FindInThreatTable(TargetThreat);
+	if (TargetIndex == -1)
+	{
+		return;
+	}
+	ThreatTable[TargetIndex].Threat = FMath::Max(0.0f, ThreatTable[TargetIndex].Threat - Amount);
+	SortModifiedThreatTarget(TargetIndex);
 }
 
-void UThreatHandler::AddToThreatTable(const FThreatTarget& NewTarget)
+void UThreatHandler::SortModifiedThreatTarget(const int32 ModifiedIndex)
 {
-	bool bShouldUpdateTarget = false;
-	if (ThreatTable.Num() == 0)
+	if (ThreatTable.Num() <= 1 || !ThreatTable.IsValidIndex(ModifiedIndex))
 	{
-		ThreatTable.Add(NewTarget);
-		bShouldUpdateTarget = true;
+		return;
 	}
-	else
+	int32 CurrentIndex = ModifiedIndex;
+	while (CurrentIndex > 0 && CurrentIndex < ThreatTable.Num() - 1)
 	{
-		int32 InsertIndex = 0;
-		for (; InsertIndex < ThreatTable.Num(); InsertIndex++)
+		if (ThreatTable[CurrentIndex] < ThreatTable[CurrentIndex - 1])
 		{
-			if (!(ThreatTable[InsertIndex] < NewTarget))
-			{
-				break;
-			}
+			ThreatTable.Swap(CurrentIndex, CurrentIndex - 1);
+			CurrentIndex--;
 		}
-		ThreatTable.Insert(NewTarget, InsertIndex);
-		if (InsertIndex == ThreatTable.Num() - 1)
+		else if (ThreatTable[CurrentIndex + 1] < ThreatTable[CurrentIndex])
 		{
-			bShouldUpdateTarget = true;
-		}
-	}
-	if (bShouldUpdateTarget)
-	{
-		UpdateTarget();
-	}
-}
-
-void UThreatHandler::RemoveFromThreatTable(const AActor* Actor)
-{
-	bool bFound = false;
-	bool bAffectedTarget = false;
-	for (int i = 0; i < ThreatTable.Num(); i++)
-	{
-		if (ThreatTable[i].TargetThreat->GetOwner() == Actor)
-		{
-			bFound = true;
-			if (i == ThreatTable.Num() - 1)
-			{
-				bAffectedTarget = true;
-			}
-			ThreatTable.RemoveAt(i);
-			break;
-		}
-	}
-	if (bFound && bAffectedTarget)
-	{
-		UpdateTarget();
-	}
-}
-
-int32 UThreatHandler::FindOrAddToThreatTable(UThreatHandler* Target, bool& bAdded)
-{
-	bAdded = false;
-	if (!IsValid(Target))
-	{
-		return -1;
-	}
-	//Check threat table for already existing entry.
-	for (int i = 0; i < ThreatTable.Num(); i++)
-	{
-		if (ThreatTable[i].TargetThreat == Target)
-		{
-			return i;
-		}
-	}
-	//Not in threat table, need to enter combat with the target.
-	if (bInCombat && IsValid(CombatGroup))
-	{
-		if (Target->IsInCombat() && IsValid(Target->GetCombatGroup()))
-		{
-			//Both handlers are already in separate combat groups.
-			//TODO: Merge combat groups.
+			ThreatTable.Swap(CurrentIndex, CurrentIndex + 1);
+			CurrentIndex++;
 		}
 		else
 		{
-			//This handler is in combat but enemy isn't.
-			CombatGroup->AddCombatant(Target);
+			break;
 		}
 	}
-	else
+	if (ModifiedIndex == ThreatTable.Num() - 1 || CurrentIndex == ThreatTable.Num() - 1)
 	{
-		if (Target->IsInCombat() && IsValid(Target->GetCombatGroup()))
-		{
-			//This handler is not in combat, but the enemy is.
-			Target->GetCombatGroup()->AddCombatant(this);
-		}
-		else
-		{
-			//Neither handler is in combat.
-			UCombatGroup* NewCombat = NewObject<UCombatGroup>();
-			if (!IsValid(NewCombat))
-			{
-				return -1;
-			}
-			NewCombat->AddCombatant(this);
-			NewCombat->AddCombatant(Target);
-		}
+		UpdateTarget();
 	}
-	//After entering combat, check the threat table again, as the combat group should've added the new combatant.
-	for (int i = 0; i < ThreatTable.Num(); i++)
-	{
-		if (ThreatTable[i].TargetThreat == Target)
-		{
-			bAdded = true;
-			return i;
-		}
-	}
-	return -1;
-}
-
-int32 UThreatHandler::FindInThreatTable(const UThreatHandler* Target) const
-{
-	if (!IsValid(Target) || !Target->CanBeInThreatTable())
-	{
-		return -1;
-	}
-	for (int i = 0; i < ThreatTable.Num(); i++)
-	{
-		if (ThreatTable[i].TargetThreat == Target)
-		{
-			return i;
-		}
-	}
-	return -1;
-}
-
-void UThreatHandler::ClearThreatTable()
-{
-	ThreatTable.Empty();
-	UpdateTarget();
 }
 
 bool UThreatHandler::IsActorInThreatTable(const AActor* Target) const
@@ -399,12 +405,7 @@ bool UThreatHandler::IsActorInThreatTable(const AActor* Target) const
 	{
 		return false;
 	}
-	if (!Target->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
-	{
-		return false;
-	}
-	const UThreatHandler* TargetThreat = ISaiyoraCombatInterface::Execute_GetThreatHandler(Target);
-	return FindInThreatTable(TargetThreat) != -1;
+	return FindInThreatTable(Target) != -1;
 }
 
 float UThreatHandler::GetActorThreatValue(const AActor* Target) const
@@ -413,12 +414,7 @@ float UThreatHandler::GetActorThreatValue(const AActor* Target) const
 	{
 		return 0.0f;
 	}
-	if (!Target->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
-	{
-		return 0.0f;
-	}
-	const UThreatHandler* TargetThreat = ISaiyoraCombatInterface::Execute_GetThreatHandler(Target);
-	const int32 Index = FindInThreatTable(TargetThreat);
+	const int32 Index = FindInThreatTable(Target);
 	if (Index == -1)
 	{
 		return 0.0f;
@@ -551,7 +547,7 @@ void UThreatHandler::Vanish()
 	CombatGroup->RemoveCombatant(this);
 }
 
-void UThreatHandler::AddFixate(AActor* Target, UBuff* Source)
+void UThreatHandler::AddFixate(const AActor* Target, UBuff* Source)
 {
 	if (GetOwnerRole() != ROLE_Authority || !bHasThreatTable || !IsValid(Target)
 		|| !Target->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()) || !IsValid(Source)
@@ -565,7 +561,7 @@ void UThreatHandler::AddFixate(AActor* Target, UBuff* Source)
 		return;
 	}
 	bool bAdded = false;
-	int32 TargetIndex = FindOrAddToThreatTable(GeneratorThreat, bAdded);
+	const int32 TargetIndex = FindOrAddToThreatTable(GeneratorThreat, bAdded);
 	if (TargetIndex == -1)
 	{
 		//Failed to add to threat table.
@@ -575,153 +571,77 @@ void UThreatHandler::AddFixate(AActor* Target, UBuff* Source)
 	{
 		return;
 	}
-	const bool bHadFixates = ThreatTable[TargetIndex].Fixates.Num() > 0;
 	ThreatTable[TargetIndex].Fixates.Add(Source);
-	if (CurrentTarget != Target && !bHadFixates)
-	{
-		while (TargetIndex + 1 < ThreatTable.Num() && ThreatTable[TargetIndex + 1].Threat < ThreatTable[TargetIndex].Threat)
-		{
-			ThreatTable.Swap(TargetIndex, TargetIndex + 1);
-			TargetIndex++;
-		}
-		if (TargetIndex == ThreatTable.Num() - 1)
-		{
-			UpdateTarget();
-		}
-	}
+	SortModifiedThreatTarget(TargetIndex);
 }
 
 void UThreatHandler::RemoveFixate(const AActor* Target, UBuff* Source)
 {
-	//TODO: Remove fixate.
-	/*if (GetOwnerRole() != ROLE_Authority || !IsValid(Target) || !IsValid(Source))
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(Target) || !IsValid(Source))
 	{
 		return;
 	}
-	bool bAffectedTarget = false;
-	for (int i = 0; i < ThreatTable.Num(); i++)
+	const int32 TargetIndex = FindInThreatTable(Target);
+	if (TargetIndex == -1)
 	{
-		if (ThreatTable[i].TargetThreat == Target)
-		{
-			if (ThreatTable[i].Fixates.Num() > 0)
-			{
-				ThreatTable[i].Fixates.Remove(Source);
-				//If we removed the last fixate for this target, possibly reorder on threat.
-				if (ThreatTable[i].Fixates.Num() == 0)
-				{
-					while (i > 0 && ThreatTable[i] < ThreatTable[i - 1])
-					{
-						ThreatTable.Swap(i, i - 1);
-						//If the last index was swapped, this will change current target.
-						if (!bAffectedTarget && i == ThreatTable.Num() - 1)
-						{
-							bAffectedTarget = true;
-						}
-						i--;
-					}
-				}
-			}
-			break;
-		}
+		return;
 	}
-	if (bAffectedTarget)
+	const int32 Removed = ThreatTable[TargetIndex].Fixates.Remove(Source);
+	if (Removed > 0)
 	{
-		UpdateTarget();
-	}*/
+		SortModifiedThreatTarget(TargetIndex);
+	}
 }
 
-void UThreatHandler::AddBlind(AActor* Target, UBuff* Source)
+void UThreatHandler::AddBlind(const AActor* Target, UBuff* Source)
 {
-	//TODO: Add Blind.
-	/*if (GetOwnerRole() != ROLE_Authority || !IsValid(Target) || !Target->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()) || !IsValid(Source) || Source->GetAppliedTo() != GetOwner())
+	//TODO: How to handle Blind added for target not yet in threat table?
+	//Currently a blind will just enter combat, which isn't really intuitive.
+	if (GetOwnerRole() != ROLE_Authority || !bHasThreatTable || !bInCombat ||
+		!IsValid(Target) || !Target->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()) || !IsValid(Source))
 	{
 		return;
 	}
-	const UThreatHandler* GeneratorComponent = ISaiyoraCombatInterface::Execute_GetThreatHandler(Target);
-	if (!IsValid(GeneratorComponent) || !GeneratorComponent->CanBeInThreatTable())
+	UThreatHandler* GeneratorThreat = ISaiyoraCombatInterface::Execute_GetThreatHandler(Target);
+	if (!IsValid(GeneratorThreat) || !GeneratorThreat->CanBeInThreatTable())
 	{
 		return;
 	}
-	
-	bool bFound = false;
-	bool bAffectedTarget = false;
-	for (int i = 0; i < ThreatTable.Num(); i++)
+	bool bAdded = false;
+	const int32 TargetIndex = FindOrAddToThreatTable(GeneratorThreat, bAdded);
+	if (TargetIndex == -1)
 	{
-		if (ThreatTable[i].TargetThreat == Target)
-		{
-			bFound = true;
-			const int32 PreviousBlinds = ThreatTable[i].Blinds.Num();
-			ThreatTable[i].Blinds.AddUnique(Source);
-			//If this is the first Blind for the unit, possibly reorder on threat.
-			if (PreviousBlinds == 0 && ThreatTable[i].Blinds.Num() == 1)
-			{
-				while (i > 0 && ThreatTable[i] < ThreatTable[i - 1])
-				{
-					ThreatTable.Swap(i, i - 1);
-					//If the last index was affected by the swap, this will change current target.
-					if (!bAffectedTarget && i == ThreatTable.Num() - 1)
-					{
-						bAffectedTarget = true;
-					}
-					i--;
-				}
-			}
-			break;
-		}
+		return;
 	}
-	if (bFound && bAffectedTarget)
+	if (ThreatTable[TargetIndex].Blinds.Contains(Source))
 	{
-		UpdateTarget();
+		return;
 	}
-	if (!bFound)
-	{
-		AddToThreatTable(FThreatTarget(Target, 0.0f, GeneratorComponent->HasActiveFade(), nullptr, Source));
-	}*/
+	ThreatTable[TargetIndex].Blinds.Add(Source);
+	SortModifiedThreatTarget(TargetIndex);
 }
 
 void UThreatHandler::RemoveBlind(const AActor* Target, UBuff* Source)
 {
-	//TODO: Remove Blind.
-	/*if (GetOwnerRole() != ROLE_Authority || !IsValid(Target) || !IsValid(Source))
+	if (GetOwnerRole() != ROLE_Authority || !bHasThreatTable || !bInCombat || !IsValid(Target) || !IsValid(Source))
 	{
 		return;
 	}
-	bool bAffectedTarget = false;
-	for (int i = 0; i < ThreatTable.Num(); i++)
+	const int32 TargetIndex = FindInThreatTable(Target);
+	if (TargetIndex == -1)
 	{
-		if (ThreatTable[i].TargetThreat == Target)
-		{
-			if (ThreatTable[i].Blinds.Num() > 0)
-			{
-				ThreatTable[i].Blinds.Remove(Source);
-				//If we went from non-zero Blinds to zero Blinds, possibly have to reorder on threat.
-				if (ThreatTable[i].Blinds.Num() == 0)
-				{
-					while (i < ThreatTable.Num() - 1 && ThreatTable[i + 1] < ThreatTable[i])
-					{
-						ThreatTable.Swap(i, i + 1);
-						//If the last index was swapped, then this will change the current target.
-						if (!bAffectedTarget && i == ThreatTable.Num() - 1)
-						{
-							bAffectedTarget = true;
-						}
-						i++;
-					}
-				}
-			}
-			break;
-		}
+		return;
 	}
-	if (bAffectedTarget)
+	const int32 Removed = ThreatTable[TargetIndex].Blinds.Remove(Source);
+	if (Removed > 0)
 	{
-		UpdateTarget();
-	}*/
+		SortModifiedThreatTarget(TargetIndex);
+	}
 }
 
 void UThreatHandler::AddFade(UBuff* Source)
 {
-	//TODO: Add Fade.
-	/*if (GetOwnerRole() != ROLE_Authority || !bHasThreatTable || !IsValid(Source) || Source->GetAppliedTo() != GetOwner())
+	if (GetOwnerRole() != ROLE_Authority || !bHasThreatTable || !IsValid(Source) || Source->GetAppliedTo() != GetOwner())
 	{
 		return;
 	}
@@ -732,93 +652,37 @@ void UThreatHandler::AddFade(UBuff* Source)
 	Fades.Add(Source);
 	if (Fades.Num() == 1)
 	{
-		for (const AActor* Targeting : TargetedBy)
-		{
-			UThreatHandler* TargetThreatHandler = ISaiyoraCombatInterface::Execute_GetThreatHandler(Targeting);
-			if (IsValid(TargetThreatHandler))
-			{
-				TargetThreatHandler->NotifyOfTargetFadeStatusUpdate(GetOwner(), true);
-			}
-		}
-	}*/
+		CombatGroup->UpdateCombatantFadeStatus(this, true);
+	}
 }
 
 void UThreatHandler::RemoveFade(UBuff* Source)
 {
-	//TODO: Remove Fade.
-	/*if (GetOwnerRole() != ROLE_Authority || !bHasThreatTable || !IsValid(Source) || Source->GetAppliedTo() != GetOwner())
+	if (GetOwnerRole() != ROLE_Authority || !bHasThreatTable || !IsValid(Source) || Source->GetAppliedTo() != GetOwner())
 	{
 		return;
 	}
-	if (Fades.Remove(Source) != 0 && Fades.Num() == 0)
+	const int32 Removed = Fades.Remove(Source);
+	if (Removed > 0 && Fades.Num() == 0)
 	{
-		for (const AActor* Targeting : TargetedBy)
-		{
-			UThreatHandler* TargetThreatHandler = ISaiyoraCombatInterface::Execute_GetThreatHandler(Targeting);
-			if (IsValid(TargetThreatHandler))
-			{
-				TargetThreatHandler->NotifyOfTargetFadeStatusUpdate(GetOwner(), false);
-			}
-		}
-	}*/
+		CombatGroup->UpdateCombatantFadeStatus(this, false);
+	}
 }
 
-void UThreatHandler::NotifyOfTargetFadeStatusUpdate(const AActor* Target, const bool FadeStatus)
+void UThreatHandler::NotifyOfCombatantFadeStatus(const UThreatHandler* Combatant, const bool FadeStatus)
 {
-	//TODO: Notify of Fade Status Update. This should be handled through the combat group.
-	/*if (!IsValid(Target))
+	const int32 TargetIndex = FindInThreatTable(Combatant);
+	if (TargetIndex == -1)
 	{
 		return;
 	}
-	for (int i = 0; i < ThreatTable.Num(); i++)
-	{
-		if (ThreatTable[i].TargetThreat == Target)
-		{
-			bool AffectedTarget = false;
-			ThreatTable[i].Faded = FadeStatus;
-			if (FadeStatus)
-			{
-				if (ThreatTable[i].Blinds.Num() == 0)
-				{
-					while (i > 0 && ThreatTable[i] < ThreatTable[i - 1])
-					{
-						ThreatTable.Swap(i, i - 1);
-						if (!AffectedTarget && i == ThreatTable.Num() - 1)
-						{
-							AffectedTarget = true;
-						}
-						i--;
-					}
-				}
-			}
-			else
-			{
-				if (ThreatTable[i].Blinds.Num() == 0)
-				{
-					while (i < ThreatTable.Num() - 1 && ThreatTable[i + 1] < ThreatTable[i])
-					{
-						ThreatTable.Swap(i, i + 1);
-						if (!AffectedTarget && i + 1 == ThreatTable.Num() - 1)
-						{
-							AffectedTarget = true;
-						}
-						i++;
-					}
-				}
-			}
-			if (AffectedTarget)
-			{
-				UpdateTarget();
-			}
-			return;
-		}
-	}*/
+	ThreatTable[TargetIndex].Faded = FadeStatus;
+	SortModifiedThreatTarget(TargetIndex);
 }
 
 void UThreatHandler::AddMisdirect(UBuff* Source, AActor* Target)
 {
-	//TODO: Review Add Misdirect.
-	/*if (GetOwnerRole() != ROLE_Authority || !IsValid(Source) || !IsValid(Target) || Source->GetAppliedTo() != GetOwner())
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(Source) || !IsValid(Target) || Source->GetAppliedTo() != GetOwner())
 	{
 		return;
 	}
@@ -829,13 +693,12 @@ void UThreatHandler::AddMisdirect(UBuff* Source, AActor* Target)
 			return;
 		}
 	}
-	Misdirects.Add(FMisdirect(Source, Target));*/
+	Misdirects.Add(FMisdirect(Source, Target));
 }
 
 void UThreatHandler::RemoveMisdirect(const UBuff* Source)
 {
-	//TODO: Review Remove Misdirect.
-	/*if (GetOwnerRole() != ROLE_Authority || !IsValid(Source))
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(Source))
 	{
 		return;
 	}
@@ -846,7 +709,7 @@ void UThreatHandler::RemoveMisdirect(const UBuff* Source)
 			Misdirects.Remove(Misdirect);
 			return;
 		}
-	}*/
+	}
 }
 
 #pragma endregion
@@ -863,7 +726,6 @@ void UThreatHandler::NotifyOfCombat(UCombatGroup* Group)
 			bInCombat = false;
 			CombatStartTime = 0.0f;
 			ClearThreatTable();
-			//TODO: Do I need to call ClearThreatTable()?
 			OnCombatChanged.Broadcast(false);
 		}
 		return;

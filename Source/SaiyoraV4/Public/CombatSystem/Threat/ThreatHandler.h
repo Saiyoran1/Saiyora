@@ -107,7 +107,6 @@ private:
 	float CombatStartTime = 0.0f;
 	UFUNCTION()
 	void OnRep_bInCombat();
-	void UpdateCombat();
 	UPROPERTY(EditAnywhere, Category = "Threat")
 	bool bHasThreatTable = false;
 	UPROPERTY(EditAnywhere, Category = "Threat")
@@ -116,8 +115,6 @@ private:
 	TArray<FThreatTarget> ThreatTable;
 	UPROPERTY()
 	TArray<AActor*> TargetedBy;
-	void AddToThreatTable(const FThreatTarget& NewTarget);
-	void RemoveFromThreatTable(const AActor* Actor);
 	void ClearThreatTable();
 	void RemoveThreat(const float Amount, const AActor* AppliedBy);
 	
@@ -147,16 +144,16 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Threat")
 	void Vanish();
 
-	void AddFixate(AActor* Target, UBuff* Source);
+	void AddFixate(const AActor* Target, UBuff* Source);
 	void RemoveFixate(const AActor* Target, UBuff* Source);
 	
-	void AddBlind(AActor* Target, UBuff* Source);
+	void AddBlind(const AActor* Target, UBuff* Source);
 	void RemoveBlind(const AActor* Target, UBuff* Source);
 	
 	void AddFade(UBuff* Source);
 	void RemoveFade(UBuff* Source);
 	bool HasActiveFade() const { return Fades.Num() != 0; }
-	void NotifyOfTargetFadeStatusUpdate(const AActor* Target, const bool FadeStatus);
+	void NotifyOfCombatantFadeStatus(const UThreatHandler* Combatant, const bool FadeStatus);
 	
 	void AddMisdirect(UBuff* Source, AActor* Target);
 	void RemoveMisdirect(const UBuff* Source);
@@ -189,13 +186,16 @@ public:
 	UCombatGroup* GetCombatGroup() const { return CombatGroup; }
 
 	void NotifyOfCombat(UCombatGroup* Group);
-	void NotifyOfNewCombatant(UThreatHandler* Combatant) { AddToThreatTable(FThreatTarget(Combatant)); }
-	void NotifyOfCombatantLeft(const UThreatHandler* Combatant) { RemoveFromThreatTable(Combatant->GetOwner()); }
+	void NotifyOfNewCombatant(UThreatHandler* Combatant);
+	void NotifyOfCombatantLeft(const UThreatHandler* Combatant);
 
 private:
 	
 	int32 FindOrAddToThreatTable(UThreatHandler* Target, bool& bAdded);
 	int32 FindInThreatTable(const UThreatHandler* Target) const;
+	int32 FindInThreatTable(const AActor* Target) const;
+	void SortModifiedThreatTarget(const int32 ModifiedIndex);
 	UPROPERTY()
 	UCombatGroup* CombatGroup;
 };
+
