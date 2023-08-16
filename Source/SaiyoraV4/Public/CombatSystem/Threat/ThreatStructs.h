@@ -34,18 +34,20 @@ struct FThreatEvent
 	bool bInitialThreat = false;
 };
 
-USTRUCT()
+USTRUCT(BlueprintType)
 struct FThreatTarget
 {
 	GENERATED_BODY()
 
-	UPROPERTY()
+	UPROPERTY(BlueprintReadOnly)
 	UThreatHandler* TargetThreat = nullptr;
+	UPROPERTY(BlueprintReadOnly)
 	float Threat = 0.0f;
-	UPROPERTY()
+	UPROPERTY(BlueprintReadOnly)
 	TArray<UBuff*> Fixates;
-	UPROPERTY()
+	UPROPERTY(BlueprintReadOnly)
 	TArray<UBuff*> Blinds;
+	UPROPERTY(BlueprintReadOnly)
 	bool Faded = false;
 
 	FThreatTarget() {}

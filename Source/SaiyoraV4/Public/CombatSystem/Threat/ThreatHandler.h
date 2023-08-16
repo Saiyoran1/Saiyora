@@ -99,6 +99,9 @@ public:
 	void RemoveOutgoingThreatModifier(const FThreatModCondition& Modifier) { OutgoingThreatMods.Remove(Modifier); }
 	float GetModifiedOutgoingThreat(const FThreatEvent& ThreatEvent, const FThreatModCondition& SourceModifier) const;
 
+	UFUNCTION(BlueprintPure)
+	void GetThreatTable(TArray<FThreatTarget>& Table) const { Table = ThreatTable; }
+
 private:
 
 	UPROPERTY(ReplicatedUsing = OnRep_bInCombat)
