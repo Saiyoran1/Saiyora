@@ -376,14 +376,14 @@ void UThreatHandler::SortModifiedThreatTarget(const int32 ModifiedIndex)
 		return;
 	}
 	int32 CurrentIndex = ModifiedIndex;
-	while (CurrentIndex > 0 && CurrentIndex < ThreatTable.Num() - 1)
+	while (CurrentIndex >= 0 && CurrentIndex <= ThreatTable.Num() - 1)
 	{
-		if (ThreatTable[CurrentIndex] < ThreatTable[CurrentIndex - 1])
+		if (CurrentIndex > 0 && ThreatTable[CurrentIndex] < ThreatTable[CurrentIndex - 1])
 		{
 			ThreatTable.Swap(CurrentIndex, CurrentIndex - 1);
 			CurrentIndex--;
 		}
-		else if (ThreatTable[CurrentIndex + 1] < ThreatTable[CurrentIndex])
+		else if (CurrentIndex < ThreatTable.Num() - 1 && ThreatTable[CurrentIndex + 1] < ThreatTable[CurrentIndex])
 		{
 			ThreatTable.Swap(CurrentIndex, CurrentIndex + 1);
 			CurrentIndex++;
@@ -597,7 +597,7 @@ void UThreatHandler::AddBlind(const AActor* Target, UBuff* Source)
 {
 	//TODO: How to handle Blind added for target not yet in threat table?
 	//Currently a blind will just enter combat, which isn't really intuitive.
-	if (GetOwnerRole() != ROLE_Authority || !bHasThreatTable || !bInCombat ||
+	if (GetOwnerRole() != ROLE_Authority || !bHasThreatTable ||
 		!IsValid(Target) || !Target->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()) || !IsValid(Source))
 	{
 		return;
@@ -623,7 +623,7 @@ void UThreatHandler::AddBlind(const AActor* Target, UBuff* Source)
 
 void UThreatHandler::RemoveBlind(const AActor* Target, UBuff* Source)
 {
-	if (GetOwnerRole() != ROLE_Authority || !bHasThreatTable || !bInCombat || !IsValid(Target) || !IsValid(Source))
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(Target) || !IsValid(Source))
 	{
 		return;
 	}
@@ -641,7 +641,7 @@ void UThreatHandler::RemoveBlind(const AActor* Target, UBuff* Source)
 
 void UThreatHandler::AddFade(UBuff* Source)
 {
-	if (GetOwnerRole() != ROLE_Authority || !bHasThreatTable || !IsValid(Source) || Source->GetAppliedTo() != GetOwner())
+	if (GetOwnerRole() != ROLE_Authority || !bCanBeInThreatTable || !IsValid(Source) || Source->GetAppliedTo() != GetOwner())
 	{
 		return;
 	}
@@ -652,20 +652,26 @@ void UThreatHandler::AddFade(UBuff* Source)
 	Fades.Add(Source);
 	if (Fades.Num() == 1)
 	{
-		CombatGroup->UpdateCombatantFadeStatus(this, true);
+		if (IsValid(CombatGroup))
+		{
+			CombatGroup->UpdateCombatantFadeStatus(this, true);
+		}
 	}
 }
 
 void UThreatHandler::RemoveFade(UBuff* Source)
 {
-	if (GetOwnerRole() != ROLE_Authority || !bHasThreatTable || !IsValid(Source) || Source->GetAppliedTo() != GetOwner())
+	if (GetOwnerRole() != ROLE_Authority || !bCanBeInThreatTable || !IsValid(Source) || Source->GetAppliedTo() != GetOwner())
 	{
 		return;
 	}
 	const int32 Removed = Fades.Remove(Source);
 	if (Removed > 0 && Fades.Num() == 0)
 	{
-		CombatGroup->UpdateCombatantFadeStatus(this, false);
+		if (IsValid(CombatGroup))
+		{
+			CombatGroup->UpdateCombatantFadeStatus(this, false);
+		}
 	}
 }
 

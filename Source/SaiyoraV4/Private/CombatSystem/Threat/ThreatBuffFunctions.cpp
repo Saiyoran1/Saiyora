@@ -133,3 +133,122 @@ void UThreatRestrictionFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
 }
 
 #pragma endregion
+#pragma region Threat Actions
+
+void UFadeFunction::Fade(UBuff* Buff)
+{
+	if (!IsValid(Buff) || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
+	{
+		return;
+	}
+	UFadeFunction* NewFadeFunction = Cast<UFadeFunction>(InstantiateBuffFunction(Buff, StaticClass()));
+	if (!IsValid(NewFadeFunction))
+	{
+		return;
+	}
+	NewFadeFunction->SetFadeVars();
+}
+
+void UFadeFunction::SetFadeVars()
+{
+	if (GetOwningBuff()->GetAppliedTo()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	{
+		TargetHandler = ISaiyoraCombatInterface::Execute_GetThreatHandler(GetOwningBuff()->GetAppliedTo());
+	}
+}
+
+void UFadeFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
+{
+	if (IsValid(TargetHandler))
+	{
+		TargetHandler->AddFade(GetOwningBuff());
+	}
+}
+
+void UFadeFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
+{
+	if (IsValid(TargetHandler))
+	{
+		TargetHandler->RemoveFade(GetOwningBuff());
+	}
+}
+
+void UFixateFunction::Fixate(UBuff* Buff, AActor* Target)
+{
+	if (!IsValid(Buff) || !IsValid(Target) || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
+	{
+		return;
+	}
+	UFixateFunction* NewFixateFunction = Cast<UFixateFunction>(InstantiateBuffFunction(Buff, StaticClass()));
+	if (!IsValid(NewFixateFunction))
+	{
+		return;
+	}
+	NewFixateFunction->SetFixateVars(Target);
+}
+
+void UFixateFunction::SetFixateVars(AActor* Target)
+{
+	if (GetOwningBuff()->GetAppliedTo()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	{
+		TargetHandler = ISaiyoraCombatInterface::Execute_GetThreatHandler(GetOwningBuff()->GetAppliedTo());
+		FixateTarget = Target;
+	}
+}
+
+void UFixateFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
+{
+	if (IsValid(TargetHandler))
+	{
+		TargetHandler->AddFixate(FixateTarget, GetOwningBuff());
+	}
+}
+
+void UFixateFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
+{
+	if (IsValid(TargetHandler))
+	{
+		TargetHandler->RemoveFixate(FixateTarget, GetOwningBuff());
+	}
+}
+
+void UBlindFunction::Blind(UBuff* Buff, AActor* Target)
+{
+	if (!IsValid(Buff) || !IsValid(Target) || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
+	{
+		return;
+	}
+	UBlindFunction* NewBlindFunction = Cast<UBlindFunction>(InstantiateBuffFunction(Buff, StaticClass()));
+	if (!IsValid(NewBlindFunction))
+	{
+		return;
+	}
+	NewBlindFunction->SetBlindVars(Target);
+}
+
+void UBlindFunction::SetBlindVars(AActor* Target)
+{
+	if (GetOwningBuff()->GetAppliedTo()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	{
+		TargetHandler = ISaiyoraCombatInterface::Execute_GetThreatHandler(GetOwningBuff()->GetAppliedTo());
+		BlindTarget = Target;
+	}
+}
+
+void UBlindFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
+{
+	if (IsValid(TargetHandler))
+	{
+		TargetHandler->AddBlind(BlindTarget, GetOwningBuff());
+	}
+}
+
+void UBlindFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
+{
+	if (IsValid(TargetHandler))
+	{
+		TargetHandler->RemoveBlind(BlindTarget, GetOwningBuff());
+	}
+}
+
+#pragma endregion
