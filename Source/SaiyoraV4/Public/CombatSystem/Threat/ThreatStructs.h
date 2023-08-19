@@ -75,10 +75,11 @@ struct FMisdirect
 
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FThreatRestriction, FThreatEvent const&, ThreatEvent);
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FThreatModCondition, FThreatEvent const&, ThreatEvent);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FCombatStatusNotification, bool const, NewCombatStatus);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FCombatStatusNotification, const bool, NewCombatStatus);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FTargetNotification, AActor*, PreviousTarget, AActor*, NewTarget);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FFadeNotification, AActor*, Target, bool const, Faded);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FFadeNotification, AActor*, Target, const bool, Faded);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FVanishNotification, AActor*, Target);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FActorCombatNotification, AActor*, Actor, const bool, NewCombatStatus);
 
 //Threat caused by damage and healing can have a separate base threat value, an optional modifier from the source, and the option to ignore modifiers and restrictions.
 USTRUCT(BlueprintType)

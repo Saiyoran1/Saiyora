@@ -5,6 +5,7 @@
 #include "CombatEnums.h"
 #include "SaiyoraCombatInterface.h"
 #include "SpecializationStructs.h"
+#include "ThreatStructs.h"
 #include "GameFramework/Character.h"
 #include "SaiyoraPlayerCharacter.generated.h"
 
@@ -53,6 +54,11 @@ public:
 	ASaiyoraGameState* GetSaiyoraGameState() const { return GameStateRef; }
 	UFUNCTION(BlueprintPure)
 	ASaiyoraPlayerController* GetSaiyoraPlayerController() const { return PlayerControllerRef; }
+
+	void NotifyEnemyCombatChanged(AActor* Enemy, const bool bInCombat) { OnEnemyCombatChanged.Broadcast(Enemy, bInCombat); }
+
+	UPROPERTY(BlueprintAssignable)
+	FActorCombatNotification OnEnemyCombatChanged;
 
 protected:
 	

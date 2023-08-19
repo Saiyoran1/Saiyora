@@ -3,6 +3,9 @@
 #include "BuffFunction.h"
 #include "CombatStatusComponent.h"
 #include "SaiyoraCombatInterface.h"
+#include "SaiyoraPlayerCharacter.h"
+#include "GameFramework/GameStateBase.h"
+#include "GameFramework/PlayerState.h"
 #include "Kismet/KismetSystemLibrary.h"
 
 float USaiyoraCombatLibrary::GetActorPing(const AActor* Actor)
@@ -38,3 +41,25 @@ void USaiyoraCombatLibrary::AttachCombatActorToComponent(AActor* Target, USceneC
         }
     }
 }
+
+ASaiyoraPlayerCharacter* USaiyoraCombatLibrary::GetLocalSaiyoraPlayer(const UObject* WorldContext)
+{
+    if (!IsValid(WorldContext) || !IsValid(WorldContext->GetWorld()))
+    {
+        return nullptr;
+    }
+    if (!IsValid(WorldContext->GetWorld()->GetGameState()))
+    {
+        return nullptr;
+    }
+    for (TObjectPtr<APlayerState> PlayerState : WorldContext->GetWorld()->GetGameState()->PlayerArray)
+    {
+        if (IsValid(PlayerState.Get()) && IsValid(PlayerState.Get()->GetPlayerController())
+            && PlayerState.Get()->GetPlayerController()->IsLocalController() && IsValid(PlayerState.Get()->GetPlayerController()->GetPawn()))
+        {
+            return Cast<ASaiyoraPlayerCharacter>(PlayerState.Get()->GetPlayerController()->GetPawn());
+        }
+    }
+    return nullptr;
+}
+

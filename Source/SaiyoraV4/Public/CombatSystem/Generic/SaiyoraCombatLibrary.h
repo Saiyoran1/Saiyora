@@ -6,6 +6,7 @@
 
 class UBuff;
 class UBuffFunction;
+class ASaiyoraPlayerCharacter;
 
 UCLASS()
 class SAIYORAV4_API USaiyoraCombatLibrary : public UBlueprintFunctionLibrary
@@ -18,6 +19,8 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Time")
 	static float GetActorPing(const AActor* Actor);
+	UFUNCTION(BlueprintPure, Category = "Player")
+	static ASaiyoraPlayerCharacter* GetLocalSaiyoraPlayer(const UObject* WorldContext);
 
 	//Attachment
 

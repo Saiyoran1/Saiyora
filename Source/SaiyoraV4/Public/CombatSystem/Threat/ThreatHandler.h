@@ -3,6 +3,7 @@
 #include "ThreatStructs.h"
 #include "DamageStructs.h"
 #include "NPCEnums.h"
+#include "SaiyoraPlayerCharacter.h"
 #include "Components/ActorComponent.h"
 #include "ThreatHandler.generated.h"
 
@@ -133,6 +134,8 @@ private:
 	void UpdateTarget();
 	UFUNCTION()
 	void OnOwnerDamageTaken(const FHealthEvent& DamageEvent);
+	UPROPERTY()
+	ASaiyoraPlayerCharacter* LocalPlayer = nullptr;
 	
 //Threat Actions
 
@@ -200,5 +203,6 @@ private:
 	void SortModifiedThreatTarget(const int32 ModifiedIndex);
 	UPROPERTY()
 	UCombatGroup* CombatGroup;
+	void NotifyLocalPlayerOfCombatChange();
 };
 

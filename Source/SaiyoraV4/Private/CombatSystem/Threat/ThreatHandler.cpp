@@ -8,6 +8,8 @@
 #include "SaiyoraCombatInterface.h"
 #include "CombatStatusComponent.h"
 #include "NPCAbilityComponent.h"
+#include "SaiyoraCombatLibrary.h"
+#include "SaiyoraPlayerCharacter.h"
 
 float UThreatHandler::GLOBALHEALINGTHREATMOD = 0.3f;
 float UThreatHandler::GLOBALTAUNTTHREATPERCENT = 1.2f;
@@ -458,6 +460,22 @@ void UThreatHandler::UpdateTarget()
 void UThreatHandler::OnRep_bInCombat()
 {
 	OnCombatChanged.Broadcast(bInCombat);
+	NotifyLocalPlayerOfCombatChange();
+}
+
+void UThreatHandler::NotifyLocalPlayerOfCombatChange()
+{
+	if (IsValid(CombatStatusComponentRef) && CombatStatusComponentRef->GetCurrentFaction() == EFaction::Enemy)
+	{
+		if (!IsValid(LocalPlayer))
+		{
+			LocalPlayer = USaiyoraCombatLibrary::GetLocalSaiyoraPlayer(this);
+		}
+		if (IsValid(LocalPlayer))
+		{
+			LocalPlayer->NotifyEnemyCombatChanged(GetOwner(), bInCombat);
+		}
+	}
 }
 
 void UThreatHandler::OnRep_CurrentTarget(AActor* PreviousTarget)
@@ -733,6 +751,7 @@ void UThreatHandler::NotifyOfCombat(UCombatGroup* Group)
 			CombatStartTime = 0.0f;
 			ClearThreatTable();
 			OnCombatChanged.Broadcast(false);
+			NotifyLocalPlayerOfCombatChange();
 		}
 		return;
 	}
@@ -742,6 +761,7 @@ void UThreatHandler::NotifyOfCombat(UCombatGroup* Group)
 		bInCombat = true;
 		CombatStartTime = GetWorld()->GetGameState()->GetServerWorldTimeSeconds();
 		OnCombatChanged.Broadcast(true);
+		NotifyLocalPlayerOfCombatChange();
 	}
 }
 
