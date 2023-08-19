@@ -3,6 +3,12 @@
 #include "SaiyoraPlayerCharacter.h"
 #include "Kismet/KismetSystemLibrary.h"
 
+static TAutoConsoleVariable<int32> DrawRewindHitboxes(
+		TEXT("game.DrawRewindHitboxes"),
+		0,
+		TEXT("Determines whether server-side validation of hits should draw the rewound hitbox used."),
+		ECVF_Default);
+
 ASaiyoraGameState::ASaiyoraGameState()
 {
 	PrimaryActorTick.bCanEverTick = true;
@@ -101,8 +107,11 @@ FTransform ASaiyoraGameState::RewindHitbox(UHitbox* Hitbox, const float Timestam
     if (AfterIndex == 0)
     {
     	Hitbox->SetWorldTransform(Record->Transforms[0].Value);
-    	UKismetSystemLibrary::DrawDebugBox(Hitbox, Hitbox->GetComponentLocation(), Hitbox->Bounds.BoxExtent, FLinearColor::Blue, Hitbox->GetComponentRotation(), 5.0f, 2);
-    	UKismetSystemLibrary::DrawDebugBox(Hitbox, OriginalTransform.GetLocation(), Hitbox->Bounds.BoxExtent, FLinearColor::Green, OriginalTransform.Rotator(), 5.0f, 2);
+    	if (DrawRewindHitboxes.GetValueOnGameThread() > 0)
+    	{
+    		UKismetSystemLibrary::DrawDebugBox(Hitbox, Hitbox->GetComponentLocation(), Hitbox->Bounds.BoxExtent, FLinearColor::Blue, Hitbox->GetComponentRotation(), 5.0f, 2);
+    		UKismetSystemLibrary::DrawDebugBox(Hitbox, OriginalTransform.GetLocation(), Hitbox->Bounds.BoxExtent, FLinearColor::Green, OriginalTransform.Rotator(), 5.0f, 2);
+    	}
     	return OriginalTransform;
     }
     float BeforeTimestamp;
@@ -137,8 +146,11 @@ FTransform ASaiyoraGameState::RewindHitbox(UHitbox* Hitbox, const float Timestam
     Hitbox->SetWorldRotation(BeforeTransform.Rotator() + InterpRotator);
     //Don't interpolate scale (I don't currently have smooth scale changes). Just pick whichever is closer to the target timestamp.
     Hitbox->SetWorldScale3D(SnapshotFraction <= 0.5f ? BeforeTransform.GetScale3D() : AfterTransform.GetScale3D());
-    UKismetSystemLibrary::DrawDebugBox(Hitbox, Hitbox->GetComponentLocation(), Hitbox->Bounds.BoxExtent, FLinearColor::Blue, Hitbox->GetComponentRotation(), 5.0f, 2);
-    UKismetSystemLibrary::DrawDebugBox(Hitbox, OriginalTransform.GetLocation(), Hitbox->Bounds.BoxExtent, FLinearColor::Green, OriginalTransform.Rotator(), 5.0f, 2);
+	if (DrawRewindHitboxes.GetValueOnGameThread() > 0)
+	{
+		UKismetSystemLibrary::DrawDebugBox(Hitbox, Hitbox->GetComponentLocation(), Hitbox->Bounds.BoxExtent, FLinearColor::Blue, Hitbox->GetComponentRotation(), 5.0f, 2);
+		UKismetSystemLibrary::DrawDebugBox(Hitbox, OriginalTransform.GetLocation(), Hitbox->Bounds.BoxExtent, FLinearColor::Green, OriginalTransform.Rotator(), 5.0f, 2);
+	}
     return OriginalTransform;
 }
 

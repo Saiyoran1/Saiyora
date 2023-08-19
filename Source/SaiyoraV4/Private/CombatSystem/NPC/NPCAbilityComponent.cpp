@@ -5,6 +5,7 @@
 #include "SaiyoraMovementComponent.h"
 #include "StatHandler.h"
 #include "ThreatHandler.h"
+#include "UnrealNetwork.h"
 #include "BehaviorTree/BehaviorTree.h"
 #include "BehaviorTree/BlackboardComponent.h"
 
@@ -66,6 +67,12 @@ void UNPCAbilityComponent::BeginPlay()
 	OnControllerChanged(OwnerAsPawn, nullptr, OwnerAsPawn->GetController());
 }
 
+void UNPCAbilityComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(UNPCAbilityComponent, CombatBehavior);
+}
+
 void UNPCAbilityComponent::UpdateCombatBehavior()
 {
 	ENPCCombatBehavior NewCombatBehavior = ENPCCombatBehavior::None;
@@ -125,6 +132,11 @@ void UNPCAbilityComponent::UpdateCombatBehavior()
 		}
 		OnCombatBehaviorChanged.Broadcast(PreviousBehavior, CombatBehavior);
 	}
+}
+
+void UNPCAbilityComponent::OnRep_CombatBehavior(const ENPCCombatBehavior Previous)
+{
+	OnCombatBehaviorChanged.Broadcast(Previous, CombatBehavior);
 }
 
 void UNPCAbilityComponent::SetupBehavior()

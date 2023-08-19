@@ -29,6 +29,7 @@ protected:
 
 	virtual void InitializeComponent() override;
 	virtual void BeginPlay() override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	UPROPERTY(EditAnywhere, Category = "Behavior")
 	UBehaviorTree* BehaviorTree;
@@ -46,7 +47,10 @@ private:
 	UPROPERTY()
 	UCombatStatusComponent* CombatStatusComponentRef;
 
+	UPROPERTY(ReplicatedUsing=OnRep_CombatBehavior)
 	ENPCCombatBehavior CombatBehavior = ENPCCombatBehavior::None;
+	UFUNCTION()
+	void OnRep_CombatBehavior(const ENPCCombatBehavior Previous);
 	void UpdateCombatBehavior();
 	UFUNCTION()
 	void OnControllerChanged(APawn* PossessedPawn, AController* OldController, AController* NewController) { AIController = Cast<AAIController>(NewController); UpdateCombatBehavior(); }

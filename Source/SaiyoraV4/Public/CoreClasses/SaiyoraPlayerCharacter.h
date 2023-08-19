@@ -135,7 +135,10 @@ private:
 public:
 
 	void SetWeapon(AWeapon* NewWeapon) { Weapon = NewWeapon; }
+	UFUNCTION(BlueprintPure, Category = "Weapon")
 	AWeapon* GetWeapon() const { return Weapon; }
+	UFUNCTION(BlueprintPure, Category = "Weapon")
+	UReload* GetReloadAbility() const { return ReloadAbility; }
 
 private:
 

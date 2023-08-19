@@ -1,6 +1,5 @@
 ﻿#include "AggroRadius.h"
 #include "AbilityComponent.h"
-#include "AbilityFunctionLibrary.h"
 #include "CombatStatusComponent.h"
 #include "NPCAbilityComponent.h"
 #include "SaiyoraCombatInterface.h"
@@ -8,6 +7,12 @@
 #include "StatHandler.h"
 #include "ThreatHandler.h"
 #include "Kismet/KismetSystemLibrary.h"
+
+static TAutoConsoleVariable<int32> DrawAggroSpheres(
+		TEXT("threat.DrawAggroSpheres"),
+		0,
+		TEXT("Determines whether Aggro Radius spheres should be visible."),
+		ECVF_Default);
 
 UAggroRadius::UAggroRadius()
 {
@@ -18,17 +23,20 @@ UAggroRadius::UAggroRadius()
 void UAggroRadius::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-	if (GetCollisionProfileName() == FSaiyoraCollision::P_NPCNonCombatAggro)
+	if (DrawAggroSpheres.GetValueOnGameThread() > 0)
 	{
-		DrawDebugSphere(GetWorld(), GetComponentLocation(), GetScaledSphereRadius(), 32, FColor::Yellow);
-	}
-	else if (GetCollisionProfileName() == FSaiyoraCollision::P_NPCCombatAggro)
-	{
-		DrawDebugSphere(GetWorld(), GetComponentLocation(), GetScaledSphereRadius(), 32, FColor::Red);
-	}
-	else if (GetCollisionProfileName() == FSaiyoraCollision::P_PlayerAggro)
-	{
-		DrawDebugSphere(GetWorld(), GetComponentLocation(), GetScaledSphereRadius(), 32, FColor::Blue);
+		if (GetCollisionProfileName() == FSaiyoraCollision::P_NPCNonCombatAggro)
+		{
+			DrawDebugSphere(GetWorld(), GetComponentLocation(), GetScaledSphereRadius(), 32, FColor::Yellow);
+		}
+		else if (GetCollisionProfileName() == FSaiyoraCollision::P_NPCCombatAggro)
+		{
+			DrawDebugSphere(GetWorld(), GetComponentLocation(), GetScaledSphereRadius(), 32, FColor::Red);
+		}
+		else if (GetCollisionProfileName() == FSaiyoraCollision::P_PlayerAggro)
+		{
+			DrawDebugSphere(GetWorld(), GetComponentLocation(), GetScaledSphereRadius(), 32, FColor::Blue);
+		}
 	}
 }
 
