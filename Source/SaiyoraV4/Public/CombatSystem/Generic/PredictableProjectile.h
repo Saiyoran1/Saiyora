@@ -38,6 +38,7 @@ public:
 	APredictableProjectile(const class FObjectInitializer& ObjectInitializer);
 	virtual void PostNetReceiveLocationAndRotation() override;
 	virtual void PostNetInit() override;
+	virtual void Tick(float DeltaSeconds) override;
 	void InitializeProjectile(UCombatAbility* Source, const FPredictedTick& Tick, const int32 ID, const ESaiyoraPlane ProjectilePlane, const EFaction ProjectileHostility);
 	
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Projectile")
@@ -88,4 +89,5 @@ private:
 	void HideProjectile();
 	UPROPERTY()
 	TMap<UPrimitiveComponent*, FName> PreHideCollision;
+	bool bHidden = false;
 };

@@ -7,6 +7,12 @@
 #include "CoreClasses/SaiyoraPlayerCharacter.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 
+static TAutoConsoleVariable<int32> DrawHiddenProjectiles(
+		TEXT("game.DrawHiddenProjectiles"),
+		0,
+		TEXT("Determines whether projectiles from the server that haven't caught up and replaced their respective client predictions should be drawn."),
+		ECVF_Default);
+
 APredictableProjectile::APredictableProjectile(const class FObjectInitializer& ObjectInitializer)
 {
 	ProjectileMovement = CreateDefaultSubobject<USaiyoraProjectileComponent>(TEXT("Projectile Movement"));
@@ -33,6 +39,15 @@ void APredictableProjectile::PostNetInit()
 			PreHideCollision.Add(Comp, Comp->GetCollisionProfileName());
 		}
 		HideProjectile();
+	}
+}
+
+void APredictableProjectile::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+	if (DrawHiddenProjectiles.GetValueOnGameThread() > 0 && bHidden)
+	{
+		DrawDebugSphere(GetWorld(), GetActorLocation(), 50.0f, 12, FColor::Green);
 	}
 }
 
@@ -138,6 +153,7 @@ void APredictableProjectile::OnRep_ShouldReplace()
 			}
 		}
 		bReplaced = true;
+		bHidden = false;
 	}
 }
 
@@ -220,6 +236,7 @@ void APredictableProjectile::HideProjectile()
 		Comp->SetVisibility(false, true);
 		Comp->SetCollisionProfileName(FSaiyoraCollision::P_NoCollision);
 	}
+	bHidden = true;
 }
 
 #pragma endregion 
