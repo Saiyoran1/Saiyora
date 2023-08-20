@@ -9,7 +9,7 @@
 #include "Kismet/KismetSystemLibrary.h"
 
 static TAutoConsoleVariable<int32> DrawAggroSpheres(
-		TEXT("threat.DrawAggroSpheres"),
+		TEXT("game.DrawAggroSpheres"),
 		0,
 		TEXT("Determines whether Aggro Radius spheres should be visible."),
 		ECVF_Default);

@@ -120,6 +120,7 @@ void APredictableProjectile::InitializeProjectile(UCombatAbility* Source, const 
 			}
 		}
 	}
+	OnInitialize();
 }
 
 void APredictableProjectile::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -136,6 +137,7 @@ void APredictableProjectile::OnRep_SourceInfo()
 	{
 		SourceInfo.Owner->ReplaceProjectile(this);
 		bReplaced = true;
+		bHidden = false;
 	}
 }
 
@@ -169,6 +171,7 @@ void APredictableProjectile::DeleteOnMisprediction(int32 const PredictionID)
 
 bool APredictableProjectile::Replace()
 {
+	HideProjectile();
 	Destroy();
 	return bClientDestroyed;
 }
@@ -179,6 +182,7 @@ void APredictableProjectile::UpdateLocallyDestroyed(bool const bLocallyDestroyed
 	{
 		bClientDestroyed = true;
 		HideProjectile();
+		OnDestroy();
 	}
 }
 
@@ -215,6 +219,7 @@ void APredictableProjectile::OnRep_Destroyed()
 	{
 		if (!bClientDestroyed)
 		{
+			bClientDestroyed = true;
 			OnDestroy();
 			HideProjectile();
 		}

@@ -60,6 +60,8 @@ protected:
 
 	UFUNCTION(BlueprintImplementableEvent)
 	void OnDestroy();
+	UFUNCTION(BlueprintImplementableEvent)
+	void OnInitialize();
 	
 private:
 	

@@ -798,7 +798,7 @@ void USaiyoraMovementComponent::StopMotionOnRooted(const FCrowdControlStatus& Pr
 	{
 		for (USaiyoraRootMotionTask* ActiveRMTask : ActiveRootMotionTasks)
 		{
-			if (!ActiveRMTask->bIgnoreRestrictions)
+			if (IsValid(ActiveRMTask) && !ActiveRMTask->bIgnoreRestrictions)
 			{
 				ActiveRMTask->EndTask();
 			}
