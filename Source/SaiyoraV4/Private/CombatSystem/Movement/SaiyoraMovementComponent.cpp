@@ -29,6 +29,10 @@ bool USaiyoraMovementComponent::FSavedMove_Saiyora::CanCombineWith(const FSavedM
 		{
 			return false;
 		}
+		if (bSavedPerformedServerStatChange != CastMove->bSavedPerformedServerStatChange || SavedServerStatChangeID != CastMove->SavedServerStatChangeID)
+		{
+			return false;
+		}
 	}
 	return Super::CanCombineWith(NewMove, InCharacter, MaxDelta);
 }
@@ -41,6 +45,9 @@ void USaiyoraMovementComponent::FSavedMove_Saiyora::Clear()
 	bSavedPerformedServerMove = false;
 	SavedServerMoveID = 0;
 	SavedServerMove = FCustomMoveParams();
+	bSavedPerformedServerStatChange = false;
+	SavedServerStatChangeID = 0;
+	SavedServerStatChange = FServerMoveStatChange();
 }
 
 uint8 USaiyoraMovementComponent::FSavedMove_Saiyora::GetCompressedFlags() const
@@ -54,6 +61,10 @@ uint8 USaiyoraMovementComponent::FSavedMove_Saiyora::GetCompressedFlags() const
 	{
 		Result |= FLAG_Custom_2;
 	}
+	if (bSavedPerformedServerStatChange)
+	{
+		Result |= FLAG_Custom_3;
+	}
 	return Result;
 }
 
@@ -65,6 +76,7 @@ void USaiyoraMovementComponent::FSavedMove_Saiyora::PrepMoveFor(ACharacter* C)
 	{
 		Movement->PendingPredictedCustomMove = SavedPredictedCustomMove;
 		Movement->ServerMoveToExecute = SavedServerMove;
+		Movement->ServerStatChangeToExecute = SavedServerStatChange;
 	}
 }
 
@@ -80,6 +92,9 @@ void USaiyoraMovementComponent::FSavedMove_Saiyora::SetMoveFor(ACharacter* C, fl
 		bSavedPerformedServerMove = Movement->bWantsServerMove;
 		SavedServerMoveID = Movement->ServerMoveToExecuteID;
 		SavedServerMove = Movement->ServerMoveToExecute;
+		bSavedPerformedServerStatChange = Movement->bWantsServerStatChange;
+		SavedServerStatChangeID = Movement->ServerStatChangeToExecuteID;
+		SavedServerStatChange = Movement->ServerStatChangeToExecute;
 	}
 }
 
@@ -89,6 +104,7 @@ void USaiyoraMovementComponent::UpdateFromCompressedFlags(uint8 Flags)
 	//Updates the CMC when replaying a client move or receiving the move on the server. Only affects flags.
 	bWantsPredictedMove = (Flags & FSavedMove_Character::FLAG_Custom_1) != 0;
 	bWantsServerMove = (Flags & FSavedMove_Character::FLAG_Custom_2) != 0;
+	bWantsServerStatChange = (Flags & FSavedMove_Character::FLAG_Custom_3) != 0;
 }
 
 USaiyoraMovementComponent::FNetworkPredictionData_Client_Saiyora::FNetworkPredictionData_Client_Saiyora(
@@ -116,6 +132,7 @@ void USaiyoraMovementComponent::FSaiyoraNetworkMoveData::ClientFillNetworkMoveDa
 		CustomMoveAbilityRequest.Origin = CastMove->SavedPredictedCustomMove.Origin;
 		CustomMoveAbilityRequest.ClientStartTime = CastMove->SavedPredictedCustomMove.OriginalTimestamp;
 		ServerMoveID = CastMove->SavedServerMoveID;
+		ServerStatChangeID = CastMove->SavedServerStatChangeID;
 	}
 }
 
@@ -125,6 +142,7 @@ bool USaiyoraMovementComponent::FSaiyoraNetworkMoveData::Serialize(UCharacterMov
 	Super::Serialize(CharacterMovement, Ar, PackageMap, MoveType);
 	Ar << CustomMoveAbilityRequest;
 	Ar << ServerMoveID;
+	Ar << ServerStatChangeID;
 	return !Ar.IsError();
 }
 
@@ -160,6 +178,8 @@ void USaiyoraMovementComponent::GetLifetimeReplicatedProps(TArray<FLifetimePrope
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(USaiyoraMovementComponent, bExternalMovementRestricted);
+	DOREPLIFETIME_CONDITION(USaiyoraMovementComponent, PendingServerMoveStats, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(USaiyoraMovementComponent, ConfirmedServerMoveStats, COND_SkipOwner);
 }
 
 bool USaiyoraMovementComponent::ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch,
@@ -177,19 +197,14 @@ void USaiyoraMovementComponent::InitializeComponent()
 {
 	Super::InitializeComponent();
 	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Custom Movement Component."));
+	PendingServerMoveStats.OwningComponent = this;
+	ConfirmedServerMoveStats.OwningComponent = this;
 	AbilityComponentRef = ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwner());
 	CcHandlerRef = ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(GetOwner());
 	DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
 	StatHandlerRef = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
 	BuffHandlerRef = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwner());
-	MaxWalkSpeedStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnMaxWalkSpeedStatChanged);
-	MaxCrouchSpeedStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnMaxCrouchSpeedStatChanged);
-	GroundFrictionStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnGroundFrictionStatChanged);
-	BrakingDecelerationStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnBrakingDecelerationStatChanged);
-	MaxAccelerationStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnMaxAccelerationStatChanged);
-	GravityScaleStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnGravityScaleStatChanged);
-	JumpVelocityStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnJumpVelocityStatChanged);
-	AirControlStatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnAirControlStatChanged);
+	StatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnMoveStatChanged);
 	DefaultMaxWalkSpeed = MaxWalkSpeed;
 	DefaultCrouchSpeed = MaxWalkSpeedCrouched;
 	DefaultGroundFriction = GroundFriction;
@@ -228,43 +243,43 @@ void USaiyoraMovementComponent::BeginPlay()
 		const FSaiyoraCombatTags& CombatTags = FSaiyoraCombatTags::Get();
 		if (StatHandlerRef->IsStatValid(CombatTags.Stat_MaxWalkSpeed))
 		{
-			MaxWalkSpeed = FMath::Max(DefaultMaxWalkSpeed * StatHandlerRef->GetStatValue(CombatTags.Stat_MaxWalkSpeed), 0.0f);
-			StatHandlerRef->SubscribeToStatChanged(CombatTags.Stat_MaxWalkSpeed, MaxWalkSpeedStatCallback);
+			OnMoveStatChanged(CombatTags.Stat_MaxWalkSpeed, StatHandlerRef->GetStatValue(CombatTags.Stat_MaxWalkSpeed));
+			StatHandlerRef->SubscribeToStatChanged(CombatTags.Stat_MaxWalkSpeed, StatCallback);
 		}
 		if (StatHandlerRef->IsStatValid(CombatTags.Stat_MaxCrouchSpeed))
 		{
-			MaxWalkSpeedCrouched = FMath::Max(DefaultCrouchSpeed * StatHandlerRef->GetStatValue(CombatTags.Stat_MaxCrouchSpeed), 0.0f);
-			StatHandlerRef->SubscribeToStatChanged(CombatTags.Stat_MaxCrouchSpeed, MaxCrouchSpeedStatCallback);
+			OnMoveStatChanged(CombatTags.Stat_MaxWalkSpeed, StatHandlerRef->GetStatValue(CombatTags.Stat_MaxCrouchSpeed));
+			StatHandlerRef->SubscribeToStatChanged(CombatTags.Stat_MaxCrouchSpeed, StatCallback);
 		}
 		if (StatHandlerRef->IsStatValid(CombatTags.Stat_GroundFriction))
 		{
-			GroundFriction = FMath::Max(DefaultGroundFriction * StatHandlerRef->GetStatValue(CombatTags.Stat_GroundFriction), 0.0f);
-			StatHandlerRef->SubscribeToStatChanged(CombatTags.Stat_GroundFriction, GroundFrictionStatCallback);
+			OnMoveStatChanged(CombatTags.Stat_MaxWalkSpeed, StatHandlerRef->GetStatValue(CombatTags.Stat_GroundFriction));
+			StatHandlerRef->SubscribeToStatChanged(CombatTags.Stat_GroundFriction, StatCallback);
 		}
 		if (StatHandlerRef->IsStatValid(CombatTags.Stat_BrakingDeceleration))
 		{
-			BrakingDecelerationWalking = FMath::Max(DefaultBrakingDeceleration * StatHandlerRef->GetStatValue(CombatTags.Stat_BrakingDeceleration), 0.0f);
-			StatHandlerRef->SubscribeToStatChanged(CombatTags.Stat_BrakingDeceleration, BrakingDecelerationStatCallback);
+			OnMoveStatChanged(CombatTags.Stat_MaxWalkSpeed, StatHandlerRef->GetStatValue(CombatTags.Stat_BrakingDeceleration));
+			StatHandlerRef->SubscribeToStatChanged(CombatTags.Stat_BrakingDeceleration, StatCallback);
 		}
 		if (StatHandlerRef->IsStatValid(CombatTags.Stat_MaxAcceleration))
 		{
-			MaxAcceleration = FMath::Max(DefaultMaxAcceleration * StatHandlerRef->GetStatValue(CombatTags.Stat_MaxAcceleration), 0.0f);
-			StatHandlerRef->SubscribeToStatChanged(CombatTags.Stat_MaxAcceleration, MaxAccelerationStatCallback);
+			OnMoveStatChanged(CombatTags.Stat_MaxWalkSpeed, StatHandlerRef->GetStatValue(CombatTags.Stat_MaxAcceleration));
+			StatHandlerRef->SubscribeToStatChanged(CombatTags.Stat_MaxAcceleration, StatCallback);
 		}
 		if (StatHandlerRef->IsStatValid(CombatTags.Stat_GravityScale))
 		{
-			GravityScale = FMath::Max(DefaultGravityScale * StatHandlerRef->GetStatValue(CombatTags.Stat_GravityScale), 0.0f);
-			StatHandlerRef->SubscribeToStatChanged(CombatTags.Stat_GravityScale, GravityScaleStatCallback);
+			OnMoveStatChanged(CombatTags.Stat_MaxWalkSpeed, StatHandlerRef->GetStatValue(CombatTags.Stat_GravityScale));
+			StatHandlerRef->SubscribeToStatChanged(CombatTags.Stat_GravityScale, StatCallback);
 		}
 		if (StatHandlerRef->IsStatValid(CombatTags.Stat_JumpZVelocity))
 		{
-			JumpZVelocity = FMath::Max(DefaultJumpZVelocity * StatHandlerRef->GetStatValue(CombatTags.Stat_JumpZVelocity), 0.0f);
-			StatHandlerRef->SubscribeToStatChanged(CombatTags.Stat_JumpZVelocity, JumpVelocityStatCallback);
+			OnMoveStatChanged(CombatTags.Stat_MaxWalkSpeed, StatHandlerRef->GetStatValue(CombatTags.Stat_JumpZVelocity));
+			StatHandlerRef->SubscribeToStatChanged(CombatTags.Stat_JumpZVelocity, StatCallback);
 		}
 		if (StatHandlerRef->IsStatValid(CombatTags.Stat_AirControl))
 		{
-			AirControl = FMath::Max(DefaultAirControl * StatHandlerRef->GetStatValue(CombatTags.Stat_AirControl), 0.0f);
-			StatHandlerRef->SubscribeToStatChanged(CombatTags.Stat_AirControl, AirControlStatCallback);
+			OnMoveStatChanged(CombatTags.Stat_MaxWalkSpeed, StatHandlerRef->GetStatValue(CombatTags.Stat_AirControl));
+			StatHandlerRef->SubscribeToStatChanged(CombatTags.Stat_AirControl, StatCallback);
 		}
 	}
 	if (IsValid(BuffHandlerRef) && GetOwnerRole() == ROLE_Authority)
@@ -298,6 +313,13 @@ void USaiyoraMovementComponent::OnMovementUpdated(float DeltaSeconds, const FVec
 		ServerMoveToExecute = FCustomMoveParams();
 		ServerMoveToExecuteID = 0;
 	}
+	if (bWantsServerStatChange)
+	{
+		ServerStatChangeFromFlag();
+		bWantsServerStatChange = false;
+		ServerStatChangeToExecute = FServerMoveStatChange();
+		ServerStatChangeToExecuteID = 0;
+	}
 }
 
 void USaiyoraMovementComponent::MoveAutonomous(float ClientTimeStamp, float DeltaTime, uint8 CompressedFlags,
@@ -308,6 +330,7 @@ void USaiyoraMovementComponent::MoveAutonomous(float ClientTimeStamp, float Delt
 	{
 		CustomMoveAbilityRequest = MoveData->CustomMoveAbilityRequest;
 		ServerMoveToExecuteID = MoveData->ServerMoveID;
+		ServerStatChangeToExecuteID = MoveData->ServerStatChangeID;
 	}
 	Super::MoveAutonomous(ClientTimeStamp, DeltaTime, CompressedFlags, NewAccel);
 }
@@ -785,7 +808,10 @@ void USaiyoraMovementComponent::StopMotionOnOwnerDeath(AActor* Target, const ELi
 	{
 		for (USaiyoraRootMotionTask* ActiveRMTask : ActiveRootMotionTasks)
 		{
-			ActiveRMTask->EndTask();
+			if (IsValid(ActiveRMTask))
+			{
+				ActiveRMTask->EndTask();
+			}
 		}
 		StopMovementImmediately();
 	}
@@ -901,47 +927,156 @@ float USaiyoraMovementComponent::GetMaxSpeed() const
 #pragma endregion
 #pragma region Stats
 
-void USaiyoraMovementComponent::OnMaxWalkSpeedStatChanged(const FGameplayTag StatTag, const float NewValue)
+void USaiyoraMovementComponent::UpdateMoveStatFromServer(const int32 ChangeID, const FGameplayTag StatTag,
+	const float Value)
 {
-	//TODO: Delay by ping for non-locally controlled on the server?
-	//Make sure all movement stats are actually replicated.
-	//Need a way for remote clients to see these changes?
-	MaxWalkSpeed = FMath::Max(DefaultMaxWalkSpeed * NewValue, 0.0f);
+	if (PawnOwner->GetLocalRole() == ROLE_SimulatedProxy)
+	{
+		UpdateMoveStat(StatTag, Value);
+		return;
+	}
+	const int32* LastChangeID = ClientLastStatUpdate.Find(StatTag);
+	if (LastChangeID != nullptr && *LastChangeID > ChangeID)
+	{
+		return;
+	}
+	bWantsServerStatChange = true;
+	ServerStatChangeToExecuteID = ChangeID;
+	ServerStatChangeToExecute = FServerMoveStatChange(StatTag, Value, ChangeID);
+	ClientLastStatUpdate.Add(StatTag, ChangeID);
 }
 
-void USaiyoraMovementComponent::OnMaxCrouchSpeedStatChanged(const FGameplayTag StatTag, const float NewValue)
+void USaiyoraMovementComponent::UpdateMoveStat(const FGameplayTag StatTag, const float Value)
 {
-	MaxWalkSpeedCrouched = FMath::Max(DefaultCrouchSpeed * NewValue, 0.0f);
+	if (StatTag.MatchesTagExact(FSaiyoraCombatTags::Get().Stat_MaxWalkSpeed))
+	{
+		MaxWalkSpeed = FMath::Max(DefaultMaxWalkSpeed * Value, 0.0f);
+	}
+	else if (StatTag.MatchesTagExact(FSaiyoraCombatTags::Get().Stat_MaxCrouchSpeed))
+	{
+		MaxWalkSpeedCrouched = FMath::Max(DefaultCrouchSpeed * Value, 0.0f);
+	}
+	else if (StatTag.MatchesTagExact(FSaiyoraCombatTags::Get().Stat_GroundFriction))
+	{
+		GroundFriction = FMath::Max(DefaultGroundFriction * Value, 0.0f);
+	}
+	else if (StatTag.MatchesTagExact(FSaiyoraCombatTags::Get().Stat_BrakingDeceleration))
+	{
+		BrakingDecelerationWalking = FMath::Max(DefaultBrakingDeceleration * Value, 0.0f);
+	}
+	else if (StatTag.MatchesTagExact(FSaiyoraCombatTags::Get().Stat_MaxAcceleration))
+	{
+		MaxAcceleration = FMath::Max(DefaultMaxAcceleration * Value, 0.0f);
+	}
+	else if (StatTag.MatchesTagExact(FSaiyoraCombatTags::Get().Stat_GravityScale))
+	{
+		GravityScale = FMath::Max(DefaultGravityScale * Value, 0.0f);
+	}
+	else if (StatTag.MatchesTagExact(FSaiyoraCombatTags::Get().Stat_JumpZVelocity))
+	{
+		JumpZVelocity = FMath::Max(DefaultJumpZVelocity * Value, 0.0f);
+	}
+	else if (StatTag.MatchesTagExact(FSaiyoraCombatTags::Get().Stat_AirControl))
+	{
+		AirControl = FMath::Max(DefaultAirControl * Value, 0.0f);
+	}
 }
 
-void USaiyoraMovementComponent::OnGroundFrictionStatChanged(const FGameplayTag StatTag, const float NewValue)
+void USaiyoraMovementComponent::OnMoveStatChanged(const FGameplayTag StatTag, const float NewValue)
 {
-	GroundFriction = FMath::Max(DefaultGroundFriction * NewValue, 0.0f);
+	if (PawnOwner->HasAuthority() && !PawnOwner->IsLocallyControlled())
+	{
+		//Generate an ID for this stat change, and then wait until the client sends an RPC that says it has executed this stat change ID to then execute it on server.
+		const int32 ServerStatID = GenerateServerMoveID();
+		FServerMoveStatChange& NewMoveStat = PendingServerMoveStats.Items.Add_GetRef(FServerMoveStatChange(StatTag, NewValue, ServerStatID));
+		//Set a timer for a max amount of time we will wait, if the client doesn't send by this point, execute the stat change anyway.
+		const FTimerDelegate WaitingMoveDelegate = FTimerDelegate::CreateUObject(this, &USaiyoraMovementComponent::ExecuteWaitingServerStatChange, ServerStatID);
+		GetWorld()->GetTimerManager().SetTimer(NewMoveStat.ChangeHandle, WaitingMoveDelegate, MaxMoveDelay, false);
+		PendingServerMoveStats.MarkItemDirty(NewMoveStat);
+		ForceReplicationUpdate();
+	}
+	else if (PawnOwner->HasAuthority())
+	{
+		UpdateMoveStat(StatTag, NewValue);
+		bool bFound = false;
+		for (int i = 0; i < ConfirmedServerMoveStats.Items.Num(); i++)
+		{
+			if (ConfirmedServerMoveStats.Items[i].StatTag == StatTag)
+			{
+				ConfirmedServerMoveStats.Items[i].Value = NewValue;
+				ConfirmedServerMoveStats.MarkItemDirty(ConfirmedServerMoveStats.Items[i]);
+				bFound = true;
+				break;
+			}
+		}
+		if (!bFound)
+		{
+			ConfirmedServerMoveStats.MarkItemDirty(ConfirmedServerMoveStats.Items.Add_GetRef(FServerMoveStatChange(StatTag, NewValue, 0)));
+		}
+	}
 }
 
-void USaiyoraMovementComponent::OnBrakingDecelerationStatChanged(const FGameplayTag StatTag, const float NewValue)
+
+void USaiyoraMovementComponent::ExecuteWaitingServerStatChange(const int32 ServerStatID)
 {
-	BrakingDecelerationWalking = FMath::Max(DefaultBrakingDeceleration * NewValue, 0.0f);
+	bool bShouldPerform = false;
+	FServerMoveStatChange StatChange = FServerMoveStatChange();
+	for (int i = 0; i < PendingServerMoveStats.Items.Num(); i++)
+	{
+		if (PendingServerMoveStats.Items[i].ChangeID == ServerStatID)
+		{
+			GetWorld()->GetTimerManager().ClearTimer(PendingServerMoveStats.Items[i].ChangeHandle);
+			bool bFound = false;
+			for (int j = 0; j < ConfirmedServerMoveStats.Items.Num(); j++)
+			{
+				if (ConfirmedServerMoveStats.Items[j].StatTag == PendingServerMoveStats.Items[i].StatTag)
+				{
+					if (ConfirmedServerMoveStats.Items[j].ChangeID < PendingServerMoveStats.Items[i].ChangeID)
+					{
+						ConfirmedServerMoveStats.Items[j].Value = PendingServerMoveStats.Items[i].Value;
+						ConfirmedServerMoveStats.Items[j].ChangeID = PendingServerMoveStats.Items[i].ChangeID;
+						ConfirmedServerMoveStats.MarkItemDirty(ConfirmedServerMoveStats.Items[j]);
+						StatChange = ConfirmedServerMoveStats.Items[j];
+						bShouldPerform = true;
+					}
+					bFound = true;
+					break;
+				}
+			}
+			if (!bFound)
+			{
+				FServerMoveStatChange& NewChange = ConfirmedServerMoveStats.Items.Add_GetRef(PendingServerMoveStats.Items[i]);
+				ConfirmedServerMoveStats.MarkItemDirty(NewChange);
+				StatChange = NewChange;
+				bShouldPerform = true;
+			}
+			PendingServerMoveStats.Items.RemoveAt(i);
+			PendingServerMoveStats.MarkArrayDirty();
+			break;
+		}
+	}
+	if (bShouldPerform)
+	{
+		UpdateMoveStat(StatChange.StatTag, StatChange.Value);
+	}
 }
 
-void USaiyoraMovementComponent::OnMaxAccelerationStatChanged(const FGameplayTag StatTag, const float NewValue)
+void USaiyoraMovementComponent::ServerStatChangeFromFlag()
 {
-	MaxAcceleration = FMath::Max(DefaultMaxAcceleration * NewValue, 0.0f);
-}
-
-void USaiyoraMovementComponent::OnGravityScaleStatChanged(const FGameplayTag StatTag, const float NewValue)
-{
-	GravityScale = FMath::Max(DefaultGravityScale * NewValue, 0.0f);
-}
-
-void USaiyoraMovementComponent::OnJumpVelocityStatChanged(const FGameplayTag StatTag, const float NewValue)
-{
-	JumpZVelocity = FMath::Max(DefaultJumpZVelocity * NewValue, 0.0f);
-}
-
-void USaiyoraMovementComponent::OnAirControlStatChanged(const FGameplayTag StatTag, const float NewValue)
-{
-	AirControl = FMath::Max(DefaultAirControl * NewValue, 0.0f);
+	if (GetOwnerRole() == ROLE_Authority && PawnOwner->IsLocallyControlled())
+	{
+		//Bypass need for flags on listen servers.
+		return;
+	}
+	if (GetOwnerRole() == ROLE_Authority && !PawnOwner->IsLocallyControlled())
+	{
+		ExecuteWaitingServerStatChange(ServerStatChangeToExecuteID);
+		return;
+	}
+	if (GetOwnerRole() == ROLE_AutonomousProxy)
+	{
+		UpdateMoveStat(ServerStatChangeToExecute.StatTag, ServerStatChangeToExecute.Value);
+	}
 }
 
 #pragma endregion

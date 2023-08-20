@@ -39,6 +39,9 @@ private:
 		uint8 bSavedPerformedServerMove : 1;
 		FCustomMoveParams SavedServerMove;
 		int32 SavedServerMoveID;
+		uint8 bSavedPerformedServerStatChange : 1;
+		FServerMoveStatChange SavedServerStatChange;
+		int32 SavedServerStatChangeID;
 	};
 
 	class FNetworkPredictionData_Client_Saiyora : public FNetworkPredictionData_Client_Character
@@ -55,6 +58,7 @@ private:
 		typedef FCharacterNetworkMoveData Super;
 		FAbilityRequest CustomMoveAbilityRequest;
 		int32 ServerMoveID;
+		int32 ServerStatChangeID;
 		virtual void ClientFillNetworkMoveData(const FSavedMove_Character& ClientMove, ENetworkMoveType MoveType) override;
 		virtual bool Serialize(UCharacterMovementComponent& CharacterMovement, FArchive& Ar, UPackageMap* PackageMap, ENetworkMoveType MoveType) override;
 	};
@@ -219,39 +223,34 @@ public:
 
 	UFUNCTION()
 	float GetDefaultMaxWalkSpeed() const { return DefaultMaxWalkSpeed; }
+
+	void UpdateMoveStatFromServer(const int32 ChangeID, const FGameplayTag StatTag, const float Value);
 	
 private:
+
+	void UpdateMoveStat(const FGameplayTag StatTag, const float Value);
+	UFUNCTION()
+	void OnMoveStatChanged(const FGameplayTag StatTag, const float NewValue);
+	FStatCallback StatCallback;
 	
 	float DefaultMaxWalkSpeed = 0.0f;
-	FStatCallback MaxWalkSpeedStatCallback;
-	UFUNCTION()
-	void OnMaxWalkSpeedStatChanged(const FGameplayTag StatTag, const float NewValue);
 	float DefaultCrouchSpeed = 0.0f;
-	FStatCallback MaxCrouchSpeedStatCallback;
-	UFUNCTION()
-	void OnMaxCrouchSpeedStatChanged(const FGameplayTag StatTag, const float NewValue);
 	float DefaultGroundFriction = 0.0f;
-	FStatCallback GroundFrictionStatCallback;
-	UFUNCTION()
-	void OnGroundFrictionStatChanged(const FGameplayTag StatTag, const float NewValue);
 	float DefaultBrakingDeceleration = 0.0f;
-	FStatCallback BrakingDecelerationStatCallback;
-	UFUNCTION()
-	void OnBrakingDecelerationStatChanged(const FGameplayTag StatTag, const float NewValue);
 	float DefaultMaxAcceleration = 0.0f;
-	FStatCallback MaxAccelerationStatCallback;
-	UFUNCTION()
-	void OnMaxAccelerationStatChanged(const FGameplayTag StatTag, const float NewValue);
 	float DefaultGravityScale = 0.0f;
-	FStatCallback GravityScaleStatCallback;
-	UFUNCTION()
-	void OnGravityScaleStatChanged(const FGameplayTag StatTag, const float NewValue);
 	float DefaultJumpZVelocity = 0.0f;
-	FStatCallback JumpVelocityStatCallback;
-	UFUNCTION()
-	void OnJumpVelocityStatChanged(const FGameplayTag StatTag, const float NewValue);
 	float DefaultAirControl = 0.0f;
-	FStatCallback AirControlStatCallback;
+
 	UFUNCTION()
-	void OnAirControlStatChanged(const FGameplayTag StatTag, const float NewValue);
+	void ExecuteWaitingServerStatChange(const int32 ServerStatID);
+	UPROPERTY(Replicated)
+	FServerMoveStatArray PendingServerMoveStats;
+	UPROPERTY(Replicated)
+	FServerMoveStatArray ConfirmedServerMoveStats;
+	TMap<FGameplayTag, int32> ClientLastStatUpdate;
+	uint8 bWantsServerStatChange : 1;
+	int32 ServerStatChangeToExecuteID = 0;
+	FServerMoveStatChange ServerStatChangeToExecute;
+	void ServerStatChangeFromFlag();
 };
