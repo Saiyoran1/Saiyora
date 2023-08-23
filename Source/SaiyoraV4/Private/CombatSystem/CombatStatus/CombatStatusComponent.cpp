@@ -2,6 +2,8 @@
 #include "Buff.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraCombatLibrary.h"
+#include "SaiyoraGameState.h"
+#include "SaiyoraPlayerCharacter.h"
 #include "UnrealNetwork.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -33,21 +35,45 @@ void UCombatStatusComponent::BeginPlay()
 {
 	Super::BeginPlay();
 	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Plane Component."));
-	const APlayerController* LocalPC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
-	if (IsValid(LocalPC))
+	const ASaiyoraPlayerCharacter* LocalPlayer = USaiyoraCombatLibrary::GetLocalSaiyoraPlayer(this);
+	if (IsValid(LocalPlayer))
 	{
-		const APawn* LocalPawn = LocalPC->GetPawn();
-		if (IsValid(LocalPawn))
+		LocalPlayerStatusComponent = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(LocalPlayer);
+		if (IsValid(LocalPlayerStatusComponent))
 		{
-			LocalPlayerStatusComponent = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(LocalPawn);
-			if (IsValid(LocalPlayerStatusComponent))
-			{
-				LocalPlayerStatusComponent->OnPlaneSwapped.AddDynamic(this, &UCombatStatusComponent::OnLocalPlayerPlaneSwap);
-			}
+			LocalPlayerStatusComponent->OnPlaneSwapped.AddDynamic(this, &UCombatStatusComponent::OnLocalPlayerPlaneSwap);
 		}
+	}
+	else
+	{
+		GameStateRef = Cast<ASaiyoraGameState>(GetWorld()->GetGameState());
+		if (!IsValid(GameStateRef))
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Invalid game state ref in Combat Status Component BeginPlay."));
+		}
+		else
+		{
+			GameStateRef->OnPlayerAdded.AddDynamic(this, &UCombatStatusComponent::OnPlayerAdded);
+		}
+		//TODO: Subscribe to player spawned in gamestate so that we can update local player status component.
 	}
 	UpdateOwnerCustomRendering();
 	UpdateOwnerPlaneCollision();
+}
+
+void UCombatStatusComponent::OnPlayerAdded(const ASaiyoraPlayerCharacter* NewPlayer)
+{
+	if (IsValid(NewPlayer) && NewPlayer->IsLocallyControlled())
+	{
+		LocalPlayerStatusComponent = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(NewPlayer);
+		if (IsValid(LocalPlayerStatusComponent))
+		{
+			LocalPlayerStatusComponent->OnPlaneSwapped.AddDynamic(this, &UCombatStatusComponent::OnLocalPlayerPlaneSwap);
+			UpdateOwnerCustomRendering();
+			
+		}
+		GameStateRef->OnPlayerAdded.RemoveDynamic(this, &UCombatStatusComponent::OnPlayerAdded);
+	}
 }
 
 #pragma endregion

@@ -7,6 +7,7 @@
 
 class UBuff;
 class ASaiyoraGameState;
+class ASaiyoraPlayerCharacter;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class SAIYORAV4_API UCombatStatusComponent : public UActorComponent
@@ -26,6 +27,8 @@ private:
 
 	UPROPERTY()
 	ASaiyoraGameState* GameStateRef;
+	UFUNCTION()
+	void OnPlayerAdded(const ASaiyoraPlayerCharacter* NewPlayer);
 
 //Plane
 

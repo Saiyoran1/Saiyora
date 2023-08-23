@@ -5,6 +5,8 @@
 #include "LevelGeoPlaneComponent.generated.h"
 
 class UCombatStatusComponent;
+class ASaiyoraGameState;
+class ASaiyoraPlayerCharacter;
 
 USTRUCT()
 struct FMeshMaterials
@@ -42,5 +44,11 @@ private:
 	void OnLocalPlayerPlaneSwap(const ESaiyoraPlane PreviousPlane, const ESaiyoraPlane NewPlane, UObject* Source);
 
 	void SetInitialCollision();
+	void SetupMaterialSwapping();
 	void UpdateCameraCollision();
+
+	UPROPERTY()
+	ASaiyoraGameState* GameStateRef;
+	UFUNCTION()
+	void OnPlayerAdded(const ASaiyoraPlayerCharacter* NewPlayer);
 };

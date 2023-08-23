@@ -123,6 +123,7 @@ struct FAbilityTargetSet
     TArray<AActor*> Targets;
 
     FAbilityTargetSet() {}
+    FAbilityTargetSet(const int32 InSetID) : SetID(InSetID) {}
     FAbilityTargetSet(const int32 InSetID, const TArray<AActor*>& InTargets) : SetID(InSetID), Targets(InTargets) {}
 
     friend FArchive& operator<<(FArchive& Ar, FAbilityTargetSet& TargetSet)

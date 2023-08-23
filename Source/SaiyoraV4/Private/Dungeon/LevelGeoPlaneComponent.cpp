@@ -2,6 +2,9 @@
 #include "CombatStatusComponent.h"
 #include "CombatStructs.h"
 #include "SaiyoraCombatInterface.h"
+#include "SaiyoraCombatLibrary.h"
+#include "SaiyoraGameState.h"
+#include "SaiyoraPlayerCharacter.h"
 #include "Kismet/GameplayStatics.h"
 
 ULevelGeoPlaneComponent::ULevelGeoPlaneComponent()
@@ -12,39 +15,29 @@ ULevelGeoPlaneComponent::ULevelGeoPlaneComponent()
 void ULevelGeoPlaneComponent::BeginPlay()
 {
 	Super::BeginPlay();
-	const APlayerController* LocalPC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
-	if (IsValid(LocalPC))
+	SetInitialCollision();
+	const ASaiyoraPlayerCharacter* LocalPlayer = USaiyoraCombatLibrary::GetLocalSaiyoraPlayer(this);
+	if (IsValid(LocalPlayer))
 	{
-		const APawn* LocalPawn = LocalPC->GetPawn();
-		if (IsValid(LocalPawn))
+		LocalPlayerCombatStatusComponent = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(LocalPlayer);
+		if (IsValid(LocalPlayerCombatStatusComponent))
 		{
-			LocalPlayerCombatStatusComponent = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(LocalPawn);
-			if (IsValid(LocalPlayerCombatStatusComponent))
-			{
-				LocalPlayerCombatStatusComponent->OnPlaneSwapped.AddDynamic(this, &ULevelGeoPlaneComponent::OnLocalPlayerPlaneSwap);
-				bIsRenderedXPlane = UCombatStatusComponent::CheckForXPlane(LocalPlayerCombatStatusComponent->GetCurrentPlane(), DefaultPlane);
-				TArray<UMeshComponent*> OwnerMeshes;
-				GetOwner()->GetComponents<UMeshComponent>(OwnerMeshes);
-				for (UMeshComponent* Mesh : OwnerMeshes)
-				{
-					FMeshMaterials MeshMaterials;
-					TArray<FName> Names = Mesh->GetMaterialSlotNames();
-					for (const FName Name : Names)
-					{
-						int32 Index = Mesh->GetMaterialIndex(Name);
-						MeshMaterials.Materials.Add(Index, Mesh->GetMaterial(Index));
-						if (bIsRenderedXPlane)
-						{
-							Mesh->SetMaterial(Index, XPlaneMaterial);
-						}
-					}
-					Materials.Add(Mesh, MeshMaterials);
-				}
-			}
+			SetupMaterialSwapping();
+			UpdateCameraCollision();
 		}
-		SetInitialCollision();
 	}
-	
+	else
+	{
+		GameStateRef = Cast<ASaiyoraGameState>(GetWorld()->GetGameState());
+		if (!IsValid(GameStateRef))
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Invalid game state ref in BeginPlay for LevelGeo Component."));
+		}
+		else
+		{
+			GameStateRef->OnPlayerAdded.AddDynamic(this, &ULevelGeoPlaneComponent::OnPlayerAdded);
+		}
+	}
 }
 
 void ULevelGeoPlaneComponent::OnLocalPlayerPlaneSwap(const ESaiyoraPlane PreviousPlane, const ESaiyoraPlane NewPlane,
@@ -95,7 +88,29 @@ void ULevelGeoPlaneComponent::SetInitialCollision()
 			}
 		}
 	}
-	UpdateCameraCollision();
+}
+
+void ULevelGeoPlaneComponent::SetupMaterialSwapping()
+{
+	LocalPlayerCombatStatusComponent->OnPlaneSwapped.AddDynamic(this, &ULevelGeoPlaneComponent::OnLocalPlayerPlaneSwap);
+	bIsRenderedXPlane = UCombatStatusComponent::CheckForXPlane(LocalPlayerCombatStatusComponent->GetCurrentPlane(), DefaultPlane);
+	TArray<UMeshComponent*> OwnerMeshes;
+	GetOwner()->GetComponents<UMeshComponent>(OwnerMeshes);
+	for (UMeshComponent* Mesh : OwnerMeshes)
+	{
+		FMeshMaterials MeshMaterials;
+		TArray<FName> Names = Mesh->GetMaterialSlotNames();
+		for (const FName Name : Names)
+		{
+			int32 Index = Mesh->GetMaterialIndex(Name);
+			MeshMaterials.Materials.Add(Index, Mesh->GetMaterial(Index));
+			if (bIsRenderedXPlane)
+			{
+				Mesh->SetMaterial(Index, XPlaneMaterial);
+			}
+		}
+		Materials.Add(Mesh, MeshMaterials);
+	}
 }
 
 void ULevelGeoPlaneComponent::UpdateCameraCollision()
@@ -116,5 +131,19 @@ void ULevelGeoPlaneComponent::UpdateCameraCollision()
 				Component->SetCollisionResponseToChannel(ECC_Camera, ECR_Block);
 			}
 		}
+	}
+}
+
+void ULevelGeoPlaneComponent::OnPlayerAdded(const ASaiyoraPlayerCharacter* NewPlayer)
+{
+	if (IsValid(NewPlayer) && NewPlayer->IsLocallyControlled())
+	{
+		LocalPlayerCombatStatusComponent = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(NewPlayer);
+		if (IsValid(LocalPlayerCombatStatusComponent))
+		{
+			SetupMaterialSwapping();
+			UpdateCameraCollision();
+		}
+		GameStateRef->OnPlayerAdded.RemoveDynamic(this, &ULevelGeoPlaneComponent::OnPlayerAdded);
 	}
 }

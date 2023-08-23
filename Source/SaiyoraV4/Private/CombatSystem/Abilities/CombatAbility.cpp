@@ -529,6 +529,9 @@ void UCombatAbility::AddTarget(AActor* Target, const int32 SetID)
             return;
         }
     }
+    TArray<AActor*> NewTargetArray;
+    NewTargetArray.Add(Target);
+    AddTargetSet(FAbilityTargetSet(SetID, NewTargetArray));
 }
 
 void UCombatAbility::RemoveTarget(AActor* Target)
