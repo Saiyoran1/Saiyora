@@ -228,7 +228,7 @@ void UCombatStatusComponent::UpdateStencilValue()
 		case EFaction::Friendly :
 			RangeStart = bIsXPlane ? FriendlyXPlaneStart : FriendlySamePlaneStart;
 			RangeEnd = bIsXPlane ? FriendlyXPlaneEnd : FriendlySamePlaneEnd;
-			DefaultID = DefaultStencil;
+			DefaultID = bIsXPlane?  DefaultFriendlyXPlane : DefaultFriendlySamePlane;
 			break;
 		case EFaction::Neutral :
 			RangeStart = bIsXPlane ? NeutralXPlaneStart : NeutralSamePlaneStart;

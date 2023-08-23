@@ -1,4 +1,6 @@
 #include "Dungeon/DungeonGameState.h"
+
+#include "DungeonPostProcess.h"
 #include "SaiyoraPlayerCharacter.h"
 #include "UnrealNetwork.h"
 
@@ -16,6 +18,7 @@ void ADungeonGameState::BeginPlay()
 		}
 		OnRep_DungeonProgress(PreviousProgress);
 	}
+	GetWorld()->SpawnActor(ADungeonPostProcess::StaticClass());
 }
 
 void ADungeonGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

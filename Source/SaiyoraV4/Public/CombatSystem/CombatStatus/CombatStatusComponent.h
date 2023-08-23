@@ -107,9 +107,11 @@ private:
 	static constexpr int32 NeutralXPlaneStart = 151;
 	static constexpr int32 NeutralXPlaneEnd = 199;
 	static constexpr int32 DefaultStencil = 200;
-	static constexpr int32 FriendlySamePlaneStart = 201;
+	static constexpr int32 DefaultFriendlySamePlane = 201;
+	static constexpr int32 FriendlySamePlaneStart = 202;
 	static constexpr int32 FriendlySamePlaneEnd = 227;
-	static constexpr int32 FriendlyXPlaneStart = 228;
+	static constexpr int32 DefaultFriendlyXPlane = 228;
+	static constexpr int32 FriendlyXPlaneStart = 229;
 	static constexpr int32 FriendlyXPlaneEnd = 255;
 
 	void UpdateOwnerCustomRendering();
