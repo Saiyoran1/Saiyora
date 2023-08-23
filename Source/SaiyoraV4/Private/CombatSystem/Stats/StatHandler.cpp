@@ -42,7 +42,7 @@ void UStatHandler::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLi
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(UStatHandler, Stats);
 }
-
+#if WITH_EDITOR
 void UStatHandler::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	const FName PropertyName = PropertyChangedEvent.GetPropertyName();
@@ -64,6 +64,7 @@ void UStatHandler::PostEditChangeProperty(FPropertyChangedEvent& PropertyChanged
 	}
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
+#endif
 
 #pragma endregion
 #pragma region Stat Management
