@@ -15,8 +15,7 @@ const FName FSaiyoraCollision::P_ProjectileHitboxNPCs = FName("ProjectileHitsNPC
 const FName FSaiyoraCollision::P_ProjectileCollisionAll = FName("ProjectileCollision");
 const FName FSaiyoraCollision::P_ProjectileCollisionAncient = FName("ProjectileCollisionAncient");
 const FName FSaiyoraCollision::P_ProjectileCollisionModern = FName("ProjectileCollisionModern");
-const FName FSaiyoraCollision::P_NPCNonCombatAggro = FName("NPCNonCombatAggro");
-const FName FSaiyoraCollision::P_NPCCombatAggro = FName("NPCCombatAggro");
+const FName FSaiyoraCollision::P_NPCAggro = FName("NPCAggro");
 const FName FSaiyoraCollision::P_PlayerAggro = FName("PlayerAggro");
 
 const FName FSaiyoraCollision::CT_All = FName("CombatTrace");

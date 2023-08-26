@@ -35,8 +35,7 @@ struct SAIYORAV4_API FSaiyoraCollision
     static const FName P_ProjectileCollisionAll;
     static const FName P_ProjectileCollisionAncient;
     static const FName P_ProjectileCollisionModern;
-    static const FName P_NPCNonCombatAggro;
-    static const FName P_NPCCombatAggro;
+    static const FName P_NPCAggro;
     static const FName P_PlayerAggro;
 
     //Combat Trace Profiles

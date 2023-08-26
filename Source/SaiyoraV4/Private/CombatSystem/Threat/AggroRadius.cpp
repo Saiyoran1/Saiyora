@@ -1,4 +1,7 @@
 ﻿#include "AggroRadius.h"
+
+#include <CombatGroup.h>
+
 #include "AbilityComponent.h"
 #include "CombatStatusComponent.h"
 #include "NPCAbilityComponent.h"
@@ -25,11 +28,7 @@ void UAggroRadius::TickComponent(float DeltaTime, ELevelTick TickType, FActorCom
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 	if (DrawAggroSpheres.GetValueOnGameThread() > 0)
 	{
-		if (GetCollisionProfileName() == FSaiyoraCollision::P_NPCNonCombatAggro)
-		{
-			DrawDebugSphere(GetWorld(), GetComponentLocation(), GetScaledSphereRadius(), 32, FColor::Yellow);
-		}
-		else if (GetCollisionProfileName() == FSaiyoraCollision::P_NPCCombatAggro)
+		if (GetCollisionProfileName() == FSaiyoraCollision::P_NPCAggro)
 		{
 			DrawDebugSphere(GetWorld(), GetComponentLocation(), GetScaledSphereRadius(), 32, FColor::Red);
 		}
@@ -96,10 +95,10 @@ void UAggroRadius::OnCombatBehaviorChanged(const ENPCCombatBehavior PreviousBeha
 	switch (NewBehavior)
 	{
 	case ENPCCombatBehavior::Combat :
-		SetCollisionProfileName(FSaiyoraCollision::P_NPCCombatAggro);
+		SetCollisionProfileName(FSaiyoraCollision::P_NPCAggro);
 		break;
 	case ENPCCombatBehavior::Patrolling :
-		SetCollisionProfileName(FSaiyoraCollision::P_NPCNonCombatAggro);
+		SetCollisionProfileName(FSaiyoraCollision::P_NPCAggro);
 		break;
 	default :
 		SetCollisionProfileName(FSaiyoraCollision::P_NoCollision);
@@ -109,24 +108,38 @@ void UAggroRadius::OnCombatBehaviorChanged(const ENPCCombatBehavior PreviousBeha
 void UAggroRadius::OnOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	UAggroRadius* OverlappedAggro = Cast<UAggroRadius>(OtherComp);
-	if (IsValid(OverlappedAggro))
+	if (IsValid(ThreatHandlerRef) && IsValid(OverlappedAggro) && OwnerFaction == EFaction::Enemy)
 	{
-		if (OwnerFaction == EFaction::Enemy && OverlappedAggro->GetOwnerFaction() == EFaction::Friendly)
+		if (OverlappedAggro->GetOwnerFaction() == EFaction::Friendly && !ThreatHandlerRef->IsActorInThreatTable(OtherActor))
 		{
 			FHitResult SightResult;
 			UKismetSystemLibrary::LineTraceSingle(this, GetComponentLocation(), OverlappedAggro->GetComponentLocation(),
 				UEngineTypes::ConvertToTraceType(ECC_Visibility), false,TArray<AActor*>(),
 				EDrawDebugTrace::None, SightResult, true);
-			if (!SightResult.bBlockingHit && IsValid(ThreatHandlerRef))
+			if (!SightResult.bBlockingHit)
 			{
-				if (!ThreatHandlerRef->IsActorInThreatTable(OtherActor))
+				ThreatHandlerRef->AddThreat(EThreatType::Absolute, 1.0f, OtherActor, nullptr, false, false, FThreatModCondition());
+			}
+		}
+		else if (OverlappedAggro->GetOwnerFaction() == EFaction::Enemy && ThreatHandlerRef->IsInCombat() && IsValid(ThreatHandlerRef->GetCombatGroup())
+			&& OtherActor->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+		{
+			UThreatHandler* CombatantThreat = ISaiyoraCombatInterface::Execute_GetThreatHandler(OverlappedAggro->GetOwner());
+			if (IsValid(CombatantThreat) && CombatantThreat->HasThreatTable())
+			{
+				if (CombatantThreat->IsInCombat() && IsValid(CombatantThreat->GetCombatGroup()))
 				{
-					ThreatHandlerRef->AddThreat(EThreatType::Absolute, 1.0f, OtherActor, nullptr, false, false, FThreatModCondition());
+					if (CombatantThreat->GetCombatGroup() != ThreatHandlerRef->GetCombatGroup())
+					{
+						ThreatHandlerRef->GetCombatGroup()->MergeWith(CombatantThreat->GetCombatGroup());
+					}
+				}
+				else
+				{
+					ThreatHandlerRef->GetCombatGroup()->AddCombatant(CombatantThreat);
 				}
 			}
 		}
-		// TODO: else if (OwnerFaction == EFaction::Enemy && OverlappedAggro->GetOwnerFaction == EFaction::Enemy), then we add to combat group, pending combat group rework.
-		// This should work since npc aggro radius can only overlap each other when in combat.
 	}
 }
 
