@@ -10,7 +10,6 @@ class APredictableProjectile;
 struct FAbilityOrigin;
 struct FAbilityTargetSet;
 class UCombatAbility;
-class AGroundAttack;
 
 UCLASS()
 class SAIYORAV4_API UAbilityFunctionLibrary : public UBlueprintFunctionLibrary
@@ -93,15 +92,6 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	static AActor* SpawnAdd(AActor* Summoner, const TSubclassOf<AActor> AddClass, const FTransform& SpawnTransform);
-
-	//Ground Attack
-
-public:
-
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
-	static AGroundAttack* SpawnGroundEffect(AActor* Summoner, const FTransform& SpawnTransform, const FVector Extent, const float ConeAngle, const float InnerRingPercent, const EFaction Hostility,
-		const float DetonationTime, const FLinearColor IndicatorColor, UTexture2D* IndicatorTexture, const float Intensity, const bool bAttach = false, USceneComponent* AttachComponent = nullptr,
-		const FName SocketName = NAME_None);
 
 //Helpers
 

@@ -3,7 +3,6 @@
 #include "AbilityComponent.h"
 #include "CombatAbility.h"
 #include "CombatStatusComponent.h"
-#include "GroundAttack.h"
 #include "Hitbox.h"
 #include "PredictableProjectile.h"
 #include "SaiyoraCombatInterface.h"
@@ -1270,36 +1269,6 @@ AActor* UAbilityFunctionLibrary::SpawnAdd(AActor* Summoner, const TSubclassOf<AA
 		MobComponent->Initialize(Summoner);
 	}
 	return SpawnedAdd;
-}
-
-#pragma endregion
-#pragma region
-
-AGroundAttack* UAbilityFunctionLibrary::SpawnGroundEffect(AActor* Summoner, const FTransform& SpawnTransform, const FVector Extent,
-	const float ConeAngle, const float InnerRingPercent, const EFaction Hostility, const float DetonationTime, const FLinearColor IndicatorColor,
-	UTexture2D* IndicatorTexture, const float Intensity, const bool bAttach, USceneComponent* AttachComponent,
-	const FName SocketName)
-{
-	if (!IsValid(Summoner) || Summoner->GetLocalRole() != ROLE_Authority)
-	{
-		return nullptr;
-	}
-	FActorSpawnParameters SpawnParams;
-	SpawnParams.Owner = Summoner;
-	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-	const FTransform ScalelessTransform = FTransform(SpawnTransform.GetRotation(), SpawnTransform.GetLocation(), FVector(1.0f));
-	AGroundAttack* NewGroundAttack = Summoner->GetWorld()->SpawnActor<AGroundAttack>(AGroundAttack::StaticClass(), ScalelessTransform, SpawnParams);
-	if (!IsValid(NewGroundAttack))
-	{
-		return nullptr;
-	}
-	if (bAttach)
-	{
-		const FAttachmentTransformRules TransformRules(EAttachmentRule::KeepRelative, false);
-		NewGroundAttack->AttachToComponent(IsValid(AttachComponent) ? AttachComponent : Summoner->GetRootComponent(), TransformRules, SocketName);
-	}
-	NewGroundAttack->Initialize(Extent, ConeAngle, InnerRingPercent, Hostility, DetonationTime, IndicatorColor, IndicatorTexture, Intensity);
-	return NewGroundAttack;
 }
 
 #pragma endregion
