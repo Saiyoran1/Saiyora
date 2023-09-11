@@ -59,7 +59,7 @@ private:
 	UFUNCTION()
 	void OnLifeStatusChanged(AActor* Target, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus) { UpdateCombatBehavior(); }
 	UFUNCTION()
-	void OnCombatChanged(const bool bInCombat) { UpdateCombatBehavior(); }
+	void OnCombatChanged(UThreatHandler* Handler, const bool bInCombat) { UpdateCombatBehavior(); }
 
 	void SetupBehavior();
 	bool bInitialized = false;

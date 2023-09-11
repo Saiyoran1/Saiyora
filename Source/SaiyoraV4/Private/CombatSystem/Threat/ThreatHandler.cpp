@@ -459,7 +459,7 @@ void UThreatHandler::UpdateTarget()
 
 void UThreatHandler::OnRep_bInCombat()
 {
-	OnCombatChanged.Broadcast(bInCombat);
+	OnCombatChanged.Broadcast(this, bInCombat);
 	NotifyLocalPlayerOfCombatChange();
 }
 
@@ -750,7 +750,7 @@ void UThreatHandler::NotifyOfCombat(UCombatGroup* Group)
 			bInCombat = false;
 			CombatStartTime = 0.0f;
 			ClearThreatTable();
-			OnCombatChanged.Broadcast(false);
+			OnCombatChanged.Broadcast(this, false);
 			NotifyLocalPlayerOfCombatChange();
 		}
 		return;
@@ -760,7 +760,7 @@ void UThreatHandler::NotifyOfCombat(UCombatGroup* Group)
 	{
 		bInCombat = true;
 		CombatStartTime = GetWorld()->GetGameState()->GetServerWorldTimeSeconds();
-		OnCombatChanged.Broadcast(true);
+		OnCombatChanged.Broadcast(this, true);
 		NotifyLocalPlayerOfCombatChange();
 	}
 }

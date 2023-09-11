@@ -11,6 +11,11 @@ bool UCombatGroup::AddCombatant(UThreatHandler* Combatant)
 	{
 		return false;
 	}
+	UDamageHandler* CombatantDamage = ISaiyoraCombatInterface::Execute_GetDamageHandler(Combatant->GetOwner());
+	if (IsValid(CombatantDamage) && CombatantDamage->IsDead())
+	{
+		return false;
+	}
 	const bool bIsFriendly = CombatantCombat->GetCurrentFaction() == EFaction::Friendly;
 	if (bIsFriendly)
 	{
@@ -28,7 +33,6 @@ bool UCombatGroup::AddCombatant(UThreatHandler* Combatant)
 		}
 		Enemies.Add(Combatant);
 	}
-	UDamageHandler* CombatantDamage = ISaiyoraCombatInterface::Execute_GetDamageHandler(Combatant->GetOwner());
 	if (IsValid(CombatantDamage))
 	{
 		CombatantDamage->OnIncomingHealthEvent.AddDynamic(this, &UCombatGroup::OnCombatantIncomingHealthEvent);
