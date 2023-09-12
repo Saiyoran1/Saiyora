@@ -1,4 +1,6 @@
 #include "CoreClasses/SaiyoraPlayerCharacter.h"
+
+#include "Buff.h"
 #include "BuffHandler.h"
 #include "CrowdControlHandler.h"
 #include "DamageHandler.h"
@@ -632,4 +634,4 @@ void ASaiyoraPlayerCharacter::OnRep_ModernSpec(UModernSpecialization* PreviousSp
 	OnModernSpecChanged.Broadcast(PreviousSpec, ModernSpec);
 }
 
-#pragma endregion 
+#pragma endregion

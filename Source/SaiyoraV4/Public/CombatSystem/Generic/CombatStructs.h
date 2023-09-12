@@ -118,6 +118,8 @@ struct SAIYORAV4_API FSaiyoraCombatTags : public FGameplayTagNativeAdder
 
     FGameplayTag Behavior_Combat;
 
+    FGameplayTag Resurrection;
+
     FORCEINLINE static const FSaiyoraCombatTags& Get() { return SaiyoraCombatTags; }
 
     virtual ~FSaiyoraCombatTags() {} /* This stops the "polymorphic struct with non-virtual destructor" intellisense error, even though it shouldn't matter in this case. */
@@ -179,6 +181,8 @@ protected:
         Threat_Misdirect = Manager.AddNativeGameplayTag(TEXT("Threat.Misdirect"));
 
         Behavior_Combat = Manager.AddNativeGameplayTag(TEXT("Behavior.CombatTree"));
+
+        Resurrection = Manager.AddNativeGameplayTag(TEXT("Buff.Resurrection"));
     }
 
 private:

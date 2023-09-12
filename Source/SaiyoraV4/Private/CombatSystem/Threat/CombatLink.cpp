@@ -1,5 +1,4 @@
 ﻿#include "CombatLink.h"
-
 #include "CombatGroup.h"
 #include "SaiyoraCombatInterface.h"
 #include "ThreatHandler.h"
