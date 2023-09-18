@@ -13,7 +13,7 @@ Some features that Saiyora has that I'm particularly proud of:
 - A custom ability system featuring client prediction, reconciliation, and validation of ability usage, global cooldowns, ability cooldowns, casting state, and resource expenditure.  
 - Replication and prediction of Root Motion Handlers and other custom moves, integrated with the ability system and Unreal's Character Movement Component.  
 - Flexible systems for modifying and restricting combat events such as damage, healing, death, buff application, crowd control, ability usage, and threat generation using function delegates as a representation of contextual conditions.  
-- Server-side rewind for both hitscan and projectile abilities, as well as projectile synchronization between predicting clients and the server.  
+- Server-side rewind for hitscan abilities, as well as projectile synchronization between predicting clients and the server.  
 - A custom buff system that allows reusable functionality between buffs and complete control over duration, stacking, and overlapping behavior during gameplay.  
 
 Below are links to the README files for each of the main parts of Saiyora's combat system, featuring more in depth explanations on all the different functionality I have implemented.
