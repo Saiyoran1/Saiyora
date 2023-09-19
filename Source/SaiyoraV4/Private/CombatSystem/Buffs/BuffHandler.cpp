@@ -48,18 +48,6 @@ void UBuffHandler::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 	return;
 }
 
-bool UBuffHandler::ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags)
-{
-	bool bWroteSomething = Super::ReplicateSubobjects(Channel, Bunch, RepFlags);
-
-	bWroteSomething |= Channel->ReplicateSubobjectList(Buffs, *Bunch, *RepFlags);
-	bWroteSomething |= Channel->ReplicateSubobjectList(Debuffs, *Bunch, *RepFlags);
-	bWroteSomething |= Channel->ReplicateSubobjectList(HiddenBuffs, *Bunch, *RepFlags);
-	bWroteSomething |= Channel->ReplicateSubobjectList(RecentlyRemoved, *Bunch, *RepFlags);
-
-	return bWroteSomething;
-}
-
 #pragma endregion 
 #pragma region Application
 
@@ -142,6 +130,7 @@ void UBuffHandler::NotifyOfNewIncomingBuff(const FBuffApplyEvent& ApplicationEve
 		return;
 	}
 	BuffArray->Add(ApplicationEvent.AffectedBuff);
+	AddReplicatedSubObject(ApplicationEvent.AffectedBuff);
 	OnIncomingBuffApplied.Broadcast(ApplicationEvent);
 	if (IsValid(ApplicationEvent.AffectedBuff->GetAppliedBy()) && ApplicationEvent.AffectedBuff->GetAppliedBy()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 	{
@@ -226,6 +215,7 @@ void UBuffHandler::NotifyOfOutgoingBuffRemoval(const FBuffRemoveEvent& RemoveEve
 
 void UBuffHandler::PostRemoveCleanup(UBuff* Buff)
 {
+	RemoveReplicatedSubObject(Buff);
 	RecentlyRemoved.Remove(Buff);	
 }
 

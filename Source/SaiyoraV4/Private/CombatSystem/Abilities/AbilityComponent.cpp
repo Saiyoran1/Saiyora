@@ -73,16 +73,6 @@ void UAbilityComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Ou
 	DOREPLIFETIME_CONDITION(UAbilityComponent, CastingState, COND_SkipOwner);
 }
 
-bool UAbilityComponent::ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags)
-{
-	bool bWroteSomething = Super::ReplicateSubobjects(Channel, Bunch, RepFlags);
-	TArray<UCombatAbility*> RepAbilities;
-	ActiveAbilities.GenerateValueArray(RepAbilities);
-	RepAbilities.Append(RecentlyRemovedAbilities);
-	bWroteSomething |= Channel->ReplicateSubobjectList(RepAbilities, *Bunch, *RepFlags);
-	return bWroteSomething;
-}
-
 #pragma endregion 
 #pragma region Ability Management
 
@@ -96,6 +86,7 @@ UCombatAbility* UAbilityComponent::AddNewAbility(const TSubclassOf<UCombatAbilit
 	if (IsValid(NewAbility))
 	{
 		ActiveAbilities.Add(AbilityClass, NewAbility);
+		AddReplicatedSubObject(NewAbility);
 		NewAbility->InitializeAbility(this);
 		if (AbilityUsageClassRestrictions.Contains(AbilityClass))
 		{
@@ -158,6 +149,13 @@ void UAbilityComponent::NotifyOfReplicatedAbilityRemoval(UCombatAbility* Removed
 		}
 	}
 }
+
+void UAbilityComponent::CleanupRemovedAbility(UCombatAbility* Ability)
+{
+	RemoveReplicatedSubObject(Ability);
+	RecentlyRemovedAbilities.Remove(Ability);
+}
+
 
 #pragma endregion
 #pragma region Ability Usage

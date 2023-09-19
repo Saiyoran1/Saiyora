@@ -182,17 +182,6 @@ void USaiyoraMovementComponent::GetLifetimeReplicatedProps(TArray<FLifetimePrope
 	DOREPLIFETIME_CONDITION(USaiyoraMovementComponent, ConfirmedServerMoveStats, COND_SkipOwner);
 }
 
-bool USaiyoraMovementComponent::ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch,
-	FReplicationFlags* RepFlags)
-{
-	bool bWroteSomething = Super::ReplicateSubobjects(Channel, Bunch, RepFlags);
-	if (RepFlags->bNetOwner)
-	{
-		bWroteSomething |= Channel->ReplicateSubobjectList(WaitingServerRootMotionTasks, *Bunch, *RepFlags);
-	}
-	return bWroteSomething;
-}
-
 void USaiyoraMovementComponent::InitializeComponent()
 {
 	Super::InitializeComponent();
@@ -675,6 +664,7 @@ void USaiyoraMovementComponent::ApplyRootMotionTask(USaiyoraRootMotionTask* Task
 		const FTimerDelegate WaitingMoveDelegate = FTimerDelegate::CreateUObject(this, &USaiyoraMovementComponent::ExecuteWaitingServerRootMotionTask, Task->ServerWaitID);
 		GetWorld()->GetTimerManager().SetTimer(Task->ServerWaitHandle, WaitingMoveDelegate, MaxMoveDelay, false);
 		WaitingServerRootMotionTasks.Add(Task);
+		AddReplicatedSubObject(Task, ELifetimeCondition::COND_OwnerOnly);
 		ForceReplicationUpdate();
 	}
 	else
@@ -693,6 +683,7 @@ void USaiyoraMovementComponent::ExecuteWaitingServerRootMotionTask(const int32 T
 		if (WaitingTask->ServerWaitID == TaskID)
 		{
 			WaitingServerRootMotionTasks.Remove(WaitingTask);
+			RemoveReplicatedSubObject(WaitingTask);
 			GetWorld()->GetTimerManager().ClearTimer(WaitingTask->ServerWaitHandle);
 			if (IsValid(AbilityComponentRef))
 			{

@@ -13,6 +13,7 @@ UResourceHandler::UResourceHandler()
 	PrimaryComponentTick.bCanEverTick = false;
 	SetIsReplicatedByDefault(true);
 	bWantsInitializeComponent = true;
+	bReplicateUsingRegisteredSubObjectList = true;
 }
 
 void UResourceHandler::BeginPlay()
@@ -36,14 +37,6 @@ void UResourceHandler::InitializeComponent()
 void UResourceHandler::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-}
-
-bool UResourceHandler::ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags)
-{
-	bool bWroteSomething = Super::ReplicateSubobjects(Channel, Bunch, RepFlags);
-	bWroteSomething |= Channel->ReplicateSubobjectList(ActiveResources, *Bunch, *RepFlags);
-	bWroteSomething |= Channel->ReplicateSubobjectList(RecentlyRemovedResources, *Bunch, *RepFlags);
-	return bWroteSomething;
 }
 
 #pragma endregion 
@@ -81,6 +74,7 @@ void UResourceHandler::AddNewResource(const TSubclassOf<UResource> ResourceClass
 	if (NewResource->IsInitialized() && !NewResource->IsDeactivated())
 	{
 		OnResourceAdded.Broadcast(NewResource);
+		AddReplicatedSubObject(NewResource);
 	}
 	else
 	{
@@ -115,6 +109,7 @@ void UResourceHandler::RemoveResource(const TSubclassOf<UResource> ResourceClass
 
 void UResourceHandler::FinishRemoveResource(UResource* Resource)
 {
+	RemoveReplicatedSubObject(Resource);
 	RecentlyRemovedResources.Remove(Resource);
 }
 

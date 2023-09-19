@@ -76,7 +76,6 @@ public:
 	
 	USaiyoraMovementComponent(const FObjectInitializer& ObjectInitializer);
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
-	virtual bool ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags) override;
 	virtual void InitializeComponent() override;
 	virtual void BeginPlay() override;
 	

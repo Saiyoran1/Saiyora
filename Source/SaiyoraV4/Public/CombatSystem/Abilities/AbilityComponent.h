@@ -100,7 +100,6 @@ public:
 	virtual void BeginPlay() override;
 	virtual void InitializeComponent() override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
-	virtual bool ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags) override;
 
 	AGameState* GetGameStateRef() const { return GameStateRef; }
 	UResourceHandler* GetResourceHandlerRef() const { return ResourceHandlerRef; }
@@ -150,7 +149,7 @@ private:
 	UPROPERTY()
 	TArray<UCombatAbility*> RecentlyRemovedAbilities;
 	UFUNCTION()
-	void CleanupRemovedAbility(UCombatAbility* Ability) { RecentlyRemovedAbilities.Remove(Ability); }
+	void CleanupRemovedAbility(UCombatAbility* Ability);
 	
 
 //Ability Usage
