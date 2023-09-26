@@ -29,6 +29,24 @@ private:
 	ASaiyoraGameState* GameStateRef;
 	UFUNCTION()
 	void OnPlayerAdded(const ASaiyoraPlayerCharacter* NewPlayer);
+	
+	//Name
+	
+public:
+	
+	UFUNCTION(BlueprintPure, Category = "Name")
+	FName GetCombatName() const { return CombatName; }
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Name")
+	void SetCombatName(const FName NewName);
+	UPROPERTY(BlueprintAssignable, Category = "Name")
+	FOnCombatNameChanged OnNameChanged;
+	
+private:
+	
+	UPROPERTY(EditAnywhere, ReplicatedUsing=OnRep_CombatName, Category = "Name")
+	FName CombatName;
+	UFUNCTION()
+	void OnRep_CombatName(const FName PreviousName) const { OnNameChanged.Broadcast(PreviousName, CombatName); }
 
 //Plane
 

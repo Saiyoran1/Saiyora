@@ -5,6 +5,7 @@
 #include "SaiyoraGameState.h"
 #include "SaiyoraPlayerCharacter.h"
 #include "UnrealNetwork.h"
+#include "WidgetComponent.h"
 #include "Kismet/GameplayStatics.h"
 
 TMap<int32, UCombatStatusComponent*> UCombatStatusComponent::StencilValues = TMap<int32, UCombatStatusComponent*>();
@@ -23,6 +24,7 @@ void UCombatStatusComponent::GetLifetimeReplicatedProps(::TArray<FLifetimeProper
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(UCombatStatusComponent, PlaneStatus);
 	DOREPLIFETIME_CONDITION(UCombatStatusComponent, bPlaneSwapRestricted, COND_OwnerOnly);
+	DOREPLIFETIME(UCombatStatusComponent, CombatName);
 }
 
 void UCombatStatusComponent::InitializeComponent()
@@ -55,7 +57,6 @@ void UCombatStatusComponent::BeginPlay()
 		{
 			GameStateRef->OnPlayerAdded.AddDynamic(this, &UCombatStatusComponent::OnPlayerAdded);
 		}
-		//TODO: Subscribe to player spawned in gamestate so that we can update local player status component.
 	}
 	UpdateOwnerCustomRendering();
 	UpdateOwnerPlaneCollision();
@@ -70,17 +71,30 @@ void UCombatStatusComponent::OnPlayerAdded(const ASaiyoraPlayerCharacter* NewPla
 		{
 			LocalPlayerStatusComponent->OnPlaneSwapped.AddDynamic(this, &UCombatStatusComponent::OnLocalPlayerPlaneSwap);
 			UpdateOwnerCustomRendering();
-			
 		}
 		GameStateRef->OnPlayerAdded.RemoveDynamic(this, &UCombatStatusComponent::OnPlayerAdded);
 	}
 }
 
 #pragma endregion
+#pragma region Name
+
+void UCombatStatusComponent::SetCombatName(const FName NewName)
+{
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
+	const FName Previous = CombatName;
+	CombatName = NewName;
+	OnNameChanged.Broadcast(Previous, CombatName);
+}
+
+#pragma endregion
 #pragma region Plane
 
 ESaiyoraPlane UCombatStatusComponent::PlaneSwap(const bool bIgnoreRestrictions, UObject* Source,
-                                                  const bool bToSpecificPlane, const ESaiyoraPlane TargetPlane)
+                                                const bool bToSpecificPlane, const ESaiyoraPlane TargetPlane)
 {
 	if (GetOwnerRole() != ROLE_Authority || !bCanEverPlaneSwap)
 	{

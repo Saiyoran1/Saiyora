@@ -18,3 +18,4 @@ struct FPlaneStatus
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPlaneSwapRestrictionNotification, const bool, bRestricted);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FPlaneSwapNotification, const ESaiyoraPlane, PreviousPlane, const ESaiyoraPlane, NewPlane, UObject*, Source);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnCombatNameChanged, const FName, PreviousName, const FName, NewName);
