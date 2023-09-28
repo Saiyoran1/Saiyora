@@ -36,6 +36,10 @@ const FName FSaiyoraCollision::CT_ModernNPCs = FName("CombatTraceModernNPCs");
 const FName FSaiyoraCollision::CT_ModernOverlapAll = FName("CombatTraceModernOverlap");
 const FName FSaiyoraCollision::CT_ModernOverlapPlayers = FName("CombatTraceModernOverlapPlayers");
 const FName FSaiyoraCollision::CT_ModernOverlapNPCs = FName("CombatTraceModernOverlapNPCs");
+const FName FSaiyoraCollision::CT_GeometryBothPlanes = FName("CombatTraceGeometry");
+const FName FSaiyoraCollision::CT_GeometryAncient = FName("CombatTraceGeometryAncient");
+const FName FSaiyoraCollision::CT_GeometryModern = FName("CombatTraceGeometryModern");
+const FName FSaiyoraCollision::CT_GeometryNone = FName("CombatTraceGeometryNone");
 
 FSaiyoraCombatTags FSaiyoraCombatTags::SaiyoraCombatTags;
 

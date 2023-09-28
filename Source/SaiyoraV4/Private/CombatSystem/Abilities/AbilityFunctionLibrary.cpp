@@ -247,6 +247,30 @@ void UAbilityFunctionLibrary::GetRelevantCollisionObjectTypes(const ESaiyoraPlan
 	}
 }
 
+bool UAbilityFunctionLibrary::CheckLineOfSightInPlane(const UObject* Context, const FVector& From, const FVector& To, const ESaiyoraPlane Plane)
+{
+	FName TraceProfile = FSaiyoraCollision::CT_GeometryNone;
+	switch (Plane)
+	{
+	case ESaiyoraPlane::Ancient :
+		TraceProfile = FSaiyoraCollision::CT_GeometryAncient;
+		break;
+	case ESaiyoraPlane::Modern :
+		TraceProfile = FSaiyoraCollision::CT_GeometryModern;
+		break;
+	case ESaiyoraPlane::Both :
+		TraceProfile = FSaiyoraCollision::CT_GeometryBothPlanes;
+	default:
+		break;
+	}
+    
+	FHitResult Hit;
+	UKismetSystemLibrary::LineTraceSingleByProfile(Context, From, To, TraceProfile, false,
+		TArray<AActor*>(), EDrawDebugTrace::None, Hit, true);
+    
+	return !Hit.bBlockingHit;
+}
+
 #pragma endregion 
 #pragma region Snapshotting
 
@@ -1273,7 +1297,7 @@ AActor* UAbilityFunctionLibrary::SpawnAdd(AActor* Summoner, const TSubclassOf<AA
 }
 
 #pragma endregion
-#pragma region
+#pragma region Ground Effect
 
 AGroundAttack* UAbilityFunctionLibrary::SpawnGroundEffect(AActor* Summoner, const FTransform& SpawnTransform, const FVector Extent,
 	const float ConeAngle, const float InnerRingPercent, const EFaction Hostility, const float DetonationTime, const bool bDestroyOnDetonate, const FLinearColor IndicatorColor,

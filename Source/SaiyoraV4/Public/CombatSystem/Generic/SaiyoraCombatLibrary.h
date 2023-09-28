@@ -19,7 +19,7 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Time")
 	static float GetActorPing(const AActor* Actor);
-	UFUNCTION(BlueprintPure, Category = "Player")
+	UFUNCTION(BlueprintPure, Category = "Player", meta = (HidePin = "WorldContext", DefaultToSelf = "WorldContext"))
 	static ASaiyoraPlayerCharacter* GetLocalSaiyoraPlayer(const UObject* WorldContext);
 
 	//Attachment

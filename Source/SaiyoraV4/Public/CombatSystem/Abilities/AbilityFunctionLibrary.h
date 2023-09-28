@@ -110,6 +110,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Abilities")
 	static FName GetRelevantTraceProfile(const AActor* Shooter, const bool bOverlap, const ESaiyoraPlane TracePlane, const EFaction TraceHostility);
 
+	UFUNCTION(BlueprintPure, Category = "Line of Sight", meta = (HidePin = "Context", DefaultToSelf = "Context"))
+	static bool CheckLineOfSightInPlane(const UObject* Context, const FVector& From, const FVector& To, const ESaiyoraPlane Plane);
+
 private:
 	
 	static void GenerateOriginInfo(const ASaiyoraPlayerCharacter* Shooter, FAbilityOrigin& OutOrigin);

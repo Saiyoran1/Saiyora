@@ -62,4 +62,3 @@ ASaiyoraPlayerCharacter* USaiyoraCombatLibrary::GetLocalSaiyoraPlayer(const UObj
     }
     return nullptr;
 }
-

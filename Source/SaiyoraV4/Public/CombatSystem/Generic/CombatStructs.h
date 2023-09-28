@@ -57,6 +57,10 @@ struct SAIYORAV4_API FSaiyoraCollision
     static const FName CT_ModernOverlapAll;
     static const FName CT_ModernOverlapPlayers;
     static const FName CT_ModernOverlapNPCs;
+    static const FName CT_GeometryBothPlanes;
+    static const FName CT_GeometryAncient;
+    static const FName CT_GeometryModern;
+    static const FName CT_GeometryNone;
 };
 
 struct SAIYORAV4_API FSaiyoraCombatTags : public FGameplayTagNativeAdder
