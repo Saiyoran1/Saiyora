@@ -7,6 +7,7 @@
 
 class ASaiyoraPlayerCharacter;
 class UThreatHandler;
+class UCombatStatusComponent;
 
 USTRUCT()
 struct FFloatingHealthBarInfo
@@ -42,6 +43,8 @@ class SAIYORAV4_API UFloatingHealthBarManager : public UUserWidget
 	UCanvasPanel* CanvasPanelRef;
 	UPROPERTY()
 	ASaiyoraPlayerCharacter* LocalPlayer;
+	UPROPERTY()
+	UCombatStatusComponent* LocalPlayerCombatStatus;
 	UPROPERTY()
 	TArray<FFloatingHealthBarInfo> FloatingBars;
 

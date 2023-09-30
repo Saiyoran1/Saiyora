@@ -21,6 +21,7 @@ UAbilityComponent::UAbilityComponent(const FObjectInitializer& ObjectInitializer
 	//PrimaryComponentTick.bCanEverTick = false;
 	SetIsReplicatedByDefault(true);
 	bWantsInitializeComponent = true;
+	bReplicateUsingRegisteredSubObjectList = true;
 }
 
 bool UAbilityComponent::IsLocallyControlled() const

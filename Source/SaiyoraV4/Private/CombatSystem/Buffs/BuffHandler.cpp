@@ -19,6 +19,7 @@ UBuffHandler::UBuffHandler()
 	PrimaryComponentTick.bCanEverTick = false;
 	SetIsReplicatedByDefault(true);
 	bWantsInitializeComponent = true;
+	bReplicateUsingRegisteredSubObjectList = true;
 }
 
 void UBuffHandler::BeginPlay()

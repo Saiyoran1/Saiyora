@@ -172,6 +172,7 @@ USaiyoraMovementComponent::USaiyoraMovementComponent(const FObjectInitializer& O
 	SetNetworkMoveDataContainer(CustomNetworkMoveDataContainer);
 	SetIsReplicatedByDefault(true);
 	bWantsInitializeComponent = true;
+	bReplicateUsingRegisteredSubObjectList = true;
 }
 
 void USaiyoraMovementComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
