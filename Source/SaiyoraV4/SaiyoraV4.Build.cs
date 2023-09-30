@@ -8,7 +8,7 @@ public class SaiyoraV4 : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 	
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "GameplayTags", "NetCore", "GameplayTasks", "AIModule" });
+		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "GameplayTags", "NetCore", "GameplayTasks", "AIModule",  "UMG"});
 
 		PrivateDependencyModuleNames.AddRange(new string[] {  });
 
