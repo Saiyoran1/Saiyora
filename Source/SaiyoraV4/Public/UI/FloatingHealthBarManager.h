@@ -25,7 +25,13 @@ struct FFloatingHealthBarInfo
 	UPROPERTY()
 	FVector2D DesiredPosition = FVector2d::Zero();
 	UPROPERTY()
+	FVector2D FinalPosition = FVector2d::Zero();
+	UPROPERTY()
+	FVector2D PreviousPosition = FVector2d::Zero();
+	UPROPERTY()
 	bool bOnScreen = false;
+	UPROPERTY()
+	bool bPreviouslyOnScreen = false;
 };
 
 UCLASS()
@@ -37,7 +43,7 @@ class SAIYORAV4_API UFloatingHealthBarManager : public UUserWidget
 	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
 
 	void NewHealthBar(AActor* Target);
-	void UpdateHealthBarPositions();
+	void UpdateHealthBarPositions(const float DeltaTime);
 
 	UPROPERTY()
 	UCanvasPanel* CanvasPanelRef;
