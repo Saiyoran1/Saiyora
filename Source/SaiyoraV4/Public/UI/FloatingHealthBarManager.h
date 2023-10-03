@@ -25,13 +25,11 @@ struct FFloatingHealthBarInfo
 	UPROPERTY()
 	FVector2D DesiredPosition = FVector2d::Zero();
 	UPROPERTY()
-	FVector2D FinalPosition = FVector2d::Zero();
+	FVector2D FinalOffset = FVector2d::Zero();
 	UPROPERTY()
-	FVector2D PreviousPosition = FVector2d::Zero();
+	FVector2D PreviousOffset = FVector2d::Zero();
 	UPROPERTY()
 	bool bOnScreen = false;
-	UPROPERTY()
-	bool bPreviouslyOnScreen = false;
 };
 
 UCLASS()
