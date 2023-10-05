@@ -9,6 +9,32 @@ class ASaiyoraPlayerCharacter;
 class UThreatHandler;
 class UCombatStatusComponent;
 
+UENUM()
+enum class EGridSlotOffset : uint8
+{
+	Right = 0,
+	TopRight = 1,
+	Top = 2,
+	TopLeft = 3,
+	Left = 4,
+	BottomLeft = 5,
+	Bottom = 6,
+	BottomRight = 7
+};
+
+USTRUCT()
+struct FHealthBarGridSlot
+{
+	GENERATED_BODY()
+
+	int32 X = 0;
+	int32 Y = 0;
+
+	bool operator==(const FHealthBarGridSlot& Other) const { return Other.X == X && Other.Y == Y; }
+	FHealthBarGridSlot() {}
+	FHealthBarGridSlot(const int32 InX, const int32 InY) : X(InX), Y(InY) {}
+};
+
 USTRUCT()
 struct FFloatingHealthBarInfo
 {
@@ -28,6 +54,8 @@ struct FFloatingHealthBarInfo
 	FVector2D FinalOffset = FVector2d::Zero();
 	UPROPERTY()
 	FVector2D PreviousOffset = FVector2d::Zero();
+	FHealthBarGridSlot DesiredSlot;
+	float DistanceFromGridSlot = 0.0f;
 	UPROPERTY()
 	bool bOnScreen = false;
 };
@@ -57,4 +85,10 @@ class SAIYORAV4_API UFloatingHealthBarManager : public UUserWidget
 	
 	UFUNCTION()
 	void OnEnemyCombatChanged(AActor* Combatant, const bool bNewCombat);
+	
+	TMap<FVector2D, FFloatingHealthBarInfo> CentralGridSlots;
+
+	static FVector2D GetGridSlotLocation(const FVector2D CenterScreen, const float WidgetSize, const FHealthBarGridSlot& GridSlot);
+	static EGridSlotOffset BoolsToGridSlot(const bool bRight, const bool bTop, const bool bStartHorizontal);
+	static void IncrementGridSlot(const bool bClockwise, EGridSlotOffset& GridSlotOffset, FHealthBarGridSlot& GridSlot);
 };
