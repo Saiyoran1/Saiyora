@@ -48,14 +48,16 @@ struct FFloatingHealthBarInfo
 	USceneComponent* TargetComponent = nullptr;
 	FName TargetSocket = NAME_None;
 
-	FVector2D PreviousOffset = FVector2d::Zero();
-	FHealthBarGridSlot PreviousSlot;
-
 	bool bOnScreen = false;
 	FVector2D RootPosition = FVector2d::Zero();
 	FVector2D FinalOffset = FVector2d::Zero();
-	bool bInCenterGrid = false;
+	bool bOnGrid = false;
 	FHealthBarGridSlot DesiredSlot;
+
+	bool bPreviouslyOnScreen = false;
+	FVector2D PreviousOffset = FVector2d::Zero();
+	bool bPreviouslyOnGrid = false;
+	FHealthBarGridSlot PreviousSlot;
 };
 
 UCLASS()

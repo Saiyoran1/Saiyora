@@ -181,33 +181,60 @@ void UFloatingHealthBarManager::UpdateHealthBarPositions(const float DeltaTime)
 	
 	for (FFloatingHealthBarInfo& HealthBarInfo : FloatingBars)
 	{
-		HealthBarInfo.PreviousOffset = HealthBarInfo.bOnScreen ? HealthBarInfo.FinalOffset : FVector2D(0.0f);
-		const bool bPreviouslyInCenterGrid = HealthBarInfo.bInCenterGrid;
-		const FHealthBarGridSlot PreviousSlot = HealthBarInfo.bOnScreen && bPreviouslyInCenterGrid ? HealthBarInfo.DesiredSlot : FHealthBarGridSlot(0, 0);
+		HealthBarInfo.bPreviouslyOnScreen = HealthBarInfo.bOnScreen;
+		HealthBarInfo.PreviousOffset = HealthBarInfo.bPreviouslyOnScreen ? HealthBarInfo.FinalOffset : FVector2D(0.0f);
+		HealthBarInfo.bPreviouslyOnGrid = HealthBarInfo.bPreviouslyOnScreen && HealthBarInfo.bOnGrid;
+		HealthBarInfo.PreviousSlot = HealthBarInfo.bPreviouslyOnGrid ? HealthBarInfo.DesiredSlot : FHealthBarGridSlot(0, 0);
 		//Updates the root position of the bar, and also whether it is on screen or not.
 		UpdateHealthBarRootPosition(HealthBarInfo);
+		HealthBarInfo.bOnGrid = false;
 		if (HealthBarInfo.bOnScreen)
 		{
 			//Adjust the root position to not sit on the very edge of the screen.
 			ClampBarRootPosition(HealthBarInfo.RootPosition);
-			HealthBarInfo.bInCenterGrid = IsInCenterGrid(HealthBarInfo.RootPosition);
-			if (HealthBarInfo.bInCenterGrid)
-			{
-				if (bPreviouslyInCenterGrid && (GetGridSlotLocation(PreviousSlot) - HealthBarInfo.RootPosition).Length() < GridSlotSize)
-				{
-					GridSlotsThisFrame.Add(PreviousSlot);
-				}
-				else
-				{
-					HealthBarInfo.DesiredSlot = FindDesiredGridSlot(HealthBarInfo.RootPosition);
-					BarsWithoutSlots.Add(&HealthBarInfo);
-				}
-			}
 		}
 		else
 		{
-			HealthBarInfo.bInCenterGrid = false;
+			HealthBarInfo.bOnGrid = false;
 			HealthBarInfo.DesiredSlot = FHealthBarGridSlot(0, 0);
+		}
+	}
+
+	for (int32 i = 0; i < FloatingBars.Num(); i++)
+	{
+		if (!FloatingBars[i].bOnScreen)
+		{
+			continue;
+		}
+		for (int32 j = i + 1; j < FloatingBars.Num(); j++)
+		{
+			if (!FloatingBars[j].bOnScreen)
+			{
+				continue;
+			}
+			if ((FloatingBars[j].RootPosition - FloatingBars[i].RootPosition).Length() < GridSlotSize)
+			{
+				if (!FloatingBars[i].bOnGrid)
+				{
+					FloatingBars[i].bOnGrid = true;
+				}
+				if (!FloatingBars[j].bOnGrid)
+				{
+					FloatingBars[j].bOnGrid = true;
+				}
+			}
+		}
+		if (FloatingBars[i].bOnGrid)
+		{
+			if (FloatingBars[i].bPreviouslyOnGrid && (GetGridSlotLocation(FloatingBars[i].PreviousSlot) - FloatingBars[i].RootPosition).Length() < GridSlotSize)
+			{
+				GridSlotsThisFrame.Add(FloatingBars[i].PreviousSlot);
+			}
+			else
+			{
+				FloatingBars[i].DesiredSlot = FindDesiredGridSlot(FloatingBars[i].RootPosition);
+				BarsWithoutSlots.Add(&FloatingBars[i]);
+			}
 		}
 	}
 
@@ -301,7 +328,7 @@ void UFloatingHealthBarManager::UpdateHealthBarPositions(const float DeltaTime)
 		if (GridSlotsThisFrame.Contains(HealthBarInfo->DesiredSlot))
 		{
 			//Here we check again. If we didn't actually find a viable grid slot that isn't already in use, we just treat the health bar as if it wasn't part of the grid.
-			HealthBarInfo->bInCenterGrid = false;
+			HealthBarInfo->bOnGrid = false;
 			HealthBarInfo->DesiredSlot = FHealthBarGridSlot(0, 0);
 		}
 		else
@@ -320,7 +347,7 @@ void UFloatingHealthBarManager::UpdateHealthBarPositions(const float DeltaTime)
 		}
 		HealthBarInfo.WidgetRef->SetVisibility(ESlateVisibility::HitTestInvisible);
 		//Calculate the offset of the health bar from its desired position to the slot it should occupy.
-		HealthBarInfo.FinalOffset = HealthBarInfo.bInCenterGrid ? GetGridSlotLocation(HealthBarInfo.DesiredSlot) - HealthBarInfo.RootPosition : FVector2D(0.0f);
+		HealthBarInfo.FinalOffset = HealthBarInfo.bOnGrid ? GetGridSlotLocation(HealthBarInfo.DesiredSlot) - HealthBarInfo.RootPosition : FVector2D(0.0f);
 		//Check how much the offset has changed since last frame.
 		const float DistanceFromPrevious = (HealthBarInfo.FinalOffset - HealthBarInfo.PreviousOffset).Length();
 		const float MAXMOVEPERFRAME = 300.0f * DeltaTime;
@@ -331,10 +358,6 @@ void UFloatingHealthBarManager::UpdateHealthBarPositions(const float DeltaTime)
 			MovementDirection.Normalize();
 			HealthBarInfo.FinalOffset = HealthBarInfo.PreviousOffset + (MovementDirection * MAXMOVEPERFRAME);
 		}
-		/*FString ToPrint = FString::Printf(TEXT("%f %f root position. Wants center grid slot: %d. Desired grid slot: %i %i. Desired slot location: %f %f. Num slots taken: %i."),
-			HealthBarInfo.RootPosition.X, HealthBarInfo.RootPosition.Y, HealthBarInfo.bInCenterGrid, HealthBarInfo.DesiredSlot.X, HealthBarInfo.DesiredSlot.Y,
-			GetGridSlotLocation(HealthBarInfo.DesiredSlot).X, GetGridSlotLocation(HealthBarInfo.DesiredSlot).Y, GridSlotsThisFrame.Num());
-		UKismetSystemLibrary::PrintString(GetOwningPlayer(), ToPrint,true, true, FLinearColor(FColor::White), 0.0f, FName(TEXT("DebugBarPosition")));*/
 		HealthBarInfo.WidgetRef->SetPositionInViewport(HealthBarInfo.FinalOffset + HealthBarInfo.RootPosition);
 	}
 }
