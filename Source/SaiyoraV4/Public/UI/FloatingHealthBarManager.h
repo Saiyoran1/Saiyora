@@ -46,18 +46,16 @@ struct FFloatingHealthBarInfo
 	AActor* Target = nullptr;
 	UPROPERTY()
 	USceneComponent* TargetComponent = nullptr;
-	UPROPERTY()
 	FName TargetSocket = NAME_None;
-	UPROPERTY()
-	FVector2D DesiredPosition = FVector2d::Zero();
-	UPROPERTY()
-	FVector2D FinalOffset = FVector2d::Zero();
-	UPROPERTY()
+
 	FVector2D PreviousOffset = FVector2d::Zero();
-	FHealthBarGridSlot DesiredSlot;
-	float DistanceFromGridSlot = 0.0f;
-	UPROPERTY()
+	FHealthBarGridSlot PreviousSlot;
+
 	bool bOnScreen = false;
+	FVector2D RootPosition = FVector2d::Zero();
+	FVector2D FinalOffset = FVector2d::Zero();
+	bool bInCenterGrid = false;
+	FHealthBarGridSlot DesiredSlot;
 };
 
 UCLASS()
@@ -86,9 +84,20 @@ class SAIYORAV4_API UFloatingHealthBarManager : public UUserWidget
 	UFUNCTION()
 	void OnEnemyCombatChanged(AActor* Combatant, const bool bNewCombat);
 	
-	TMap<FVector2D, FFloatingHealthBarInfo> CentralGridSlots;
+	FVector2D CenterScreen = FVector2D(0.0f);
+	int32 ViewportX = 0.0f;
+	int32 ViewportY = 0.0f;
+	static constexpr float ClampPercent = 0.9f;
 
-	static FVector2D GetGridSlotLocation(const FVector2D CenterScreen, const float WidgetSize, const FHealthBarGridSlot& GridSlot);
+	static constexpr float GridSlotSize = 60.0f;
+	static constexpr int32 GridRadius = 5;
+
+	FVector2D GetGridSlotLocation(const FHealthBarGridSlot& GridSlot) const;
 	static EGridSlotOffset BoolsToGridSlot(const bool bRight, const bool bTop, const bool bStartHorizontal);
 	static void IncrementGridSlot(const bool bClockwise, EGridSlotOffset& GridSlotOffset, FHealthBarGridSlot& GridSlot);
+
+	FHealthBarGridSlot FindDesiredGridSlot(const FVector2D& RootPosition) const;
+	void UpdateHealthBarRootPosition(FFloatingHealthBarInfo& HealthBar) const;
+	void ClampBarRootPosition(FVector2D& Root) const;
+	bool IsInCenterGrid(const FVector2D& Location) const;
 };

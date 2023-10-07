@@ -23,6 +23,8 @@ void UFloatingHealthBarManager::NativeConstruct()
 void UFloatingHealthBarManager::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
 	Super::NativeTick(MyGeometry, InDeltaTime);
+	GetOwningPlayer()->GetViewportSize(ViewportX, ViewportY);
+	CenterScreen = FVector2D(ViewportX / 2.0f, ViewportY / 2.0f);
 	UpdateHealthBarPositions(InDeltaTime);
 }
 
@@ -46,10 +48,9 @@ void UFloatingHealthBarManager::OnEnemyCombatChanged(AActor* Combatant, const bo
 	}
 }
 
-FVector2D UFloatingHealthBarManager::GetGridSlotLocation(const FVector2D CenterScreen, const float WidgetSize,
-	const FHealthBarGridSlot& GridSlot)
+FVector2D UFloatingHealthBarManager::GetGridSlotLocation(const FHealthBarGridSlot& GridSlot) const
 {
-	return FVector2D(CenterScreen.X + (WidgetSize * GridSlot.X),CenterScreen.Y + (WidgetSize * GridSlot.Y));
+	return FVector2D(CenterScreen.X + (GridSlotSize * GridSlot.X),CenterScreen.Y + (GridSlotSize * GridSlot.Y));
 }
 
 EGridSlotOffset UFloatingHealthBarManager::BoolsToGridSlot(const bool bRight, const bool bTop,
@@ -175,73 +176,58 @@ void UFloatingHealthBarManager::NewHealthBar(AActor* Target)
 
 void UFloatingHealthBarManager::UpdateHealthBarPositions(const float DeltaTime)
 {
-	int32 ViewportX;
-	int32 ViewportY;
-	GetOwningPlayer()->GetViewportSize(ViewportX, ViewportY);
-	const FVector2D CenterScreen = FVector2D(ViewportX / 2.0f, ViewportY / 2.0f);
-	//Update desired position and whether each bar is on screen (is line of sight, and project world to screen was successful.
-	TArray<FFloatingHealthBarInfo> CenterGridBars;
+	TArray<FFloatingHealthBarInfo*> BarsWithoutSlots;
+	TArray<FHealthBarGridSlot> GridSlotsThisFrame;
+	
 	for (FFloatingHealthBarInfo& HealthBarInfo : FloatingBars)
 	{
-		//If the bar was previously on screen last frame, we save the previous offset so that health bars aren't jumping around like crazy.
 		HealthBarInfo.PreviousOffset = HealthBarInfo.bOnScreen ? HealthBarInfo.FinalOffset : FVector2D(0.0f);
-		//Update whether the bar should be on screen this frame, by checking line of sight from the center of the bar's actor to the local player.
-		//TODO: In the future this should probably use camera location, but the c++ player character class doesn't have a camera.
-		//Maybe combat interface can have a CheckLineOfSightFrom function?
-		const bool bIsLineOfSight = IsValid(LocalPlayer) && IsValid(LocalPlayerCombatStatus) ?
-			UAbilityFunctionLibrary::CheckLineOfSightInPlane(LocalPlayer, LocalPlayer->GetActorLocation(), HealthBarInfo.Target->GetActorLocation(), LocalPlayerCombatStatus->GetCurrentPlane())
-				: true;
-		HealthBarInfo.bOnScreen = bIsLineOfSight &&
-			UGameplayStatics::ProjectWorldToScreen(GetOwningPlayer(), HealthBarInfo.TargetComponent->GetSocketLocation(HealthBarInfo.TargetSocket), HealthBarInfo.DesiredPosition, true);
+		const bool bPreviouslyInCenterGrid = HealthBarInfo.bInCenterGrid;
+		const FHealthBarGridSlot PreviousSlot = HealthBarInfo.bOnScreen && bPreviouslyInCenterGrid ? HealthBarInfo.DesiredSlot : FHealthBarGridSlot(0, 0);
+		//Updates the root position of the bar, and also whether it is on screen or not.
+		UpdateHealthBarRootPosition(HealthBarInfo);
 		if (HealthBarInfo.bOnScreen)
 		{
-			//Update the desired center position of the bar, clamped to 90% of the screen.
-			HealthBarInfo.DesiredPosition.X = FMath::Clamp(HealthBarInfo.DesiredPosition.X, CenterScreen.X - ((ViewportX / 2.0f) * .9f), CenterScreen.X + ((ViewportX / 2.0f) * 0.9f));
-			HealthBarInfo.DesiredPosition.Y = FMath::Clamp(HealthBarInfo.DesiredPosition.Y, CenterScreen.Y - ((ViewportY / 2.0f) * 0.9f), CenterScreen.Y + ((ViewportY / 2.0f) * 0.9f));
-			HealthBarInfo.WidgetRef->SetVisibility(ESlateVisibility::HitTestInvisible);
-			
-			const float WidgetSizeX = HealthBarInfo.WidgetRef->GetDesiredSize().X;
-			constexpr int32 GridSlotsRadius = 5;
-			const float GridXMin = CenterScreen.X - (GridSlotsRadius * WidgetSizeX);
-			const float GridXMax = CenterScreen.X + (GridSlotsRadius * WidgetSizeX);
-			const float GridYMin = CenterScreen.Y - (GridSlotsRadius * WidgetSizeX);
-			const float GridYMax = CenterScreen.Y + (GridSlotsRadius * WidgetSizeX);
-			if (HealthBarInfo.DesiredPosition.X >= GridXMin && HealthBarInfo.DesiredPosition.X <= GridXMax && HealthBarInfo.DesiredPosition.Y >= GridYMin && HealthBarInfo.DesiredPosition.Y <= GridYMax)
+			//Adjust the root position to not sit on the very edge of the screen.
+			ClampBarRootPosition(HealthBarInfo.RootPosition);
+			HealthBarInfo.bInCenterGrid = IsInCenterGrid(HealthBarInfo.RootPosition);
+			if (HealthBarInfo.bInCenterGrid)
 			{
-				//This health bar is in the center grid.
-				CenterGridBars.Add(HealthBarInfo);
-				const int32 SlotX = FMath::RoundToInt32((HealthBarInfo.DesiredPosition.X - CenterScreen.X) / WidgetSizeX);
-				const int32 SlotY = FMath::RoundToInt32((HealthBarInfo.DesiredPosition.Y - CenterScreen.Y) / WidgetSizeX);
-				HealthBarInfo.DesiredSlot = FHealthBarGridSlot(SlotX, SlotY);
-				HealthBarInfo.DistanceFromGridSlot = (GetGridSlotLocation(CenterScreen, WidgetSizeX, HealthBarInfo.DesiredSlot) - HealthBarInfo.DesiredPosition).Length();
-			}
-			else
-			{
-				//TODO: Can do smoothing for health bars that have left the central grid if needed.
-				HealthBarInfo.WidgetRef->SetPositionInViewport(HealthBarInfo.DesiredPosition);
+				if (bPreviouslyInCenterGrid && (GetGridSlotLocation(PreviousSlot) - HealthBarInfo.RootPosition).Length() < GridSlotSize)
+				{
+					GridSlotsThisFrame.Add(PreviousSlot);
+				}
+				else
+				{
+					HealthBarInfo.DesiredSlot = FindDesiredGridSlot(HealthBarInfo.RootPosition);
+					BarsWithoutSlots.Add(&HealthBarInfo);
+				}
 			}
 		}
 		else
 		{
-			HealthBarInfo.WidgetRef->SetVisibility(ESlateVisibility::Hidden);
+			HealthBarInfo.bInCenterGrid = false;
+			HealthBarInfo.DesiredSlot = FHealthBarGridSlot(0, 0);
 		}
 	}
-	CenterGridBars.Sort([](const FFloatingHealthBarInfo& Left, const FFloatingHealthBarInfo& Right)
+
+	//Bars closest to their desired grid slot get priority.
+	BarsWithoutSlots.Sort([this](const FFloatingHealthBarInfo& Left, const FFloatingHealthBarInfo& Right)
 	{
-		return Left.DistanceFromGridSlot <= Right.DistanceFromGridSlot;
+		return (GetGridSlotLocation(Left.DesiredSlot) - Left.RootPosition).Length() <= (GetGridSlotLocation(Right.DesiredSlot) - Right.RootPosition).Length();
 	});
-	TArray<FHealthBarGridSlot> TakenGridSlots;
-	for (FFloatingHealthBarInfo& HealthBarInfo : CenterGridBars)
+
+	//Find slots for all the bars that need one, and update their desired slot.
+	for (FFloatingHealthBarInfo* HealthBarInfo : BarsWithoutSlots)
 	{
-		const float WidgetSizeX = HealthBarInfo.WidgetRef->GetDesiredSize().X;
-		if (TakenGridSlots.Contains(HealthBarInfo.DesiredSlot))
+		if (GridSlotsThisFrame.Contains(HealthBarInfo->DesiredSlot))
 		{
 			//Check whether we are looking for right side or left side slots.
-			const bool bRightSide = HealthBarInfo.DesiredPosition.X > GetGridSlotLocation(CenterScreen, WidgetSizeX, HealthBarInfo.DesiredSlot).X;
-			const bool bTop = HealthBarInfo.DesiredPosition.Y > GetGridSlotLocation(CenterScreen, WidgetSizeX, HealthBarInfo.DesiredSlot).Y;
+			const bool bRightSide = HealthBarInfo->RootPosition.X > GetGridSlotLocation(HealthBarInfo->DesiredSlot).X;
+			const bool bTop = HealthBarInfo->RootPosition.Y > GetGridSlotLocation(HealthBarInfo->DesiredSlot).Y;
 			//Check if should start looking on the sides or on the top/bottom, depending on which axis the widget is further away from the center.
-			const bool bStartHorizontal = FMath::Abs(HealthBarInfo.DesiredPosition.X - GetGridSlotLocation(CenterScreen, WidgetSizeX, HealthBarInfo.DesiredSlot).X) >
-				FMath::Abs(HealthBarInfo.DesiredPosition.Y - GetGridSlotLocation(CenterScreen, WidgetSizeX, HealthBarInfo.DesiredSlot).Y);
+			const bool bStartHorizontal = FMath::Abs(HealthBarInfo->RootPosition.X - GetGridSlotLocation(HealthBarInfo->DesiredSlot).X) >
+				FMath::Abs(HealthBarInfo->RootPosition.Y - GetGridSlotLocation(HealthBarInfo->DesiredSlot).Y);
 			//Get which slot to check first.
 			EGridSlotOffset Offset = BoolsToGridSlot(bRightSide, bTop, bStartHorizontal);
 			const EGridSlotOffset StartingOffset = Offset;
@@ -249,32 +235,32 @@ void UFloatingHealthBarManager::UpdateHealthBarPositions(const float DeltaTime)
 			switch (Offset)
 			{
 			case EGridSlotOffset::Right :
-				HealthBarInfo.DesiredSlot.X += 1;
+				HealthBarInfo->DesiredSlot.X += 1;
 				break;
 			case EGridSlotOffset::BottomRight :
-				HealthBarInfo.DesiredSlot.X += 1;
-				HealthBarInfo.DesiredSlot.Y -= 1;
+				HealthBarInfo->DesiredSlot.X += 1;
+				HealthBarInfo->DesiredSlot.Y -= 1;
 				break;
 			case EGridSlotOffset::Bottom :
-				HealthBarInfo.DesiredSlot.Y -= 1;
+				HealthBarInfo->DesiredSlot.Y -= 1;
 				break;
 			case EGridSlotOffset::BottomLeft :
-				HealthBarInfo.DesiredSlot.X -= 1;
-				HealthBarInfo.DesiredSlot.Y -= 1;
+				HealthBarInfo->DesiredSlot.X -= 1;
+				HealthBarInfo->DesiredSlot.Y -= 1;
 				break;
 			case EGridSlotOffset::Left :
-				HealthBarInfo.DesiredSlot.X -= 1;
+				HealthBarInfo->DesiredSlot.X -= 1;
 				break;
 			case EGridSlotOffset::TopLeft :
-				HealthBarInfo.DesiredSlot.X -= 1;
-				HealthBarInfo.DesiredSlot.Y += 1;
+				HealthBarInfo->DesiredSlot.X -= 1;
+				HealthBarInfo->DesiredSlot.Y += 1;
 				break;
 			case EGridSlotOffset::Top :
-				HealthBarInfo.DesiredSlot.Y += 1;
+				HealthBarInfo->DesiredSlot.Y += 1;
 				break;
 			case EGridSlotOffset::TopRight :
-				HealthBarInfo.DesiredSlot.X += 1;
-				HealthBarInfo.DesiredSlot.Y += 1;
+				HealthBarInfo->DesiredSlot.X += 1;
+				HealthBarInfo->DesiredSlot.Y += 1;
 				break;
 			}
 			//Determine whether to check further in a clockwise or counterclockwise direction.
@@ -301,9 +287,9 @@ void UFloatingHealthBarManager::UpdateHealthBarPositions(const float DeltaTime)
 					bClockwise = !bRightSide;
 				}
 			}
-			while (TakenGridSlots.Contains(HealthBarInfo.DesiredSlot))
+			while (GridSlotsThisFrame.Contains(HealthBarInfo->DesiredSlot))
 			{
-				IncrementGridSlot(bClockwise, Offset, HealthBarInfo.DesiredSlot);
+				IncrementGridSlot(bClockwise, Offset, HealthBarInfo->DesiredSlot);
 				//Right now, any health bars beyond 9 that are vying for the same slot will end up overlapping.
 				if (StartingOffset == Offset)
 				{
@@ -312,9 +298,29 @@ void UFloatingHealthBarManager::UpdateHealthBarPositions(const float DeltaTime)
 			}
 		}
 		
-		TakenGridSlots.Add(HealthBarInfo.DesiredSlot);
+		if (GridSlotsThisFrame.Contains(HealthBarInfo->DesiredSlot))
+		{
+			//Here we check again. If we didn't actually find a viable grid slot that isn't already in use, we just treat the health bar as if it wasn't part of the grid.
+			HealthBarInfo->bInCenterGrid = false;
+			HealthBarInfo->DesiredSlot = FHealthBarGridSlot(0, 0);
+		}
+		else
+		{
+			GridSlotsThisFrame.Add(HealthBarInfo->DesiredSlot);
+		}
+	}
+
+	//Final loop to set visibility, smooth positioning, and place widgets on the screen.
+	for (FFloatingHealthBarInfo& HealthBarInfo : FloatingBars)
+	{
+		if (!HealthBarInfo.bOnScreen)
+		{
+			HealthBarInfo.WidgetRef->SetVisibility(ESlateVisibility::Hidden);
+			continue;
+		}
+		HealthBarInfo.WidgetRef->SetVisibility(ESlateVisibility::HitTestInvisible);
 		//Calculate the offset of the health bar from its desired position to the slot it should occupy.
-		HealthBarInfo.FinalOffset = GetGridSlotLocation(CenterScreen, WidgetSizeX, HealthBarInfo.DesiredSlot) - HealthBarInfo.DesiredPosition;
+		HealthBarInfo.FinalOffset = HealthBarInfo.bInCenterGrid ? GetGridSlotLocation(HealthBarInfo.DesiredSlot) - HealthBarInfo.RootPosition : FVector2D(0.0f);
 		//Check how much the offset has changed since last frame.
 		const float DistanceFromPrevious = (HealthBarInfo.FinalOffset - HealthBarInfo.PreviousOffset).Length();
 		const float MAXMOVEPERFRAME = 300.0f * DeltaTime;
@@ -325,80 +331,44 @@ void UFloatingHealthBarManager::UpdateHealthBarPositions(const float DeltaTime)
 			MovementDirection.Normalize();
 			HealthBarInfo.FinalOffset = HealthBarInfo.PreviousOffset + (MovementDirection * MAXMOVEPERFRAME);
 		}
-		HealthBarInfo.WidgetRef->SetPositionInViewport(HealthBarInfo.FinalOffset + HealthBarInfo.DesiredPosition);
+		/*FString ToPrint = FString::Printf(TEXT("%f %f root position. Wants center grid slot: %d. Desired grid slot: %i %i. Desired slot location: %f %f. Num slots taken: %i."),
+			HealthBarInfo.RootPosition.X, HealthBarInfo.RootPosition.Y, HealthBarInfo.bInCenterGrid, HealthBarInfo.DesiredSlot.X, HealthBarInfo.DesiredSlot.Y,
+			GetGridSlotLocation(HealthBarInfo.DesiredSlot).X, GetGridSlotLocation(HealthBarInfo.DesiredSlot).Y, GridSlotsThisFrame.Num());
+		UKismetSystemLibrary::PrintString(GetOwningPlayer(), ToPrint,true, true, FLinearColor(FColor::White), 0.0f, FName(TEXT("DebugBarPosition")));*/
+		HealthBarInfo.WidgetRef->SetPositionInViewport(HealthBarInfo.FinalOffset + HealthBarInfo.RootPosition);
 	}
-	//Sort floating health bars by distance from center screen, with all hidden bars in the first part of the array.
-	/*FloatingBars.Sort([CenterScreen](const FFloatingHealthBarInfo& Left, const FFloatingHealthBarInfo& Right)
-	{
-		if (Left.bOnScreen)
-		{
-			if (Right.bOnScreen)
-			{
-				return (Left.DesiredPosition - CenterScreen).Length() < (Right.DesiredPosition - CenterScreen).Length();
-			}
-			return false;
-		}
-		return true;
-	});*/
-	
-	/*bool bFoundFirstVisible = false;
-	for (int32 i = 0; i < FloatingBars.Num(); i++)
-	{
-		if (!FloatingBars[i].bOnScreen)
-		{
-			continue;
-		}
-		//First visible bar is the closest to center, we want to let it be at its desired position.
-		const bool bIsFirstVisible = !bFoundFirstVisible;
-		if (bIsFirstVisible)
-		{
-			bFoundFirstVisible = true;
-		}
-		
-		FVector2D Repulsion = FVector2D(0.0f, 0.0f);
-		bool bHasOverlap = false;
-		if (!bIsFirstVisible)
-		{
-			for (int32 j = 0; j < FloatingBars.Num(); j++)
-			{
-				//Don't compare to self or invisible widgets.
-				if (j == i || !FloatingBars[j].bOnScreen)
-				{
-					continue;
-				}
-				//Get distance between bar we are moving and bar we are comparing to.
-				const FVector2D JToI = FloatingBars[i].DesiredPosition - (j < i ? FloatingBars[j].DesiredPosition + FloatingBars[j].FinalOffset : FloatingBars[j].DesiredPosition);
-				const float DistanceFromMovingBar = JToI.Length();
-				if (DistanceFromMovingBar < WidgetSizeX * 2)
-				{
-					//This bar is within range to apply repulsion to the moving bar.
-					FVector2D JToINormalized = JToI;
-					JToINormalized.Normalize();
-					Repulsion += JToINormalized * ((WidgetSizeX * 2) - DistanceFromMovingBar);
-					if (DistanceFromMovingBar < WidgetSizeX)
-					{
-						//This bar is within range to cause an overlap.
-						bHasOverlap = true;
-					}
-				}
-			}
-		}
-		FloatingBars[i].FinalOffset = bHasOverlap ? Repulsion : FVector2D(0.0f);
-		if (FloatingBars[i].FinalOffset.Length() > WidgetSizeX)
-		{
-			//Clamp desired offset to WidgetSizeX.
-			FloatingBars[i].FinalOffset.Normalize();
-			FloatingBars[i].FinalOffset *= WidgetSizeX;
-		}
-		//Clamp the new offset to within a radius of the previous offset.
-		const float DistanceFromPrevious = (FloatingBars[i].FinalOffset - FloatingBars[i].PreviousOffset).Length();
-		const float MAXMOVEPERFRAME = 150.0f * DeltaTime;
-		if (DistanceFromPrevious > MAXMOVEPERFRAME)
-		{
-			FVector2D MovementDirection = FloatingBars[i].FinalOffset - FloatingBars[i].PreviousOffset;
-			MovementDirection.Normalize();
-			FloatingBars[i].FinalOffset = FloatingBars[i].PreviousOffset + (MovementDirection * MAXMOVEPERFRAME);
-		}
-		FloatingBars[i].WidgetRef->SetPositionInViewport(FloatingBars[i].DesiredPosition + FloatingBars[i].FinalOffset);
-	}*/
+}
+
+FHealthBarGridSlot UFloatingHealthBarManager::FindDesiredGridSlot(const FVector2D& RootPosition) const
+{
+	const int32 SlotX = FMath::RoundToInt32((RootPosition.X - CenterScreen.X) / GridSlotSize);
+	const int32 SlotY = FMath::RoundToInt32((RootPosition.Y - CenterScreen.Y) / GridSlotSize);
+	return FHealthBarGridSlot(SlotX, SlotY);
+}
+
+void UFloatingHealthBarManager::UpdateHealthBarRootPosition(FFloatingHealthBarInfo& HealthBar) const
+{
+	//Update whether the bar should be on screen this frame, by checking line of sight from the center of the bar's actor to the local player.
+	//TODO: In the future this should probably use camera location, but the c++ player character class doesn't have a camera.
+	//Maybe combat interface can have a CheckLineOfSightFrom function?
+	const bool bIsLineOfSight = IsValid(LocalPlayer) && IsValid(LocalPlayerCombatStatus) ?
+		UAbilityFunctionLibrary::CheckLineOfSightInPlane(LocalPlayer, LocalPlayer->GetActorLocation(), HealthBar.Target->GetActorLocation(), LocalPlayerCombatStatus->GetCurrentPlane())
+			: true;
+	HealthBar.bOnScreen = bIsLineOfSight &&
+		UGameplayStatics::ProjectWorldToScreen(GetOwningPlayer(), HealthBar.TargetComponent->GetSocketLocation(HealthBar.TargetSocket), HealthBar.RootPosition, true);
+}
+
+void UFloatingHealthBarManager::ClampBarRootPosition(FVector2D& Root) const
+{
+	Root.X = FMath::Clamp(Root.X, CenterScreen.X - ((ViewportX / 2.0f) * ClampPercent), CenterScreen.X + ((ViewportX / 2.0f) * ClampPercent));
+	Root.Y = FMath::Clamp(Root.Y, CenterScreen.Y - ((ViewportY / 2.0f) * ClampPercent), CenterScreen.Y + ((ViewportY / 2.0f) * ClampPercent));
+}
+
+bool UFloatingHealthBarManager::IsInCenterGrid(const FVector2D& Location) const
+{
+	const float GridXMin = CenterScreen.X - (GridRadius * GridSlotSize);
+	const float GridXMax = CenterScreen.X + (GridRadius * GridSlotSize);
+	const float GridYMin = CenterScreen.Y - (GridRadius * GridSlotSize);
+	const float GridYMax = CenterScreen.Y + (GridRadius * GridSlotSize);
+	return Location.X >= GridXMin && Location.X <= GridXMax && Location.Y >= GridYMin && Location.Y <= GridYMax;
 }
