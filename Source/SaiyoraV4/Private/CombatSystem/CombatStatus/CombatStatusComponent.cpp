@@ -1,12 +1,12 @@
 #include "CombatStatusComponent.h"
-#include "Buff.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraCombatLibrary.h"
 #include "SaiyoraGameState.h"
 #include "SaiyoraPlayerCharacter.h"
 #include "UnrealNetwork.h"
 #include "WidgetComponent.h"
-#include "Kismet/GameplayStatics.h"
+#include "Kismet/KismetMathLibrary.h"
+#include "FloatingName.h"
 
 TMap<int32, UCombatStatusComponent*> UCombatStatusComponent::StencilValues = TMap<int32, UCombatStatusComponent*>();
 
@@ -14,9 +14,11 @@ TMap<int32, UCombatStatusComponent*> UCombatStatusComponent::StencilValues = TMa
 
 UCombatStatusComponent::UCombatStatusComponent()
 {
-	PrimaryComponentTick.bCanEverTick = false;
+	PrimaryComponentTick.bCanEverTick = true;
 	SetIsReplicatedByDefault(true);
 	bWantsInitializeComponent = true;
+	SetCollisionProfileName(FSaiyoraCollision::P_NoCollision);
+	SetRenderCustomDepth(false);
 }
 
 void UCombatStatusComponent::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -45,6 +47,7 @@ void UCombatStatusComponent::BeginPlay()
 		{
 			LocalPlayerStatusComponent->OnPlaneSwapped.AddDynamic(this, &UCombatStatusComponent::OnLocalPlayerPlaneSwap);
 		}
+		SetupNameWidget(LocalPlayer);
 	}
 	else
 	{
@@ -62,6 +65,16 @@ void UCombatStatusComponent::BeginPlay()
 	UpdateOwnerPlaneCollision();
 }
 
+void UCombatStatusComponent::TickComponent(float DeltaTime, ELevelTick TickType,
+	FActorComponentTickFunction* ThisTickFunction)
+{
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+	if (IsValid(LocalPlayerCamera))
+	{
+		SetWorldRotation(UKismetMathLibrary::FindLookAtRotation(GetComponentLocation(), GetComponentLocation() - LocalPlayerCamera->GetForwardVector()));
+	}
+}
+
 void UCombatStatusComponent::OnPlayerAdded(const ASaiyoraPlayerCharacter* NewPlayer)
 {
 	if (IsValid(NewPlayer) && NewPlayer->IsLocallyControlled())
@@ -73,6 +86,7 @@ void UCombatStatusComponent::OnPlayerAdded(const ASaiyoraPlayerCharacter* NewPla
 			UpdateOwnerCustomRendering();
 		}
 		GameStateRef->OnPlayerAdded.RemoveDynamic(this, &UCombatStatusComponent::OnPlayerAdded);
+		SetupNameWidget(NewPlayer);
 	}
 }
 
@@ -88,6 +102,26 @@ void UCombatStatusComponent::SetCombatName(const FName NewName)
 	const FName Previous = CombatName;
 	CombatName = NewName;
 	OnNameChanged.Broadcast(Previous, CombatName);
+}
+
+void UCombatStatusComponent::SetupNameWidget(const ASaiyoraPlayerCharacter* LocalPlayer)
+{
+	LocalPlayerCamera = LocalPlayer->FindComponentByClass<UCameraComponent>();
+	if (IsValid(LocalPlayerCamera) && IsValid(NameWidgetClass))
+	{
+		UFloatingName* FloatingNameWidget = CreateWidget<UFloatingName>(GetWorld(), NameWidgetClass);
+		if (IsValid(FloatingNameWidget))
+		{
+			SetWidget(FloatingNameWidget);
+			FloatingNameWidget->SetAlignmentInViewport(FVector2D(0.5f));
+			SetDrawAtDesiredSize(true);
+			FloatingNameWidget->Init(this);
+		}
+		FName SocketName = NAME_None;
+		const USceneComponent* SceneComponent = ISaiyoraCombatInterface::Execute_GetFloatingHealthSocket(GetOwner(), SocketName);
+		const FTransform NameTransform = IsValid(SceneComponent) ? SceneComponent->GetSocketTransform(SocketName) : GetOwner()->GetTransform();
+		SetWorldTransform(NameTransform);
+	}
 }
 
 #pragma endregion

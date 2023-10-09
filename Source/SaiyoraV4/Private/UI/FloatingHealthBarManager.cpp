@@ -226,7 +226,7 @@ void UFloatingHealthBarManager::UpdateHealthBarPositions(const float DeltaTime)
 		}
 		if (FloatingBars[i].bOnGrid)
 		{
-			if (FloatingBars[i].bPreviouslyOnGrid && (GetGridSlotLocation(FloatingBars[i].PreviousSlot) - FloatingBars[i].RootPosition).Length() < GridSlotSize)
+			if (FloatingBars[i].bPreviouslyOnGrid && (GetGridSlotLocation(FloatingBars[i].PreviousSlot) - FloatingBars[i].RootPosition).Length() < GridSlotSize * StickinessFactor)
 			{
 				GridSlotsThisFrame.Add(FloatingBars[i].PreviousSlot);
 			}
@@ -350,13 +350,12 @@ void UFloatingHealthBarManager::UpdateHealthBarPositions(const float DeltaTime)
 		HealthBarInfo.FinalOffset = HealthBarInfo.bOnGrid ? GetGridSlotLocation(HealthBarInfo.DesiredSlot) - HealthBarInfo.RootPosition : FVector2D(0.0f);
 		//Check how much the offset has changed since last frame.
 		const float DistanceFromPrevious = (HealthBarInfo.FinalOffset - HealthBarInfo.PreviousOffset).Length();
-		const float MAXMOVEPERFRAME = 300.0f * DeltaTime;
 		//If the offset will change too much, clamp it.
-		if (DistanceFromPrevious > MAXMOVEPERFRAME)
+		if (DistanceFromPrevious > MaxHealthBarSpeed * DeltaTime)
 		{
 			FVector2D MovementDirection = HealthBarInfo.FinalOffset - HealthBarInfo.PreviousOffset;
 			MovementDirection.Normalize();
-			HealthBarInfo.FinalOffset = HealthBarInfo.PreviousOffset + (MovementDirection * MAXMOVEPERFRAME);
+			HealthBarInfo.FinalOffset = HealthBarInfo.PreviousOffset + (MovementDirection * MaxHealthBarSpeed * DeltaTime);
 		}
 		HealthBarInfo.WidgetRef->SetPositionInViewport(HealthBarInfo.FinalOffset + HealthBarInfo.RootPosition);
 	}

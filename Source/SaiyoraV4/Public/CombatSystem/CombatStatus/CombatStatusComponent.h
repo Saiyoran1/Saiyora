@@ -1,16 +1,18 @@
 #pragma once
 #include "CoreMinimal.h"
-#include "Components/ActorComponent.h"
 #include "CombatStatusStructs.h"
 #include "CombatStructs.h"
+#include "WidgetComponent.h"
+#include "Camera/CameraComponent.h"
 #include "CombatStatusComponent.generated.h"
 
+class UFloatingName;
 class UBuff;
 class ASaiyoraGameState;
 class ASaiyoraPlayerCharacter;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
-class SAIYORAV4_API UCombatStatusComponent : public UActorComponent
+class SAIYORAV4_API UCombatStatusComponent : public UWidgetComponent
 {
 	GENERATED_BODY()
 
@@ -22,6 +24,7 @@ public:
 	virtual void GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void InitializeComponent() override;
 	virtual void BeginPlay() override;
+	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 private:
 
@@ -45,8 +48,14 @@ private:
 	
 	UPROPERTY(EditAnywhere, ReplicatedUsing=OnRep_CombatName, Category = "Name")
 	FName CombatName;
+	UPROPERTY(EditDefaultsOnly, Category = "Name")
+	TSubclassOf<UFloatingName> NameWidgetClass;
 	UFUNCTION()
 	void OnRep_CombatName(const FName PreviousName) const { OnNameChanged.Broadcast(PreviousName, CombatName); }
+	void SetupNameWidget(const ASaiyoraPlayerCharacter* LocalPlayer);
+
+	UPROPERTY()
+	UCameraComponent* LocalPlayerCamera;
 
 //Plane
 

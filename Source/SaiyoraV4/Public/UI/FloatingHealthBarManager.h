@@ -93,6 +93,8 @@ class SAIYORAV4_API UFloatingHealthBarManager : public UUserWidget
 
 	static constexpr float GridSlotSize = 60.0f;
 	static constexpr int32 GridRadius = 5;
+	static constexpr float MaxHealthBarSpeed = 150.0f;
+	static constexpr float StickinessFactor = 1.5f;
 
 	FVector2D GetGridSlotLocation(const FHealthBarGridSlot& GridSlot) const;
 	static EGridSlotOffset BoolsToGridSlot(const bool bRight, const bool bTop, const bool bStartHorizontal);
