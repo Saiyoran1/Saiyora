@@ -113,14 +113,17 @@ void UCombatStatusComponent::SetupNameWidget(const ASaiyoraPlayerCharacter* Loca
 		if (IsValid(FloatingNameWidget))
 		{
 			SetWidget(FloatingNameWidget);
-			FloatingNameWidget->SetAlignmentInViewport(FVector2D(0.5f));
 			SetDrawAtDesiredSize(true);
+			SetPivot(FVector2D(0.5f, 0.0f));
 			FloatingNameWidget->Init(this);
 		}
 		FName SocketName = NAME_None;
-		const USceneComponent* SceneComponent = ISaiyoraCombatInterface::Execute_GetFloatingHealthSocket(GetOwner(), SocketName);
-		const FTransform NameTransform = IsValid(SceneComponent) ? SceneComponent->GetSocketTransform(SocketName) : GetOwner()->GetTransform();
-		SetWorldTransform(NameTransform);
+		USceneComponent* SceneComponent = ISaiyoraCombatInterface::Execute_GetFloatingHealthSocket(GetOwner(), SocketName);
+		if (IsValid(SceneComponent))
+		{
+			const FAttachmentTransformRules TransformRules = FAttachmentTransformRules(EAttachmentRule::SnapToTarget, EAttachmentRule::KeepWorld, EAttachmentRule::KeepWorld, false);
+			AttachToComponent(SceneComponent, TransformRules, SocketName);
+		}
 	}
 }
 
@@ -231,6 +234,7 @@ void UCombatStatusComponent::UpdateOwnerCustomRendering()
 	UpdateStencilValue();
 	TArray<UMeshComponent*> Meshes;
 	GetOwner()->GetComponents<UMeshComponent>(Meshes);
+	Meshes.Remove(this);
 	TArray<AActor*> AttachedActors;
 	GetOwner()->GetAttachedActors(AttachedActors, false, true);
 	for (AActor* AttachedActor : AttachedActors)
