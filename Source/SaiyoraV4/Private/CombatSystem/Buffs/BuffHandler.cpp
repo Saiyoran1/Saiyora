@@ -3,11 +3,10 @@
 #include "CombatAbility.h"
 #include "CombatStatusComponent.h"
 #include "SaiyoraCombatInterface.h"
-#include "UnrealNetwork.h"
-#include "Engine/ActorChannel.h"
 #include "AbilityComponent.h"
 #include "CrowdControlHandler.h"
 #include "DamageHandler.h"
+#include "NPCAbilityComponent.h"
 #include "SaiyoraMovementComponent.h"
 #include "StatHandler.h"
 #include "ThreatHandler.h"
@@ -28,7 +27,14 @@ void UBuffHandler::BeginPlay()
 	
 	if (GetOwnerRole() == ROLE_Authority && IsValid(DamageHandlerRef))
 	{
-		DamageHandlerRef->OnLifeStatusChanged.AddDynamic(this, &UBuffHandler::RemoveBuffsOnOwnerDeath);
+		if (IsValid(DamageHandlerRef))
+		{
+			DamageHandlerRef->OnLifeStatusChanged.AddDynamic(this, &UBuffHandler::RemoveBuffsOnOwnerDeath);
+		}
+		if (IsValid(NPCComponentRef))
+		{
+			NPCComponentRef->OnCombatBehaviorChanged.AddDynamic(this, &UBuffHandler::RemoveBuffsOnCombatEnd);
+		}
 	}
 }
 
@@ -41,6 +47,7 @@ void UBuffHandler::InitializeComponent()
 	ThreatHandlerRef = ISaiyoraCombatInterface::Execute_GetThreatHandler(GetOwner());
 	MovementComponentRef = ISaiyoraCombatInterface::Execute_GetCustomMovementComponent(GetOwner());
 	CcHandlerRef = ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(GetOwner());
+	NPCComponentRef = Cast<UNPCAbilityComponent>(ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwner()));
 }
 
 void UBuffHandler::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -249,6 +256,40 @@ void UBuffHandler::RemoveBuffsOnOwnerDeath(AActor* Actor, const ELifeStatus Prev
 		for (UBuff* BuffToRemove : BuffsToRemove)
 		{
 			RemoveBuff(BuffToRemove, EBuffExpireReason::Death);
+		}
+	}
+}
+
+void UBuffHandler::RemoveBuffsOnCombatEnd(const ENPCCombatBehavior PreviousBehavior,
+	const ENPCCombatBehavior NewBehavior)
+{
+	if (PreviousBehavior == ENPCCombatBehavior::Combat && NewBehavior != ENPCCombatBehavior::Combat)
+	{
+		TArray<UBuff*> BuffsToRemove;
+		for (UBuff* Buff : Buffs)
+		{
+			if (Buff->IsRemovedOnCombatEnd())
+			{
+				BuffsToRemove.Add(Buff);
+			}
+		}
+		for (UBuff* Buff : Debuffs)
+		{
+			if (Buff->IsRemovedOnCombatEnd())
+			{
+				BuffsToRemove.Add(Buff);
+			}
+		}
+		for (UBuff* Buff : HiddenBuffs)
+		{
+			if (Buff->IsRemovedOnCombatEnd())
+			{
+				BuffsToRemove.Add(Buff);
+			}
+		}
+		for (UBuff* Buff : BuffsToRemove)
+		{
+			RemoveBuff(Buff, EBuffExpireReason::Combat);
 		}
 	}
 }

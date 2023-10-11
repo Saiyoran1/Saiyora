@@ -84,6 +84,8 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Buff")
 	bool CanBeAppliedWhileDead() const { return bIgnoreDeath; }
 	UFUNCTION(BlueprintPure, Category = "Buff")
+	bool IsRemovedOnCombatEnd() const { return bRemoveOnCombatEnd; }
+	UFUNCTION(BlueprintPure, Category = "Buff")
 	int32 GetInitialStacks() const { return CreationEvent.NewStacks; }
 	UFUNCTION(BlueprintPure, Category = "Buff")
 	float GetInitialDuration() const { return bFiniteDuration ? CreationEvent.NewDuration : 0.0f; }
@@ -130,6 +132,8 @@ private:
 	FGameplayTagContainer BuffTags;
 	UPROPERTY(EditDefaultsOnly, Category = "Application Behavior")
 	bool bIgnoreDeath = false;
+	UPROPERTY(EditDefaultsOnly, Category = "Application Behavior")
+	bool bRemoveOnCombatEnd = true;
 	UPROPERTY(ReplicatedUsing = OnRep_CreationEvent)
 	FBuffApplyEvent CreationEvent;
 	UFUNCTION()

@@ -23,7 +23,8 @@ enum class EBuffExpireReason : uint8
  TimedOut = 1,
  Dispel = 2,
  Death = 3,
- Absolute = 4,
+ Combat = 4,
+ Absolute = 5,
 };
 
 UENUM(BlueprintType)

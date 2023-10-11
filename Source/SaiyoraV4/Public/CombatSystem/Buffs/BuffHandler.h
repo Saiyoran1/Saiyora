@@ -1,9 +1,11 @@
 #pragma once
 #include "BuffStructs.h"
 #include "DamageStructs.h"
+#include "NPCEnums.h"
 #include "Components/ActorComponent.h"
 #include "BuffHandler.generated.h"
 
+class UNPCAbilityComponent;
 class USaiyoraMovementComponent;
 class UThreatHandler;
 class UCrowdControlHandler;
@@ -37,6 +39,8 @@ private:
 	UThreatHandler* ThreatHandlerRef;
 	UPROPERTY()
 	USaiyoraMovementComponent* MovementComponentRef;
+	UPROPERTY()
+	UNPCAbilityComponent* NPCComponentRef;
 	
 //Incoming Buffs
 
@@ -93,6 +97,8 @@ private:
 	TConditionalRestrictionList<FBuffRestriction> IncomingBuffRestrictions;
 	UFUNCTION()
 	void RemoveBuffsOnOwnerDeath(AActor* Actor, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus);
+	UFUNCTION()
+	void RemoveBuffsOnCombatEnd(const ENPCCombatBehavior PreviousBehavior, const ENPCCombatBehavior NewBehavior);
 
 //Outgoing Buffs
 
