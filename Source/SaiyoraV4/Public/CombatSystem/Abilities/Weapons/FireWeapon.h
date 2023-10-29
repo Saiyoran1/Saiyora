@@ -18,6 +18,17 @@ struct FAutoReloadState
 	float EndTime = 0.0f;
 };
 
+USTRUCT()
+struct FShotVerificationInfo
+{
+	GENERATED_BODY()
+	float Timestamp = 0.0f;
+	float CooldownAtTime = 0.0f;
+
+	FShotVerificationInfo() {}
+	FShotVerificationInfo(const float InTimestamp, const float InCooldown) : Timestamp(InTimestamp), CooldownAtTime(InCooldown) {}
+};
+
 UCLASS(Abstract, Blueprintable)
 class SAIYORAV4_API UFireWeapon : public UCombatAbility
 {
@@ -29,6 +40,10 @@ public:
 	virtual void GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 //Fire Delay
+
+public:
+
+	virtual float GetCooldownLength() override;
 	
 private:
 	
@@ -79,9 +94,9 @@ private:
 	void FinishAutoReload();
 
 	UPROPERTY()
-	UResourceHandler* ResourceHandlerRef;
+	UResourceHandler* ResourceHandlerRef = nullptr;
 	UPROPERTY()
-	UResource* AmmoResourceRef;
+	UResource* AmmoResourceRef = nullptr;
 	
 //Weapon
 	
@@ -101,4 +116,20 @@ private:
 	
 	UPROPERTY()
 	AWeapon* Weapon = nullptr;
+
+//Verification
+
+private:
+
+	int32 MaxShotsToVerify = 10;
+	int32 MinShotsToVerify = 5;
+	static constexpr float FIRERATEERRORMARGIN = 0.1f;
+	TArray<FShotVerificationInfo> CurrentClipTimestamps;
+	void AddNewShotForVerification(const float Timestamp);
+	void VerifyFireRate();
+	void EndFireRateVerificationWait() { DeactivateCastRestriction(FSaiyoraCombatTags::Get().AbilityFireRateRestriction); }
+	void ResetVerificationWindow() { CurrentClipTimestamps.Empty(); }
+	FTimerHandle ServerFireRateTimer;
+	UFUNCTION()
+	void OnReloadComplete(const FAbilityEvent& AbilityEvent);
 };

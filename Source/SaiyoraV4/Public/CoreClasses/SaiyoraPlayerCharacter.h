@@ -6,7 +6,9 @@
 #include "SaiyoraCombatInterface.h"
 #include "SpecializationStructs.h"
 #include "ThreatStructs.h"
+#include "Camera/CameraComponent.h"
 #include "GameFramework/Character.h"
+#include "GameFramework/SpringArmComponent.h"
 #include "SaiyoraPlayerCharacter.generated.h"
 
 class ASaiyoraGameState;
@@ -61,6 +63,11 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FActorCombatNotification OnEnemyCombatChanged;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera")
+	USpringArmComponent* SpringArm;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera")
+	UCameraComponent* Camera;
+
 protected:
 	
 	UFUNCTION(BlueprintImplementableEvent)
@@ -70,15 +77,6 @@ private:
 
 	bool bInitialized = false;
 	void InitializeCharacter();
-
-	UPROPERTY()
-	ASaiyoraGameState* GameStateRef;
-	UPROPERTY()
-	ASaiyoraPlayerController* PlayerControllerRef;
-
-//Input
-
-private:
 
 	UFUNCTION()
 	void InputJump() { Jump(); }
@@ -125,6 +123,11 @@ private:
 	void InputStartAbility5() { AbilityInput(5, true); }
 	UFUNCTION()
 	void InputStopAbility5() { AbilityInput(5, false); }
+
+	UPROPERTY()
+	ASaiyoraGameState* GameStateRef;
+	UPROPERTY()
+	ASaiyoraPlayerController* PlayerControllerRef;
 	
 //Saiyora Combat Interface
 

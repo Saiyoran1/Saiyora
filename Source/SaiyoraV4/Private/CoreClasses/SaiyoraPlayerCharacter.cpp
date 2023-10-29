@@ -1,6 +1,4 @@
 #include "CoreClasses/SaiyoraPlayerCharacter.h"
-
-#include "Buff.h"
 #include "BuffHandler.h"
 #include "CrowdControlHandler.h"
 #include "DamageHandler.h"
@@ -18,6 +16,7 @@
 #include "CoreClasses/SaiyoraGameState.h"
 #include "Engine/ActorChannel.h"
 #include "GameFramework/PlayerState.h"
+#include "GameFramework/SpringArmComponent.h"
 #include "Specialization/AncientSpecialization.h"
 #include "Weapons/Reload.h"
 #include "Weapons/StopFiring.h"
@@ -29,6 +28,30 @@ ASaiyoraPlayerCharacter::ASaiyoraPlayerCharacter(const class FObjectInitializer&
 	Super(ObjectInitializer.SetDefaultSubobjectClass<USaiyoraMovementComponent>(ACharacter::CharacterMovementComponentName))
 {
 	PrimaryActorTick.bCanEverTick = true;
+	
+	SpringArm = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
+	SpringArm->SetupAttachment(RootComponent);
+	SpringArm->SetRelativeLocation(FVector(0.0f, 0.0f, 80.0f));
+	SpringArm->TargetArmLength = 500.0f;
+	SpringArm->ProbeSize = 15.0f;
+	SpringArm->ProbeChannel = ECC_Camera;
+	SpringArm->bDoCollisionTest = true;
+	SpringArm->bUsePawnControlRotation = true;
+	SpringArm->bInheritPitch = true;
+	SpringArm->bInheritYaw = true;
+	SpringArm->bInheritRoll = false;
+	SpringArm->bEnableCameraRotationLag = false;
+	SpringArm->bEnableCameraLag = true;
+	SpringArm->CameraLagSpeed = 20.0f;
+	SpringArm->CameraLagMaxDistance = 100.0f;
+	SpringArm->SocketOffset = FVector(0.0f, 0.0f, 30.0f);
+	SpringArm->TargetOffset = FVector::ZeroVector;
+	
+	Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
+	Camera->SetupAttachment(SpringArm);
+	Camera->FieldOfView = 100.0f;
+	Camera->bUsePawnControlRotation = false;
+	
 	CombatStatusComponent = CreateDefaultSubobject<UCombatStatusComponent>(TEXT("CombatStatusComponent"));
 	DamageHandler = CreateDefaultSubobject<UDamageHandler>(TEXT("DamageHandler"));
 	ThreatHandler = CreateDefaultSubobject<UThreatHandler>(TEXT("ThreatHandler"));

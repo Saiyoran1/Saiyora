@@ -106,7 +106,7 @@ void UCombatStatusComponent::SetCombatName(const FName NewName)
 
 void UCombatStatusComponent::SetupNameWidget(const ASaiyoraPlayerCharacter* LocalPlayer)
 {
-	LocalPlayerCamera = LocalPlayer->FindComponentByClass<UCameraComponent>();
+	LocalPlayerCamera = LocalPlayer->Camera;
 	if (IsValid(LocalPlayerCamera) && IsValid(NameWidgetClass))
 	{
 		UFloatingName* FloatingNameWidget = CreateWidget<UFloatingName>(GetWorld(), NameWidgetClass);

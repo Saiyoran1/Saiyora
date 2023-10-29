@@ -206,7 +206,7 @@ public:
     UFUNCTION(BlueprintPure, Category = "Abilities")
     float GetDefaultCooldownLength() const { return DefaultCooldownLength; }
     UFUNCTION(BlueprintPure, Category = "Abilities")
-    float GetCooldownLength();
+    virtual float GetCooldownLength();
     UFUNCTION(BlueprintPure, Category = "Abilities")
     bool HasStaticCooldownLength() const { return bStaticCooldownLength; }
     UFUNCTION(BlueprintPure, Category = "Abilities")

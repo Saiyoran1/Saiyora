@@ -7,6 +7,7 @@
 #include "SaiyoraCombatLibrary.h"
 #include "SaiyoraPlayerCharacter.h"
 #include "UnrealNetwork.h"
+#include "Weapons/Reload.h"
 #include "Weapons/StopFiring.h"
 #include "Weapons/Weapon.h"
 
@@ -26,6 +27,15 @@ void UFireWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifet
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME_CONDITION(UFireWeapon, AutoReloadState, COND_OwnerOnly);
+}
+
+float UFireWeapon::GetCooldownLength()
+{
+	if (bStaticCooldownLength)
+	{
+		return DefaultCooldownLength;
+	}
+	return GetHandler()->CalculateCooldownLength(this, true);
 }
 
 void UFireWeapon::EndFireDelay()
@@ -51,6 +61,7 @@ void UFireWeapon::OnServerTick_Implementation(const int32 TickNumber)
 	{
 		Weapon->FireWeapon();
 	}
+	AddNewShotForVerification(GetWorld()->GetGameState()->GetServerWorldTimeSeconds());
 }
 
 void UFireWeapon::OnSimulatedTick_Implementation(const int32 TickNumber)
@@ -106,19 +117,38 @@ void UFireWeapon::PreInitializeAbility_Implementation()
 					{
 						OwnerCombatStatus->OnPlaneSwapped.AddDynamic(this, &UFireWeapon::StartAutoReloadOnPlaneSwap);
 					}
+
+					//Set verification params based on an expected number of shots per clip.
+					TArray<FSimpleAbilityCost> Costs;
+					GetAbilityCosts(Costs);
+					int32 ExpectedClipShots = MinShotsToVerify;
+					for (const FSimpleAbilityCost& Cost : Costs)
+					{
+						if (Cost.ResourceClass == UAmmoResource::StaticClass() && Cost.Cost > 0.0f)
+						{
+							ExpectedClipShots = FMath::Floor((AmmoResourceRef->GetMaximum() / Cost.Cost) / 2.0f);
+						}
+					}
+					//MinShotsToVerify is the number of shots that have to occur before we start verifying.
+					//This needs to be at least 2 obviously, but also we want to verify at least once per clip, so verifying at least every half clip is a good rule of thumb.
+					MinShotsToVerify = FMath::Clamp(MinShotsToVerify, 2, ExpectedClipShots / 2);
+					//MaxShotsToVerify is the number of shots we keep at a time to verify against.
+					//This needs to be at least the number of shots needed to trigger verification, but there's no reason to keep more than a clip's worth of shots.
+					MaxShotsToVerify = FMath::Clamp(MaxShotsToVerify, MinShotsToVerify, ExpectedClipShots);
 				}
 			}
 		}
 		if (IsValid(ReloadAbilityClass))
 		{
 			GetHandler()->AddNewAbility(ReloadAbilityClass);
+			GetHandler()->OnAbilityTick.AddDynamic(this, &UFireWeapon::OnReloadComplete);
 		}
 		GetHandler()->AddNewAbility(UStopFiring::StaticClass());
 	}
 }
 
 void UFireWeapon::StartAutoReloadOnPlaneSwap(const ESaiyoraPlane PreviousPlane, const ESaiyoraPlane NewPlane,
-	UObject* Source)
+                                             UObject* Source)
 {
 	if (NewPlane != GetAbilityPlane())
 	{
@@ -149,4 +179,44 @@ void UFireWeapon::FinishAutoReload()
 	AutoReloadState.bIsAutoReloading = false;
 	AutoReloadState.StartTime = 0.0f;
 	AutoReloadState.EndTime = 0.0f;
+
+	ResetVerificationWindow();
+}
+
+
+void UFireWeapon::AddNewShotForVerification(const float Timestamp)
+{
+	CurrentClipTimestamps.Add(FShotVerificationInfo(Timestamp, GetHandler()->CalculateCooldownLength(this, true)));
+	while (CurrentClipTimestamps.Num() > MaxShotsToVerify)
+	{
+		CurrentClipTimestamps.RemoveAt(0);
+	}
+	if (CurrentClipTimestamps.Num() >= MinShotsToVerify)
+	{
+		VerifyFireRate();
+	}
+}
+
+void UFireWeapon::VerifyFireRate()
+{
+	const float TotalTime = CurrentClipTimestamps.Last().Timestamp - CurrentClipTimestamps[0].Timestamp;
+	float TotalCooldownTime = 0.0f;
+	for (int32 i = 0; i < CurrentClipTimestamps.Num() - 1; i++)
+	{
+		TotalCooldownTime += CurrentClipTimestamps[i].CooldownAtTime;
+	}
+	if (TotalTime < TotalCooldownTime * (1 - FIRERATEERRORMARGIN))
+	{
+		ActivateCastRestriction(FSaiyoraCombatTags::Get().AbilityFireRateRestriction);
+		const float TimeUntilNextValidShot = (TotalCooldownTime - TotalTime) + GetHandler()->CalculateCooldownLength(this, true);
+		GetWorld()->GetTimerManager().SetTimer(ServerFireRateTimer, this, &UFireWeapon::EndFireRateVerificationWait, TimeUntilNextValidShot);
+	}
+}
+
+void UFireWeapon::OnReloadComplete(const FAbilityEvent& AbilityEvent)
+{
+	if (AbilityEvent.ActionTaken == ECastAction::Tick && AbilityEvent.Ability->GetClass() == ReloadAbilityClass && AbilityEvent.Tick == AbilityEvent.Ability->GetNumberOfTicks())
+	{
+		ResetVerificationWindow();
+	}
 }
