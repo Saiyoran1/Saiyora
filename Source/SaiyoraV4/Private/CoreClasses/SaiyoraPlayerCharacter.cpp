@@ -39,6 +39,38 @@ ASaiyoraPlayerCharacter::ASaiyoraPlayerCharacter(const class FObjectInitializer&
 	ResourceHandler = CreateDefaultSubobject<UResourceHandler>(TEXT("ResourceHandler"));
 }
 
+void ASaiyoraPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+{
+	Super::SetupPlayerInputComponent(PlayerInputComponent);
+	if (!IsValid(PlayerInputComponent))
+	{
+		return;
+	}
+	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ASaiyoraPlayerCharacter::InputJump);
+	PlayerInputComponent->BindAction("Crouch", IE_Pressed, this, &ASaiyoraPlayerCharacter::InputStartCrouch);
+	PlayerInputComponent->BindAction("Crouch", IE_Released, this, &ASaiyoraPlayerCharacter::InputStopCrouch);
+	PlayerInputComponent->BindAxis("MoveForward", this, &ASaiyoraPlayerCharacter::InputMoveForward);
+	PlayerInputComponent->BindAxis("MoveRight", this, &ASaiyoraPlayerCharacter::InputMoveRight);
+	PlayerInputComponent->BindAxis("LookHorizontal", this, &ASaiyoraPlayerCharacter::InputLookHorizontal);
+	PlayerInputComponent->BindAxis("LookVertical", this, &ASaiyoraPlayerCharacter::InputLookVertical);
+
+	PlayerInputComponent->BindAction("PlaneSwap", IE_Pressed, this, &ASaiyoraPlayerCharacter::InputPlaneSwap);
+	PlayerInputComponent->BindAction("Reload", IE_Pressed, this, &ASaiyoraPlayerCharacter::InputReload);
+
+	PlayerInputComponent->BindAction("Action0", IE_Pressed, this, &ASaiyoraPlayerCharacter::InputStartAbility0);
+	PlayerInputComponent->BindAction("Action0", IE_Released, this, &ASaiyoraPlayerCharacter::InputStopAbility0);
+	PlayerInputComponent->BindAction("Action1", IE_Pressed, this, &ASaiyoraPlayerCharacter::InputStartAbility1);
+	PlayerInputComponent->BindAction("Action1", IE_Released, this, &ASaiyoraPlayerCharacter::InputStopAbility1);
+	PlayerInputComponent->BindAction("Action2", IE_Pressed, this, &ASaiyoraPlayerCharacter::InputStartAbility2);
+	PlayerInputComponent->BindAction("Action2", IE_Released, this, &ASaiyoraPlayerCharacter::InputStopAbility2);
+	PlayerInputComponent->BindAction("Action3", IE_Pressed, this, &ASaiyoraPlayerCharacter::InputStartAbility3);
+	PlayerInputComponent->BindAction("Action3", IE_Released, this, &ASaiyoraPlayerCharacter::InputStopAbility3);
+	PlayerInputComponent->BindAction("Action4", IE_Pressed, this, &ASaiyoraPlayerCharacter::InputStartAbility4);
+	PlayerInputComponent->BindAction("Action4", IE_Released, this, &ASaiyoraPlayerCharacter::InputStopAbility4);
+	PlayerInputComponent->BindAction("Action5", IE_Pressed, this, &ASaiyoraPlayerCharacter::InputStartAbility5);
+	PlayerInputComponent->BindAction("Action5", IE_Released, this, &ASaiyoraPlayerCharacter::InputStopAbility5);
+}
+
 void ASaiyoraPlayerCharacter::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
@@ -133,6 +165,26 @@ void ASaiyoraPlayerCharacter::InitializeCharacter()
 	}
 	GameStateRef->InitPlayer(this);
 	bInitialized = true;
+}
+
+#pragma endregion
+#pragma region Input
+
+void ASaiyoraPlayerCharacter::Server_PlaneSwapInput_Implementation()
+{
+	if (IsValid(CombatStatusComponent))
+	{
+		CombatStatusComponent->PlaneSwap(false, this, false);
+	}
+}
+
+void ASaiyoraPlayerCharacter::InputReload()
+{
+	if (!IsValid(AbilityComponent) || !IsValid(ReloadAbility))
+	{
+		return;
+	}
+	AbilityComponent->UseAbility(ReloadAbility->GetClass());
 }
 
 #pragma endregion

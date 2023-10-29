@@ -41,6 +41,7 @@ class SAIYORAV4_API ASaiyoraPlayerCharacter : public ACharacter, public ISaiyora
 public:
 	
 	ASaiyoraPlayerCharacter(const class FObjectInitializer& ObjectInitializer);
+	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 	virtual void PostInitializeComponents() override;
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaSeconds) override;
@@ -74,6 +75,56 @@ private:
 	ASaiyoraGameState* GameStateRef;
 	UPROPERTY()
 	ASaiyoraPlayerController* PlayerControllerRef;
+
+//Input
+
+private:
+
+	UFUNCTION()
+	void InputJump() { Jump(); }
+	UFUNCTION()
+	void InputStartCrouch() { Crouch(); }
+	UFUNCTION()
+	void InputStopCrouch() { UnCrouch(); }
+	UFUNCTION()
+	void InputMoveForward(const float AxisValue) { AddMovementInput(GetActorForwardVector(), AxisValue); }
+	UFUNCTION()
+	void InputMoveRight(const float AxisValue) { AddMovementInput(GetActorRightVector(), AxisValue); }
+	UFUNCTION()
+	void InputLookHorizontal(const float AxisValue) { AddControllerYawInput(AxisValue); }
+	UFUNCTION()
+	void InputLookVertical(const float AxisValue) { AddControllerPitchInput(AxisValue * -1.0f); }
+
+	UFUNCTION()
+	void InputPlaneSwap() { Server_PlaneSwapInput(); }
+	UFUNCTION(Server, Reliable)
+	void Server_PlaneSwapInput();
+	UFUNCTION()
+	void InputReload();
+	UFUNCTION()
+	void InputStartAbility0() { AbilityInput(0, true); }
+	UFUNCTION()
+	void InputStopAbility0() { AbilityInput(0, false); }
+	UFUNCTION()
+	void InputStartAbility1() { AbilityInput(1, true); }
+	UFUNCTION()
+	void InputStopAbility1() { AbilityInput(1, false); }
+	UFUNCTION()
+	void InputStartAbility2() { AbilityInput(2, true); }
+	UFUNCTION()
+	void InputStopAbility2() { AbilityInput(2, false); }
+	UFUNCTION()
+	void InputStartAbility3() { AbilityInput(3, true); }
+	UFUNCTION()
+	void InputStopAbility3() { AbilityInput(3, false); }
+	UFUNCTION()
+	void InputStartAbility4() { AbilityInput(4, true); }
+	UFUNCTION()
+	void InputStopAbility4() { AbilityInput(4, false); }
+	UFUNCTION()
+	void InputStartAbility5() { AbilityInput(5, true); }
+	UFUNCTION()
+	void InputStopAbility5() { AbilityInput(5, false); }
 	
 //Saiyora Combat Interface
 

@@ -54,7 +54,7 @@ void UFloatingHealthBar::UpdateHealth(AActor* Actor, const float PreviousHealth,
 	{
 		FNumberFormattingOptions Options;
 		Options.MaximumFractionalDigits = 0;
-		HealthText->SetText(FText::AsPercent(NewPercent, &Options));
+		HealthText->SetText(FText::AsNumber(FMath::RoundToInt(NewPercent * 100), &Options));
 	}
 }
 
