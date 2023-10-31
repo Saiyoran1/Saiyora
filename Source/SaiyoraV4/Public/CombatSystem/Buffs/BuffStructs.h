@@ -2,6 +2,7 @@
 #include "BuffEnums.h"
 #include "CombatEnums.h"
 #include "CombatStructs.h"
+#include "InstancedStruct.h"
 #include "BuffStructs.generated.h"
 
 class UBuff;
@@ -25,8 +26,8 @@ struct FBuffApplyEvent
     ESaiyoraPlane OriginPlane = ESaiyoraPlane::None;
     UPROPERTY(BlueprintReadOnly, Category = "Buff")
     bool AppliedXPlane = false;
-    UPROPERTY(BlueprintReadOnly, Category = "Buff")
-    TArray<FCombatParameter> CombatParams;
+    UPROPERTY(BlueprintReadOnly, Category = "Buff", meta = (BaseStruct = "/Script/SaiyoraV4.CombatParameter"))
+    TArray<FInstancedStruct> CombatParams;
     UPROPERTY(BlueprintReadOnly, Category = "Buff")
     EBuffApplyAction ActionTaken = EBuffApplyAction::Failed;
     UPROPERTY(BlueprintReadOnly, Category = "Buff")

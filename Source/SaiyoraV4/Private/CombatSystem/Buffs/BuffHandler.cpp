@@ -62,7 +62,7 @@ void UBuffHandler::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 FBuffApplyEvent UBuffHandler::ApplyBuff(const TSubclassOf<UBuff> BuffClass, AActor* AppliedBy,
 		UObject* Source, const bool DuplicateOverride, const EBuffApplicationOverrideType StackOverrideType,
 		const int32 OverrideStacks, const EBuffApplicationOverrideType RefreshOverrideType, const float OverrideDuration,
-		const bool IgnoreRestrictions, const TArray<FCombatParameter>& BuffParams)
+		const bool IgnoreRestrictions, const TArray<FInstancedStruct>& BuffParams)
 {
     FBuffApplyEvent Event;
 

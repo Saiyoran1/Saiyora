@@ -46,11 +46,11 @@ private:
 
 public:
 
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Buffs", meta = (AutoCreateRefTerm = "BuffParams"))
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Buffs", meta = (AutoCreateRefTerm = "BuffParams", BaseStruct = "/Script/SaiyoraV4.CombatParameter"))
 	FBuffApplyEvent ApplyBuff(const TSubclassOf<UBuff> BuffClass, AActor* AppliedBy, UObject* Source,
 		const bool DuplicateOverride, const EBuffApplicationOverrideType StackOverrideType, const int32 OverrideStacks,
 		const EBuffApplicationOverrideType RefreshOverrideType, const float OverrideDuration, const bool IgnoreRestrictions,
-		const TArray<FCombatParameter>& BuffParams);
+		const TArray<FInstancedStruct>& BuffParams);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Buffs")
 	FBuffRemoveEvent RemoveBuff(UBuff* Buff, const EBuffExpireReason ExpireReason);
 	UFUNCTION(BlueprintPure, Category = "Buffs")

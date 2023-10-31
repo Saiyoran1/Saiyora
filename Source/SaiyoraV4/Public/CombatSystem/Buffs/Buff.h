@@ -1,5 +1,6 @@
 #pragma once
 #include "BuffStructs.h"
+#include "InstancedStruct.h"
 #include "GameFramework/GameState.h"
 #include "Buff.generated.h"
 
@@ -99,8 +100,8 @@ public:
 	ESaiyoraPlane GetInitialOriginPlane() const { return CreationEvent.OriginPlane; }
 	UFUNCTION(BlueprintPure, Category = "Buff")
 	ESaiyoraPlane GetInitialTargetPlane() const { return CreationEvent.TargetPlane; }
-	UFUNCTION(BlueprintPure, Category = "Buff")
-	void GetInitialParameters(TArray<FCombatParameter>& OutParams) const { OutParams = CreationEvent.CombatParams; }
+	UFUNCTION(BlueprintPure, Category = "Buff", meta = (BaseStruct = "/Script/SaiyoraV4.CombatParameter"))
+	void GetInitialParameters(TArray<FInstancedStruct>& OutParams) const { OutParams = CreationEvent.CombatParams; }
 	void InitializeBuff(FBuffApplyEvent& Event, UBuffHandler* NewHandler, const bool bIgnoreRestrictions, const EBuffApplicationOverrideType StackOverrideType,
 		const int32 OverrideStacks, const EBuffApplicationOverrideType RefreshOverrideType, const float OverrideDuration);
 	void ApplyEvent(FBuffApplyEvent& ApplicationEvent, EBuffApplicationOverrideType const StackOverrideType,
@@ -178,8 +179,8 @@ public:
 	ESaiyoraPlane GetLastOriginPlane() const { return LastApplyEvent.ActionTaken == EBuffApplyAction::Failed ? CreationEvent.OriginPlane : LastApplyEvent.OriginPlane; }
 	UFUNCTION(BlueprintPure, Category = "Buff")
 	ESaiyoraPlane GetLastTargetPlane() const { return LastApplyEvent.ActionTaken == EBuffApplyAction::Failed ? CreationEvent.TargetPlane : LastApplyEvent.TargetPlane; }
-	UFUNCTION(BlueprintPure, Category = "Buff")
-	void GetLastApplicationParameters(TArray<FCombatParameter>& OutParams) const { LastApplyEvent.ActionTaken == EBuffApplyAction::Failed ? OutParams = CreationEvent.CombatParams : OutParams = LastApplyEvent.CombatParams; }
+	UFUNCTION(BlueprintPure, Category = "Buff", meta = (BaseStruct = "/Script/SaiyoraV4.CombatParameter"))
+	void GetLastApplicationParameters(TArray<FInstancedStruct>& OutParams) const { LastApplyEvent.ActionTaken == EBuffApplyAction::Failed ? OutParams = CreationEvent.CombatParams : OutParams = LastApplyEvent.CombatParams; }
 	int32 GetLastPredictionID() const { return LastApplyEvent.ActionTaken == EBuffApplyAction::Failed ? CreationEvent.PredictionID : LastApplyEvent.PredictionID; }
 
 	UPROPERTY(BlueprintAssignable)

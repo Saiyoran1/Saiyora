@@ -219,62 +219,81 @@ USTRUCT(BlueprintType)
 struct FCombatParameter
 {
     GENERATED_BODY()
-
-    UPROPERTY(BlueprintReadWrite)
-    ECombatParamType ParamType = ECombatParamType::None;
+    
     UPROPERTY(BlueprintReadWrite)
     FString ParamName;
+};
+
+USTRUCT(BlueprintType)
+struct FCombatParameterString : public FCombatParameter
+{
+    GENERATED_BODY()
+
     UPROPERTY(BlueprintReadWrite)
-    bool BoolParam = false;
+    FString StringParam;
+};
+
+USTRUCT(BlueprintType)
+struct FCombatParameterInt : public FCombatParameter
+{
+    GENERATED_BODY()
+
     UPROPERTY(BlueprintReadWrite)
     int32 IntParam = 0;
+};
+
+USTRUCT(BlueprintType)
+struct FCombatParameterFloat : public FCombatParameter
+{
+    GENERATED_BODY()
+
     UPROPERTY(BlueprintReadWrite)
     float FloatParam = 0.0f;
+};
+
+USTRUCT(BlueprintType)
+struct FCombatParameterBool : public FCombatParameter
+{
+    GENERATED_BODY()
+
+    UPROPERTY(BlueprintReadWrite)
+    bool BoolParam = false;
+};
+
+USTRUCT(BlueprintType)
+struct FCombatParameterObject : public FCombatParameter
+{
+    GENERATED_BODY()
+
     UPROPERTY(BlueprintReadWrite)
     UObject* ObjectParam = nullptr;
+};
+
+USTRUCT(BlueprintType)
+struct FCombatParameterClass : public FCombatParameter
+{
+    GENERATED_BODY()
+
     UPROPERTY(BlueprintReadWrite)
     TSubclassOf<UObject> ClassParam;
+};
+
+USTRUCT(BlueprintType)
+struct FCombatParameterVector : public FCombatParameter
+{
+    GENERATED_BODY()
+
     UPROPERTY(BlueprintReadWrite)
     FVector VectorParam = FVector::ZeroVector;
+};
+
+USTRUCT(BlueprintType)
+struct FCombatParameterRotator : public FCombatParameter
+{
+    GENERATED_BODY()
+
     UPROPERTY(BlueprintReadWrite)
     FRotator RotatorParam = FRotator::ZeroRotator;
-
-    friend FArchive& operator<<(FArchive& Ar, FCombatParameter& Parameter)
-    {
-        Ar << Parameter.ParamType;
-        Ar << Parameter.ParamName;
-        switch (Parameter.ParamType)
-        {
-            case ECombatParamType::None :
-                break;
-            case ECombatParamType::String :
-                break;
-            case ECombatParamType::Bool :
-                Ar << Parameter.BoolParam;
-                break;
-            case ECombatParamType::Int :
-                Ar << Parameter.IntParam;
-                break;
-            case ECombatParamType::Float :
-                Ar << Parameter.FloatParam;
-                break;
-            case ECombatParamType::Object :
-                Ar << Parameter.ObjectParam;
-                break;
-            case ECombatParamType::Class :
-                Ar << Parameter.ClassParam;
-                break;
-            case ECombatParamType::Vector :
-                Ar << Parameter.VectorParam;
-                break;
-            case ECombatParamType::Rotator :
-                Ar << Parameter.RotatorParam;
-                break;
-            default :
-                break;
-        }
-        return Ar;
-    }
 };
 
 template <class T>
