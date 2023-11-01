@@ -1,5 +1,4 @@
 ﻿#include "AbilityFunctionLibrary.h"
-
 #include "AbilityComponent.h"
 #include "CombatAbility.h"
 #include "CombatStatusComponent.h"
@@ -8,11 +7,9 @@
 #include "PredictableProjectile.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraCombatLibrary.h"
-#include "SaiyoraRootMotionHandler.h"
 #include "SummonedMobComponent.h"
 #include "CoreClasses/SaiyoraGameState.h"
 #include "CoreClasses/SaiyoraPlayerCharacter.h"
-#include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Kismet/KismetSystemLibrary.h"
 
@@ -282,7 +279,7 @@ void UAbilityFunctionLibrary::RewindRelevantHitboxesForShooter(const ASaiyoraPla
 		return;
 	}
 	const float Ping = USaiyoraCombatLibrary::GetActorPing(Shooter);
-	ASaiyoraGameState* GameState = Shooter->GetWorld()->GetGameState<ASaiyoraGameState>();
+	const ASaiyoraGameState* GameState = Shooter->GetWorld()->GetGameState<ASaiyoraGameState>();
 	if (Ping <= 0.0f || !IsValid(GameState))
 	{
 		return;
