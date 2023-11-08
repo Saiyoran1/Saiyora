@@ -127,7 +127,7 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
 	UCombatAbility* AddNewAbility(const TSubclassOf<UCombatAbility> AbilityClass);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
-	void RemoveAbility(const TSubclassOf<UCombatAbility> AbilityClass);
+	bool RemoveAbility(const TSubclassOf<UCombatAbility> AbilityClass);
 	UFUNCTION(BlueprintPure, Category = "Abilities")
 	UCombatAbility* FindActiveAbility(const TSubclassOf<UCombatAbility> AbilityClass) const { return ActiveAbilities.FindRef(AbilityClass); }
 	UFUNCTION(BlueprintPure, Category = "Abilities")

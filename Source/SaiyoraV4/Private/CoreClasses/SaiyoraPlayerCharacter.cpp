@@ -220,23 +220,45 @@ void ASaiyoraPlayerCharacter::SetupAbilityMappings()
 		AncientAbilityMappings.Add(i, nullptr);
 		ModernAbilityMappings.Add(i, nullptr);
 	}
-	TArray<UCombatAbility*> ActiveAbilities;
-	AbilityComponent->GetActiveAbilities(ActiveAbilities);
-	for (UCombatAbility* Ability : ActiveAbilities)
-	{
-		AddAbilityMapping(Ability);
-	}
-	AbilityComponent->OnAbilityAdded.AddDynamic(this, &ASaiyoraPlayerCharacter::AddAbilityMapping);
-	AbilityComponent->OnAbilityRemoved.AddDynamic(this, &ASaiyoraPlayerCharacter::RemoveAbilityMapping);
+	AbilityComponent->OnAbilityAdded.AddDynamic(this, &ASaiyoraPlayerCharacter::OnAbilityAdded);
+	AbilityComponent->OnAbilityRemoved.AddDynamic(this, &ASaiyoraPlayerCharacter::OnAbilityRemoved);
 }
 
-void ASaiyoraPlayerCharacter::AddAbilityMapping(UCombatAbility* NewAbility)
+void ASaiyoraPlayerCharacter::SetAbilityMapping(const ESaiyoraPlane Plane, const int32 BindIndex, const TSubclassOf<UCombatAbility> AbilityClass)
 {
+	if (!IsLocallyControlled() || BindIndex < 0 || BindIndex > MaxAbilityBinds - 1)
+	{
+		return;
+	}
+	switch (Plane)
+	{
+	case ESaiyoraPlane::Ancient :
+		{
+			if (BindIndex == 0)
+			{
+				return;
+			}
+			AncientAbilityMappings.Add(BindIndex, AbilityClass);
+			OnMappingChanged.Broadcast(ESaiyoraPlane::Ancient, BindIndex, AbilityClass);
+		}
+		break;
+	case ESaiyoraPlane::Modern :
+		{
+			ModernAbilityMappings.Add(BindIndex, AbilityClass);
+			OnMappingChanged.Broadcast(ESaiyoraPlane::Modern, BindIndex, AbilityClass);
+		}
+		break;
+	default :
+		break;
+	}
+}
+
+void ASaiyoraPlayerCharacter::OnAbilityAdded(UCombatAbility* NewAbility)
+{
+	//When we get a new FireWeapon, Reload, or StopFiring ability, save those off.
 	if (NewAbility->HasTag(FSaiyoraCombatTags::Get().FireWeaponAbility))
 	{
-		ModernAbilityMappings.Add(0, NewAbility);
 		FireWeaponAbility = Cast<UFireWeapon>(NewAbility);
-		OnMappingChanged.Broadcast(ESaiyoraPlane::Modern, 0, NewAbility);
 	}
 	else if (NewAbility->HasTag(FSaiyoraCombatTags::Get().ReloadAbility))
 	{
@@ -246,58 +268,10 @@ void ASaiyoraPlayerCharacter::AddAbilityMapping(UCombatAbility* NewAbility)
 	{
 		StopFiringAbility = Cast<UStopFiring>(NewAbility);
 	}
-	else if (NewAbility->GetAbilityPlane() == ESaiyoraPlane::Ancient)
-	{
-		for (TTuple<int32, UCombatAbility*>& Mapping : AncientAbilityMappings)
-		{
-			if (!IsValid(Mapping.Value))
-			{
-				Mapping.Value = NewAbility;
-				OnMappingChanged.Broadcast(ESaiyoraPlane::Ancient, Mapping.Key, Mapping.Value);
-				break;
-			}
-		}
-	}
-	else
-	{
-		for (TTuple<int32, UCombatAbility*>& Mapping : ModernAbilityMappings)
-		{
-			if (Mapping.Key != 0 && !IsValid(Mapping.Value))
-			{
-				Mapping.Value = NewAbility;
-				OnMappingChanged.Broadcast(ESaiyoraPlane::Modern, Mapping.Key, Mapping.Value);
-				break;
-			}
-		}
-	}
 }
 
-void ASaiyoraPlayerCharacter::RemoveAbilityMapping(UCombatAbility* RemovedAbility)
+void ASaiyoraPlayerCharacter::OnAbilityRemoved(UCombatAbility* RemovedAbility)
 {
-	if (RemovedAbility->GetAbilityPlane() == ESaiyoraPlane::Ancient)
-	{
-		for (TTuple<int32, UCombatAbility*>& Mapping : AncientAbilityMappings)
-		{
-			if (IsValid(Mapping.Value) && Mapping.Value == RemovedAbility)
-			{
-				Mapping.Value = nullptr;
-				OnMappingChanged.Broadcast(ESaiyoraPlane::Ancient, Mapping.Key, nullptr);
-				break;
-			}
-		}
-	}
-	else
-	{
-		for (TTuple<int32, UCombatAbility*>& Mapping : ModernAbilityMappings)
-		{
-			if (IsValid(Mapping.Value) && Mapping.Value == RemovedAbility)
-			{
-				Mapping.Value = nullptr;
-				OnMappingChanged.Broadcast(ESaiyoraPlane::Modern, Mapping.Key, nullptr);
-				break;
-			}
-		}
-	}
 	if (RemovedAbility == AutomaticInputAbility)
 	{
 		AutomaticInputAbility = nullptr;
@@ -313,7 +287,8 @@ void ASaiyoraPlayerCharacter::AbilityInput(const int32 InputNum, const bool bPre
 	{
 		return;
 	}
-	UCombatAbility* AbilityToUse = CombatStatusComponent->GetCurrentPlane() == ESaiyoraPlane::Ancient ? AncientAbilityMappings.FindRef(InputNum) : ModernAbilityMappings.FindRef(InputNum);
+	const TSubclassOf<UCombatAbility> AbilityClass = CombatStatusComponent->GetCurrentPlane() == ESaiyoraPlane::Ancient ? AncientAbilityMappings.FindRef(InputNum) : ModernAbilityMappings.FindRef(InputNum);
+	UCombatAbility* AbilityToUse = AbilityComponent->FindActiveAbility(AbilityClass);
 	if (!IsValid(AbilityToUse))
 	{
 		return;

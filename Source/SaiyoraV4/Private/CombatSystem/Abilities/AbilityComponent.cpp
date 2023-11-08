@@ -117,16 +117,16 @@ void UAbilityComponent::NotifyOfReplicatedAbility(UCombatAbility* NewAbility)
 	}
 }
 
-void UAbilityComponent::RemoveAbility(const TSubclassOf<UCombatAbility> AbilityClass)
+bool UAbilityComponent::RemoveAbility(const TSubclassOf<UCombatAbility> AbilityClass)
 {
 	if (GetOwnerRole() != ROLE_Authority || !IsValid(AbilityClass))
 	{
-		return;
+		return false;
 	}
 	UCombatAbility* AbilityToRemove = ActiveAbilities.FindRef(AbilityClass);
 	if (!IsValid(AbilityToRemove))
 	{
-		return;
+		return false;
 	}
 	AbilityToRemove->DeactivateAbility();
 	RecentlyRemovedAbilities.Add(AbilityToRemove);
@@ -135,6 +135,7 @@ void UAbilityComponent::RemoveAbility(const TSubclassOf<UCombatAbility> AbilityC
 	FTimerHandle RemovalHandle;
 	const FTimerDelegate RemovalDelegate = FTimerDelegate::CreateUObject(this, &UAbilityComponent::CleanupRemovedAbility, AbilityToRemove);
 	GetWorld()->GetTimerManager().SetTimer(RemovalHandle, RemovalDelegate, 1.0f, false);
+	return true;
 }
 
 void UAbilityComponent::NotifyOfReplicatedAbilityRemoval(UCombatAbility* RemovedAbility)

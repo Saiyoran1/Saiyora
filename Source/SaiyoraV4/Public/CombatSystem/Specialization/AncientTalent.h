@@ -11,8 +11,8 @@ class SAIYORAV4_API UAncientTalent : public UObject
 
 public:
 
-	void SelectTalent(UAncientSpecialization* OwningSpecialization) { OwningSpec = OwningSpecialization; OnTalentSelected(); }
-	void UnselectTalent() { OnTalentUnselected(); }
+	void SelectTalent(UAncientSpecialization* OwningSpecialization, const TSubclassOf<UCombatAbility> BaseAbility);
+	void UnselectTalent();
 
 protected:
 
@@ -36,7 +36,12 @@ private:
 	UTexture2D* TalentIcon;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Specialization", meta = (AllowPrivateAccess = "true"))
 	EHealthEventSchool TalentSchool;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Specialization", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<UCombatAbility> ReplaceBaseWith = nullptr;
 	
 	UPROPERTY()
 	UAncientSpecialization* OwningSpec;
+	TSubclassOf<UCombatAbility> BaseAbilityClass;
+
+	void ReplacePlayerAbilityWith(const TSubclassOf<UCombatAbility> AbilityToReplace, const TSubclassOf<UCombatAbility> NewAbility);
 };

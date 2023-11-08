@@ -22,7 +22,7 @@ class UReload;
 class UAncientSpecialization;
 class UAncientTalent;
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnMappingChanged, const ESaiyoraPlane, Plane, const int32, MappingID, UCombatAbility*, Ability);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnMappingChanged, const ESaiyoraPlane, Plane, const int32, MappingID, TSubclassOf<UCombatAbility>, Ability);
 
 USTRUCT()
 struct FPredictedTickProjectiles
@@ -171,18 +171,27 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FOnMappingChanged OnMappingChanged;
 	UFUNCTION(BlueprintPure, Category = "Abilities")
-	void GetAbilityMappings(TMap<int32, UCombatAbility*>& AncientMappings, TMap<int32, UCombatAbility*>& ModernMappings) const { AncientMappings = AncientAbilityMappings; ModernMappings = ModernAbilityMappings; }
+	void GetAbilityMappings(TMap<int32, TSubclassOf<UCombatAbility>>& AncientMappings, TMap<int32, TSubclassOf<UCombatAbility>>& ModernMappings) const
+	{
+		AncientMappings = AncientAbilityMappings; ModernMappings = ModernAbilityMappings;
+	}
+	UFUNCTION(BlueprintPure, Category = "Abilities")
+	void GetAncientMappings(TMap<int32, TSubclassOf<UCombatAbility>>& AncientMappings) const { AncientMappings = AncientAbilityMappings; }
+	UFUNCTION(BlueprintPure, Category = "Abilities")
+	void GetModernMappings(TMap<int32, TSubclassOf<UCombatAbility>>& ModernMappings) const { ModernMappings = ModernAbilityMappings; }
+	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	void SetAbilityMapping(const ESaiyoraPlane Plane, const int32 BindIndex, const TSubclassOf<UCombatAbility> AbilityClass);
 
 private:
 	
 	static constexpr int32 MaxAbilityBinds = 6;
 	void SetupAbilityMappings();
-	TMap<int32, UCombatAbility*> ModernAbilityMappings;
-	TMap<int32, UCombatAbility*> AncientAbilityMappings;
+	TMap<int32, TSubclassOf<UCombatAbility>> ModernAbilityMappings;
+	TMap<int32, TSubclassOf<UCombatAbility>> AncientAbilityMappings;
 	UFUNCTION()
-	void AddAbilityMapping(UCombatAbility* NewAbility);
+	void OnAbilityAdded(UCombatAbility* NewAbility);
 	UFUNCTION()
-	void RemoveAbilityMapping(UCombatAbility* RemovedAbility);
+	void OnAbilityRemoved(UCombatAbility* RemovedAbility);
 
 //Weapon Handling
 

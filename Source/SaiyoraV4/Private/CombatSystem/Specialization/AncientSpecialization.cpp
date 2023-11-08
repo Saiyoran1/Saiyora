@@ -51,7 +51,7 @@ void UAncientSpecialization::InitializeSpecialization(ASaiyoraPlayerCharacter* P
 					TalentChoice.ActiveTalent = NewObject<UAncientTalent>(OwningPlayer, TalentChoice.CurrentSelection);
 					if (IsValid(TalentChoice.ActiveTalent))
 					{
-						TalentChoice.ActiveTalent->SelectTalent(this);
+						TalentChoice.ActiveTalent->SelectTalent(this, TalentChoice.BaseAbility);
 					}
 				}
 				else if (TalentChoice.ActiveTalent->GetClass() != TalentChoice.CurrentSelection)
@@ -60,7 +60,7 @@ void UAncientSpecialization::InitializeSpecialization(ASaiyoraPlayerCharacter* P
 					TalentChoice.ActiveTalent = NewObject<UAncientTalent>(OwningPlayer, TalentChoice.CurrentSelection);
 					if (IsValid(TalentChoice.ActiveTalent))
 					{
-						TalentChoice.ActiveTalent->SelectTalent(this);
+						TalentChoice.ActiveTalent->SelectTalent(this, TalentChoice.BaseAbility);
 					}
 				}
 			}
@@ -134,7 +134,7 @@ void UAncientSpecialization::SelectAncientTalent(const TSubclassOf<UCombatAbilit
 				TalentChoice.ActiveTalent = NewObject<UAncientTalent>(OwningPlayer, TalentSelection);
 				if (IsValid(TalentChoice.ActiveTalent))
 				{
-					TalentChoice.ActiveTalent->SelectTalent(this);
+					TalentChoice.ActiveTalent->SelectTalent(this, TalentChoice.BaseAbility);
 				}
 				Loadout.MarkItemDirty(TalentChoice);
 				OnTalentChanged.Broadcast(TalentChoice.BaseAbility, PreviousTalent, TalentChoice.CurrentSelection);
