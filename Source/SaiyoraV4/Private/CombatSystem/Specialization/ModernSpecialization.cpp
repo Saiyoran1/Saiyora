@@ -4,12 +4,6 @@
 #include "UnrealNetwork.h"
 #include "SaiyoraPlayerCharacter.h"
 
-UModernSpecialization::UModernSpecialization()
-{
-	static ConstructorHelpers::FObjectFinder<UAbilityPool> AbilityPoolObject(TEXT("/Game/Saiyora/Player/Specs/Generic/DA_ModernAbilityPool"));
-	AbilityPool = AbilityPoolObject.Object;
-}
-
 void UModernSpecialization::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
@@ -80,7 +74,7 @@ void UModernSpecialization::SelectModernAbility(const int32 Slot, const TSubclas
 	{
 		return;
 	}
-	if (!IsValid(AbilityPool) || !AbilityPool->AbilityClasses.Contains(Ability))
+	if (!IsValid(AbilityPool) || !AbilityPool->ModernAbilityPool.Contains(Ability))
 	{
 		return;
 	}

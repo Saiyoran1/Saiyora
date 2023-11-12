@@ -4,7 +4,7 @@
 #include "Object.h"
 #include "AncientTalent.generated.h"
 
-UCLASS(Blueprintable)
+UCLASS(Abstract, Blueprintable)
 class SAIYORAV4_API UAncientTalent : public UObject
 {
 	GENERATED_BODY()

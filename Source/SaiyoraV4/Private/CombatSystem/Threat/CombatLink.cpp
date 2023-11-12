@@ -8,7 +8,7 @@ ACombatLink::ACombatLink()
 	PrimaryActorTick.bCanEverTick = false;
 	USceneComponent* SceneComp = CreateDefaultSubobject<USceneComponent>(FName(TEXT("Scene")));
 	RootComponent = SceneComp;
-#if WITH_EDITORONLY_DATA
+#if WITH_EDITOR
 	Sphere = CreateEditorOnlyDefaultSubobject<USphereComponent>(FName(TEXT("Sphere")));
 	Sphere->InitSphereRadius(50.0f);
 	Sphere->SetupAttachment(RootComponent);

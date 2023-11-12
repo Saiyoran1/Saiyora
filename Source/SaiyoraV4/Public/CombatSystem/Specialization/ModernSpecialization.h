@@ -10,14 +10,13 @@ class ASaiyoraPlayerCharacter;
 class UResource;
 class UAbilityComponent;
 
-UCLASS(Blueprintable)
+UCLASS(Abstract, Blueprintable)
 class SAIYORAV4_API UModernSpecialization : public UObject
 {
 	GENERATED_BODY()
 
 public:
-
-	UModernSpecialization();
+	
 	virtual bool IsSupportedForNetworking() const override { return true; }
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	
@@ -69,7 +68,7 @@ private:
 	UAbilityComponent* OwnerAbilityCompRef;
 	bool bInitialized = false;
 	UPROPERTY()
-	UAbilityPool* AbilityPool;
+	UPlayerAbilityData* AbilityPool;
 	UPROPERTY(Replicated)
 	FModernTalentSet Loadout;
 };

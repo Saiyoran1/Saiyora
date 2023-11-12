@@ -241,6 +241,56 @@ private:
 	void ExpireQueue();
 	UPROPERTY()
 	UCombatAbility* AutomaticInputAbility = nullptr;
+	
+	//Specialization
+
+	public:
+
+	UFUNCTION(BlueprintPure, Category = "Specialization")
+	UPlayerAbilityData* GetPlayerAbilityData() const { return PlayerAbilityData; }
+
+	UFUNCTION(BlueprintPure, Category = "Specialization")
+	UAncientSpecialization* GetAncientSpecialization() const { return AncientSpec; }
+	UPROPERTY(BlueprintAssignable)
+	FAncientSpecChangeNotification OnAncientSpecChanged;
+
+	UFUNCTION(BlueprintPure, Category = "Specialization")
+	UModernSpecialization* GetModernSpecialization() const { return ModernSpec; }
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Specialization")
+	void SetModernSpecialization(const TSubclassOf<UModernSpecialization> NewSpec);
+
+	UPROPERTY(BlueprintAssignable)
+	FModernSpecChangeNotification OnModernSpecChanged;
+
+	void ApplyNewAncientLayout(const FAncientSpecLayout& NewLayout);
+	UFUNCTION(Server, Reliable)
+	void Server_ChangeAncientSpecAndTalents(TSubclassOf<UAncientSpecialization> NewSpec, const TArray<FAncientTalentSelection>& TalentSelections);
+	UFUNCTION(Server, Reliable)
+	void Server_ChangeAncientTalents(const TArray<FAncientTalentSelection>& TalentSelections);
+	void SetAncientSpecialization(const TSubclassOf<UAncientSpecialization> NewSpec);
+
+private:
+
+	UPROPERTY(EditDefaultsOnly, Category = "Specialization", meta = (AllowPrivateAccess = "true"))
+	UPlayerAbilityData* PlayerAbilityData = nullptr;
+
+	UPROPERTY(ReplicatedUsing = OnRep_AncientSpec)
+	UAncientSpecialization* AncientSpec;
+	UFUNCTION()
+	void OnRep_AncientSpec(UAncientSpecialization* PreviousSpec);
+	UPROPERTY()
+	UAncientSpecialization* RecentlyUnlearnedAncientSpec;
+	UFUNCTION()
+	void CleanupOldAncientSpecialization() { RecentlyUnlearnedAncientSpec = nullptr; }
+
+	UPROPERTY(ReplicatedUsing = OnRep_ModernSpec)
+	UModernSpecialization* ModernSpec;
+	UFUNCTION()
+	void OnRep_ModernSpec(UModernSpecialization* PreviousSpec);
+	UPROPERTY()
+	UModernSpecialization* RecentlyUnlearnedModernSpec;
+	UFUNCTION()
+	void CleanupOldModernSpecialization() { RecentlyUnlearnedModernSpec = nullptr; }
 
 //Collision
 
@@ -269,44 +319,4 @@ private:
 	
 	TMap<FPredictedTick, FPredictedTickProjectiles> PredictedProjectiles;
 	TMap<FPredictedTick, int32> ProjectileIDs;
-
-//Specialization
-
-public:
-
-	UFUNCTION(BlueprintPure, Category = "Specialization")
-	UAncientSpecialization* GetAncientSpecialization() const { return AncientSpec; }
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Specialization")
-	void SetAncientSpecialization(const TSubclassOf<UAncientSpecialization> NewSpec);
-
-	UPROPERTY(BlueprintAssignable)
-	FAncientSpecChangeNotification OnAncientSpecChanged;
-
-	UFUNCTION(BlueprintPure, Category = "Specialization")
-	UModernSpecialization* GetModernSpecialization() const { return ModernSpec; }
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Specialization")
-	void SetModernSpecialization(const TSubclassOf<UModernSpecialization> NewSpec);
-
-	UPROPERTY(BlueprintAssignable)
-	FModernSpecChangeNotification OnModernSpecChanged;
-
-private:
-
-	UPROPERTY(ReplicatedUsing = OnRep_AncientSpec)
-	UAncientSpecialization* AncientSpec;
-	UFUNCTION()
-	void OnRep_AncientSpec(UAncientSpecialization* PreviousSpec);
-	UPROPERTY()
-	UAncientSpecialization* RecentlyUnlearnedAncientSpec;
-	UFUNCTION()
-	void CleanupOldAncientSpecialization() { RecentlyUnlearnedAncientSpec = nullptr; }
-
-	UPROPERTY(ReplicatedUsing = OnRep_ModernSpec)
-	UModernSpecialization* ModernSpec;
-	UFUNCTION()
-	void OnRep_ModernSpec(UModernSpecialization* PreviousSpec);
-	UPROPERTY()
-	UModernSpecialization* RecentlyUnlearnedModernSpec;
-	UFUNCTION()
-	void CleanupOldModernSpecialization() { RecentlyUnlearnedModernSpec = nullptr; }
 };

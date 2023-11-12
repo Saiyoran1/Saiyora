@@ -111,27 +111,30 @@ void UAncientSpecialization::UnlearnSpec()
 	OnUnlearn();
 }
 
-void UAncientSpecialization::SelectAncientTalent(const TSubclassOf<UCombatAbility> BaseAbility,
-	const TSubclassOf<UAncientTalent> TalentSelection)
+void UAncientSpecialization::SelectAncientTalent(const FAncientTalentSelection& NewSelection)
 {
-	if (!GetOwningPlayer()->HasAuthority() || !IsValid(BaseAbility) || !IsValid(TalentSelection))
+	if (!GetOwningPlayer()->HasAuthority() || !IsValid(NewSelection.BaseAbility))
 	{
 		return;
 	}
 	for (FAncientTalentChoice& TalentChoice : Loadout.Items)
 	{
-		if (TalentChoice.BaseAbility == BaseAbility)
+		if (TalentChoice.BaseAbility == NewSelection.BaseAbility)
 		{
-			if (TalentChoice.Talents.Contains(TalentSelection) && TalentChoice.CurrentSelection != TalentSelection)
+			if (IsValid(TalentChoice.CurrentSelection))
 			{
+				//Currently have an active talent.
+				if (TalentChoice.CurrentSelection == NewSelection.Selection)
+				{
+					return;
+				}
 				const TSubclassOf<UAncientTalent> PreviousTalent = TalentChoice.CurrentSelection;
 				if (IsValid(TalentChoice.ActiveTalent))
 				{
 					TalentChoice.ActiveTalent->UnselectTalent();
 				}
-				TalentChoice.CurrentSelection = TalentSelection;
-				
-				TalentChoice.ActiveTalent = NewObject<UAncientTalent>(OwningPlayer, TalentSelection);
+				TalentChoice.CurrentSelection = NewSelection.Selection;
+				TalentChoice.ActiveTalent = NewObject<UAncientTalent>(OwningPlayer, NewSelection.Selection);
 				if (IsValid(TalentChoice.ActiveTalent))
 				{
 					TalentChoice.ActiveTalent->SelectTalent(this, TalentChoice.BaseAbility);
@@ -139,34 +142,22 @@ void UAncientSpecialization::SelectAncientTalent(const TSubclassOf<UCombatAbilit
 				Loadout.MarkItemDirty(TalentChoice);
 				OnTalentChanged.Broadcast(TalentChoice.BaseAbility, PreviousTalent, TalentChoice.CurrentSelection);
 			}
-			break;
-		}
-	}
-}
-
-void UAncientSpecialization::ClearTalentSelection(const TSubclassOf<UCombatAbility> BaseAbility)
-{
-	if (!OwningPlayer->HasAuthority() || !IsValid(BaseAbility))
-	{
-		return;
-	}
-	for (FAncientTalentChoice& TalentChoice : Loadout.Items)
-	{
-		if (TalentChoice.BaseAbility == BaseAbility)
-		{
-			if (IsValid(TalentChoice.CurrentSelection))
+			else
 			{
-				const TSubclassOf<UAncientTalent> PreviousTalent = TalentChoice.CurrentSelection;
+				//Currently have the base ability.
+				if (!IsValid(NewSelection.Selection))
+				{
+					return;
+				}
+				TalentChoice.CurrentSelection = NewSelection.Selection;
+				TalentChoice.ActiveTalent = NewObject<UAncientTalent>(OwningPlayer, NewSelection.Selection);
 				if (IsValid(TalentChoice.ActiveTalent))
 				{
-					TalentChoice.ActiveTalent->UnselectTalent();
+					TalentChoice.ActiveTalent->SelectTalent(this, TalentChoice.BaseAbility);
 				}
-				TalentChoice.ActiveTalent = nullptr;
-				TalentChoice.CurrentSelection = nullptr;
 				Loadout.MarkItemDirty(TalentChoice);
-				OnTalentChanged.Broadcast(BaseAbility, PreviousTalent, nullptr);
+				OnTalentChanged.Broadcast(TalentChoice.BaseAbility, nullptr, TalentChoice.CurrentSelection);
 			}
-			break;
 		}
 	}
 }

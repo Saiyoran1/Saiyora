@@ -5,7 +5,7 @@
 
 class ASaiyoraPlayerCharacter;
 
-UCLASS(Blueprintable)
+UCLASS(Abstract, Blueprintable)
 class SAIYORAV4_API UReload : public UCombatAbility
 {
 	GENERATED_BODY()

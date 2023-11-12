@@ -7,6 +7,7 @@ class UAncientTalent;
 class UAncientSpecialization;
 class UModernSpecialization;
 
+//Smaller struct used for RPCs and changing talents.
 USTRUCT(BlueprintType)
 struct FAncientTalentSelection
 {
@@ -16,8 +17,13 @@ struct FAncientTalentSelection
 	TSubclassOf<UCombatAbility> BaseAbility;
 	UPROPERTY(BlueprintReadWrite)
 	TSubclassOf<UAncientTalent> Selection;
+
+	FAncientTalentSelection() {}
+	FAncientTalentSelection(const TSubclassOf<UCombatAbility> InBase, const TSubclassOf<UAncientTalent> InSelection) :
+		BaseAbility(InBase), Selection(InSelection) {}
 };
 
+//Full struct detailing both base/possible talents, as well as the current state of talent selection.
 USTRUCT(BlueprintType)
 struct FAncientTalentChoice : public FFastArraySerializerItem
 {
@@ -36,6 +42,7 @@ struct FAncientTalentChoice : public FFastArraySerializerItem
 	UAncientTalent* ActiveTalent = nullptr;
 };
 
+//Set of talent rows for a spec, for fast array replication.
 USTRUCT(BlueprintType)
 struct FAncientTalentSet : public FFastArraySerializer
 {
@@ -59,6 +66,18 @@ struct TStructOpsTypeTraits<FAncientTalentSet> : public TStructOpsTypeTraitsBase
 	{
 		WithNetDeltaSerializer = true,
 	};
+};
+
+//Layout used by the UI as a combo of talent selections and keybind selections for a spec.
+USTRUCT(BlueprintType)
+struct FAncientSpecLayout
+{
+	GENERATED_BODY();
+
+	UPROPERTY(BlueprintReadOnly)
+	TSubclassOf<UAncientSpecialization> Spec;
+	UPROPERTY(BlueprintReadOnly)
+	TMap<int32, FAncientTalentChoice> Talents;
 };
 
 USTRUCT(BlueprintType)
@@ -104,14 +123,24 @@ struct TStructOpsTypeTraits<FModernTalentSet> : public TStructOpsTypeTraitsBase2
 };
 
 UCLASS(Blueprintable)
-class SAIYORAV4_API UAbilityPool : public UDataAsset
+class SAIYORAV4_API UPlayerAbilityData : public UDataAsset
 {
 	GENERATED_BODY()
 
 public:
-	
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Specialization")
-	TArray<TSubclassOf<UCombatAbility>> AbilityClasses;
+	TArray<TSubclassOf<UAncientSpecialization>> AncientSpecializations;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Specialization")
+	int32 NumAncientAbilities = 6;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Specialization")
+	TArray<TSubclassOf<UModernSpecialization>> ModernSpecializations;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Specialization")
+	int32 NumNonWeaponModernAbilities = 5;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Specialization")
+	int32 NumModernFlexAbilities = 4;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Specialization")
+	TArray<TSubclassOf<UCombatAbility>> ModernAbilityPool;
 };
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FAncientSpecChangeNotification, UAncientSpecialization*, PreviousSpec, UAncientSpecialization*, NewSpec);

@@ -1,4 +1,5 @@
 #include "CoreClasses/SaiyoraPlayerCharacter.h"
+#include "AncientTalent.h"
 #include "BuffHandler.h"
 #include "CrowdControlHandler.h"
 #include "DamageHandler.h"
@@ -483,7 +484,7 @@ void ASaiyoraPlayerCharacter::ClearQueueAndAutoFireOnPlaneSwap(const ESaiyoraPla
 #pragma region Collision
 
 void ASaiyoraPlayerCharacter::HandleBeginXPlaneOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,
-	UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+                                                       UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	const bool bPreviouslyOverlapping = XPlaneOverlaps.Num() > 0;
 	ESaiyoraPlane OtherCompPlane = ESaiyoraPlane::None;
@@ -598,9 +599,79 @@ int32 ASaiyoraPlayerCharacter::GetNewProjectileID(const FPredictedTick& Tick)
 #pragma endregion 
 #pragma region Specialization
 
+void ASaiyoraPlayerCharacter::ApplyNewAncientLayout(const FAncientSpecLayout& NewLayout)
+{
+	if (!IsLocallyControlled())
+	{
+		return;
+	}
+	if (!IsValid(AncientSpec) || AncientSpec->GetClass() != NewLayout.Spec)
+	{
+		TArray<FAncientTalentSelection> Selections;
+		for (const TTuple<int32, FAncientTalentChoice>& Choice : NewLayout.Talents)
+		{
+			Selections.Add(FAncientTalentSelection(Choice.Value.BaseAbility, Choice.Value.CurrentSelection));
+		}
+		Server_ChangeAncientSpecAndTalents(NewLayout.Spec, Selections);
+	}
+	else
+	{
+		TArray<FAncientTalentSelection> ChangedSelections;
+		TArray<FAncientTalentChoice> CurrentChoices;
+		AncientSpec->GetLoadout(CurrentChoices);
+		TArray<FAncientTalentChoice> NewChoices;
+		NewLayout.Talents.GenerateValueArray(NewChoices);
+		for (const FAncientTalentChoice& NewChoice : NewChoices)
+		{
+			for (const FAncientTalentChoice& CurrentChoice : CurrentChoices)
+			{
+				if (CurrentChoice.BaseAbility == NewChoice.BaseAbility)
+				{
+					if (CurrentChoice.CurrentSelection != NewChoice.CurrentSelection)
+					{
+						ChangedSelections.Add(FAncientTalentSelection(NewChoice.BaseAbility, NewChoice.CurrentSelection));
+					}
+					break;
+				}
+			}
+		}
+		Server_ChangeAncientTalents(ChangedSelections);
+	}
+}
+
+void ASaiyoraPlayerCharacter::Server_ChangeAncientTalents_Implementation(
+	const TArray<FAncientTalentSelection>& TalentSelections)
+{
+	if (!HasAuthority() || !IsValid(AncientSpec))
+	{
+		return;
+	}
+	for (const FAncientTalentSelection& Selection : TalentSelections)
+	{
+		AncientSpec->SelectAncientTalent(Selection);
+	}
+}
+
+void ASaiyoraPlayerCharacter::Server_ChangeAncientSpecAndTalents_Implementation(
+	TSubclassOf<UAncientSpecialization> NewSpec, const TArray<FAncientTalentSelection>& TalentSelections)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+	SetAncientSpecialization(NewSpec);
+	if (IsValid(AncientSpec))
+	{
+		for (const FAncientTalentSelection& TalentSelection : TalentSelections)
+		{
+			AncientSpec->SelectAncientTalent(TalentSelection);
+		}
+	}
+}
+
 void ASaiyoraPlayerCharacter::SetAncientSpecialization(const TSubclassOf<UAncientSpecialization> NewSpec)
 {
-	if (GetLocalRole() != ROLE_Authority)
+	if (!HasAuthority())
 	{
 		return;
 	}
