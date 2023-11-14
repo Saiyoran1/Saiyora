@@ -10,7 +10,20 @@ void UAncientTalentWindow::NativeOnInitialized()
 	{
 		for (const TSubclassOf<UAncientSpecialization> AncientSpecClass : OwningPlayer->GetPlayerAbilityData()->AncientSpecializations)
 		{
-			Layouts.Add(AncientSpecClass, FAncientSpecLayout());
+			FAncientSpecLayout Layout;
+			Layout.Spec = AncientSpecClass;
+			const UAncientSpecialization* DefaultSpec = AncientSpecClass->GetDefaultObject<UAncientSpecialization>();
+			if (IsValid(DefaultSpec))
+			{
+				TArray<FAncientTalentChoice> TalentChoices;
+				DefaultSpec->GetLoadout(TalentChoices);
+				const int32 NumAbilities = FMath::Min(TalentChoices.Num(), OwningPlayer->GetPlayerAbilityData()->NumAncientAbilities);
+				for (int i = 0; i < NumAbilities; i++)
+				{
+					Layout.Talents.Add(i, TalentChoices[i]);
+				}
+			}
+			Layouts.Add(AncientSpecClass, Layout);
 		}
 	}
 

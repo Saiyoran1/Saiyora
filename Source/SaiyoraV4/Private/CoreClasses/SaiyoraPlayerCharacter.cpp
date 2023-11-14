@@ -235,16 +235,16 @@ void ASaiyoraPlayerCharacter::SetAbilityMapping(const ESaiyoraPlane Plane, const
 	{
 	case ESaiyoraPlane::Ancient :
 		{
-			if (BindIndex == 0)
-			{
-				return;
-			}
 			AncientAbilityMappings.Add(BindIndex, AbilityClass);
 			OnMappingChanged.Broadcast(ESaiyoraPlane::Ancient, BindIndex, AbilityClass);
 		}
 		break;
 	case ESaiyoraPlane::Modern :
 		{
+			if (BindIndex == 0)
+			{
+				return;
+			}
 			ModernAbilityMappings.Add(BindIndex, AbilityClass);
 			OnMappingChanged.Broadcast(ESaiyoraPlane::Modern, BindIndex, AbilityClass);
 		}
