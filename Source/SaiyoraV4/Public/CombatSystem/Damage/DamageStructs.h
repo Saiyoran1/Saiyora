@@ -47,7 +47,7 @@ struct FHealthEventInfo
     UPROPERTY(BlueprintReadOnly)
     EEventHitStyle HitStyle = EEventHitStyle::None;
     UPROPERTY(BlueprintReadOnly)
-    EHealthEventSchool School = EHealthEventSchool::None;
+    EElementalSchool School = EElementalSchool::None;
     UPROPERTY(BlueprintReadOnly)
     float Value = 0.0f;
     UPROPERTY(BlueprintReadOnly)

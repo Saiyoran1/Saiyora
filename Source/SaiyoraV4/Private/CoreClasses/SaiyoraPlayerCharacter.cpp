@@ -605,54 +605,15 @@ void ASaiyoraPlayerCharacter::ApplyNewAncientLayout(const FAncientSpecLayout& Ne
 	{
 		return;
 	}
-	if (!IsValid(AncientSpec) || AncientSpec->GetClass() != NewLayout.Spec)
+	TArray<FAncientTalentSelection> Selections;
+	for (const TTuple<int32, FAncientTalentChoice>& Choice : NewLayout.Talents)
 	{
-		TArray<FAncientTalentSelection> Selections;
-		for (const TTuple<int32, FAncientTalentChoice>& Choice : NewLayout.Talents)
-		{
-			Selections.Add(FAncientTalentSelection(Choice.Value.BaseAbility, Choice.Value.CurrentSelection));
-		}
-		Server_ChangeAncientSpecAndTalents(NewLayout.Spec, Selections);
+		Selections.Add(FAncientTalentSelection(Choice.Value.TalentRow.BaseAbilityClass, Choice.Value.CurrentSelection));
 	}
-	else
-	{
-		TArray<FAncientTalentSelection> ChangedSelections;
-		TArray<FAncientTalentChoice> CurrentChoices;
-		AncientSpec->GetLoadout(CurrentChoices);
-		TArray<FAncientTalentChoice> NewChoices;
-		NewLayout.Talents.GenerateValueArray(NewChoices);
-		for (const FAncientTalentChoice& NewChoice : NewChoices)
-		{
-			for (const FAncientTalentChoice& CurrentChoice : CurrentChoices)
-			{
-				if (CurrentChoice.BaseAbility == NewChoice.BaseAbility)
-				{
-					if (CurrentChoice.CurrentSelection != NewChoice.CurrentSelection)
-					{
-						ChangedSelections.Add(FAncientTalentSelection(NewChoice.BaseAbility, NewChoice.CurrentSelection));
-					}
-					break;
-				}
-			}
-		}
-		Server_ChangeAncientTalents(ChangedSelections);
-	}
+	Server_UpdateAncientSpecAndTalents(NewLayout.Spec, Selections);
 }
 
-void ASaiyoraPlayerCharacter::Server_ChangeAncientTalents_Implementation(
-	const TArray<FAncientTalentSelection>& TalentSelections)
-{
-	if (!HasAuthority() || !IsValid(AncientSpec))
-	{
-		return;
-	}
-	for (const FAncientTalentSelection& Selection : TalentSelections)
-	{
-		AncientSpec->SelectAncientTalent(Selection);
-	}
-}
-
-void ASaiyoraPlayerCharacter::Server_ChangeAncientSpecAndTalents_Implementation(
+void ASaiyoraPlayerCharacter::Server_UpdateAncientSpecAndTalents_Implementation(
 	TSubclassOf<UAncientSpecialization> NewSpec, const TArray<FAncientTalentSelection>& TalentSelections)
 {
 	if (!HasAuthority())
@@ -671,7 +632,7 @@ void ASaiyoraPlayerCharacter::Server_ChangeAncientSpecAndTalents_Implementation(
 
 void ASaiyoraPlayerCharacter::SetAncientSpecialization(const TSubclassOf<UAncientSpecialization> NewSpec)
 {
-	if (!HasAuthority())
+	if (!HasAuthority() || NewSpec == AncientSpec->GetClass())
 	{
 		return;
 	}
@@ -712,9 +673,40 @@ void ASaiyoraPlayerCharacter::OnRep_AncientSpec(UAncientSpecialization* Previous
 	OnAncientSpecChanged.Broadcast(PreviousSpec, AncientSpec);
 }
 
+void ASaiyoraPlayerCharacter::ApplyNewModernLayout(const FModernSpecLayout& NewLayout)
+{
+	if (!IsLocallyControlled())
+	{
+		return;
+	}
+	TArray<TSubclassOf<UCombatAbility>> Talents;
+	for (const TTuple<int32, FModernTalentChoice>& Choice : NewLayout.Talents)
+	{
+		if (Choice.Value.Selection)
+		{
+			Talents.AddUnique(Choice.Value.Selection);
+		}
+	}
+	Server_UpdateModernSpecAndTalents(NewLayout.Spec, Talents);
+}
+
+void ASaiyoraPlayerCharacter::Server_UpdateModernSpecAndTalents_Implementation(
+	TSubclassOf<UModernSpecialization> NewSpec, const TArray<TSubclassOf<UCombatAbility>>& TalentSelections)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+	SetModernSpecialization(NewSpec);
+	if (IsValid(ModernSpec))
+	{
+		ModernSpec->SelectModernAbilities(TalentSelections);
+	}
+}
+
 void ASaiyoraPlayerCharacter::SetModernSpecialization(const TSubclassOf<UModernSpecialization> NewSpec)
 {
-	if (GetLocalRole() != ROLE_Authority)
+	if (GetLocalRole() != ROLE_Authority || NewSpec == ModernSpec->GetClass())
 	{
 		return;
 	}

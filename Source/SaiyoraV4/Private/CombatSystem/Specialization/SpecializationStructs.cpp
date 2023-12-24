@@ -14,10 +14,10 @@ void FAncientTalentChoice::PostReplicatedAdd(const FAncientTalentSet& InArraySer
 			ActiveTalent = NewObject<UAncientTalent>(InArraySerializer.OwningSpecialization->GetOwningPlayer(), CurrentSelection);
 			if (IsValid(ActiveTalent))
 			{
-				ActiveTalent->SelectTalent(InArraySerializer.OwningSpecialization, BaseAbility);
+				ActiveTalent->SelectTalent(InArraySerializer.OwningSpecialization, TalentRow.BaseAbilityClass);
 			}
 		}
-		InArraySerializer.OwningSpecialization->OnTalentChanged.Broadcast(BaseAbility, nullptr, CurrentSelection);
+		InArraySerializer.OwningSpecialization->OnTalentChanged.Broadcast(TalentRow.BaseAbilityClass, nullptr, CurrentSelection);
 	}
 }
 
@@ -38,10 +38,10 @@ void FAncientTalentChoice::PostReplicatedChange(const FAncientTalentSet& InArray
 				ActiveTalent = NewObject<UAncientTalent>(InArraySerializer.OwningSpecialization->GetOwningPlayer(), CurrentSelection);
 				if (IsValid(ActiveTalent))
 				{
-					ActiveTalent->SelectTalent(InArraySerializer.OwningSpecialization, BaseAbility);
+					ActiveTalent->SelectTalent(InArraySerializer.OwningSpecialization, TalentRow.BaseAbilityClass);
 				}
 			}
-			InArraySerializer.OwningSpecialization->OnTalentChanged.Broadcast(BaseAbility, PreviousTalent, CurrentSelection);
+			InArraySerializer.OwningSpecialization->OnTalentChanged.Broadcast(TalentRow.BaseAbilityClass, PreviousTalent, CurrentSelection);
 		}
 	}
 }

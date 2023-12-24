@@ -7,6 +7,18 @@ class UAncientTalent;
 class UAncientSpecialization;
 class UModernSpecialization;
 
+//Struct that represents a single talent row, with no state information.
+USTRUCT(BlueprintType)
+struct FAncientTalentRow
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TSubclassOf<UCombatAbility> BaseAbilityClass;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+	TArray<TSubclassOf<UAncientTalent>> Talents;
+};
+
 //Smaller struct used for RPCs and changing talents.
 USTRUCT(BlueprintType)
 struct FAncientTalentSelection
@@ -32,17 +44,18 @@ struct FAncientTalentChoice : public FFastArraySerializerItem
 	void PostReplicatedAdd(const struct FAncientTalentSet& InArraySerializer);
 	void PostReplicatedChange(const struct FAncientTalentSet& InArraySerializer);
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Specialization")
-	TSubclassOf<UCombatAbility> BaseAbility;
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Specialization")
-	TArray<TSubclassOf<UAncientTalent>> Talents;
+	UPROPERTY(BlueprintReadOnly)
+	FAncientTalentRow TalentRow;
 	UPROPERTY(BlueprintReadOnly)
 	TSubclassOf<UAncientTalent> CurrentSelection = nullptr;
 	UPROPERTY(NotReplicated)
 	UAncientTalent* ActiveTalent = nullptr;
+
+	FAncientTalentChoice() {}
+	FAncientTalentChoice(const FAncientTalentRow& InRow) : TalentRow(InRow) {}
 };
 
-//Set of talent rows for a spec, for fast array replication.
+//Set of talent choices for a spec, for fast array replication.
 USTRUCT(BlueprintType)
 struct FAncientTalentSet : public FFastArraySerializer
 {
@@ -80,6 +93,17 @@ struct FAncientSpecLayout
 	TMap<int32, FAncientTalentChoice> Talents;
 };
 
+//Enum to describe what kind of abilities can be selected for a slot in a modern spec.
+UENUM(BlueprintType)
+enum class EModernSlotType : uint8
+{
+	None,
+	Weapon,
+	Spec,
+	Flex
+};
+
+//The slot information for a given selection in a modern spec.
 USTRUCT(BlueprintType)
 struct FModernTalentChoice : public FFastArraySerializerItem
 {
@@ -88,13 +112,15 @@ struct FModernTalentChoice : public FFastArraySerializerItem
 	void PostReplicatedAdd(const struct FModernTalentSet& InArraySerializer);
 	void PostReplicatedChange(const struct FModernTalentSet& InArraySerializer);
 
-	UPROPERTY(BlueprintReadWrite)
+	UPROPERTY(BlueprintReadOnly)
 	int32 SlotNumber = 0;
-	UPROPERTY(BlueprintReadWrite)
+	UPROPERTY(BlueprintReadOnly)
+	EModernSlotType SlotType = EModernSlotType::Flex;
+	UPROPERTY(BlueprintReadOnly)
 	TSubclassOf<UCombatAbility> Selection;
 
 	FModernTalentChoice() {}
-	FModernTalentChoice(const int32 Slot, const TSubclassOf<UCombatAbility> AbilityClass) : SlotNumber(Slot), Selection(AbilityClass) {}
+	FModernTalentChoice(const int32 Slot, const EModernSlotType InSlotType, const TSubclassOf<UCombatAbility> AbilityClass = nullptr) : SlotNumber(Slot), SlotType(InSlotType), Selection(AbilityClass) {}
 };
 
 USTRUCT(BlueprintType)
@@ -122,6 +148,17 @@ struct TStructOpsTypeTraits<FModernTalentSet> : public TStructOpsTypeTraitsBase2
 	};
 };
 
+USTRUCT(BlueprintType)
+struct FModernSpecLayout
+{
+	GENERATED_BODY()
+
+	UPROPERTY(BlueprintReadOnly)
+	TSubclassOf<UModernSpecialization> Spec;
+	UPROPERTY(BlueprintReadOnly)
+	TMap<int32, FModernTalentChoice> Talents;
+};
+
 UCLASS(Blueprintable)
 class SAIYORAV4_API UPlayerAbilityData : public UDataAsset
 {
@@ -136,7 +173,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Specialization")
 	TArray<TSubclassOf<UModernSpecialization>> ModernSpecializations;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Specialization")
-	int32 NumNonWeaponModernAbilities = 5;
+	int32 NumModernSpecAbilities = 1;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Specialization")
 	int32 NumModernFlexAbilities = 4;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Specialization")

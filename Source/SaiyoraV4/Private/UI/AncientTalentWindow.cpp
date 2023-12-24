@@ -8,6 +8,7 @@ void UAncientTalentWindow::NativeOnInitialized()
 	OwningPlayer = Cast<ASaiyoraPlayerCharacter>(GetOwningPlayerPawn());
 	if (IsValid(OwningPlayer) && IsValid(OwningPlayer->GetPlayerAbilityData()))
 	{
+		//Set up a layout for each ancient spec.
 		for (const TSubclassOf<UAncientSpecialization> AncientSpecClass : OwningPlayer->GetPlayerAbilityData()->AncientSpecializations)
 		{
 			FAncientSpecLayout Layout;
@@ -15,25 +16,26 @@ void UAncientTalentWindow::NativeOnInitialized()
 			const UAncientSpecialization* DefaultSpec = AncientSpecClass->GetDefaultObject<UAncientSpecialization>();
 			if (IsValid(DefaultSpec))
 			{
-				TArray<FAncientTalentChoice> TalentChoices;
-				DefaultSpec->GetLoadout(TalentChoices);
-				const int32 NumAbilities = FMath::Min(TalentChoices.Num(), OwningPlayer->GetPlayerAbilityData()->NumAncientAbilities);
+				TArray<FAncientTalentRow> TalentRows;
+				DefaultSpec->GetTalentRows(TalentRows);
+				const int32 NumAbilities = FMath::Min(TalentRows.Num(), OwningPlayer->GetPlayerAbilityData()->NumAncientAbilities);
 				for (int i = 0; i < NumAbilities; i++)
 				{
-					Layout.Talents.Add(i, TalentChoices[i]);
+					Layout.Talents.Add(i, FAncientTalentChoice(TalentRows[i]));
 				}
 			}
 			Layouts.Add(AncientSpecClass, Layout);
 		}
 	}
 
+	//Call this late because the Blueprint logic called in OnInitialize depends on us having the player ref and layouts already set up.
 	Super::NativeOnInitialized();
 }
 
 void UAncientTalentWindow::UpdateTalentChoice(const TSubclassOf<UCombatAbility> BaseAbility,
 	const TSubclassOf<UAncientTalent> TalentSelection)
 {
-	if (!IsValid(CurrentSpec) || !IsValid(BaseAbility) || !IsValid(TalentSelection))
+	if (!IsValid(CurrentSpec) || !IsValid(BaseAbility))
 	{
 		return;
 	}
@@ -44,11 +46,18 @@ void UAncientTalentWindow::UpdateTalentChoice(const TSubclassOf<UCombatAbility> 
 	}
 	for (TTuple<int32, FAncientTalentChoice>& Choice : Layout->Talents)
 	{
-		if (Choice.Value.BaseAbility == BaseAbility)
+		if (Choice.Value.TalentRow.BaseAbilityClass == BaseAbility)
 		{
-			if (Choice.Value.Talents.Contains(TalentSelection))
+			if (IsValid(TalentSelection))
 			{
-				Choice.Value.CurrentSelection = TalentSelection;
+				if (Choice.Value.TalentRow.Talents.Contains(TalentSelection))
+				{
+					Choice.Value.CurrentSelection = TalentSelection;
+				}
+			}
+			else
+			{
+				Choice.Value.CurrentSelection = nullptr;
 			}
 			break;
 		}
@@ -84,6 +93,16 @@ void UAncientTalentWindow::SwapTalentRowSlots(const int32 FirstRow, const int32 
 	Layout->Talents.Add(SecondRow, OriginalFirstRow);
 }
 
+void UAncientTalentWindow::SaveLayout()
+{
+	LastSavedLayout = GetCurrentLayout();
+	for (const TTuple<int32, FAncientTalentChoice>& TalentChoice : LastSavedLayout.Talents)
+	{
+		OwningPlayer->SetAbilityMapping(ESaiyoraPlane::Ancient, TalentChoice.Key, TalentChoice.Value.TalentRow.BaseAbilityClass);
+	}
+	OwningPlayer->ApplyNewAncientLayout(LastSavedLayout);
+}
+
 bool UAncientTalentWindow::IsLayoutDirty() const
 {
 	if (!IsValid(CurrentSpec) || !IsValid(LastSavedLayout.Spec))
@@ -105,8 +124,8 @@ bool UAncientTalentWindow::IsLayoutDirty() const
 		{
 			return true;
 		}
-		if (CurrentLayout->Talents[LastSavedRow.Key].BaseAbility
-			!= LastSavedRow.Value.BaseAbility)
+		if (CurrentLayout->Talents[LastSavedRow.Key].TalentRow.BaseAbilityClass
+			!= LastSavedRow.Value.TalentRow.BaseAbilityClass)
 		{
 			return true;
 		}
@@ -117,14 +136,4 @@ bool UAncientTalentWindow::IsLayoutDirty() const
 		}
 	}
 	return false;
-}
-
-void UAncientTalentWindow::SaveLayout()
-{
-	LastSavedLayout = GetCurrentLayout();
-	for (const TTuple<int32, FAncientTalentChoice>& TalentChoice : LastSavedLayout.Talents)
-	{
-		OwningPlayer->SetAbilityMapping(ESaiyoraPlane::Ancient, TalentChoice.Key, TalentChoice.Value.BaseAbility);
-	}
-	OwningPlayer->ApplyNewAncientLayout(LastSavedLayout);
 }

@@ -33,9 +33,14 @@ void UAncientSpecialization::InitializeSpecialization(ASaiyoraPlayerCharacter* P
 		UAbilityComponent* OwnerAbilityComp = ISaiyoraCombatInterface::Execute_GetAbilityComponent(OwningPlayer);
 		if (IsValid(OwnerAbilityComp))
 		{
+			const int32 NumAbilities = FMath::Min(OwningPlayer->GetPlayerAbilityData()->NumAncientAbilities, TalentRows.Num());
+			for (int i = 0; i < NumAbilities; i++)
+			{
+				Loadout.MarkItemDirty(Loadout.Items.Add_GetRef(FAncientTalentChoice(TalentRows[i])));
+			}
 			for (const FAncientTalentChoice& TalentChoice : Loadout.Items)
 			{
-				OwnerAbilityComp->AddNewAbility(TalentChoice.BaseAbility);
+				OwnerAbilityComp->AddNewAbility(TalentChoice.TalentRow.BaseAbilityClass);
 			}
 		}
 	}
@@ -51,7 +56,7 @@ void UAncientSpecialization::InitializeSpecialization(ASaiyoraPlayerCharacter* P
 					TalentChoice.ActiveTalent = NewObject<UAncientTalent>(OwningPlayer, TalentChoice.CurrentSelection);
 					if (IsValid(TalentChoice.ActiveTalent))
 					{
-						TalentChoice.ActiveTalent->SelectTalent(this, TalentChoice.BaseAbility);
+						TalentChoice.ActiveTalent->SelectTalent(this, TalentChoice.TalentRow.BaseAbilityClass);
 					}
 				}
 				else if (TalentChoice.ActiveTalent->GetClass() != TalentChoice.CurrentSelection)
@@ -60,7 +65,7 @@ void UAncientSpecialization::InitializeSpecialization(ASaiyoraPlayerCharacter* P
 					TalentChoice.ActiveTalent = NewObject<UAncientTalent>(OwningPlayer, TalentChoice.CurrentSelection);
 					if (IsValid(TalentChoice.ActiveTalent))
 					{
-						TalentChoice.ActiveTalent->SelectTalent(this, TalentChoice.BaseAbility);
+						TalentChoice.ActiveTalent->SelectTalent(this, TalentChoice.TalentRow.BaseAbilityClass);
 					}
 				}
 			}
@@ -101,9 +106,9 @@ void UAncientSpecialization::UnlearnSpec()
 		{
 			for (const FAncientTalentChoice& TalentChoice : Loadout.Items)
 			{
-				if (IsValid(TalentChoice.BaseAbility))
+				if (IsValid(TalentChoice.TalentRow.BaseAbilityClass))
 				{
-					OwnerAbilityComponent->RemoveAbility(TalentChoice.BaseAbility);
+					OwnerAbilityComponent->RemoveAbility(TalentChoice.TalentRow.BaseAbilityClass);
 				}
 			}
 		}
@@ -119,45 +124,54 @@ void UAncientSpecialization::SelectAncientTalent(const FAncientTalentSelection& 
 	}
 	for (FAncientTalentChoice& TalentChoice : Loadout.Items)
 	{
-		if (TalentChoice.BaseAbility == NewSelection.BaseAbility)
+		if (TalentChoice.TalentRow.BaseAbilityClass == NewSelection.BaseAbility)
 		{
+			//If we currently have an active talent.
 			if (IsValid(TalentChoice.CurrentSelection))
 			{
-				//Currently have an active talent.
+				//If this talent is the same as the current selection, return.
 				if (TalentChoice.CurrentSelection == NewSelection.Selection)
 				{
 					return;
 				}
 				const TSubclassOf<UAncientTalent> PreviousTalent = TalentChoice.CurrentSelection;
+				//Unlearn the previous talent.
 				if (IsValid(TalentChoice.ActiveTalent))
 				{
 					TalentChoice.ActiveTalent->UnselectTalent();
 				}
 				TalentChoice.CurrentSelection = NewSelection.Selection;
-				TalentChoice.ActiveTalent = NewObject<UAncientTalent>(OwningPlayer, NewSelection.Selection);
-				if (IsValid(TalentChoice.ActiveTalent))
+				//If not using base ability, learn the new talent.
+				if (IsValid(TalentChoice.CurrentSelection))
 				{
-					TalentChoice.ActiveTalent->SelectTalent(this, TalentChoice.BaseAbility);
+					TalentChoice.ActiveTalent = NewObject<UAncientTalent>(OwningPlayer, NewSelection.Selection);
+					if (IsValid(TalentChoice.ActiveTalent))
+					{
+						TalentChoice.ActiveTalent->SelectTalent(this, TalentChoice.TalentRow.BaseAbilityClass);
+					}
 				}
 				Loadout.MarkItemDirty(TalentChoice);
-				OnTalentChanged.Broadcast(TalentChoice.BaseAbility, PreviousTalent, TalentChoice.CurrentSelection);
+				OnTalentChanged.Broadcast(TalentChoice.TalentRow.BaseAbilityClass, PreviousTalent, TalentChoice.CurrentSelection);
 			}
+			//If we currently have the base ability.
 			else
 			{
-				//Currently have the base ability.
+				//If the selection is the base ability class, return.
 				if (!IsValid(NewSelection.Selection))
 				{
 					return;
 				}
 				TalentChoice.CurrentSelection = NewSelection.Selection;
+				//Learn the new talent.
 				TalentChoice.ActiveTalent = NewObject<UAncientTalent>(OwningPlayer, NewSelection.Selection);
 				if (IsValid(TalentChoice.ActiveTalent))
 				{
-					TalentChoice.ActiveTalent->SelectTalent(this, TalentChoice.BaseAbility);
+					TalentChoice.ActiveTalent->SelectTalent(this, TalentChoice.TalentRow.BaseAbilityClass);
 				}
 				Loadout.MarkItemDirty(TalentChoice);
-				OnTalentChanged.Broadcast(TalentChoice.BaseAbility, nullptr, TalentChoice.CurrentSelection);
+				OnTalentChanged.Broadcast(TalentChoice.TalentRow.BaseAbilityClass, nullptr, TalentChoice.CurrentSelection);
 			}
+			break;
 		}
 	}
 }

@@ -28,14 +28,12 @@ void UModernSpecialization::InitializeSpecialization(ASaiyoraPlayerCharacter* Pl
 				OwnerResourceComp->AddNewResource(ResourceClass, ResourceInitInfo);
 			}
 		}
-		OwnerAbilityCompRef = ISaiyoraCombatInterface::Execute_GetAbilityComponent(OwningPlayer);
+		UAbilityComponent* OwnerAbilityCompRef = ISaiyoraCombatInterface::Execute_GetAbilityComponent(OwningPlayer);
 		if (IsValid(OwnerAbilityCompRef))
 		{
-			for (const TSubclassOf<UCombatAbility> CoreAbilityClass : CoreAbilities)
-			{
-				OwnerAbilityCompRef->AddNewAbility(CoreAbilityClass);
-			}
+			OwnerAbilityCompRef->AddNewAbility(Weapon);
 		}
+		Loadout.MarkItemDirty(Loadout.Items.Add_GetRef(FModernTalentChoice()))
 	}
 	bInitialized = true;
 	OnLearn();
@@ -53,12 +51,9 @@ void UModernSpecialization::UnlearnSpec()
 				OwnerResourceHandler->RemoveResource(ResourceClass);
 			}
 		}
+		UAbilityComponent* OwnerAbilityCompRef = ISaiyoraCombatInterface::Execute_GetAbilityComponent(OwningPlayer);
 		if (IsValid(OwnerAbilityCompRef))
 		{
-			for (const TSubclassOf<UCombatAbility> CoreAbilityClass : CoreAbilities)
-			{
-				OwnerAbilityCompRef->RemoveAbility(CoreAbilityClass);
-			}
 			for (const FModernTalentChoice& TalentChoice : Loadout.Items)
 			{
 				OwnerAbilityCompRef->RemoveAbility(TalentChoice.Selection);

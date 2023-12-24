@@ -35,7 +35,7 @@ private:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Specialization", meta = (AllowPrivateAccess = "true"))
 	UTexture2D* TalentIcon;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Specialization", meta = (AllowPrivateAccess = "true"))
-	EHealthEventSchool TalentSchool;
+	EElementalSchool TalentSchool;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Specialization", meta = (AllowPrivateAccess = "true"))
 	TSubclassOf<UCombatAbility> ReplaceBaseWith = nullptr;
 	

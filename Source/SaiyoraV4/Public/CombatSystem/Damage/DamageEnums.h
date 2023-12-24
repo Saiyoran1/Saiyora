@@ -11,7 +11,7 @@ enum class EHealthEventType : uint8
 };
 
 UENUM(BlueprintType)
-enum class EHealthEventSchool : uint8
+enum class EElementalSchool : uint8
 {
     None = 0,
     Physical = 1,

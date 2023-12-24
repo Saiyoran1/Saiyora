@@ -7,10 +7,10 @@
 
 #pragma region Periodic Health Event
 
-void UPeriodicHealthEventFunction::PeriodicHealthEvent(UBuff* Buff, const EHealthEventType HealthEventType, const float Amount, const EHealthEventSchool School, const float Interval,
+void UPeriodicHealthEventFunction::PeriodicHealthEvent(UBuff* Buff, const EHealthEventType HealthEventType, const float Amount, const EElementalSchool School, const float Interval,
 	const bool bBypassAbsorbs, const bool bIgnoreRestrictions, const bool bIgnoreModifiers, const bool bSnapshots, const bool bScaleWithStacks,
 	const bool bPartialTickOnExpire, const bool bInitialTick, const bool bUseSeparateInitialAmount,
-	const float InitialAmount, const EHealthEventSchool InitialSchool, const FThreatFromDamage& ThreatParams, const FHealthEventCallback& TickCallback)
+	const float InitialAmount, const EElementalSchool InitialSchool, const FThreatFromDamage& ThreatParams, const FHealthEventCallback& TickCallback)
 {
 	if (!IsValid(Buff) || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
 	{
@@ -25,10 +25,10 @@ void UPeriodicHealthEventFunction::PeriodicHealthEvent(UBuff* Buff, const EHealt
 		bScaleWithStacks, bPartialTickOnExpire, bInitialTick, bUseSeparateInitialAmount, InitialAmount, InitialSchool, ThreatParams, TickCallback);
 }
 
-void UPeriodicHealthEventFunction::SetEventVars(const EHealthEventType HealthEventType, const float Amount, const EHealthEventSchool School, const float Interval,
+void UPeriodicHealthEventFunction::SetEventVars(const EHealthEventType HealthEventType, const float Amount, const EElementalSchool School, const float Interval,
 	const bool bBypassAbsorbs, const bool bIgnoreRestrictions, const bool bIgnoreModifiers, const bool bSnapshot, const bool bScaleWithStacks,
 	const bool bPartialTickOnExpire, const bool bInitialTick, const bool bUseSeparateInitialAmount,
-	const float InitialAmount, const EHealthEventSchool InitialSchool, const FThreatFromDamage& ThreatParams, const FHealthEventCallback& TickCallback)
+	const float InitialAmount, const EElementalSchool InitialSchool, const FThreatFromDamage& ThreatParams, const FHealthEventCallback& TickCallback)
 {
 	if (GetOwningBuff()->GetAppliedTo()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 	{
@@ -104,7 +104,7 @@ void UPeriodicHealthEventFunction::InitialTick()
     if (IsValid(TargetComponent))
     {
         const float InitAmount = bUsesSeparateInitialValue ? InitialValue : BaseValue;
-        const EHealthEventSchool InitSchool = bUsesSeparateInitialValue ? InitialEventSchool : EventSchool;
+        const EElementalSchool InitSchool = bUsesSeparateInitialValue ? InitialEventSchool : EventSchool;
         const bool FromSnapshot = bSnapshots && !bUsesSeparateInitialValue;
         const FHealthEvent TickResult = TargetComponent->ApplyHealthEvent(EventType, InitAmount, GetOwningBuff()->GetAppliedBy(),
                                           GetOwningBuff(), EEventHitStyle::Chronic, InitSchool, bBypassesAbsorbs, bIgnoresModifiers,

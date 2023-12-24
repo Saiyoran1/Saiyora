@@ -15,6 +15,8 @@ class SAIYORAV4_API UAncientTalentWindow : public UUserWidget
 public:
 	
 	virtual void NativeOnInitialized() override;
+	UFUNCTION(BlueprintPure)
+	ASaiyoraPlayerCharacter* GetOwningSaiyoraPlayer() const { return OwningPlayer; }
 
 	UFUNCTION(BlueprintCallable)
 	void SelectSpec(const TSubclassOf<UAncientSpecialization> Spec) { CurrentSpec = Spec; }
@@ -22,19 +24,17 @@ public:
 	void UpdateTalentChoice(const TSubclassOf<UCombatAbility> BaseAbility, const TSubclassOf<UAncientTalent> TalentSelection);
 	UFUNCTION(BlueprintCallable)
 	void SwapTalentRowSlots(const int32 FirstRow, const int32 SecondRow);
+	UFUNCTION(BlueprintCallable)
+	void SaveLayout();
 
 	UFUNCTION(BlueprintPure)
 	TSubclassOf<UAncientSpecialization> GetCurrentSpec() const { return CurrentSpec; }
 	UFUNCTION(BlueprintPure)
 	FAncientSpecLayout GetCurrentLayout() const { return Layouts.FindRef(CurrentSpec); }
 	UFUNCTION(BlueprintPure)
-	bool IsLayoutDirty() const;
-
-	UFUNCTION(BlueprintCallable)
-	void SaveLayout();
-
+	void GetAncientLayouts(TArray<FAncientSpecLayout>& OutLayouts) const { Layouts.GenerateValueArray(OutLayouts); }
 	UFUNCTION(BlueprintPure)
-	ASaiyoraPlayerCharacter* GetOwningSaiyoraPlayer() const { return OwningPlayer; }
+	bool IsLayoutDirty() const;
 
 private:
 

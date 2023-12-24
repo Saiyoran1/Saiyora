@@ -92,7 +92,7 @@ void UDamageHandler::OnCombatBehaviorChanged(const ENPCCombatBehavior PreviousBe
 	{
 		AddOutgoingHealthEventRestriction(DisableHealthEvents);
 		AddIncomingHealthEventRestriction(DisableHealthEvents);
-		ApplyHealthEvent(EHealthEventType::Healing, MaxHealth, GetOwner(), this, EEventHitStyle::Authority, EHealthEventSchool::None, true,
+		ApplyHealthEvent(EHealthEventType::Healing, MaxHealth, GetOwner(), this, EEventHitStyle::Authority, EElementalSchool::None, true,
 			true, true, true, false, FHealthEventModCondition(), FThreatFromDamage());
 	}
 }
@@ -136,7 +136,7 @@ void UDamageHandler::ReactToMaxHealthStat(const FGameplayTag StatTag, const floa
 
 void UDamageHandler::KillActor(AActor* Attacker, UObject* Source, const bool bIgnoreDeathRestrictions)
 {
-	ApplyHealthEvent(EHealthEventType::Damage, CurrentHealth, Attacker, Source, EEventHitStyle::Authority, EHealthEventSchool::None, true, true,
+	ApplyHealthEvent(EHealthEventType::Damage, CurrentHealth, Attacker, Source, EEventHitStyle::Authority, EElementalSchool::None, true, true,
 	                 true, bIgnoreDeathRestrictions, false, FHealthEventModCondition(), FThreatFromDamage());
 }
 
@@ -236,7 +236,7 @@ void UDamageHandler::OnRep_LifeStatus(const ELifeStatus PreviousValue)
 #pragma region Damage
 
 FHealthEvent UDamageHandler::ApplyHealthEvent(const EHealthEventType EventType, const float Amount, AActor* AppliedBy,
-                                              UObject* Source, const EEventHitStyle HitStyle, const EHealthEventSchool School, const bool bBypassAbsorbs,
+                                              UObject* Source, const EEventHitStyle HitStyle, const EElementalSchool School, const bool bBypassAbsorbs,
                                               const bool bIgnoreModifiers, const bool bIgnoreRestrictions, const bool bIgnoreDeathRestrictions, const bool bFromSnapshot, const FHealthEventModCondition& SourceModifier, const FThreatFromDamage& ThreatParams)
 {
     FHealthEvent HealthEvent;

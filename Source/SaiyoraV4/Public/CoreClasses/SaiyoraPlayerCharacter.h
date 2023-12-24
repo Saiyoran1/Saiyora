@@ -264,10 +264,12 @@ private:
 
 	void ApplyNewAncientLayout(const FAncientSpecLayout& NewLayout);
 	UFUNCTION(Server, Reliable)
-	void Server_ChangeAncientSpecAndTalents(TSubclassOf<UAncientSpecialization> NewSpec, const TArray<FAncientTalentSelection>& TalentSelections);
-	UFUNCTION(Server, Reliable)
-	void Server_ChangeAncientTalents(const TArray<FAncientTalentSelection>& TalentSelections);
+	void Server_UpdateAncientSpecAndTalents(TSubclassOf<UAncientSpecialization> NewSpec, const TArray<FAncientTalentSelection>& TalentSelections);
 	void SetAncientSpecialization(const TSubclassOf<UAncientSpecialization> NewSpec);
+
+	void ApplyNewModernLayout(const FModernSpecLayout& NewLayout);
+	UFUNCTION(Server, Reliable)
+	void Server_UpdateModernSpecAndTalents(TSubclassOf<UModernSpecialization> NewSpec, const TArray<TSubclassOf<UCombatAbility>>& TalentSelections);
 
 private:
 
