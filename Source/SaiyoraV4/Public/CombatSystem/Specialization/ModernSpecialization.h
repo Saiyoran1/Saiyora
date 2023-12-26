@@ -81,25 +81,24 @@ private:
 public:
 
 	UFUNCTION(BlueprintPure)
-	TSubclassOf<UFireWeapon> GetWeaponClass() const { return Weapon; }
+	TSubclassOf<UFireWeapon> GetWeaponClass() const { return WeaponClass; }
 	UFUNCTION(BlueprintPure)
-	void GetSpecAbilities(TArray<TSubclassOf<UCombatAbility>>& OutAbilities) const { OutAbilities = CoreAbilities; }
+	void GetSpecAbilities(TArray<TSubclassOf<UCombatAbility>>& OutAbilities) const { OutAbilities = SpecAbilityPool; }
 
 	UFUNCTION(BlueprintPure, Category = "Specialization")
-	void GetLoadout(TArray<FModernTalentChoice>& OutLoadout) const { OutLoadout = Loadout.Items; }
+	void GetLoadout(TArray<FModernTalentChoice>& OutLoadout) const { OutLoadout = Loadout; }
 
-	void SelectModernAbilities(const TArray<TSubclassOf<UCombatAbility>>& Selections);
-	UPROPERTY(BlueprintAssignable)
-	FModernTalentChangeNotification OnTalentChanged;
+	void SelectModernAbilities(const TArray<FModernTalentChoice>& Selections);
 
 private:
-
+	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Specialization", meta = (AllowPrivateAccess = "true"))
-	TSubclassOf<UFireWeapon> Weapon;
+	TSubclassOf<UFireWeapon> WeaponClass;
+	//Ability classes that are only available to this spec and can be chosen for spec-specific talent slots.
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Specialization", meta = (AllowPrivateAccess = "true"))
-	TArray<TSubclassOf<UCombatAbility>> CoreAbilities;
+	TArray<TSubclassOf<UCombatAbility>> SpecAbilityPool;
 	UPROPERTY(Replicated)
-	FModernTalentSet Loadout;
+	TArray<FModernTalentChoice> Loadout;
 
 #pragma endregion 
 };

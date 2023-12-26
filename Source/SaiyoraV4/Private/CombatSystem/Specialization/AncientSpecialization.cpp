@@ -134,7 +134,6 @@ void UAncientSpecialization::SelectAncientTalent(const FAncientTalentSelection& 
 				{
 					return;
 				}
-				const TSubclassOf<UAncientTalent> PreviousTalent = TalentChoice.CurrentSelection;
 				//Unlearn the previous talent.
 				if (IsValid(TalentChoice.ActiveTalent))
 				{
@@ -151,7 +150,6 @@ void UAncientSpecialization::SelectAncientTalent(const FAncientTalentSelection& 
 					}
 				}
 				Loadout.MarkItemDirty(TalentChoice);
-				OnTalentChanged.Broadcast(TalentChoice.TalentRow.BaseAbilityClass, PreviousTalent, TalentChoice.CurrentSelection);
 			}
 			//If we currently have the base ability.
 			else
@@ -169,7 +167,6 @@ void UAncientSpecialization::SelectAncientTalent(const FAncientTalentSelection& 
 					TalentChoice.ActiveTalent->SelectTalent(this, TalentChoice.TalentRow.BaseAbilityClass);
 				}
 				Loadout.MarkItemDirty(TalentChoice);
-				OnTalentChanged.Broadcast(TalentChoice.TalentRow.BaseAbilityClass, nullptr, TalentChoice.CurrentSelection);
 			}
 			break;
 		}

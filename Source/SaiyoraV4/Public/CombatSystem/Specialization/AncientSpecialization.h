@@ -86,8 +86,6 @@ public:
 	void GetCurrentTalentLoadout(TArray<FAncientTalentChoice>& OutTalents) const { OutTalents = Loadout.Items; }
 	
 	void SelectAncientTalent(const FAncientTalentSelection& NewSelection);
-	UPROPERTY(BlueprintAssignable)
-	FAncientTalentChangeNotification OnTalentChanged;
 
 private:
 

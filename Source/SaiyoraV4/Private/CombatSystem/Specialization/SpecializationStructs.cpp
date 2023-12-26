@@ -17,7 +17,6 @@ void FAncientTalentChoice::PostReplicatedAdd(const FAncientTalentSet& InArraySer
 				ActiveTalent->SelectTalent(InArraySerializer.OwningSpecialization, TalentRow.BaseAbilityClass);
 			}
 		}
-		InArraySerializer.OwningSpecialization->OnTalentChanged.Broadcast(TalentRow.BaseAbilityClass, nullptr, CurrentSelection);
 	}
 }
 
@@ -41,24 +40,6 @@ void FAncientTalentChoice::PostReplicatedChange(const FAncientTalentSet& InArray
 					ActiveTalent->SelectTalent(InArraySerializer.OwningSpecialization, TalentRow.BaseAbilityClass);
 				}
 			}
-			InArraySerializer.OwningSpecialization->OnTalentChanged.Broadcast(TalentRow.BaseAbilityClass, PreviousTalent, CurrentSelection);
 		}
-	}
-}
-
-void FModernTalentChoice::PostReplicatedAdd(const FModernTalentSet& InArraySerializer)
-{
-	if (IsValid(InArraySerializer.OwningSpecialization) && IsValid(InArraySerializer.OwningSpecialization->GetOwningPlayer()))
-	{
-		InArraySerializer.OwningSpecialization->OnTalentChanged.Broadcast(SlotNumber, nullptr, Selection);
-	}
-}
-
-void FModernTalentChoice::PostReplicatedChange(const FModernTalentSet& InArraySerializer)
-{
-	if (IsValid(InArraySerializer.OwningSpecialization) && IsValid(InArraySerializer.OwningSpecialization->GetOwningPlayer()))
-	{
-		//TODO: There's no way to know what the previous selection was here unless I keep a ref to the ability elsewhere.
-		InArraySerializer.OwningSpecialization->OnTalentChanged.Broadcast(SlotNumber, nullptr, Selection);
 	}
 }

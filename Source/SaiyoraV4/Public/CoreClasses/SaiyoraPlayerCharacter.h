@@ -244,7 +244,7 @@ private:
 	
 	//Specialization
 
-	public:
+public:
 
 	UFUNCTION(BlueprintPure, Category = "Specialization")
 	UPlayerAbilityData* GetPlayerAbilityData() const { return PlayerAbilityData; }
@@ -256,20 +256,16 @@ private:
 
 	UFUNCTION(BlueprintPure, Category = "Specialization")
 	UModernSpecialization* GetModernSpecialization() const { return ModernSpec; }
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Specialization")
-	void SetModernSpecialization(const TSubclassOf<UModernSpecialization> NewSpec);
-
 	UPROPERTY(BlueprintAssignable)
 	FModernSpecChangeNotification OnModernSpecChanged;
 
 	void ApplyNewAncientLayout(const FAncientSpecLayout& NewLayout);
 	UFUNCTION(Server, Reliable)
 	void Server_UpdateAncientSpecAndTalents(TSubclassOf<UAncientSpecialization> NewSpec, const TArray<FAncientTalentSelection>& TalentSelections);
-	void SetAncientSpecialization(const TSubclassOf<UAncientSpecialization> NewSpec);
 
 	void ApplyNewModernLayout(const FModernSpecLayout& NewLayout);
 	UFUNCTION(Server, Reliable)
-	void Server_UpdateModernSpecAndTalents(TSubclassOf<UModernSpecialization> NewSpec, const TArray<TSubclassOf<UCombatAbility>>& TalentSelections);
+	void Server_UpdateModernSpecAndTalents(TSubclassOf<UModernSpecialization> NewSpec, const TArray<FModernTalentChoice>& TalentSelections);
 
 private:
 

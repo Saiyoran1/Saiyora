@@ -24,12 +24,12 @@ void UModernTalentWindow::NativeOnInitialized()
 					{
 						WeaponClass = DefaultSpec->GetWeaponClass();
 					}
-					Layout.Talents.Add(FModernTalentChoice(0, EModernSlotType::Weapon, WeaponClass));
+					Layout.Talents.Add(i, FModernTalentChoice(EModernSlotType::Weapon, WeaponClass));
 				}
 				//All other specs are either core spec slots or flex slots, but will not have an initial selection.
 				else
 				{
-					Layout.Talents.Add(i, FModernTalentChoice(i, i <= NumSpecAbilities ? EModernSlotType::Spec : EModernSlotType::Flex));
+					Layout.Talents.Add(i, FModernTalentChoice(i <= NumSpecAbilities ? EModernSlotType::Spec : EModernSlotType::Flex));
 				}
 			}
 			Layouts.Add(ModernSpecClass, Layout);
@@ -40,7 +40,7 @@ void UModernTalentWindow::NativeOnInitialized()
 	Super::NativeOnInitialized();
 }
 
-void UModernTalentWindow::SelectTalent(const int32 Slot, const TSubclassOf<UCombatAbility> Talent)
+void UModernTalentWindow::SelectTalent(const int32 SlotNumber, const TSubclassOf<UCombatAbility> Talent)
 {
 	if (!IsValid(CurrentSpec) || !IsValid(Talent))
 	{
@@ -51,7 +51,7 @@ void UModernTalentWindow::SelectTalent(const int32 Slot, const TSubclassOf<UComb
 	{
 		return;
 	}
-	FModernTalentChoice* TalentChoice = CurrentLayout->Talents.Find(Slot);
+	FModernTalentChoice* TalentChoice = CurrentLayout->Talents.Find(SlotNumber);
 	//If we didn't find a talent choice for that slot, or the slot was a weapon slot (or none slot), we can't change it.
 	if (!TalentChoice || TalentChoice->SlotType == EModernSlotType::None || TalentChoice->SlotType == EModernSlotType::Weapon)
 	{

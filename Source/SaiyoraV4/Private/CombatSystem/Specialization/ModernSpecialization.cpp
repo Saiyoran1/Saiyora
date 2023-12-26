@@ -17,7 +17,6 @@ void UModernSpecialization::InitializeSpecialization(ASaiyoraPlayerCharacter* Pl
 		return;
 	}
 	OwningPlayer = PlayerCharacter;
-	Loadout.OwningSpecialization = this;
 	if (OwningPlayer->GetLocalRole() == ROLE_Authority)
 	{
 		if (IsValid(ResourceClass))
@@ -31,9 +30,18 @@ void UModernSpecialization::InitializeSpecialization(ASaiyoraPlayerCharacter* Pl
 		UAbilityComponent* OwnerAbilityCompRef = ISaiyoraCombatInterface::Execute_GetAbilityComponent(OwningPlayer);
 		if (IsValid(OwnerAbilityCompRef))
 		{
-			OwnerAbilityCompRef->AddNewAbility(Weapon);
+			OwnerAbilityCompRef->AddNewAbility(WeaponClass);
 		}
-		Loadout.MarkItemDirty(Loadout.Items.Add_GetRef(FModernTalentChoice()))
+		//Fill the loadout array with the correct slot types and null choices for non-weapon abilities.
+		Loadout.Add(FModernTalentChoice(EModernSlotType::Weapon, WeaponClass));
+		for (int i = 0; i < OwningPlayer->GetPlayerAbilityData()->NumModernSpecAbilities; i++)
+		{
+			Loadout.Add(FModernTalentChoice(EModernSlotType::Spec));
+		}
+		for (int i = 0; i < OwningPlayer->GetPlayerAbilityData()->NumModernFlexAbilities; i++)
+		{
+			Loadout.Add(FModernTalentChoice(EModernSlotType::Flex));
+		}
 	}
 	bInitialized = true;
 	OnLearn();
@@ -54,7 +62,7 @@ void UModernSpecialization::UnlearnSpec()
 		UAbilityComponent* OwnerAbilityCompRef = ISaiyoraCombatInterface::Execute_GetAbilityComponent(OwningPlayer);
 		if (IsValid(OwnerAbilityCompRef))
 		{
-			for (const FModernTalentChoice& TalentChoice : Loadout.Items)
+			for (const FModernTalentChoice& TalentChoice : Loadout)
 			{
 				OwnerAbilityCompRef->RemoveAbility(TalentChoice.Selection);
 			}
@@ -63,75 +71,93 @@ void UModernSpecialization::UnlearnSpec()
 	OnUnlearn();
 }
 
-void UModernSpecialization::SelectModernAbility(const int32 Slot, const TSubclassOf<UCombatAbility> Ability)
+void UModernSpecialization::SelectModernAbilities(const TArray<FModernTalentChoice>& Selections)
 {
-	if (GetOwningPlayer()->GetLocalRole() != ROLE_Authority || Slot < 0 || !IsValid(Ability))
+	if (!IsValid(OwningPlayer) || !OwningPlayer->HasAuthority())
 	{
 		return;
 	}
-	if (!IsValid(AbilityPool) || !AbilityPool->ModernAbilityPool.Contains(Ability))
+	const UPlayerAbilityData* PlayerAbilityData = OwningPlayer->GetPlayerAbilityData();
+	if (!IsValid(PlayerAbilityData))
 	{
 		return;
 	}
-	if (IsValid(OwnerAbilityCompRef) && IsValid(OwnerAbilityCompRef->FindActiveAbility(Ability)))
+	UAbilityComponent* OwningPlayerAbilityComp = ISaiyoraCombatInterface::Execute_GetAbilityComponent(OwningPlayer);
+	if (!IsValid(OwningPlayerAbilityComp))
 	{
 		return;
 	}
-	bool bFound = false;
-	TSubclassOf<UCombatAbility> PreviousAbility = nullptr;
-	for (FModernTalentChoice& TalentChoice : Loadout.Items)
+	
+	TArray<FModernTalentChoice> DuplicateSelections;
+	TArray<FModernTalentChoice> NewSelections;
+	
+	for (const FModernTalentChoice& Selection : Selections)
 	{
-		if (TalentChoice.SlotNumber == Slot)
+		//Check if we already know this ability.
+		if (Loadout.Contains(Selection))
 		{
-			if (TalentChoice.Selection == Ability)
+			DuplicateSelections.Add(Selection);
+			continue;
+		}
+		switch (Selection.SlotType)
+		{
+		case EModernSlotType::Spec :
 			{
-				return;
-			}
-			bFound = true;
-			PreviousAbility = TalentChoice.Selection;
-			TalentChoice.Selection = Ability;
-			Loadout.MarkItemDirty(TalentChoice);
-			if (IsValid(OwnerAbilityCompRef))
-			{
-				OwnerAbilityCompRef->RemoveAbility(PreviousAbility);
-				OwnerAbilityCompRef->AddNewAbility(Ability);
+				//Check the spec-specific pool.
+				if (SpecAbilityPool.Contains(Selection.Selection))
+				{
+					NewSelections.Add(Selection);
+				}
 			}
 			break;
-		}
-	}
-	if (!bFound)
-	{
-		Loadout.MarkItemDirty(Loadout.Items.Add_GetRef(FModernTalentChoice(Slot, Ability)));
-		if (IsValid(OwnerAbilityCompRef))
-		{
-			OwnerAbilityCompRef->AddNewAbility(Ability);
-		}
-	}
-	OnTalentChanged.Broadcast(Slot, PreviousAbility, Ability);
-}
-
-void UModernSpecialization::ClearAbilitySelection(const int32 Slot)
-{
-	if (GetOwningPlayer()->GetLocalRole() != ROLE_Authority || Slot < 0)
-	{
-		return;
-	}
-	for (FModernTalentChoice& TalentChoice : Loadout.Items)
-	{
-		if (TalentChoice.SlotNumber == Slot)
-		{
-			if (IsValid(TalentChoice.Selection))
+		case EModernSlotType::Flex :
 			{
-				const TSubclassOf<UCombatAbility> PreviousAbility = TalentChoice.Selection;
-				if (IsValid(OwnerAbilityCompRef))
+				//Check the generic modern ability pool.
+				if (PlayerAbilityData->ModernAbilityPool.Contains(Selection.Selection))
 				{
-					OwnerAbilityCompRef->RemoveAbility(PreviousAbility);
+					NewSelections.Add(Selection);
 				}
-				TalentChoice.Selection = nullptr;
-				Loadout.MarkItemDirty(TalentChoice);
-				OnTalentChanged.Broadcast(Slot, PreviousAbility, nullptr);
 			}
-			return;
+			break;
+		default :
+			//Notably, the weapon ability isn't even considered, as it should never change.
+			continue;
 		}
+	}
+	
+	//Iterate over our loadout and change out abilities that weren't chosen in the new loadout.
+	for (FModernTalentChoice& Choice : Loadout)
+	{
+		if (NewSelections.Num() <= 0)
+		{
+			break;
+		}
+		//Don't replace the weapon slot, it shouldn't ever change.
+		if (Choice.SlotType == EModernSlotType::Weapon)
+		{
+			continue;
+		}
+		//If this selection was in the old loadout and the new loadout, we can skip it.
+		if (DuplicateSelections.Contains(Choice))
+		{
+			continue;
+		}
+		//Iterate over our new selections and find one that matches our slot type.
+		for (int i = 0; i < NewSelections.Num(); i++)
+		{
+			if (NewSelections[i].SlotType == Choice.SlotType)
+			{
+				//Once we've found a matching slot type, unlearn the current choice and learn the new choice.
+				OwningPlayerAbilityComp->RemoveAbility(Choice.Selection);
+				Choice = NewSelections[i];
+				OwningPlayerAbilityComp->AddNewAbility(Choice.Selection);
+				NewSelections.RemoveAt(i);
+			}
+		}
+	}
+
+	if (NewSelections.Num() > 0)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("When learning a new modern layout, had %i extra abilities!"), NewSelections.Num());
 	}
 }

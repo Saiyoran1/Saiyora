@@ -18,7 +18,7 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void SelectSpec(const TSubclassOf<UModernSpecialization> Spec) { CurrentSpec = Spec; }
 	UFUNCTION(BlueprintCallable)
-	void SelectTalent(const int32 Slot, const TSubclassOf<UCombatAbility> Talent);
+	void SelectTalent(const int32 SlotNumber, const TSubclassOf<UCombatAbility> Talent);
 	UFUNCTION(BlueprintCallable)
 	void SwapTalentSlots(const int32 FirstSlot, const int32 SecondSlot);
 	UFUNCTION(BlueprintCallable)

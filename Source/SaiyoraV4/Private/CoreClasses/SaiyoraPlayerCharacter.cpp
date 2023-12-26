@@ -1,5 +1,4 @@
 #include "CoreClasses/SaiyoraPlayerCharacter.h"
-#include "AncientTalent.h"
 #include "BuffHandler.h"
 #include "CrowdControlHandler.h"
 #include "DamageHandler.h"
@@ -620,7 +619,29 @@ void ASaiyoraPlayerCharacter::Server_UpdateAncientSpecAndTalents_Implementation(
 	{
 		return;
 	}
-	SetAncientSpecialization(NewSpec);
+	//Change specs if the new spec is valid and different from our current one.
+	if (IsValid(NewSpec) && (!IsValid(AncientSpec) || AncientSpec->GetClass() != NewSpec))
+	{
+		UAncientSpecialization* PreviousSpec = AncientSpec;
+		//Unlearn the previous ancient spec if we have one.
+		if (IsValid(AncientSpec))
+		{
+			AncientSpec->UnlearnSpec();
+			//Leave a reference to the old spec for a second so that the garbage collector doesn't clean it up before clients can run the Unlearn logic.
+			RecentlyUnlearnedAncientSpec = AncientSpec;
+			FTimerHandle CleanupHandle;
+			GetWorld()->GetTimerManager().SetTimer(CleanupHandle, this, &ASaiyoraPlayerCharacter::CleanupOldAncientSpecialization, 1.0f);
+			AncientSpec = nullptr;
+		}
+		//Learn the new spec.
+		AncientSpec = NewObject<UAncientSpecialization>(this, NewSpec);
+		if (IsValid(AncientSpec))
+		{
+			AncientSpec->InitializeSpecialization(this);
+		}
+		OnAncientSpecChanged.Broadcast(PreviousSpec, AncientSpec);
+	}
+	//Change talent choices.
 	if (IsValid(AncientSpec))
 	{
 		for (const FAncientTalentSelection& TalentSelection : TalentSelections)
@@ -628,36 +649,6 @@ void ASaiyoraPlayerCharacter::Server_UpdateAncientSpecAndTalents_Implementation(
 			AncientSpec->SelectAncientTalent(TalentSelection);
 		}
 	}
-}
-
-void ASaiyoraPlayerCharacter::SetAncientSpecialization(const TSubclassOf<UAncientSpecialization> NewSpec)
-{
-	if (!HasAuthority() || NewSpec == AncientSpec->GetClass())
-	{
-		return;
-	}
-	UAncientSpecialization* PreviousSpec = AncientSpec;
-	if (IsValid(AncientSpec))
-	{
-		if (AncientSpec->GetClass() == NewSpec)
-		{
-			return;
-		}
-		AncientSpec->UnlearnSpec();
-		RecentlyUnlearnedAncientSpec = AncientSpec;
-		FTimerHandle CleanupHandle;
-		GetWorld()->GetTimerManager().SetTimer(CleanupHandle, this, &ASaiyoraPlayerCharacter::CleanupOldAncientSpecialization, 1.0f);
-		AncientSpec = nullptr;
-	}
-	if (IsValid(NewSpec))
-	{
-		AncientSpec = NewObject<UAncientSpecialization>(this, NewSpec);
-		if (IsValid(AncientSpec))
-		{
-			AncientSpec->InitializeSpecialization(this);
-		}
-	}
-	OnAncientSpecChanged.Broadcast(PreviousSpec, AncientSpec);
 }
 
 void ASaiyoraPlayerCharacter::OnRep_AncientSpec(UAncientSpecialization* PreviousSpec)
@@ -679,59 +670,45 @@ void ASaiyoraPlayerCharacter::ApplyNewModernLayout(const FModernSpecLayout& NewL
 	{
 		return;
 	}
-	TArray<TSubclassOf<UCombatAbility>> Talents;
-	for (const TTuple<int32, FModernTalentChoice>& Choice : NewLayout.Talents)
-	{
-		if (Choice.Value.Selection)
-		{
-			Talents.AddUnique(Choice.Value.Selection);
-		}
-	}
-	Server_UpdateModernSpecAndTalents(NewLayout.Spec, Talents);
+	TArray<FModernTalentChoice> TalentChoices;
+	NewLayout.Talents.GenerateValueArray(TalentChoices);
+	Server_UpdateModernSpecAndTalents(NewLayout.Spec, TalentChoices);
 }
 
 void ASaiyoraPlayerCharacter::Server_UpdateModernSpecAndTalents_Implementation(
-	TSubclassOf<UModernSpecialization> NewSpec, const TArray<TSubclassOf<UCombatAbility>>& TalentSelections)
+	TSubclassOf<UModernSpecialization> NewSpec, const TArray<FModernTalentChoice>& TalentSelections)
 {
 	if (!HasAuthority())
 	{
 		return;
 	}
-	SetModernSpecialization(NewSpec);
-	if (IsValid(ModernSpec))
+	//Change specs if the new spec is valid and different from our current one.
+	if (IsValid(NewSpec) && (!IsValid(ModernSpec) || ModernSpec->GetClass() != NewSpec))
 	{
-		ModernSpec->SelectModernAbilities(TalentSelections);
-	}
-}
-
-void ASaiyoraPlayerCharacter::SetModernSpecialization(const TSubclassOf<UModernSpecialization> NewSpec)
-{
-	if (GetLocalRole() != ROLE_Authority || NewSpec == ModernSpec->GetClass())
-	{
-		return;
-	}
-	UModernSpecialization* PreviousSpec = ModernSpec;
-	if (IsValid(ModernSpec))
-	{
-		if (ModernSpec->GetClass() == NewSpec)
+		UModernSpecialization* PreviousSpec = ModernSpec;
+		//Unlearn the previous modern spec if we have one.
+		if (IsValid(ModernSpec))
 		{
-			return;
+			ModernSpec->UnlearnSpec();
+			//Leave a reference to the old spec for a second so that garbage collection doesn't clean it up before clients can run the Unlearn logic.
+			RecentlyUnlearnedModernSpec = ModernSpec;
+			FTimerHandle CleanupHandle;
+			GetWorld()->GetTimerManager().SetTimer(CleanupHandle, this, &ASaiyoraPlayerCharacter::CleanupOldModernSpecialization, 1.0f);
+			ModernSpec = nullptr;
 		}
-		ModernSpec->UnlearnSpec();
-		RecentlyUnlearnedModernSpec = ModernSpec;
-		FTimerHandle CleanupHandle;
-		GetWorld()->GetTimerManager().SetTimer(CleanupHandle, this, &ASaiyoraPlayerCharacter::CleanupOldModernSpecialization, 1.0f);
-		ModernSpec = nullptr;
-	}
-	if (IsValid(NewSpec))
-	{
+		//Learn the new spec.
 		ModernSpec = NewObject<UModernSpecialization>(this, NewSpec);
 		if (IsValid(ModernSpec))
 		{
 			ModernSpec->InitializeSpecialization(this);
 		}
+		OnModernSpecChanged.Broadcast(PreviousSpec, ModernSpec);
 	}
-	OnModernSpecChanged.Broadcast(PreviousSpec, ModernSpec);
+	//Change talent selections.
+	if (IsValid(ModernSpec))
+	{
+		ModernSpec->SelectModernAbilities(TalentSelections);
+	}
 }
 
 void ASaiyoraPlayerCharacter::OnRep_ModernSpec(UModernSpecialization* PreviousSpec)
