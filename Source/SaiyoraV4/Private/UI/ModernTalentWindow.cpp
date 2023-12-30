@@ -33,9 +33,17 @@ void UModernTalentWindow::NativeOnInitialized()
 				}
 			}
 			Layouts.Add(ModernSpecClass, Layout);
+			//If this is the first spec we are generating a layout for, go ahead and set our current spec.
+			if (!IsValid(CurrentSpec))
+			{
+				CurrentSpec = ModernSpecClass;
+			}
 		}
 	}
-
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Modern talent window failed to find player ability data asset!"));
+	}
 	//Call this late because the Blueprint logic called in OnInitialize depends on us having the player ref and layouts already set up.
 	Super::NativeOnInitialized();
 }
@@ -61,8 +69,7 @@ void UModernTalentWindow::SelectTalent(const int32 SlotNumber, const TSubclassOf
 	//If this is a spec slot, the valid abilities we can swap to are determined by the modern spec's core ability pool.
 	if (TalentChoice->SlotType == EModernSlotType::Spec)
 	{
-		const UModernSpecialization* DefaultSpec = CurrentSpec->GetDefaultObject<UModernSpecialization>();
-		if (DefaultSpec)
+		if (const UModernSpecialization* DefaultSpec = CurrentSpec->GetDefaultObject<UModernSpecialization>())
 		{
 			DefaultSpec->GetSpecAbilities(ValidAbilities);
 		}
@@ -77,19 +84,20 @@ void UModernTalentWindow::SelectTalent(const int32 SlotNumber, const TSubclassOf
 		return;
 	}
 	TalentChoice->Selection = Talent;
+	//Iterate over all layout slots here, to clear selections for other slots that might have selected this talent.
+	for (TTuple<int32, FModernTalentChoice>& Talents : CurrentLayout->Talents)
+	{
+		//Make sure to exclude the slot we just set.
+		if (Talents.Key != SlotNumber && Talents.Value.Selection == Talent)
+		{
+			Talents.Value.Selection = nullptr;
+		}
+	}
 }
 
 void UModernTalentWindow::SwapTalentSlots(const int32 FirstSlot, const int32 SecondSlot)
 {
-	if (FirstSlot == SecondSlot || !IsValid(OwningPlayer) || !IsValid(OwningPlayer->GetPlayerAbilityData()))
-	{
-		return;
-	}
-	if (FirstSlot < 0 || FirstSlot > OwningPlayer->GetPlayerAbilityData()->NumModernSpecAbilities + OwningPlayer->GetPlayerAbilityData()->NumModernFlexAbilities)
-	{
-		return;
-	}
-	if (SecondSlot < 0 || SecondSlot > OwningPlayer->GetPlayerAbilityData()->NumModernSpecAbilities + OwningPlayer->GetPlayerAbilityData()->NumModernFlexAbilities)
+	if (FirstSlot == SecondSlot)
 	{
 		return;
 	}
@@ -98,6 +106,7 @@ void UModernTalentWindow::SwapTalentSlots(const int32 FirstSlot, const int32 Sec
 	{
 		return;
 	}
+	//Check our layout to find out if either slot index is invalid.
 	if (!Layout->Talents.Contains(FirstSlot) || !Layout->Talents.Contains(SecondSlot))
 	{
 		return;
@@ -111,10 +120,12 @@ void UModernTalentWindow::SwapTalentSlots(const int32 FirstSlot, const int32 Sec
 void UModernTalentWindow::SaveLayout()
 {
 	LastSavedLayout = GetCurrentLayout();
+	//Locally set keybinds for the layout.
 	for (const TTuple<int32, FModernTalentChoice>& TalentChoice : LastSavedLayout.Talents)
 	{
 		OwningPlayer->SetAbilityMapping(ESaiyoraPlane::Modern, TalentChoice.Key, TalentChoice.Value.Selection);
 	}
+	//Actually try to learn the new abilities.
 	OwningPlayer->ApplyNewModernLayout(LastSavedLayout);
 }
 
