@@ -93,6 +93,10 @@ void UModernSpecialization::SelectModernAbilities(const TArray<FModernTalentChoi
 	
 	for (const FModernTalentChoice& Selection : Selections)
 	{
+		if (Selection.Selection == nullptr)
+		{
+			continue;
+		}
 		//Check if we already know this ability.
 		if (Loadout.Contains(Selection))
 		{
@@ -128,10 +132,6 @@ void UModernSpecialization::SelectModernAbilities(const TArray<FModernTalentChoi
 	//Iterate over our loadout and change out abilities that weren't chosen in the new loadout.
 	for (FModernTalentChoice& Choice : Loadout)
 	{
-		if (NewSelections.Num() <= 0)
-		{
-			break;
-		}
 		//Don't replace the weapon slot, it shouldn't ever change.
 		if (Choice.SlotType == EModernSlotType::Weapon)
 		{
@@ -143,21 +143,32 @@ void UModernSpecialization::SelectModernAbilities(const TArray<FModernTalentChoi
 			continue;
 		}
 		//Iterate over our new selections and find one that matches our slot type.
+		bool bUpdatedSlot = false;
 		for (int i = 0; i < NewSelections.Num(); i++)
 		{
 			if (NewSelections[i].SlotType == Choice.SlotType)
 			{
 				//Once we've found a matching slot type, unlearn the current choice and learn the new choice.
 				OwningPlayerAbilityComp->RemoveAbility(Choice.Selection);
-				Choice = NewSelections[i];
-				OwningPlayerAbilityComp->AddNewAbility(Choice.Selection);
+				const UCombatAbility* NewAbilityInstance = OwningPlayerAbilityComp->AddNewAbility(NewSelections[i].Selection);
+				if (IsValid(NewAbilityInstance))
+				{
+					Choice.Selection = NewSelections[i].Selection;
+				}
+				else
+				{
+					Choice.Selection = nullptr;
+				}
+				bUpdatedSlot = true;
 				NewSelections.RemoveAt(i);
+				break;
 			}
 		}
-	}
-
-	if (NewSelections.Num() > 0)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("When learning a new modern layout, had %i extra abilities!"), NewSelections.Num());
+		if (!bUpdatedSlot)
+		{
+			//Nothing in the new loadout matches our slot type, or there aren't any more selections, so unlearn this.
+			OwningPlayerAbilityComp->RemoveAbility(Choice.Selection);
+			Choice.Selection = nullptr;
+		}
 	}
 }
