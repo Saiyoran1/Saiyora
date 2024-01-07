@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "CoreMinimal.h"
+#include "DungeonGameState.h"
 #include "ModernSpecialization.h"
 #include "UserWidget.h"
 #include "ModernTalentWindow.generated.h"
@@ -16,7 +17,7 @@ public:
 	ASaiyoraPlayerCharacter* GetOwningSaiyoraPlayer() const { return OwningPlayer; }
 
 	UFUNCTION(BlueprintCallable)
-	void SelectSpec(const TSubclassOf<UModernSpecialization> Spec) { CurrentSpec = Spec; }
+	void SelectSpec(const TSubclassOf<UModernSpecialization> Spec);
 	UFUNCTION(BlueprintCallable)
 	void SelectTalent(const int32 SlotNumber, const TSubclassOf<UCombatAbility> Talent);
 	UFUNCTION(BlueprintCallable)
@@ -32,12 +33,29 @@ public:
 	void GetModernLayouts(TArray<FModernSpecLayout>& OutLayouts) const { Layouts.GenerateValueArray(OutLayouts); }
 	UFUNCTION(BlueprintPure)
 	bool IsLayoutDirty() const;
+	UFUNCTION(BlueprintPure)
+	bool IsEnabled() const { return bEnabled; }
+
+protected:
+
+	UFUNCTION(BlueprintImplementableEvent, BlueprintCallable)
+	void PostChange();
 
 private:
 
-	UPROPERTY()
-	ASaiyoraPlayerCharacter* OwningPlayer = nullptr;
 	TMap<TSubclassOf<UModernSpecialization>, FModernSpecLayout> Layouts;
 	TSubclassOf<UModernSpecialization> CurrentSpec;
 	FModernSpecLayout LastSavedLayout;
+	bool bEnabled = false;
+
+	UPROPERTY()
+	ASaiyoraPlayerCharacter* OwningPlayer = nullptr;
+	UPROPERTY()
+	ADungeonGameState* GameStateRef = nullptr;
+	UFUNCTION()
+	void OnDungeonPhaseChanged(const EDungeonPhase PreviousPhase, const EDungeonPhase NewPhase)
+	{
+		bEnabled = NewPhase == EDungeonPhase::WaitingToStart;
+		PostChange();
+	}
 };

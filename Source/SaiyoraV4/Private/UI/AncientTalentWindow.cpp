@@ -27,15 +27,39 @@ void UAncientTalentWindow::NativeOnInitialized()
 			Layouts.Add(AncientSpecClass, Layout);
 		}
 	}
-
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Ancient talent window failed to find player ability data asset!"));
+	}
+	//If we're in a dungeon, we should only enable talent/spec swapping during the "waiting to start" phase.
+	GameStateRef = Cast<ADungeonGameState>(GetWorld()->GetGameState());
+	if (IsValid(GameStateRef))
+	{
+		bEnabled = GameStateRef->GetDungeonPhase() == EDungeonPhase::WaitingToStart;
+		GameStateRef->OnDungeonPhaseChanged.AddDynamic(this, &UAncientTalentWindow::OnDungeonPhaseChanged);
+	}
+	else
+	{
+		bEnabled = true;
+	}
 	//Call this late because the Blueprint logic called in OnInitialize depends on us having the player ref and layouts already set up.
 	Super::NativeOnInitialized();
 }
 
-void UAncientTalentWindow::UpdateTalentChoice(const TSubclassOf<UCombatAbility> BaseAbility,
-	const TSubclassOf<UAncientTalent> TalentSelection)
+void UAncientTalentWindow::SelectSpec(const TSubclassOf<UAncientSpecialization> Spec)
 {
-	if (!IsValid(CurrentSpec) || !IsValid(BaseAbility))
+	if (!bEnabled || !IsValid(Spec))
+	{
+		return;
+	}
+	CurrentSpec = Spec;
+	PostChange();
+}
+
+void UAncientTalentWindow::UpdateTalentChoice(const TSubclassOf<UCombatAbility> BaseAbility,
+                                              const TSubclassOf<UAncientTalent> TalentSelection)
+{
+	if (!bEnabled || !IsValid(CurrentSpec) || !IsValid(BaseAbility))
 	{
 		return;
 	}
@@ -62,6 +86,7 @@ void UAncientTalentWindow::UpdateTalentChoice(const TSubclassOf<UCombatAbility> 
 			break;
 		}
 	}
+	PostChange();
 }
 
 void UAncientTalentWindow::SwapTalentRowSlots(const int32 FirstRow, const int32 SecondRow)
@@ -91,6 +116,7 @@ void UAncientTalentWindow::SwapTalentRowSlots(const int32 FirstRow, const int32 
 	const FAncientTalentChoice* OriginalSecondRow = Layout->Talents.Find(SecondRow);
 	Layout->Talents.Add(FirstRow, *OriginalSecondRow);
 	Layout->Talents.Add(SecondRow, OriginalFirstRow);
+	PostChange();
 }
 
 void UAncientTalentWindow::SaveLayout()
@@ -101,6 +127,7 @@ void UAncientTalentWindow::SaveLayout()
 		OwningPlayer->SetAbilityMapping(ESaiyoraPlane::Ancient, TalentChoice.Key, TalentChoice.Value.TalentRow.BaseAbilityClass);
 	}
 	OwningPlayer->ApplyNewAncientLayout(LastSavedLayout);
+	PostChange();
 }
 
 bool UAncientTalentWindow::IsLayoutDirty() const

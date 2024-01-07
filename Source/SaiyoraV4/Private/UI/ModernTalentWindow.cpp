@@ -1,4 +1,6 @@
 ﻿#include "ModernTalentWindow.h"
+
+#include "DungeonGameState.h"
 #include "SaiyoraPlayerCharacter.h"
 
 void UModernTalentWindow::NativeOnInitialized()
@@ -44,13 +46,34 @@ void UModernTalentWindow::NativeOnInitialized()
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Modern talent window failed to find player ability data asset!"));
 	}
+	//If we're in a dungeon, we should only enable talent/spec swapping during the "waiting to start" phase.
+	GameStateRef = Cast<ADungeonGameState>(GetWorld()->GetGameState());
+	if (IsValid(GameStateRef))
+	{
+		bEnabled = GameStateRef->GetDungeonPhase() == EDungeonPhase::WaitingToStart;
+		GameStateRef->OnDungeonPhaseChanged.AddDynamic(this, &UModernTalentWindow::OnDungeonPhaseChanged);
+	}
+	else
+	{
+		bEnabled = true;
+	}
 	//Call this late because the Blueprint logic called in OnInitialize depends on us having the player ref and layouts already set up.
 	Super::NativeOnInitialized();
 }
 
+void UModernTalentWindow::SelectSpec(const TSubclassOf<UModernSpecialization> Spec)
+{
+	if (!bEnabled || !IsValid(Spec))
+	{
+		return;
+	}
+	CurrentSpec = Spec;
+	PostChange();
+}
+
 void UModernTalentWindow::SelectTalent(const int32 SlotNumber, const TSubclassOf<UCombatAbility> Talent)
 {
-	if (!IsValid(CurrentSpec) || !IsValid(Talent))
+	if (!bEnabled || !IsValid(CurrentSpec) || !IsValid(Talent))
 	{
 		return;
 	}
@@ -93,6 +116,7 @@ void UModernTalentWindow::SelectTalent(const int32 SlotNumber, const TSubclassOf
 			Talents.Value.Selection = nullptr;
 		}
 	}
+	PostChange();
 }
 
 void UModernTalentWindow::SwapTalentSlots(const int32 FirstSlot, const int32 SecondSlot)
@@ -115,6 +139,7 @@ void UModernTalentWindow::SwapTalentSlots(const int32 FirstSlot, const int32 Sec
 	const FModernTalentChoice* OriginalSecondSlot = Layout->Talents.Find(SecondSlot);
 	Layout->Talents.Add(FirstSlot, *OriginalSecondSlot);
 	Layout->Talents.Add(SecondSlot, OriginalFirstSlot);
+	PostChange();
 }
 
 void UModernTalentWindow::SaveLayout()
@@ -127,6 +152,7 @@ void UModernTalentWindow::SaveLayout()
 	}
 	//Actually try to learn the new abilities.
 	OwningPlayer->ApplyNewModernLayout(LastSavedLayout);
+	PostChange();
 }
 
 bool UModernTalentWindow::IsLayoutDirty() const

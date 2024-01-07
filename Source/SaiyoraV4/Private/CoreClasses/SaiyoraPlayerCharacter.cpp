@@ -3,6 +3,7 @@
 #include "CrowdControlHandler.h"
 #include "DamageHandler.h"
 #include "CombatStatusComponent.h"
+#include "DungeonGameState.h"
 #include "ModernSpecialization.h"
 #include "Weapons/FireWeapon.h"
 #include "PredictableProjectile.h"
@@ -600,6 +601,13 @@ void ASaiyoraPlayerCharacter::ApplyNewAncientLayout(const FAncientSpecLayout& Ne
 	{
 		return;
 	}
+	//Check if we are in a dungeon, and if so, if we are in the "waiting to start" phase.
+	const ADungeonGameState* DungeonGameState = Cast<ADungeonGameState>(GameStateRef);
+	if (IsValid(DungeonGameState) && DungeonGameState->GetDungeonPhase() != EDungeonPhase::WaitingToStart)
+	{
+		//If the dungeon has already started or finished, we can't change talents.
+		return;
+	}
 	TArray<FAncientTalentSelection> Selections;
 	for (const TTuple<int32, FAncientTalentChoice>& Choice : NewLayout.Talents)
 	{
@@ -613,6 +621,13 @@ void ASaiyoraPlayerCharacter::Server_UpdateAncientSpecAndTalents_Implementation(
 {
 	if (!HasAuthority())
 	{
+		return;
+	}
+	//Check if we are in a dungeon, and if so, if we are in the "waiting to start" phase.
+	const ADungeonGameState* DungeonGameState = Cast<ADungeonGameState>(GameStateRef);
+	if (IsValid(DungeonGameState) && DungeonGameState->GetDungeonPhase() != EDungeonPhase::WaitingToStart)
+	{
+		//If the dungeon has already started or finished, we can't change talents.
 		return;
 	}
 	//Change specs if the new spec is valid and different from our current one.
@@ -666,6 +681,13 @@ void ASaiyoraPlayerCharacter::ApplyNewModernLayout(const FModernSpecLayout& NewL
 	{
 		return;
 	}
+	//Check if we are in a dungeon, and if so, if we are in the "waiting to start" phase.
+	const ADungeonGameState* DungeonGameState = Cast<ADungeonGameState>(GameStateRef);
+	if (IsValid(DungeonGameState) && DungeonGameState->GetDungeonPhase() != EDungeonPhase::WaitingToStart)
+	{
+		//If the dungeon has already started or finished, we can't change talents.
+		return;
+	}
 	TArray<FModernTalentChoice> TalentChoices;
 	NewLayout.Talents.GenerateValueArray(TalentChoices);
 	Server_UpdateModernSpecAndTalents(NewLayout.Spec, TalentChoices);
@@ -676,6 +698,13 @@ void ASaiyoraPlayerCharacter::Server_UpdateModernSpecAndTalents_Implementation(
 {
 	if (!HasAuthority())
 	{
+		return;
+	}
+	//Check if we are in a dungeon, and if so, if we are in the "waiting to start" phase.
+	const ADungeonGameState* DungeonGameState = Cast<ADungeonGameState>(GameStateRef);
+	if (IsValid(DungeonGameState) && DungeonGameState->GetDungeonPhase() != EDungeonPhase::WaitingToStart)
+	{
+		//If the dungeon has already started or finished, we can't change talents.
 		return;
 	}
 	//Change specs if the new spec is valid and different from our current one.
