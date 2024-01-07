@@ -29,6 +29,8 @@ private:
 	UFUNCTION()
 	void OnActorCombat(UThreatHandler* Handler, const bool bInCombat);
 
+#if WITH_EDITORONLY_DATA
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Display, meta = (AllowPrivateAccess = "true"))
 	USphereComponent* Sphere;
+#endif
 };

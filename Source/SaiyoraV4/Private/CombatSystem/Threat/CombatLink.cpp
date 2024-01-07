@@ -10,10 +10,13 @@ ACombatLink::ACombatLink()
 	RootComponent = SceneComp;
 #if WITH_EDITOR
 	Sphere = CreateEditorOnlyDefaultSubobject<USphereComponent>(FName(TEXT("Sphere")));
-	Sphere->InitSphereRadius(50.0f);
-	Sphere->SetupAttachment(RootComponent);
-	Sphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	Sphere->SetCanEverAffectNavigation(false);
+	if (IsValid(Sphere))
+	{
+		Sphere->InitSphereRadius(50.0f);
+		Sphere->SetupAttachment(RootComponent);
+		Sphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Sphere->SetCanEverAffectNavigation(false);
+	}
 #endif
 	SetHidden(true);
 }
