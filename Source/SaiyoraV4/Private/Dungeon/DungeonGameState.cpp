@@ -1,6 +1,8 @@
 #include "Dungeon/DungeonGameState.h"
 
+#include "AncientSpecialization.h"
 #include "DungeonPostProcess.h"
+#include "ModernSpecialization.h"
 #include "SaiyoraPlayerCharacter.h"
 #include "UnrealNetwork.h"
 
@@ -99,10 +101,22 @@ void ADungeonGameState::OnRep_DungeonProgress(const FDungeonProgress& PreviousPr
 	}
 }
 
-void ADungeonGameState::StartCountdown()
+void ADungeonGameState::TryStartCountdown()
 {
 	if (!HasAuthority() || DungeonProgress.DungeonPhase != EDungeonPhase::WaitingToStart)
 	{
+		return;
+	}
+	FText FailureMessage;
+	if (!CheckDungeonCanStart(FailureMessage))
+	{
+		//If the dungeon can't start, notify all players of why.
+		TArray<ASaiyoraPlayerCharacter*> Players;
+		GetActivePlayers(Players);
+		for (ASaiyoraPlayerCharacter* Player : Players)
+		{
+			Player->DisplayErrorMessage(FailureMessage, 10.0f);
+		}
 		return;
 	}
 	const FDungeonProgress PreviousProgress = DungeonProgress;
@@ -118,6 +132,56 @@ void ADungeonGameState::StartCountdown()
 		//Skip the countdown phase entirely.
 		EndCountdown();
 	}
+}
+
+bool ADungeonGameState::CheckDungeonCanStart(FText& OutFailMessage) const
+{
+	TArray<ASaiyoraPlayerCharacter*> Players;
+	GetActivePlayers(Players);
+	TArray<const ASaiyoraPlayerCharacter*> PlayersMissingSpecs;
+	//If any players haven't selected both an ancient and modern spec, don't start the dungeon.
+	for (const ASaiyoraPlayerCharacter* Player : Players)
+	{
+		if (!IsValid(Player->GetAncientSpecialization()) || !IsValid(Player->GetModernSpecialization()))
+		{
+			PlayersMissingSpecs.Add(Player);
+		}
+	}
+	if (PlayersMissingSpecs.Num() > 0)
+	{
+		//If multiple players are missing specs, build a string that names all of them.
+		if (PlayersMissingSpecs.Num() > 1)
+		{
+			FString LastPlayerName;
+			FString PlayerNames;
+			for (const ASaiyoraPlayerCharacter* Player : PlayersMissingSpecs)
+			{
+				if (!LastPlayerName.IsEmpty())
+				{
+					if (!PlayerNames.IsEmpty())
+					{
+						PlayerNames += ", ";
+					}
+					PlayerNames += LastPlayerName;
+				}
+				LastPlayerName = Player->GetName();
+			}
+			if (PlayersMissingSpecs.Num() > 2)
+			{
+				PlayerNames += ",";
+			}
+			OutFailMessage = FText::FromString(FString::Printf(
+				TEXT("Cannot start the dungeon because players %s and %s haven't selected specializations yet!"), *PlayerNames, *LastPlayerName));
+		}
+		//Otherwise, just a string for the one player.
+		else
+		{
+			OutFailMessage = FText::FromString(FString::Printf(
+				TEXT("Cannot start the dungeon because player %s hasn't selected specializations yet!"), *PlayersMissingSpecs[0]->GetName()));
+		}
+		return false;
+	}
+	return true;
 }
 
 void ADungeonGameState::EndCountdown()
@@ -276,7 +340,7 @@ void ADungeonGameState::UpdatePlayerReadyStatus(ASaiyoraPlayerCharacter* Player,
 		GetActivePlayers(Players);
 		if (ReadyPlayers.Num() == Players.Num())
 		{
-			StartCountdown();
+			TryStartCountdown();
 		}
 	}
 	else

@@ -8,7 +8,9 @@
 #include "Weapons/FireWeapon.h"
 #include "PredictableProjectile.h"
 #include "ResourceHandler.h"
+#include "SaiyoraErrorMessage.h"
 #include "SaiyoraMovementComponent.h"
+#include "SaiyoraUIDataAsset.h"
 #include "CoreClasses/SaiyoraPlayerController.h"
 #include "StatHandler.h"
 #include "ThreatHandler.h"
@@ -750,3 +752,31 @@ void ASaiyoraPlayerCharacter::OnRep_ModernSpec(UModernSpecialization* PreviousSp
 }
 
 #pragma endregion
+#pragma region User Interface
+
+void ASaiyoraPlayerCharacter::Client_DisplayErrorMessage_Implementation(const FText& Message, const float Duration)
+{
+	if (!IsLocallyControlled() || !bInitialized || Message.IsEmpty())
+	{
+		return;
+	}
+	if (!IsValid(UIDataAsset) || !IsValid(UIDataAsset->ErrorMessageWidgetClass))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Tried to display an error message for a player, but the UI Data Asset or Error Widget class was null."));
+		return;
+	}
+	if (IsValid(ErrorWidget))
+	{
+		ErrorWidget->RemoveFromParent();
+		ErrorWidget = nullptr;
+	}
+	ErrorWidget = CreateWidget<USaiyoraErrorMessage>(GetSaiyoraPlayerController(), UIDataAsset->ErrorMessageWidgetClass);
+	if (IsValid(ErrorWidget))
+	{
+		ErrorWidget->SetErrorMessage(Message, Duration);
+		//TODO: Probably want to add this to a certain location, or have the player UI handle this?
+		ErrorWidget->AddToViewport();
+	}
+}
+
+#pragma endregion 

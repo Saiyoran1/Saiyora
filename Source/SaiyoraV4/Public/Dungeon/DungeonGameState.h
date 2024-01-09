@@ -167,7 +167,8 @@ private:
 	UFUNCTION()
 	void OnRep_DungeonProgress(const FDungeonProgress& PreviousProgress);
 	FTimerHandle PhaseTimerHandle;
-	void StartCountdown();
+	void TryStartCountdown();
+	bool CheckDungeonCanStart(FText& OutFailMessage) const;
 	void EndCountdown();
 	void CompleteDungeon();
 	void DepleteDungeonFromTimer();

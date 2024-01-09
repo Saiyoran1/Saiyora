@@ -11,6 +11,8 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "SaiyoraPlayerCharacter.generated.h"
 
+class USaiyoraErrorMessage;
+class USaiyoraUIDataAsset;
 class ASaiyoraGameState;
 class ASaiyoraPlayerController;
 class UCombatAbility;
@@ -38,7 +40,7 @@ class SAIYORAV4_API ASaiyoraPlayerCharacter : public ACharacter, public ISaiyora
 {
 	GENERATED_BODY()
 
-//Setup
+#pragma region Initialization
 
 public:
 	
@@ -53,30 +55,65 @@ public:
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual bool ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags) override;
 
+private:
+
+	bool bInitialized = false;
+	void InitializeCharacter();
+
+#pragma endregion 
+#pragma region Core
+
+public:
+
 	UFUNCTION(BlueprintPure)
 	ASaiyoraGameState* GetSaiyoraGameState() const { return GameStateRef; }
 	UFUNCTION(BlueprintPure)
 	ASaiyoraPlayerController* GetSaiyoraPlayerController() const { return PlayerControllerRef; }
 
-	void NotifyEnemyCombatChanged(AActor* Enemy, const bool bInCombat) { OnEnemyCombatChanged.Broadcast(Enemy, bInCombat); }
+private:
 
+	UPROPERTY()
+	ASaiyoraGameState* GameStateRef;
+	UPROPERTY()
+	ASaiyoraPlayerController* PlayerControllerRef;
+
+#pragma endregion 
+#pragma region User Interface
+
+public:
+
+	UFUNCTION(BlueprintCallable)
+	void DisplayErrorMessage(const FText& Message, const float Duration) { Client_DisplayErrorMessage(Message, Duration); }
+	
+	void NotifyEnemyCombatChanged(AActor* Enemy, const bool bInCombat) { OnEnemyCombatChanged.Broadcast(Enemy, bInCombat); }
 	UPROPERTY(BlueprintAssignable)
 	FActorCombatNotification OnEnemyCombatChanged;
+
+protected:
+
+	UFUNCTION(BlueprintImplementableEvent)
+	void CreateUserInterface();
+
+private:
+
+	UPROPERTY(EditDefaultsOnly, Category = "User Interface")
+	USaiyoraUIDataAsset* UIDataAsset;
+	UPROPERTY()
+	USaiyoraErrorMessage* ErrorWidget;
+	UFUNCTION(Client, Unreliable)
+	void Client_DisplayErrorMessage(const FText& Message, const float Duration);
+
+#pragma endregion 
+#pragma region Movement and Looking
+
+public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera")
 	USpringArmComponent* SpringArm;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Camera")
 	UCameraComponent* Camera;
 
-protected:
-	
-	UFUNCTION(BlueprintImplementableEvent)
-	void CreateUserInterface();
-
 private:
-
-	bool bInitialized = false;
-	void InitializeCharacter();
 
 	UFUNCTION()
 	void InputJump() { Jump(); }
@@ -93,43 +130,8 @@ private:
 	UFUNCTION()
 	void InputLookVertical(const float AxisValue) { AddControllerPitchInput(AxisValue * -1.0f); }
 
-	UFUNCTION()
-	void InputPlaneSwap() { Server_PlaneSwapInput(); }
-	UFUNCTION(Server, Reliable)
-	void Server_PlaneSwapInput();
-	UFUNCTION()
-	void InputReload();
-	UFUNCTION()
-	void InputStartAbility0() { AbilityInput(0, true); }
-	UFUNCTION()
-	void InputStopAbility0() { AbilityInput(0, false); }
-	UFUNCTION()
-	void InputStartAbility1() { AbilityInput(1, true); }
-	UFUNCTION()
-	void InputStopAbility1() { AbilityInput(1, false); }
-	UFUNCTION()
-	void InputStartAbility2() { AbilityInput(2, true); }
-	UFUNCTION()
-	void InputStopAbility2() { AbilityInput(2, false); }
-	UFUNCTION()
-	void InputStartAbility3() { AbilityInput(3, true); }
-	UFUNCTION()
-	void InputStopAbility3() { AbilityInput(3, false); }
-	UFUNCTION()
-	void InputStartAbility4() { AbilityInput(4, true); }
-	UFUNCTION()
-	void InputStopAbility4() { AbilityInput(4, false); }
-	UFUNCTION()
-	void InputStartAbility5() { AbilityInput(5, true); }
-	UFUNCTION()
-	void InputStopAbility5() { AbilityInput(5, false); }
-
-	UPROPERTY()
-	ASaiyoraGameState* GameStateRef;
-	UPROPERTY()
-	ASaiyoraPlayerController* PlayerControllerRef;
-	
-//Saiyora Combat Interface
+#pragma endregion 
+#pragma region Saiyora Combat Interface
 
 public:
 
@@ -164,7 +166,30 @@ private:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	UResourceHandler* ResourceHandler;
 
-//Ability Mappings
+#pragma endregion 
+#pragma region Weapon
+	
+public:
+
+	void SetWeapon(AWeapon* NewWeapon) { Weapon = NewWeapon; }
+	UFUNCTION(BlueprintPure, Category = "Weapon")
+	AWeapon* GetWeapon() const { return Weapon; }
+	UFUNCTION(BlueprintPure, Category = "Weapon")
+	UReload* GetReloadAbility() const { return ReloadAbility; }
+
+private:
+
+	UPROPERTY()
+	UFireWeapon* FireWeaponAbility;
+	UPROPERTY()
+	AWeapon* Weapon;
+	UPROPERTY()
+	UStopFiring* StopFiringAbility;
+	UPROPERTY()
+	UReload* ReloadAbility;
+	
+#pragma endregion
+#pragma region Ability Mappings
 
 public:
 
@@ -193,28 +218,8 @@ private:
 	UFUNCTION()
 	void OnAbilityRemoved(UCombatAbility* RemovedAbility);
 
-//Weapon Handling
-
-public:
-
-	void SetWeapon(AWeapon* NewWeapon) { Weapon = NewWeapon; }
-	UFUNCTION(BlueprintPure, Category = "Weapon")
-	AWeapon* GetWeapon() const { return Weapon; }
-	UFUNCTION(BlueprintPure, Category = "Weapon")
-	UReload* GetReloadAbility() const { return ReloadAbility; }
-
-private:
-
-	UPROPERTY()
-	UFireWeapon* FireWeaponAbility;
-	UPROPERTY()
-	AWeapon* Weapon;
-	UPROPERTY()
-	UStopFiring* StopFiringAbility;
-	UPROPERTY()
-	UReload* ReloadAbility;
-
-//Ability Input
+#pragma endregion 
+#pragma region Ability Input
 
 protected:
 
@@ -222,6 +227,33 @@ protected:
 	void AbilityInput(const int32 InputNum, const bool bPressed);
 
 private:
+
+	UFUNCTION()
+	void InputReload();
+	UFUNCTION()
+	void InputStartAbility0() { AbilityInput(0, true); }
+	UFUNCTION()
+	void InputStopAbility0() { AbilityInput(0, false); }
+	UFUNCTION()
+	void InputStartAbility1() { AbilityInput(1, true); }
+	UFUNCTION()
+	void InputStopAbility1() { AbilityInput(1, false); }
+	UFUNCTION()
+	void InputStartAbility2() { AbilityInput(2, true); }
+	UFUNCTION()
+	void InputStopAbility2() { AbilityInput(2, false); }
+	UFUNCTION()
+	void InputStartAbility3() { AbilityInput(3, true); }
+	UFUNCTION()
+	void InputStopAbility3() { AbilityInput(3, false); }
+	UFUNCTION()
+	void InputStartAbility4() { AbilityInput(4, true); }
+	UFUNCTION()
+	void InputStopAbility4() { AbilityInput(4, false); }
+	UFUNCTION()
+	void InputStartAbility5() { AbilityInput(5, true); }
+	UFUNCTION()
+	void InputStopAbility5() { AbilityInput(5, false); }
 	
 	static constexpr float AbilityQueueWindow = 0.2f;
 	UFUNCTION()
@@ -242,7 +274,8 @@ private:
 	UPROPERTY()
 	UCombatAbility* AutomaticInputAbility = nullptr;
 	
-	//Specialization
+#pragma endregion 
+#pragma region Specialization
 
 public:
 
@@ -290,10 +323,15 @@ private:
 	UFUNCTION()
 	void CleanupOldModernSpecialization() { RecentlyUnlearnedModernSpec = nullptr; }
 
-//Collision
+#pragma endregion 
+#pragma region Plane
 
 private:
 
+	UFUNCTION()
+	void InputPlaneSwap() { Server_PlaneSwapInput(); }
+	UFUNCTION(Server, Reliable)
+	void Server_PlaneSwapInput();
 	UFUNCTION()
 	void HandleBeginXPlaneOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult & SweepResult);
 	UFUNCTION()
@@ -301,7 +339,8 @@ private:
 	UPROPERTY()
 	TSet<UPrimitiveComponent*> XPlaneOverlaps;
 
-//Projectiles
+#pragma endregion 
+#pragma region Projectiles
 
 public:
 
@@ -317,4 +356,6 @@ private:
 	
 	TMap<FPredictedTick, FPredictedTickProjectiles> PredictedProjectiles;
 	TMap<FPredictedTick, int32> ProjectileIDs;
+
+#pragma endregion 
 };
