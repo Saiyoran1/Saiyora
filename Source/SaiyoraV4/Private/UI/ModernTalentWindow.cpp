@@ -13,14 +13,16 @@ void UModernTalentWindow::NativeOnInitialized()
 		{
 			FModernSpecLayout Layout;
 			Layout.Spec = ModernSpecClass;
+			const UModernSpecialization* DefaultSpec = ModernSpecClass->GetDefaultObject<UModernSpecialization>();
 			const int32 NumSpecAbilities = OwningPlayer->GetPlayerAbilityData()->NumModernSpecAbilities;
 			const int32 NumFlexAbilities = OwningPlayer->GetPlayerAbilityData()->NumModernFlexAbilities;
+			int32 SpecSlotIndex = 0;
+			int32 FlexSlotIndex = 0;
 			for (int i = 0; i < NumSpecAbilities + NumFlexAbilities + 1; i++)
 			{
 				//First slot is always the weapon slot, which we can get from the modern spec CDO.
 				if (i == 0)
 				{
-					const UModernSpecialization* DefaultSpec = ModernSpecClass->GetDefaultObject<UModernSpecialization>();
 					TSubclassOf<UCombatAbility> WeaponClass = nullptr;
 					if (DefaultSpec)
 					{
@@ -28,10 +30,36 @@ void UModernTalentWindow::NativeOnInitialized()
 					}
 					Layout.Talents.Add(i, FModernTalentChoice(EModernSlotType::Weapon, WeaponClass));
 				}
-				//All other specs are either core spec slots or flex slots, but will not have an initial selection.
+				//All other specs are either core spec slots or flex slots, and we'll attempt to fill an initial selection.
+				else if (i <= NumSpecAbilities)
+				{
+					//Spec slots we'll just get the first few abilities from the spec's pool, if they exist.
+					TSubclassOf<UCombatAbility> SpecAbilityClass = nullptr;
+					if (DefaultSpec)
+					{
+						TArray<TSubclassOf<UCombatAbility>> SpecAbilities;
+						DefaultSpec->GetSpecAbilities(SpecAbilities);
+						if (SpecSlotIndex <= SpecAbilities.Num() - 1)
+						{
+							SpecAbilityClass = SpecAbilities[SpecSlotIndex];
+							SpecSlotIndex++;
+						}
+					}
+					Layout.Talents.Add(i, FModernTalentChoice(EModernSlotType::Spec, SpecAbilityClass));
+				}
 				else
 				{
-					Layout.Talents.Add(i, FModernTalentChoice(i <= NumSpecAbilities ? EModernSlotType::Spec : EModernSlotType::Flex));
+					//Flex slots we'll just get the first few abilities from the generic pool, if they exist.
+					TSubclassOf<UCombatAbility> FlexAbilityClass = nullptr;
+					if (DefaultSpec)
+					{
+						if (FlexSlotIndex <= OwningPlayer->GetPlayerAbilityData()->ModernAbilityPool.Num() - 1)
+						{
+							FlexAbilityClass = OwningPlayer->GetPlayerAbilityData()->ModernAbilityPool[FlexSlotIndex];
+							FlexSlotIndex++;
+						}
+					}
+					Layout.Talents.Add(i, FModernTalentChoice(EModernSlotType::Flex, FlexAbilityClass));
 				}
 			}
 			Layouts.Add(ModernSpecClass, Layout);
