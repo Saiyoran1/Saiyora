@@ -8,6 +8,7 @@
 #include "GameplayTasksComponent.h"
 #include "AbilityComponent.generated.h"
 
+class UCombatStatusComponent;
 class USaiyoraMovementComponent;
 class UCrowdControlHandler;
 class UDamageHandler;
@@ -119,6 +120,8 @@ protected:
 	USaiyoraMovementComponent* MovementComponentRef = nullptr;
 	UPROPERTY()
 	UCrowdControlHandler* CrowdControlHandlerRef = nullptr;
+	UPROPERTY()
+	UCombatStatusComponent* CombatStatusComponentRef = nullptr;
 
 //Ability Management
 
@@ -238,6 +241,8 @@ private:
 	void InterruptCastOnDeath(AActor* Actor, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus);
 	UFUNCTION()
 	void InterruptCastOnMovement(AActor* Actor, const bool bNewMovement);
+	UFUNCTION()
+	void InterruptCastOnPlaneSwap(const ESaiyoraPlane PreviousPlane, const ESaiyoraPlane NewPlane, UObject* SwapSource);
 
 	TConditionalRestrictionList<FInterruptRestriction> InterruptRestrictions;
 

@@ -44,8 +44,6 @@ private:
 	ADungeonGameState* DungeonGameStateRef;
 	UPROPERTY()
 	UThreatHandler* ThreatHandlerRef;
-	UPROPERTY()
-	UCombatStatusComponent* CombatStatusComponentRef;
 
 	UPROPERTY(ReplicatedUsing=OnRep_CombatBehavior)
 	ENPCCombatBehavior CombatBehavior = ENPCCombatBehavior::None;

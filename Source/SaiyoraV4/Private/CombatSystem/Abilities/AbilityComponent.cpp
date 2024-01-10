@@ -3,6 +3,7 @@
 #include "Buff.h"
 #include "BuffHandler.h"
 #include "CombatAbility.h"
+#include "CombatStatusComponent.h"
 #include "CrowdControlHandler.h"
 #include "DamageHandler.h"
 #include "SaiyoraCombatInterface.h"
@@ -38,6 +39,7 @@ void UAbilityComponent::InitializeComponent()
 	CrowdControlHandlerRef = ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(GetOwner());
 	DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
 	MovementComponentRef = ISaiyoraCombatInterface::Execute_GetCustomMovementComponent(GetOwner());
+	CombatStatusComponentRef = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(GetOwner());
 	Super::InitializeComponent();
 }
 
@@ -60,6 +62,10 @@ void UAbilityComponent::BeginPlay()
 		if (IsValid(MovementComponentRef))
 		{
 			MovementComponentRef->OnMovementChanged.AddDynamic(this, &UAbilityComponent::InterruptCastOnMovement);
+		}
+		if (IsValid(CombatStatusComponentRef))
+		{
+			CombatStatusComponentRef->OnPlaneSwapped.AddDynamic(this, &UAbilityComponent::InterruptCastOnPlaneSwap);
 		}
 		for (const TSubclassOf<UCombatAbility> AbilityClass : DefaultAbilities)
 		{
@@ -742,6 +748,15 @@ void UAbilityComponent::InterruptCastOnMovement(AActor* Actor, const bool bNewMo
 		{
 			InterruptCurrentCast(GetOwner(), nullptr, true);
 		}
+	}
+}
+
+void UAbilityComponent::InterruptCastOnPlaneSwap(const ESaiyoraPlane PreviousPlane, const ESaiyoraPlane NewPlane,
+	UObject* SwapSource)
+{
+	if (CastingState.bIsCasting && IsValid(CastingState.CurrentCast) && NewPlane != PreviousPlane)
+	{
+		InterruptCurrentCast(GetOwner(), SwapSource, true);
 	}
 }
 

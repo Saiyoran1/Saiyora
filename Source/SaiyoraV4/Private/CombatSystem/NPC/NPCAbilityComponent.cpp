@@ -23,7 +23,6 @@ void UNPCAbilityComponent::InitializeComponent()
 	Super::InitializeComponent();
 	ThreatHandlerRef = ISaiyoraCombatInterface::Execute_GetThreatHandler(GetOwner());
 	MovementComponentRef = ISaiyoraCombatInterface::Execute_GetCustomMovementComponent(GetOwner());
-	CombatStatusComponentRef = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(GetOwner());
 }
 
 void UNPCAbilityComponent::BeginPlay()
