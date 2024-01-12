@@ -8,6 +8,9 @@
 #include "Blueprint/UserWidget.h"
 #include "FloatingHealthBar.generated.h"
 
+struct FBuffApplyEvent;
+class UFloatingBuffIcon;
+class ASaiyoraPlayerCharacter;
 class UDamageHandler;
 class UBuffHandler;
 
@@ -20,16 +23,7 @@ public:
 
 	void Init(AActor* TargetActor);
 
-private:
-
-	UFUNCTION()
-	void UpdateHealth(AActor* Actor, const float PreviousHealth, const float NewHealth);
-	UFUNCTION()
-	void UpdateAbsorb(AActor* Actor, const float PreviousHealth, const float NewHealth);
-	UFUNCTION()
-	void UpdateLifeStatus(AActor* Actor, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus);
-
-	//Widgets
+#pragma region Health
 
 private:
 
@@ -41,17 +35,39 @@ private:
 	UTextBlock* HealthText;
 	UPROPERTY(BlueprintReadWrite, meta = (BindWidget, AllowPrivateAccess = "true"))
 	UProgressBar* AbsorbBar;
+
+	UPROPERTY()
+	UDamageHandler* TargetDamageHandler;
+
+	UFUNCTION()
+	void UpdateHealth(AActor* Actor, const float PreviousHealth, const float NewHealth);
+	UFUNCTION()
+	void UpdateAbsorb(AActor* Actor, const float PreviousHealth, const float NewHealth);
+	UFUNCTION()
+	void UpdateLifeStatus(AActor* Actor, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus);
+
+#pragma endregion
+
+#pragma region Buffs
+
+private:
+	
 	UPROPERTY(BlueprintReadWrite, meta = (BindWidget, AllowPrivateAccess = "true"))
 	UWrapBox* BuffBox;
 	UPROPERTY(BlueprintReadWrite, meta = (BindWidget, AllowPrivateAccess = "true"))
 	UWrapBox* DebuffBox;
 
-	//Refs
-
-private:
-
-	UPROPERTY()
-	UDamageHandler* TargetDamageHandler;
+	UPROPERTY(EditDefaultsOnly, Category = "Buffs", meta = (AllowPrivateAccess = "true"))
+	TSubclassOf<UFloatingBuffIcon> BuffIconClass;
+	
 	UPROPERTY()
 	UBuffHandler* TargetBuffHandler;
+	UPROPERTY()
+	ASaiyoraPlayerCharacter* LocalPlayer;
+
+	UFUNCTION()
+	void OnIncomingBuffApplied(const FBuffApplyEvent& Event);
+
+#pragma endregion
+	
 };

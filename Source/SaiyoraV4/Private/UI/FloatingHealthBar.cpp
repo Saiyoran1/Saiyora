@@ -1,15 +1,37 @@
 ﻿#include "UI/FloatingHealthBar.h"
+
+#include "Buff.h"
 #include "BuffHandler.h"
 #include "DamageHandler.h"
+#include "FloatingBuffIcon.h"
 #include "SaiyoraCombatInterface.h"
+#include "SaiyoraCombatLibrary.h"
+#include "SaiyoraPlayerCharacter.h"
 
 void UFloatingHealthBar::Init(AActor* TargetActor)
 {
-	if (!IsValid(TargetActor) || !TargetActor->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	if (!IsValid(BuffIconClass))
 	{
+		UE_LOG(LogTemp, Warning, TEXT("Floating health bar tried to init with invalid buff icon class."));
 		RemoveFromParent();
 		return;
 	}
+	
+	LocalPlayer = USaiyoraCombatLibrary::GetLocalSaiyoraPlayer(GetOwningPlayer()->GetWorld());
+	if (!IsValid(LocalPlayer))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Floating health bar got a null local player during Init."));
+		RemoveFromParent();
+		return;
+	}
+	
+	if (!IsValid(TargetActor) || !TargetActor->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Floating health bar tried to init with an invalid target actor, or its target actor didn't implement the combat interface."));
+		RemoveFromParent();
+		return;
+	}
+	
 	TargetDamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(TargetActor);
 	if (IsValid(TargetDamageHandler))
 	{
@@ -28,7 +50,7 @@ void UFloatingHealthBar::Init(AActor* TargetActor)
 	TargetBuffHandler = ISaiyoraCombatInterface::Execute_GetBuffHandler(TargetActor);
 	if (IsValid(TargetBuffHandler))
 	{
-		//TODO: Buff widget handling.	
+		TargetBuffHandler->OnIncomingBuffApplied.AddDynamic(this, &UFloatingHealthBar::OnIncomingBuffApplied);
 	}
 	else
 	{
@@ -42,6 +64,8 @@ void UFloatingHealthBar::Init(AActor* TargetActor)
 		}
 	}
 }
+
+#pragma region Health
 
 void UFloatingHealthBar::UpdateHealth(AActor* Actor, const float PreviousHealth, const float NewHealth)
 {
@@ -74,3 +98,27 @@ void UFloatingHealthBar::UpdateLifeStatus(AActor* Actor, const ELifeStatus Previ
 		RemoveFromParent();
 	}
 }
+
+#pragma endregion
+
+#pragma region Buffs
+
+void UFloatingHealthBar::OnIncomingBuffApplied(const FBuffApplyEvent& Event)
+{
+	//For now, we will only display buffs applied by the local player, to prevent clutter.
+	//Probably need a system in place for determining "important" buffs and debuffs.
+	if (!IsValid(Event.AffectedBuff) || Event.AffectedBuff->GetBuffType() == EBuffType::HiddenBuff
+		|| Event.AppliedBy != LocalPlayer || Event.AppliedTo != TargetBuffHandler->GetOwner())
+	{
+		return;
+	}
+	UFloatingBuffIcon* BuffIcon = CreateWidget<UFloatingBuffIcon>(this, BuffIconClass);
+	if (IsValid(BuffIcon))
+	{
+		UWrapBox* BoxToAddTo = Event.AffectedBuff->GetBuffType() == EBuffType::Buff ? BuffBox : DebuffBox;
+		BoxToAddTo->AddChildToWrapBox(BuffIcon);
+		BuffIcon->Init(Event.AffectedBuff);
+	}
+}
+
+#pragma endregion 
