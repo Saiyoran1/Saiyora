@@ -74,7 +74,7 @@ public:
 	FBuffRemoveNotification OnIncomingBuffRemoved;
 
 	void AddIncomingBuffRestriction(const FBuffRestriction& Restriction) { IncomingBuffRestrictions.Add(Restriction); }
-	void RemoveIncomingBuffRestriction(const FBuffRestriction& Restriction) { IncomingBuffRestrictions.Add(Restriction); }
+	void RemoveIncomingBuffRestriction(const FBuffRestriction& Restriction) { IncomingBuffRestrictions.Remove(Restriction); }
 	bool CheckIncomingBuffRestricted(const FBuffApplyEvent& BuffEvent);
 	
 	void NotifyOfNewIncomingBuff(const FBuffApplyEvent& ApplicationEvent);
