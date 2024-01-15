@@ -1,35 +1,11 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
+#include "InstancedStruct.h"
 #include "Engine/TargetPoint.h"
 #include "NPCStructs.generated.h"
 
 class UCombatAbility;
-class UAbilityCondition;
-
-USTRUCT(BlueprintType)
-struct FAbilityConditionContext
-{
-	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere)
-	TSubclassOf<UAbilityCondition> AbilityCondition;
-	UPROPERTY(EditAnywhere)
-	float OptionalParameter = 0.0f;
-	UPROPERTY(EditAnywhere)
-	UObject* OptionalObject = nullptr;
-};
-
-USTRUCT(BlueprintType)
-struct FAbilityChoice
-{
-	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere)
-	TSubclassOf<UCombatAbility> AbilityClass;
-	UPROPERTY(EditAnywhere)
-	TArray<FAbilityConditionContext> AbilityConditions;
-};
 
 USTRUCT(BlueprintType)
 struct FPatrolPoint
@@ -40,6 +16,17 @@ struct FPatrolPoint
 	ATargetPoint* Point = nullptr;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	float WaitTime = 0.0f;
+};
+
+USTRUCT(BlueprintType)
+struct FAbilityChoice
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere)
+	TSubclassOf<UCombatAbility> AbilityClass;
+	UPROPERTY(EditAnywhere, meta = (BaseStruct = "NPCAbilityCondition"))
+	TArray<FInstancedStruct> AbilityConditions;
 };
 
 USTRUCT(BlueprintType)

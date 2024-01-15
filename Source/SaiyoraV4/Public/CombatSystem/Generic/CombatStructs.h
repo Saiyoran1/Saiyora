@@ -7,6 +7,8 @@
 
 class UBuff;
 
+#pragma region Definitions
+
 struct SAIYORAV4_API FSaiyoraCollision
 {
     //Object and Trace Channels
@@ -194,26 +196,9 @@ private:
     static FSaiyoraCombatTags SaiyoraCombatTags;
 };
 
-USTRUCT(BlueprintType)
-struct FCombatModifier
-{
-    GENERATED_BODY()
+#pragma endregion 
 
-    static float ApplyModifiers(const TArray<FCombatModifier>& ModArray, const float BaseValue);
-    static int32 ApplyModifiers(const TArray<FCombatModifier>& ModArray, const int32 BaseValue);
-    FCombatModifier() {}
-    FCombatModifier(const float BaseValue, const EModifierType ModifierType, UBuff* SourceBuff = nullptr, const bool Stackable = false);
-    UPROPERTY(BlueprintReadWrite)
-    EModifierType Type = EModifierType::Invalid;
-    UPROPERTY(BlueprintReadWrite)
-    float Value = 0.0f;
-    UPROPERTY(BlueprintReadWrite)
-    bool bStackable = true;
-    UPROPERTY(BlueprintReadWrite)
-    UBuff* BuffSource = nullptr;
-
-    FORCEINLINE bool operator==(const FCombatModifier& Other) const { return Other.Type == Type && Other.BuffSource == BuffSource && Other.Value == Value; }
-};
+#pragma region CombatParameters
 
 USTRUCT(BlueprintType)
 struct FCombatParameter
@@ -296,6 +281,10 @@ struct FCombatParameterRotator : public FCombatParameter
     FRotator RotatorParam = FRotator::ZeroRotator;
 };
 
+#pragma endregion
+
+#pragma region Restrictions
+
 template <class T>
 class TConditionalRestrictionList
 {
@@ -330,6 +319,31 @@ public:
 private:
     
     TSet<T> Restrictions;
+};
+
+#pragma endregion
+
+#pragma region Modifiers
+
+USTRUCT(BlueprintType)
+struct FCombatModifier
+{
+    GENERATED_BODY()
+
+    static float ApplyModifiers(const TArray<FCombatModifier>& ModArray, const float BaseValue);
+    static int32 ApplyModifiers(const TArray<FCombatModifier>& ModArray, const int32 BaseValue);
+    FCombatModifier() {}
+    FCombatModifier(const float BaseValue, const EModifierType ModifierType, UBuff* SourceBuff = nullptr, const bool Stackable = false);
+    UPROPERTY(BlueprintReadWrite)
+    EModifierType Type = EModifierType::Invalid;
+    UPROPERTY(BlueprintReadWrite)
+    float Value = 0.0f;
+    UPROPERTY(BlueprintReadWrite)
+    bool bStackable = true;
+    UPROPERTY(BlueprintReadWrite)
+    UBuff* BuffSource = nullptr;
+
+    FORCEINLINE bool operator==(const FCombatModifier& Other) const { return Other.Type == Type && Other.BuffSource == BuffSource && Other.Value == Value; }
 };
 
 template <class T>
@@ -531,3 +545,5 @@ private:
 
     bool bInitialized = false;
 };
+
+#pragma endregion 

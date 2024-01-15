@@ -245,21 +245,20 @@ void UNPCAbilityComponent::DetermineNewAction()
 			continue;
 		}
 		bool bConditionFailed = false;
-		for (const FAbilityConditionContext& Condition : Choice.AbilityConditions)
+		for (const FInstancedStruct& Condition : Choice.AbilityConditions)
 		{
-			if (IsValid(Condition.AbilityCondition))
+			if (const FNPCAbilityCondition* AbilityCondition = Condition.GetPtr<FNPCAbilityCondition>())
 			{
-				const UAbilityCondition* DefaultCondition = Condition.AbilityCondition.GetDefaultObject();
-				if (!IsValid(DefaultCondition))
+				if (!AbilityCondition->CheckCondition(GetOwner(), Choice.AbilityClass))
 				{
 					bConditionFailed = true;
 					break;
 				}
-				if (!DefaultCondition->IsConditionMet(GetOwner(), Choice.AbilityClass, Condition.OptionalParameter, Condition.OptionalObject))
-				{
-					bConditionFailed = true;
-					break;
-				}
+			}
+			else
+			{
+				bConditionFailed = true;
+				break;
 			}
 		}
 		if (!bConditionFailed)
