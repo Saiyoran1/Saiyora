@@ -25,7 +25,7 @@ struct FAbilityChoice
 
 	UPROPERTY(EditAnywhere)
 	TSubclassOf<UCombatAbility> AbilityClass;
-	UPROPERTY(EditAnywhere, meta = (BaseStruct = "NPCAbilityCondition"))
+	UPROPERTY(EditAnywhere, meta = (BaseStruct = "/Script/SaiyoraV4.NPCAbilityCondition"))
 	TArray<FInstancedStruct> AbilityConditions;
 };
 
