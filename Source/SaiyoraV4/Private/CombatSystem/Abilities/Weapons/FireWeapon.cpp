@@ -215,7 +215,7 @@ void UFireWeapon::VerifyFireRate()
 
 void UFireWeapon::OnReloadComplete(const FAbilityEvent& AbilityEvent)
 {
-	if (AbilityEvent.ActionTaken == ECastAction::Tick && AbilityEvent.Ability->GetClass() == ReloadAbilityClass && AbilityEvent.Tick == AbilityEvent.Ability->GetNumberOfTicks())
+	if (AbilityEvent.ActionTaken == ECastAction::Tick && AbilityEvent.Ability->GetClass() == ReloadAbilityClass && AbilityEvent.Tick == AbilityEvent.Ability->GetNonInitialTicks())
 	{
 		ResetVerificationWindow();
 	}

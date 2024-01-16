@@ -1,4 +1,5 @@
 #include "CoreClasses/SaiyoraPlayerCharacter.h"
+#include "AbilityFunctionLibrary.h"
 #include "BuffHandler.h"
 #include "CrowdControlHandler.h"
 #include "DamageHandler.h"
@@ -498,7 +499,7 @@ void ASaiyoraPlayerCharacter::HandleBeginXPlaneOverlap(UPrimitiveComponent* Over
 		OtherCompPlane = ESaiyoraPlane::Both;
 		break;
 	}
-	if (UCombatStatusComponent::CheckForXPlane(CombatStatusComponent->GetCurrentPlane(), OtherCompPlane))
+	if (UAbilityFunctionLibrary::IsXPlane(CombatStatusComponent->GetCurrentPlane(), OtherCompPlane))
 	{
 		XPlaneOverlaps.Add(OtherComp);
 	}

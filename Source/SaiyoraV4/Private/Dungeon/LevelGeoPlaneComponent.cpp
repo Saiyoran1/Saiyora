@@ -1,11 +1,11 @@
 ﻿#include "LevelGeoPlaneComponent.h"
+#include "AbilityFunctionLibrary.h"
 #include "CombatStatusComponent.h"
 #include "CombatStructs.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraCombatLibrary.h"
 #include "SaiyoraGameState.h"
 #include "SaiyoraPlayerCharacter.h"
-#include "Kismet/GameplayStatics.h"
 
 ULevelGeoPlaneComponent::ULevelGeoPlaneComponent()
 {
@@ -44,7 +44,7 @@ void ULevelGeoPlaneComponent::OnLocalPlayerPlaneSwap(const ESaiyoraPlane Previou
 	UObject* Source)
 {
 	const bool bPreviouslyXPlane = bIsRenderedXPlane;
-	bIsRenderedXPlane = UCombatStatusComponent::CheckForXPlane(NewPlane, DefaultPlane);
+	bIsRenderedXPlane = UAbilityFunctionLibrary::IsXPlane(NewPlane, DefaultPlane);
 	if (bIsRenderedXPlane == bPreviouslyXPlane)
 	{
 		return;
@@ -93,7 +93,7 @@ void ULevelGeoPlaneComponent::SetInitialCollision()
 void ULevelGeoPlaneComponent::SetupMaterialSwapping()
 {
 	LocalPlayerCombatStatusComponent->OnPlaneSwapped.AddDynamic(this, &ULevelGeoPlaneComponent::OnLocalPlayerPlaneSwap);
-	bIsRenderedXPlane = UCombatStatusComponent::CheckForXPlane(LocalPlayerCombatStatusComponent->GetCurrentPlane(), DefaultPlane);
+	bIsRenderedXPlane = UAbilityFunctionLibrary::IsXPlane(LocalPlayerCombatStatusComponent->GetCurrentPlane(), DefaultPlane);
 	TArray<UMeshComponent*> OwnerMeshes;
 	GetOwner()->GetComponents<UMeshComponent>(OwnerMeshes);
 	for (UMeshComponent* Mesh : OwnerMeshes)
@@ -117,7 +117,7 @@ void ULevelGeoPlaneComponent::UpdateCameraCollision()
 {
 	if (IsValid(LocalPlayerCombatStatusComponent))
 	{
-		const bool bXPlane = UCombatStatusComponent::CheckForXPlane(LocalPlayerCombatStatusComponent->GetCurrentPlane(), DefaultPlane);
+		const bool bXPlane = UAbilityFunctionLibrary::IsXPlane(LocalPlayerCombatStatusComponent->GetCurrentPlane(), DefaultPlane);
 		TArray<UPrimitiveComponent*> Primitives;
 		GetOwner()->GetComponents<UPrimitiveComponent>(Primitives);
 		for (UPrimitiveComponent* Component : Primitives)

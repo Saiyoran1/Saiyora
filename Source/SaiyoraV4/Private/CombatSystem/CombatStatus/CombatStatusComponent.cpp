@@ -1,4 +1,5 @@
 #include "CombatStatusComponent.h"
+#include "AbilityFunctionLibrary.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraCombatLibrary.h"
 #include "SaiyoraGameState.h"
@@ -176,27 +177,6 @@ ESaiyoraPlane UCombatStatusComponent::PlaneSwap(const bool bIgnoreRestrictions, 
 	return PlaneStatus.CurrentPlane;
 }
 
-bool UCombatStatusComponent::CheckForXPlane(const ESaiyoraPlane FromPlane, const ESaiyoraPlane ToPlane)
-{
-	//None is the default value, always return false if it is provided.
-	if (FromPlane == ESaiyoraPlane::None || ToPlane == ESaiyoraPlane::None)
-	{
-		return false;
-	}
-	//Actors "in between" planes will see everything as another plane.
-	if (FromPlane == ESaiyoraPlane::Neither || ToPlane == ESaiyoraPlane::Neither)
-	{
-		return true;
-	}
-	//Actors in both planes will see everything except "in between" actors as the same plane.
-	if (FromPlane == ESaiyoraPlane::Both || ToPlane == ESaiyoraPlane::Both)
-	{
-		return false;
-	}
-	//Actors in a normal plane will only see actors in the same plane or both planes as the same plane.
-	return FromPlane != ToPlane;
-}
-
 void UCombatStatusComponent::AddPlaneSwapRestriction(UObject* Source)
 {
 	const bool bPreviouslyRestricted = bPlaneSwapRestricted;
@@ -274,7 +254,7 @@ void UCombatStatusComponent::UpdateStencilValue()
 		int32 RangeStart = DefaultStencil;
 		int32 RangeEnd = DefaultStencil;
 		int32 DefaultID = DefaultStencil;
-		const bool bIsXPlane = CheckForXPlane(LocalPlayerStatusComponent->GetCurrentPlane(), GetCurrentPlane());
+		const bool bIsXPlane = UAbilityFunctionLibrary::IsXPlane(LocalPlayerStatusComponent->GetCurrentPlane(), GetCurrentPlane());
 		switch (GetCurrentFaction())
 		{
 		case EFaction::Friendly :

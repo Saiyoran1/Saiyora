@@ -1,6 +1,5 @@
 ﻿#pragma once
 #include "CoreMinimal.h"
-#include "Object.h"
 #include "AbilityCondition.generated.h"
 
 class UCombatAbility;

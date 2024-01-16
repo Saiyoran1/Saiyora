@@ -268,6 +268,69 @@ bool UAbilityFunctionLibrary::CheckLineOfSightInPlane(const UObject* Context, co
 	return !Hit.bBlockingHit;
 }
 
+bool UAbilityFunctionLibrary::IsXPlane(const ESaiyoraPlane FromPlane, const ESaiyoraPlane ToPlane)
+{
+	//None is the default value, always return false if it is provided.
+	if (FromPlane == ESaiyoraPlane::None || ToPlane == ESaiyoraPlane::None)
+	{
+		return false;
+	}
+	//Actors "in between" planes will see everything as another plane.
+	if (FromPlane == ESaiyoraPlane::Neither || ToPlane == ESaiyoraPlane::Neither)
+	{
+		return true;
+	}
+	//Actors in both planes will see everything except "in between" actors as the same plane.
+	if (FromPlane == ESaiyoraPlane::Both || ToPlane == ESaiyoraPlane::Both)
+	{
+		return false;
+	}
+	//Actors in a normal plane will only see actors in the same plane or both planes as the same plane.
+	return FromPlane != ToPlane;
+}
+
+void UAbilityFunctionLibrary::GetCombatantsInRadius(const UObject* Context, TArray<AActor*>& OutActors,
+	const TArray<EFaction>& Factions, const FVector& Origin, const float Radius, const ESaiyoraPlane PlaneFilter,
+	const bool bCheckLineOfSight, const ESaiyoraPlane LineOfSightPlane)
+{
+	TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes;
+	ObjectTypes.Add(UEngineTypes::ConvertToObjectType(FSaiyoraCollision::O_PlayerHitbox));
+	ObjectTypes.Add(UEngineTypes::ConvertToObjectType(FSaiyoraCollision::O_NPCHitbox));
+	UKismetSystemLibrary::SphereOverlapActors(Context, Origin, Radius, ObjectTypes, nullptr, TArray<AActor*>(), OutActors);
+	for (int i = OutActors.Num() - 1; i >= 0; i--)
+	{
+		if (!OutActors[i]->Implements<USaiyoraCombatInterface>())
+		{
+			OutActors.RemoveAt(i);
+			continue;
+		}
+		const UCombatStatusComponent* CombatStatusComp = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(OutActors[i]);
+		if (!IsValid(CombatStatusComp))
+		{
+			OutActors.RemoveAt(i);
+			continue;
+		}
+		if (!Factions.Contains(CombatStatusComp->GetCurrentFaction()))
+		{
+			OutActors.RemoveAt(i);
+			continue;
+		}
+		if (IsXPlane(PlaneFilter, CombatStatusComp->GetCurrentPlane()))
+		{
+			OutActors.RemoveAt(i);
+			continue;
+		}
+		if (bCheckLineOfSight)
+		{
+			if (!CheckLineOfSightInPlane(Context, Origin, OutActors[i]->GetActorLocation(), LineOfSightPlane))
+			{
+				OutActors.RemoveAt(i);
+				continue;
+			}
+		}
+	}
+}
+
 #pragma endregion 
 #pragma region Snapshotting
 

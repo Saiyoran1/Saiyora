@@ -1,5 +1,6 @@
 ﻿#include "Threat/ThreatHandler.h"
 #include "AbilityComponent.h"
+#include "AbilityFunctionLibrary.h"
 #include "AggroRadius.h"
 #include "UnrealNetwork.h"
 #include "Buff.h"
@@ -315,7 +316,7 @@ FThreatEvent UThreatHandler::AddThreat(const EThreatType ThreatType, const float
 	Result.Source = Source;
 	Result.ThreatType = ThreatType;
 	Result.AppliedToPlane = IsValid(CombatStatusComponentRef) ? CombatStatusComponentRef->GetCurrentPlane() : ESaiyoraPlane::None;
-	Result.AppliedXPlane = UCombatStatusComponent::CheckForXPlane(Result.AppliedByPlane, Result.AppliedToPlane);
+	Result.AppliedXPlane = UAbilityFunctionLibrary::IsXPlane(Result.AppliedByPlane, Result.AppliedToPlane);
 	Result.Threat = BaseThreat;
 
 	if (!bIgnoreModifiers)

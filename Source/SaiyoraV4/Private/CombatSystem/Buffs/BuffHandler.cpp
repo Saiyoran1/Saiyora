@@ -4,6 +4,7 @@
 #include "CombatStatusComponent.h"
 #include "SaiyoraCombatInterface.h"
 #include "AbilityComponent.h"
+#include "AbilityFunctionLibrary.h"
 #include "CrowdControlHandler.h"
 #include "DamageHandler.h"
 #include "NPCAbilityComponent.h"
@@ -83,7 +84,7 @@ FBuffApplyEvent UBuffHandler::ApplyBuff(const TSubclassOf<UBuff> BuffClass, AAct
 	Event.OriginPlane = IsValid(GeneratorCombatStatus) ? GeneratorCombatStatus->GetCurrentPlane() : ESaiyoraPlane::None;
     Event.AppliedTo = GetOwner();
 	Event.TargetPlane = IsValid(CombatStatusComponentRef) ? CombatStatusComponentRef->GetCurrentPlane() : ESaiyoraPlane::None;
-	Event.AppliedXPlane = UCombatStatusComponent::CheckForXPlane(Event.OriginPlane, Event.TargetPlane);
+	Event.AppliedXPlane = UAbilityFunctionLibrary::IsXPlane(Event.OriginPlane, Event.TargetPlane);
     Event.Source = Source;
     Event.BuffClass = BuffClass;
 	Event.CombatParams = BuffParams;

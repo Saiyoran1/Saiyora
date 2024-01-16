@@ -436,7 +436,7 @@ void UAbilityComponent::TickCurrentCast()
 	TickEvent.Ability = CastingState.CurrentCast;
 	TickEvent.PredictionID = CastingState.PredictionID;
 	TickEvent.Tick = CastingState.ElapsedTicks;
-	TickEvent.ActionTaken = CastingState.ElapsedTicks >= CastingState.CurrentCast->GetNumberOfTicks() ? ECastAction::Complete : ECastAction::Tick;
+	TickEvent.ActionTaken = CastingState.ElapsedTicks >= CastingState.CurrentCast->GetNonInitialTicks() ? ECastAction::Complete : ECastAction::Tick;
 	if (GetOwnerRole() == ROLE_Authority && IsLocallyControlled())
 	{
 		CastingState.CurrentCast->PredictedTick(CastingState.ElapsedTicks, TickEvent.Origin, TickEvent.Targets);
@@ -474,7 +474,7 @@ void UAbilityComponent::TickCurrentCast()
 		ServerPredictAbility(TickRequest);
 		OnAbilityTick.Broadcast(TickEvent);
 	}
-	if (CastingState.ElapsedTicks >= CastingState.CurrentCast->GetNumberOfTicks())
+	if (CastingState.ElapsedTicks >= CastingState.CurrentCast->GetNonInitialTicks())
 	{
 		EndCast();
 	}
@@ -787,7 +787,7 @@ float UAbilityComponent::StartCast(UCombatAbility* Ability, const int32 Predicti
 		CastingState.CastLength = CastLength;
 	}
 	GetWorld()->GetTimerManager().SetTimer(TickHandle, this, &UAbilityComponent::TickCurrentCast,
-	(CastingState.CastLength / Ability->GetNumberOfTicks()), true);
+	(CastingState.CastLength / Ability->GetNonInitialTicks()), true);
     OnCastStateChanged.Broadcast(PreviousState, CastingState);
 	return CastLength;
 }
@@ -824,7 +824,7 @@ void UAbilityComponent::UpdateCastFromServerResult(const float PredictionTime, c
 			CastingState.bInterruptible = Result.bInterruptible;
 			const bool bPredictedInitial = PreviousState.PredictionID == Result.PredictionID && PreviousState.bIsCasting;
 			const int32 PredictedElapsed = PreviousState.PredictionID == Result.PredictionID && PreviousState.bIsCasting ? PreviousState.ElapsedTicks : 0;
-			const float TickInterval = CastingState.CastLength / CastingState.CurrentCast->GetNumberOfTicks();
+			const float TickInterval = CastingState.CastLength / CastingState.CurrentCast->GetNonInitialTicks();
 			const int32 ActualElapsed = FMath::FloorToInt((GameStateRef->GetServerWorldTimeSeconds() - CastingState.CastStartTime) / TickInterval);
 			if (PredictedElapsed < ActualElapsed)
 			{

@@ -37,7 +37,7 @@ void UReload::PreInitializeAbility_Implementation()
 void UReload::OnPredictedTick_Implementation(const int32 TickNumber)
 {
 	Super::OnPredictedTick_Implementation(TickNumber);
-	if (CastType == EAbilityCastType::Instant || TickNumber != GetNumberOfTicks())
+	if (CastType == EAbilityCastType::Instant || TickNumber != GetNonInitialTicks())
 	{
 		StartReloadMontage();
 	}
@@ -51,7 +51,7 @@ void UReload::OnPredictedTick_Implementation(const int32 TickNumber)
 void UReload::OnServerTick_Implementation(const int32 TickNumber)
 {
 	Super::OnServerTick_Implementation(TickNumber);
-	if (IsValid(OwningPlayer) && !OwningPlayer->IsLocallyControlled() && (CastType == EAbilityCastType::Instant || TickNumber != GetNumberOfTicks()))
+	if (IsValid(OwningPlayer) && !OwningPlayer->IsLocallyControlled() && (CastType == EAbilityCastType::Instant || TickNumber != GetNonInitialTicks()))
 	{
 		StartReloadMontage();
 	}
@@ -60,7 +60,7 @@ void UReload::OnServerTick_Implementation(const int32 TickNumber)
 void UReload::OnSimulatedTick_Implementation(const int32 TickNumber)
 {
 	Super::OnSimulatedTick_Implementation(TickNumber);
-	if (IsValid(OwningPlayer) && !OwningPlayer->IsLocallyControlled() && (CastType == EAbilityCastType::Instant || TickNumber != GetNumberOfTicks()))
+	if (IsValid(OwningPlayer) && !OwningPlayer->IsLocallyControlled() && (CastType == EAbilityCastType::Instant || TickNumber != GetNonInitialTicks()))
 	{
 		StartReloadMontage();
 	}
@@ -99,7 +99,7 @@ void UReload::StartReloadMontage()
 {
 	if (IsValid(ReloadMontage) && IsValid(OwningPlayer))
 	{
-		const float PlayRate = CastType == EAbilityCastType::Instant ? 1.0f : FMath::Max(ReloadMontage->GetPlayLength() / (GetHandler()->GetCurrentCastLength() / GetNumberOfTicks()), 0.01f);
+		const float PlayRate = CastType == EAbilityCastType::Instant ? 1.0f : FMath::Max(ReloadMontage->GetPlayLength() / (GetHandler()->GetCurrentCastLength() / GetNonInitialTicks()), 0.01f);
 		OwningPlayer->GetMesh()->GetAnimInstance()->Montage_Play(ReloadMontage, PlayRate);
 	}
 }

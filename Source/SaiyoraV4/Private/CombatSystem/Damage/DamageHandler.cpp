@@ -1,7 +1,7 @@
 #include "DamageHandler.h"
 #include "AbilityComponent.h"
+#include "AbilityFunctionLibrary.h"
 #include "StatHandler.h"
-#include "Buff.h"
 #include "CombatStatusComponent.h"
 #include "SaiyoraCombatInterface.h"
 #include "DungeonGameState.h"
@@ -280,7 +280,7 @@ FHealthEvent UDamageHandler::ApplyHealthEvent(const EHealthEventType EventType, 
 		HealthEvent.Info.AppliedByPlane = ESaiyoraPlane::None;
 	}
     HealthEvent.Info.AppliedToPlane = IsValid(CombatStatusComponentRef) ? CombatStatusComponentRef->GetCurrentPlane() : ESaiyoraPlane::None;
-    HealthEvent.Info.AppliedXPlane = UCombatStatusComponent::CheckForXPlane(HealthEvent.Info.AppliedByPlane, HealthEvent.Info.AppliedToPlane);
+    HealthEvent.Info.AppliedXPlane = UAbilityFunctionLibrary::IsXPlane(HealthEvent.Info.AppliedByPlane, HealthEvent.Info.AppliedToPlane);
 	if (ThreatParams.GeneratesThreat)
 	{
 		HealthEvent.ThreatInfo = ThreatParams;

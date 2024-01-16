@@ -5,7 +5,6 @@
 #include "AbilityFunctionLibrary.generated.h"
 
 class UHitbox;
-class ASaiyoraPlayerCharacter;
 class APredictableProjectile;
 struct FAbilityOrigin;
 struct FAbilityTargetSet;
@@ -107,11 +106,28 @@ public:
 
 public:
 
-	UFUNCTION(BlueprintPure, Category = "Abilities")
+	//Returns the trace profile against hitboxes given the shooter's faction, the trace hostility, the trace plane, and whether to overlap or block.
+	UFUNCTION(BlueprintPure, Category = "Combat Helpers")
 	static FName GetRelevantTraceProfile(const AActor* Shooter, const bool bOverlap, const ESaiyoraPlane TracePlane, const EFaction TraceHostility);
 
-	UFUNCTION(BlueprintPure, Category = "Line of Sight", meta = (HidePin = "Context", DefaultToSelf = "Context"))
+	/*
+	 * Check whether a location is in line of sight of another location in the desired plane.
+	 * Only checks against world geometry. WorldStatic/WorldDynamic are checked in all scenarios, Plane geometry checked depends on the Plane of the trace.
+	 */
+	UFUNCTION(BlueprintPure, Category = "Combat Helpers", meta = (HidePin = "Context", DefaultToSelf = "Context"))
 	static bool CheckLineOfSightInPlane(const UObject* Context, const FVector& From, const FVector& To, const ESaiyoraPlane Plane);
+
+	//Return whether an actor in the To Plane is considered XPlane from an actor in the From Plane.
+	//Actors in Neither Plane are considered XPlane from everyone. Actors in Both Planes are only XPlane from actors in Neither Plane.
+	//None indicates that an actor is essentially not participating in the Plane system and will never be considered XPlane.
+	UFUNCTION(BlueprintPure, Category = "Combat Helpers")
+	static bool IsXPlane(const ESaiyoraPlane FromPlane, const ESaiyoraPlane ToPlane);
+
+	//Checks in a sphere radius for hitboxes, then filters the found actors based on the list of factions and whether they are considered XPlane from the search plane.
+	//Can optionally check line of sight against plane geometry as well.
+	UFUNCTION(BlueprintPure, Category = "Combat Helpers", meta = (HidePin = "Context", DefaultToSelf = "Context", AutoCreateRefTerm = "Factions, Origin"))
+	static void GetCombatantsInRadius(const UObject* Context, TArray<AActor*>& OutActors, const TArray<EFaction>& Factions, const FVector& Origin, const float Radius, const ESaiyoraPlane PlaneFilter = ESaiyoraPlane::Both,
+		const bool bCheckLineOfSight = false, const ESaiyoraPlane LineOfSightPlane = ESaiyoraPlane::Both);
 
 private:
 	

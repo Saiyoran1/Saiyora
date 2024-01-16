@@ -7,7 +7,6 @@
 #include "CombatStatusComponent.generated.h"
 
 class UFloatingName;
-class UBuff;
 class ASaiyoraGameState;
 class ASaiyoraPlayerCharacter;
 
@@ -65,8 +64,6 @@ public:
 	ESaiyoraPlane GetCurrentPlane() const { return PlaneStatus.CurrentPlane; }
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Plane")
 	ESaiyoraPlane PlaneSwap(const bool bIgnoreRestrictions, UObject* Source, const bool bToSpecificPlane, const ESaiyoraPlane TargetPlane = ESaiyoraPlane::None);
-	UFUNCTION(BlueprintPure, Category = "Plane")
-	static bool CheckForXPlane(const ESaiyoraPlane FromPlane, const ESaiyoraPlane ToPlane);
 
 	UFUNCTION(BlueprintCallable, Category = "Plane")
 	void AddPlaneSwapRestriction(UObject* Source);

@@ -154,7 +154,9 @@ public:
     UFUNCTION(BlueprintPure, Category = "Abilities")
     bool HasInitialTick() const { return bInitialTick; }
     UFUNCTION(BlueprintPure, Category = "Abilities")
-    int32 GetNumberOfTicks() const { return NonInitialTicks; }
+    int32 GetNonInitialTicks() const { return NonInitialTicks; }
+    UFUNCTION(BlueprintPure, Category = "Abilities")
+    int32 GetTotalTicks() const { return NonInitialTicks + (bInitialTick ? 1 : 0); }
     UFUNCTION(BlueprintPure, Category = "Abilities")
     bool IsInterruptible() const { return bInterruptible; }
     UFUNCTION(BlueprintPure, Category = "Abilities")

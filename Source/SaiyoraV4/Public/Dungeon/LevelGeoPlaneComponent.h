@@ -32,12 +32,12 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Plane")
 	ESaiyoraPlane DefaultPlane = ESaiyoraPlane::None;
 	UPROPERTY(EditDefaultsOnly, Category = "Plane")
-	UMaterialInterface* XPlaneMaterial;
+	UMaterialInterface* XPlaneMaterial = nullptr;
 
 	UPROPERTY()
 	TMap<UMeshComponent*, FMeshMaterials> Materials;
 	UPROPERTY()
-	UCombatStatusComponent* LocalPlayerCombatStatusComponent;
+	UCombatStatusComponent* LocalPlayerCombatStatusComponent = nullptr;
 	bool bIsRenderedXPlane = false;
 
 	UFUNCTION()
@@ -48,7 +48,7 @@ private:
 	void UpdateCameraCollision();
 
 	UPROPERTY()
-	ASaiyoraGameState* GameStateRef;
+	ASaiyoraGameState* GameStateRef = nullptr;
 	UFUNCTION()
 	void OnPlayerAdded(const ASaiyoraPlayerCharacter* NewPlayer);
 };

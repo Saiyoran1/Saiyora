@@ -1,5 +1,6 @@
 ﻿#include "DamageBuffFunctions.h"
 #include "AbilityBuffFunctions.h"
+#include "AbilityFunctionLibrary.h"
 #include "Buff.h"
 #include "DamageHandler.h"
 #include "CombatStatusComponent.h"
@@ -84,7 +85,7 @@ void UPeriodicHealthEventFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 		{
 			SnapshotInfo.AppliedToPlane = ESaiyoraPlane::None;
 		}
-		SnapshotInfo.AppliedXPlane = UCombatStatusComponent::CheckForXPlane(SnapshotInfo.AppliedByPlane, SnapshotInfo.AppliedToPlane);
+		SnapshotInfo.AppliedXPlane = UAbilityFunctionLibrary::IsXPlane(SnapshotInfo.AppliedByPlane, SnapshotInfo.AppliedToPlane);
 		SnapshotInfo.HitStyle = EEventHitStyle::Chronic;
 		SnapshotInfo.School = EventSchool;
 		BaseValue = GeneratorComponent->GetModifiedOutgoingHealthEventValue(SnapshotInfo, FHealthEventModCondition());
