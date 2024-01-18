@@ -26,7 +26,7 @@ public:
 
 	ASaiyoraGameState();
 	virtual void Tick(float DeltaSeconds) override;
-	virtual float GetServerWorldTimeSeconds() const override { return WorldTime; }
+	virtual double GetServerWorldTimeSeconds() const override { return WorldTime; }
 	void UpdateClientWorldTime(const float ServerTime) { WorldTime = ServerTime; }
 
 private:
