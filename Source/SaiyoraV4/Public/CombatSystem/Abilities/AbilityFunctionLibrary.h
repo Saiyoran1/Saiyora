@@ -21,7 +21,7 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Abilities", meta = (NativeMakeFunc, AutoCreateRefTerm = "AimLocation, AimDirection, Origin"))
 	static FAbilityOrigin MakeAbilityOrigin(const FVector& AimLocation, const FVector& AimDirection, const FVector& Origin);
 
-//Trace Prediction
+#pragma region Trace Prediction
 
 	//Line trace for a single target in front of the shot origin.
 	UFUNCTION(BlueprintCallable, Category = "Abilities", meta = (AutoCreateRefTerm = "ActorsToIgnore"))
@@ -71,7 +71,11 @@ public:
 	static TArray<AActor*> ValidateMultiSphereSightTrace(ASaiyoraPlayerCharacter* Shooter, const FAbilityOrigin& Origin, const TArray<AActor*>& Targets, const float TraceLength,
 		const float TraceRadius, const ESaiyoraPlane TracePlane, const EFaction TraceHostility, const TArray<AActor*>& ActorsToIgnore);
 
-//Projectile Prediction
+#pragma endregion 
+
+#pragma region Projectile Prediction
+
+public:
 
 	UFUNCTION(BlueprintCallable, Category = "Abilities", meta = (DefaultToSelf = "Ability", HidePin = "Ability"))
 	static APredictableProjectile* PredictProjectile(UCombatAbility* Ability, ASaiyoraPlayerCharacter* Shooter, const TSubclassOf<APredictableProjectile> ProjectileClass,
@@ -79,6 +83,8 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities", meta = (DefaultToSelf = "Ability", HidePin = "Ability"))
 	static APredictableProjectile* ValidateProjectile(UCombatAbility* Ability, ASaiyoraPlayerCharacter* Shooter, const TSubclassOf<APredictableProjectile> ProjectileClass,
 		const ESaiyoraPlane ProjectilePlane, const EFaction ProjectileHostility, const FAbilityOrigin& Origin);
+
+#pragma endregion 
 
 private:
 
@@ -102,7 +108,7 @@ public:
 		const float DetonationTime, const bool bDestroyOnDetonate, const FLinearColor IndicatorColor, UTexture2D* IndicatorTexture, const float Intensity, const bool bAttach = false, USceneComponent* AttachComponent = nullptr,
 		const FName SocketName = NAME_None);
 
-//Helpers
+#pragma region Helpers
 
 public:
 
@@ -140,4 +146,6 @@ private:
 	
 	static void GetRelevantHitboxObjectTypes(const ASaiyoraPlayerCharacter* Shooter, const EFaction TraceHostility, TArray<TEnumAsByte<EObjectTypeQuery>>& OutObjectTypes);
 	static void GetRelevantCollisionObjectTypes(const ESaiyoraPlane ProjectilePlane, TArray<TEnumAsByte<EObjectTypeQuery>>& OutObjectTypes);
+
+#pragma endregion 
 };
