@@ -27,20 +27,6 @@ enum class EModifierType : uint8
 };
 
 UENUM(BlueprintType)
-enum class ECombatParamType : uint8
-{
- None,
- Bool,
- Int,
- Float,
- Object,
- Class,
- Vector,
- Rotator,
- String,
-};
-
-UENUM(BlueprintType)
 enum class EFaction : uint8
 {
  None = 0,

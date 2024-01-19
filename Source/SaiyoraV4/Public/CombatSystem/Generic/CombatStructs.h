@@ -207,11 +207,9 @@ struct FCombatParameter
     
     UPROPERTY(BlueprintReadWrite, EditAnywhere)
     FString ParamName;
-    UPROPERTY()
-    ECombatParamType ParamType = ECombatParamType::None;
 
     FCombatParameter() {}
-    FCombatParameter(const FString& Name, const ECombatParamType Type) : ParamName(Name), ParamType(Type) {}
+    FCombatParameter(const FString& Name) : ParamName(Name) {}
 };
 
 USTRUCT(BlueprintType)
@@ -223,7 +221,7 @@ struct FCombatParameterBool : public FCombatParameter
     bool BoolParam = false;
 
     FCombatParameterBool() {}
-    FCombatParameterBool(const FString& Name, const bool Value) : FCombatParameter(Name, ECombatParamType::Bool), BoolParam(Value) {}
+    FCombatParameterBool(const FString& Name, const bool Value) : FCombatParameter(Name), BoolParam(Value) {}
 };
 
 USTRUCT(BlueprintType)
@@ -235,7 +233,7 @@ struct FCombatParameterInt : public FCombatParameter
     int32 IntParam = 0;
 
     FCombatParameterInt() {}
-    FCombatParameterInt(const FString& Name, const int32 Value) : FCombatParameter(Name, ECombatParamType::Int), IntParam(Value) {}
+    FCombatParameterInt(const FString& Name, const int32 Value) : FCombatParameter(Name), IntParam(Value) {}
 };
 
 USTRUCT(BlueprintType)
@@ -247,7 +245,7 @@ struct FCombatParameterFloat : public FCombatParameter
     float FloatParam = 0.0f;
 
     FCombatParameterFloat() {}
-    FCombatParameterFloat(const FString& Name, const float Value) : FCombatParameter(Name,ECombatParamType::Float), FloatParam(Value) {}
+    FCombatParameterFloat(const FString& Name, const float Value) : FCombatParameter(Name), FloatParam(Value) {}
 };
 
 USTRUCT(BlueprintType)
@@ -259,7 +257,7 @@ struct FCombatParameterString : public FCombatParameter
     FString StringParam;
 
     FCombatParameterString() {}
-    FCombatParameterString(const FString& Name, const FString& Value) : FCombatParameter(Name, ECombatParamType::String), StringParam(Value) {}
+    FCombatParameterString(const FString& Name, const FString& Value) : FCombatParameter(Name), StringParam(Value) {}
 };
 
 USTRUCT(BlueprintType)
@@ -271,7 +269,7 @@ struct FCombatParameterVector : public FCombatParameter
     FVector VectorParam = FVector::ZeroVector;
 
     FCombatParameterVector() {}
-    FCombatParameterVector(const FString& Name, const FVector& Value) : FCombatParameter(Name, ECombatParamType::Vector), VectorParam(Value) {}
+    FCombatParameterVector(const FString& Name, const FVector& Value) : FCombatParameter(Name), VectorParam(Value) {}
 };
 
 USTRUCT(BlueprintType)
@@ -283,7 +281,7 @@ struct FCombatParameterRotator : public FCombatParameter
     FRotator RotatorParam = FRotator::ZeroRotator;
 
     FCombatParameterRotator() {}
-    FCombatParameterRotator(const FString& Name, const FRotator& Value) : FCombatParameter(Name, ECombatParamType::Rotator), RotatorParam(Value) {}
+    FCombatParameterRotator(const FString& Name, const FRotator& Value) : FCombatParameter(Name), RotatorParam(Value) {}
 };
 
 USTRUCT(BlueprintType)
@@ -295,7 +293,7 @@ struct FCombatParameterObject : public FCombatParameter
     UObject* ObjectParam = nullptr;
 
     FCombatParameterObject() {}
-    FCombatParameterObject(const FString& Name, UObject* Object) : FCombatParameter(Name, ECombatParamType::Object), ObjectParam(Object) {}
+    FCombatParameterObject(const FString& Name, UObject* Object) : FCombatParameter(Name), ObjectParam(Object) {}
 };
 
 USTRUCT(BlueprintType)
@@ -307,7 +305,7 @@ struct FCombatParameterClass : public FCombatParameter
     TSubclassOf<UObject> ClassParam;
 
     FCombatParameterClass() {}
-    FCombatParameterClass(const FString& Name, const TSubclassOf<UObject> Value) : FCombatParameter(Name, ECombatParamType::Class), ClassParam(Value) {}
+    FCombatParameterClass(const FString& Name, const TSubclassOf<UObject> Value) : FCombatParameter(Name), ClassParam(Value) {}
 };
 
 #pragma endregion
