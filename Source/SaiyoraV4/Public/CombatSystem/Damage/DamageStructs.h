@@ -67,6 +67,32 @@ struct FHealthEvent
     FThreatFromDamage ThreatInfo;
 };
 
+DECLARE_DYNAMIC_DELEGATE_OneParam(FResDecisionCallback, const bool, bAccepted);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FPendingResNotification, const bool, bResAvailable, const FVector&, ResLocation);
+
+USTRUCT(BlueprintType)
+struct FPendingResurrection
+{
+    GENERATED_BODY()
+    
+    UPROPERTY(NotReplicated)
+    UBuff* ResSource = nullptr;
+    FResDecisionCallback DecisionCallback;
+    
+    UPROPERTY(BlueprintReadOnly)
+    bool bResAvailable = false;
+    UPROPERTY(BlueprintReadOnly)
+    FVector ResLocation = FVector::ZeroVector;
+
+    void Clear()
+    {
+        ResSource = nullptr;
+        DecisionCallback.Unbind();
+        bResAvailable = false;
+        ResLocation = FVector::ZeroVector;
+    }
+};
+
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FHealthEventRestriction, const FHealthEventInfo&, EventInfo);
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(FCombatModifier, FHealthEventModCondition, const FHealthEventInfo&, EventInfo);
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FDeathRestriction, const FHealthEvent&, HealthEvent);

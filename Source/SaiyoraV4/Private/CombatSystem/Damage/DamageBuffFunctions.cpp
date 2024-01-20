@@ -2,6 +2,7 @@
 #include "AbilityBuffFunctions.h"
 #include "AbilityFunctionLibrary.h"
 #include "Buff.h"
+#include "BuffHandler.h"
 #include "DamageHandler.h"
 #include "CombatStatusComponent.h"
 #include "SaiyoraCombatInterface.h"
@@ -325,3 +326,67 @@ void UDeathRestrictionFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 }
 
 #pragma endregion
+#pragma region Resurrection
+
+void UPendingResurrectionFunction::OfferResurrection(UBuff* Buff, const FVector& ResurrectLocation,
+	const bool bOverrideHealthPercent, const float HealthOverridePercent, const FResDecisionCallback& DecisionCallback)
+{
+	if (!IsValid(Buff) || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
+	{
+		return;
+	}
+	UPendingResurrectionFunction* NewResFunction = Cast<UPendingResurrectionFunction>(InstantiateBuffFunction(Buff, StaticClass()));
+	if (!IsValid(NewResFunction))
+	{
+		return;
+	}
+	NewResFunction->SetResurrectionVars(ResurrectLocation, bOverrideHealthPercent, HealthOverridePercent, DecisionCallback);
+}
+
+void UPendingResurrectionFunction::SetResurrectionVars(const FVector& ResurrectLocation, const bool bOverrideHealthPercent,
+	const float HealthOverridePercent, const FResDecisionCallback& DecisionCallback)
+{
+	if (GetOwningBuff()->GetAppliedTo()->Implements<USaiyoraCombatInterface>())
+	{
+		TargetPlayer = Cast<ASaiyoraPlayerCharacter>(GetOwningBuff()->GetAppliedTo());
+		TargetHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(TargetPlayer);
+		ResLocation = ResurrectLocation;
+		bOverrideHealth = bOverrideHealthPercent;
+		HealthOverride = HealthOverridePercent;
+		ResDecisionCallback = DecisionCallback;
+		InternalResDecisionCallback.BindDynamic(this, &UPendingResurrectionFunction::OnResDecision);
+	}
+}
+
+void UPendingResurrectionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
+{
+	if (IsValid(TargetPlayer))
+	{
+		TargetPlayer->OfferResurrection(GetOwningBuff(), ResLocation, InternalResDecisionCallback);
+	}
+}
+
+void UPendingResurrectionFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
+{
+	if (IsValid(TargetPlayer))
+	{
+		TargetPlayer->RescindResurrection(GetOwningBuff());
+	}
+}
+
+void UPendingResurrectionFunction::OnResDecision(const bool bAccepted)
+{
+	if (bAccepted)
+	{
+		if (IsValid(TargetHandler))
+		{
+			TargetHandler->RespawnActor(true, ResLocation, bOverrideHealth, HealthOverride);
+		}
+	}
+	if (ResDecisionCallback.IsBound())
+	{
+		ResDecisionCallback.Execute(bAccepted);
+	}
+}
+
+#pragma endregion 

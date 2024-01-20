@@ -1,10 +1,12 @@
 #include "CoreClasses/SaiyoraPlayerCharacter.h"
 #include "AbilityFunctionLibrary.h"
+#include "Buff.h"
 #include "BuffHandler.h"
 #include "CrowdControlHandler.h"
 #include "DamageHandler.h"
 #include "CombatStatusComponent.h"
 #include "DungeonGameState.h"
+#include "IMessageTracer.h"
 #include "ModernSpecialization.h"
 #include "Weapons/FireWeapon.h"
 #include "PredictableProjectile.h"
@@ -142,6 +144,7 @@ void ASaiyoraPlayerCharacter::GetLifetimeReplicatedProps(TArray<FLifetimePropert
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(ASaiyoraPlayerCharacter, AncientSpec);
 	DOREPLIFETIME(ASaiyoraPlayerCharacter, ModernSpec);
+	DOREPLIFETIME(ASaiyoraPlayerCharacter, PendingResurrection);
 }
 
 bool ASaiyoraPlayerCharacter::ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags)
@@ -777,6 +780,57 @@ void ASaiyoraPlayerCharacter::Client_DisplayErrorMessage_Implementation(const FT
 		ErrorWidget->SetErrorMessage(Message, Duration);
 		//TODO: Probably want to add this to a certain location, or have the player UI handle this?
 		ErrorWidget->AddToViewport();
+	}
+}
+
+#pragma endregion
+#pragma region Resurrection
+
+void ASaiyoraPlayerCharacter::OfferResurrection(UBuff* Source, const FVector& ResLocation,
+	const FResDecisionCallback& DecisionCallback)
+{
+	if (!HasAuthority() || PendingResurrection.bResAvailable || !IsValid(Source) || !DecisionCallback.IsBound())
+	{
+		return;
+	}
+	PendingResurrection.bResAvailable = true;
+	PendingResurrection.ResSource = Source;
+	PendingResurrection.DecisionCallback = DecisionCallback;
+	PendingResurrection.ResLocation = ResLocation;
+
+	OnRep_PendingResurrection();
+}
+
+void ASaiyoraPlayerCharacter::RescindResurrection(const UBuff* Source)
+{
+	if (!HasAuthority() || !PendingResurrection.bResAvailable || !IsValid(Source) || Source != PendingResurrection.ResSource)
+	{
+		return;
+	}
+	PendingResurrection.Clear();
+
+	OnRep_PendingResurrection();
+}
+
+void ASaiyoraPlayerCharacter::OnRep_PendingResurrection()
+{
+	HandlePendingResChanged(PendingResurrection.bResAvailable, PendingResurrection.ResLocation);
+	OnPendingResChanged.Broadcast(PendingResurrection.bResAvailable, PendingResurrection.ResLocation);
+}
+
+void ASaiyoraPlayerCharacter::Server_MakeResDecision_Implementation(const bool bAccepted)
+{
+	if (!HasAuthority())
+	{
+		return;
+	}
+	if (PendingResurrection.bResAvailable && PendingResurrection.DecisionCallback.IsBound())
+	{
+		PendingResurrection.DecisionCallback.Execute(bAccepted);
+	}
+	else
+	{
+		//TODO: Respawn at our last respawn point, I think this is just set in the DamageHandler?
 	}
 }
 
