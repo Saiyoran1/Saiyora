@@ -828,9 +828,9 @@ void ASaiyoraPlayerCharacter::Server_MakeResDecision_Implementation(const bool b
 	{
 		PendingResurrection.DecisionCallback.Execute(bAccepted);
 	}
-	else
+	else if (bAccepted)
 	{
-		//TODO: Respawn at our last respawn point, I think this is just set in the DamageHandler?
+		DamageHandler->RespawnActor();
 	}
 }
 

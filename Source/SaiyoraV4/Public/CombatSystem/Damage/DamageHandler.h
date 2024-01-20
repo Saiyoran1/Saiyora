@@ -65,7 +65,8 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Health")
 	void KillActor(AActor* Attacker, UObject* Source, const bool bIgnoreDeathRestrictions);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Health", meta = (AutoCreateRefTerm = "OverrideRespawnLocation"))
-	void RespawnActor(const bool bForceRespawnLocation, const FVector& OverrideRespawnLocation, const bool bForceHealthPercentage, const float OverrideHealthPercentage);
+	void RespawnActor(const bool bForceRespawnLocation = false, const FVector& OverrideRespawnLocation = FVector::ZeroVector,
+		const bool bForceHealthPercentage = false, const float OverrideHealthPercentage = 1.0f);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Health")
 	void UpdateRespawnPoint(const FVector& NewLocation);
 
