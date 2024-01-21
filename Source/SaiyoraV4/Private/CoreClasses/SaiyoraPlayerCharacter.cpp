@@ -812,12 +812,6 @@ void ASaiyoraPlayerCharacter::RescindResurrection(const UBuff* Source)
 	OnRep_PendingResurrection();
 }
 
-void ASaiyoraPlayerCharacter::OnRep_PendingResurrection()
-{
-	HandlePendingResChanged(PendingResurrection.bResAvailable, PendingResurrection.ResLocation);
-	OnPendingResChanged.Broadcast(PendingResurrection.bResAvailable, PendingResurrection.ResLocation);
-}
-
 void ASaiyoraPlayerCharacter::Server_MakeResDecision_Implementation(const bool bAccepted)
 {
 	if (!HasAuthority())

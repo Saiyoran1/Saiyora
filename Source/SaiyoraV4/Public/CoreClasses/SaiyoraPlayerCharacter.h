@@ -380,19 +380,13 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Resurrection")
 	bool HasPendingResurrection() const { return PendingResurrection.bResAvailable; }
 
-protected:
-
-	//BP-Implementable event for creating/destroying the UI prompt for handling the resurrection.
-	UFUNCTION(BlueprintImplementableEvent)
-	void HandlePendingResChanged(const bool bResAvailable, const FVector& ResLocation);
-
 private:
 
 	//The actual pending res information. Only location and availability are replicated.
 	UPROPERTY(ReplicatedUsing=OnRep_PendingResurrection)
 	FPendingResurrection PendingResurrection;
 	UFUNCTION()
-	void OnRep_PendingResurrection();
+	void OnRep_PendingResurrection() { OnPendingResChanged.Broadcast(PendingResurrection.bResAvailable, PendingResurrection.ResLocation); }
 
 	//RPC called from MakeLocalResDecision for the client to tell the server to accept or decline the res.
 	//If no pending res was available, we take this as a respawn request.
