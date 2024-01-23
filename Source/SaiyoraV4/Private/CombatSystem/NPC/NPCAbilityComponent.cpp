@@ -1,5 +1,6 @@
 ﻿#include "NPCAbilityComponent.h"
 #include "AbilityCondition.h"
+#include "AssetRegistryTelemetry.h"
 #include "DamageHandler.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraMovementComponent.h"
@@ -349,10 +350,21 @@ void UNPCAbilityComponent::EnterPatrolState()
 			MovementComponentRef->MaxWalkSpeed = DefaultMaxWalkSpeed * PatrolMoveSpeedModifier;
 		}
 	}
+	//If we have a patrol path and it isn't already finished, we want to start moving to the next point.
+	if (PatrolPath.IsValidIndex(NextPatrolIndex))
+	{
+		MoveToNextPatrolPoint();
+	}
+	//If we aren't going to move, we mark the patrol as finished.
+	else
+	{
+		FinishPatrol();
+	}
 }
 
 void UNPCAbilityComponent::LeavePatrolState()
 {
+	//Clear the patrol move speed modifier.
 	if (PatrolMoveSpeedModHandle.IsValid())
 	{
 		if (IsValid(StatHandlerRef))
@@ -366,8 +378,121 @@ void UNPCAbilityComponent::LeavePatrolState()
 			DefaultMaxWalkSpeed = 0.0f;
 		}
 	}
+	//Save off our current location for resetting to when combat ends.
 	ResetGoal = GetOwner()->GetActorLocation();
 	bNeedsReset = true;
+	//Clear our patrol wait timer, if we were waiting at a patrol point.
+	if (GetWorld()->GetTimerManager().IsTimerActive(PatrolWaitHandle))
+	{
+		GetWorld()->GetTimerManager().ClearTimer(PatrolWaitHandle);
+	}
+}
+
+void UNPCAbilityComponent::SetPatrolSubstate(const EPatrolSubstate NewSubstate)
+{
+	PatrolSubstate = NewSubstate;
+	ATargetPoint* LastReachedPoint = PatrolPath.IsValidIndex(LastPatrolIndex) ? PatrolPath[LastPatrolIndex].Point : nullptr;
+	OnPatrolStateChanged.Broadcast(PatrolSubstate, LastReachedPoint);
+}
+
+void UNPCAbilityComponent::MoveToNextPatrolPoint()
+{
+	UE_LOG(LogTemp, Warning, TEXT("AI %s moving to patrol index %i!"), *GetOwner()->GetName(), NextPatrolIndex);
+	//If we have finished the patrol, nothing more to do.
+	if (!PatrolPath.IsValidIndex(NextPatrolIndex))
+	{
+		FinishPatrol();
+		return;
+	}
+	const ATargetPoint* NextPoint = PatrolPath[NextPatrolIndex].Point;
+	//If the next point isn't valid, we essentially want to skip over it.
+	if (!IsValid(NextPoint))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AI %s had invalid point at index %i, skipping it."), *GetOwner()->GetName(), NextPatrolIndex);
+		IncrementPatrolIndex();
+		MoveToNextPatrolPoint();
+	}
+	else
+	{
+		SetPatrolSubstate(EPatrolSubstate::MovingToPoint);
+		//TODO: Actually MoveTo the location of the point.
+		OnReachedPatrolPoint();
+	}
+}
+
+void UNPCAbilityComponent::OnReachedPatrolPoint()
+{
+	UE_LOG(LogTemp, Warning, TEXT("AI %s reached patrol point %i."), *GetOwner()->GetName(), NextPatrolIndex);
+	LastPatrolIndex = NextPatrolIndex;
+	if (PatrolPath[NextPatrolIndex].WaitTime > 0.0f)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("AI %s starting a wait for %f seconds."), *GetOwner()->GetName(), PatrolPath[NextPatrolIndex].WaitTime);
+		//Set a timer to wait at this patrol location for a duration.
+		//We don't increment the patrol index yet because if we enter combat during this wait, we don't want to skip it and move to the next point yet.
+		GetWorld()->GetTimerManager().SetTimer(PatrolWaitHandle, this, &UNPCAbilityComponent::FinishPatrolWait, PatrolPath[NextPatrolIndex].WaitTime);
+		SetPatrolSubstate(EPatrolSubstate::WaitingAtPoint);
+	}
+	else
+	{
+		IncrementPatrolIndex();
+		MoveToNextPatrolPoint();
+	}
+}
+
+void UNPCAbilityComponent::FinishPatrolWait()
+{
+	UE_LOG(LogTemp, Warning, TEXT("AI %s completed wait time."), *GetOwner()->GetName());
+	IncrementPatrolIndex();
+	MoveToNextPatrolPoint();
+}
+
+void UNPCAbilityComponent::IncrementPatrolIndex()
+{
+	//If we're walking forward along our patrol route, check if this point is the end of the patrol.
+	if (!bReversePatrolling)
+	{
+		//If we're hitting the end of the loop, we either turn around or we go back to the start.
+		if (NextPatrolIndex == PatrolPath.Num() - 1 && bLoopPatrol)
+		{
+			if (bLoopReverse)
+			{
+				NextPatrolIndex--;
+				bReversePatrolling = true;
+			}
+			else
+			{
+				NextPatrolIndex = 0;
+			}
+		}
+		//Otherwise, on to the next patrol point in the line.
+		else
+		{
+			NextPatrolIndex++;
+		}
+	}
+	//If we're walking backward along our patrol route, check if we reached the start of the patrol.
+	else
+	{
+		//If we've hit the start of the loop, we need to turn around again.
+		if (NextPatrolIndex == 0)
+		{
+			//We know that we're looping by default if we ended up here, so no need to check.
+			NextPatrolIndex++;
+			bReversePatrolling = false;
+		}
+		//Otherwise, keep walking backwards.
+		else
+		{
+			NextPatrolIndex--;
+		}
+	}
+}
+
+void UNPCAbilityComponent::FinishPatrol()
+{
+	UE_LOG(LogTemp, Warning, TEXT("AI %s finished their patrol."), *GetOwner()->GetName());
+	SetPatrolSubstate(EPatrolSubstate::PatrolFinished);
+	//TODO: Cancel any nav moving that is happening?
 }
 
 void UNPCAbilityComponent::ReachedPatrolPoint(const FVector& Location)
@@ -383,9 +508,9 @@ void UNPCAbilityComponent::SetNextPatrolPoint(UBlackboardComponent* Blackboard)
 		return;
 	}
 	const int32 StartingIndex = NextPatrolIndex;
-	while (!Patrol.IsValidIndex(NextPatrolIndex) || !IsValid(Patrol[NextPatrolIndex].Point))
+	while (!PatrolPath.IsValidIndex(NextPatrolIndex) || !IsValid(PatrolPath[NextPatrolIndex].Point))
 	{
-		if (NextPatrolIndex > Patrol.Num() - 1)
+		if (NextPatrolIndex > PatrolPath.Num() - 1)
 		{
 			if (bLoopPatrol)
 			{
@@ -407,8 +532,8 @@ void UNPCAbilityComponent::SetNextPatrolPoint(UBlackboardComponent* Blackboard)
 			return;
 		}
 	}
-	Blackboard->SetValueAsObject("PatrolGoal", Patrol[NextPatrolIndex].Point);
-	Blackboard->SetValueAsFloat("WaitTime", Patrol[NextPatrolIndex].WaitTime);
+	Blackboard->SetValueAsObject("PatrolGoal", PatrolPath[NextPatrolIndex].Point);
+	Blackboard->SetValueAsFloat("WaitTime", PatrolPath[NextPatrolIndex].WaitTime);
 }
 
 #pragma endregion
@@ -426,9 +551,13 @@ void UNPCAbilityComponent::MarkResetComplete()
 
 void UNPCAbilityComponent::EnterResetState()
 {
-	if (IsValid(AIController) && IsValid(AIController->GetBlackboardComponent()))
+	if (FVector::DistSquared(GetOwner()->GetActorLocation(), ResetGoal) > FMath::Square(ResetTeleportDistance))
 	{
-		AIController->GetBlackboardComponent()->SetValueAsVector("ResetGoal", ResetGoal);
+		//TODO: Teleport our owner.
+	}
+	else
+	{
+		//TODO: Actually move to the reset goal.
 	}
 }
 

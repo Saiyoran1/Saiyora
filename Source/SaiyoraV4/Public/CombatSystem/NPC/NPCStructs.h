@@ -7,6 +7,17 @@
 
 class UCombatAbility;
 
+UENUM(BlueprintType)
+enum class EPatrolSubstate : uint8
+{
+	None,
+	MovingToPoint,
+	WaitingAtPoint,
+	PatrolFinished
+};
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FPatrolStateNotification, const EPatrolSubstate, PatrolSubstate, ATargetPoint*, LastReachedPoint);
+
 USTRUCT(BlueprintType)
 struct FPatrolPoint
 {

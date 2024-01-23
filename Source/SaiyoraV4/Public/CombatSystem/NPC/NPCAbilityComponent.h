@@ -37,13 +37,13 @@ protected:
 private:
 
 	UPROPERTY()
-	APawn* OwnerAsPawn;
+	APawn* OwnerAsPawn = nullptr;
 	UPROPERTY()
-	AAIController* AIController;
+	AAIController* AIController = nullptr;
 	UPROPERTY()
-	ADungeonGameState* DungeonGameStateRef;
+	ADungeonGameState* DungeonGameStateRef = nullptr;
 	UPROPERTY()
-	UThreatHandler* ThreatHandlerRef;
+	UThreatHandler* ThreatHandlerRef = nullptr;
 
 	UPROPERTY(ReplicatedUsing=OnRep_CombatBehavior)
 	ENPCCombatBehavior CombatBehavior = ENPCCombatBehavior::None;
@@ -62,7 +62,7 @@ private:
 	void SetupBehavior();
 	bool bInitialized = false;
 
-	//Combat
+#pragma region Combat
 
 public:
 
@@ -95,7 +95,9 @@ private:
 	UFUNCTION()
 	void OnTargetChanged(AActor* PreviousTarget, AActor* NewTarget);
 
-	//Patrolling
+#pragma endregion 
+
+#pragma region Patrolling
 
 public:
 
@@ -107,12 +109,21 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FPatrolLocationNotification OnPatrolLocationReached;
 
+	UPROPERTY(BlueprintAssignable)
+	FPatrolStateNotification OnPatrolStateChanged;
+
 protected:
 
+	//The actual points along the patrol path this NPC will walk between, in order.
 	UPROPERTY(EditAnywhere, Category = "Patrol")
-	TArray<FPatrolPoint> Patrol;
+	TArray<FPatrolPoint> PatrolPath;
+	//Whether this NPC should loop the patrol path once they reach the last point, or just stay there.
 	UPROPERTY(EditAnywhere, Category = "Patrol")
 	bool bLoopPatrol = true;
+	//If the NPC is looping the patrol path, this determines whether they will patrol in reverse, or go straight from the end to start and restart the path.
+	UPROPERTY(EditAnywhere, Category = "Patrol", meta = (EditCondition = "bLoopPatrol"))
+	bool bLoopReverse = true;
+	//Optional move speed modifier applied to the NPC when in the patrol state.
 	UPROPERTY(EditAnywhere, Category = "Patrol")
 	float PatrolMoveSpeedModifier = 0.0f;
 
@@ -121,12 +132,28 @@ private:
 	void EnterPatrolState();
 	void LeavePatrolState();
 
+	void SetPatrolSubstate(const EPatrolSubstate NewSubstate);
+
+	void MoveToNextPatrolPoint();
+	void OnReachedPatrolPoint();
+	void FinishPatrol();
+
+	EPatrolSubstate PatrolSubstate = EPatrolSubstate::None;
+	int32 NextPatrolIndex = 0;
+	int32 LastPatrolIndex = -1;
+	void IncrementPatrolIndex();
+	bool bReversePatrolling = false;
+
+	FTimerHandle PatrolWaitHandle;
+	UFUNCTION()
+	void FinishPatrolWait();
+	
 	FCombatModifierHandle PatrolMoveSpeedModHandle;
 	float DefaultMaxWalkSpeed = 0.0f;
-	int32 NextPatrolIndex = 0;
-	bool bFinishedPatrolling = false;
 
-	//Resetting
+#pragma endregion 
+
+#pragma region Resetting
 
 public:
 
@@ -137,6 +164,12 @@ private:
 
 	void EnterResetState();
 	void LeaveResetState();
+	
 	bool bNeedsReset = false;
 	FVector ResetGoal;
+
+	//If we are further than this away from our reset goal, we will teleport instead of pathing back.
+	static constexpr float ResetTeleportDistance = 2000.0f;
+
+#pragma endregion 
 };
