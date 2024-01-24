@@ -2,6 +2,7 @@
 #include "AbilityCondition.h"
 #include "AssetRegistryTelemetry.h"
 #include "DamageHandler.h"
+#include "NavigationSystem.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraMovementComponent.h"
 #include "StatHandler.h"
@@ -553,11 +554,14 @@ void UNPCAbilityComponent::EnterResetState()
 {
 	if (FVector::DistSquared(GetOwner()->GetActorLocation(), ResetGoal) > FMath::Square(ResetTeleportDistance))
 	{
-		//TODO: Teleport our owner.
+		GetOwner()->SetActorLocation(ResetGoal);
+		bNeedsReset = false;
+		UpdateCombatBehavior();
 	}
 	else
 	{
 		//TODO: Actually move to the reset goal.
+		UNavigationSystemV1;
 	}
 }
 
