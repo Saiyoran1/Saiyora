@@ -1,23 +1,16 @@
 ﻿#include "NPCAbilityComponent.h"
-#include "AbilityCondition.h"
-#include "AssetRegistryTelemetry.h"
 #include "DamageHandler.h"
-#include "NavigationSystem.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraMovementComponent.h"
 #include "StatHandler.h"
 #include "ThreatHandler.h"
 #include "UnrealNetwork.h"
-#include "BehaviorTree/BehaviorTree.h"
-#include "BehaviorTree/BlackboardComponent.h"
+#include "Navigation/PathFollowingComponent.h"
 
 UNPCAbilityComponent::UNPCAbilityComponent(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	PrimaryComponentTick.bCanEverTick = false;
 	bWantsInitializeComponent = true;
-	static ConstructorHelpers::FObjectFinder<UBehaviorTree> DefaultTree(TEXT("/Game/Saiyora/AI/Generic/BT_AITest"));
-	//Set default value for general behavior tree. If hard-coding asset path is a problem, just derive a blueprint class to use as the "master" component.
-	BehaviorTree = DefaultTree.Object;
 }
 
 void UNPCAbilityComponent::InitializeComponent()
@@ -127,11 +120,31 @@ void UNPCAbilityComponent::UpdateCombatBehavior()
 		default:
 			break;
 		}
-		if (IsValid(AIController) && IsValid(AIController->GetBlackboardComponent()))
-		{
-			AIController->GetBlackboardComponent()->SetValueAsEnum("CombatStatus", uint8(CombatBehavior));
-		}
 		OnCombatBehaviorChanged.Broadcast(PreviousBehavior, CombatBehavior);
+	}
+}
+
+void UNPCAbilityComponent::OnControllerChanged(APawn* PossessedPawn, AController* OldController,
+	AController* NewController)
+{
+	if (IsValid(AIController) && IsValid(AIController->GetPathFollowingComponent()))
+	{
+		AIController->GetPathFollowingComponent()->OnRequestFinished.RemoveAll(this);
+	}
+	AIController = Cast<AAIController>(NewController);
+	if (IsValid(AIController) && IsValid(AIController->GetPathFollowingComponent()))
+	{
+		AIController->GetPathFollowingComponent()->OnRequestFinished.AddUObject(this, &UNPCAbilityComponent::OnMoveRequestFinished);
+	}
+	UpdateCombatBehavior();
+}
+
+void UNPCAbilityComponent::OnMoveRequestFinished(FAIRequestID RequestID, const FPathFollowingResult& PathResult)
+{
+	if (RequestID == CurrentMoveRequestID)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Move Request IDs matched, result %s"), *PathResult.ToString());
+		OnReachedPatrolPoint();
 	}
 }
 
@@ -151,27 +164,7 @@ void UNPCAbilityComponent::SetupBehavior()
 		UE_LOG(LogTemp, Warning, TEXT("Invalid AI controller ref in NPCAbilityComponent."));
 		return;
 	}
-	AIController->RunBehaviorTree(BehaviorTree);
-	if (!IsValid(AIController->GetBlackboardComponent()))
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Invalid Blackboard Component ref in NPCAbilityComponent."));
-		return;
-	}
-	AIController->GetBlackboardComponent()->SetValueAsObject("BehaviorComponent", this);
-	if (IsValid(ThreatHandlerRef))
-	{
-		ThreatHandlerRef->OnTargetChanged.AddDynamic(this, &UNPCAbilityComponent::OnTargetChanged);
-		OnTargetChanged(nullptr, ThreatHandlerRef->GetCurrentTarget());
-	}
 	bInitialized = true;
-}
-
-void UNPCAbilityComponent::OnTargetChanged(AActor* PreviousTarget, AActor* NewTarget)
-{
-	if (IsValid(AIController) && IsValid(AIController->GetBlackboardComponent()))
-	{
-		AIController->GetBlackboardComponent()->SetValueAsObject("Target", NewTarget);
-	}
 }
 
 #pragma region Combat
@@ -190,146 +183,17 @@ FCombatPhase UNPCAbilityComponent::GetCombatPhase() const
 
 void UNPCAbilityComponent::EnterPhase(const FGameplayTag PhaseTag)
 {
-	if (GetOwnerRole() != ROLE_Authority || CurrentPhaseTag.MatchesTagExact(PhaseTag))
-	{
-		return;
-	}
-	//TODO: Add some protection for not having a default phase?
-	for (const FCombatPhase& Phase : Phases)
-	{
-		if (Phase.PhaseTag.MatchesTagExact(PhaseTag))
-		{
-			CurrentPhaseTag = PhaseTag;
-			if (Phase.bHighPriority)
-			{
-				InterruptCurrentAction();
-				DetermineNewAction();
-			}
-			//If not high priority, next DetermineNewAction will simply just be looking at the new phase list.
-		}
-	}
+
 }
 
 void UNPCAbilityComponent::EnterCombatState()
 {
 	EnterPhase(DefaultPhase);
-	if (!GetCombatPhase().bHighPriority)
-	{
-		//Manually determine a new action, since only high priority phases will instantly determine one.
-		DetermineNewAction();
-	}
 }
 
 void UNPCAbilityComponent::LeaveCombatState()
 {
-	InterruptCurrentAction();
 	CurrentPhaseTag = FGameplayTag::EmptyTag;
-	if (IsValid(AIController) && IsValid(AIController->GetBlackboardComponent()))
-	{
-		AIController->GetBlackboardComponent()->SetValueAsBool("CombatMoving", false);
-	}
-}
-
-void UNPCAbilityComponent::DetermineNewAction()
-{
-	const FCombatPhase CombatPhase = GetCombatPhase();
-	TSubclassOf<UCombatAbility> ChosenAbility = nullptr;
-	for (const FAbilityChoice& Choice : CombatPhase.AbilityChoices)
-	{
-		if (!IsValid(Choice.AbilityClass))
-		{
-			continue;
-		}
-		const UCombatAbility* Ability = FindActiveAbility(Choice.AbilityClass);
-		ECastFailReason FailReason = ECastFailReason::None;
-		if (!CanUseAbility(Ability, FailReason))
-		{
-			continue;
-		}
-		bool bConditionFailed = false;
-		for (const FInstancedStruct& Condition : Choice.AbilityConditions)
-		{
-			if (const FNPCAbilityCondition* AbilityCondition = Condition.GetPtr<FNPCAbilityCondition>())
-			{
-				if (!AbilityCondition->CheckCondition(GetOwner(), Choice.AbilityClass))
-				{
-					bConditionFailed = true;
-					break;
-				}
-			}
-			else
-			{
-				bConditionFailed = true;
-				break;
-			}
-		}
-		if (!bConditionFailed)
-		{
-			ChosenAbility = Choice.AbilityClass;
-			break;
-		}
-	}
-	if (IsValid(ChosenAbility))
-	{
-		const FAbilityEvent AbilityEvent = UseAbility(ChosenAbility);
-		if (AbilityEvent.ActionTaken == ECastAction::Fail)
-		{
-			if (IsValid(AIController) && IsValid(AIController->GetBlackboardComponent()))
-			{
-				AIController->GetBlackboardComponent()->SetValueAsBool("CombatMoving", true);
-			}
-			GetWorld()->GetTimerManager().SetTimer(ActionRetryHandle, this, &UNPCAbilityComponent::DetermineNewAction, ActionRetryFrequency);
-		}
-		else
-		{
-			if (IsCasting())
-			{
-				OnCastStateChanged.AddDynamic(this, &UNPCAbilityComponent::OnCastEnded);
-				if (IsValid(AIController) && IsValid(AIController->GetBlackboardComponent()))
-				{
-					AIController->GetBlackboardComponent()->SetValueAsBool("CombatMoving", GetCurrentCast()->IsCastableWhileMoving());
-				}
-			}
-			else
-			{
-				if (IsValid(AIController) && IsValid(AIController->GetBlackboardComponent()))
-				{
-					AIController->GetBlackboardComponent()->SetValueAsBool("CombatMoving", true);
-				}
-				DetermineNewAction();
-			}
-		}
-	}
-	else
-	{
-		if (IsValid(AIController) && IsValid(AIController->GetBlackboardComponent()))
-		{
-			AIController->GetBlackboardComponent()->SetValueAsBool("CombatMoving", true);
-		}
-		GetWorld()->GetTimerManager().SetTimer(ActionRetryHandle, this, &UNPCAbilityComponent::DetermineNewAction, ActionRetryFrequency);
-	}
-}
-
-void UNPCAbilityComponent::InterruptCurrentAction()
-{
-	OnCastStateChanged.RemoveDynamic(this, &UNPCAbilityComponent::OnCastEnded);
-	GetWorld()->GetTimerManager().ClearTimer(ActionRetryHandle);
-	if (IsCasting())
-	{
-		CancelCurrentCast();
-	}
-}
-
-void UNPCAbilityComponent::OnCastEnded(const FCastingState& PreviousState, const FCastingState& NewState)
-{
-	if (!NewState.bIsCasting)
-	{
-		OnCastStateChanged.RemoveDynamic(this, &UNPCAbilityComponent::OnCastEnded);
-		if (CombatBehavior == ENPCCombatBehavior::Combat)
-		{
-			DetermineNewAction();
-		}
-	}
 }
 
 #pragma endregion
@@ -416,8 +280,36 @@ void UNPCAbilityComponent::MoveToNextPatrolPoint()
 	else
 	{
 		SetPatrolSubstate(EPatrolSubstate::MovingToPoint);
-		//TODO: Actually MoveTo the location of the point.
-		OnReachedPatrolPoint();
+		if (IsValid(AIController))
+		{
+			//Request a move to the next patrol location from the AIController.
+			//TODO: These parameters might need to be adjusted, I don't know what some of them do.
+			FAIMoveRequest MoveReq(PatrolPath[NextPatrolIndex].Point->GetActorLocation());
+			MoveReq.SetUsePathfinding(true);
+			MoveReq.SetAllowPartialPath(false);
+			MoveReq.SetProjectGoalLocation(true);
+			MoveReq.SetNavigationFilter(AIController->GetDefaultNavigationFilterClass());
+			MoveReq.SetAcceptanceRadius(-1.0f);
+			MoveReq.SetReachTestIncludesAgentRadius(true);
+			MoveReq.SetCanStrafe(true);
+			const FPathFollowingRequestResult RequestResult = AIController->MoveTo(MoveReq);
+			if (RequestResult.Code == EPathFollowingRequestResult::RequestSuccessful)
+			{
+				CurrentMoveRequestID = RequestResult.MoveId;
+			}
+			//If the path following result failed, log an error and move to the next point.
+			else
+			{
+				UE_LOG(LogTemp, Warning, TEXT("NPC %s failed to path to index %i in its patrol. Result: %s. Moving to next point."),
+					*GetOwner()->GetName(), NextPatrolIndex, *UEnum::GetDisplayValueAsText(RequestResult.Code).ToString());
+				OnReachedPatrolPoint();
+			}
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("NPC %s had an invalid AI Controller when trying to patrol. Ending patrol."), *GetOwner()->GetName());
+			FinishPatrol();
+		}
 	}
 }
 
@@ -496,59 +388,8 @@ void UNPCAbilityComponent::FinishPatrol()
 	//TODO: Cancel any nav moving that is happening?
 }
 
-void UNPCAbilityComponent::ReachedPatrolPoint(const FVector& Location)
-{
-	NextPatrolIndex += 1;
-	OnPatrolLocationReached.Broadcast(Location);
-}
-
-void UNPCAbilityComponent::SetNextPatrolPoint(UBlackboardComponent* Blackboard)
-{
-	if (!IsValid(Blackboard))
-	{
-		return;
-	}
-	const int32 StartingIndex = NextPatrolIndex;
-	while (!PatrolPath.IsValidIndex(NextPatrolIndex) || !IsValid(PatrolPath[NextPatrolIndex].Point))
-	{
-		if (NextPatrolIndex > PatrolPath.Num() - 1)
-		{
-			if (bLoopPatrol)
-			{
-				NextPatrolIndex = 0;
-			}
-			else
-			{
-				Blackboard->SetValueAsBool("FinishedPatrolling", true);
-				return;
-			}
-		}
-		else
-		{
-			NextPatrolIndex += 1;
-		}
-		if (NextPatrolIndex == StartingIndex)
-		{
-			Blackboard->SetValueAsBool("FinishedPatrolling", true);
-			return;
-		}
-	}
-	Blackboard->SetValueAsObject("PatrolGoal", PatrolPath[NextPatrolIndex].Point);
-	Blackboard->SetValueAsFloat("WaitTime", PatrolPath[NextPatrolIndex].WaitTime);
-}
-
 #pragma endregion
 #pragma region Resetting
-
-void UNPCAbilityComponent::MarkResetComplete()
-{
-	if (CombatBehavior != ENPCCombatBehavior::Resetting)
-	{
-		return;
-	}
-	bNeedsReset = false;
-	UpdateCombatBehavior();
-}
 
 void UNPCAbilityComponent::EnterResetState()
 {
@@ -561,7 +402,6 @@ void UNPCAbilityComponent::EnterResetState()
 	else
 	{
 		//TODO: Actually move to the reset goal.
-		UNavigationSystemV1;
 	}
 }
 

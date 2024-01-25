@@ -16,9 +16,9 @@ class SAIYORAV4_API UNPCAbilityComponent : public UAbilityComponent
 {
 	GENERATED_BODY()
 
-	UNPCAbilityComponent(const FObjectInitializer& ObjectInitializer);
-
 public:
+
+	UNPCAbilityComponent(const FObjectInitializer& ObjectInitializer);
 
 	UPROPERTY(BlueprintAssignable)
 	FCombatBehaviorNotification OnCombatBehaviorChanged;
@@ -31,15 +31,13 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
-	UPROPERTY(EditAnywhere, Category = "Behavior")
-	UBehaviorTree* BehaviorTree;
-
 private:
 
 	UPROPERTY()
 	APawn* OwnerAsPawn = nullptr;
 	UPROPERTY()
 	AAIController* AIController = nullptr;
+	void OnMoveRequestFinished(FAIRequestID RequestID, const FPathFollowingResult& PathResult);
 	UPROPERTY()
 	ADungeonGameState* DungeonGameStateRef = nullptr;
 	UPROPERTY()
@@ -51,7 +49,7 @@ private:
 	void OnRep_CombatBehavior(const ENPCCombatBehavior Previous);
 	void UpdateCombatBehavior();
 	UFUNCTION()
-	void OnControllerChanged(APawn* PossessedPawn, AController* OldController, AController* NewController) { AIController = Cast<AAIController>(NewController); UpdateCombatBehavior(); }
+	void OnControllerChanged(APawn* PossessedPawn, AController* OldController, AController* NewController);
 	UFUNCTION()
 	void OnDungeonPhaseChanged(const EDungeonPhase PreviousPhase, const EDungeonPhase NewPhase) { UpdateCombatBehavior(); }
 	UFUNCTION()
@@ -81,30 +79,15 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Behavior")
 	TArray<FCombatPhase> Phases;
 	FGameplayTag CurrentPhaseTag;
-	static constexpr float ActionRetryFrequency = 0.5f;
-	FTimerHandle ActionRetryHandle;
 
 	void EnterCombatState();
 	void LeaveCombatState();
-	UFUNCTION()
-	void DetermineNewAction();
-	void InterruptCurrentAction();
-
-	UFUNCTION()
-	void OnCastEnded(const FCastingState& PreviousState, const FCastingState& NewState);
-	UFUNCTION()
-	void OnTargetChanged(AActor* PreviousTarget, AActor* NewTarget);
 
 #pragma endregion 
 
 #pragma region Patrolling
 
 public:
-
-	UFUNCTION(BlueprintCallable, Category = "Patrol")
-	void SetNextPatrolPoint(UBlackboardComponent* Blackboard);
-	UFUNCTION(BlueprintCallable, Category = "Patrol")
-	void ReachedPatrolPoint(const FVector& Location);
 
 	UPROPERTY(BlueprintAssignable)
 	FPatrolLocationNotification OnPatrolLocationReached;
@@ -151,14 +134,13 @@ private:
 	FCombatModifierHandle PatrolMoveSpeedModHandle;
 	float DefaultMaxWalkSpeed = 0.0f;
 
+	FAIRequestID CurrentMoveRequestID = FAIRequestID::InvalidRequest;
+
 #pragma endregion 
 
 #pragma region Resetting
 
 public:
-
-	UFUNCTION(BlueprintCallable)
-	void MarkResetComplete();
 
 private:
 
