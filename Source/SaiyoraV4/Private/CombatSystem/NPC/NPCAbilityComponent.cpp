@@ -141,10 +141,55 @@ void UNPCAbilityComponent::OnControllerChanged(APawn* PossessedPawn, AController
 
 void UNPCAbilityComponent::OnMoveRequestFinished(FAIRequestID RequestID, const FPathFollowingResult& PathResult)
 {
-	if (RequestID == CurrentMoveRequestID)
+	const bool bIDMatched = RequestID == CurrentMoveRequestID;
+	CurrentMoveRequestID = FAIRequestID::InvalidRequest;
+
+	const bool bAlreadyAtGoal = PathResult.Flags & FPathFollowingResultFlags::AlreadyAtGoal;
+	const bool bAbortedByOwner = PathResult.Flags & FPathFollowingResultFlags::OwnerFinished;
+
+	if (bIDMatched)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Move Request IDs matched, result %s"), *PathResult.ToString());
-		OnReachedPatrolPoint();
+		if (PathResult.Code == EPathFollowingResult::Success || bAlreadyAtGoal)
+		{
+			//If we successfully reached our goal, we just move to the next patrol location or finish our reset state.
+			switch (CombatBehavior)
+			{
+			case ENPCCombatBehavior::Patrolling :
+				OnReachedPatrolPoint();
+				break;
+			case ENPCCombatBehavior::Resetting :
+				bNeedsReset = false;
+				UpdateCombatBehavior();
+				break;
+			default :
+				return;
+			}
+		}
+		else if (bAbortedByOwner)
+		{
+			//This means we're moving to another state, so don't need to handle anything.
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("NPC %s did not succeed in move request. State was %s, result was %s."),
+				*GetOwner()->GetName(), *UEnum::GetDisplayValueAsText(CombatBehavior).ToString(), *UEnum::GetDisplayValueAsText(PathResult.Code).ToString());
+
+			//For patrolling, we will just continue moving. Probably want to implement a counter so that if we just get permanently stuck we don't loop forever.
+			//For resetting, we just teleport to the reset location and leave reset state.
+			switch (CombatBehavior)
+			{
+			case ENPCCombatBehavior::Patrolling :
+				OnReachedPatrolPoint();
+				break;
+			case ENPCCombatBehavior::Resetting :
+				bNeedsReset = false;
+				GetOwner()->SetActorLocation(ResetGoal);
+				UpdateCombatBehavior();
+				break;
+			default :
+				return;
+			}
+		}
 	}
 }
 
@@ -251,6 +296,11 @@ void UNPCAbilityComponent::LeavePatrolState()
 	{
 		GetWorld()->GetTimerManager().ClearTimer(PatrolWaitHandle);
 	}
+	//Cancel any move in progress.
+	if (CurrentMoveRequestID.IsValid() && IsValid(AIController) && IsValid(AIController->GetPathFollowingComponent()))
+	{
+		AIController->GetPathFollowingComponent()->AbortMove(*this, FPathFollowingResultFlags::OwnerFinished, CurrentMoveRequestID);
+	}
 }
 
 void UNPCAbilityComponent::SetPatrolSubstate(const EPatrolSubstate NewSubstate)
@@ -262,7 +312,6 @@ void UNPCAbilityComponent::SetPatrolSubstate(const EPatrolSubstate NewSubstate)
 
 void UNPCAbilityComponent::MoveToNextPatrolPoint()
 {
-	UE_LOG(LogTemp, Warning, TEXT("AI %s moving to patrol index %i!"), *GetOwner()->GetName(), NextPatrolIndex);
 	//If we have finished the patrol, nothing more to do.
 	if (!PatrolPath.IsValidIndex(NextPatrolIndex))
 	{
@@ -315,11 +364,9 @@ void UNPCAbilityComponent::MoveToNextPatrolPoint()
 
 void UNPCAbilityComponent::OnReachedPatrolPoint()
 {
-	UE_LOG(LogTemp, Warning, TEXT("AI %s reached patrol point %i."), *GetOwner()->GetName(), NextPatrolIndex);
 	LastPatrolIndex = NextPatrolIndex;
 	if (PatrolPath[NextPatrolIndex].WaitTime > 0.0f)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("AI %s starting a wait for %f seconds."), *GetOwner()->GetName(), PatrolPath[NextPatrolIndex].WaitTime);
 		//Set a timer to wait at this patrol location for a duration.
 		//We don't increment the patrol index yet because if we enter combat during this wait, we don't want to skip it and move to the next point yet.
 		GetWorld()->GetTimerManager().SetTimer(PatrolWaitHandle, this, &UNPCAbilityComponent::FinishPatrolWait, PatrolPath[NextPatrolIndex].WaitTime);
@@ -334,7 +381,6 @@ void UNPCAbilityComponent::OnReachedPatrolPoint()
 
 void UNPCAbilityComponent::FinishPatrolWait()
 {
-	UE_LOG(LogTemp, Warning, TEXT("AI %s completed wait time."), *GetOwner()->GetName());
 	IncrementPatrolIndex();
 	MoveToNextPatrolPoint();
 }
@@ -383,9 +429,13 @@ void UNPCAbilityComponent::IncrementPatrolIndex()
 
 void UNPCAbilityComponent::FinishPatrol()
 {
-	UE_LOG(LogTemp, Warning, TEXT("AI %s finished their patrol."), *GetOwner()->GetName());
 	SetPatrolSubstate(EPatrolSubstate::PatrolFinished);
-	//TODO: Cancel any nav moving that is happening?
+	//Cancel any move in progress.
+	if (CurrentMoveRequestID.IsValid() && IsValid(AIController) && IsValid(AIController->GetPathFollowingComponent()))
+	{
+		AIController->GetPathFollowingComponent()->AbortMove(*this, FPathFollowingResultFlags::OwnerFinished, CurrentMoveRequestID);
+		CurrentMoveRequestID = FAIRequestID::InvalidRequest;
+	}
 }
 
 #pragma endregion
@@ -393,7 +443,7 @@ void UNPCAbilityComponent::FinishPatrol()
 
 void UNPCAbilityComponent::EnterResetState()
 {
-	if (FVector::DistSquared(GetOwner()->GetActorLocation(), ResetGoal) > FMath::Square(ResetTeleportDistance))
+	if (!IsValid(AIController) || FVector::DistSquared(GetOwner()->GetActorLocation(), ResetGoal) > FMath::Square(ResetTeleportDistance))
 	{
 		GetOwner()->SetActorLocation(ResetGoal);
 		bNeedsReset = false;
@@ -401,7 +451,31 @@ void UNPCAbilityComponent::EnterResetState()
 	}
 	else
 	{
-		//TODO: Actually move to the reset goal.
+		//Request a move to the next patrol location from the AIController.
+		//TODO: These parameters might need to be adjusted, I don't know what some of them do.
+		FAIMoveRequest MoveReq(ResetGoal);
+		MoveReq.SetUsePathfinding(true);
+		MoveReq.SetAllowPartialPath(false);
+		MoveReq.SetProjectGoalLocation(true);
+		MoveReq.SetNavigationFilter(AIController->GetDefaultNavigationFilterClass());
+		MoveReq.SetAcceptanceRadius(-1.0f);
+		MoveReq.SetReachTestIncludesAgentRadius(true);
+		MoveReq.SetCanStrafe(true);
+		const FPathFollowingRequestResult RequestResult = AIController->MoveTo(MoveReq);
+		if (RequestResult.Code == EPathFollowingRequestResult::RequestSuccessful)
+		{
+			CurrentMoveRequestID = RequestResult.MoveId;
+		}
+		//If the path following result failed, log an error and move to the next point.
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("NPC %s failed to path to reset goal. Result: %s. Teleporting."),
+				*GetOwner()->GetName(), *UEnum::GetDisplayValueAsText(RequestResult.Code).ToString());
+			
+			GetOwner()->SetActorLocation(ResetGoal);
+			bNeedsReset = false;
+			UpdateCombatBehavior();
+		}
 	}
 }
 
