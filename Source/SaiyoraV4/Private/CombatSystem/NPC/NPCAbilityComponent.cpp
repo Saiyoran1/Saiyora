@@ -5,6 +5,8 @@
 #include "StatHandler.h"
 #include "ThreatHandler.h"
 #include "UnrealNetwork.h"
+#include "BehaviorTree/BehaviorTree.h"
+#include "BehaviorTree/BlackboardComponent.h"
 #include "Navigation/PathFollowingComponent.h"
 
 UNPCAbilityComponent::UNPCAbilityComponent(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
@@ -214,6 +216,29 @@ void UNPCAbilityComponent::SetupBehavior()
 
 #pragma region Combat
 
+void UNPCAbilityComponent::EnterCombatState()
+{
+	if (IsValid(AIController) && IsValid(CombatTree))
+	{
+		if (AIController->RunBehaviorTree(CombatTree) && IsValid(AIController->GetBlackboardComponent()))
+		{
+			//TODO: Do I need to set blackboard keys? Or is just having the actor ref enough?
+		}
+	}
+	EnterPhase(DefaultPhase);
+}
+
+void UNPCAbilityComponent::LeaveCombatState()
+{
+	//Switch to no phase, this lets us leave the current phase if necessary.
+	CurrentPhaseTag = FGameplayTag::EmptyTag;
+	//Stop running the combat tree, as all non-combat logic is handled through this component.
+	if (IsValid(AIController) && IsValid(AIController->GetBrainComponent()))
+	{
+		AIController->GetBrainComponent()->StopLogic("Leaving combat");
+	}
+}
+
 FCombatPhase UNPCAbilityComponent::GetCombatPhase() const
 {
 	for (const FCombatPhase& Phase : Phases)
@@ -228,17 +253,7 @@ FCombatPhase UNPCAbilityComponent::GetCombatPhase() const
 
 void UNPCAbilityComponent::EnterPhase(const FGameplayTag PhaseTag)
 {
-
-}
-
-void UNPCAbilityComponent::EnterCombatState()
-{
-	EnterPhase(DefaultPhase);
-}
-
-void UNPCAbilityComponent::LeaveCombatState()
-{
-	CurrentPhaseTag = FGameplayTag::EmptyTag;
+	CurrentPhaseTag = PhaseTag;
 }
 
 #pragma endregion
@@ -345,6 +360,11 @@ void UNPCAbilityComponent::MoveToNextPatrolPoint()
 			if (RequestResult.Code == EPathFollowingRequestResult::RequestSuccessful)
 			{
 				CurrentMoveRequestID = RequestResult.MoveId;
+			}
+			//If we were already at the patrol point, move on to the next.
+			else if (RequestResult.Code == EPathFollowingRequestResult::AlreadyAtGoal)
+			{
+				OnReachedPatrolPoint();
 			}
 			//If the path following result failed, log an error and move to the next point.
 			else
@@ -465,6 +485,12 @@ void UNPCAbilityComponent::EnterResetState()
 		if (RequestResult.Code == EPathFollowingRequestResult::RequestSuccessful)
 		{
 			CurrentMoveRequestID = RequestResult.MoveId;
+		}
+		//If we were already at the reset goal, we can immediately move to patrol state.
+		else if (RequestResult.Code == EPathFollowingRequestResult::AlreadyAtGoal)
+		{
+			bNeedsReset = false;
+			UpdateCombatBehavior();
 		}
 		//If the path following result failed, log an error and move to the next point.
 		else

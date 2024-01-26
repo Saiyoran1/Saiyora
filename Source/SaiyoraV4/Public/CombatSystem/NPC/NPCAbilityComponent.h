@@ -69,16 +69,18 @@ public:
 	UFUNCTION(BlueprintAuthorityOnly, meta = (GameplayTagFilter = "Phase"))
 	void EnterPhase(const FGameplayTag PhaseTag);
 
-protected:
-
-	UPROPERTY(EditAnywhere, Category = "Behavior", meta = (Categories = "Phase"))
-	FGameplayTag DefaultPhase;
+	UPROPERTY(BlueprintAssignable)
+	FCombatPhaseNotification OnCombatPhaseChanged;
 
 private:
 
-	UPROPERTY(EditAnywhere, Category = "Behavior")
+	UPROPERTY(EditAnywhere, Category = "Combat", meta = (Categories = "Phase"))
+	FGameplayTag DefaultPhase;
+	UPROPERTY(EditAnywhere, Category = "Combat")
 	TArray<FCombatPhase> Phases;
 	FGameplayTag CurrentPhaseTag;
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	UBehaviorTree* CombatTree = nullptr;
 
 	void EnterCombatState();
 	void LeaveCombatState();

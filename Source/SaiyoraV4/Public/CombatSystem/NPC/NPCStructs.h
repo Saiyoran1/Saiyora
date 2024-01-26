@@ -16,8 +16,6 @@ enum class EPatrolSubstate : uint8
 	PatrolFinished
 };
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FPatrolStateNotification, const EPatrolSubstate, PatrolSubstate, ATargetPoint*, LastReachedPoint);
-
 USTRUCT(BlueprintType)
 struct FPatrolPoint
 {
@@ -55,5 +53,7 @@ struct FCombatPhase
 	bool operator==(const FCombatPhase& Other) const { return Other.PhaseTag.MatchesTagExact(PhaseTag); }
 };
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FPatrolStateNotification, const EPatrolSubstate, PatrolSubstate, ATargetPoint*, LastReachedPoint);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPatrolLocationNotification, const FVector&, Location);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FCombatBehaviorNotification, const ENPCCombatBehavior, PreviousStatus, const ENPCCombatBehavior, NewStatus);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FCombatPhaseNotification, const FGameplayTag&, PreviousPhase, const FGameplayTag&, NewPhase);
