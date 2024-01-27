@@ -1,57 +1,63 @@
 ﻿#include "BehaviorTree/Decorators/BTD_TimeInCombatElapsed.h"
-
 #include "BehaviorTree/BehaviorTree.h"
 #include "GameFramework/GameStateBase.h"
+
+struct FBTDMemory_TimeInCombatElapsed
+{
+	UBehaviorTreeComponent* OwningComp = nullptr;
+	const UBTD_TimeInCombatElapsed* OwningNode = nullptr;
+	float InitTime = 0.0f;
+	FTimerHandle LockoutHandle;
+	void OnTimerExpired()
+	{
+		UE_LOG(LogTemp, Warning, TEXT("This shit worked lmao."));
+		OwningNode->CallConditionalFlowAbort(OwningComp);
+	}
+};
 
 UBTD_TimeInCombatElapsed::UBTD_TimeInCombatElapsed()
 {
 	NodeName = "Time in Combat Elapsed";
-	bNotifyBecomeRelevant = true;
-	bNotifyCeaseRelevant = true;
-	bCreateNodeInstance = true;
-	//There's a macro that works for these, but I don't understand it.
 }
 
-void UBTD_TimeInCombatElapsed::OnInstanceCreated(UBehaviorTreeComponent& OwnerComp)
+void UBTD_TimeInCombatElapsed::CallConditionalFlowAbort(UBehaviorTreeComponent* OwningComp) const
 {
-	Super::OnInstanceCreated(OwnerComp);
-	
-	UE_LOG(LogTemp, Warning, TEXT("My stupid decorator being initialized with owning controller %s!"),
-		*OwnerComp.GetOwner()->GetName());
-	
-	CombatStartTime = OwnerComp.GetWorld()->GetGameState()->GetServerWorldTimeSeconds();
-	
-	UE_LOG(LogTemp, Warning, TEXT("Set combat start time for %s as %f."), *OwnerComp.GetOwner()->GetName(), CombatStartTime);
-	
-	FTimerDelegate LockoutDelegate;
-	LockoutDelegate.BindUFunction(this, FName("OnLockoutComplete"), TWeakObjectPtr<UBehaviorTreeComponent>(&OwnerComp));
-	OwnerComp.GetWorld()->GetTimerManager().SetTimer(LockoutHandle, LockoutDelegate, LockoutDuration, false);
+	ConditionalFlowAbort(*OwningComp, EBTDecoratorAbortRequest::ConditionResultChanged);
 }
 
-void UBTD_TimeInCombatElapsed::OnInstanceDestroyed(UBehaviorTreeComponent& OwnerComp)
+void UBTD_TimeInCombatElapsed::InitializeMemory(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory,
+	EBTMemoryInit::Type InitType) const
 {
-	Super::OnInstanceDestroyed(OwnerComp);
-	UE_LOG(LogTemp, Warning, TEXT("Instance getting destroyed!"));
-	OwnerComp.GetWorld()->GetTimerManager().ClearTimer(LockoutHandle);
+	Super::InitializeMemory(OwnerComp, NodeMemory, InitType);
+	FBTDMemory_TimeInCombatElapsed* Memory = CastInstanceNodeMemory<FBTDMemory_TimeInCombatElapsed>(NodeMemory);
+	Memory->InitTime = OwnerComp.GetWorld()->GetGameState()->GetServerWorldTimeSeconds();
+	Memory->OwningNode = this;
+	Memory->OwningComp = &OwnerComp;
+	const FTimerDelegate LockoutDelegate = FTimerDelegate::CreateRaw(Memory, &FBTDMemory_TimeInCombatElapsed::OnTimerExpired);
+	OwnerComp.GetWorld()->GetTimerManager().SetTimer(Memory->LockoutHandle, LockoutDelegate, LockoutDuration, false);
 }
 
-void UBTD_TimeInCombatElapsed::OnLockoutComplete(TWeakObjectPtr<UBehaviorTreeComponent> OwnerComp)
+uint16 UBTD_TimeInCombatElapsed::GetInstanceMemorySize() const
 {
-	if (!IsValid(OwnerComp.Get()))
+	return sizeof(FBTDMemory_TimeInCombatElapsed);
+}
+
+void UBTD_TimeInCombatElapsed::CleanupMemory(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory,
+	EBTMemoryClear::Type CleanupType) const
+{
+	Super::CleanupMemory(OwnerComp, NodeMemory, CleanupType);
+	FBTDMemory_TimeInCombatElapsed* Memory = CastInstanceNodeMemory<FBTDMemory_TimeInCombatElapsed>(NodeMemory);
+	if (Memory->OwningComp)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Lockout ended but owner comp wasn't valid!"));
-		return;
+		Memory->OwningComp->GetWorld()->GetTimerManager().ClearTimer(Memory->LockoutHandle);
 	}
-	UE_LOG(LogTemp, Warning, TEXT("Lockout ending at %f"), OwnerComp->GetWorld()->GetGameState()->GetServerWorldTimeSeconds());
-	bTempAborting = true;
-	ConditionalFlowAbort(*OwnerComp, EBTDecoratorAbortRequest::ConditionResultChanged);
-	bTempAborting = false;
+	//TODO: What does "cleaning up memory" even mean?
 }
 
 bool UBTD_TimeInCombatElapsed::CalculateRawConditionValue(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) const
 {
-	const float TimePassed = (OwnerComp.GetWorld()->GetGameState()->GetServerWorldTimeSeconds() - CombatStartTime);
-	UE_LOG(LogTemp, Warning, TEXT("Evaluating decorator. From abort? %s"), *FString(bTempAborting ? "Yup" : "Nope"));
-	return TimePassed >= LockoutDuration;
+	FBTDMemory_TimeInCombatElapsed* Memory = CastInstanceNodeMemory<FBTDMemory_TimeInCombatElapsed>(NodeMemory);
+	UE_LOG(LogTemp, Warning, TEXT("Checking condition"));
+	return Memory->OwningComp->GetWorld()->GetGameState()->GetServerWorldTimeSeconds() - Memory->InitTime >= LockoutDuration;
 }
 
