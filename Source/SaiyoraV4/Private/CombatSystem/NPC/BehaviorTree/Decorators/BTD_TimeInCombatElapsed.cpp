@@ -1,63 +1,67 @@
 ﻿#include "BehaviorTree/Decorators/BTD_TimeInCombatElapsed.h"
 #include "BehaviorTree/BehaviorTree.h"
-#include "GameFramework/GameStateBase.h"
 
-struct FBTDMemory_TimeInCombatElapsed
+void FBTDMemory_TimeInCombatElapsed::OnTimerExpired()
 {
-	UBehaviorTreeComponent* OwningComp = nullptr;
-	const UBTD_TimeInCombatElapsed* OwningNode = nullptr;
-	float InitTime = 0.0f;
-	FTimerHandle LockoutHandle;
-	void OnTimerExpired()
+	bLockoutFinished = true;
+	const bool bNodeValid = IsValid(OwningNode);
+	const bool bTreeValid = IsValid(OwningComp);
+	if (!bNodeValid || !bTreeValid)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("This shit worked lmao."));
-		OwningNode->CallConditionalFlowAbort(OwningComp);
+		UE_LOG(LogTemp, Warning, TEXT("Combat time elapsed decorator failed to abort because of invalid ref: %s"),
+			*FString(bNodeValid ? bTreeValid ? "Both valid" : "Tree invalid" : bTreeValid ? "Node invalid" : "Both invalid"));
+		return;
 	}
-};
+	if (OwningComp->IsAuxNodeActive(OwningNode))
+	{
+		OwningNode->ConditionalFlowAbort(*OwningComp, EBTDecoratorAbortRequest::ConditionPassing);
+	}
+}
 
 UBTD_TimeInCombatElapsed::UBTD_TimeInCombatElapsed()
 {
 	NodeName = "Time in Combat Elapsed";
 }
 
-void UBTD_TimeInCombatElapsed::CallConditionalFlowAbort(UBehaviorTreeComponent* OwningComp) const
-{
-	ConditionalFlowAbort(*OwningComp, EBTDecoratorAbortRequest::ConditionResultChanged);
-}
-
 void UBTD_TimeInCombatElapsed::InitializeMemory(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory,
 	EBTMemoryInit::Type InitType) const
 {
 	Super::InitializeMemory(OwnerComp, NodeMemory, InitType);
+	
 	FBTDMemory_TimeInCombatElapsed* Memory = CastInstanceNodeMemory<FBTDMemory_TimeInCombatElapsed>(NodeMemory);
-	Memory->InitTime = OwnerComp.GetWorld()->GetGameState()->GetServerWorldTimeSeconds();
+	if (!Memory)
+	{
+		return;
+	}
 	Memory->OwningNode = this;
 	Memory->OwningComp = &OwnerComp;
+	Memory->bLockoutFinished = false;
 	const FTimerDelegate LockoutDelegate = FTimerDelegate::CreateRaw(Memory, &FBTDMemory_TimeInCombatElapsed::OnTimerExpired);
 	OwnerComp.GetWorld()->GetTimerManager().SetTimer(Memory->LockoutHandle, LockoutDelegate, LockoutDuration, false);
-}
-
-uint16 UBTD_TimeInCombatElapsed::GetInstanceMemorySize() const
-{
-	return sizeof(FBTDMemory_TimeInCombatElapsed);
 }
 
 void UBTD_TimeInCombatElapsed::CleanupMemory(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory,
 	EBTMemoryClear::Type CleanupType) const
 {
 	Super::CleanupMemory(OwnerComp, NodeMemory, CleanupType);
+	
 	FBTDMemory_TimeInCombatElapsed* Memory = CastInstanceNodeMemory<FBTDMemory_TimeInCombatElapsed>(NodeMemory);
-	if (Memory->OwningComp)
+	if (!Memory)
+	{
+		return;
+	}
+	if (IsValid(Memory->OwningComp))
 	{
 		Memory->OwningComp->GetWorld()->GetTimerManager().ClearTimer(Memory->LockoutHandle);
 	}
-	//TODO: What does "cleaning up memory" even mean?
+	Memory->OwningComp = nullptr;
+	Memory->OwningNode = nullptr;
+	Memory->bLockoutFinished = false;
 }
 
 bool UBTD_TimeInCombatElapsed::CalculateRawConditionValue(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) const
 {
-	FBTDMemory_TimeInCombatElapsed* Memory = CastInstanceNodeMemory<FBTDMemory_TimeInCombatElapsed>(NodeMemory);
-	UE_LOG(LogTemp, Warning, TEXT("Checking condition"));
-	return Memory->OwningComp->GetWorld()->GetGameState()->GetServerWorldTimeSeconds() - Memory->InitTime >= LockoutDuration;
+	const FBTDMemory_TimeInCombatElapsed* Memory = CastInstanceNodeMemory<FBTDMemory_TimeInCombatElapsed>(NodeMemory);
+	return Memory->bLockoutFinished;
 }
 
