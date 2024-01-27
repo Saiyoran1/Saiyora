@@ -17,14 +17,15 @@ public:
 
 protected:
 	
-	virtual void OnBecomeRelevant(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) override;
-	virtual void OnCeaseRelevant(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) override;
+	virtual void OnInstanceCreated(UBehaviorTreeComponent& OwnerComp) override;
+	virtual void OnInstanceDestroyed(UBehaviorTreeComponent& OwnerComp) override;
 
 private:
 
 	UPROPERTY(EditAnywhere, Category = "Time", meta = (AllowPrivateAccess = "true"))
 	float LockoutDuration = 1.0f;
 
+	bool bTempAborting = false;
 	float CombatStartTime = 0.0f;
 	FTimerHandle LockoutHandle;
 	UFUNCTION()
