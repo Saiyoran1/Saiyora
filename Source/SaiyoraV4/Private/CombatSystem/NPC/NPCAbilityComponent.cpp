@@ -6,7 +6,6 @@
 #include "ThreatHandler.h"
 #include "UnrealNetwork.h"
 #include "BehaviorTree/BehaviorTree.h"
-#include "BehaviorTree/BlackboardComponent.h"
 #include "Navigation/PathFollowingComponent.h"
 
 UNPCAbilityComponent::UNPCAbilityComponent(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
@@ -33,22 +32,6 @@ void UNPCAbilityComponent::BeginPlay()
 	checkf(IsValid(OwnerAsPawn), TEXT("NPC Ability Component's owner was not a valid pawn."));
 	DungeonGameStateRef = Cast<ADungeonGameState>(GameStateRef);
 	checkf(IsValid(GameStateRef), TEXT("Got an invalid Game State Ref in NPC Ability Component."));
-
-	TSet<TSubclassOf<UCombatAbility>> PhaseAbilities;
-	for (const FCombatPhase& Phase : Phases)
-	{
-		for (const FAbilityChoice& Choice :  Phase.AbilityChoices)
-		{
-			if (IsValid(Choice.AbilityClass))
-			{
-				PhaseAbilities.Add(Choice.AbilityClass);	
-			}
-		}
-	}
-	for (const TSubclassOf<UCombatAbility> AbilityClass : PhaseAbilities)
-	{
-		AddNewAbility(AbilityClass);
-	}
 
 	OwnerAsPawn->ReceiveControllerChangedDelegate.AddDynamic(this, &UNPCAbilityComponent::OnControllerChanged);
 	DungeonGameStateRef->OnDungeonPhaseChanged.AddDynamic(this, &UNPCAbilityComponent::OnDungeonPhaseChanged);
@@ -218,42 +201,22 @@ void UNPCAbilityComponent::SetupBehavior()
 
 void UNPCAbilityComponent::EnterCombatState()
 {
-	if (IsValid(AIController) && IsValid(CombatTree))
+	if (IsValid(CombatTree) && IsValid(AIController))
 	{
-		if (AIController->RunBehaviorTree(CombatTree) && IsValid(AIController->GetBlackboardComponent()))
+		if (!AIController->RunBehaviorTree(CombatTree))
 		{
-			//TODO: Do I need to set blackboard keys? Or is just having the actor ref enough?
+			UE_LOG(LogTemp, Warning, TEXT("NPC %s failed to run a custom combat tree."), *GetOwner()->GetName());
 		}
 	}
-	EnterPhase(DefaultPhase);
 }
 
 void UNPCAbilityComponent::LeaveCombatState()
 {
-	//Switch to no phase, this lets us leave the current phase if necessary.
-	CurrentPhaseTag = FGameplayTag::EmptyTag;
-	//Stop running the combat tree, as all non-combat logic is handled through this component.
+	//Stop running the combat tree. All other behavior is handled by this component.
 	if (IsValid(AIController) && IsValid(AIController->GetBrainComponent()))
 	{
 		AIController->GetBrainComponent()->StopLogic("Leaving combat");
 	}
-}
-
-FCombatPhase UNPCAbilityComponent::GetCombatPhase() const
-{
-	for (const FCombatPhase& Phase : Phases)
-	{
-		if (Phase.PhaseTag.MatchesTagExact(CurrentPhaseTag))
-		{
-			return Phase;
-		}
-	}
-	return FCombatPhase();
-}
-
-void UNPCAbilityComponent::EnterPhase(const FGameplayTag PhaseTag)
-{
-	CurrentPhaseTag = PhaseTag;
 }
 
 #pragma endregion

@@ -62,23 +62,8 @@ private:
 
 #pragma region Combat
 
-public:
-
-	UFUNCTION(BlueprintPure, BlueprintAuthorityOnly)
-	FCombatPhase GetCombatPhase() const;
-	UFUNCTION(BlueprintAuthorityOnly, meta = (GameplayTagFilter = "Phase"))
-	void EnterPhase(const FGameplayTag PhaseTag);
-
-	UPROPERTY(BlueprintAssignable)
-	FCombatPhaseNotification OnCombatPhaseChanged;
-
 private:
-
-	UPROPERTY(EditAnywhere, Category = "Combat", meta = (Categories = "Phase"))
-	FGameplayTag DefaultPhase;
-	UPROPERTY(EditAnywhere, Category = "Combat")
-	TArray<FCombatPhase> Phases;
-	FGameplayTag CurrentPhaseTag;
+	
 	UPROPERTY(EditAnywhere, Category = "Combat")
 	UBehaviorTree* CombatTree = nullptr;
 

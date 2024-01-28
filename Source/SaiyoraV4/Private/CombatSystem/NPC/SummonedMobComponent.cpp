@@ -51,6 +51,7 @@ void USummonedMobComponent::Despawn()
 {
 	//TODO: Unsure what, if any, cleanup needs to happen.
 	//TODO: Threat cleanup. Currently the mob won't leave enemy threat tables. This should probably go along with a combat group/threat rework.
+	//TODO: Pretty sure this crashes when floating health bars don't get cleaned up correctly.
 	if (GetOwnerRole() == ROLE_Authority)
 	{
 		GetOwner()->Destroy();
