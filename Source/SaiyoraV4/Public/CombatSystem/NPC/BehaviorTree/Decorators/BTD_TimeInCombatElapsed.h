@@ -36,6 +36,7 @@ protected:
 
 private:
 
+	//How much time must pass since the tree started running before this decorator evaluates to true.
 	UPROPERTY(EditAnywhere, Category = "Time", meta = (AllowPrivateAccess = "true"))
 	float LockoutDuration = 1.0f;
 	
