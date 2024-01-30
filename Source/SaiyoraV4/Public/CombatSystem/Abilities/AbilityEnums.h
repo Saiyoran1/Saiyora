@@ -15,9 +15,8 @@ enum class ECastAction : uint8
 {
     Fail = 0,
     Success = 1,
-    Que = 2,
-    Tick = 3,
-    Complete = 4,
+    Tick = 2,
+    Complete = 3,
 };
 
 UENUM()
