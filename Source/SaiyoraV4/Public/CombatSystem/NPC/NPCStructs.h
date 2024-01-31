@@ -1,5 +1,6 @@
 #pragma once
 #include "CoreMinimal.h"
+#include "NPCEnums.h"
 #include "Engine/TargetPoint.h"
 #include "NPCStructs.generated.h"
 
@@ -23,6 +24,27 @@ struct FPatrolPoint
 	ATargetPoint* Point = nullptr;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	float WaitTime = 0.0f;
+};
+
+USTRUCT()
+struct FNPCAbilityLocationRules
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere)
+	ELocationRuleReferenceType LocationRuleType = ELocationRuleReferenceType::None;
+	UPROPERTY()
+	AActor* RangeTargetActor = nullptr;
+	UPROPERTY()
+	FVector RangeTargetLocation = FVector::ZeroVector;
+	UPROPERTY(EditAnywhere, meta = (EditCondition = "LocationRuleType != ELocationRuleReferenceType::None"))
+	bool bEnforceMinimumRange = false;
+	UPROPERTY(EditAnywhere, meta = (EditCondition = "LocationRuleType != ELocationRuleReferenceType::None && bEnforceMinimumRange"))
+	float MinimumRange = 0.0f;
+	UPROPERTY(EditAnywhere, meta = (EditCondition = "LocationRuleType != ELocationRuleReferenceType::None"))
+	bool bEnforceMaximumRange = false;
+	UPROPERTY(EditAnywhere, meta = (EditCondition = "LocationRuleType != ELocationRuleReferenceType::None && bEnforceMaximumRange"))
+	float MaximumRange = 0.0f;
 };
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FPatrolStateNotification, const EPatrolSubstate, PatrolSubstate, ATargetPoint*, LastReachedPoint);
