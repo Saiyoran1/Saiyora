@@ -30,6 +30,7 @@ protected:
 	virtual void InitializeComponent() override;
 	virtual void BeginPlay() override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 private:
 
@@ -63,12 +64,33 @@ private:
 #pragma region Combat
 
 private:
-	
+
+	//Priority of ability choices for this NPC to use.
 	UPROPERTY(EditAnywhere, Category = "Combat")
+	TArray<FNPCAbilityChoice> AbilityPriority;
+	//Whether to override the ability choice priority and instead run a behavior tree.
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	bool bUseCustomCombatTree = false;
+	//If overriding the ability priority to run a behavior tree, this is the tree that will be run.
+	UPROPERTY(EditAnywhere, Category = "Combat", meta = (EditCondition = "bUseCustomCombatTree"))
 	UBehaviorTree* CombatTree = nullptr;
 
 	void EnterCombatState();
 	void LeaveCombatState();
+
+	void InitializeAbilityPriority();
+	void SelectAbilityChoice();
+	UFUNCTION()
+	void OnAbilityChoiceAvailable(const int32 Priority);
+	int32 CurrentAbilityChoice = -1;
+	float AbilityChoiceRetryTime = 0.5f;
+	FTimerHandle AbilityChoiceRetryHandle;
+	void PositionForChosenAbility();
+	void ExecuteAbilityChoice();
+	void AbortCurrentAbilityChoice(const bool bReselect = true);
+
+	UFUNCTION()
+	void OnCastChanged(const FCastingState& PreviousState, const FCastingState& NewState);
 
 #pragma endregion 
 
