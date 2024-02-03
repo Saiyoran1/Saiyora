@@ -58,9 +58,6 @@ private:
 	UFUNCTION()
 	void OnCombatChanged(UThreatHandler* Handler, const bool bInCombat) { UpdateCombatBehavior(); }
 
-	void SetupBehavior();
-	bool bInitialized = false;
-
 #pragma region Combat
 
 private:
@@ -68,6 +65,9 @@ private:
 	//Priority of ability choices for this NPC to use.
 	UPROPERTY(EditAnywhere, Category = "Combat")
 	TArray<FNPCAbilityChoice> AbilityPriority;
+	//Priority for different movement patterns this NPC will use when movement isn't being dictated by abilities.
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	TArray<FNPCMovementChoice> MovementPriority;
 	//Whether to override the ability choice priority and instead run a behavior tree.
 	UPROPERTY(EditAnywhere, Category = "Combat")
 	bool bUseCustomCombatTree = false;
@@ -78,7 +78,6 @@ private:
 	void EnterCombatState();
 	void LeaveCombatState();
 
-	void InitializeAbilityPriority();
 	void SelectAbilityChoice();
 	UFUNCTION()
 	void OnAbilityChoiceAvailable(const int32 Priority);
@@ -87,7 +86,21 @@ private:
 	FTimerHandle AbilityChoiceRetryHandle;
 	void PositionForChosenAbility();
 	void ExecuteAbilityChoice();
-	void AbortCurrentAbilityChoice(const bool bReselect = true);
+	void AbortCurrentAbilityChoice();
+	
+	void InitializeCombatPriorities();
+	void SelectMovementChoice();
+	UFUNCTION()
+	void OnMovementChoiceAvailable(const int32 Priority);
+	int32 CurrentMovementChoice = -1;
+	bool bMovingFromAbilityChoice = false;
+	FTimerHandle MovementChoiceRetryHandle;
+	float MovementChoiceRetryTime = 0.5f;
+	void ExecuteMovementChoice();
+	void AbortCurrentMovementChoice();
+	//Whether we should select a move from our priority list.
+	//This implies we aren't moving to prep for an ability and we aren't casting something that prevents us from moving.
+	bool ShouldMoveFromPriorityList() const;
 
 	UFUNCTION()
 	void OnCastChanged(const FCastingState& PreviousState, const FCastingState& NewState);
