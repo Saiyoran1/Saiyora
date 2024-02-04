@@ -1,6 +1,5 @@
 ﻿#include "NPCAbilityComponent.h"
 #include "DamageHandler.h"
-#include "NPCAbility.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraMovementComponent.h"
 #include "StatHandler.h"
@@ -13,9 +12,7 @@
 
 UNPCAbilityComponent::UNPCAbilityComponent(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
-	//We tick this component so that ability conditions that need to update on tick can be updated.
-	PrimaryComponentTick.bCanEverTick = true;
-	PrimaryComponentTick.bStartWithTickEnabled = true;
+	PrimaryComponentTick.bCanEverTick = false;
 	bWantsInitializeComponent = true;
 }
 
@@ -50,7 +47,6 @@ void UNPCAbilityComponent::BeginPlay()
 		ThreatHandlerRef->OnCombatChanged.AddDynamic(this, &UNPCAbilityComponent::OnCombatChanged);
 	}
 	OnControllerChanged(OwnerAsPawn, nullptr, OwnerAsPawn->GetController());
-	InitializeCombatPriorities();
 }
 
 void UNPCAbilityComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -61,22 +57,6 @@ void UNPCAbilityComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
 
 #pragma endregion
 #pragma region State Control
-
-void UNPCAbilityComponent::TickComponent(float DeltaTime, ELevelTick TickType,
-	FActorComponentTickFunction* ThisTickFunction)
-{
-	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-
-	//Some ability and movement conditions might need to update on tick (timing, distance checking), so we will tick them.
-	for (FNPCAbilityChoice& Choice : AbilityPriority)
-	{
-		Choice.TickConditions(GetOwner(), DeltaTime);
-	}
-	for (FNPCMovementChoice& Choice : MovementPriority)
-	{
-		Choice.TickConditions(GetOwner(), DeltaTime);
-	}
-}
 
 void UNPCAbilityComponent::UpdateCombatBehavior()
 {
@@ -180,7 +160,6 @@ void UNPCAbilityComponent::OnMoveRequestFinished(FAIRequestID RequestID, const F
 				UpdateCombatBehavior();
 				break;
 			case ENPCCombatBehavior::Combat :
-				ExecuteAbilityChoice();
 				break;
 			default :
 				return;
@@ -208,7 +187,6 @@ void UNPCAbilityComponent::OnMoveRequestFinished(FAIRequestID RequestID, const F
 				UpdateCombatBehavior();
 				break;
 			case ENPCCombatBehavior::Combat :
-				AbortCurrentAbilityChoice();
 				break;
 			default :
 				return;
@@ -220,266 +198,28 @@ void UNPCAbilityComponent::OnMoveRequestFinished(FAIRequestID RequestID, const F
 #pragma endregion 
 #pragma region Combat
 
-void UNPCAbilityComponent::InitializeCombatPriorities()
-{
-	for (int i = AbilityPriority.Num() - 1; i >= 0; i--)
-	{
-		if (!IsValid(AbilityPriority[i].AbilityClass))
-		{
-			AbilityPriority.RemoveAt(i);
-			continue;
-		}
-		//Learn the ability associated with this choice.
-		AbilityPriority[i].AbilityInstance = Cast<UNPCAbility>(AddNewAbility(AbilityPriority[i].AbilityClass));
-		if (!IsValid(AbilityPriority[i].AbilityInstance))
-		{
-			//If we failed to learn the ability, its possible we already know it.
-			//This is because the same ability can be in the priority list multiple times behind different conditions.
-			//Check here if we already know the ability.
-			AbilityPriority[i].AbilityInstance = Cast<UNPCAbility>(FindActiveAbility(AbilityPriority[i].AbilityClass));
-			if (!IsValid(AbilityPriority[i].AbilityInstance))
-			{
-				AbilityPriority.RemoveAt(i);
-				continue;
-			}
-		}
-		AbilityPriority[i].ChoiceIndex = i;
-		//If this choice is high priority, bind to its delegate to be notified when it becomes available.
-		//If it becomes available while we are preparing for or executing a lower priority ability, we'll abort and execute this choice instead.
-		if (AbilityPriority[i].bHighPriority)
-		{
-			AbilityPriority[i].OnChoiceAvailable.BindUObject(this, &UNPCAbilityComponent::OnAbilityChoiceAvailable);
-		}
-		AbilityPriority[i].SetupConditions(GetOwner());
-	}
-	
-	for (int i = MovementPriority.Num() - 1; i >= 0; i--)
-	{
-		MovementPriority[i].ChoiceIndex = i;
-		//If this choice is high priority, bind to its delegate to be notified when it becomes available.
-		//If it becomes available while doing a lower priority movement, we'll abort and execute this choice instead.
-		if (MovementPriority[i].bHighPriority)
-		{
-			MovementPriority[i].OnChoiceAvailable.BindUObject(this, &UNPCAbilityComponent::OnMovementChoiceAvailable);
-		}
-		MovementPriority[i].SetupConditions(GetOwner());
-	}
-}
-
 void UNPCAbilityComponent::EnterCombatState()
 {
-	//If we want to use a custom combat tree, we just run that behavior tree on entering the state.
-	if (bUseCustomCombatTree)
+	//Run the combat behavior tree for this actor.
+	if (!IsValid(CombatTree) || !IsValid(AIController))
 	{
-		if (!IsValid(CombatTree) || !IsValid(AIController) || !AIController->RunBehaviorTree(CombatTree))
-		{
-			UE_LOG(LogTemp, Warning, TEXT("NPC %s failed to run a custom combat tree."), *GetOwner()->GetName());
-		}
-	}
-	//Otherwise, we will initiate the default ability/movement priority selection process.
-	else
-	{
-		//We want to be notified when casts end to select new abilities.
-		OnCastStateChanged.AddDynamic(this, &UNPCAbilityComponent::OnCastChanged);
-		//If we are casting, we'll get a callback from the above function, otherwise, we can just go straight into ability selection.
-		if (!IsCasting())
-		{
-			SelectAbilityChoice();
-		}
-	}
-}
-
-void UNPCAbilityComponent::SelectAbilityChoice()
-{
-	//Cache off what ability choice we were already using, if any.
-	//This should usually be -1 unless we are selecting because a high priority ability became available.
-	const int32 PreviousAbilityChoice = CurrentAbilityChoice;
-	const bool bHadPreviousSelection = PreviousAbilityChoice != -1;
-	int32 NewChoice = -1;
-	for (int i = 0; i < AbilityPriority.Num(); i++)
-	{
-		//Select the first choice where all conditions pass and the ability is usable.
-		ECastFailReason FailReason;
-		if (AbilityPriority[i].AreConditionsMet() && CanUseAbility(AbilityPriority[i].AbilityInstance, FailReason))
-		{
-			NewChoice = i;
-			UE_LOG(LogTemp, Warning, TEXT("%s: Selected ability choice index %i with ability class %s at time %f"),
-				*GetOwner()->GetName(), i, *AbilityPriority[CurrentAbilityChoice].AbilityClass->GetName(), GetWorld()->GetGameState()->GetServerWorldTimeSeconds());
-			break;
-		}
-	}
-	//Check if we failed to find a good choice or we picked a lower priority (higher index) choice than what was already happening.
-	if (NewChoice == -1 || (bHadPreviousSelection && NewChoice >= PreviousAbilityChoice))
-	{
-		UE_LOG(LogTemp, Warning, TEXT("%s: Failed to select a new ability at time %f. %s"),
-			*GetOwner()->GetName(), GetWorld()->GetGameState()->GetServerWorldTimeSeconds(),
-			*FString(NewChoice == -1 ? "No valid choice" : "Higher priority choice already selected"));
-		
-		if (!bHadPreviousSelection)
-		{
-			CurrentAbilityChoice = -1;
-			//If we failed to select an ability, and we aren't already moving, we can try and select a move.
-			if (CurrentMovementChoice != -1)
-			{
-				SelectMovementChoice();
-			}
-			GetWorld()->GetTimerManager().SetTimer(AbilityChoiceRetryHandle, this, &UNPCAbilityComponent::SelectAbilityChoice, AbilityChoiceRetryTime, false);
-		}
-	}
-	else
-	{
-		PositionForChosenAbility();
-	}
-}
-
-void UNPCAbilityComponent::PositionForChosenAbility()
-{
-	//TODO: Get an FNPCMovementChoice from the ability. Ignore any conditions.
-	//For now we just move straight to executing the ability, normally that would come from the callback from move finished (or failed).
-	
-	if (true /*TODO: Ability doesn't require specific movement*/)
-	{
-		//If the ability can't be cast while moving, abort our current move and wait on the CMC to not be moving.
-		if (!AbilityPriority[CurrentAbilityChoice].AbilityInstance->IsCastableWhileMoving())
-		{
-			if (CurrentMovementChoice != -1)
-			{
-				AbortCurrentMovementChoice();
-			}
-			if (!MovementComponentRef->IsMoving())
-			{
-				ExecuteAbilityChoice();
-			}
-		}
-		//If the ability can be cast while moving, we can just go right into starting the cast.
-		else
-		{
-			ExecuteAbilityChoice();
-		}
-	}
-	//TODO: Ability does require specific movement.
-	else
-	{
-		if (CurrentMovementChoice != -1)
-		{
-			AbortCurrentMovementChoice();
-		}
-		bMovingFromAbilityChoice = true;
-		//TODO: Move for ability.
-	}
-}
-
-void UNPCAbilityComponent::ExecuteAbilityChoice()
-{
-	//Use the ability here.
-	UseAbility(AbilityPriority[CurrentAbilityChoice].AbilityClass);
-	
-	if (IsCasting())
-	{
-		//TODO: Do we want to trigger movement here? Will we already be moving?
-	}
-	//If we aren't in a casting state (either the ability was instant or it failed), then we set a timer to select the next ability.
-	//Otherwise, our cast state callback will trigger this.
-	else
-	{
-		GetWorld()->GetTimerManager().SetTimer(AbilityChoiceRetryHandle, this, &UNPCAbilityComponent::SelectAbilityChoice, AbilityChoiceRetryTime, false);
-		//If we weren't already moving, we can move here while waiting to select an ability choice.
-		if (CurrentMovementChoice == -1)
-		{
-			SelectMovementChoice();
-		}
-	}
-}
-
-void UNPCAbilityComponent::SelectMovementChoice()
-{
-	if (!ShouldMoveFromPriorityList())
-	{
+		UE_LOG(LogTemp, Warning, TEXT("NPC %s failed to run a custom combat tree."), *GetOwner()->GetName());
 		return;
 	}
-	CurrentMovementChoice = -1;
-	for (int i = 0; i < MovementPriority.Num(); i++)
+	
+	if (!AIController->RunBehaviorTree(CombatTree))
 	{
-		if (MovementPriority[i].AreConditionsMet())
-		{
-			CurrentMovementChoice = i;
-			UE_LOG(LogTemp, Warning, TEXT("%s: Selected movement choice index %i at time %f"),
-				*GetOwner()->GetName(), i, GetWorld()->GetGameState()->GetServerWorldTimeSeconds());
-			break;
-		}
-	}
-	if (CurrentMovementChoice == -1)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("%s: Didn't find any movement choices that were valid at time %f"), *GetOwner()->GetName(), GetWorld()->GetGameState()->GetServerWorldTimeSeconds());
-		GetWorld()->GetTimerManager().SetTimer(MovementChoiceRetryHandle, this, &UNPCAbilityComponent::SelectMovementChoice, MovementChoiceRetryTime, false);
-	}
-	else
-	{
-		const bool bSuccessfulMovement = MovementPriority[CurrentMovementChoice].ExecuteMovementChoice(AIController);
-		if (!bSuccessfulMovement)
-		{
-			GetWorld()->GetTimerManager().SetTimer(MovementChoiceRetryHandle, this, &UNPCAbilityComponent::SelectMovementChoice, MovementChoiceRetryTime, false);
-		}
+		UE_LOG(LogTemp, Warning, TEXT("NPC %s failed to run a custom combat tree."), *GetOwner()->GetName());
 	}
 }
 
-void UNPCAbilityComponent::OnAbilityChoiceAvailable(const int32 Priority)
-{
-	if (CombatBehavior != ENPCCombatBehavior::Combat)
-	{
-		return;
-	}
-	//TODO: Interrupting lower prio task.
-	UE_LOG(LogTemp, Warning, TEXT("High priority ability choice became available! %s"), *AbilityPriority[Priority].AbilityClass->GetName());
-}
-
-void UNPCAbilityComponent::AbortCurrentAbilityChoice()
-{
-	if (IsCasting())
-	{
-		CancelCurrentCast();
-	}
-	if (bMovingFromAbilityChoice)
-	{
-		if (IsValid(AIController))
-		{
-			AIController->StopMovement();
-		}
-		bMovingFromAbilityChoice = false;
-	}
-	CurrentAbilityChoice = -1;
-}
-
-bool UNPCAbilityComponent::ShouldMoveFromPriorityList() const
-{
-	return !bMovingFromAbilityChoice && (!IsCasting() || GetCurrentCast()->IsCastableWhileMoving());
-}
-
-void UNPCAbilityComponent::OnCastChanged(const FCastingState& PreviousState, const FCastingState& NewState)
-{
-	//Select a new ability choice whenever we finish a cast.
-	if (CombatBehavior == ENPCCombatBehavior::Combat && !NewState.bIsCasting)
-	{
-		SelectAbilityChoice();
-	}
-}
 
 void UNPCAbilityComponent::LeaveCombatState()
 {
 	//If we're using a behavior tree for combat, stop running it.
-	if (bUseCustomCombatTree)
+	if (IsValid(AIController) && IsValid(AIController->GetBrainComponent()))
 	{
-		if (IsValid(AIController) && IsValid(AIController->GetBrainComponent()))
-		{
-			AIController->GetBrainComponent()->StopLogic("Leaving combat");
-		}
-	}
-	//If we're using the ability priority list, abort our current cast and pathfinding.
-	else
-	{
-		OnCastStateChanged.RemoveDynamic(this, &UNPCAbilityComponent::OnCastChanged);
-		AbortCurrentAbilityChoice(false);
-		AbortCurrentMovementChoice(false);
+		AIController->GetBrainComponent()->StopLogic("Leaving combat");
 	}
 }
 

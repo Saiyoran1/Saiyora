@@ -1,6 +1,7 @@
 #include "CombatGroup.h"
 #include "CombatStatusComponent.h"
 #include "DamageHandler.h"
+#include "HairStrandsInterface.h"
 #include "SaiyoraCombatInterface.h"
 #include "ThreatHandler.h"
 
@@ -285,3 +286,20 @@ void UCombatGroup::OnCombatantLifeStatusChanged(AActor* Actor, const ELifeStatus
 	}
 }
 
+void UCombatGroup::GetPlayersInGroup(TArray<AActor*>& OutPlayers) const
+{
+	OutPlayers.Empty();
+	for (UThreatHandler* Ally : Friendlies)
+	{
+		OutPlayers.Add(Ally->GetOwner());
+	}
+}
+
+void UCombatGroup::GetNPCsInGroup(TArray<AActor*>& OutNPCs) const
+{
+	OutNPCs.Empty();
+	for (UThreatHandler* NPC : Enemies)
+	{
+		OutNPCs.Add(NPC->GetOwner());
+	}
+}

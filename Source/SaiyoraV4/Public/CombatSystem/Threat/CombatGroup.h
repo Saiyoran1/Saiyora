@@ -20,6 +20,11 @@ public:
 	void MergeWith(UCombatGroup* OtherGroup);
 	void NotifyOfMerge();
 
+	UFUNCTION(BlueprintPure)
+	void GetPlayersInGroup(TArray<AActor*>& OutPlayers) const;
+	UFUNCTION(BlueprintPure)
+	void GetNPCsInGroup(TArray<AActor*>& OutNPCs) const;
+
 private:
 	
 	UPROPERTY()
