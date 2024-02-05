@@ -18,7 +18,7 @@ public:
 	virtual void OnPredictedTick_Implementation(const int32 TickNumber) override;
 	virtual void OnServerTick_Implementation(const int32 TickNumber) override;
 	virtual void OnSimulatedTick_Implementation(const int32 TickNumber) override;
-	virtual void OnMisprediction_Implementation(const int32 PredictionID, const ECastFailReason FailReason) override;
+	virtual void OnMisprediction_Implementation(const int32 PredictionID, const TArray<ECastFailReason>& FailReasons) override;
 	virtual void OnPredictedCancel_Implementation() override;
 	virtual void OnServerCancel_Implementation() override;
 	virtual void OnSimulatedCancel_Implementation() override;

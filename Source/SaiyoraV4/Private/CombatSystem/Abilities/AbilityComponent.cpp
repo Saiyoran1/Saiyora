@@ -12,7 +12,6 @@
 #include "SaiyoraCombatLibrary.h"
 #include "SaiyoraMovementComponent.h"
 #include "UnrealNetwork.h"
-#include "Engine/ActorChannel.h"
 
 #pragma region Setup
 
@@ -171,13 +170,23 @@ void UAbilityComponent::CleanupRemovedAbility(UCombatAbility* Ability)
 FAbilityEvent UAbilityComponent::UseAbility(const TSubclassOf<UCombatAbility> AbilityClass)
 {
 	FAbilityEvent Result;
-	if (!IsLocallyControlled() || !IsValid(AbilityClass))
+	if (!IsLocallyControlled())
 	{
-		Result.FailReason = ECastFailReason::NetRole;
+		Result.FailReasons.AddUnique(ECastFailReason::NetRole);
+		return Result;
+	}
+	if (!IsValid(AbilityClass))
+	{
+		Result.FailReasons.AddUnique(ECastFailReason::InvalidAbility);
 		return Result;
 	}
 	Result.Ability = ActiveAbilities.FindRef(AbilityClass);
-	if (!CanUseAbility(Result.Ability, Result.FailReason))
+	if (!IsValid(Result.Ability))
+	{
+		Result.FailReasons.AddUnique(ECastFailReason::InvalidAbility);
+		return Result;
+	}
+	if (!Result.Ability->IsCastable(Result.FailReasons))
 	{
 		return Result;
 	}
@@ -216,7 +225,7 @@ FAbilityEvent UAbilityComponent::UseAbility(const TSubclassOf<UCombatAbility> Ab
 			}
 			break;
 		default :
-			Result.FailReason = ECastFailReason::InvalidCastType;
+			UE_LOG(LogTemp, Warning, TEXT("Defaulted on cast type for server ability."));
 			return Result;
 		}
 	}
@@ -278,7 +287,7 @@ void UAbilityComponent::ServerPredictAbility_Implementation(const FAbilityReques
 		ServerResult.AbilityClass = Request.AbilityClass;
 		if (Request.PredictionID <= LastPredictionID)
 		{
-			ServerResult.FailReason = ECastFailReason::NetRole;
+			ServerResult.FailReasons.AddUnique(ECastFailReason::NetRole);
 			PredictedTickRecord.Add(FPredictedTick(Request.PredictionID, 0), false);
 			ClientPredictionResult(ServerResult);
 			return;
@@ -286,13 +295,18 @@ void UAbilityComponent::ServerPredictAbility_Implementation(const FAbilityReques
 		LastPredictionID = Request.PredictionID;
 		if (!IsValid(Request.AbilityClass))
 		{
-			ServerResult.FailReason = ECastFailReason::InvalidAbility;
+			ServerResult.FailReasons.AddUnique(ECastFailReason::InvalidAbility);
 			PredictedTickRecord.Add(FPredictedTick(Request.PredictionID, 0), false);
 			ClientPredictionResult(ServerResult);
 			return;
 		}
 		UCombatAbility* Ability = ActiveAbilities.FindRef(Request.AbilityClass);
-		if (!CanUseAbility(Ability, ServerResult.FailReason))
+		const bool bValidAbility = IsValid(Ability);
+		if (!bValidAbility)
+		{
+			ServerResult.FailReasons.AddUnique(ECastFailReason::InvalidAbility);
+		}
+		if (!bValidAbility || !Ability->IsCastable(ServerResult.FailReasons))
 		{
 			PredictedTickRecord.Add(FPredictedTick(Request.PredictionID, 0), false);
 			ClientPredictionResult(ServerResult);
@@ -1173,47 +1187,6 @@ void UAbilityComponent::RemoveAbilityClassRestriction(UBuff* Source, const TSubc
 			}
 		}
 	}
-}
-
-bool UAbilityComponent::CanUseAbility(const UCombatAbility* Ability, ECastFailReason& OutFailReason) const
-{
-	OutFailReason = ECastFailReason::None;
-	if (!IsValid(Ability))
-	{
-		OutFailReason = ECastFailReason::InvalidAbility;
-		return false;
-	}
-	if (Ability->GetCastType() == EAbilityCastType::None)
-	{
-		OutFailReason = ECastFailReason::InvalidCastType;
-		return false;
-	}
-	if (!Ability->IsCastableWhileDead() && IsValid(DamageHandlerRef) && DamageHandlerRef->GetLifeStatus() != ELifeStatus::Alive)
-	{
-		OutFailReason = ECastFailReason::Dead;
-		return false;
-	}
-	if (!Ability->IsCastableWhileMoving() && IsValid(MovementComponentRef) && MovementComponentRef->IsMoving())
-	{
-		OutFailReason = ECastFailReason::Moving;
-		return false;
-	}
-	OutFailReason = Ability->IsCastable();
-	if (OutFailReason != ECastFailReason::None)
-	{
-		return false;
-	}
-	if (Ability->HasGlobalCooldown() && GlobalCooldownState.bActive)
-	{
-		OutFailReason = ECastFailReason::OnGlobalCooldown;
-		return false;
-	}
-	if ((Ability->GetCastType() != EAbilityCastType::Instant || !Ability->CanCastWhileCasting()) && CastingState.bIsCasting)
-	{
-		OutFailReason = ECastFailReason::AlreadyCasting;
-		return false;
-	}
-	return true;
 }
 
 #pragma endregion

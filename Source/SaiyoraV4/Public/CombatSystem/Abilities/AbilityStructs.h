@@ -158,7 +158,7 @@ struct FAbilityEvent
     UPROPERTY(BlueprintReadOnly)
     int32 Tick = 0;
     UPROPERTY(BlueprintReadOnly)
-    ECastFailReason FailReason = ECastFailReason::None;
+    TArray<ECastFailReason> FailReasons;
     UPROPERTY()
     int32 PredictionID = 0;
     UPROPERTY(BlueprintReadOnly)
@@ -338,3 +338,4 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityMispredictionNotification, c
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FGlobalCooldownNotification, const FGlobalCooldown&, OldGlobalCooldown, const FGlobalCooldown&, NewGlobalCooldown);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FCastingStateNotification, const FCastingState&, OldState, const FCastingState&, NewState);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FAbilityChargeNotification, UCombatAbility*, Ability, const int32, OldCharges, const int32, NewCharges);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FAbilityCastableNotification, UCombatAbility*, Ability, const bool, bCastable, const TArray<ECastFailReason>&, CastFailReasons);

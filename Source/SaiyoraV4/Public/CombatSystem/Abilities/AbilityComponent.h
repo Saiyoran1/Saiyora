@@ -55,7 +55,7 @@ struct FServerAbilityResult
 	UPROPERTY()
 	bool bSuccess = false;
 	UPROPERTY()
-	ECastFailReason FailReason = ECastFailReason::None;
+	TArray<ECastFailReason> FailReasons;
 	UPROPERTY()
 	int32 PredictionID = 0;
 	UPROPERTY()
@@ -162,8 +162,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	FAbilityEvent UseAbility(const TSubclassOf<UCombatAbility> AbilityClass);
 	bool UseAbilityFromPredictedMovement(const FAbilityRequest& Request);
-	UFUNCTION(BlueprintPure, Category = "Abilities")
-	bool CanUseAbility(const UCombatAbility* Ability, ECastFailReason& OutFailReason) const;
 	UPROPERTY(BlueprintAssignable)
 	FAbilityNotification OnAbilityTick;
 	UPROPERTY(BlueprintAssignable)

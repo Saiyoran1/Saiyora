@@ -22,13 +22,26 @@ void UBTD_AbilityUsable::InitializeMemory(UBehaviorTreeComponent& OwnerComp, uin
 	}
 	if (!OwnerComp.GetAIOwner()->GetPawn()->Implements<USaiyoraCombatInterface>())
 	{
-		Memory->OwnerAbilityComp = nullptr;
+		Memory->Ability = nullptr;
 		Memory->bUsable = false;
 		return;
 	}
-	Memory->OwnerAbilityComp = ISaiyoraCombatInterface::Execute_GetAbilityComponent(OwnerComp.GetAIOwner()->GetPawn());
-	ECastFailReason FailReason = ECastFailReason::None;
-	Memory->bUsable = IsValid(Memory->OwnerAbilityComp) ? Memory->OwnerAbilityComp->CanUseAbility(Memory->OwnerAbilityComp->FindActiveAbility(AbilityClass), FailReason) : false;
+	const UAbilityComponent* AbilityComp = ISaiyoraCombatInterface::Execute_GetAbilityComponent(OwnerComp.GetAIOwner()->GetPawn());
+	if (!IsValid(AbilityComp))
+	{
+		Memory->Ability = nullptr;
+		Memory->bUsable = false;
+		return;
+	}
+	Memory->Ability = AbilityComp->FindActiveAbility(AbilityClass);
+	if (!IsValid(Memory->Ability))
+	{
+		Memory->Ability = nullptr;
+		Memory->bUsable = false;
+		return;
+	}
+	TArray<ECastFailReason> FailReasons;
+	Memory->bUsable = Memory->Ability->IsCastable(FailReasons);
 }
 
 void UBTD_AbilityUsable::CleanupMemory(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory,
@@ -41,7 +54,7 @@ void UBTD_AbilityUsable::CleanupMemory(UBehaviorTreeComponent& OwnerComp, uint8*
 	{
 		return;
 	}
-	Memory->OwnerAbilityComp = nullptr;
+	Memory->Ability = nullptr;
 	Memory->bUsable = false;
 }
 
@@ -55,8 +68,8 @@ void UBTD_AbilityUsable::TickNode(UBehaviorTreeComponent& OwnerComp, uint8* Node
 		return;
 	}
 	const bool bPreviouslyUsable = Memory->bUsable;
-	ECastFailReason FailReason = ECastFailReason::None;
-	Memory->bUsable = Memory->bUsable = IsValid(Memory->OwnerAbilityComp) ? Memory->OwnerAbilityComp->CanUseAbility(Memory->OwnerAbilityComp->FindActiveAbility(AbilityClass), FailReason) : false;
+	TArray<ECastFailReason> FailReasons;
+	Memory->bUsable = Memory->bUsable = IsValid(Memory->Ability) ? Memory->Ability->IsCastable(FailReasons) : false;
 	if (Memory->bUsable != bPreviouslyUsable)
 	{
 		ConditionalFlowAbort(OwnerComp, EBTDecoratorAbortRequest::ConditionResultChanged);

@@ -9,7 +9,7 @@ class UCombatAbility;
 struct FBTDMemory_AbilityUsable
 {
 	bool bUsable = false;
-	UAbilityComponent* OwnerAbilityComp = nullptr;
+	UCombatAbility* Ability = nullptr;
 };
 
 UCLASS()

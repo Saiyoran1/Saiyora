@@ -1,9 +1,12 @@
 #include "CombatAbility.h"
 #include "AbilityComponent.h"
 #include "Buff.h"
+#include "DamageHandler.h"
 #include "Resource.h"
 #include "ResourceHandler.h"
+#include "SaiyoraCombatInterface.h"
 #include "SaiyoraCombatLibrary.h"
+#include "SaiyoraMovementComponent.h"
 #include "UnrealNetwork.h"
 #include "Kismet/KismetSystemLibrary.h"
 
@@ -58,6 +61,34 @@ void UCombatAbility::InitializeAbility(UAbilityComponent* AbilityComponent)
         return;
     }
     OwningComponent = AbilityComponent;
+
+    if (!bCastableWhileDead)
+    {
+        DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(OwningComponent->GetOwner());
+        if (IsValid(DamageHandlerRef))
+        {
+            DamageHandlerRef->OnLifeStatusChanged.AddDynamic(this, &UCombatAbility::OnLifeStatusChanged);   
+        }
+    }
+
+    if (!bCastableWhileMoving)
+    {
+        MovementCompRef = ISaiyoraCombatInterface::Execute_GetCustomMovementComponent(OwningComponent->GetOwner());
+        if (IsValid(MovementCompRef))
+        {
+            MovementCompRef->OnMovementChanged.AddDynamic(this, &UCombatAbility::OnMovementChanged);
+        }
+    }
+
+    if (!bCastableWhileCasting)
+    {
+        OwningComponent->OnCastStateChanged.AddDynamic(this, &UCombatAbility::OnCastStateChanged);
+    }
+
+    if (bOnGlobalCooldown)
+    {
+        OwningComponent->OnGlobalCooldownChanged.AddDynamic(this, &UCombatAbility::OnGlobalCooldownChanged);
+    }
 
     FModifiableIntCallback MaxChargeCallback;
     MaxChargeCallback.BindUObject(this, &UCombatAbility::OnMaxChargesUpdated);
@@ -121,7 +152,7 @@ void UCombatAbility::OnRep_Deactivated()
 
 void UCombatAbility::ModifyCurrentCharges(const int32 Charges, const EChargeModificationType ModificationType)
 {
-    if (OwningComponent->GetOwnerRole() != ROLE_Authority || ModificationType == EChargeModificationType::None)
+    if (OwningComponent->GetOwnerRole() != ROLE_Authority)
     {
         return;
     }
@@ -515,7 +546,7 @@ void UCombatAbility::UpdatePredictionFromServer(const FServerAbilityResult& Resu
     }
     if (!Result.bSuccess)
     {
-        OnMisprediction(Result.PredictionID, Result.FailReason);
+        OnMisprediction(Result.PredictionID, Result.FailReasons);
     }
 }
 
@@ -776,29 +807,49 @@ void UCombatAbility::UpdateChargesPerCooldownModifier(const FCombatModifierHandl
 
 void UCombatAbility::UpdateCastable()
 {
+    const bool bWasCastable = CastFailReasons.Num() == 0;
+    CastFailReasons.Empty();
+    
     if (!bInitialized || bDeactivated)
     {
-        Castable = ECastFailReason::InvalidAbility;
+        CastFailReasons.AddUnique(ECastFailReason::InvalidAbility);
     }
-    else if (GetCurrentCharges() < GetChargeCost())
+    if (GetCurrentCharges() < GetChargeCost())
     {
-        Castable = ECastFailReason::ChargesNotMet;
+        CastFailReasons.AddUnique(ECastFailReason::ChargesNotMet);
     }
-    else if (UnmetCosts.Num() > 0)
+    if (UnmetCosts.Num() > 0)
     {
-        Castable = ECastFailReason::CostsNotMet;
+        CastFailReasons.AddUnique(ECastFailReason::CostsNotMet);
     }
-    else if (CustomCastRestrictions.Num() > 0)
+    if (CustomCastRestrictions.Num() > 0)
     {
-        Castable = ECastFailReason::AbilityConditionsNotMet;
+        CastFailReasons.AddUnique(ECastFailReason::AbilityConditionsNotMet);
     }
-    else if (bTagsRestricted)
+    if (bTagsRestricted)
     {
-        Castable = ECastFailReason::CustomRestriction;
+        CastFailReasons.AddUnique(ECastFailReason::CustomRestriction);
     }
-    else
+    if (!bCastableWhileCasting && OwningComponent->IsCasting())
     {
-        Castable = ECastFailReason::None;
+        CastFailReasons.AddUnique(ECastFailReason::AlreadyCasting);
+    }
+    if (bOnGlobalCooldown && OwningComponent->IsGlobalCooldownActive())
+    {
+        CastFailReasons.AddUnique(ECastFailReason::OnGlobalCooldown);
+    }
+    if (!bCastableWhileDead && IsValid(DamageHandlerRef) && DamageHandlerRef->GetLifeStatus() != ELifeStatus::Alive)
+    {
+        CastFailReasons.AddUnique(ECastFailReason::Dead);
+    }
+    if (!bCastableWhileMoving && IsValid(MovementCompRef) && MovementCompRef->IsMoving())
+    {
+        CastFailReasons.AddUnique(ECastFailReason::Moving);
+    }
+    
+    if (bWasCastable != (CastFailReasons.Num() == 0))
+    {
+        OnCastableChanged.Broadcast(this, CastFailReasons.Num() == 0, CastFailReasons);
     }
 }
 

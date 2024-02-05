@@ -66,9 +66,9 @@ void UReload::OnSimulatedTick_Implementation(const int32 TickNumber)
 	}
 }
 
-void UReload::OnMisprediction_Implementation(const int32 PredictionID, const ECastFailReason FailReason)
+void UReload::OnMisprediction_Implementation(const int32 PredictionID, const TArray<ECastFailReason>& FailReasons)
 {
-	Super::OnMisprediction_Implementation(PredictionID, FailReason);
+	Super::OnMisprediction_Implementation(PredictionID, FailReasons);
 	CancelReloadMontage();
 	if (bWaitingOnReloadResult)
 	{

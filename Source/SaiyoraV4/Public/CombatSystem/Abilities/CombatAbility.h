@@ -1,6 +1,5 @@
 #pragma once
 #include "CoreMinimal.h"
-#include "UObject/NoExportTypes.h"
 #include "CombatEnums.h"
 #include "DamageEnums.h"
 #include "AbilityStructs.h"
@@ -8,7 +7,9 @@
 #include "GameFramework/GameStateBase.h"
 #include "CombatAbility.generated.h"
 
+class USaiyoraMovementComponent;
 class UCrowdControl;
+class UDamageHandler;
 class UAbilityComponent;
 struct FServerAbilityResult;
 
@@ -100,13 +101,16 @@ protected:
 public:
 
     UFUNCTION(BlueprintPure, Category = "Abilities")
-    ECastFailReason IsCastable() const { return Castable; }
+    bool IsCastable(TArray<ECastFailReason>& FailReasons) const { FailReasons = CastFailReasons; return CastFailReasons.Num() == 0; }
     UFUNCTION(BlueprintPure, Category = "Abilities")
     bool IsCastableWhileDead() const { return bCastableWhileDead; }
     UFUNCTION(BlueprintPure, Category = "Abilities")
     void GetRestrictedCrowdControls(FGameplayTagContainer& OutCrowdControls) const { OutCrowdControls = RestrictedCrowdControls; }
     UFUNCTION(BlueprintPure, Category = "Abilities")
     bool IsCastableWhileMoving() const { return bCastableWhileMoving; }
+
+    UPROPERTY(BlueprintAssignable)
+    FAbilityCastableNotification OnCastableChanged;
     
     void AddRestrictedTag(const FGameplayTag RestrictedTag);
     void RemoveRestrictedTag(const FGameplayTag RestrictedTag);
@@ -129,15 +133,29 @@ protected:
     bool bCastableWhileMoving = true;
     
 private:
-    
-    ECastFailReason Castable = ECastFailReason::InvalidAbility;
+
     void UpdateCastable();
+    TArray<ECastFailReason> CastFailReasons;
     TSet<FGameplayTag> CustomCastRestrictions;
     TSet<FGameplayTag> RestrictedTags;
     UPROPERTY(ReplicatedUsing = OnRep_TagsRestricted)
     bool bTagsRestricted = false;
     UFUNCTION()
     void OnRep_TagsRestricted() { UpdateCastable(); }
+
+    UFUNCTION()
+    void OnLifeStatusChanged(AActor* Actor, const ELifeStatus Previous, const ELifeStatus New) { UpdateCastable(); }
+    UFUNCTION()
+    void OnMovementChanged(AActor* Actor, const bool bNewMovement) { UpdateCastable(); }
+    UFUNCTION()
+    void OnGlobalCooldownChanged(const FGlobalCooldown& Previous, const FGlobalCooldown& New) { UpdateCastable(); }
+    UFUNCTION()
+    void OnCastStateChanged(const FCastingState& Previous, const FCastingState& New) { UpdateCastable(); }
+
+    UPROPERTY()
+    UDamageHandler* DamageHandlerRef = nullptr;
+    UPROPERTY()
+    USaiyoraMovementComponent* MovementCompRef = nullptr;
 
 //Cast
 
@@ -165,7 +183,7 @@ public:
 protected:
 
     UPROPERTY(EditDefaultsOnly, Category = "Cast")
-    EAbilityCastType CastType = EAbilityCastType::None;
+    EAbilityCastType CastType = EAbilityCastType::Instant;
     UPROPERTY(EditDefaultsOnly, Category = "Cast")
     float DefaultCastTime = 0.0f;
     UPROPERTY(EditDefaultsOnly, Category = "Cast")
@@ -375,8 +393,8 @@ protected:
     void OnSimulatedInterrupt(const FInterruptEvent& InterruptEvent);
     virtual void OnSimulatedInterrupt_Implementation(const FInterruptEvent& InterruptEvent) {}
     UFUNCTION(BlueprintNativeEvent)
-    void OnMisprediction(const int32 PredictionID, const ECastFailReason FailReason);
-    virtual void OnMisprediction_Implementation(const int32 PredictionID, const ECastFailReason FailReason) {}
+    void OnMisprediction(const int32 PredictionID, const TArray<ECastFailReason>& FailReasons);
+    virtual void OnMisprediction_Implementation(const int32 PredictionID, const TArray<ECastFailReason>& FailReasons) {}
 
     UFUNCTION(BlueprintCallable, Category = "Abilities")
     void AddTargetSet(const FAbilityTargetSet& TargetSet) { CurrentTargets.Add(TargetSet); }

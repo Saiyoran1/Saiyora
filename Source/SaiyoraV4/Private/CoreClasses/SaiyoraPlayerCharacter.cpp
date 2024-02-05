@@ -305,10 +305,10 @@ void ASaiyoraPlayerCharacter::AbilityInput(const int32 InputNum, const bool bPre
 		}
 		//Attempt to use the ability.
 		const FAbilityEvent InitialAttempt = AbilityComponent->UseAbility(AbilityToUse->GetClass());
-		if (InitialAttempt.ActionTaken == ECastAction::Fail && (InitialAttempt.FailReason == ECastFailReason::AlreadyCasting || InitialAttempt.FailReason == ECastFailReason::OnGlobalCooldown))
+		if (InitialAttempt.ActionTaken == ECastAction::Fail && (InitialAttempt.FailReasons.Contains(ECastFailReason::AlreadyCasting) || InitialAttempt.FailReasons.Contains(ECastFailReason::OnGlobalCooldown)))
 		{
 			//If the attempt failed due to cast in progress or GCD, try and queue.
-			if (!TryQueueAbility(AbilityToUse->GetClass()) && InitialAttempt.FailReason == ECastFailReason::AlreadyCasting)
+			if (!TryQueueAbility(AbilityToUse->GetClass()) && InitialAttempt.FailReasons.Contains(ECastFailReason::AlreadyCasting))
 			{
 				//If we couldn't que, and originally failed due to casting, cancel the current cast and then re-attempt.
 				if (AbilityComponent->CancelCurrentCast().bSuccess)
@@ -324,7 +324,7 @@ void ASaiyoraPlayerCharacter::AbilityInput(const int32 InputNum, const bool bPre
 			{
 				AbilityComponent->UseAbility(StopFiringAbility->GetClass());
 			}
-			if (InitialAttempt.FailReason == ECastFailReason::CostsNotMet && IsValid(ReloadAbility))
+			if (InitialAttempt.FailReasons.Contains(ECastFailReason::CostsNotMet) && IsValid(ReloadAbility))
 			{
 				AbilityComponent->UseAbility(ReloadAbility->GetClass());
 			}
@@ -366,11 +366,11 @@ void ASaiyoraPlayerCharacter::Tick(float DeltaSeconds)
 		const FAbilityEvent Event = AbilityComponent->UseAbility(AutomaticInputAbility->GetClass());
 		if (IsValid(FireWeaponAbility) && AutomaticInputAbility == FireWeaponAbility && Event.ActionTaken == ECastAction::Fail)
 		{
-			if (Event.FailReason != ECastFailReason::AbilityConditionsNotMet && IsValid(Weapon) && Weapon->IsBurstFiring() && IsValid(StopFiringAbility))
+			if (!Event.FailReasons.Contains(ECastFailReason::AbilityConditionsNotMet) && IsValid(Weapon) && Weapon->IsBurstFiring() && IsValid(StopFiringAbility))
 			{
 				AbilityComponent->UseAbility(StopFiringAbility->GetClass());
 			}
-			if (Event.FailReason == ECastFailReason::CostsNotMet && IsValid(ReloadAbility))
+			if (Event.FailReasons.Contains(ECastFailReason::CostsNotMet) && IsValid(ReloadAbility))
 			{
 				AbilityComponent->UseAbility(ReloadAbility->GetClass());
 			}
@@ -461,7 +461,7 @@ void ASaiyoraPlayerCharacter::UseAbilityFromQueue(const TSubclassOf<UCombatAbili
 		{
 			AbilityComponent->UseAbility(StopFiringAbility->GetClass());
 		}
-		if (Event.FailReason == ECastFailReason::CostsNotMet && IsValid(ReloadAbility))
+		if (Event.FailReasons.Contains(ECastFailReason::CostsNotMet) && IsValid(ReloadAbility))
 		{
 			AbilityComponent->UseAbility(ReloadAbility->GetClass());
 		}
