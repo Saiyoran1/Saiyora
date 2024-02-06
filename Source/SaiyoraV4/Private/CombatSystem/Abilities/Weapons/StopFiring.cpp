@@ -17,9 +17,9 @@ UStopFiring::UStopFiring()
 	AbilityTags = FGameplayTagContainer(FSaiyoraCombatTags::Get().StopFireAbility);
 }
 
-void UStopFiring::PreInitializeAbility_Implementation()
+void UStopFiring::PostInitializeAbility_Implementation()
 {
-	Super::PreInitializeAbility_Implementation();
+	Super::PostInitializeAbility_Implementation();
 	OwningPlayer = Cast<ASaiyoraPlayerCharacter>(GetHandler()->GetOwner());
 }
 

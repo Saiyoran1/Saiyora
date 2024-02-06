@@ -73,9 +73,9 @@ void UFireWeapon::OnSimulatedTick_Implementation(const int32 TickNumber)
 	}
 }
 
-void UFireWeapon::PreInitializeAbility_Implementation()
+void UFireWeapon::PostInitializeAbility_Implementation()
 {
-	Super::PreInitializeAbility_Implementation();
+	Super::PostInitializeAbility_Implementation();
 	if (IsValid(WeaponClass))
 	{
 		FName WeaponSocketName = NAME_None;

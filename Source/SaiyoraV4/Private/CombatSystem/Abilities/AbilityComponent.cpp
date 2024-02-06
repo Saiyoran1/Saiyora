@@ -3,6 +3,7 @@
 #include "Buff.h"
 #include "BuffHandler.h"
 #include "CombatAbility.h"
+#include "CombatDebugOptions.h"
 #include "CombatStatusComponent.h"
 #include "CrowdControlHandler.h"
 #include "DamageHandler.h"
@@ -10,6 +11,7 @@
 #include "StatHandler.h"
 #include "ResourceHandler.h"
 #include "SaiyoraCombatLibrary.h"
+#include "SaiyoraGameInstance.h"
 #include "SaiyoraMovementComponent.h"
 #include "UnrealNetwork.h"
 
@@ -39,6 +41,11 @@ void UAbilityComponent::InitializeComponent()
 	DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
 	MovementComponentRef = ISaiyoraCombatInterface::Execute_GetCustomMovementComponent(GetOwner());
 	CombatStatusComponentRef = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(GetOwner());
+	const USaiyoraGameInstance* GameInstance = Cast<USaiyoraGameInstance>(GetWorld()->GetGameInstance());
+	if (IsValid(GameInstance))
+	{
+		CombatDebugOptions = GameInstance->CombatDebugOptions;
+	}
 	Super::InitializeComponent();
 }
 
@@ -170,24 +177,41 @@ void UAbilityComponent::CleanupRemovedAbility(UCombatAbility* Ability)
 FAbilityEvent UAbilityComponent::UseAbility(const TSubclassOf<UCombatAbility> AbilityClass)
 {
 	FAbilityEvent Result;
+	const bool bLogAbilityEvent = IsValid(CombatDebugOptions) && CombatDebugOptions->bLogAbilityEvents;
 	if (!IsLocallyControlled())
 	{
 		Result.FailReasons.AddUnique(ECastFailReason::NetRole);
+		if (bLogAbilityEvent)
+		{
+			CombatDebugOptions->LogAbilityEvent(GetOwner(), Result);
+		}
 		return Result;
 	}
 	if (!IsValid(AbilityClass))
 	{
 		Result.FailReasons.AddUnique(ECastFailReason::InvalidAbility);
+		if (bLogAbilityEvent)
+		{
+			CombatDebugOptions->LogAbilityEvent(GetOwner(), Result);
+		}
 		return Result;
 	}
 	Result.Ability = ActiveAbilities.FindRef(AbilityClass);
 	if (!IsValid(Result.Ability))
 	{
 		Result.FailReasons.AddUnique(ECastFailReason::InvalidAbility);
+		if (bLogAbilityEvent)
+		{
+			CombatDebugOptions->LogAbilityEvent(GetOwner(), Result);
+		}
 		return Result;
 	}
 	if (!Result.Ability->IsCastable(Result.FailReasons))
 	{
+		if (bLogAbilityEvent)
+		{
+			CombatDebugOptions->LogAbilityEvent(GetOwner(), Result);
+		}
 		return Result;
 	}
 	Result.PredictionID = GetOwnerRole() == ROLE_Authority ? 0 : GenerateNewPredictionID();
@@ -225,7 +249,10 @@ FAbilityEvent UAbilityComponent::UseAbility(const TSubclassOf<UCombatAbility> Ab
 			}
 			break;
 		default :
-			UE_LOG(LogTemp, Warning, TEXT("Defaulted on cast type for server ability."));
+			if (bLogAbilityEvent)
+			{
+				CombatDebugOptions->LogAbilityEvent(GetOwner(), Result);
+			}
 			return Result;
 		}
 	}
@@ -260,7 +287,10 @@ FAbilityEvent UAbilityComponent::UseAbility(const TSubclassOf<UCombatAbility> Ab
                     break;
 				}
 			default :
-				UE_LOG(LogTemp, Warning, TEXT("Defaulted on cast type for predicted ability."));
+				if (bLogAbilityEvent)
+				{
+					CombatDebugOptions->LogAbilityEvent(GetOwner(), Result);
+				}
 				return Result;
 		}
 		FClientAbilityPrediction Prediction;
@@ -270,6 +300,10 @@ FAbilityEvent UAbilityComponent::UseAbility(const TSubclassOf<UCombatAbility> Ab
 		Prediction.Time = GameStateRef->GetServerWorldTimeSeconds();
 		UnackedAbilityPredictions.Add(Result.PredictionID, Prediction);
 		ServerPredictAbility(Request);
+	}
+	if (bLogAbilityEvent)
+	{
+		CombatDebugOptions->LogAbilityEvent(GetOwner(), Result);
 	}
 	return Result;
 }

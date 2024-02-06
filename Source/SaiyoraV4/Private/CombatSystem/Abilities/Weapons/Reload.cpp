@@ -16,9 +16,9 @@ UReload::UReload()
 	bOnGlobalCooldown = false;
 }
 
-void UReload::PreInitializeAbility_Implementation()
+void UReload::PostInitializeAbility_Implementation()
 {
-	Super::PreInitializeAbility_Implementation();
+	Super::PostInitializeAbility_Implementation();
 	OwningPlayer = Cast<ASaiyoraPlayerCharacter>(GetHandler()->GetOwner());
 	if (GetHandler()->GetOwnerRole() != ROLE_SimulatedProxy && IsValid(GetHandler()->GetResourceHandlerRef()))
 	{

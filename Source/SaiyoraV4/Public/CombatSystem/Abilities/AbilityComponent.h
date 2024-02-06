@@ -8,6 +8,7 @@
 #include "GameplayTasksComponent.h"
 #include "AbilityComponent.generated.h"
 
+class UCombatDebugOptions;
 class UCombatStatusComponent;
 class USaiyoraMovementComponent;
 class UCrowdControlHandler;
@@ -341,4 +342,13 @@ private:
 
 	TMap<FCombatModifierHandle, FResourceCostModMap> GenericResourceCostMods;
 	void ApplyGenericCostModsToNewAbility(UCombatAbility* NewAbility);
+
+#pragma region Debug
+
+private:
+
+	UPROPERTY()
+	UCombatDebugOptions* CombatDebugOptions = nullptr;
+
+#pragma endregion 
 };

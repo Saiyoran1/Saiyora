@@ -38,8 +38,8 @@ public:
 protected:
     
     UFUNCTION(BlueprintNativeEvent)
-    void PreInitializeAbility();
-    virtual void PreInitializeAbility_Implementation() {}
+    void PostInitializeAbility();
+    virtual void PostInitializeAbility_Implementation() {}
     UFUNCTION(BlueprintNativeEvent)
     void PreDeactivateAbility();
     virtual void PreDeactivateAbility_Implementation() {}

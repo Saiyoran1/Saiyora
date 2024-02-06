@@ -35,81 +35,99 @@ void UCombatAbility::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& Out
 
 void UCombatAbility::PostNetReceive()
 {
+    //TODO: PostNetInit might be a better place for this one-time initialization for clients.
+    //Either that or OnRep_OwningComponent.
     if (bInitialized || bDeactivated)
     {
         return;
     }
     if (IsValid(OwningComponent))
     {
-        AbilityCosts.OwningAbility = this;
-        for (const FAbilityCost& Cost : AbilityCosts.Items)
-        {
-            UpdateCostFromReplication(Cost, true);
-        }
-        SetupCustomCastRestrictions();
-        UpdateCastable();
-        PreInitializeAbility();
-        bInitialized = true;
-        OwningComponent->NotifyOfReplicatedAbility(this);
+        InitializeAbility(OwningComponent);
     }
 }
 
 void UCombatAbility::InitializeAbility(UAbilityComponent* AbilityComponent)
 {
-    if (bInitialized || !IsValid(AbilityComponent) || AbilityComponent->GetOwnerRole() != ROLE_Authority)
+    if (bInitialized || bDeactivated || !IsValid(AbilityComponent))
     {
         return;
     }
-    OwningComponent = AbilityComponent;
-
-    if (!bCastableWhileDead)
-    {
-        DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(OwningComponent->GetOwner());
-        if (IsValid(DamageHandlerRef))
-        {
-            DamageHandlerRef->OnLifeStatusChanged.AddDynamic(this, &UCombatAbility::OnLifeStatusChanged);   
-        }
-    }
-
-    if (!bCastableWhileMoving)
-    {
-        MovementCompRef = ISaiyoraCombatInterface::Execute_GetCustomMovementComponent(OwningComponent->GetOwner());
-        if (IsValid(MovementCompRef))
-        {
-            MovementCompRef->OnMovementChanged.AddDynamic(this, &UCombatAbility::OnMovementChanged);
-        }
-    }
-
-    if (!bCastableWhileCasting)
-    {
-        OwningComponent->OnCastStateChanged.AddDynamic(this, &UCombatAbility::OnCastStateChanged);
-    }
-
-    if (bOnGlobalCooldown)
-    {
-        OwningComponent->OnGlobalCooldownChanged.AddDynamic(this, &UCombatAbility::OnGlobalCooldownChanged);
-    }
-
-    FModifiableIntCallback MaxChargeCallback;
-    MaxChargeCallback.BindUObject(this, &UCombatAbility::OnMaxChargesUpdated);
-    MaxCharges.SetMinClamp(true, 1);
-    AbilityCooldown.MaxCharges = FMath::Max(1, MaxCharges.GetCurrentValue());
-    AbilityCooldown.CurrentCharges = AbilityCooldown.MaxCharges;
-    MaxCharges.SetUpdatedCallback(MaxChargeCallback);
-    
-    FModifiableIntCallback ChargeCostCallback;
-    ChargeCostCallback.BindUObject(this, &UCombatAbility::OnChargeCostUpdated);
-    ChargeCost.SetUpdatedCallback(ChargeCostCallback);
-    ChargeCost.SetMinClamp(true, 0);
-    
-    ChargesPerCooldown.SetMinClamp(true, 0);
-    
-    SetupResourceCosts();
-    
-    SetupCustomCastRestrictions();
-    PreInitializeAbility();
     bInitialized = true;
-    UpdateCastable();
+    
+    OwningComponent = AbilityComponent;
+    const bool bServer = OwningComponent->GetOwnerRole() == ROLE_Authority;
+    const bool bLocallyControlled = Cast<APawn>(OwningComponent->GetOwner())->IsLocallyControlled();
+
+    //Server sets up binding and clamping for max charges, charge cost, resource costs, and charges per cooldown.
+    //Also sets the AbilityCooldown struct up for replication to the owning player.
+    if (bServer)
+    {
+        FModifiableIntCallback MaxChargeCallback;
+        MaxChargeCallback.BindUObject(this, &UCombatAbility::OnMaxChargesUpdated);
+        MaxCharges.SetMinClamp(true, 1);
+        AbilityCooldown.MaxCharges = FMath::Max(1, MaxCharges.GetCurrentValue());
+        AbilityCooldown.CurrentCharges = AbilityCooldown.MaxCharges;
+        MaxCharges.SetUpdatedCallback(MaxChargeCallback);
+    
+        FModifiableIntCallback ChargeCostCallback;
+        ChargeCostCallback.BindUObject(this, &UCombatAbility::OnChargeCostUpdated);
+        ChargeCost.SetUpdatedCallback(ChargeCostCallback);
+        ChargeCost.SetMinClamp(true, 0);
+
+        ChargesPerCooldown.SetMinClamp(true, 0);
+
+        SetupResourceCosts();
+    }
+    //Owning player binds to resources that this ability costs after the server replicates the costs down.
+    else if (bLocallyControlled)
+    {
+        AbilityCosts.OwningAbility = this;
+        for (const FAbilityCost& Cost : AbilityCosts.Items)
+        {
+            UpdateCostFromReplication(Cost, true);
+        }
+    }
+    
+    //Set up delegates that keep the "castable" state of the ability updated for the server and owning player.
+    if (bServer || bLocallyControlled)
+    {
+        SetupCustomCastRestrictions();
+        if (!bCastableWhileDead)
+        {
+            DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(OwningComponent->GetOwner());
+            if (IsValid(DamageHandlerRef))
+            {
+                DamageHandlerRef->OnLifeStatusChanged.AddDynamic(this, &UCombatAbility::OnLifeStatusChanged);   
+            }
+        }
+        if (!bCastableWhileMoving)
+        {
+            MovementCompRef = ISaiyoraCombatInterface::Execute_GetCustomMovementComponent(OwningComponent->GetOwner());
+            if (IsValid(MovementCompRef))
+            {
+                MovementCompRef->OnMovementChanged.AddDynamic(this, &UCombatAbility::OnMovementChanged);
+            }
+        }
+        if (!bCastableWhileCasting)
+        {
+            OwningComponent->OnCastStateChanged.AddDynamic(this, &UCombatAbility::OnCastStateChanged);
+        }
+        if (bOnGlobalCooldown)
+        {
+            OwningComponent->OnGlobalCooldownChanged.AddDynamic(this, &UCombatAbility::OnGlobalCooldownChanged);
+        }
+        UpdateCastable();
+    }
+
+    //Blueprint function for child classes.
+    PostInitializeAbility();
+
+    //Notify the client ability handler of the new ability so it can be added to the ActiveAbilities array.
+    if (!bServer)
+    {
+        OwningComponent->NotifyOfReplicatedAbility(this);
+    }
 }
 
 void UCombatAbility::SetupCostCheckingForNewResource(UResource* Resource)

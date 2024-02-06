@@ -107,7 +107,7 @@ public:
 
 protected:
 
-	virtual void PreInitializeAbility_Implementation() override;
+	virtual void PostInitializeAbility_Implementation() override;
 
 private:
 

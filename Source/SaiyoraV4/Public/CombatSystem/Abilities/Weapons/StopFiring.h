@@ -16,7 +16,7 @@ public:
 
 protected:
 
-	virtual void PreInitializeAbility_Implementation() override;
+	virtual void PostInitializeAbility_Implementation() override;
 	virtual void OnPredictedTick_Implementation(const int32 TickNumber) override;
 	virtual void OnServerTick_Implementation(const int32 TickNumber) override;
 	virtual void OnSimulatedTick_Implementation(const int32 TickNumber) override;
