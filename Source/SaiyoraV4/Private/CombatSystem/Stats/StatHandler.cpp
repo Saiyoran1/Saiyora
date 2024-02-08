@@ -26,13 +26,7 @@ void UStatHandler::InitializeComponent()
 			Stat.OnStatChanged.Broadcast(Stat.StatTag, NewValue);
 		});
 		Stat.StatValue.SetUpdatedCallback(Callback);
-		//TODO: This is currently necessary to force a recalculation, otherwise the current value won't be updated to the default value.
-		//Not sure why constructor is never getting called but there is probably a few ways to handle this:
-		//1. Try using PostEditChangeProperty to initialize stats when new stats are added?
-		//2. Duplicate the editable stats array (that is filled from template and edited in the editor) to a separate replicated array, which should force constructors?
-		//3. Add an initialize function to the FCombatStat/FModifiableFloat struct that handles this, and call it here.
-		//4. Leave it as is.
-		Stat.StatValue.SetDefaultValue(Stat.StatValue.GetDefaultValue());
+		Stat.StatValue.Init();
 		Stats.MarkItemDirty(Stat);
 	}
 }

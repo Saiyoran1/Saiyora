@@ -18,7 +18,7 @@ class SAIYORAV4_API UCombatAbility : public UObject
 {
 	GENERATED_BODY()
 
-//Setup
+#pragma region Core
     
 public:
 
@@ -53,8 +53,9 @@ private:
     bool bDeactivated = false; 
     UFUNCTION()
     void OnRep_Deactivated();
-    
-//Basic Info
+
+#pragma endregion 
+#pragma region Info
     
 public:
     
@@ -95,8 +96,9 @@ protected:
     bool bAutomatic = false;
     UPROPERTY(EditDefaultsOnly, Category = "Info")
     bool bCancelOnRelease = false;
-    
-//Restrictions
+
+#pragma endregion 
+#pragma region Restrictions
     
 public:
 
@@ -157,7 +159,8 @@ private:
     UPROPERTY()
     USaiyoraMovementComponent* MovementCompRef = nullptr;
 
-//Cast
+#pragma endregion 
+#pragma region Casting
 
 public:
 
@@ -196,8 +199,9 @@ protected:
     bool bInterruptible = true;
     UPROPERTY(EditDefaultsOnly, Category = "Cast")
     bool bCastableWhileCasting = false;
- 
-//Global Cooldown
+
+#pragma endregion 
+#pragma region Global Cooldown
     
 public:
     
@@ -218,8 +222,9 @@ protected:
     float DefaultGlobalCooldownLength = 1.0f;
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
     bool bStaticGlobalCooldownLength = true;
-    
-//Cooldown
+
+#pragma endregion 
+#pragma region Cooldown
     
 public:
     
@@ -319,8 +324,9 @@ private:
     void OnChargeCostUpdated(const int32 OldValue, const int32 NewValue) { UpdateCastable(); }
     UFUNCTION()
     void OnRep_ChargeCost() { UpdateCastable(); }
-    
-//Costs
+
+#pragma endregion 
+#pragma region Costs
     
 public:
     
@@ -350,7 +356,8 @@ private:
     TSet<TSubclassOf<UResource>> UnmetCosts;
     TSet<TSubclassOf<UResource>> UninitializedResources;
 
-//Functionality
+#pragma endregion 
+#pragma region Functionality
 
 public:
 
@@ -426,4 +433,6 @@ private:
     int32 CurrentTick = 0;
     TArray<FAbilityTargetSet> CurrentTargets;
     FAbilityOrigin AbilityOrigin;
+
+#pragma endregion 
 };

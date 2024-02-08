@@ -449,12 +449,14 @@ struct FModifiableFloat
 
 public:
 
+    void Init() { Recalculate(); }
+
     FCombatModifierHandle AddModifier(const FCombatModifier& Modifier);
     void RemoveModifier(const FCombatModifierHandle& ModifierHandle);
     void UpdateModifier(const FCombatModifierHandle& ModifierHandle, const FCombatModifier& NewModifier);
     void SetUpdatedCallback(const FModifiableFloatCallback& Callback);
 
-    float GetCurrentValue() const { return bInitialized ? CurrentValue : DefaultValue; }
+    float GetCurrentValue() const { return CurrentValue; }
     float GetDefaultValue() const { return DefaultValue; }
     bool IsModifiable() const { return bIsModifiable; }
 
@@ -463,25 +465,9 @@ public:
     void SetMinClamp(const bool bClamp, const float NewClamp) { bClampMin = bClamp; MinClamp = bClampMin ? NewClamp : 0.0f; Recalculate(); }
     void SetMaxClamp(const bool bClamp, const float NewClamp) { bClampMax = bClamp; MaxClamp = bClampMax ? NewClamp : 0.0f; Recalculate(); }
 
-    FModifiableFloat() { Recalculate(); }
-    //This constructor gets called when making the in-game struct from the editor struct I think.
-    //This allows a recalculation to happen immediately, instead of needing to manually initialize the struct.
-    FModifiableFloat(const FModifiableFloat& Other)
-    {
-        *this = Other;
-        Recalculate();
-    }
+    FModifiableFloat() {}
     FModifiableFloat(const float Default, const bool bModifiable, const bool bClampLow = false, const float LowClamp = 0.0f, const bool bClampHigh = false, const float HighClamp = 0.0f)
-    {
-        UE_LOG(LogTemp, Warning, TEXT("Default value = %f"), Default);
-        DefaultValue = Default;
-        bIsModifiable = bModifiable;
-        bClampMin = bClampLow;
-        MinClamp = bClampMin ? LowClamp : 0.0f;
-        bClampMax = bClampHigh;
-        MaxClamp = bClampMax ? HighClamp : 0.0f;
-        Recalculate();
-    }
+        : DefaultValue(Default), bIsModifiable(bModifiable), bClampMin(bClampLow), MinClamp(LowClamp), bClampMax(bClampHigh), MaxClamp(HighClamp), CurrentValue(Default) {}
     
 private:
 
@@ -522,7 +508,14 @@ public:
     void UpdateModifier(const FCombatModifierHandle& ModifierHandle, const FCombatModifier& NewModifier);
     void SetUpdatedCallback(const FModifiableIntCallback& Callback);
 
-    int32 GetCurrentValue() const { return bInitialized ? CurrentValue : DefaultValue; }
+    int32 GetCurrentValue() const
+    {
+        if (!bInitialized)
+        {
+            const_cast<FModifiableInt*>(this)->Recalculate();
+        }
+        return CurrentValue;
+    }
     int32 GetDefaultValue() const { return DefaultValue; }
     bool IsModifiable() const { return bIsModifiable; }
 
@@ -531,24 +524,9 @@ public:
     void SetMinClamp(const bool bClamp, const int32 NewClamp) { bClampMin = bClamp; MinClamp = bClampMin ? NewClamp : 0; Recalculate(); }
     void SetMaxClamp(const bool bClamp, const int32 NewClamp) { bClampMax = bClamp; MaxClamp = bClampMax ? NewClamp : 0; Recalculate(); }
 
-    FModifiableInt() { Recalculate(); }
-    //This constructor gets called when making the in-game struct from the editor struct I think.
-    //This allows a recalculation to happen immediately, instead of needing to manually initialize the struct.
-    FModifiableInt(const FModifiableInt& Other)
-    {
-        *this = Other;
-        Recalculate();
-    }
+    FModifiableInt() {}
     FModifiableInt(const int32 Default, const bool bModifiable, const bool bClampLow = false, const int32 LowClamp = 0, const bool bClampHigh = false, const int32 HighClamp = 0)
-    {
-        DefaultValue = Default;
-        bIsModifiable = bModifiable;
-        bClampMin = bClampLow;
-        MinClamp = bClampMin ? LowClamp : 0;
-        bClampMax = bClampHigh;
-        MaxClamp = bClampMax ? HighClamp : 0;
-        Recalculate();
-    }
+        : DefaultValue(Default), bIsModifiable(bModifiable), bClampMin(bClampLow), MinClamp(LowClamp), bClampMax(bClampHigh), MaxClamp(HighClamp) {}
     
 private:
 

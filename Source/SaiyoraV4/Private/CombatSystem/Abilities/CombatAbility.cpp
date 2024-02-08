@@ -8,7 +8,6 @@
 #include "SaiyoraCombatLibrary.h"
 #include "SaiyoraMovementComponent.h"
 #include "UnrealNetwork.h"
-#include "Kismet/KismetSystemLibrary.h"
 
 #pragma region Setup
 
@@ -342,6 +341,8 @@ void UCombatAbility::SetupResourceCosts()
         });
         AbilityCost.Cost.SetUpdatedCallback(CostChangeCallback);
         AbilityCost.Cost.SetMinClamp(true, 0.0f);
+        AbilityCost.Cost.Init();
+        
         bool bValidResource = false;
         if (IsValid(OwningComponent->GetResourceHandlerRef()))
         {
