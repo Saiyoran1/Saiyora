@@ -153,11 +153,11 @@ void FModifiableFloat::Recalculate()
     }
     if (bClampMin)
     {
-        CurrentValue = FMath::Max(CurrentValue, MinClamp);
+        CurrentValue = FMath::Max(CurrentValue, Minimum);
     }
     if (bClampMax)
     {
-        CurrentValue = FMath::Min(CurrentValue, MaxClamp);
+        CurrentValue = FMath::Min(CurrentValue, Maximum);
     }
     if (PreviousValue != CurrentValue && OnUpdated.IsBound())
     {

@@ -342,9 +342,11 @@ public:
     
 private:
 
+    UPROPERTY(EditDefaultsOnly, Category = "Cost")
+    TArray<FAbilityCost> ResourceCosts;
     UPROPERTY(Replicated, EditDefaultsOnly, Category = "Cost")
     FAbilityCostArray AbilityCosts;
-    void SetupResourceCosts();
+    void SetupServerResourceCosts();
     UFUNCTION()
     void OnResourceValueChanged(UResource* Resource, UObject* ChangeSource, const FResourceState& PreviousState, const FResourceState& NewState);
     void OnResourceCostChanged(FAbilityCost& AbilityCost);

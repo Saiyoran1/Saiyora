@@ -3,6 +3,7 @@
 #include "AbilityEnums.h"
 #include "CombatStructs.h"
 #include "Resource.h"
+#include "Net/Serialization/FastArraySerializer.h"
 #include "AbilityStructs.generated.h"
 
 class UCombatAbility;
@@ -39,7 +40,7 @@ struct FAbilityCost : public FFastArraySerializerItem
     void PostReplicatedAdd(const struct FAbilityCostArray& InArraySerializer);
     void PostReplicatedChange(const struct FAbilityCostArray& InArraySerializer);
 
-    FORCEINLINE bool operator==(const FAbilityCost& Other) const { return ResourceClass == Other.ResourceClass && Cost.GetCurrentValue() == Other.Cost.GetCurrentValue(); }
+    //FORCEINLINE bool operator==(const FAbilityCost& Other) const { return ResourceClass == Other.ResourceClass && Cost.GetCurrentValue() == Other.Cost.GetCurrentValue(); }
 };
 
 USTRUCT()

@@ -62,21 +62,21 @@ void UCombatAbility::InitializeAbility(UAbilityComponent* AbilityComponent)
     //Also sets the AbilityCooldown struct up for replication to the owning player.
     if (bServer)
     {
-        FModifiableIntCallback MaxChargeCallback;
-        MaxChargeCallback.BindUObject(this, &UCombatAbility::OnMaxChargesUpdated);
         MaxCharges.SetMinClamp(true, 1);
         AbilityCooldown.MaxCharges = FMath::Max(1, MaxCharges.GetCurrentValue());
         AbilityCooldown.CurrentCharges = AbilityCooldown.MaxCharges;
+        FModifiableIntCallback MaxChargeCallback;
+        MaxChargeCallback.BindUObject(this, &UCombatAbility::OnMaxChargesUpdated);
         MaxCharges.SetUpdatedCallback(MaxChargeCallback);
-    
+        
+        ChargeCost.SetMinClamp(true, 0);
         FModifiableIntCallback ChargeCostCallback;
         ChargeCostCallback.BindUObject(this, &UCombatAbility::OnChargeCostUpdated);
         ChargeCost.SetUpdatedCallback(ChargeCostCallback);
-        ChargeCost.SetMinClamp(true, 0);
 
         ChargesPerCooldown.SetMinClamp(true, 0);
 
-        SetupResourceCosts();
+        SetupServerResourceCosts();
     }
     //Owning player binds to resources that this ability costs after the server replicates the costs down.
     else if (bLocallyControlled)
@@ -330,9 +330,15 @@ void UCombatAbility::GetAbilityCosts(TArray<FSimpleAbilityCost>& OutCosts) const
     }
 }
 
-void UCombatAbility::SetupResourceCosts()
+void UCombatAbility::SetupServerResourceCosts()
 {
     AbilityCosts.OwningAbility = this;
+    //Copy the costs from the editor array to the actual replicated array.
+    //For some reason, not doing this led to clients getting duplicate costs.
+    for (FAbilityCost& Cost : ResourceCosts)
+    {
+        AbilityCosts.Items.Add(Cost);
+    }
     for (FAbilityCost& AbilityCost : AbilityCosts.Items)
     {
         const FModifiableFloatCallback CostChangeCallback = FModifiableFloatCallback::CreateLambda([&](const float OldValue, const float NewValue)

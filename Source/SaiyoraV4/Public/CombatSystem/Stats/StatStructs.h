@@ -2,6 +2,7 @@
 #include "CoreMinimal.h"
 #include "Engine/DataTable.h"
 #include "CombatStructs.h"
+#include "Net/Serialization/FastArraySerializer.h"
 #include "StatStructs.generated.h"
 
 DECLARE_DYNAMIC_DELEGATE_TwoParams(FStatCallback, const FGameplayTag, StatTag, const float, NewValue);
@@ -20,11 +21,11 @@ struct FStatInitInfo : public FTableRowBase
     bool bModifiable = true;
     UPROPERTY(EditAnywhere)
     bool bUseCustomMin = false;
-    UPROPERTY(EditAnywhere, meta = (ClampMin = "0"))
+    UPROPERTY(EditAnywhere, meta = (EditCondition = "bUseCustomMin", ClampMin = "0"))
     float CustomMin = 0.0f;
     UPROPERTY(EditAnywhere)
     bool bUseCustomMax = false;
-    UPROPERTY(EditAnywhere, meta = (ClampMin = "0"))
+    UPROPERTY(EditAnywhere, meta = (EditCondition = "bUseCustomMax", ClampMin = "0"))
     float CustomMax = 0.0f;
 };
 
@@ -51,8 +52,8 @@ struct FCombatStat : public FFastArraySerializerItem
     FCombatStat(const FStatInitInfo* InitInfo)
     {
         StatTag = InitInfo->StatTag;
-        UE_LOG(LogTemp, Warning, TEXT("Initializing %s stat"), *StatTag.ToString());
         StatValue = FModifiableFloat(InitInfo->DefaultValue, InitInfo->bModifiable, InitInfo->bUseCustomMin, InitInfo->CustomMin, InitInfo->bUseCustomMax, InitInfo->CustomMax);
+        StatValue.Init();
     }
 };
 

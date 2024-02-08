@@ -18,16 +18,19 @@ void UStatHandler::InitializeComponent()
 {
 	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Stat Handler."));
 	Stats.Handler = this;
-	for (FCombatStat& Stat : Stats.Items)
+	if (GetOwnerRole() == ROLE_Authority)
 	{
-		const FModifiableFloatCallback Callback = FModifiableFloatCallback::CreateLambda([&](const float OldValue, const float NewValue)
+		for (FCombatStat& Stat : Stats.Items)
 		{
+			const FModifiableFloatCallback Callback = FModifiableFloatCallback::CreateLambda([&](const float OldValue, const float NewValue)
+			{
+				Stats.MarkItemDirty(Stat);
+				Stat.OnStatChanged.Broadcast(Stat.StatTag, NewValue);
+			});
+			Stat.StatValue.SetUpdatedCallback(Callback);
+			Stat.StatValue.Init();
 			Stats.MarkItemDirty(Stat);
-			Stat.OnStatChanged.Broadcast(Stat.StatTag, NewValue);
-		});
-		Stat.StatValue.SetUpdatedCallback(Callback);
-		Stat.StatValue.Init();
-		Stats.MarkItemDirty(Stat);
+		}
 	}
 }
 

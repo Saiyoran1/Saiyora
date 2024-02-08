@@ -462,12 +462,12 @@ public:
 
     void SetDefaultValue(const float NewDefault) { DefaultValue = NewDefault; Recalculate(); }
     void SetIsModifiable(const bool bNewModifiable) { bIsModifiable = bNewModifiable; Recalculate(); }
-    void SetMinClamp(const bool bClamp, const float NewClamp) { bClampMin = bClamp; MinClamp = bClampMin ? NewClamp : 0.0f; Recalculate(); }
-    void SetMaxClamp(const bool bClamp, const float NewClamp) { bClampMax = bClamp; MaxClamp = bClampMax ? NewClamp : 0.0f; Recalculate(); }
+    void SetMinClamp(const bool bClamp, const float NewClamp) { bClampMin = bClamp; Minimum = bClampMin ? NewClamp : 0.0f; Recalculate(); }
+    void SetMaxClamp(const bool bClamp, const float NewClamp) { bClampMax = bClamp; Maximum = bClampMax ? NewClamp : 0.0f; Recalculate(); }
 
     FModifiableFloat() {}
     FModifiableFloat(const float Default, const bool bModifiable, const bool bClampLow = false, const float LowClamp = 0.0f, const bool bClampHigh = false, const float HighClamp = 0.0f)
-        : DefaultValue(Default), bIsModifiable(bModifiable), bClampMin(bClampLow), MinClamp(LowClamp), bClampMax(bClampHigh), MaxClamp(HighClamp), CurrentValue(Default) {}
+        : DefaultValue(Default), bIsModifiable(bModifiable), bClampMin(bClampLow), Minimum(LowClamp), bClampMax(bClampHigh), Maximum(HighClamp), CurrentValue(Default) {}
     
 private:
 
@@ -478,13 +478,13 @@ private:
 
     UPROPERTY(EditAnywhere, NotReplicated)
     bool bClampMin = false;
-    UPROPERTY(EditAnywhere, NotReplicated)
-    float MinClamp = 0;
+    UPROPERTY(EditAnywhere, NotReplicated, meta = (EditCondition = "bClampMin", ClampMin = "0"))
+    float Minimum = 0;
 
     UPROPERTY(EditAnywhere, NotReplicated)
     bool bClampMax = false;
-    UPROPERTY(EditAnywhere, NotReplicated)
-    float MaxClamp = 0;
+    UPROPERTY(EditAnywhere, NotReplicated, meta = (EditCondition = "bClampMax", ClampMin = "0"))
+    float Maximum = 0;
 
     void Recalculate();
     UPROPERTY()
