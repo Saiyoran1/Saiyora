@@ -299,11 +299,11 @@ protected:
     bool bStaticCooldownLength = true;
     
     UPROPERTY(EditDefaultsOnly, Category = "Cooldown")
-    FModifiableInt MaxCharges = FModifiableInt(1, true);
+    FModifiableInt MaxCharges = FModifiableInt(1, true, true, 0);
     UPROPERTY(EditDefaultsOnly, ReplicatedUsing=OnRep_ChargeCost, Category = "Cooldown")
-    FModifiableInt ChargeCost = FModifiableInt(1, true);
+    FModifiableInt ChargeCost = FModifiableInt(1, true, true, 0);
     UPROPERTY(EditDefaultsOnly, Replicated, Category = "Cooldown")
-    FModifiableInt ChargesPerCooldown = FModifiableInt(1, true);
+    FModifiableInt ChargesPerCooldown = FModifiableInt(1, true, true, 0);
     
 private:
 
@@ -344,7 +344,8 @@ private:
 
     UPROPERTY(EditDefaultsOnly, Category = "Cost")
     TArray<FAbilityCost> ResourceCosts;
-    UPROPERTY(Replicated, EditDefaultsOnly, Category = "Cost")
+    
+    UPROPERTY(Replicated)
     FAbilityCostArray AbilityCosts;
     void SetupServerResourceCosts();
     UFUNCTION()

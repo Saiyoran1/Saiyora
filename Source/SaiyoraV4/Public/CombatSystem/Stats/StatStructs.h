@@ -8,6 +8,7 @@
 DECLARE_DYNAMIC_DELEGATE_TwoParams(FStatCallback, const FGameplayTag, StatTag, const float, NewValue);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FStatNotification, const FGameplayTag&, StatTag, const float, NewValue);
 
+//Data table row struct for initializing stats.
 USTRUCT()
 struct FStatInitInfo : public FTableRowBase
 {
@@ -30,17 +31,15 @@ struct FStatInitInfo : public FTableRowBase
 };
 
 USTRUCT()
-struct FCombatStat : public FFastArraySerializerItem
+struct FCombatStat : public FModifiableFloat
 {
     GENERATED_BODY()
 
     void PostReplicatedAdd(const struct FCombatStatArray& InArraySerializer);
     void PostReplicatedChange(const struct FCombatStatArray& InArraySerializer);
 
-    UPROPERTY(EditAnywhere, NotReplicated, meta = (Categories = "Stat"))
+    UPROPERTY(EditAnywhere, meta = (Categories = "Stat"))
     FGameplayTag StatTag;
-    UPROPERTY(EditAnywhere)
-    FModifiableFloat StatValue;
     
     FStatNotification OnStatChanged;
     bool bInitialized = false;
@@ -49,11 +48,10 @@ struct FCombatStat : public FFastArraySerializerItem
     //Currently all stats replicate to everyone.
 
     FCombatStat() {}
-    FCombatStat(const FStatInitInfo* InitInfo)
+    FCombatStat(const FStatInitInfo* InitInfo) :
+        Super(InitInfo->DefaultValue, InitInfo->bModifiable, InitInfo->bUseCustomMin, InitInfo->CustomMin, InitInfo->bUseCustomMax, InitInfo->CustomMax)
     {
         StatTag = InitInfo->StatTag;
-        StatValue = FModifiableFloat(InitInfo->DefaultValue, InitInfo->bModifiable, InitInfo->bUseCustomMin, InitInfo->CustomMin, InitInfo->bUseCustomMax, InitInfo->CustomMax);
-        StatValue.Init();
     }
 };
 
@@ -62,10 +60,10 @@ struct FCombatStatArray : public FFastArraySerializer
 {
     GENERATED_BODY()
 
-    UPROPERTY(EditAnywhere)
+    UPROPERTY()
     TArray<FCombatStat> Items;
-    UPROPERTY(NotReplicated)
-    class UStatHandler* Handler = nullptr;
+    //If something wants to subscribe to a stat before it has been replicated, it is put into a pending subscription list.
+    //Delegates in this list are bound and then executed when the relevant stat is replicated to the client.
     TMultiMap<FGameplayTag, FStatCallback> PendingSubscriptions;
 
     bool NetDeltaSerialize(FNetDeltaSerializeInfo& DeltaParms)

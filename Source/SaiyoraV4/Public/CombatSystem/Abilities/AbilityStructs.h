@@ -25,22 +25,15 @@ struct FSimpleAbilityCost
 
 //Used for actual ability costs stored in the abilities and replicated.
 USTRUCT()
-struct FAbilityCost : public FFastArraySerializerItem
+struct FAbilityCost : public FModifiableFloat
 {
     GENERATED_BODY()
 
     UPROPERTY(EditDefaultsOnly)
     TSubclassOf<UResource> ResourceClass;
-    UPROPERTY(EditDefaultsOnly)
-    FModifiableFloat Cost;
-
-    FAbilityCost() {}
-    FAbilityCost(const TSubclassOf<UResource> InResourceClass, const FModifiableFloat& InCost) : ResourceClass(InResourceClass), Cost(InCost) {}
 
     void PostReplicatedAdd(const struct FAbilityCostArray& InArraySerializer);
     void PostReplicatedChange(const struct FAbilityCostArray& InArraySerializer);
-
-    //FORCEINLINE bool operator==(const FAbilityCost& Other) const { return ResourceClass == Other.ResourceClass && Cost.GetCurrentValue() == Other.Cost.GetCurrentValue(); }
 };
 
 USTRUCT()

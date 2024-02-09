@@ -1,11 +1,9 @@
 #include "StatHandler.h"
 #include "UnrealNetwork.h"
-#include "Engine/ActorChannel.h"
 #include "Buff.h"
-#include "BuffHandler.h"
 #include "SaiyoraCombatInterface.h"
 
-#pragma region Setup
+#pragma region Init
 
 UStatHandler::UStatHandler()
 {
@@ -17,9 +15,10 @@ UStatHandler::UStatHandler()
 void UStatHandler::InitializeComponent()
 {
 	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Stat Handler."));
-	Stats.Handler = this;
 	if (GetOwnerRole() == ROLE_Authority)
 	{
+		//Copy the editor-exposed stats to a replicated array so that clients don't get duplicates.
+		Stats.Items = CombatStats;
 		for (FCombatStat& Stat : Stats.Items)
 		{
 			const FModifiableFloatCallback Callback = FModifiableFloatCallback::CreateLambda([&](const float OldValue, const float NewValue)
@@ -27,8 +26,8 @@ void UStatHandler::InitializeComponent()
 				Stats.MarkItemDirty(Stat);
 				Stat.OnStatChanged.Broadcast(Stat.StatTag, NewValue);
 			});
-			Stat.StatValue.SetUpdatedCallback(Callback);
-			Stat.StatValue.Init();
+			Stat.SetUpdatedCallback(Callback);
+			Stat.Init();
 			Stats.MarkItemDirty(Stat);
 		}
 	}
@@ -39,13 +38,15 @@ void UStatHandler::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLi
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(UStatHandler, Stats);
 }
+
 #if WITH_EDITOR
 void UStatHandler::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	const FName PropertyName = PropertyChangedEvent.GetPropertyName();
+	//When changing the stat template in the editor, clear out existing stats and populate the array from the table's rows.
 	if (PropertyName == GET_MEMBER_NAME_CHECKED(UStatHandler, StatTemplate))
 	{
-		Stats.Items.Empty();
+		CombatStats.Empty();
 		if (IsValid(StatTemplate))
 		{
 			TArray<FStatInitInfo*> StatInitInfo;
@@ -54,7 +55,7 @@ void UStatHandler::PostEditChangeProperty(FPropertyChangedEvent& PropertyChanged
 			{
 				if (InitInfo)
 				{
-					Stats.Items.Add(FCombatStat(InitInfo));
+					CombatStats.Add(FCombatStat(InitInfo));
 				}
 			}
 		}
@@ -70,9 +71,10 @@ bool UStatHandler::IsStatValid(const FGameplayTag StatTag) const
 {
 	if (StatTag.IsValid() && StatTag.MatchesTag(FSaiyoraCombatTags::Get().Stat) && !StatTag.MatchesTagExact(FSaiyoraCombatTags::Get().Stat))
 	{
-		for (const FCombatStat& Stat : Stats.Items)
+		//We check the editor-exposed version of the stat instead of the actual replicated version because clients may not have the replicated ones on startup.
+		for (const FCombatStat& Stat : CombatStats)
 		{
-			if (Stat.StatTag == StatTag)
+			if (Stat.StatTag.MatchesTagExact(StatTag))
 			{
 				return true;
 			}
@@ -87,9 +89,17 @@ float UStatHandler::GetStatValue(const FGameplayTag StatTag) const
 	{
 		for (const FCombatStat& Stat : Stats.Items)
 		{
-			if (Stat.StatTag == StatTag)
+			if (Stat.StatTag.MatchesTagExact(StatTag))
 			{
-				return Stat.StatValue.GetCurrentValue();
+				return Stat.GetCurrentValue();
+			}
+		}
+		//If we didn't find the stat value, check defaults. It's likely that if we are a client, we didn't get the replicated stat yet.
+		for (const FCombatStat& Stat : CombatStats)
+		{
+			if (Stat.StatTag.MatchesTagExact(StatTag))
+			{
+				return Stat.GetDefaultValue();
 			}
 		}
 	}
@@ -100,11 +110,12 @@ bool UStatHandler::IsStatModifiable(const FGameplayTag StatTag) const
 {
 	if (StatTag.IsValid() && StatTag.MatchesTag(FSaiyoraCombatTags::Get().Stat) && !StatTag.MatchesTagExact(FSaiyoraCombatTags::Get().Stat))
 	{
-		for (const FCombatStat& Stat : Stats.Items)
+		//Check the editor-exposed values, since clients may not have received the replicated values on startup.
+		for (const FCombatStat& Stat : CombatStats)
 		{
-			if (Stat.StatTag == StatTag)
+			if (Stat.StatTag.MatchesTagExact(StatTag))
 			{
-				return Stat.StatValue.IsModifiable();
+				return Stat.IsModifiable();
 			}
 		}
 	}
@@ -123,13 +134,15 @@ void UStatHandler::SubscribeToStatChanged(const FGameplayTag StatTag, const FSta
 	bool bFound = false;
 	for (FCombatStat& Stat : Stats.Items)
 	{
-		if (Stat.StatTag == StatTag)
+		if (Stat.StatTag.MatchesTagExact(StatTag))
 		{
 			Stat.OnStatChanged.AddUnique(Callback);
 			bFound = true;
 			break;
 		}
 	}
+	//If we didn't find the stat, it's possible that we are a client and the stat just hasn't replicated.
+	//In this case, we save the delegate off to bind and execute later when the stat replicates down.
 	if (!bFound)
 	{
 		Stats.PendingSubscriptions.Add(StatTag, Callback);
@@ -145,13 +158,16 @@ void UStatHandler::UnsubscribeFromStatChanged(const FGameplayTag StatTag, const 
 	bool bFound = false;
 	for (FCombatStat& Stat : Stats.Items)
 	{
-		if (Stat.StatTag == StatTag)
+		if (Stat.StatTag.MatchesTagExact(StatTag))
 		{
 			Stat.OnStatChanged.Remove(Callback);
 			bFound = true;
 			break;
 		}
 	}
+	//If we didn't find the stat, it's possible that we are a client and the stat just hasn't replicated.
+	//In this case, we save the delegate off to bind and execute later when the stat replicates down.
+	//This undoes that process if something unsubscribes before the stat becomes valid.
 	if (!bFound)
 	{
 		Stats.PendingSubscriptions.Remove(StatTag, Callback);
@@ -168,9 +184,9 @@ FCombatModifierHandle UStatHandler::AddStatModifier(const FGameplayTag StatTag, 
 	{
 		for (FCombatStat& Stat : Stats.Items)
 		{
-			if (Stat.StatTag == StatTag)
+			if (Stat.StatTag.MatchesTagExact(StatTag))
 			{
-				return Stat.StatValue.AddModifier(Modifier);
+				return Stat.AddModifier(Modifier);
 			}
 		}
 	}
@@ -184,9 +200,9 @@ void UStatHandler::RemoveStatModifier(const FGameplayTag StatTag, const FCombatM
 	{
 		for (FCombatStat& Stat : Stats.Items)
 		{
-			if (Stat.StatTag == StatTag)
+			if (Stat.StatTag.MatchesTagExact(StatTag))
 			{
-				Stat.StatValue.RemoveModifier(ModifierHandle);
+				Stat.RemoveModifier(ModifierHandle);
 				return;
 			}
 		}
@@ -201,9 +217,9 @@ void UStatHandler::UpdateStatModifier(const FGameplayTag StatTag, const FCombatM
 	{
 		for (FCombatStat& Stat : Stats.Items)
 		{
-			if (Stat.StatTag == StatTag)
+			if (Stat.StatTag.MatchesTagExact(StatTag))
 			{
-				Stat.StatValue.UpdateModifier(ModifierHandle, Modifier);
+				Stat.UpdateModifier(ModifierHandle, Modifier);
 				return;
 			}
 		}

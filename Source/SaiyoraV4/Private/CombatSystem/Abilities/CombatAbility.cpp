@@ -326,7 +326,7 @@ void UCombatAbility::GetAbilityCosts(TArray<FSimpleAbilityCost>& OutCosts) const
 {
     for (const FAbilityCost& AbilityCost : AbilityCosts.Items)
     {
-        OutCosts.Add(FSimpleAbilityCost(AbilityCost.ResourceClass, AbilityCost.Cost.GetCurrentValue()));
+        OutCosts.Add(FSimpleAbilityCost(AbilityCost.ResourceClass, AbilityCost.GetCurrentValue()));
     }
 }
 
@@ -334,20 +334,17 @@ void UCombatAbility::SetupServerResourceCosts()
 {
     AbilityCosts.OwningAbility = this;
     //Copy the costs from the editor array to the actual replicated array.
-    //For some reason, not doing this led to clients getting duplicate costs.
-    for (FAbilityCost& Cost : ResourceCosts)
-    {
-        AbilityCosts.Items.Add(Cost);
-    }
+    //For some reason, not doing this (and instead just using AbilityCosts as the editor-exposed property) led to clients getting duplicate costs.
+    AbilityCosts.Items = ResourceCosts;
     for (FAbilityCost& AbilityCost : AbilityCosts.Items)
     {
         const FModifiableFloatCallback CostChangeCallback = FModifiableFloatCallback::CreateLambda([&](const float OldValue, const float NewValue)
         {
             OnResourceCostChanged(AbilityCost);
         });
-        AbilityCost.Cost.SetUpdatedCallback(CostChangeCallback);
-        AbilityCost.Cost.SetMinClamp(true, 0.0f);
-        AbilityCost.Cost.Init();
+        AbilityCost.SetUpdatedCallback(CostChangeCallback);
+        AbilityCost.SetMinClamp(true, 0.0f);
+        AbilityCost.Init();
         
         bool bValidResource = false;
         if (IsValid(OwningComponent->GetResourceHandlerRef()))
@@ -357,14 +354,15 @@ void UCombatAbility::SetupServerResourceCosts()
             {
                 Resource->OnResourceChanged.AddDynamic(this, &UCombatAbility::OnResourceValueChanged);
                 bValidResource = true;
-                UpdateCostMet(AbilityCost.ResourceClass, Resource->GetCurrentValue() >= AbilityCost.Cost.GetCurrentValue());
+                UpdateCostMet(AbilityCost.ResourceClass, Resource->GetCurrentValue() >= AbilityCost.GetCurrentValue());
             }
         }
         if (!bValidResource)
         {
             UninitializedResources.Add(AbilityCost.ResourceClass);
-            UpdateCostMet(AbilityCost.ResourceClass, AbilityCost.Cost.GetCurrentValue() <= 0.0f);
+            UpdateCostMet(AbilityCost.ResourceClass, AbilityCost.GetCurrentValue() <= 0.0f);
         }
+        AbilityCosts.MarkItemDirty(AbilityCost);
     }
     if (UninitializedResources.Num() > 0 && IsValid(OwningComponent->GetResourceHandlerRef()))
     {
@@ -375,7 +373,7 @@ void UCombatAbility::SetupServerResourceCosts()
 void UCombatAbility::OnResourceCostChanged(FAbilityCost& AbilityCost)
 {
     AbilityCosts.MarkItemDirty(AbilityCost);
-    UpdateCostMet(AbilityCost.ResourceClass, GetResourceValue(AbilityCost.ResourceClass) >= AbilityCost.Cost.GetCurrentValue());
+    UpdateCostMet(AbilityCost.ResourceClass, GetResourceValue(AbilityCost.ResourceClass) >= AbilityCost.GetCurrentValue());
 }
 
 void UCombatAbility::OnResourceValueChanged(UResource* Resource, UObject* ChangeSource,
@@ -390,7 +388,7 @@ float UCombatAbility::GetResourceCost(const TSubclassOf<UResource> ResourceClass
     {
         if (AbilityCost.ResourceClass == ResourceClass)
         {
-            return AbilityCost.Cost.GetCurrentValue();
+            return AbilityCost.GetCurrentValue();
         }
     }
     return 0.0f;
@@ -442,7 +440,7 @@ void UCombatAbility::UpdateCostFromReplication(const FAbilityCost& Cost, const b
                 if (IsValid(Resource))
                 {
                     Resource->OnResourceChanged.AddDynamic(this, &UCombatAbility::OnResourceValueChanged);
-                    UpdateCostMet(Cost.ResourceClass, Resource->GetCurrentValue() >= Cost.Cost.GetCurrentValue());
+                    UpdateCostMet(Cost.ResourceClass, Resource->GetCurrentValue() >= Cost.GetCurrentValue());
                     bValidResource = true;
                 }
             }
@@ -457,12 +455,12 @@ void UCombatAbility::UpdateCostFromReplication(const FAbilityCost& Cost, const b
                         OwningComponent->GetResourceHandlerRef()->OnResourceAdded.AddDynamic(this, &UCombatAbility::SetupCostCheckingForNewResource);
                     }
                 }
-                UpdateCostMet(Cost.ResourceClass, Cost.Cost.GetCurrentValue() <= 0.0f);
+                UpdateCostMet(Cost.ResourceClass, Cost.GetCurrentValue() <= 0.0f);
             }
         }
         else
         {
-            UpdateCostMet(Cost.ResourceClass, GetResourceValue(Cost.ResourceClass) >= Cost.Cost.GetCurrentValue());
+            UpdateCostMet(Cost.ResourceClass, GetResourceValue(Cost.ResourceClass) >= Cost.GetCurrentValue());
         }
     }
 }
@@ -730,7 +728,7 @@ FCombatModifierHandle UCombatAbility::AddResourceCostModifier(const TSubclassOf<
         {
             if (AbilityCost.ResourceClass == ResourceClass)
             {
-                return AbilityCost.Cost.AddModifier(Modifier);
+                return AbilityCost.AddModifier(Modifier);
             }
         }
     }
@@ -745,7 +743,7 @@ void UCombatAbility::RemoveResourceCostModifier(const TSubclassOf<UResource> Res
         {
             if (AbilityCost.ResourceClass == ResourceClass)
             {
-                AbilityCost.Cost.RemoveModifier(ModifierHandle);
+                AbilityCost.RemoveModifier(ModifierHandle);
                 return;
             }
         }
@@ -761,7 +759,7 @@ void UCombatAbility::UpdateResourceCostModifier(const TSubclassOf<UResource> Res
         {
             if (AbilityCost.ResourceClass == ResourceClass)
             {
-                AbilityCost.Cost.UpdateModifier(ModifierHandle, Modifier);
+                AbilityCost.UpdateModifier(ModifierHandle, Modifier);
                 return;
             }
         }

@@ -3,6 +3,7 @@
 #include "GameplayTagContainer.h"
 #include "GameplayTagsManager.h"
 #include "CombatEnums.h"
+#include "Net/Serialization/FastArraySerializer.h"
 #include "CombatStructs.generated.h"
 
 class UBuff;
@@ -443,7 +444,7 @@ DECLARE_DELEGATE_TwoParams(FModifiableFloatCallback, const float, const float);
 DECLARE_DELEGATE_TwoParams(FModifiableIntCallback, const int32, const int32);
 
 USTRUCT()
-struct FModifiableFloat
+struct FModifiableFloat : public FFastArraySerializerItem
 {
     GENERATED_BODY()
 
@@ -478,12 +479,12 @@ private:
 
     UPROPERTY(EditAnywhere, NotReplicated)
     bool bClampMin = false;
-    UPROPERTY(EditAnywhere, NotReplicated, meta = (EditCondition = "bClampMin", ClampMin = "0"))
+    UPROPERTY(EditAnywhere, NotReplicated, meta = (EditCondition = "bClampMin"))
     float Minimum = 0;
 
     UPROPERTY(EditAnywhere, NotReplicated)
     bool bClampMax = false;
-    UPROPERTY(EditAnywhere, NotReplicated, meta = (EditCondition = "bClampMax", ClampMin = "0"))
+    UPROPERTY(EditAnywhere, NotReplicated, meta = (EditCondition = "bClampMax"))
     float Maximum = 0;
 
     void Recalculate();
@@ -492,54 +493,51 @@ private:
     FModifiableFloatCallback OnUpdated;
     
     TMap<FCombatModifierHandle, FCombatModifier> Modifiers;
-
-    bool bInitialized = false;
 };
 
 USTRUCT()
-struct FModifiableInt
+struct FModifiableInt : public FFastArraySerializerItem
 {
     GENERATED_BODY()
 
 public:
+
+    void Init() { Recalculate(); }
 
     FCombatModifierHandle AddModifier(const FCombatModifier& Modifier);
     void RemoveModifier(const FCombatModifierHandle& ModifierHandle);
     void UpdateModifier(const FCombatModifierHandle& ModifierHandle, const FCombatModifier& NewModifier);
     void SetUpdatedCallback(const FModifiableIntCallback& Callback);
 
-    int32 GetCurrentValue() const
-    {
-        if (!bInitialized)
-        {
-            const_cast<FModifiableInt*>(this)->Recalculate();
-        }
-        return CurrentValue;
-    }
+    int32 GetCurrentValue() const { return CurrentValue; }
     int32 GetDefaultValue() const { return DefaultValue; }
     bool IsModifiable() const { return bIsModifiable; }
 
     void SetDefaultValue(const int32 NewDefault) { DefaultValue = NewDefault; Recalculate(); }
     void SetIsModifiable(const bool bNewModifiable) { bIsModifiable = bNewModifiable; Recalculate(); }
-    void SetMinClamp(const bool bClamp, const int32 NewClamp) { bClampMin = bClamp; MinClamp = bClampMin ? NewClamp : 0; Recalculate(); }
-    void SetMaxClamp(const bool bClamp, const int32 NewClamp) { bClampMax = bClamp; MaxClamp = bClampMax ? NewClamp : 0; Recalculate(); }
+    void SetMinClamp(const bool bClamp, const int32 NewClamp) { bClampMin = bClamp; Minimum = bClampMin ? NewClamp : 0; Recalculate(); }
+    void SetMaxClamp(const bool bClamp, const int32 NewClamp) { bClampMax = bClamp; Maximum = bClampMax ? NewClamp : 0; Recalculate(); }
 
     FModifiableInt() {}
     FModifiableInt(const int32 Default, const bool bModifiable, const bool bClampLow = false, const int32 LowClamp = 0, const bool bClampHigh = false, const int32 HighClamp = 0)
-        : DefaultValue(Default), bIsModifiable(bModifiable), bClampMin(bClampLow), MinClamp(LowClamp), bClampMax(bClampHigh), MaxClamp(HighClamp) {}
+        : DefaultValue(Default), bIsModifiable(bModifiable), bClampMin(bClampLow), Minimum(LowClamp), bClampMax(bClampHigh), Maximum(HighClamp), CurrentValue(Default) {}
     
 private:
 
-    UPROPERTY(EditAnywhere)
+    UPROPERTY(EditAnywhere, NotReplicated)
     int32 DefaultValue = 0;
-    UPROPERTY(EditAnywhere)
+    UPROPERTY(EditAnywhere, NotReplicated)
     bool bIsModifiable = true;
 
+    UPROPERTY(EditAnywhere, NotReplicated)
     bool bClampMin = false;
-    int32 MinClamp = 0;
+    UPROPERTY(EditAnywhere, NotReplicated, meta = (EditCondition = "bClampMin"))
+    int32 Minimum = 0;
 
+    UPROPERTY(EditAnywhere, NotReplicated)
     bool bClampMax = false;
-    int32 MaxClamp = 0;
+    UPROPERTY(EditAnywhere, NotReplicated, meta = (EditCondition = "bClampMax"))
+    int32 Maximum = 0;
 
     void Recalculate();
     UPROPERTY()
@@ -547,8 +545,6 @@ private:
     FModifiableIntCallback OnUpdated;
     
     TMap<FCombatModifierHandle, FCombatModifier> Modifiers;
-
-    bool bInitialized = false;
 };
 
 #pragma endregion 

@@ -1,5 +1,4 @@
 #include "Resource.h"
-#include "Buff.h"
 #include "ResourceHandler.h"
 #include "StatHandler.h"
 #include "UnrealNetwork.h"
