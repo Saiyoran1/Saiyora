@@ -61,8 +61,10 @@ struct FServerMoveStatChange : public FFastArraySerializerItem
 	FGameplayTag StatTag;
 	UPROPERTY()
 	float Value = 0.0f;
+	//ID assigned per change in stat value on the server.
 	UPROPERTY()
 	int32 ChangeID = 0;
+	//Timer handle for the server to use for delayed stat changes if a client doesn't confirm receiving stat changes in time.
 	FTimerHandle ChangeHandle;
 
 	FServerMoveStatChange() {}

@@ -4,7 +4,6 @@
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraCombatLibrary.h"
 #include "UnrealNetwork.h"
-#include "Engine/ActorChannel.h"
 #include "GameFramework/Character.h"
 #include "Movement/MovementStructs.h"
 #include "CrowdControlHandler.h"
@@ -194,7 +193,7 @@ void USaiyoraMovementComponent::InitializeComponent()
 	DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
 	StatHandlerRef = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
 	BuffHandlerRef = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwner());
-	StatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnMoveStatChanged);
+	StatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnServerMoveStatChanged);
 	DefaultMaxWalkSpeed = MaxWalkSpeed;
 	DefaultCrouchSpeed = MaxWalkSpeedCrouched;
 	DefaultGroundFriction = GroundFriction;
@@ -228,54 +227,57 @@ void USaiyoraMovementComponent::BeginPlay()
 	{
 		CcHandlerRef->OnCrowdControlChanged.AddDynamic(this, &USaiyoraMovementComponent::StopMotionOnRooted);
 	}
-	if (IsValid(StatHandlerRef))
+	if (GetOwnerRole() == ROLE_Authority && IsValid(StatHandlerRef))
 	{
-		const FSaiyoraCombatTags& CombatTags = FSaiyoraCombatTags::Get();
-		if (StatHandlerRef->IsStatValid(CombatTags.Stat_MaxWalkSpeed))
+		if (IsValid(StatHandlerRef))
 		{
-			OnMoveStatChanged(CombatTags.Stat_MaxWalkSpeed, StatHandlerRef->GetStatValue(CombatTags.Stat_MaxWalkSpeed));
-			StatHandlerRef->SubscribeToStatChanged(CombatTags.Stat_MaxWalkSpeed, StatCallback);
+			const FSaiyoraCombatTags& CombatTags = FSaiyoraCombatTags::Get();
+			if (StatHandlerRef->IsStatValid(CombatTags.Stat_MaxWalkSpeed))
+			{
+				OnServerMoveStatChanged(CombatTags.Stat_MaxWalkSpeed, StatHandlerRef->GetStatValue(CombatTags.Stat_MaxWalkSpeed));
+				StatHandlerRef->SubscribeToStatChanged(CombatTags.Stat_MaxWalkSpeed, StatCallback);
+			}
+			if (StatHandlerRef->IsStatValid(CombatTags.Stat_MaxCrouchSpeed))
+			{
+				OnServerMoveStatChanged(CombatTags.Stat_MaxCrouchSpeed, StatHandlerRef->GetStatValue(CombatTags.Stat_MaxCrouchSpeed));
+				StatHandlerRef->SubscribeToStatChanged(CombatTags.Stat_MaxCrouchSpeed, StatCallback);
+			}
+			if (StatHandlerRef->IsStatValid(CombatTags.Stat_GroundFriction))
+			{
+				OnServerMoveStatChanged(CombatTags.Stat_GroundFriction, StatHandlerRef->GetStatValue(CombatTags.Stat_GroundFriction));
+				StatHandlerRef->SubscribeToStatChanged(CombatTags.Stat_GroundFriction, StatCallback);
+			}
+			if (StatHandlerRef->IsStatValid(CombatTags.Stat_BrakingDeceleration))
+			{
+				OnServerMoveStatChanged(CombatTags.Stat_BrakingDeceleration, StatHandlerRef->GetStatValue(CombatTags.Stat_BrakingDeceleration));
+				StatHandlerRef->SubscribeToStatChanged(CombatTags.Stat_BrakingDeceleration, StatCallback);
+			}
+			if (StatHandlerRef->IsStatValid(CombatTags.Stat_MaxAcceleration))
+			{
+				OnServerMoveStatChanged(CombatTags.Stat_MaxAcceleration, StatHandlerRef->GetStatValue(CombatTags.Stat_MaxAcceleration));
+				StatHandlerRef->SubscribeToStatChanged(CombatTags.Stat_MaxAcceleration, StatCallback);
+			}
+			if (StatHandlerRef->IsStatValid(CombatTags.Stat_GravityScale))
+			{
+				OnServerMoveStatChanged(CombatTags.Stat_GravityScale, StatHandlerRef->GetStatValue(CombatTags.Stat_GravityScale));
+				StatHandlerRef->SubscribeToStatChanged(CombatTags.Stat_GravityScale, StatCallback);
+			}
+			if (StatHandlerRef->IsStatValid(CombatTags.Stat_JumpZVelocity))
+			{
+				OnServerMoveStatChanged(CombatTags.Stat_JumpZVelocity, StatHandlerRef->GetStatValue(CombatTags.Stat_JumpZVelocity));
+				StatHandlerRef->SubscribeToStatChanged(CombatTags.Stat_JumpZVelocity, StatCallback);
+			}
+			if (StatHandlerRef->IsStatValid(CombatTags.Stat_AirControl))
+			{
+				OnServerMoveStatChanged(CombatTags.Stat_AirControl, StatHandlerRef->GetStatValue(CombatTags.Stat_AirControl));
+				StatHandlerRef->SubscribeToStatChanged(CombatTags.Stat_AirControl, StatCallback);
+			}
 		}
-		if (StatHandlerRef->IsStatValid(CombatTags.Stat_MaxCrouchSpeed))
+		if (IsValid(BuffHandlerRef))
 		{
-			OnMoveStatChanged(CombatTags.Stat_MaxWalkSpeed, StatHandlerRef->GetStatValue(CombatTags.Stat_MaxCrouchSpeed));
-			StatHandlerRef->SubscribeToStatChanged(CombatTags.Stat_MaxCrouchSpeed, StatCallback);
+			BuffHandlerRef->OnIncomingBuffApplied.AddDynamic(this, &USaiyoraMovementComponent::ApplyMoveRestrictionFromBuff);
+			BuffHandlerRef->OnIncomingBuffRemoved.AddDynamic(this, &USaiyoraMovementComponent::RemoveMoveRestrictionFromBuff);
 		}
-		if (StatHandlerRef->IsStatValid(CombatTags.Stat_GroundFriction))
-		{
-			OnMoveStatChanged(CombatTags.Stat_MaxWalkSpeed, StatHandlerRef->GetStatValue(CombatTags.Stat_GroundFriction));
-			StatHandlerRef->SubscribeToStatChanged(CombatTags.Stat_GroundFriction, StatCallback);
-		}
-		if (StatHandlerRef->IsStatValid(CombatTags.Stat_BrakingDeceleration))
-		{
-			OnMoveStatChanged(CombatTags.Stat_MaxWalkSpeed, StatHandlerRef->GetStatValue(CombatTags.Stat_BrakingDeceleration));
-			StatHandlerRef->SubscribeToStatChanged(CombatTags.Stat_BrakingDeceleration, StatCallback);
-		}
-		if (StatHandlerRef->IsStatValid(CombatTags.Stat_MaxAcceleration))
-		{
-			OnMoveStatChanged(CombatTags.Stat_MaxWalkSpeed, StatHandlerRef->GetStatValue(CombatTags.Stat_MaxAcceleration));
-			StatHandlerRef->SubscribeToStatChanged(CombatTags.Stat_MaxAcceleration, StatCallback);
-		}
-		if (StatHandlerRef->IsStatValid(CombatTags.Stat_GravityScale))
-		{
-			OnMoveStatChanged(CombatTags.Stat_MaxWalkSpeed, StatHandlerRef->GetStatValue(CombatTags.Stat_GravityScale));
-			StatHandlerRef->SubscribeToStatChanged(CombatTags.Stat_GravityScale, StatCallback);
-		}
-		if (StatHandlerRef->IsStatValid(CombatTags.Stat_JumpZVelocity))
-		{
-			OnMoveStatChanged(CombatTags.Stat_MaxWalkSpeed, StatHandlerRef->GetStatValue(CombatTags.Stat_JumpZVelocity));
-			StatHandlerRef->SubscribeToStatChanged(CombatTags.Stat_JumpZVelocity, StatCallback);
-		}
-		if (StatHandlerRef->IsStatValid(CombatTags.Stat_AirControl))
-		{
-			OnMoveStatChanged(CombatTags.Stat_MaxWalkSpeed, StatHandlerRef->GetStatValue(CombatTags.Stat_AirControl));
-			StatHandlerRef->SubscribeToStatChanged(CombatTags.Stat_AirControl, StatCallback);
-		}
-	}
-	if (IsValid(BuffHandlerRef) && GetOwnerRole() == ROLE_Authority)
-	{
-		BuffHandlerRef->OnIncomingBuffApplied.AddDynamic(this, &USaiyoraMovementComponent::ApplyMoveRestrictionFromBuff);
-		BuffHandlerRef->OnIncomingBuffRemoved.AddDynamic(this, &USaiyoraMovementComponent::RemoveMoveRestrictionFromBuff);
 	}
 }
 
@@ -920,22 +922,65 @@ float USaiyoraMovementComponent::GetMaxSpeed() const
 #pragma endregion
 #pragma region Stats
 
+void USaiyoraMovementComponent::OnServerMoveStatChanged(const FGameplayTag StatTag, const float NewValue)
+{
+	//If we aren't server-controlled, we replicate the stat change down to the client and wait until the client confirms it has received the change.
+	//This prevents desync from the server getting updated move variables before the client.
+	//There is a limit on how long the server will wait on the client to confirm, to prevent cheating.
+	if (!PawnOwner->IsLocallyControlled())
+	{
+		//Generate an ID for this stat change, and then wait until the client sends an RPC that says it has executed this stat change ID to then execute it on server.
+		const int32 ServerStatID = GenerateServerMoveID();
+		FServerMoveStatChange& NewMoveStat = PendingServerMoveStats.Items.Add_GetRef(FServerMoveStatChange(StatTag, NewValue, ServerStatID));
+		//Set a timer for a max amount of time we will wait, if the client doesn't send by this point, execute the stat change anyway.
+		const FTimerDelegate WaitingMoveDelegate = FTimerDelegate::CreateUObject(this, &USaiyoraMovementComponent::ExecuteWaitingServerStatChange, ServerStatID);
+		GetWorld()->GetTimerManager().SetTimer(NewMoveStat.ChangeHandle, WaitingMoveDelegate, MaxMoveDelay, false);
+		PendingServerMoveStats.MarkItemDirty(NewMoveStat);
+		ForceReplicationUpdate();
+	}
+	//Server-controlled actors can just apply stat changes immediately since there's no worries about desync from prediction.
+	else
+	{
+		UpdateMoveStat(StatTag, NewValue);
+		bool bFound = false;
+		for (int i = 0; i < ConfirmedServerMoveStats.Items.Num(); i++)
+		{
+			if (ConfirmedServerMoveStats.Items[i].StatTag == StatTag)
+			{
+				ConfirmedServerMoveStats.Items[i].Value = NewValue;
+				ConfirmedServerMoveStats.MarkItemDirty(ConfirmedServerMoveStats.Items[i]);
+				bFound = true;
+				break;
+			}
+		}
+		if (!bFound)
+		{
+			ConfirmedServerMoveStats.MarkItemDirty(ConfirmedServerMoveStats.Items.Add_GetRef(FServerMoveStatChange(StatTag, NewValue, 0)));
+		}
+	}
+}
+
 void USaiyoraMovementComponent::UpdateMoveStatFromServer(const int32 ChangeID, const FGameplayTag StatTag,
 	const float Value)
 {
+	//Sim proxies just apply the stat changes.
 	if (PawnOwner->GetLocalRole() == ROLE_SimulatedProxy)
 	{
 		UpdateMoveStat(StatTag, Value);
 		return;
 	}
+	//Owning client needs to let the server know it has received and applied the stat change.
+	//Make sure the client doesn't already have a newer update to this stat.
 	const int32* LastChangeID = ClientLastStatUpdate.Find(StatTag);
 	if (LastChangeID != nullptr && *LastChangeID > ChangeID)
 	{
 		return;
 	}
+	//Set variables that will be used in saved moves and eventually sent back to the server.
 	bWantsServerStatChange = true;
 	ServerStatChangeToExecuteID = ChangeID;
 	ServerStatChangeToExecute = FServerMoveStatChange(StatTag, Value, ChangeID);
+	//Save off the ID for this change, so we know what our most recent change was for each stat.
 	ClientLastStatUpdate.Add(StatTag, ChangeID);
 }
 
@@ -975,57 +1020,27 @@ void USaiyoraMovementComponent::UpdateMoveStat(const FGameplayTag StatTag, const
 	}
 }
 
-void USaiyoraMovementComponent::OnMoveStatChanged(const FGameplayTag StatTag, const float NewValue)
-{
-	if (PawnOwner->HasAuthority() && !PawnOwner->IsLocallyControlled())
-	{
-		//Generate an ID for this stat change, and then wait until the client sends an RPC that says it has executed this stat change ID to then execute it on server.
-		const int32 ServerStatID = GenerateServerMoveID();
-		FServerMoveStatChange& NewMoveStat = PendingServerMoveStats.Items.Add_GetRef(FServerMoveStatChange(StatTag, NewValue, ServerStatID));
-		//Set a timer for a max amount of time we will wait, if the client doesn't send by this point, execute the stat change anyway.
-		const FTimerDelegate WaitingMoveDelegate = FTimerDelegate::CreateUObject(this, &USaiyoraMovementComponent::ExecuteWaitingServerStatChange, ServerStatID);
-		GetWorld()->GetTimerManager().SetTimer(NewMoveStat.ChangeHandle, WaitingMoveDelegate, MaxMoveDelay, false);
-		PendingServerMoveStats.MarkItemDirty(NewMoveStat);
-		ForceReplicationUpdate();
-	}
-	else if (PawnOwner->HasAuthority())
-	{
-		UpdateMoveStat(StatTag, NewValue);
-		bool bFound = false;
-		for (int i = 0; i < ConfirmedServerMoveStats.Items.Num(); i++)
-		{
-			if (ConfirmedServerMoveStats.Items[i].StatTag == StatTag)
-			{
-				ConfirmedServerMoveStats.Items[i].Value = NewValue;
-				ConfirmedServerMoveStats.MarkItemDirty(ConfirmedServerMoveStats.Items[i]);
-				bFound = true;
-				break;
-			}
-		}
-		if (!bFound)
-		{
-			ConfirmedServerMoveStats.MarkItemDirty(ConfirmedServerMoveStats.Items.Add_GetRef(FServerMoveStatChange(StatTag, NewValue, 0)));
-		}
-	}
-}
-
-
 void USaiyoraMovementComponent::ExecuteWaitingServerStatChange(const int32 ServerStatID)
 {
 	bool bShouldPerform = false;
 	FServerMoveStatChange StatChange = FServerMoveStatChange();
+	//Find this ID in the pending server stat changes array.
 	for (int i = 0; i < PendingServerMoveStats.Items.Num(); i++)
 	{
 		if (PendingServerMoveStats.Items[i].ChangeID == ServerStatID)
 		{
+			//If we find the ID in the pending stat changes array, we clear the wait timer.
 			GetWorld()->GetTimerManager().ClearTimer(PendingServerMoveStats.Items[i].ChangeHandle);
 			bool bFound = false;
+			//Check if this stat already has an entry in the confirmed stat changes array.
 			for (int j = 0; j < ConfirmedServerMoveStats.Items.Num(); j++)
 			{
 				if (ConfirmedServerMoveStats.Items[j].StatTag == PendingServerMoveStats.Items[i].StatTag)
 				{
+					//If the stat already has an entry in the confirmed stat changes array, check if this ID is later than the pending change's ID.
 					if (ConfirmedServerMoveStats.Items[j].ChangeID < PendingServerMoveStats.Items[i].ChangeID)
 					{
+						//If so, we can update the confirmed stat change entry to reflect the latest change.
 						ConfirmedServerMoveStats.Items[j].Value = PendingServerMoveStats.Items[i].Value;
 						ConfirmedServerMoveStats.Items[j].ChangeID = PendingServerMoveStats.Items[i].ChangeID;
 						ConfirmedServerMoveStats.MarkItemDirty(ConfirmedServerMoveStats.Items[j]);
@@ -1036,6 +1051,7 @@ void USaiyoraMovementComponent::ExecuteWaitingServerStatChange(const int32 Serve
 					break;
 				}
 			}
+			//If the stat doesn't have an entry in the confirmed stat change array, add a new entry.
 			if (!bFound)
 			{
 				FServerMoveStatChange& NewChange = ConfirmedServerMoveStats.Items.Add_GetRef(PendingServerMoveStats.Items[i]);
@@ -1043,6 +1059,7 @@ void USaiyoraMovementComponent::ExecuteWaitingServerStatChange(const int32 Serve
 				StatChange = NewChange;
 				bShouldPerform = true;
 			}
+			//Remove the entry from the pending array.
 			PendingServerMoveStats.Items.RemoveAt(i);
 			PendingServerMoveStats.MarkArrayDirty();
 			break;

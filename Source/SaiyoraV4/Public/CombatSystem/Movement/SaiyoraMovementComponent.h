@@ -20,7 +20,7 @@ class SAIYORAV4_API USaiyoraMovementComponent : public UCharacterMovementCompone
 {
 	GENERATED_BODY()
 
-//Custom Move Structs
+#pragma region CMC Structs
 
 private:
 	
@@ -70,7 +70,8 @@ private:
 		FSaiyoraNetworkMoveData CustomDefaultMoveData[3];
 	};
 
-//Setup
+#pragma endregion 
+#pragma region Init and Refs
 
 public:
 	
@@ -97,7 +98,8 @@ private:
 	UPROPERTY()
 	AGameState* GameStateRef = nullptr;
 
-//Core Movement
+#pragma endregion 
+#pragma region Core Movement
 
 public:
 
@@ -116,7 +118,8 @@ private:
 	virtual void OnMovementUpdated(float DeltaSeconds, const FVector& OldLocation, const FVector& OldVelocity) override;
 	bool bIsMoving = false;
 
-//Custom Moves
+#pragma endregion 
+#pragma region Custom Moves
 	
 public:
 	
@@ -129,6 +132,7 @@ private:
 	
 	void ApplyCustomMove(UObject* Source, const FCustomMoveParams& CustomMove);
 	//Tracks move sources already handled this tick to avoid doubling moves on listen servers (since Predicted and Server tick are called back to back).
+	UPROPERTY()
 	TSet<UObject*> ServerCurrentTickHandledMovement;
 	UFUNCTION(NetMulticast, Unreliable)
 	void Multicast_ExecuteCustomMove(const FCustomMoveParams& CustomMove, const bool bSkipOwner = false);
@@ -168,8 +172,9 @@ private:
 	
 	void ExecuteTeleportToLocation(const FCustomMoveParams& CustomMove);
 	void ExecuteLaunchPlayer(const FCustomMoveParams& CustomMove);
-	
-//Root Motion
+
+#pragma endregion 
+#pragma region Root Motion Sources
 
 public:
 
@@ -191,8 +196,9 @@ private:
 	void ExecuteWaitingServerRootMotionTask(const int32 TaskID);
 	UFUNCTION(Server, Reliable)
 	void Server_ConfirmClientExecutedServerRootMotion(const int32 TaskID);
-	
-//Restrictions
+
+#pragma endregion 
+#pragma region Restrictions
 	
 private:
 
@@ -216,22 +222,19 @@ private:
 	UFUNCTION()
 	void RemoveMoveRestrictionFromBuff(const FBuffRemoveEvent& RemoveEvent);
 
-//Stats
+#pragma endregion 
+#pragma region Stats
 
 public:
 
 	UFUNCTION()
 	float GetDefaultMaxWalkSpeed() const { return DefaultMaxWalkSpeed; }
 
+	//Called by FastArray callbacks from PendingServerMoveStats and ConfirmedServerMoveStats.
 	void UpdateMoveStatFromServer(const int32 ChangeID, const FGameplayTag StatTag, const float Value);
 	
 private:
 
-	void UpdateMoveStat(const FGameplayTag StatTag, const float Value);
-	UFUNCTION()
-	void OnMoveStatChanged(const FGameplayTag StatTag, const float NewValue);
-	FStatCallback StatCallback;
-	
 	float DefaultMaxWalkSpeed = 0.0f;
 	float DefaultCrouchSpeed = 0.0f;
 	float DefaultGroundFriction = 0.0f;
@@ -241,15 +244,32 @@ private:
 	float DefaultJumpZVelocity = 0.0f;
 	float DefaultAirControl = 0.0f;
 
+	//Callback when any stat related to movement changes values on the server.
 	UFUNCTION()
-	void ExecuteWaitingServerStatChange(const int32 ServerStatID);
+	void OnServerMoveStatChanged(const FGameplayTag StatTag, const float NewValue);
+	FStatCallback StatCallback;
+	//Actual execution of the stat change on the local machine.
+	void UpdateMoveStat(const FGameplayTag StatTag, const float Value);
+	
+	//Stat changes replicated to the owning client to allow them to "predict" the stat change before the server applies it.
 	UPROPERTY(Replicated)
 	FServerMoveStatArray PendingServerMoveStats;
+	//Stat changes replicated to non-owning clients to keep their movement stats in sync.
 	UPROPERTY(Replicated)
 	FServerMoveStatArray ConfirmedServerMoveStats;
+	//Map to track the last update ID received from the server for each stat.
 	TMap<FGameplayTag, int32> ClientLastStatUpdate;
+	//Flag for saved moves to tell the server that the owning client received a stat change.
 	uint8 bWantsServerStatChange : 1;
+	//ID of the stat change the client is confirming.
 	int32 ServerStatChangeToExecuteID = 0;
+	//Actual values of the stat change sent from the server, to be used during the movement tick or for replaying on the client.
 	FServerMoveStatChange ServerStatChangeToExecute;
+	//Wrapper around UpdateMoveStat that is called during the movement tick to handle different net roles executing a stat change.
 	void ServerStatChangeFromFlag();
+	//Called by ServerStatChangeFromFlag on the server, to execute the stat change after client confirmation (or when the server's wait timer expires).
+	UFUNCTION()
+	void ExecuteWaitingServerStatChange(const int32 ServerStatID);
+
+#pragma endregion 
 };
