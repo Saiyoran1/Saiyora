@@ -830,7 +830,7 @@ void UCombatAbility::UpdateChargesPerCooldownModifier(const FCombatModifierHandl
 
 void UCombatAbility::UpdateCastable()
 {
-    const bool bWasCastable = CastFailReasons.Num() == 0;
+    const TArray<ECastFailReason> PreviousFailReasons = CastFailReasons;
     CastFailReasons.Empty();
     
     if (!bInitialized || bDeactivated)
@@ -870,7 +870,7 @@ void UCombatAbility::UpdateCastable()
         CastFailReasons.AddUnique(ECastFailReason::Moving);
     }
     
-    if (bWasCastable != (CastFailReasons.Num() == 0))
+    if (PreviousFailReasons != CastFailReasons)
     {
         OnCastableChanged.Broadcast(this, CastFailReasons.Num() == 0, CastFailReasons);
     }
