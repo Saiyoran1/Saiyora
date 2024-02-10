@@ -50,9 +50,9 @@ void UResource::InitializeResource(UResourceHandler* NewHandler, const FResource
         return;
     }
     
-    //Set initial values.
     Handler = NewHandler;
     StatHandlerRef = ISaiyoraCombatInterface::Execute_GetStatHandler(Handler->GetOwner());
+    //Set initial values using either the provided init info or the class defaults.
     ResourceState.Minimum = FMath::Max(0.0f, InitInfo.bHasCustomMinimum ? InitInfo.CustomMinValue : DefaultMinimum);
     ResourceState.Maximum = FMath::Max(ResourceState.Minimum, InitInfo.bHasCustomMaximum ? InitInfo.CustomMaxValue : DefaultMaximum);
     ResourceState.CurrentValue = FMath::Clamp(InitInfo.bHasCustomInitial ? InitInfo.CustomInitialValue : DefaultValue, ResourceState.Minimum, ResourceState.Maximum);
@@ -70,8 +70,9 @@ void UResource::InitializeResource(UResourceHandler* NewHandler, const FResource
             {
                 const float PreviousMin = ResourceState.Minimum;
                 ResourceState.Minimum = FMath::Clamp(StatValue, 0.0f, ResourceState.Maximum);
-                //Maintain current value relative to the max and min, if the value follows min changes.
-                ResourceState.CurrentValue = FMath::GetMappedRangeValueClamped(FVector2D(PreviousMin, ResourceState.Maximum), FVector2D(ResourceState.Minimum, ResourceState.Maximum), ResourceState.CurrentValue);
+                //Maintain current value relative to the max and min.
+                ResourceState.CurrentValue = FMath::GetMappedRangeValueClamped(
+                    FVector2D(PreviousMin, ResourceState.Maximum), FVector2D(ResourceState.Minimum, ResourceState.Maximum), ResourceState.CurrentValue);
             }
         }
     }
@@ -88,8 +89,9 @@ void UResource::InitializeResource(UResourceHandler* NewHandler, const FResource
             {
                 const float PreviousMax = GetMaximum();
                 ResourceState.Maximum = FMath::Max(StatValue, GetMinimum());
-                //Maintain current value relative to the max and min, if the value follows max changes.
-                ResourceState.CurrentValue = FMath::GetMappedRangeValueClamped(FVector2D(ResourceState.Minimum, PreviousMax), FVector2D(ResourceState.Minimum, ResourceState.Maximum), ResourceState.CurrentValue);
+                //Maintain current value relative to the max and min.
+                ResourceState.CurrentValue = FMath::GetMappedRangeValueClamped(
+                    FVector2D(ResourceState.Minimum, PreviousMax), FVector2D(ResourceState.Minimum, ResourceState.Maximum), ResourceState.CurrentValue);
             }
         }
     }
@@ -150,6 +152,8 @@ void UResource::SetResourceValue(const float NewValue, UObject* Source, const in
     }
     const FResourceState PreviousState = ResourceState;
     ResourceState.CurrentValue = FMath::Clamp(NewValue, ResourceState.Minimum, ResourceState.Maximum);
+    //This function is only called on the server, so we update the prediction ID that last modified this resource.
+    //When the client receives this updated ID it can discard its old predictions from before this ID, and recalculate its predicted value.
     if (PredictionID != 0)
     {
         ResourceState.PredictionID = PredictionID;
@@ -169,7 +173,9 @@ void UResource::UpdateMinimumFromStatBind(const FGameplayTag StatTag, const floa
     }
     const FResourceState PreviousState = ResourceState;
     ResourceState.Minimum = FMath::Clamp(NewValue, 0.0f, ResourceState.Maximum);
-    ResourceState.CurrentValue = FMath::GetMappedRangeValueClamped(FVector2D(PreviousState.Minimum, ResourceState.Maximum), FVector2D(ResourceState.Minimum, ResourceState.Maximum), ResourceState.CurrentValue);
+    //Keep current value the same relative to the max and min.
+    ResourceState.CurrentValue = FMath::GetMappedRangeValueClamped(
+        FVector2D(PreviousState.Minimum, ResourceState.Maximum), FVector2D(ResourceState.Minimum, ResourceState.Maximum), ResourceState.CurrentValue);
     if (PreviousState.Minimum != ResourceState.Minimum || PreviousState.CurrentValue != ResourceState.CurrentValue)
     {
         OnResourceChanged.Broadcast(this, nullptr, PreviousState, ResourceState);
@@ -185,7 +191,9 @@ void UResource::UpdateMaximumFromStatBind(const FGameplayTag StatTag, const floa
     }
     const FResourceState PreviousState = ResourceState;
     ResourceState.Maximum = FMath::Max(NewValue, GetMinimum());
-    ResourceState.CurrentValue = FMath::GetMappedRangeValueClamped(FVector2D(GetMinimum(), PreviousState.Maximum), FVector2D(GetMinimum(), GetMaximum()), GetCurrentValue());
+    //Keep current value the same relative to the max and min.
+    ResourceState.CurrentValue = FMath::GetMappedRangeValueClamped(
+        FVector2D(GetMinimum(), PreviousState.Maximum), FVector2D(GetMinimum(), GetMaximum()), GetCurrentValue());
     if (PreviousState.Maximum != ResourceState.Maximum || PreviousState.CurrentValue != ResourceState.CurrentValue)
     {
         OnResourceChanged.Broadcast(this, nullptr, PreviousState, ResourceState);
@@ -199,11 +207,13 @@ void UResource::OnRep_ResourceState(const FResourceState& PreviousState)
     {
         return;
     }
+    //Predicting clients can recalculate their predicted value using the server's latest prediction ID and updated state.
     if (Handler->GetOwnerRole() == ROLE_AutonomousProxy)
     {
         PurgeOldPredictions();
         RecalculatePredictedResource(nullptr);
     }
+    //Sim proxies can just fire off the OnResourceChangedDelegate.
     else
     {
         if (PreviousState.Maximum != ResourceState.Maximum || PreviousState.Minimum != ResourceState.Minimum || PreviousState.CurrentValue != ResourceState.CurrentValue)
@@ -232,10 +242,12 @@ void UResource::CommitAbilityCost(UCombatAbility* Ability, const float Cost, con
 
 void UResource::UpdateCostPredictionFromServer(const int32 PredictionID, const float ServerCost)
 {
+    //If replication was faster than the server ability ack RPC, we have already recalculated for this prediction ID.
     if (ResourceState.PredictionID >= PredictionID)
     {
         return;
     }
+    //Adding to the prediction map will overwrite our original prediction with the server's value.
     ResourcePredictions.Add(PredictionID, ServerCost);
     RecalculatePredictedResource(nullptr);
 }
@@ -243,7 +255,9 @@ void UResource::UpdateCostPredictionFromServer(const int32 PredictionID, const f
 void UResource::RecalculatePredictedResource(UObject* ChangeSource)
 {
     const FResourceState PreviousState = FResourceState(ResourceState.Minimum, ResourceState.Maximum, PredictedResourceValue);
+    //Start with the last replicated value from the server.
     PredictedResourceValue = ResourceState.CurrentValue;
+    //Apply all predictions in order.
     for (const TTuple<int32, float>& Prediction : ResourcePredictions)
     {
         PredictedResourceValue = FMath::Clamp(PredictedResourceValue - Prediction.Value, ResourceState.Minimum, ResourceState.Maximum);

@@ -1,7 +1,5 @@
 #include "ResourceHandler.h"
 #include "Resource.h"
-#include "UnrealNetwork.h"
-#include "Engine/ActorChannel.h"
 #include "CombatAbility.h"
 #include "AbilityComponent.h"
 #include "SaiyoraCombatInterface.h"
@@ -76,6 +74,7 @@ void UResourceHandler::AddNewResource(const TSubclassOf<UResource> ResourceClass
 		OnResourceAdded.Broadcast(NewResource);
 		AddReplicatedSubObject(NewResource);
 	}
+	//If initialization fails or the resource becomes immediately deactivated, remove the resource we just added.
 	else
 	{
 		ActiveResources.Remove(NewResource);
@@ -99,7 +98,9 @@ void UResourceHandler::RemoveResource(const TSubclassOf<UResource> ResourceClass
 		if (ActiveResources.Remove(Resource) > 0)
 		{
 			OnResourceRemoved.Broadcast(Resource);
+			//Add the removed resource to a separate array to keep it from being garbage collected.
 			RecentlyRemovedResources.Add(Resource);
+			//Then set a timer to remove it a short time later, so that clients have time to run the removal locally.
 			FTimerHandle RemovalHandle;
 			const FTimerDelegate RemovalDelegate = FTimerDelegate::CreateUObject(this, &UResourceHandler::FinishRemoveResource, Resource);
 			GetWorld()->GetTimerManager().SetTimer(RemovalHandle, RemovalDelegate, 1.0f, false);
@@ -151,6 +152,8 @@ void UResourceHandler::CommitAbilityCosts(UCombatAbility* Ability, const int32 P
 			{
 				Resource->CommitAbilityCost(Ability, Cost.Cost, PredictionID);
 			}
+			//Clients predicting ability usage save off what resource costs they predicted.
+			//When the server acks the ability usage, we can fix any mispredictions by comparing actual costs against these predictions.
 			if (GetOwnerRole() == ROLE_AutonomousProxy)
 			{
 				CostPredictions.Add(PredictionID, Cost);
@@ -164,6 +167,7 @@ void UResourceHandler::UpdatePredictedCostsFromServer(const FServerAbilityResult
 {
 	TArray<FSimpleAbilityCost> PredictedCosts;
 	CostPredictions.MultiFind(ServerResult.PredictionID, PredictedCosts);
+	//For each of the server's confirmed ability costs, update the resources with the correct values.
 	for (const FSimpleAbilityCost& Cost : ServerResult.AbilityCosts)
 	{
 		if (IsValid(Cost.ResourceClass))
@@ -186,6 +190,7 @@ void UResourceHandler::UpdatePredictedCostsFromServer(const FServerAbilityResult
 			}
 		}
 	}
+	//Any additional predictions were mispredictions and should be rolled back.
 	for (const FSimpleAbilityCost& Misprediction : PredictedCosts)
 	{
 		if (IsValid(Misprediction.ResourceClass))
@@ -198,6 +203,7 @@ void UResourceHandler::UpdatePredictedCostsFromServer(const FServerAbilityResult
 		}
 	}
 	CostPredictions.Remove(ServerResult.PredictionID);
+	//Any additional costs that weren't predicted at all will be handled via replication of the resource values themselves.
 }
 
 #pragma endregion 

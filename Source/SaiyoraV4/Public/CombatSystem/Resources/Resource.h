@@ -15,7 +15,7 @@ class SAIYORAV4_API UResource : public UObject
 {
 	GENERATED_BODY()
 
-//Initialization/Deactivation
+#pragma region Initialization and Deactivation
 
 public:
 
@@ -51,8 +51,9 @@ private:
 	void OnRep_Deactivated();
 	UPROPERTY()
 	UStatHandler* StatHandlerRef = nullptr;
-
-//Display Info
+	
+#pragma endregion 
+#pragma region Display
 
 public:
 
@@ -68,48 +69,52 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Resource")
 	FSlateBrush BarBackgroundBrush;
 
-//Init Info
-
-private:
-
-	UPROPERTY(EditDefaultsOnly, Category = "Resource", meta = (ClampMin = "0"))
-	float DefaultMinimum = 0.0f;
-	UPROPERTY(EditDefaultsOnly, Category = "Resource", meta = (GameplayTagFilter = "Stat"))
-	FGameplayTag MinimumBindStat;
-	UPROPERTY(EditDefaultsOnly, Category = "Resource", meta = (ClampMin = "0"))
-	float DefaultMaximum = 0.0f;
-	UPROPERTY(EditDefaultsOnly, Category = "Resource", meta = (GameplayTagFilter = "Stat"))
-	FGameplayTag MaximumBindStat;
-	UPROPERTY(EditDefaultsOnly, Category = "Resource", meta = (ClampMin = "0"))
-	float DefaultValue = 0.0f;
-
-//State
+#pragma endregion 
+#pragma region State
 
 public:
 
+	//Get the current value of the resource, or the client's predicted value if not on the server.
 	UFUNCTION(BlueprintPure, Category = "Resource")
 	float GetCurrentValue() const;
 	UFUNCTION(BlueprintPure, Category = "Resource")
 	float GetMinimum() const { return ResourceState.Minimum; }
 	UFUNCTION(BlueprintPure, Category = "Resource")
 	float GetMaximum() const { return ResourceState.Maximum; }
+	//Used to adjust the resource value for everything that isn't an ability cost.
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Resource")
 	void ModifyResource(UObject* Source, const float Amount, const bool bIgnoreModifiers);
 	UPROPERTY(BlueprintAssignable)
 	FResourceValueNotification OnResourceChanged;
 
+	//Add a modifier to non-ability cost resource gains and losses.
 	UFUNCTION(BlueprintCallable, Category = "Resource")
 	void AddResourceDeltaModifier(const FResourceDeltaModifier& Modifier) { ResourceDeltaMods.Add(Modifier); }
+	//Remove a modifier from non-ability cost resource gains and losses.
 	UFUNCTION(BlueprintCallable, Category = "Resource")
 	void RemoveResourceDeltaModifier(const FResourceDeltaModifier& Modifier) { ResourceDeltaMods.Remove(Modifier); }
 
 protected:
 
+	//Function for inherited resources to trigger their own behavior on values changing.
 	UFUNCTION(BlueprintNativeEvent)
 	void PostResourceUpdated(UObject* Source, const FResourceState& PreviousState);
 	virtual void PostResourceUpdated_Implementation(UObject* Source, const FResourceState& PreviousState) {}
 
 private:
+
+	UPROPERTY(EditDefaultsOnly, Category = "Resource", meta = (ClampMin = "0"))
+	float DefaultMinimum = 0.0f;
+	//Setting this allows the resource's minimum value to be bound to a stat's value, if the actor has that stat.
+	UPROPERTY(EditDefaultsOnly, Category = "Resource", meta = (GameplayTagFilter = "Stat"))
+	FGameplayTag MinimumBindStat;
+	UPROPERTY(EditDefaultsOnly, Category = "Resource", meta = (ClampMin = "0"))
+	float DefaultMaximum = 0.0f;
+	//Setting this allows the resource's maximum value to be bound to a stat's value, if the actor has that stat.
+	UPROPERTY(EditDefaultsOnly, Category = "Resource", meta = (GameplayTagFilter = "Stat"))
+	FGameplayTag MaximumBindStat;
+	UPROPERTY(EditDefaultsOnly, Category = "Resource", meta = (ClampMin = "0"))
+	float DefaultValue = 0.0f;
 
 	UPROPERTY(ReplicatedUsing = OnRep_ResourceState)
 	FResourceState ResourceState;
@@ -124,18 +129,27 @@ private:
 	void SetResourceValue(const float NewValue, UObject* Source, const int32 PredictionID = 0);
 	
 	TConditionalModifierList<FResourceDeltaModifier> ResourceDeltaMods;
-	
-//Ability Costs
+
+#pragma endregion 
+#pragma region Ability Costs
 	
 public:
 
+	//Called on both the server and predicting clients to commit the cost of an ability.
 	void CommitAbilityCost(UCombatAbility* Ability, const float Cost, const int32 PredictionID = 0);
+	//Called when clients receive the server ack of their ability prediction with verified costs.
+	//Confirms or adjusts predictions the client made originally when predicting the ability use.
 	void UpdateCostPredictionFromServer(const int32 PredictionID, const float ServerCost);
 	
 private:
 
+	//The local value of the resource after any client cost predictions are applied.
 	float PredictedResourceValue = 0.0f;
 	TMap<int32, float> ResourcePredictions;
 	void RecalculatePredictedResource(UObject* ChangeSource);
+	//When resource is state is replicated, it contains the latest prediction ID that updated that resource.
+	//This allows us to remove old predictions that the server has already taken into account.
 	void PurgeOldPredictions();
+
+#pragma endregion 
 };

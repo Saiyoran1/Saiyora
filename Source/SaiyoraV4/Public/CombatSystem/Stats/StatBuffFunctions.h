@@ -4,7 +4,7 @@
 #include "GameplayTagContainer.h"
 #include "StatBuffFunctions.generated.h"
 
-//Common buff function for applying stat modifiers that will last the duration of the buff.
+//Buff function for applying stat modifiers that will last the duration of the buff.
 //These modifiers can optionally update with buff stacks.
 UCLASS()
 class UStatModifierFunction : public UBuffFunction

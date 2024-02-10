@@ -16,6 +16,7 @@ struct FResourceState
 	float Maximum = 0.0f;
 	UPROPERTY(BlueprintReadOnly, Category = "Resource")
 	float CurrentValue = 0.0f;
+	//Last prediction ID the server received that updated this resource.
 	UPROPERTY()
 	int32 PredictionID = 0;
 
@@ -30,24 +31,23 @@ struct FResourceInitInfo
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Resource")
 	bool bHasCustomMinimum = false;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Resource")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Resource", meta = (EditCondition = "bHasCustomMinimum", ClampMin = "0"))
 	float CustomMinValue = 0.0f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Resource")
 	bool bHasCustomMaximum = false;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Resource")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Resource", meta = (EditCondition = "bHasCustomMaximum", ClampMin = "0"))
 	float CustomMaxValue = 0.0f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Resource")
 	bool bHasCustomInitial = false;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Resource")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Resource", meta = (EditCondition = "bHasCustomInitial", ClampMin = "0"))
 	float CustomInitialValue = 0.0f;
 };
 
-//For modifiers to non-Ability resource changes.
+//For modifiers to non-ability cost resource changes. Ability costs have their own modifiers, applied to specific abilities or the AbilityHandler.
 DECLARE_DYNAMIC_DELEGATE_RetVal_ThreeParams(FCombatModifier, FResourceDeltaModifier, UResource*, Resource, UObject*, Source, const float, InitialDelta);
 
-//For notification of resource expenditure and generation.
+//For notification of change in a resource's max, min, or current value.
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_FourParams(FResourceValueNotification, UResource*, Resource, UObject*, ChangeSource, const FResourceState&, PreviousState, const FResourceState&, NewState);
 
-//For notification of a resource being instantiated.
-DECLARE_DYNAMIC_DELEGATE_OneParam(FResourceInstanceCallback, UResource*, Resource);
+//For notification of a resource being added or removed.
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FResourceInstanceNotification, UResource*, Resource);

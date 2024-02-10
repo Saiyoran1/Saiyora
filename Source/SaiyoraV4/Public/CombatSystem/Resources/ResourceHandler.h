@@ -14,7 +14,7 @@ class SAIYORAV4_API UResourceHandler : public UActorComponent
 {
 	GENERATED_BODY()
 
-//Setup
+#pragma region Init
 
 public:
 	
@@ -23,7 +23,8 @@ public:
 	virtual void InitializeComponent() override;
 	virtual void GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
-//Resource Management
+#pragma endregion 
+#pragma region Resource Management
 
 public:
 
@@ -45,23 +46,32 @@ public:
 	
 private:
 
+	//Resources this actor will start with.
 	UPROPERTY(EditAnywhere, Category = "Resource")
 	TMap<TSubclassOf<UResource>, FResourceInitInfo> DefaultResources;
 	UPROPERTY()
 	TArray<UResource*> ActiveResources;
+	//These resources have been removed but are kept around on the server to allow replication of their removal to work correctly on clients.
 	UPROPERTY()
 	TArray<UResource*> RecentlyRemovedResources;
+	//Called after a delay when removing a resource on the server, to actually get rid of the reference.
 	UFUNCTION()
 	void FinishRemoveResource(UResource* Resource);
 
-//Ability Costs
+#pragma endregion 
+#pragma region Ability Costs
 
 public:
-	
+
+	//This commits the ability costs either on the server or on a predicting client.
 	void CommitAbilityCosts(UCombatAbility* Ability, const int32 PredictionID = 0);
+	//Called after a client receives information from the server about their ability prediction.
+	//This confirms or corrects predicted costs using the verified server information.
 	void UpdatePredictedCostsFromServer(const FServerAbilityResult& ServerResult);
 
 private:
 
 	TMultiMap<int32, FSimpleAbilityCost> CostPredictions;
+
+#pragma endregion 
 };
