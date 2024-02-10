@@ -20,20 +20,23 @@ UDamageHandler::UDamageHandler()
 void UDamageHandler::InitializeComponent()
 {
 	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Damage Handler."));
-	StatHandlerRef = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
-	if (bHasHealth)
+	if (GetOwnerRole() == ROLE_Authority)
 	{
-		MaxHealth = DefaultMaxHealth;
-		CurrentHealth = MaxHealth;
+		StatHandlerRef = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
+		if (bHasHealth)
+		{
+			MaxHealth = DefaultMaxHealth;
+			CurrentHealth = MaxHealth;
+		}
+		LifeStatus = ELifeStatus::Invalid;
+		MaxHealthStatCallback.BindDynamic(this, &UDamageHandler::ReactToMaxHealthStat);
+		UAbilityComponent* AbilityComponent = ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwner());
+		if (IsValid(AbilityComponent))
+		{
+			NPCComponentRef = Cast<UNPCAbilityComponent>(AbilityComponent);
+		}
+		DisableHealthEvents.BindDynamic(this, &UDamageHandler::DisableAllHealthEvents);
 	}
-	LifeStatus = ELifeStatus::Invalid;
-	MaxHealthStatCallback.BindDynamic(this, &UDamageHandler::ReactToMaxHealthStat);
-	UAbilityComponent* AbilityComponent = ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwner());
-	if (IsValid(AbilityComponent))
-	{
-		NPCComponentRef = Cast<UNPCAbilityComponent>(AbilityComponent);
-	}
-	DisableHealthEvents.BindDynamic(this, &UDamageHandler::DisableAllHealthEvents);
 }
 
 void UDamageHandler::BeginPlay()
