@@ -82,8 +82,8 @@ float FCombatModifier::ApplyModifiers(const TArray<FCombatModifier>& ModArray, c
 
 int32 FCombatModifier::ApplyModifiers(const TArray<FCombatModifier>& ModArray, const int32 BaseValue)
 {
-    const float ValueAsFloat = static_cast<float>(BaseValue);
-    return static_cast<int32>(ApplyModifiers(ModArray, ValueAsFloat));
+    const float ValueAsFloat = (float)BaseValue;
+    return FMath::TruncToInt32(ApplyModifiers(ModArray, ValueAsFloat));
 }
 
 FCombatModifierHandle FModifiableFloat::AddModifier(const FCombatModifier& Modifier)

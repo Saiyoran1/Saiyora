@@ -123,8 +123,6 @@ struct SAIYORAV4_API FSaiyoraCombatTags : public FGameplayTagNativeAdder
     FGameplayTag Threat_Fade;
     FGameplayTag Threat_Misdirect;
 
-    FGameplayTag Behavior_Combat;
-
     FGameplayTag Resurrection;
 
     FORCEINLINE static const FSaiyoraCombatTags& Get() { return SaiyoraCombatTags; }
@@ -187,8 +185,6 @@ protected:
         Threat_Fade = Manager.AddNativeGameplayTag(TEXT("Threat.Fade"));
         Threat_Misdirect = Manager.AddNativeGameplayTag(TEXT("Threat.Misdirect"));
 
-        Behavior_Combat = Manager.AddNativeGameplayTag(TEXT("Behavior.CombatTree"));
-
         Resurrection = Manager.AddNativeGameplayTag(TEXT("Buff.Resurrection"));
     }
 
@@ -198,9 +194,14 @@ private:
 };
 
 #pragma endregion 
-
 #pragma region CombatParameters
 
+/*
+ *Combat parameters are extremely generic structs that are intended to be used as FInstancedStructs.
+ *These can contain basically any data that might want to be accessed by an ability or buff, identified by string.
+ */
+
+//Base parameter struct, all the parameter types inherit from this.
 USTRUCT(BlueprintType)
 struct FCombatParameter
 {
@@ -310,9 +311,10 @@ struct FCombatParameterClass : public FCombatParameter
 };
 
 #pragma endregion
-
 #pragma region Restrictions
 
+//Templated class used for containing restrictions to a specific type of combat event.
+//Makes it easy to add, remove, and check restrictions given the context of an event.
 template <class T>
 class TConditionalRestrictionList
 {
@@ -350,30 +352,38 @@ private:
 };
 
 #pragma endregion
-
 #pragma region Modifiers
 
+//Struct that defines a modifier to a value in the context of a combat event or persistent value (like stats or resource costs).
 USTRUCT(BlueprintType)
 struct FCombatModifier
 {
     GENERATED_BODY()
 
-    static float ApplyModifiers(const TArray<FCombatModifier>& ModArray, const float BaseValue);
-    static int32 ApplyModifiers(const TArray<FCombatModifier>& ModArray, const int32 BaseValue);
-    FCombatModifier() {}
-    FCombatModifier(const float BaseValue, const EModifierType ModifierType, UBuff* SourceBuff = nullptr, const bool Stackable = false);
+    //How to calculate this modifier's effect on a value. Invalid means the modifier will not be used in this calculation.
     UPROPERTY(BlueprintReadWrite)
     EModifierType Type = EModifierType::Invalid;
     UPROPERTY(BlueprintReadWrite)
     float Value = 0.0f;
+    //For modifiers that are sourced from buffs, they can optionally stack with the buff's stacks.
     UPROPERTY(BlueprintReadWrite)
     bool bStackable = true;
+    //Optional buff source. Modifiers without a valid buff source can not stack.
     UPROPERTY(BlueprintReadWrite)
     UBuff* BuffSource = nullptr;
 
+    FCombatModifier() {}
+    FCombatModifier(const float BaseValue, const EModifierType ModifierType, UBuff* SourceBuff = nullptr, const bool Stackable = false);
     FORCEINLINE bool operator==(const FCombatModifier& Other) const { return Other.Type == Type && Other.BuffSource == BuffSource && Other.Value == Value; }
+    
+    //Helper function for applying an array of modifiers to a base value.
+    static float ApplyModifiers(const TArray<FCombatModifier>& ModArray, const float BaseValue);
+    //Helper function for applying an array of modifiers to a base value, then truncating it to an int.
+    static int32 ApplyModifiers(const TArray<FCombatModifier>& ModArray, const int32 BaseValue);
 };
 
+//Templated class used for holding a list of conditional modifier functions that each return an FCombatModifier when provided combat event context.
+//Useful for adding, removing, and retrieving the list of modifiers for a given event.
 template <class T>
 class TConditionalModifierList
 {
@@ -409,19 +419,22 @@ private:
     TSet<T> Modifiers;
 };
 
+//Container for a unique ID for a given combat modifier that can be used to remove or modify it later.
 USTRUCT(BlueprintType)
 struct FCombatModifierHandle
 {
     GENERATED_BODY()
 
-    FCombatModifierHandle() {}
-    FCombatModifierHandle(const FCombatModifierHandle& Other) : ModifierID(Other.ModifierID) {}
-    static FCombatModifierHandle Invalid;
-    static FCombatModifierHandle MakeHandle() { return FCombatModifierHandle(GetNextModifierID()); }
-    
+    //Whether this modifier handle is valid.
     bool IsValid() const { return ModifierID > 0; }
 
+    FCombatModifierHandle() {}
+    FCombatModifierHandle(const FCombatModifierHandle& Other) : ModifierID(Other.ModifierID) {}
     FORCEINLINE bool operator==(const FCombatModifierHandle& Other) const { return Other.ModifierID == ModifierID; }
+
+    //Static definition of an invalid modifier handle with ID -1. Used when applying a modifier fails.
+    static FCombatModifierHandle Invalid;
+    static FCombatModifierHandle MakeHandle() { return FCombatModifierHandle(GetNextModifierID()); }
 
 private:
 
@@ -443,6 +456,9 @@ FORCEINLINE uint32 GetTypeHash(const FCombatModifierHandle& Handle)
 DECLARE_DELEGATE_TwoParams(FModifiableFloatCallback, const float, const float);
 DECLARE_DELEGATE_TwoParams(FModifiableIntCallback, const int32, const int32);
 
+//Wrapper for a float value and the list of modifiers currently applied to it, along with some parameters to determine clamping.
+//Comes with a callback delegate to update whatever contains this value when the calculated value changes.
+//Derived structs can be used in FastArrays for per-item callbacks.
 USTRUCT()
 struct FModifiableFloat : public FFastArraySerializerItem
 {
@@ -495,6 +511,9 @@ private:
     TMap<FCombatModifierHandle, FCombatModifier> Modifiers;
 };
 
+//Wrapper for an int value and the list of modifiers currently applied to it, along with some parameters to determine clamping.
+//Comes with a callback delegate to update whatever contains this value when the calculated value changes.
+//Derived structs can be used in FastArrays for per-item callbacks.
 USTRUCT()
 struct FModifiableInt : public FFastArraySerializerItem
 {

@@ -1,4 +1,6 @@
 ﻿#include "GroundAttack.h"
+#include "AbilityComponent.h"
+#include "AbilityFunctionLibrary.h"
 #include "CombatStatusComponent.h"
 #include "CombatStructs.h"
 #include "SaiyoraCombatInterface.h"
@@ -11,7 +13,7 @@
 AGroundAttack::AGroundAttack(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	PrimaryActorTick.bCanEverTick = true;
-	SetActorTickEnabled(false);
+	PrimaryActorTick.bStartWithTickEnabled = false;
 	bReplicates = true;
 	
 	if (IsValid(GetDecal()))
@@ -36,29 +38,118 @@ AGroundAttack::AGroundAttack(const FObjectInitializer& ObjectInitializer) : Supe
 void AGroundAttack::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME(AGroundAttack, DecalExtent);
-	DOREPLIFETIME(AGroundAttack, ConeAngle);
-	DOREPLIFETIME(AGroundAttack, InnerRingPercent);
-	DOREPLIFETIME(AGroundAttack, Hostility);
-	DOREPLIFETIME(AGroundAttack, DetonationTime);
-	DOREPLIFETIME(AGroundAttack, IndicatorColor);
-	DOREPLIFETIME(AGroundAttack, IndicatorTexture);
-	DOREPLIFETIME(AGroundAttack, Intensity);
-	DOREPLIFETIME(AGroundAttack, bDestroyOnDetonate);
+	DOREPLIFETIME(AGroundAttack, DetonationParams);
+	DOREPLIFETIME(AGroundAttack, VisualParams);
 }
 
-void AGroundAttack::Initialize(const FVector& InExtent, const float InConeAngle, const float InInnerRingPercent,
-	const EFaction InHostility, const float InDetonationTime, const bool bInDestroyOnDetonate, const FLinearColor& InIndicatorColor,
-	UTexture2D* InIndicatorTexture, const float InIntensity)
+void AGroundAttack::ServerInit(const FGroundAttackVisualParams& InAttackParams, const FGroundAttackDetonationParams& InDetonationParams)
 {
-	SetDecalExtent(InExtent);
-	SetConeAngle(InConeAngle);
-	SetInnerRingPercent(InInnerRingPercent);
-	SetHostility(InHostility);
-	SetDetonationTime(InDetonationTime, bInDestroyOnDetonate);
-	SetIndicatorColor(InIndicatorColor);
-	SetIndicatorTexture(InIndicatorTexture);
-	SetIntensity(InIntensity);
+	if (!HasAuthority() || bLocallyInitialized)
+	{
+		return;
+	}
+	VisualParams = InAttackParams;
+	SetupVisuals();
+	DetonationParams = InDetonationParams;
+	if (GetOwner()->Implements<USaiyoraCombatInterface>())
+	{
+		const UCombatStatusComponent* OwnerCombatStatus = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(GetOwner());
+		if (IsValid(OwnerCombatStatus))
+		{
+			DetonationParams.AttackerFaction = OwnerCombatStatus->GetCurrentFaction();
+			DetonationParams.AttackerPlane = OwnerCombatStatus->GetCurrentPlane();
+		}
+	}
+	SetupDetonation();
+	bLocallyInitialized = true;
+}
+
+void AGroundAttack::PostNetReceive()
+{
+	Super::PostNetReceive();
+	if (!bLocallyInitialized && VisualParams.bValid && ReplicatedDetonationParams.bValid)
+	{
+		SetupVisuals();
+		SetupDetonation();
+		bLocallyInitialized = true;
+	}
+}
+
+#pragma region Visuals
+
+void AGroundAttack::SetupVisuals()
+{
+	if (!IsValid(DecalMaterial))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Ground attack had no decal material when setting params!"));
+		return;
+	}
+	
+	//We don't set the actual decal extent because we also want to affect the hitbox of the effect.
+	//Decal stays at the same "size" and is just scaled up.
+	//We also flip Z and X here because decals like being 90 degree rotated for some reason.
+	SetActorScale3D(FVector(VisualParams.DecalExtent.Z, VisualParams.DecalExtent.Y, VisualParams.DecalExtent.X) / 100.0f);
+	//Cone angle doesn't actually change the hitbox, just visuals and how we filter hit targets during detonation.
+	DecalMaterial->SetScalarParameterValue(FName(TEXT("ConeAngle")), VisualParams.ConeAngle);
+	//Adjusting the inner ring doesn't actually change the hitbox, just visuals and how we filter hit targets during detonation.
+	DecalMaterial->SetScalarParameterValue(FName(TEXT("InnerRadius")), VisualParams.InnerRingPercent);
+	DecalMaterial->SetVectorParameterValue(FName(TEXT("Color")), VisualParams.IndicatorColor);
+	DecalMaterial->SetTextureParameterValue(FName(TEXT("Texture")), VisualParams.IndicatorTexture);
+	DecalMaterial->SetScalarParameterValue(FName(TEXT("Intensity")), VisualParams.IndicatorIntensity);
+
+	//Server sets this flag to true so that clients can initialize when they receive the replicated params.
+	if (HasAuthority())
+	{
+		VisualParams.bValid = true;
+	}
+}
+
+#pragma endregion
+#pragma region Detonation
+
+void AGroundAttack::SetupDetonation()
+{
+	if (HasAuthority())
+	{
+		bool bBoundToCast = false;
+		if (DetonationParams.bBindToCastEnd)
+		{
+			OwnerAbilityCompRef = ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwner());
+			bBoundToCast = IsValid(OwnerAbilityCompRef) && OwnerAbilityCompRef->IsCasting();
+		}
+		if (bBoundToCast)
+		{
+			ReplicatedDetonationParams.bLooping = false;
+			ReplicatedDetonationParams.bInfiniteLooping = false;
+			ReplicatedDetonationParams.AdditionalLoops = 0;
+			ReplicatedDetonationParams.DetonationInterval = -1.0f;
+			ReplicatedDetonationParams.FirstDetonationTime = GetWorld()->GetGameState()->GetServerWorldTimeSeconds() + OwnerAbilityCompRef->GetCastTimeRemaining();
+			
+			OwnerAbilityCompRef->OnAbilityTick.AddDynamic(this, &AGroundAttack::DetonateOnCastFinalTick);
+			OwnerAbilityCompRef->OnAbilityCancelled.AddDynamic(this, &AGroundAttack::CancelDetonationFromCastCancel);
+			OwnerAbilityCompRef->OnAbilityInterrupted.AddDynamic(this, &AGroundAttack::CancelDetonationFromCastInterrupt);
+		}
+		else
+		{
+			ReplicatedDetonationParams.bLooping = DetonationParams.bLoopDetonation;
+			ReplicatedDetonationParams.bInfiniteLooping = DetonationParams.bInfiniteLoop;
+			ReplicatedDetonationParams.AdditionalLoops = DetonationParams.NumAdditionalLoops;
+			ReplicatedDetonationParams.DetonationInterval = DetonationParams.DetonationDelay;
+			ReplicatedDetonationParams.FirstDetonationTime = GetWorld()->GetGameState()->GetServerWorldTimeSeconds() + DetonationParams.DetonationDelay;
+		}
+
+		if (IsValid(OuterBox))
+		{
+			OuterBox->SetCollisionProfileName(UAbilityFunctionLibrary::GetRelevantProjectileHitboxProfile(DetonationParams.AttackerFaction, DetonationParams.FactionFilter));
+		}
+		
+		//Set this flag so that clients can initialize when receiving the replicated params.
+		ReplicatedDetonationParams.bValid = true;
+	}
+	StartTime = GetWorld()->GetGameState()->GetServerWorldTimeSeconds();
+	LocalDetonationTime = ReplicatedDetonationParams.FirstDetonationTime;
+	CompletedDetonationCounter = 0;
+	SetActorTickEnabled(true);
 }
 
 void AGroundAttack::Tick(float DeltaSeconds)
@@ -68,206 +159,60 @@ void AGroundAttack::Tick(float DeltaSeconds)
 	{
 		return;
 	}
-	if (GetWorld()->GetGameState()->GetServerWorldTimeSeconds() >= DetonationTime)
+	if (GetWorld()->GetGameState()->GetServerWorldTimeSeconds() >= LocalDetonationTime)
 	{
-		StartTime = 0.0f;
-		SetActorTickEnabled(false);
 		DoDetonation();
-		if (IsValid(DecalMaterial))
-		{
-			DecalMaterial->SetScalarParameterValue(FName(TEXT("Percent")), 0.0f);
-		}
 	}
 	else
 	{
 		if (IsValid(DecalMaterial))
 		{
-			const float Percent = FMath::Clamp((GetWorld()->GetGameState()->GetServerWorldTimeSeconds() - StartTime) / (DetonationTime - StartTime), 0.0f, 1.0f);
+			const float Percent = FMath::Clamp((GetWorld()->GetGameState()->GetServerWorldTimeSeconds() - StartTime) / (LocalDetonationTime - StartTime), 0.0f, 1.0f);
 			DecalMaterial->SetScalarParameterValue(FName(TEXT("Percent")), Percent);
 		}
 	}
 }
 
-void AGroundAttack::SetDecalExtent(const FVector NewExtent)
-{
-	if (GetLocalRole() != ROLE_Authority)
-	{
-		return;
-	}
-	DecalExtent = FVector(FMath::Max(1.0f, NewExtent.X), FMath::Max(1.0f, NewExtent.Y), FMath::Max(1.0f, NewExtent.Z));
-	OnRep_DecalExtent();
-}
-
-void AGroundAttack::OnRep_DecalExtent()
-{
-	SetActorScale3D(FVector(DecalExtent.Z, DecalExtent.Y, DecalExtent.X) / 100.0f);
-}
-
-void AGroundAttack::SetConeAngle(const float NewConeAngle)
-{
-	if (GetLocalRole() != ROLE_Authority)
-	{
-		return;
-	}
-	ConeAngle = FMath::Clamp(NewConeAngle, 0.0f, 360.0f);
-	OnRep_ConeAngle();
-}
-
-void AGroundAttack::OnRep_ConeAngle()
-{
-	if (IsValid(DecalMaterial))
-	{
-		DecalMaterial->SetScalarParameterValue(FName(TEXT("ConeAngle")), ConeAngle);
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Decal material wasn't valid in OnRep_ConeAngle."));
-	}
-}
-
-void AGroundAttack::SetInnerRingPercent(const float NewInnerRingPercent)
-{
-	if (GetLocalRole() != ROLE_Authority)
-	{
-		return;
-	}
-	InnerRingPercent = FMath::Clamp(NewInnerRingPercent, 0.0f, 100.0f);
-	OnRep_InnerRingPercent();
-}
-
-void AGroundAttack::OnRep_InnerRingPercent()
-{
-	if (IsValid(DecalMaterial))
-	{
-		DecalMaterial->SetScalarParameterValue(FName(TEXT("InnerRadius")), InnerRingPercent);
-	}
-}
-
-void AGroundAttack::SetHostility(const EFaction NewHostility)
-{
-	if (GetLocalRole() != ROLE_Authority)
-	{
-		return;
-	}
-	Hostility = NewHostility;
-	OnRep_Hostility();
-}
-
-void AGroundAttack::OnRep_Hostility()
-{
-	if (IsValid(OuterBox))
-	{
-		switch(Hostility)
-		{
-		case EFaction::Friendly :
-			OuterBox->SetCollisionProfileName(FSaiyoraCollision::P_ProjectileHitboxPlayers);
-			break;
-		case EFaction::Enemy :
-			OuterBox->SetCollisionProfileName(FSaiyoraCollision::P_ProjectileHitboxNPCs);
-			break;
-		case EFaction::Neutral :
-			OuterBox->SetCollisionProfileName(FSaiyoraCollision::P_ProjectileHitboxAll);
-			break;
-		default :
-			OuterBox->SetCollisionProfileName(FSaiyoraCollision::P_NoCollision);
-			break;
-		}
-	}
-}
-
-void AGroundAttack::SetIndicatorColor(const FLinearColor NewIndicatorColor)
-{
-	if (GetLocalRole() != ROLE_Authority)
-	{
-		return;
-	}
-	IndicatorColor = NewIndicatorColor;
-	OnRep_IndicatorColor();
-}
-
-void AGroundAttack::OnRep_IndicatorColor()
-{
-	if (IsValid(DecalMaterial))
-	{
-		DecalMaterial->SetVectorParameterValue(FName(TEXT("Color")), IndicatorColor);
-	}
-}
-
-void AGroundAttack::SetIndicatorTexture(UTexture2D* NewIndicatorTexture)
-{
-	if (GetLocalRole() != ROLE_Authority)
-	{
-		return;
-	}
-	IndicatorTexture = NewIndicatorTexture;
-	OnRep_IndicatorTexture();
-}
-
-void AGroundAttack::OnRep_IndicatorTexture()
-{
-	if (IsValid(DecalMaterial))
-	{
-		DecalMaterial->SetTextureParameterValue(FName(TEXT("Texture")), IndicatorTexture);
-	}
-}
-
-void AGroundAttack::SetIntensity(const float NewIntensity)
-{
-	if (GetLocalRole() != ROLE_Authority)
-	{
-		return;
-	}
-	Intensity = FMath::Max(0.0f, NewIntensity);
-	OnRep_Intensity();
-}
-
-void AGroundAttack::OnRep_Intensity()
-{
-	if (IsValid(DecalMaterial))
-	{
-		DecalMaterial->SetScalarParameterValue(FName(TEXT("Intensity")), Intensity);
-	}
-}
-
-void AGroundAttack::SetDetonationTime(const float NewDetonationTime, const bool bInDestroyOnDetonate)
-{
-	if (GetLocalRole() != ROLE_Authority)
-	{
-		return;
-	}
-	DetonationTime = NewDetonationTime;
-	bDestroyOnDetonate = bInDestroyOnDetonate;
-	OnRep_DetonationTime();
-}
-
-void AGroundAttack::OnRep_DetonationTime()
-{
-	if (!IsValid(GetWorld()->GetGameState()))
-	{
-		return;
-	}
-	if (GetWorld()->GetGameState()->GetServerWorldTimeSeconds() < DetonationTime)
-	{
-		StartTime = GetWorld()->GetGameState()->GetServerWorldTimeSeconds();
-		SetActorTickEnabled(true);
-	}
-	else
-	{
-		StartTime = 0.0f;
-		SetActorTickEnabled(false);
-	}
-	if (IsValid(DecalMaterial))
-	{
-		DecalMaterial->SetScalarParameterValue(FName(TEXT("Percent")), 0.0f);
-	}
-}
-
 void AGroundAttack::DoDetonation()
 {
-	TArray<AActor*> HitActors;
-	GetActorsInDetonation(HitActors);
-	OnDetonation.Broadcast(this, HitActors);
-	if (bDestroyOnDetonate)
+	if (HasAuthority())
+	{
+		TArray<AActor*> HitActors;
+		GetActorsInDetonation(HitActors);
+		OnDetonation.Broadcast(this, HitActors);
+	}
+	CompletedDetonationCounter++;
+	//If we aren't looping, or we're out of loops, we can go ahead and hide/destroy this attack.
+	if (!ReplicatedDetonationParams.bLooping
+		|| (!ReplicatedDetonationParams.bInfiniteLooping && CompletedDetonationCounter > ReplicatedDetonationParams.AdditionalLoops))
+	{
+		DestroyGroundAttack();
+	}
+	//If we are going to loop again, set up new timestamps for the next detonation.
+	else
+	{
+		StartTime = GetWorld()->GetGameState()->GetServerWorldTimeSeconds();
+		LocalDetonationTime = ReplicatedDetonationParams.FirstDetonationTime + CompletedDetonationCounter * ReplicatedDetonationParams.DetonationInterval;
+	}
+}
+
+void AGroundAttack::DestroyGroundAttack()
+{
+	if (HasAuthority())
+	{
+		if (IsValid(OwnerAbilityCompRef))
+		{
+			OwnerAbilityCompRef->OnAbilityTick.RemoveDynamic(this, &AGroundAttack::DetonateOnCastFinalTick);
+			OwnerAbilityCompRef->OnAbilityCancelled.RemoveDynamic(this, &AGroundAttack::CancelDetonationFromCastCancel);
+			OwnerAbilityCompRef->OnAbilityInterrupted.RemoveDynamic(this, &AGroundAttack::CancelDetonationFromCastInterrupt);
+		}
+		FTimerHandle DestroyHandle;
+		GetWorld()->GetTimerManager().SetTimer(DestroyHandle, this, &AGroundAttack::DelayedDestroy, 1.0f);
+		GetDecal()->DestroyComponent();
+		SetActorTickEnabled(false);
+		SetActorHiddenInGame(true);
+	}
+	else
 	{
 		Destroy();
 	}
@@ -276,44 +221,16 @@ void AGroundAttack::DoDetonation()
 void AGroundAttack::GetActorsInDetonation(TArray<AActor*>& HitActors) const
 {
 	HitActors.Empty();
-	if (!IsValid(OuterBox) || Hostility == EFaction::None)
+	if (!IsValid(OuterBox))
 	{
 		return;
 	}
 	TArray<AActor*> Overlapping;
 	OuterBox->GetOverlappingActors(Overlapping);
+	UAbilityFunctionLibrary::FilterActorsByFaction(Overlapping, DetonationParams.AttackerFaction, DetonationParams.FactionFilter);
+	UAbilityFunctionLibrary::FilterActorsByPlane(Overlapping, DetonationParams.AttackerPlane, DetonationParams.PlaneFilter);
 	for (AActor* Actor : Overlapping)
 	{
-		if (!Actor->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
-		{
-			continue;
-		}
-		
-		UCombatStatusComponent* Combat = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(Actor);
-		if (!IsValid(Combat))
-		{
-			continue;
-		}
-		switch (Combat->GetCurrentFaction())
-		{
-		case EFaction::None :
-			continue;
-		case EFaction::Friendly :
-			if (Hostility == EFaction::Enemy)
-			{
-				continue;
-			}
-			break;
-		case EFaction::Enemy :
-			if (Hostility == EFaction::Friendly)
-			{
-				continue;
-			}
-			break;
-		default:
-			break;
-		}
-
 		const float AngleToActor = GetAngleToActor(Actor);
 		const float RadiusAtAngle = GetRadiusAtAngle(AngleToActor);
 		const float XYDistance = FVector::DistXY(Actor->GetActorLocation(), GetActorLocation());
@@ -321,14 +238,14 @@ void AGroundAttack::GetActorsInDetonation(TArray<AActor*>& HitActors) const
 		{
 			continue;
 		}
-		if (InnerRingPercent > 0.0f)
+		if (VisualParams.InnerRingPercent > 0.0f)
 		{
-			if (XYDistance < RadiusAtAngle * (InnerRingPercent / 100.0f))
+			if (XYDistance < RadiusAtAngle * (VisualParams.InnerRingPercent / 100.0f))
 			{
 				continue;
 			}
 		}
-		if (FMath::Abs(AngleToActor) > (ConeAngle / 2))
+		if (FMath::Abs(AngleToActor) > (VisualParams.ConeAngle / 2))
 		{
 			continue;
 		}
@@ -346,8 +263,10 @@ float AGroundAttack::GetAngleToActor(AActor* Actor) const
 
 float AGroundAttack::GetRadiusAtAngle(const float Angle) const
 {
-	const float Top = DecalExtent.X * DecalExtent.Y;
-	const float XSquared = FMath::Square(DecalExtent.X * UKismetMathLibrary::DegSin(Angle));
-	const float YSquared = FMath::Square(DecalExtent.Y * UKismetMathLibrary::DegCos(Angle));
+	const float Top = VisualParams.DecalExtent.X * VisualParams.DecalExtent.Y;
+	const float XSquared = FMath::Square(VisualParams.DecalExtent.X * UKismetMathLibrary::DegSin(Angle));
+	const float YSquared = FMath::Square(VisualParams.DecalExtent.Y * UKismetMathLibrary::DegCos(Angle));
 	return (Top / (UKismetMathLibrary::Sqrt(XSquared + YSquared)));
 }
+
+#pragma endregion;

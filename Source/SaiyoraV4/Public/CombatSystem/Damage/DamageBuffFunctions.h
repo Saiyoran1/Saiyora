@@ -66,7 +66,7 @@ class SAIYORAV4_API UHealthEventModifierFunction : public UBuffFunction
 {
 	GENERATED_BODY()
 
-	ECombatEventDirection EventDirection = ECombatEventDirection::None;
+	ECombatEventDirection EventDirection = ECombatEventDirection::Incoming;
 	FHealthEventModCondition Mod;
 	UPROPERTY()
 	UDamageHandler* TargetHandler = nullptr;
@@ -86,7 +86,7 @@ class SAIYORAV4_API UHealthEventRestrictionFunction : public UBuffFunction
 	GENERATED_BODY()
 
 	FHealthEventRestriction Restrict;
-	ECombatEventDirection EventDirection = ECombatEventDirection::None;
+	ECombatEventDirection EventDirection = ECombatEventDirection::Incoming;
 	UPROPERTY()
 	UDamageHandler* TargetHandler = nullptr;
 

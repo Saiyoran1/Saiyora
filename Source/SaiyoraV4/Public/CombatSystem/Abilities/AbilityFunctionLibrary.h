@@ -4,6 +4,8 @@
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "AbilityFunctionLibrary.generated.h"
 
+struct FGroundAttackVisualParams;
+struct FGroundAttackDetonationParams;
 class UHitbox;
 class APredictableProjectile;
 struct FAbilityOrigin;
@@ -103,9 +105,9 @@ public:
 
 public:
 
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities")
-	static AGroundAttack* SpawnGroundEffect(AActor* Summoner, const FTransform& SpawnTransform, const FVector Extent, const float ConeAngle, const float InnerRingPercent, const EFaction Hostility,
-		const float DetonationTime, const bool bDestroyOnDetonate, const FLinearColor IndicatorColor, UTexture2D* IndicatorTexture, const float Intensity, const bool bAttach = false, USceneComponent* AttachComponent = nullptr,
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities", meta = (AutoCreateRefTerm = "DetonationParams, AttackParams"))
+	static AGroundAttack* SpawnGroundEffect(AActor* Summoner, const FTransform& SpawnTransform, const FGroundAttackVisualParams& VisualParams,
+		const FGroundAttackDetonationParams& DetonationParams, const bool bAttach = false, USceneComponent* AttachComponent = nullptr,
 		const FName SocketName = NAME_None);
 
 #pragma region Helpers
@@ -115,6 +117,11 @@ public:
 	//Returns the trace profile against hitboxes given the shooter's faction, the trace hostility, the trace plane, and whether to overlap or block.
 	UFUNCTION(BlueprintPure, Category = "Combat Helpers")
 	static FName GetRelevantTraceProfile(const AActor* Shooter, const bool bOverlap, const ESaiyoraPlane TracePlane, const EFaction TraceHostility);
+
+	UFUNCTION(BlueprintPure, Category = "Combat Helpers")
+	static FName GetRelevantProjectileHitboxProfile(const EFaction AttackerFaction, const ESaiyoraFactionFilter FactionFilter);
+	UFUNCTION(BlueprintPure, Category = "Combat Helpers")
+	static FName GetRelevantProjectileCollisionProfile(const ESaiyoraPlane AttackerPlane, const ESaiyoraPlaneFilter PlaneFilter);
 
 	/*
 	 * Check whether a location is in line of sight of another location in the desired plane.
@@ -132,8 +139,20 @@ public:
 	//Checks in a sphere radius for hitboxes, then filters the found actors based on the list of factions and whether they are considered XPlane from the search plane.
 	//Can optionally check line of sight against plane geometry as well.
 	UFUNCTION(BlueprintPure, Category = "Combat Helpers", meta = (HidePin = "Context", DefaultToSelf = "Context", AutoCreateRefTerm = "Factions, Origin"))
-	static void GetCombatantsInRadius(const UObject* Context, TArray<AActor*>& OutActors, const TArray<EFaction>& Factions, const FVector& Origin, const float Radius, const ESaiyoraPlane PlaneFilter = ESaiyoraPlane::Both,
-		const bool bCheckLineOfSight = false, const ESaiyoraPlane LineOfSightPlane = ESaiyoraPlane::Both);
+	static void GetCombatantsInRadius(const UObject* Context, TArray<AActor*>& OutActors, const FVector& Origin, const float Radius,
+		const EFaction QueryFaction = EFaction::Neutral, const ESaiyoraFactionFilter FactionFilter = ESaiyoraFactionFilter::None,
+		const ESaiyoraPlane QueryPlane = ESaiyoraPlane::Both, const ESaiyoraPlaneFilter PlaneFilter = ESaiyoraPlaneFilter::None,
+		const bool bCheckLineOfSight = false);
+
+	UFUNCTION(BlueprintPure, Category = "Combat Helpers")
+	static bool FactionPassesFilter(const EFaction QuerierFaction, const EFaction TargetFaction, const ESaiyoraFactionFilter Filter);
+	UFUNCTION(BlueprintPure, Category = "Combat Helpers")
+	static void FilterActorsByFaction(TArray<AActor*>& Actors, const EFaction QuerierFaction, const ESaiyoraFactionFilter Filter);
+
+	UFUNCTION(BlueprintPure, Category = "Combat Helpers")
+	static bool PlanePassesFilter(const ESaiyoraPlane QuerierPlane, const ESaiyoraPlane TargetPlane, const ESaiyoraPlaneFilter Filter);
+	UFUNCTION(BlueprintPure, Category = "Combat Helpers")
+	static void FilterActorsByPlane(TArray<AActor*>& Actors, const ESaiyoraPlane QuerierPlane, const ESaiyoraPlaneFilter Filter);
 
 private:
 	

@@ -18,23 +18,19 @@ public:
 
 	//Net
 
+	//Gets the target actor's ping, if it is a player character. Returns 0 for all other actors.
 	UFUNCTION(BlueprintPure, Category = "Time")
 	static float GetActorPing(const AActor* Actor);
+	//Queries the GameState's player array and gets the local player, cast to ASaiyoraPlayerCharacter.
 	UFUNCTION(BlueprintPure, Category = "Player", meta = (HidePin = "WorldContext", DefaultToSelf = "WorldContext"))
 	static ASaiyoraPlayerCharacter* GetLocalSaiyoraPlayer(const UObject* WorldContext);
 
 	//Attachment
 
+	//Wrapper around AttachToComponent that also updates plane-based visuals via the parent's CombatStatusComponent.
 	UFUNCTION(BlueprintCallable, Category = "Attachment")
 	static void AttachCombatActorToComponent(AActor* Target, USceneComponent* Parent, const FName SocketName, const EAttachmentRule LocationRule,
 		const EAttachmentRule RotationRule, const EAttachmentRule ScaleRule, const bool bWeldSimulatedBodies);
-
-	//Modifier
-
-	UFUNCTION(BlueprintPure, Category = "Modifier")
-	static bool IsModifierValid(const FCombatModifierHandle& Handle) { return Handle.IsValid(); }
-	UFUNCTION(BlueprintPure, Category = "Modifier")
-	static FCombatModifierHandle GetInvalidModifier() { return FCombatModifierHandle::Invalid; }
 
 #pragma region Combat Parameter Functions
 

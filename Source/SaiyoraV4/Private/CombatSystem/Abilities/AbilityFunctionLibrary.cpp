@@ -167,8 +167,84 @@ FName UAbilityFunctionLibrary::GetRelevantTraceProfile(const AActor* Shooter, co
 	}
 }
 
+FName UAbilityFunctionLibrary::GetRelevantProjectileHitboxProfile(const EFaction AttackerFaction, const ESaiyoraFactionFilter FactionFilter)
+{
+	switch (FactionFilter)
+	{
+	case ESaiyoraFactionFilter::OppositeFaction :
+	case ESaiyoraFactionFilter::OppositeFactionExcludeNeutral :
+		{
+			switch (AttackerFaction)
+			{
+			case EFaction::Friendly :
+				return FSaiyoraCollision::P_ProjectileHitboxNPCs;
+			case EFaction::Enemy :
+				return FSaiyoraCollision::P_ProjectileHitboxPlayers;
+			default :
+				return FSaiyoraCollision::P_ProjectileHitboxAll;
+			}
+		}
+		break;
+	case ESaiyoraFactionFilter::SameFaction :
+	case ESaiyoraFactionFilter::SameFactionExcludeNeutral :
+		{
+			switch (AttackerFaction)
+			{
+			case EFaction::Friendly :
+				return FSaiyoraCollision::P_ProjectileHitboxPlayers;
+			case EFaction::Enemy :
+				return FSaiyoraCollision::P_ProjectileHitboxNPCs;
+			default :
+				return FSaiyoraCollision::P_ProjectileHitboxAll;
+			}
+		}
+		break;
+	default :
+		return FSaiyoraCollision::P_ProjectileHitboxAll;
+	}
+}
+
+FName UAbilityFunctionLibrary::GetRelevantProjectileCollisionProfile(const ESaiyoraPlane AttackerPlane, const ESaiyoraPlaneFilter PlaneFilter)
+{
+	switch (PlaneFilter)
+	{
+	case ESaiyoraPlaneFilter::SamePlane :
+		{
+			switch (AttackerPlane)
+			{
+			case ESaiyoraPlane::Ancient :
+				return FSaiyoraCollision::P_ProjectileCollisionAncient;
+			case ESaiyoraPlane::Modern :
+				return FSaiyoraCollision::P_ProjectileCollisionModern;
+			case ESaiyoraPlane::Neither :
+				return FSaiyoraCollision::P_NoCollision;
+			default :
+				return FSaiyoraCollision::P_ProjectileCollisionAll;
+			}
+		}
+		break;
+	case ESaiyoraPlaneFilter::XPlane :
+		{
+			switch (AttackerPlane)
+			{
+			case ESaiyoraPlane::Ancient :
+				return FSaiyoraCollision::P_ProjectileCollisionModern;
+			case ESaiyoraPlane::Modern :
+				return FSaiyoraCollision::P_ProjectileCollisionAncient;
+			case ESaiyoraPlane::Neither :
+				return FSaiyoraCollision::P_ProjectileCollisionAll;
+			default :
+				return FSaiyoraCollision::P_NoCollision;
+			}
+		}
+		break;
+	default :
+		return FSaiyoraCollision::P_ProjectileCollisionAll;
+	}
+}
+
 void UAbilityFunctionLibrary::GetRelevantHitboxObjectTypes(const ASaiyoraPlayerCharacter* Shooter,
-	const EFaction TraceHostility, TArray<TEnumAsByte<EObjectTypeQuery>>& OutObjectTypes)
+                                                           const EFaction TraceHostility, TArray<TEnumAsByte<EObjectTypeQuery>>& OutObjectTypes)
 {
 	const UCombatStatusComponent* CombatStatusComponent = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(Shooter);
 	const EFaction ShooterFaction = IsValid(CombatStatusComponent) ? CombatStatusComponent->GetCurrentFaction() : EFaction::Neutral;
@@ -270,7 +346,7 @@ bool UAbilityFunctionLibrary::CheckLineOfSightInPlane(const UObject* Context, co
 
 bool UAbilityFunctionLibrary::IsXPlane(const ESaiyoraPlane FromPlane, const ESaiyoraPlane ToPlane)
 {
-	//None is the default value, always return false if it is provided.
+	//None is the default value, always consider this same plane if it is provided.
 	if (FromPlane == ESaiyoraPlane::None || ToPlane == ESaiyoraPlane::None)
 	{
 		return false;
@@ -289,14 +365,16 @@ bool UAbilityFunctionLibrary::IsXPlane(const ESaiyoraPlane FromPlane, const ESai
 	return FromPlane != ToPlane;
 }
 
-void UAbilityFunctionLibrary::GetCombatantsInRadius(const UObject* Context, TArray<AActor*>& OutActors,
-	const TArray<EFaction>& Factions, const FVector& Origin, const float Radius, const ESaiyoraPlane PlaneFilter,
-	const bool bCheckLineOfSight, const ESaiyoraPlane LineOfSightPlane)
+void UAbilityFunctionLibrary::GetCombatantsInRadius(const UObject* Context, TArray<AActor*>& OutActors, const FVector& Origin, const float Radius,
+		const EFaction QueryFaction, const ESaiyoraFactionFilter FactionFilter, const ESaiyoraPlane QueryPlane, const ESaiyoraPlaneFilter PlaneFilter,
+		const bool bCheckLineOfSight)
 {
 	TArray<TEnumAsByte<EObjectTypeQuery>> ObjectTypes;
 	ObjectTypes.Add(UEngineTypes::ConvertToObjectType(FSaiyoraCollision::O_PlayerHitbox));
 	ObjectTypes.Add(UEngineTypes::ConvertToObjectType(FSaiyoraCollision::O_NPCHitbox));
 	UKismetSystemLibrary::SphereOverlapActors(Context, Origin, Radius, ObjectTypes, nullptr, TArray<AActor*>(), OutActors);
+	FilterActorsByFaction(OutActors, QueryFaction, FactionFilter);
+	FilterActorsByPlane(OutActors, QueryPlane, PlaneFilter);
 	for (int i = OutActors.Num() - 1; i >= 0; i--)
 	{
 		if (!OutActors[i]->Implements<USaiyoraCombatInterface>())
@@ -304,29 +382,173 @@ void UAbilityFunctionLibrary::GetCombatantsInRadius(const UObject* Context, TArr
 			OutActors.RemoveAt(i);
 			continue;
 		}
-		const UCombatStatusComponent* CombatStatusComp = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(OutActors[i]);
-		if (!IsValid(CombatStatusComp))
+		if (bCheckLineOfSight && !CheckLineOfSightInPlane(Context, Origin, OutActors[i]->GetActorLocation(), QueryPlane))
 		{
 			OutActors.RemoveAt(i);
-			continue;
 		}
-		if (!Factions.Contains(CombatStatusComp->GetCurrentFaction()))
+	}
+}
+
+bool UAbilityFunctionLibrary::FactionPassesFilter(const EFaction QuerierFaction, const EFaction TargetFaction, const ESaiyoraFactionFilter Filter)
+{
+	//None is treated as neutral for the purposes of filtering.
+	const EFaction QuerierFactionCorrected = QuerierFaction == EFaction::None ? EFaction::Neutral : QuerierFaction;
+	const EFaction TargetFactionCorrected = TargetFaction == EFaction::None ? EFaction::Neutral : TargetFaction;
+	switch (Filter)
+	{
+	case ESaiyoraFactionFilter::None :
+		//If no filter, always return true.
+		return true;
+	case ESaiyoraFactionFilter::OppositeFaction :
 		{
-			OutActors.RemoveAt(i);
-			continue;
-		}
-		if (IsXPlane(PlaneFilter, CombatStatusComp->GetCurrentPlane()))
-		{
-			OutActors.RemoveAt(i);
-			continue;
-		}
-		if (bCheckLineOfSight)
-		{
-			if (!CheckLineOfSightInPlane(Context, Origin, OutActors[i]->GetActorLocation(), LineOfSightPlane))
+			//Returns true for opposite faction or neutral.
+			switch (QuerierFactionCorrected)
 			{
-				OutActors.RemoveAt(i);
-				continue;
+			case EFaction::Enemy :
+				return TargetFactionCorrected == EFaction::Friendly || TargetFactionCorrected == EFaction::Neutral;
+			case EFaction::Friendly :
+				return TargetFactionCorrected == EFaction::Enemy || TargetFactionCorrected == EFaction::Neutral;
+			case EFaction::Neutral :
+				return true;
+			default :
+				return true;
 			}
+		}
+		break;
+	case ESaiyoraFactionFilter::OppositeFactionExcludeNeutral :
+		{
+			//Returns true for opposite faction but false for neutral.
+			switch (QuerierFactionCorrected)
+			{
+			case EFaction::Enemy :
+				return TargetFactionCorrected == EFaction::Friendly;
+			case EFaction::Friendly :
+				return TargetFactionCorrected == EFaction::Enemy;
+			case EFaction::Neutral :
+				return TargetFactionCorrected == EFaction::Enemy || TargetFactionCorrected == EFaction::Friendly;
+			default :
+				return true;
+			}
+		}
+		break;
+	case ESaiyoraFactionFilter::SameFaction :
+		{
+			//Returns true for same faction or neutral.
+			switch (QuerierFactionCorrected)
+			{
+			case EFaction::Enemy :
+				return TargetFactionCorrected == EFaction::Enemy || TargetFactionCorrected == EFaction::Neutral;
+			case EFaction::Friendly :
+				return TargetFactionCorrected == EFaction::Friendly || TargetFactionCorrected == EFaction::Neutral;
+			case EFaction::Neutral :
+				return true;
+			default :
+				return true;
+			}
+		}
+		break;
+	case ESaiyoraFactionFilter::SameFactionExcludeNeutral :
+		{
+			//Returns true for same faction but false for neutral.
+			switch (QuerierFactionCorrected)
+			{
+			case EFaction::Enemy :
+				return TargetFactionCorrected == EFaction::Enemy;
+			case EFaction::Friendly :
+				return TargetFactionCorrected == EFaction::Friendly;
+			case EFaction::Neutral :
+				return TargetFactionCorrected == EFaction::Enemy || TargetFactionCorrected == EFaction::Friendly;
+			default :
+				return true;
+			}
+		}
+		break;
+	default :
+		return true;
+	}
+}
+
+void UAbilityFunctionLibrary::FilterActorsByFaction(TArray<AActor*>& Actors, const EFaction QuerierFaction, const ESaiyoraFactionFilter Filter)
+{
+	//If we aren't actually filtering, don't remove any of the actors.
+	if (Filter == ESaiyoraFactionFilter::None)
+	{
+		return;
+	}
+	for (int i = Actors.Num() - 1; i >= 0; i--)
+	{
+		const AActor* Actor = Actors[i];
+		if (!IsValid(Actor))
+		{
+			Actors.RemoveAt(i);
+			continue;
+		}
+		//Default to neutral for actors without a faction.
+		EFaction ActorFaction = EFaction::Neutral;
+		if (Actor->Implements<USaiyoraCombatInterface>())
+		{
+			const UCombatStatusComponent* ActorCombatStatus = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(Actor);
+			if (IsValid(ActorCombatStatus))
+			{
+				ActorFaction = ActorCombatStatus->GetCurrentFaction();
+			}
+		}
+		//Remove any actor who is filtered out.
+		if (!FactionPassesFilter(QuerierFaction, ActorFaction, Filter))
+		{
+			Actors.RemoveAt(i);
+		}
+	}
+}
+
+bool UAbilityFunctionLibrary::PlanePassesFilter(const ESaiyoraPlane QuerierPlane, const ESaiyoraPlane TargetPlane, const ESaiyoraPlaneFilter Filter)
+{
+	//None is treated as both for the purposes of filtering.
+	const ESaiyoraPlane QuerierPlaneCorrected = QuerierPlane == ESaiyoraPlane::None ? ESaiyoraPlane::Both : QuerierPlane;
+	const ESaiyoraPlane TargetPlaneCorrected = TargetPlane == ESaiyoraPlane::None ? ESaiyoraPlane::Both : QuerierPlane;
+	switch (Filter)
+	{
+	case ESaiyoraPlaneFilter::None :
+		//If no filter, always return true.
+		return true;
+	case ESaiyoraPlaneFilter::SamePlane :
+		return !IsXPlane(QuerierPlaneCorrected, TargetPlaneCorrected);
+	case ESaiyoraPlaneFilter::XPlane :
+		return IsXPlane(QuerierPlaneCorrected, TargetPlaneCorrected);
+	default :
+		return true;
+	}
+}
+
+void UAbilityFunctionLibrary::FilterActorsByPlane(TArray<AActor*>& Actors, const ESaiyoraPlane QuerierPlane, const ESaiyoraPlaneFilter Filter)
+{
+	//If we're not actually filtering, don't remove any actors.
+	if (Filter == ESaiyoraPlaneFilter::None)
+	{
+		return;
+	}
+	for (int i = Actors.Num() - 1; i >= 0; i--)
+	{
+		const AActor* Actor = Actors[i];
+		if (!IsValid(Actor))
+		{
+			Actors.RemoveAt(i);
+			continue;
+		}
+		//Default to both planes for actors without a plane.
+		ESaiyoraPlane ActorPlane = ESaiyoraPlane::Both;
+		if (Actor->Implements<USaiyoraCombatInterface>())
+		{
+			const UCombatStatusComponent* ActorCombatStatus = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(Actor);
+			if (IsValid(ActorCombatStatus))
+			{
+				ActorPlane = ActorCombatStatus->GetCurrentPlane();
+			}
+		}
+		//Remove any actor who is filtered out.
+		if (!PlanePassesFilter(QuerierPlane, ActorPlane, Filter))
+		{
+			Actors.RemoveAt(i);
 		}
 	}
 }
@@ -1359,10 +1581,8 @@ AActor* UAbilityFunctionLibrary::SpawnAdd(AActor* Summoner, const TSubclassOf<AA
 #pragma endregion
 #pragma region Ground Effect
 
-AGroundAttack* UAbilityFunctionLibrary::SpawnGroundEffect(AActor* Summoner, const FTransform& SpawnTransform, const FVector Extent,
-	const float ConeAngle, const float InnerRingPercent, const EFaction Hostility, const float DetonationTime, const bool bDestroyOnDetonate, const FLinearColor IndicatorColor,
-	UTexture2D* IndicatorTexture, const float Intensity, const bool bAttach, USceneComponent* AttachComponent,
-	const FName SocketName)
+AGroundAttack* UAbilityFunctionLibrary::SpawnGroundEffect(AActor* Summoner, const FTransform& SpawnTransform, const FGroundAttackVisualParams& VisualParams,
+	const FGroundAttackDetonationParams& DetonationParams, const bool bAttach, USceneComponent* AttachComponent, const FName SocketName)
 {
 	if (!IsValid(Summoner) || Summoner->GetLocalRole() != ROLE_Authority)
 	{
@@ -1382,7 +1602,7 @@ AGroundAttack* UAbilityFunctionLibrary::SpawnGroundEffect(AActor* Summoner, cons
 		const FAttachmentTransformRules TransformRules(EAttachmentRule::KeepWorld, false);
 		NewGroundAttack->AttachToComponent(IsValid(AttachComponent) ? AttachComponent : Summoner->GetRootComponent(), TransformRules, SocketName);
 	}
-	NewGroundAttack->Initialize(Extent, ConeAngle, InnerRingPercent, Hostility, DetonationTime, bDestroyOnDetonate, IndicatorColor, IndicatorTexture, Intensity);
+	NewGroundAttack->ServerInit(VisualParams, DetonationParams);
 	return NewGroundAttack;
 }
 

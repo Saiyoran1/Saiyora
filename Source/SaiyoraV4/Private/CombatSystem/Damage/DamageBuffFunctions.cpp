@@ -162,7 +162,7 @@ void UPeriodicHealthEventFunction::CleanupBuffFunction()
 
 void UHealthEventModifierFunction::HealthEventModifier(UBuff* Buff, const ECombatEventDirection HealthEventDirection, const FHealthEventModCondition& Modifier)
 {
-	if (!IsValid(Buff) || HealthEventDirection == ECombatEventDirection::None || !Modifier.IsBound() || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
+	if (!IsValid(Buff) || !Modifier.IsBound() || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
 	{
 		return;
 	}
@@ -225,7 +225,7 @@ void UHealthEventModifierFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 
 void UHealthEventRestrictionFunction::HealthEventRestriction(UBuff* Buff, const ECombatEventDirection HealthEventDirection, const FHealthEventRestriction& Restriction)
 {
-	if (!IsValid(Buff) || HealthEventDirection == ECombatEventDirection::None || !Restriction.IsBound() || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
+	if (!IsValid(Buff) || !Restriction.IsBound() || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
 	{
 		return;
 	}
