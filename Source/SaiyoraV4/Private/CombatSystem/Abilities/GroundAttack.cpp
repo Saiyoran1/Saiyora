@@ -38,7 +38,7 @@ AGroundAttack::AGroundAttack(const FObjectInitializer& ObjectInitializer) : Supe
 void AGroundAttack::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME(AGroundAttack, DetonationParams);
+	DOREPLIFETIME(AGroundAttack, ReplicatedDetonationParams);
 	DOREPLIFETIME(AGroundAttack, VisualParams);
 }
 
