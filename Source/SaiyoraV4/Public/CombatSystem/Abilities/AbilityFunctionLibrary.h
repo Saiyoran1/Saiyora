@@ -1,11 +1,10 @@
 ﻿#pragma once
 #include "CoreMinimal.h"
+#include "GroundAttack.h"
 #include "SaiyoraPlayerCharacter.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "AbilityFunctionLibrary.generated.h"
 
-struct FGroundAttackVisualParams;
-struct FGroundAttackDetonationParams;
 class UHitbox;
 class APredictableProjectile;
 struct FAbilityOrigin;
@@ -105,9 +104,9 @@ public:
 
 public:
 
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities", meta = (AutoCreateRefTerm = "DetonationParams, AttackParams"))
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Abilities", meta = (AutoCreateRefTerm = "DetonationParams, AttackParams, DetonationCallback"))
 	static AGroundAttack* SpawnGroundEffect(AActor* Summoner, const FTransform& SpawnTransform, const FGroundAttackVisualParams& VisualParams,
-		const FGroundAttackDetonationParams& DetonationParams, const bool bAttach = false, USceneComponent* AttachComponent = nullptr,
+		const FGroundAttackDetonationParams& DetonationParams, const FGroundDetonationCallback& DetonationCallback, const bool bAttach = false, USceneComponent* AttachComponent = nullptr,
 		const FName SocketName = NAME_None);
 
 #pragma region Helpers

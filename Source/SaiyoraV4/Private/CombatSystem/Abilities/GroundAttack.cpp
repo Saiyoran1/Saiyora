@@ -10,6 +10,8 @@
 #include "GameFramework/GameStateBase.h"
 #include "Kismet/KismetMathLibrary.h"
 
+#pragma region Init
+
 AGroundAttack::AGroundAttack(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	PrimaryActorTick.bCanEverTick = true;
@@ -42,7 +44,7 @@ void AGroundAttack::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
 	DOREPLIFETIME(AGroundAttack, VisualParams);
 }
 
-void AGroundAttack::ServerInit(const FGroundAttackVisualParams& InAttackParams, const FGroundAttackDetonationParams& InDetonationParams)
+void AGroundAttack::ServerInit(const FGroundAttackVisualParams& InAttackParams, const FGroundAttackDetonationParams& InDetonationParams, const FGroundDetonationCallback& Callback)
 {
 	if (!HasAuthority() || bLocallyInitialized)
 	{
@@ -60,6 +62,10 @@ void AGroundAttack::ServerInit(const FGroundAttackVisualParams& InAttackParams, 
 			DetonationParams.AttackerPlane = OwnerCombatStatus->GetCurrentPlane();
 		}
 	}
+	if (Callback.IsBound())
+	{
+		OnDetonation.Add(Callback);
+	}
 	SetupDetonation();
 	bLocallyInitialized = true;
 }
@@ -75,6 +81,7 @@ void AGroundAttack::PostNetReceive()
 	}
 }
 
+#pragma endregion 
 #pragma region Visuals
 
 void AGroundAttack::SetupVisuals()
@@ -198,6 +205,7 @@ void AGroundAttack::DoDetonation()
 
 void AGroundAttack::DestroyGroundAttack()
 {
+	OnDetonation.Clear();
 	if (HasAuthority())
 	{
 		if (IsValid(OwnerAbilityCompRef))
@@ -211,6 +219,10 @@ void AGroundAttack::DestroyGroundAttack()
 		GetDecal()->DestroyComponent();
 		SetActorTickEnabled(false);
 		SetActorHiddenInGame(true);
+		if (IsValid(OuterBox))
+		{
+			OuterBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		}
 	}
 	else
 	{
@@ -250,6 +262,14 @@ void AGroundAttack::GetActorsInDetonation(TArray<AActor*>& HitActors) const
 			continue;
 		}
 		HitActors.AddUnique(Actor);
+	}
+}
+
+void AGroundAttack::DetonateOnCastFinalTick(const FAbilityEvent& Event)
+{
+	if (Event.Tick == Event.Ability->GetNonInitialTicks())
+	{
+		DoDetonation();
 	}
 }
 

@@ -505,7 +505,7 @@ bool UAbilityFunctionLibrary::PlanePassesFilter(const ESaiyoraPlane QuerierPlane
 {
 	//None is treated as both for the purposes of filtering.
 	const ESaiyoraPlane QuerierPlaneCorrected = QuerierPlane == ESaiyoraPlane::None ? ESaiyoraPlane::Both : QuerierPlane;
-	const ESaiyoraPlane TargetPlaneCorrected = TargetPlane == ESaiyoraPlane::None ? ESaiyoraPlane::Both : QuerierPlane;
+	const ESaiyoraPlane TargetPlaneCorrected = TargetPlane == ESaiyoraPlane::None ? ESaiyoraPlane::Both : TargetPlane;
 	switch (Filter)
 	{
 	case ESaiyoraPlaneFilter::None :
@@ -1582,7 +1582,7 @@ AActor* UAbilityFunctionLibrary::SpawnAdd(AActor* Summoner, const TSubclassOf<AA
 #pragma region Ground Effect
 
 AGroundAttack* UAbilityFunctionLibrary::SpawnGroundEffect(AActor* Summoner, const FTransform& SpawnTransform, const FGroundAttackVisualParams& VisualParams,
-	const FGroundAttackDetonationParams& DetonationParams, const bool bAttach, USceneComponent* AttachComponent, const FName SocketName)
+	const FGroundAttackDetonationParams& DetonationParams, const FGroundDetonationCallback& DetonationCallback, const bool bAttach, USceneComponent* AttachComponent, const FName SocketName)
 {
 	if (!IsValid(Summoner) || Summoner->GetLocalRole() != ROLE_Authority)
 	{
@@ -1602,7 +1602,7 @@ AGroundAttack* UAbilityFunctionLibrary::SpawnGroundEffect(AActor* Summoner, cons
 		const FAttachmentTransformRules TransformRules(EAttachmentRule::KeepWorld, false);
 		NewGroundAttack->AttachToComponent(IsValid(AttachComponent) ? AttachComponent : Summoner->GetRootComponent(), TransformRules, SocketName);
 	}
-	NewGroundAttack->ServerInit(VisualParams, DetonationParams);
+	NewGroundAttack->ServerInit(VisualParams, DetonationParams, DetonationCallback);
 	return NewGroundAttack;
 }
 

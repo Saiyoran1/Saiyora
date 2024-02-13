@@ -44,10 +44,6 @@ struct FGroundAttackDetonationParams
 	//If not infinitely looping, how many times after the initial detonation to loop before destroying the attack actor.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (EditCondition = "!bBindToCastEnd && bLoopDetonation && !bInfiniteLoop"))
 	int32 NumAdditionalLoops = 1;
-	//Optional callback fired off when the detonation completes, providing the attack actor and all hit actors.
-	//This delegate can also be manually bound to later, but providing it while initializing can be convenient.
-	UPROPERTY(BlueprintReadWrite)
-	FGroundDetonationCallback OnDetonationCallback = FGroundDetonationCallback();
 };
 
 //Struct for replicating detonation params to clients so they can display visuals for the detonation behavior.
@@ -114,7 +110,7 @@ public:
 	AGroundAttack(const FObjectInitializer& ObjectInitializer);
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual void Tick(float DeltaSeconds) override;
-	void ServerInit(const FGroundAttackVisualParams& InAttackParams, const FGroundAttackDetonationParams& InDetonationParams);
+	void ServerInit(const FGroundAttackVisualParams& InAttackParams, const FGroundAttackDetonationParams& InDetonationParams, const FGroundDetonationCallback& DetonationCallback);
 	virtual void PostNetReceive() override;
 
 private:
@@ -165,7 +161,7 @@ private:
 	UPROPERTY()
 	UAbilityComponent* OwnerAbilityCompRef = nullptr;
 	UFUNCTION()
-	void DetonateOnCastFinalTick(const FAbilityEvent& Event) { DestroyGroundAttack(); }
+	void DetonateOnCastFinalTick(const FAbilityEvent& Event);
 	UFUNCTION()
 	void CancelDetonationFromCastCancel(const FCancelEvent& Event) { DestroyGroundAttack(); }
 	UFUNCTION()

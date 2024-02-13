@@ -522,6 +522,10 @@ void UAbilityComponent::TickCurrentCast()
 		ServerPredictAbility(TickRequest);
 		OnAbilityTick.Broadcast(TickEvent);
 	}
+	//TODO: Casting can interrupt itself (like if a tick of an ability kills you and interrupts your cast).
+	//Handle this in one of two ways:
+	//1. Null check here and don't call EndCast (check for side effects?)
+	//2. Queue cast cancels and interrupts until the completion of this function.
 	if (CastingState.ElapsedTicks >= CastingState.CurrentCast->GetNonInitialTicks())
 	{
 		EndCast();
