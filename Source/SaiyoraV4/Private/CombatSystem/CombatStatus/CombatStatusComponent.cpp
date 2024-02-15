@@ -143,7 +143,7 @@ ESaiyoraPlane UCombatStatusComponent::PlaneSwap(const bool bIgnoreRestrictions, 
 		return PlaneStatus.CurrentPlane;
 	}
 	const ESaiyoraPlane PreviousPlane = PlaneStatus.CurrentPlane;
-	if (bToSpecificPlane && TargetPlane != ESaiyoraPlane::None)
+	if (bToSpecificPlane)
 	{
 		PlaneStatus.CurrentPlane = TargetPlane;
 	}

@@ -11,7 +11,7 @@ struct FPlaneStatus
 	GENERATED_BODY()
 
 	UPROPERTY()
-	ESaiyoraPlane CurrentPlane = ESaiyoraPlane::None;
+	ESaiyoraPlane CurrentPlane = ESaiyoraPlane::Both;
 	UPROPERTY()
 	UObject* LastSwapSource = nullptr;
 };

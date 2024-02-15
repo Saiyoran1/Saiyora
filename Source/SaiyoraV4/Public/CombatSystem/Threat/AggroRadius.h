@@ -27,7 +27,7 @@ public:
 private:
 
 	float DefaultAggroRadius = 0.0f;
-	EFaction OwnerFaction = EFaction::None;
+	EFaction OwnerFaction = EFaction::Neutral;
 	UPROPERTY()
 	UThreatHandler* ThreatHandlerRef;
 	UPROPERTY()

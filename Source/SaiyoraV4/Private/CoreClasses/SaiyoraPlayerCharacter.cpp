@@ -489,7 +489,7 @@ void ASaiyoraPlayerCharacter::HandleBeginXPlaneOverlap(UPrimitiveComponent* Over
                                                        UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	const bool bPreviouslyOverlapping = XPlaneOverlaps.Num() > 0;
-	ESaiyoraPlane OtherCompPlane = ESaiyoraPlane::None;
+	ESaiyoraPlane OtherCompPlane = ESaiyoraPlane::Both;
 	switch (OtherComp->GetCollisionObjectType())
 	{
 	case FSaiyoraCollision::O_WorldAncient :

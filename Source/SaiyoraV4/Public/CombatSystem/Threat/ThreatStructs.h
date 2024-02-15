@@ -21,9 +21,9 @@ struct FThreatEvent
 	UPROPERTY(BlueprintReadOnly, Category = "Threat")
 	bool AppliedXPlane = false;
 	UPROPERTY(BlueprintReadOnly, Category = "Threat")
-	ESaiyoraPlane AppliedByPlane = ESaiyoraPlane::None;
+	ESaiyoraPlane AppliedByPlane = ESaiyoraPlane::Both;
 	UPROPERTY(BlueprintReadOnly, Category = "Threat")
-	ESaiyoraPlane AppliedToPlane = ESaiyoraPlane::None;
+	ESaiyoraPlane AppliedToPlane = ESaiyoraPlane::Both;
 	UPROPERTY(BlueprintReadOnly, Category = "Threat")
 	EThreatType ThreatType = EThreatType::None;
 	UPROPERTY(BlueprintReadOnly, Category = "Threat")

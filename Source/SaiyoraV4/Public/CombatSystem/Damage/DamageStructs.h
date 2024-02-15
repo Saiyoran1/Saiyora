@@ -41,9 +41,9 @@ struct FHealthEventInfo
     UPROPERTY(BlueprintReadOnly)
     bool AppliedXPlane = false;
     UPROPERTY(BlueprintReadOnly)
-    ESaiyoraPlane AppliedByPlane = ESaiyoraPlane::None;
+    ESaiyoraPlane AppliedByPlane = ESaiyoraPlane::Both;
     UPROPERTY(BlueprintReadOnly)
-    ESaiyoraPlane AppliedToPlane = ESaiyoraPlane::None;
+    ESaiyoraPlane AppliedToPlane = ESaiyoraPlane::Both;
     UPROPERTY(BlueprintReadOnly)
     EEventHitStyle HitStyle = EEventHitStyle::None;
     UPROPERTY(BlueprintReadOnly)

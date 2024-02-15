@@ -30,7 +30,7 @@ public:
 private:
 
 	UPROPERTY(EditAnywhere, Category = "Plane")
-	ESaiyoraPlane DefaultPlane = ESaiyoraPlane::None;
+	ESaiyoraPlane DefaultPlane = ESaiyoraPlane::Both;
 	UPROPERTY(EditDefaultsOnly, Category = "Plane")
 	UMaterialInterface* XPlaneMaterial = nullptr;
 

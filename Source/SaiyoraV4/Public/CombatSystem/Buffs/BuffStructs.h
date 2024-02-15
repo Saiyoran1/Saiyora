@@ -21,9 +21,9 @@ struct FBuffApplyEvent
     UPROPERTY(BlueprintReadOnly, Category = "Buff")
     UObject* Source = nullptr;
     UPROPERTY(BlueprintReadOnly, Category = "Buff")
-    ESaiyoraPlane TargetPlane = ESaiyoraPlane::None; 
+    ESaiyoraPlane TargetPlane = ESaiyoraPlane::Both; 
     UPROPERTY(BlueprintReadOnly, Category = "Buff")
-    ESaiyoraPlane OriginPlane = ESaiyoraPlane::None;
+    ESaiyoraPlane OriginPlane = ESaiyoraPlane::Both;
     UPROPERTY(BlueprintReadOnly, Category = "Buff")
     bool AppliedXPlane = false;
     UPROPERTY(BlueprintReadOnly, Category = "Buff", meta = (BaseStruct = "/Script/SaiyoraV4.CombatParameter"))

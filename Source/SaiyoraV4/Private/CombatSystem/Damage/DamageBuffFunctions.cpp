@@ -71,20 +71,20 @@ void UPeriodicHealthEventFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 		if (SnapshotInfo.AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 		{
 			const UCombatStatusComponent* AppliedByCombatStatusComp = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(SnapshotInfo.AppliedBy);
-			SnapshotInfo.AppliedByPlane = IsValid(AppliedByCombatStatusComp) ? AppliedByCombatStatusComp->GetCurrentPlane() : ESaiyoraPlane::None;
+			SnapshotInfo.AppliedByPlane = IsValid(AppliedByCombatStatusComp) ? AppliedByCombatStatusComp->GetCurrentPlane() : ESaiyoraPlane::Both;
 		}
 		else
 		{
-			SnapshotInfo.AppliedByPlane = ESaiyoraPlane::None;
+			SnapshotInfo.AppliedByPlane = ESaiyoraPlane::Both;
 		}
 		if (SnapshotInfo.AppliedTo->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 		{
 			const UCombatStatusComponent* AppliedToCombatStatusComp = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(SnapshotInfo.AppliedTo);
-			SnapshotInfo.AppliedToPlane = IsValid(AppliedToCombatStatusComp) ? AppliedToCombatStatusComp->GetCurrentPlane() : ESaiyoraPlane::None;
+			SnapshotInfo.AppliedToPlane = IsValid(AppliedToCombatStatusComp) ? AppliedToCombatStatusComp->GetCurrentPlane() : ESaiyoraPlane::Both;
 		}
 		else
 		{
-			SnapshotInfo.AppliedToPlane = ESaiyoraPlane::None;
+			SnapshotInfo.AppliedToPlane = ESaiyoraPlane::Both;
 		}
 		SnapshotInfo.AppliedXPlane = UAbilityFunctionLibrary::IsXPlane(SnapshotInfo.AppliedByPlane, SnapshotInfo.AppliedToPlane);
 		SnapshotInfo.HitStyle = EEventHitStyle::Chronic;

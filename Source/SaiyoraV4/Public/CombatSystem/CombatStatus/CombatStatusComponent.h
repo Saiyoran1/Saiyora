@@ -63,7 +63,7 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Plane")
 	ESaiyoraPlane GetCurrentPlane() const { return PlaneStatus.CurrentPlane; }
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Plane")
-	ESaiyoraPlane PlaneSwap(const bool bIgnoreRestrictions, UObject* Source, const bool bToSpecificPlane, const ESaiyoraPlane TargetPlane = ESaiyoraPlane::None);
+	ESaiyoraPlane PlaneSwap(const bool bIgnoreRestrictions, UObject* Source, const bool bToSpecificPlane, const ESaiyoraPlane TargetPlane = ESaiyoraPlane::Both);
 
 	UFUNCTION(BlueprintCallable, Category = "Plane")
 	void AddPlaneSwapRestriction(UObject* Source);
@@ -80,7 +80,7 @@ public:
 private:
 	
 	UPROPERTY(EditAnywhere, Category = "Plane")
-	ESaiyoraPlane DefaultPlane = ESaiyoraPlane::None;
+	ESaiyoraPlane DefaultPlane = ESaiyoraPlane::Both;
 	UPROPERTY(EditAnywhere, Category = "Plane")
 	bool bCanEverPlaneSwap = false;
 	UPROPERTY(ReplicatedUsing = OnRep_PlaneStatus)
@@ -105,7 +105,7 @@ public:
 private:
 	
 	UPROPERTY(EditAnywhere, Category = "Faction")
-	EFaction DefaultFaction = EFaction::None;
+	EFaction DefaultFaction = EFaction::Neutral;
 
 //Rendering
 

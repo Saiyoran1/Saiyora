@@ -315,7 +315,7 @@ FThreatEvent UThreatHandler::AddThreat(const EThreatType ThreatType, const float
 	Result.AppliedTo = GetOwner();
 	Result.Source = Source;
 	Result.ThreatType = ThreatType;
-	Result.AppliedToPlane = IsValid(CombatStatusComponentRef) ? CombatStatusComponentRef->GetCurrentPlane() : ESaiyoraPlane::None;
+	Result.AppliedToPlane = IsValid(CombatStatusComponentRef) ? CombatStatusComponentRef->GetCurrentPlane() : ESaiyoraPlane::Both;
 	Result.AppliedXPlane = UAbilityFunctionLibrary::IsXPlane(Result.AppliedByPlane, Result.AppliedToPlane);
 	Result.Threat = BaseThreat;
 

@@ -5,14 +5,12 @@
 UENUM(BlueprintType)
 enum class ESaiyoraPlane : uint8
 {
-	//Not participating in the Plane system.
-	None,
-	Ancient,
-	Modern,
 	//In both planes. Considered same-plane when compared to all other planes except Neither.
 	Both,
 	//In neither plane. Considered x-plane when compared to all other planes.
 	Neither,
+	Ancient,
+	Modern,
 };
 
 //Filter enum for determining what actors to consider for a given action.
@@ -54,12 +52,10 @@ enum class EModifierType : uint8
 UENUM(BlueprintType)
 enum class EFaction : uint8
 {
-	//This actor does not participate in the Faction system.
-	None,
-	//This actor is considered unfriendly to players. NPCs are enemies by default.
-	Enemy,
 	//This actor can be considered friendly or unfriendly to players. FactionFilters for a given event determine how to interact with the Neutral faction.
 	Neutral,
+	//This actor is considered unfriendly to players. NPCs are enemies by default.
+	Enemy,
 	//This actor is friendly to players. Players are friendly by default.
 	Friendly,
 };

@@ -346,11 +346,6 @@ bool UAbilityFunctionLibrary::CheckLineOfSightInPlane(const UObject* Context, co
 
 bool UAbilityFunctionLibrary::IsXPlane(const ESaiyoraPlane FromPlane, const ESaiyoraPlane ToPlane)
 {
-	//None is the default value, always consider this same plane if it is provided.
-	if (FromPlane == ESaiyoraPlane::None || ToPlane == ESaiyoraPlane::None)
-	{
-		return false;
-	}
 	//Actors "in between" planes will see everything as another plane.
 	if (FromPlane == ESaiyoraPlane::Neither || ToPlane == ESaiyoraPlane::Neither)
 	{
@@ -391,9 +386,6 @@ void UAbilityFunctionLibrary::GetCombatantsInRadius(const UObject* Context, TArr
 
 bool UAbilityFunctionLibrary::FactionPassesFilter(const EFaction QuerierFaction, const EFaction TargetFaction, const ESaiyoraFactionFilter Filter)
 {
-	//None is treated as neutral for the purposes of filtering.
-	const EFaction QuerierFactionCorrected = QuerierFaction == EFaction::None ? EFaction::Neutral : QuerierFaction;
-	const EFaction TargetFactionCorrected = TargetFaction == EFaction::None ? EFaction::Neutral : TargetFaction;
 	switch (Filter)
 	{
 	case ESaiyoraFactionFilter::None :
@@ -402,12 +394,12 @@ bool UAbilityFunctionLibrary::FactionPassesFilter(const EFaction QuerierFaction,
 	case ESaiyoraFactionFilter::OppositeFaction :
 		{
 			//Returns true for opposite faction or neutral.
-			switch (QuerierFactionCorrected)
+			switch (QuerierFaction)
 			{
 			case EFaction::Enemy :
-				return TargetFactionCorrected == EFaction::Friendly || TargetFactionCorrected == EFaction::Neutral;
+				return TargetFaction == EFaction::Friendly || TargetFaction == EFaction::Neutral;
 			case EFaction::Friendly :
-				return TargetFactionCorrected == EFaction::Enemy || TargetFactionCorrected == EFaction::Neutral;
+				return TargetFaction == EFaction::Enemy || TargetFaction == EFaction::Neutral;
 			case EFaction::Neutral :
 				return true;
 			default :
@@ -418,14 +410,14 @@ bool UAbilityFunctionLibrary::FactionPassesFilter(const EFaction QuerierFaction,
 	case ESaiyoraFactionFilter::OppositeFactionExcludeNeutral :
 		{
 			//Returns true for opposite faction but false for neutral.
-			switch (QuerierFactionCorrected)
+			switch (QuerierFaction)
 			{
 			case EFaction::Enemy :
-				return TargetFactionCorrected == EFaction::Friendly;
+				return TargetFaction == EFaction::Friendly;
 			case EFaction::Friendly :
-				return TargetFactionCorrected == EFaction::Enemy;
+				return TargetFaction == EFaction::Enemy;
 			case EFaction::Neutral :
-				return TargetFactionCorrected == EFaction::Enemy || TargetFactionCorrected == EFaction::Friendly;
+				return TargetFaction == EFaction::Enemy || TargetFaction == EFaction::Friendly;
 			default :
 				return true;
 			}
@@ -434,12 +426,12 @@ bool UAbilityFunctionLibrary::FactionPassesFilter(const EFaction QuerierFaction,
 	case ESaiyoraFactionFilter::SameFaction :
 		{
 			//Returns true for same faction or neutral.
-			switch (QuerierFactionCorrected)
+			switch (QuerierFaction)
 			{
 			case EFaction::Enemy :
-				return TargetFactionCorrected == EFaction::Enemy || TargetFactionCorrected == EFaction::Neutral;
+				return TargetFaction == EFaction::Enemy || TargetFaction == EFaction::Neutral;
 			case EFaction::Friendly :
-				return TargetFactionCorrected == EFaction::Friendly || TargetFactionCorrected == EFaction::Neutral;
+				return TargetFaction == EFaction::Friendly || TargetFaction == EFaction::Neutral;
 			case EFaction::Neutral :
 				return true;
 			default :
@@ -450,14 +442,14 @@ bool UAbilityFunctionLibrary::FactionPassesFilter(const EFaction QuerierFaction,
 	case ESaiyoraFactionFilter::SameFactionExcludeNeutral :
 		{
 			//Returns true for same faction but false for neutral.
-			switch (QuerierFactionCorrected)
+			switch (QuerierFaction)
 			{
 			case EFaction::Enemy :
-				return TargetFactionCorrected == EFaction::Enemy;
+				return TargetFaction == EFaction::Enemy;
 			case EFaction::Friendly :
-				return TargetFactionCorrected == EFaction::Friendly;
+				return TargetFaction == EFaction::Friendly;
 			case EFaction::Neutral :
-				return TargetFactionCorrected == EFaction::Enemy || TargetFactionCorrected == EFaction::Friendly;
+				return TargetFaction == EFaction::Enemy || TargetFaction == EFaction::Friendly;
 			default :
 				return true;
 			}
@@ -503,18 +495,15 @@ void UAbilityFunctionLibrary::FilterActorsByFaction(TArray<AActor*>& Actors, con
 
 bool UAbilityFunctionLibrary::PlanePassesFilter(const ESaiyoraPlane QuerierPlane, const ESaiyoraPlane TargetPlane, const ESaiyoraPlaneFilter Filter)
 {
-	//None is treated as both for the purposes of filtering.
-	const ESaiyoraPlane QuerierPlaneCorrected = QuerierPlane == ESaiyoraPlane::None ? ESaiyoraPlane::Both : QuerierPlane;
-	const ESaiyoraPlane TargetPlaneCorrected = TargetPlane == ESaiyoraPlane::None ? ESaiyoraPlane::Both : TargetPlane;
 	switch (Filter)
 	{
 	case ESaiyoraPlaneFilter::None :
 		//If no filter, always return true.
 		return true;
 	case ESaiyoraPlaneFilter::SamePlane :
-		return !IsXPlane(QuerierPlaneCorrected, TargetPlaneCorrected);
+		return !IsXPlane(QuerierPlane, TargetPlane);
 	case ESaiyoraPlaneFilter::XPlane :
-		return IsXPlane(QuerierPlaneCorrected, TargetPlaneCorrected);
+		return IsXPlane(QuerierPlane, TargetPlane);
 	default :
 		return true;
 	}
