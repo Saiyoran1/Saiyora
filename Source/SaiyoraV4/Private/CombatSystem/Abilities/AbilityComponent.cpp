@@ -522,11 +522,8 @@ void UAbilityComponent::TickCurrentCast()
 		ServerPredictAbility(TickRequest);
 		OnAbilityTick.Broadcast(TickEvent);
 	}
-	//TODO: Casting can interrupt itself (like if a tick of an ability kills you and interrupts your cast).
-	//Handle this in one of two ways:
-	//1. Null check here and don't call EndCast (check for side effects?)
-	//2. Queue cast cancels and interrupts until the completion of this function.
-	if (CastingState.ElapsedTicks >= CastingState.CurrentCast->GetNonInitialTicks())
+	//Check if we're still casting here because effects of a cast's tick could have cancelled it.
+	if (CastingState.bIsCasting && CastingState.ElapsedTicks >= CastingState.CurrentCast->GetNonInitialTicks())
 	{
 		EndCast();
 	}
@@ -624,8 +621,6 @@ FCancelEvent UAbilityComponent::CancelCurrentCast()
 	}
 	if (!CastingState.bIsCasting || !IsValid(CastingState.CurrentCast))
 	{
-		//TODO: I changed this to allow cancelling of unacked casts. If this breaks things, here is where to fix!
-		//Note that we can not cancel a cast that is being predicted and has not had its cast time acked.
 		Result.FailReason = ECancelFailReason::NotCasting;
 		return Result;
 	}
