@@ -14,7 +14,7 @@ UStatHandler::UStatHandler()
 
 void UStatHandler::InitializeComponent()
 {
-	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Stat Handler."));
+	checkf(GetOwner()->Implements<USaiyoraCombatInterface>(), TEXT("Owner does not implement combat interface, but has Stat Handler."));
 	if (GetOwnerRole() == ROLE_Authority)
 	{
 		//Copy the editor-exposed stats to a replicated array so that clients don't get duplicates.

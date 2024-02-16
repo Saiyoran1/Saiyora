@@ -1,12 +1,9 @@
 #include "Buff.h"
 #include "BuffFunction.h"
 #include "UnrealNetwork.h"
-#include "Kismet/KismetSystemLibrary.h"
 #include "BuffHandler.h"
 #include "SaiyoraCombatInterface.h"
 #include "GameFramework/GameStateBase.h"
-
-const float UBuff::MinimumBuffDuration = 0.1f;
 
 #pragma region Initialization
 
@@ -38,6 +35,8 @@ void UBuff::InitializeBuff(FBuffApplyEvent& Event, UBuffHandler* NewHandler, con
     GameStateRef = GetWorld()->GetGameState<AGameState>();
     Handler = NewHandler;
     Event.ActionTaken = EBuffApplyAction::NewBuff;
+    
+    //Setup buff stacks
     Event.PreviousStacks = 0;
     switch (StackOverrideType)
     {
@@ -55,6 +54,8 @@ void UBuff::InitializeBuff(FBuffApplyEvent& Event, UBuffHandler* NewHandler, con
         break;
     }
     Event.NewStacks = CurrentStacks;
+    
+    //Setup buff duration
     LastRefreshTime = GameStateRef->GetServerWorldTimeSeconds();
     Event.NewApplyTime = LastRefreshTime;
     Event.PreviousDuration = 0.0f;
@@ -83,11 +84,19 @@ void UBuff::InitializeBuff(FBuffApplyEvent& Event, UBuffHandler* NewHandler, con
         Event.NewDuration = 0.0f;
         ExpireTime = 0.0f;
     }
+    
     CreationEvent = Event;
     bIgnoringRestrictions = bIgnoreRestrictions;
+
+    //Allow derived classes to setup buff functions
     SetupCommonBuffFunctions();
+    
     Status = EBuffStatus::Active;
+
+    //Add ourselves to the handler arrays of the actor we are applied to and the actor we were applied by
     Handler->NotifyOfNewIncomingBuff(CreationEvent);
+
+    //Run BuffFunction OnApply logic
     for (UBuffFunction* Function : BuffFunctions)
     {
         if (IsValid(Function))
@@ -95,6 +104,8 @@ void UBuff::InitializeBuff(FBuffApplyEvent& Event, UBuffHandler* NewHandler, con
             Function->OnApply(CreationEvent);
         }
     }
+    
+    //Run child class OnApply logic
     OnApply(CreationEvent);
 }
 
@@ -106,12 +117,19 @@ void UBuff::OnRep_CreationEvent()
         return;
     }
     GameStateRef = GetWorld()->GetGameState<AGameState>();
+
+    //Copy buff state from the replicated creation event
     CurrentStacks = CreationEvent.NewStacks;
     LastRefreshTime = CreationEvent.NewApplyTime;
     ExpireTime = CreationEvent.NewDuration + LastRefreshTime;
+
+    //Allow child classes to setup buff functions locally
     SetupCommonBuffFunctions();
+    
     Status = EBuffStatus::Active;
-    if (IsValid(CreationEvent.AppliedTo) && CreationEvent.AppliedTo->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+
+    //Alert handlers of AppliedTo and AppliedBy to add us to their arrays locally
+    if (IsValid(CreationEvent.AppliedTo) && CreationEvent.AppliedTo->Implements<USaiyoraCombatInterface>())
     {
         Handler = ISaiyoraCombatInterface::Execute_GetBuffHandler(CreationEvent.AppliedTo);
         if (IsValid(Handler))
@@ -119,6 +137,8 @@ void UBuff::OnRep_CreationEvent()
             Handler->NotifyOfNewIncomingBuff(CreationEvent);
         }
     }
+
+    //Run BuffFunction OnApply logic
     for (UBuffFunction* Function : BuffFunctions)
     {
         if (IsValid(Function))
@@ -126,7 +146,10 @@ void UBuff::OnRep_CreationEvent()
             Function->OnApply(CreationEvent);
         }
     }
+
+    //Run child class OnApply logic
     OnApply(CreationEvent);
+    
     //Check if there is a valid LastApplyEvent that came in before or at the same time as CreationEvent (due to either variables coming in the wrong order, or net relevancy).
     if (LastApplyEvent.ActionTaken != EBuffApplyAction::NewBuff && LastApplyEvent.ActionTaken != EBuffApplyAction::Failed)
     {
@@ -256,30 +279,43 @@ void UBuff::CompleteExpireTimer()
 
 FBuffRemoveEvent UBuff::TerminateBuff(const EBuffExpireReason TerminationReason)
 {
+    //Fail to remove the buff if we are ignoring restrictions and this was a dispel
     if (bIgnoringRestrictions && TerminationReason == EBuffExpireReason::Dispel)
     {
         return FBuffRemoveEvent();
     }
+    
     if (bFiniteDuration)
     {
         GetWorld()->GetTimerManager().ClearTimer(ExpireHandle);
     }
     RemovalReason = TerminationReason;
+    
     FBuffRemoveEvent RemoveEvent;
     RemoveEvent.Result = true;
     RemoveEvent.RemovedBuff = this;
     RemoveEvent.RemovedFrom = CreationEvent.AppliedTo;
     RemoveEvent.AppliedBy = CreationEvent.AppliedBy;
     RemoveEvent.ExpireReason = RemovalReason;
+
+    //Run BuffFunction OnRemove logic, then get rid of the buff function objects
     for (UBuffFunction* Function : BuffFunctions)
     {
         Function->OnRemove(RemoveEvent);
         Function->CleanupBuffFunction();
     }
+
+    //Run derived class OnRemove logic
     OnRemove(RemoveEvent);
+    
     Status = EBuffStatus::Removed;
+
+    //Notify handlers to remove this buff from their arrays
     Handler->NotifyOfIncomingBuffRemoval(RemoveEvent);
+    
+    //Fire off delegate for external OnRemoved logic
     OnRemoved.Broadcast(RemoveEvent);
+    
     return RemoveEvent;
 }
 

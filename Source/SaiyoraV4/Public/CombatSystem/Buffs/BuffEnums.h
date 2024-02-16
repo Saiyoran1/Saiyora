@@ -1,5 +1,6 @@
 #pragma once
 
+//The type of buff, to sort into arrays and display in different ways for players
 UENUM(BlueprintType)
 enum class EBuffType : uint8
 {
@@ -11,6 +12,7 @@ enum class EBuffType : uint8
 	HiddenBuff,
 };
 
+//The type of override to use when calculating new buff stacks or duration, or when deciding to duplicate a buff
 UENUM(BlueprintType)
 enum class EBuffApplicationOverrideType : uint8
 {
@@ -22,6 +24,7 @@ enum class EBuffApplicationOverrideType : uint8
 	Additive,
 };
 
+//The reason for a buff's removal
 UENUM(BlueprintType)
 enum class EBuffExpireReason : uint8
 {
@@ -37,6 +40,7 @@ enum class EBuffExpireReason : uint8
 	Combat,
 };
 
+//The result of a buff application event
 UENUM(BlueprintType)
 enum class EBuffApplyAction : uint8
 {
@@ -53,6 +57,7 @@ enum class EBuffApplyAction : uint8
 };
 
 //Unsure if this enum needs to exist at all
+//It is currently used to guard against double initialization and to prevent registering buff functions after init.
 UENUM(BlueprintType)
 enum class EBuffStatus : uint8
 {

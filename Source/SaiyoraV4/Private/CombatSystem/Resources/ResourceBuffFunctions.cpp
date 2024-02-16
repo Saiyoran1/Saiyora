@@ -23,7 +23,7 @@ void UResourceDeltaModifierFunction::ResourceDeltaModifier(UBuff* Buff, const TS
 void UResourceDeltaModifierFunction::SetModifierVars(const TSubclassOf<UResource> ResourceClass,
                                               const FResourceDeltaModifier& Modifier)
 {
-	if (GetOwningBuff()->GetAppliedTo()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	if (GetOwningBuff()->GetAppliedTo()->Implements<USaiyoraCombatInterface>())
 	{
 		const UResourceHandler* TargetHandler = ISaiyoraCombatInterface::Execute_GetResourceHandler(GetOwningBuff()->GetAppliedTo());
 		if (IsValid(TargetHandler))

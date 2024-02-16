@@ -13,6 +13,7 @@ class UStatHandler;
 class UDamageHandler;
 class UCombatStatusComponent;
 
+//Component that handles applying and removing buffs to and from the owning actor.
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class SAIYORAV4_API UBuffHandler : public UActorComponent
 {

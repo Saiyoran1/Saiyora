@@ -23,7 +23,7 @@ UBuffHandler::UBuffHandler()
 
 void UBuffHandler::InitializeComponent()
 {
-	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Buff Handler."));
+	checkf(GetOwner()->Implements<USaiyoraCombatInterface>(), TEXT("Owner does not implement combat interface, but has Buff Handler."));
 	CombatStatusComponentRef = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(GetOwner());
 	DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
 	StatHandlerRef = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
@@ -100,7 +100,7 @@ FBuffApplyEvent UBuffHandler::ApplyBuff(const TSubclassOf<UBuff> BuffClass, AAct
 	Event.AppliedBy = AppliedBy;
 	UCombatStatusComponent* GeneratorCombatStatus = nullptr;
 	UBuffHandler* GeneratorBuff = nullptr;
-	if (AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	if (AppliedBy->Implements<USaiyoraCombatInterface>())
 	{
 		GeneratorCombatStatus = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(AppliedBy);
 		GeneratorBuff = ISaiyoraCombatInterface::Execute_GetBuffHandler(AppliedBy);
@@ -168,7 +168,7 @@ void UBuffHandler::NotifyOfNewIncomingBuff(const FBuffApplyEvent& ApplicationEve
 	AddReplicatedSubObject(ApplicationEvent.AffectedBuff);
 	OnIncomingBuffApplied.Broadcast(ApplicationEvent);
 	//Alert the actor who applied this buff that they should keep track of it as well.
-	if (IsValid(ApplicationEvent.AffectedBuff->GetAppliedBy()) && ApplicationEvent.AffectedBuff->GetAppliedBy()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	if (IsValid(ApplicationEvent.AffectedBuff->GetAppliedBy()) && ApplicationEvent.AffectedBuff->GetAppliedBy()->Implements<USaiyoraCombatInterface>())
 	{
 		UBuffHandler* GeneratorBuff = ISaiyoraCombatInterface::Execute_GetBuffHandler(ApplicationEvent.AffectedBuff->GetAppliedBy());
 		if (IsValid(GeneratorBuff))
@@ -234,7 +234,7 @@ void UBuffHandler::NotifyOfIncomingBuffRemoval(const FBuffRemoveEvent& RemoveEve
 		GetWorld()->GetTimerManager().SetTimer(RemoveTimer, RemoveDel, 1.0f, false);
 
 		//Alert the actor who applied the buff that it is being removed.
-		if (IsValid(RemoveEvent.RemovedBuff->GetAppliedBy()) && RemoveEvent.RemovedBuff->GetAppliedBy()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+		if (IsValid(RemoveEvent.RemovedBuff->GetAppliedBy()) && RemoveEvent.RemovedBuff->GetAppliedBy()->Implements<USaiyoraCombatInterface>())
 		{
 			UBuffHandler* BuffGenerator = ISaiyoraCombatInterface::Execute_GetBuffHandler(RemoveEvent.RemovedBuff->GetAppliedBy());
 			if (IsValid(BuffGenerator))

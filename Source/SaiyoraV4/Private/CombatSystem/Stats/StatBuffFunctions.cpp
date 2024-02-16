@@ -21,7 +21,7 @@ void UStatModifierFunction::StatModifiers(UBuff* Buff, const TMap<FGameplayTag, 
 
 void UStatModifierFunction::SetModifierVars(const TMap<FGameplayTag, FCombatModifier>& Modifiers)
 {
-	if (GetOwningBuff()->GetAppliedTo()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	if (GetOwningBuff()->GetAppliedTo()->Implements<USaiyoraCombatInterface>())
 	{
 		TargetHandler = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwningBuff()->GetAppliedTo());
 		for (const TTuple<FGameplayTag, FCombatModifier>& ModTuple : Modifiers)
