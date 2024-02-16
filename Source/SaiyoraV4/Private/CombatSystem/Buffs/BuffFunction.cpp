@@ -61,7 +61,7 @@ void UCustomBuffFunction::SetupCustomBuffFunctions(UBuff* Buff,
 #pragma endregion
 #pragma region Buff Restriction
 
-void UBuffRestrictionFunction::BuffRestriction(UBuff* Buff, const EBuffRestrictionType RestrictionType, const FBuffRestriction& Restriction)
+void UBuffRestrictionFunction::BuffRestriction(UBuff* Buff, const ECombatEventDirection RestrictionDirection, const FBuffRestriction& Restriction)
 {
     if (!IsValid(Buff) || !Restriction.IsBound() || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
     {
@@ -72,15 +72,15 @@ void UBuffRestrictionFunction::BuffRestriction(UBuff* Buff, const EBuffRestricti
     {
         return;
     }
-    NewBuffRestrictionFunction->SetRestrictionVars(RestrictionType, Restriction);
+    NewBuffRestrictionFunction->SetRestrictionVars(RestrictionDirection, Restriction);
 }
 
-void UBuffRestrictionFunction::SetRestrictionVars(const EBuffRestrictionType RestrictionType, const FBuffRestriction& Restriction)
+void UBuffRestrictionFunction::SetRestrictionVars(const ECombatEventDirection RestrictionDirection, const FBuffRestriction& Restriction)
 {
     if (GetOwningBuff()->GetAppliedTo()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
     {
         TargetComponent = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwningBuff()->GetAppliedTo());
-        RestrictType = RestrictionType;
+        Direction = RestrictionDirection;
         Restrict = Restriction;
     }
 }
@@ -89,12 +89,12 @@ void UBuffRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
     if (IsValid(TargetComponent))
     {
-        switch (RestrictType)
+        switch (Direction)
         {
-            case EBuffRestrictionType::Outgoing :
+            case ECombatEventDirection::Outgoing :
                 TargetComponent->AddOutgoingBuffRestriction(Restrict);
                 break;
-            case EBuffRestrictionType::Incoming :
+            case ECombatEventDirection::Incoming :
                 TargetComponent->AddIncomingBuffRestriction(Restrict);
                 break;
             default :
@@ -107,12 +107,12 @@ void UBuffRestrictionFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
     if (IsValid(TargetComponent))
     {
-        switch (RestrictType)
+        switch (Direction)
         {
-        case EBuffRestrictionType::Outgoing :
+        case ECombatEventDirection::Outgoing :
             TargetComponent->RemoveOutgoingBuffRestriction(Restrict);
             break;
-        case EBuffRestrictionType::Incoming :
+        case ECombatEventDirection::Incoming :
             TargetComponent->RemoveIncomingBuffRestriction(Restrict);
             break;
         default :

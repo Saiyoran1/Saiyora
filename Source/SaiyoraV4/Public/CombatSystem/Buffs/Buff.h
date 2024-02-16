@@ -1,4 +1,5 @@
 #pragma once
+#include "AbilityFunctionLibrary.h"
 #include "BuffStructs.h"
 #include "InstancedStruct.h"
 #include "GameFramework/GameState.h"
@@ -95,7 +96,7 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Buff")
 	float GetInitialExpireTime() const { return bFiniteDuration ? (GetInitialApplyTime() + CreationEvent.NewDuration) : 0.0f; }
 	UFUNCTION(BlueprintPure, Category = "Buff")
-	bool WasInitiallyAppliedXPlane() const { return CreationEvent.AppliedXPlane; }
+	bool WasInitiallyAppliedXPlane() const { return UAbilityFunctionLibrary::IsXPlane(CreationEvent.OriginPlane, CreationEvent.TargetPlane); }
 	UFUNCTION(BlueprintPure, Category = "Buff")
 	ESaiyoraPlane GetInitialOriginPlane() const { return CreationEvent.OriginPlane; }
 	UFUNCTION(BlueprintPure, Category = "Buff")
@@ -162,9 +163,7 @@ private:
 //Status
 
 public:
-
-	UFUNCTION(BlueprintPure, Category = "Buff")
-	EBuffStatus GetBuffStatus() const { return Status; }
+	
 	UFUNCTION(BlueprintPure, Category = "Buff")
 	int32 GetCurrentStacks() const { return CurrentStacks; }
 	UFUNCTION(BlueprintPure, Category = "Buff")
@@ -174,14 +173,15 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Buff")
 	float GetExpirationTime() const { return ExpireTime; }
 	UFUNCTION(BlueprintPure, Category = "Buff")
-	bool WasLastAppliedXPlane() const { return LastApplyEvent.ActionTaken == EBuffApplyAction::Failed ? CreationEvent.AppliedXPlane : LastApplyEvent.AppliedXPlane; }
+	bool WasLastAppliedXPlane() const { return LastApplyEvent.ActionTaken == EBuffApplyAction::Failed
+		? UAbilityFunctionLibrary::IsXPlane(CreationEvent.OriginPlane, CreationEvent.TargetPlane)
+		: UAbilityFunctionLibrary::IsXPlane(LastApplyEvent.OriginPlane, LastApplyEvent.TargetPlane); }
 	UFUNCTION(BlueprintPure, Category = "Buff")
 	ESaiyoraPlane GetLastOriginPlane() const { return LastApplyEvent.ActionTaken == EBuffApplyAction::Failed ? CreationEvent.OriginPlane : LastApplyEvent.OriginPlane; }
 	UFUNCTION(BlueprintPure, Category = "Buff")
 	ESaiyoraPlane GetLastTargetPlane() const { return LastApplyEvent.ActionTaken == EBuffApplyAction::Failed ? CreationEvent.TargetPlane : LastApplyEvent.TargetPlane; }
 	UFUNCTION(BlueprintPure, Category = "Buff", meta = (BaseStruct = "/Script/SaiyoraV4.CombatParameter"))
 	void GetLastApplicationParameters(TArray<FInstancedStruct>& OutParams) const { LastApplyEvent.ActionTaken == EBuffApplyAction::Failed ? OutParams = CreationEvent.CombatParams : OutParams = LastApplyEvent.CombatParams; }
-	int32 GetLastPredictionID() const { return LastApplyEvent.ActionTaken == EBuffApplyAction::Failed ? CreationEvent.PredictionID : LastApplyEvent.PredictionID; }
 
 	UPROPERTY(BlueprintAssignable)
 	FBuffEventNotification OnUpdated;

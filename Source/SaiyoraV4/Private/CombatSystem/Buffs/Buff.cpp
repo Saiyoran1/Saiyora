@@ -192,6 +192,7 @@ void UBuff::ApplyEvent(FBuffApplyEvent& ApplicationEvent, const EBuffApplication
         : (bRefreshed ? EBuffApplyAction::Refreshed : EBuffApplyAction::Failed);
     if (ApplicationEvent.ActionTaken == EBuffApplyAction::Failed)
     {
+        ApplicationEvent.FailReasons.AddUnique(EBuffApplyFailReason::NoStackRefreshOrDuplicate);
         return;
     }
     LastApplyEvent = ApplicationEvent;

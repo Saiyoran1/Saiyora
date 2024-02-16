@@ -12,38 +12,41 @@ struct FBuffApplyEvent
 {
     GENERATED_BODY()
 
-    UPROPERTY(BlueprintReadOnly, Category = "Buff")
-    TSubclassOf<UBuff> BuffClass;
-    UPROPERTY(BlueprintReadOnly, Category = "Buff")
-    AActor* AppliedTo = nullptr;
-    UPROPERTY(BlueprintReadOnly, Category = "Buff")
-    AActor* AppliedBy = nullptr;
-    UPROPERTY(BlueprintReadOnly, Category = "Buff")
-    UObject* Source = nullptr;
-    UPROPERTY(BlueprintReadOnly, Category = "Buff")
-    ESaiyoraPlane TargetPlane = ESaiyoraPlane::Both; 
-    UPROPERTY(BlueprintReadOnly, Category = "Buff")
-    ESaiyoraPlane OriginPlane = ESaiyoraPlane::Both;
-    UPROPERTY(BlueprintReadOnly, Category = "Buff")
-    bool AppliedXPlane = false;
-    UPROPERTY(BlueprintReadOnly, Category = "Buff", meta = (BaseStruct = "/Script/SaiyoraV4.CombatParameter"))
-    TArray<FInstancedStruct> CombatParams;
-    UPROPERTY(BlueprintReadOnly, Category = "Buff")
+    UPROPERTY(BlueprintReadOnly)
     EBuffApplyAction ActionTaken = EBuffApplyAction::Failed;
-    UPROPERTY(BlueprintReadOnly, Category = "Buff")
+    UPROPERTY(BlueprintReadOnly)
+    TArray<EBuffApplyFailReason> FailReasons;
+    
+    UPROPERTY(BlueprintReadOnly)
+    TSubclassOf<UBuff> BuffClass;
+    
+    UPROPERTY(BlueprintReadOnly)
+    AActor* AppliedTo = nullptr;
+    UPROPERTY(BlueprintReadOnly)
+    ESaiyoraPlane TargetPlane = ESaiyoraPlane::Both;
+    
+    UPROPERTY(BlueprintReadOnly)
+    AActor* AppliedBy = nullptr;
+    UPROPERTY(BlueprintReadOnly)
+    ESaiyoraPlane OriginPlane = ESaiyoraPlane::Both;
+    
+    UPROPERTY(BlueprintReadOnly)
+    UObject* Source = nullptr;
+    UPROPERTY(BlueprintReadOnly, meta = (BaseStruct = "/Script/SaiyoraV4.CombatParameter"))
+    TArray<FInstancedStruct> CombatParams;
+    
+    UPROPERTY(BlueprintReadOnly)
     UBuff* AffectedBuff = nullptr;
-    UPROPERTY(BlueprintReadOnly, Category = "Buff")
+    UPROPERTY(BlueprintReadOnly)
     int32 PreviousStacks = 0;
-    UPROPERTY(BlueprintReadOnly, Category = "Buff")
+    UPROPERTY(BlueprintReadOnly)
     int32 NewStacks = 0;
-    UPROPERTY(BlueprintReadOnly, Category = "Buff")
+    UPROPERTY(BlueprintReadOnly)
     float PreviousDuration = 0.0f;
-    UPROPERTY(BlueprintReadOnly, Category = "Buff")
+    UPROPERTY(BlueprintReadOnly)
     float NewDuration = 0.0f;
-    UPROPERTY(BlueprintReadOnly, Category = "Buff")
+    UPROPERTY(BlueprintReadOnly)
     float NewApplyTime = 0.0f;
-    UPROPERTY()
-    int32 PredictionID = 0;
 };
 
 USTRUCT(BlueprintType)
@@ -51,15 +54,15 @@ struct FBuffRemoveEvent
 {
     GENERATED_BODY()
 
-    UPROPERTY(BlueprintReadOnly, Category = "Buff")
+    UPROPERTY(BlueprintReadOnly)
     UBuff* RemovedBuff = nullptr;
-    UPROPERTY(BlueprintReadOnly, Category = "Buff")
+    UPROPERTY(BlueprintReadOnly)
     AActor* AppliedBy = nullptr;
-    UPROPERTY(BlueprintReadOnly, Category = "Buff")
+    UPROPERTY(BlueprintReadOnly)
     AActor* RemovedFrom = nullptr;
-    UPROPERTY(BlueprintReadOnly, Category = "Buff")
+    UPROPERTY(BlueprintReadOnly)
     EBuffExpireReason ExpireReason = EBuffExpireReason::Invalid;
-    UPROPERTY(BlueprintReadOnly, Category = "Buff")
+    UPROPERTY(BlueprintReadOnly)
     bool Result = false;
 };
 

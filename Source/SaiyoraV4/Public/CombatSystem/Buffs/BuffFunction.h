@@ -72,16 +72,16 @@ class UBuffRestrictionFunction : public UBuffFunction
 {
 	GENERATED_BODY()
 
-	EBuffRestrictionType RestrictType = EBuffRestrictionType::None;
+	ECombatEventDirection Direction = ECombatEventDirection::Incoming;
 	FBuffRestriction Restrict;
 	UPROPERTY()
 	UBuffHandler* TargetComponent = nullptr;
 
-	void SetRestrictionVars(const EBuffRestrictionType RestrictionType, const FBuffRestriction& Restriction);
+	void SetRestrictionVars(const ECombatEventDirection RestrictionDirection, const FBuffRestriction& Restriction);
 
 	virtual void OnApply(const FBuffApplyEvent& ApplyEvent) override;
 	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) override;
 
 	UFUNCTION(BlueprintCallable, Category = "Buff Function", meta = (DefaultToSelf = "Buff", HidePin = "Buff"))
-	static void BuffRestriction(UBuff* Buff, const EBuffRestrictionType RestrictionType, const FBuffRestriction& Restriction);
+	static void BuffRestriction(UBuff* Buff, const ECombatEventDirection RestrictionDirection, const FBuffRestriction& Restriction);
 };
