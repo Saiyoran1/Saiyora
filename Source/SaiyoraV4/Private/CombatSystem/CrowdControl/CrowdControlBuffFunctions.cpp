@@ -30,7 +30,7 @@ bool UCrowdControlImmunityFunction::RestrictCcBuff(const FBuffApplyEvent& ApplyE
 
 void UCrowdControlImmunityFunction::SetRestrictionVars(const FGameplayTag ImmunedCc)
 {
-	if (GetOwningBuff()->GetAppliedTo()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	if (GetOwningBuff()->GetAppliedTo()->Implements<USaiyoraCombatInterface>())
 	{
 		TargetCcHandler = ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(GetOwningBuff()->GetAppliedTo());
 		TargetBuffHandler = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwningBuff()->GetAppliedTo());
@@ -43,6 +43,7 @@ void UCrowdControlImmunityFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
 	if (IsValid(TargetBuffHandler) && IsValid(TargetCcHandler))
 	{
+		//Remove any buffs currently appling the CC
 		const FCrowdControlStatus Status = TargetCcHandler->GetCrowdControlStatus(ImmuneCc);
 		if (Status.bActive)
 		{
@@ -52,6 +53,7 @@ void UCrowdControlImmunityFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 				TargetBuffHandler->RemoveBuff(Cc, EBuffExpireReason::Dispel);
 			}
 		}
+		//Restrict future buffs from applying the CC
 		TargetBuffHandler->AddIncomingBuffRestriction(CcImmunity);
 	}
 }

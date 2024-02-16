@@ -8,12 +8,14 @@ bool FCrowdControlStatus::AddNewBuff(UBuff* Source)
         return false;
     }
     Sources.Add(Source);
+    //If this is the only buff applying this crowd control, we need to set active and set dominant buff
     if (!bActive || !IsValid(DominantBuffInstance) || !IsValid(DominantBuffClass))
     {
         bActive = true;
         SetNewDominantBuff(Source);
         return true;
     }
+    //If this buff has a longer duration than the current dominant buff, update the dominant buff
     if (DominantBuffInstance->HasFiniteDuration() && (!Source->HasFiniteDuration() || DominantBuffInstance->GetExpirationTime() <= Source->GetExpirationTime()))
     {
         SetNewDominantBuff(Source);
@@ -28,6 +30,7 @@ bool FCrowdControlStatus::RemoveBuff(UBuff* Source)
     {
         return false;
     }
+    //We want to return true when the dominant buff changes, or false if it didn't
     if (Sources.Remove(Source) > 0 && (Sources.Num() == 0 || DominantBuffInstance == Source))
     {
         SetNewDominantBuff(GetLongestBuff());
@@ -42,6 +45,7 @@ bool FCrowdControlStatus::RefreshBuff(UBuff* Source)
     {
         return false;
     }
+    //Return true if the dominant buff changes, or false if it didn't
     if (IsValid(DominantBuffInstance) && (!DominantBuffInstance->HasFiniteDuration() || (Source->HasFiniteDuration() && Source->GetExpirationTime() <= DominantBuffInstance->GetExpirationTime())))
     {
         return false;

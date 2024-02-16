@@ -17,14 +17,15 @@ UCrowdControlHandler::UCrowdControlHandler()
 void UCrowdControlHandler::InitializeComponent()
 {
 	Super::InitializeComponent();
-	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Crowd Control Handler."));
+	checkf(GetOwner()->Implements<USaiyoraCombatInterface>(), TEXT("Owner does not implement combat interface, but has Crowd Control Handler."));
 	BuffHandlerRef = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwner());
 	DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
-	StunStatus.CrowdControlType = FSaiyoraCombatTags::Get().Cc_Stun;
-	IncapStatus.CrowdControlType = FSaiyoraCombatTags::Get().Cc_Incapacitate;
-	RootStatus.CrowdControlType = FSaiyoraCombatTags::Get().Cc_Root;
-	SilenceStatus.CrowdControlType = FSaiyoraCombatTags::Get().Cc_Silence;
-	DisarmStatus.CrowdControlType = FSaiyoraCombatTags::Get().Cc_Disarm;
+	const FSaiyoraCombatTags& CombatTags = FSaiyoraCombatTags::Get();
+	StunStatus.CrowdControlType = CombatTags.Cc_Stun;
+	IncapStatus.CrowdControlType = CombatTags.Cc_Incapacitate;
+	RootStatus.CrowdControlType = CombatTags.Cc_Root;
+	SilenceStatus.CrowdControlType = CombatTags.Cc_Silence;
+	DisarmStatus.CrowdControlType = CombatTags.Cc_Disarm;
 }
 
 void UCrowdControlHandler::BeginPlay()
@@ -155,8 +156,12 @@ void UCrowdControlHandler::CheckAppliedBuffForCc(const FBuffApplyEvent& BuffEven
 	{
 		return;
 	}
+	
+	//Check if the applied buff had any CC tags
 	FGameplayTagContainer BuffTags;
 	BuffEvent.AffectedBuff->GetBuffTags(BuffTags);
+
+	//If this is a new buff, we want to add it to the list for any relevant cc types
 	if (BuffEvent.ActionTaken == EBuffApplyAction::NewBuff)
 	{
 		for (const FGameplayTag Tag : BuffTags)
@@ -174,6 +179,7 @@ void UCrowdControlHandler::CheckAppliedBuffForCc(const FBuffApplyEvent& BuffEven
 			}
 		}
 	}
+	//If this is just a refresh of an existing buff, we are checking for whether it can be the new dominant buff (or if it was and is no longer the dominant buff) for a cc type
 	else if (BuffEvent.ActionTaken == EBuffApplyAction::Refreshed || BuffEvent.ActionTaken == EBuffApplyAction::StackedAndRefreshed)
 	{
 		for (const FGameplayTag Tag : BuffTags)
@@ -199,8 +205,12 @@ void UCrowdControlHandler::CheckRemovedBuffForCc(const FBuffRemoveEvent& RemoveE
 	{
 		return;
 	}
+	
+	//Check if the removed buff had any CC tags
 	FGameplayTagContainer BuffTags;
 	RemoveEvent.RemovedBuff->GetBuffTags(BuffTags);
+
+	//We want to check if this changes the dominant buff for any CC type, or deactivates it entirely
 	for (const FGameplayTag Tag : BuffTags)
 	{
 		if (Tag.IsValid() && Tag.MatchesTag(FSaiyoraCombatTags::Get().CrowdControl) && !Tag.MatchesTagExact(FSaiyoraCombatTags::Get().CrowdControl))
@@ -249,6 +259,7 @@ void UCrowdControlHandler::RemoveIncapacitatesOnDamageTaken(const FHealthEvent& 
 	{
 		for(UBuff* Cc : IncapStatus.Sources)
 		{
+			//We break CCs by removing buffs that are applying those CCs
 			BuffHandlerRef->RemoveBuff(Cc, EBuffExpireReason::Dispel);
 		}
 	}
