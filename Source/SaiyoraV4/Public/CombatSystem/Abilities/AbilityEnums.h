@@ -44,6 +44,7 @@ enum class ECastFailReason : uint8
     CrowdControl,
     NetRole,
     Queued,
+    Token,
 };
 
 UENUM(BlueprintType)

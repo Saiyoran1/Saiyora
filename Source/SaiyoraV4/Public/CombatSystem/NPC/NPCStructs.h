@@ -28,6 +28,30 @@ struct FPatrolPoint
 	float WaitTime = 0.0f;
 };
 
+DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityTokenCallback, const bool, bTokensAvailable);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityTokenNotification, const bool, bTokensAvailable);
+
+USTRUCT()
+struct FNPCAbilityToken
+{
+	GENERATED_BODY()
+
+	bool bAvailable = true;
+	FTimerHandle CooldownHandle;
+	UPROPERTY()
+	UNPCAbility* OwningInstance = nullptr;
+};
+
+USTRUCT()
+struct FNPCAbilityTokens
+{
+	GENERATED_BODY()
+
+	TArray<FNPCAbilityToken> Tokens;
+	int32 AvailableCount = 0;
+	FAbilityTokenNotification OnTokenAvailabilityChanged;
+};
+
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FPatrolStateNotification, const EPatrolSubstate, PatrolSubstate, ATargetPoint*, LastReachedPoint);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPatrolLocationNotification, const FVector&, Location);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FCombatBehaviorNotification, const ENPCCombatBehavior, PreviousStatus, const ENPCCombatBehavior, NewStatus);

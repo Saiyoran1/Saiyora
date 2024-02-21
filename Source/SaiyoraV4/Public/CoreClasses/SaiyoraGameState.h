@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "CoreMinimal.h"
 #include "AbilityStructs.h"
+#include "NPCStructs.h"
 #include "GameFramework/GameState.h"
 #include "SaiyoraGameState.generated.h"
 
@@ -63,4 +64,21 @@ private:
 	UFUNCTION()
 	void CreateSnapshot();
 	FTimerHandle SnapshotHandle;
+
+#pragma region NPC Ability Tokens
+
+public:
+
+	void InitTokensForAbilityClass(const TSubclassOf<UNPCAbility> AbilityClass, const FAbilityTokenCallback& TokenCallback);
+	bool RequestTokenForAbility(UNPCAbility* Ability);
+	void ReturnTokenForAbility(UNPCAbility* Ability);
+	bool IsTokenAvailableForClass(const TSubclassOf<UNPCAbility> AbilityClass) const;
+
+private:
+
+	TMap<TSubclassOf<UNPCAbility>, FNPCAbilityTokens> Tokens;
+	UFUNCTION()
+	void FinishTokenCooldown(FNPCAbilityToken* Token);
+
+#pragma endregion 
 };

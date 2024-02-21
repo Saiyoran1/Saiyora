@@ -869,6 +869,17 @@ void UCombatAbility::UpdateCastable()
     {
         CastFailReasons.AddUnique(ECastFailReason::Moving);
     }
+
+    //Virtual call for NPCAbility (or any other derived ability class) to add additional fail reasons.
+    TArray<ECastFailReason> AdditionalFailReasons;
+    AdditionalCastableUpdate(AdditionalFailReasons);
+    if (AdditionalFailReasons.Num() > 0)
+    {
+        for (const ECastFailReason FailReason : AdditionalFailReasons)
+        {
+            CastFailReasons.AddUnique(FailReason);
+        }
+    }
     
     if (PreviousFailReasons != CastFailReasons)
     {

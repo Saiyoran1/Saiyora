@@ -133,10 +133,12 @@ protected:
     FGameplayTagContainer RestrictedCrowdControls;
     UPROPERTY(EditDefaultsOnly, Category = "Restrictions")
     bool bCastableWhileMoving = true;
-    
-private:
 
     void UpdateCastable();
+    virtual void AdditionalCastableUpdate(TArray<ECastFailReason>& AdditionalFailReasons) {}
+    
+private:
+    
     TArray<ECastFailReason> CastFailReasons;
     TSet<FGameplayTag> CustomCastRestrictions;
     TSet<FGameplayTag> RestrictedTags;

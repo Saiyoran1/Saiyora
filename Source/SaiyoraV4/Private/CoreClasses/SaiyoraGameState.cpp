@@ -1,5 +1,6 @@
 ﻿#include "CoreClasses/SaiyoraGameState.h"
 #include "Hitbox.h"
+#include "NPCAbility.h"
 #include "SaiyoraPlayerCharacter.h"
 #include "Kismet/KismetSystemLibrary.h"
 
@@ -155,3 +156,91 @@ FTransform ASaiyoraGameState::RewindHitbox(UHitbox* Hitbox, const float Timestam
 }
 
 #pragma endregion
+#pragma region Tokens
+
+void ASaiyoraGameState::InitTokensForAbilityClass(const TSubclassOf<UNPCAbility> AbilityClass, const FAbilityTokenCallback& TokenCallback)
+{
+	FNPCAbilityTokens& ClassTokens = Tokens.FindOrAdd(AbilityClass);
+	if (ClassTokens.Tokens.Num() == 0)
+	{
+		ClassTokens.Tokens.AddDefaulted(AbilityClass->GetDefaultObject<UNPCAbility>()->GetMaxTokens());
+	}
+	ClassTokens.OnTokenAvailabilityChanged.AddUnique(TokenCallback);
+}
+
+bool ASaiyoraGameState::RequestTokenForAbility(UNPCAbility* Ability)
+{
+	FNPCAbilityTokens* TokensForClass = Tokens.Find(Ability->GetClass());
+	if (!TokensForClass)
+	{
+		return false;
+	}
+	bool bFoundToken = false;
+	for (FNPCAbilityToken& Token : TokensForClass->Tokens)
+	{
+		if (Token.bAvailable)
+		{
+			if (!bFoundToken)
+			{
+				Token.bAvailable = false;
+				Token.OwningInstance = Ability;
+				bFoundToken = true;
+				TokensForClass->AvailableCount--;
+				break;
+			}
+		}
+	}
+	if (bFoundToken && TokensForClass->AvailableCount == 0)
+	{
+		TokensForClass->OnTokenAvailabilityChanged.Broadcast(false);
+	}
+	return bFoundToken;
+}
+
+void ASaiyoraGameState::ReturnTokenForAbility(UNPCAbility* Ability)
+{
+	FNPCAbilityTokens* TokensForClass = Tokens.Find(Ability->GetClass());
+	if (!TokensForClass)
+	{
+		return;
+	}
+	for (FNPCAbilityToken& Token : TokensForClass->Tokens)
+	{
+		if (Token.OwningInstance == Ability)
+		{
+			//TODO: Start cooldown timer for token.
+			Token.OwningInstance = nullptr;
+			if (Ability->GetTokenCooldownTime() <= 0.0f)
+			{
+				
+			}
+			else
+			{
+				FTimerDelegate CooldownDelegate;
+				//TODO: Should use a class and index instead of pointer to the token, so then we can also update the tokens struct's available count.
+				CooldownDelegate.BindUObject(this, &ASaiyoraGameState::FinishTokenCooldown, &Token);
+				GetWorld()->GetTimerManager().SetTimer(Token.CooldownHandle, CooldownDelegate, Ability->GetTokenCooldownTime(), false);
+			}
+			break;
+		}
+	}
+}
+
+bool ASaiyoraGameState::IsTokenAvailableForClass(const TSubclassOf<UNPCAbility> AbilityClass) const
+{
+	const FNPCAbilityTokens* TokensForClass = Tokens.Find(AbilityClass);
+	if (!TokensForClass)
+	{
+		return false;
+	}
+	for (const FNPCAbilityToken& Token : TokensForClass->Tokens)
+	{
+		if (Token.bAvailable)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+#pragma endregion 
