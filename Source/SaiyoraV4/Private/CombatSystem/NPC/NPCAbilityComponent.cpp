@@ -1,5 +1,6 @@
 ﻿#include "NPCAbilityComponent.h"
 #include "DamageHandler.h"
+#include "NPCAbility.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraMovementComponent.h"
 #include "StatHandler.h"
@@ -33,8 +34,10 @@ void UNPCAbilityComponent::BeginPlay()
 	}
 	OwnerAsPawn = Cast<APawn>(GetOwner());
 	checkf(IsValid(OwnerAsPawn), TEXT("NPC Ability Component's owner was not a valid pawn."));
-	DungeonGameStateRef = Cast<ADungeonGameState>(GameStateRef);
-	checkf(IsValid(GameStateRef), TEXT("Got an invalid Game State Ref in NPC Ability Component."));
+	DungeonGameStateRef = Cast<ADungeonGameState>(GetGameStateRef());
+	checkf(IsValid(DungeonGameStateRef), TEXT("Got an invalid Game State Ref in NPC Ability Component."));
+	
+	OnCastStateChanged.AddDynamic(this, &UNPCAbilityComponent::UpdateAbilityTokensOnCastStateChanged);
 
 	OwnerAsPawn->ReceiveControllerChangedDelegate.AddDynamic(this, &UNPCAbilityComponent::OnControllerChanged);
 	DungeonGameStateRef->OnDungeonPhaseChanged.AddDynamic(this, &UNPCAbilityComponent::OnDungeonPhaseChanged);
@@ -475,6 +478,37 @@ void UNPCAbilityComponent::EnterResetState()
 void UNPCAbilityComponent::LeaveResetState()
 {
 	//If I need any specific behavior not handled by other components it can go here.
+}
+
+#pragma endregion 
+#pragma region Tokens
+
+void UNPCAbilityComponent::UpdateAbilityTokensOnCastStateChanged(const FCastingState& PreviousState, const FCastingState& NewState)
+{
+	//If this was the start of a cast, and the ability being used is an NPCAbility that requires tokens,
+	//then we should request a token.
+	if (!PreviousState.bIsCasting && NewState.bIsCasting)
+	{
+		UNPCAbility* NPCAbility = Cast<UNPCAbility>(NewState.CurrentCast);
+		if (IsValid(NPCAbility) && NPCAbility->UsesTokens())
+		{
+			const bool bGotToken = GetGameStateRef()->RequestTokenForAbility(NPCAbility);
+			if (!bGotToken)
+			{
+				UE_LOG(LogTemp, Error, TEXT("Ability %s used even though no token was available!"), *NPCAbility->GetName());
+			}
+		}
+	}
+	//If this was the end of a cast, and the ability being cast was an NPCAbility that requires tokens,
+	//then we should return the token.
+	else if (PreviousState.bIsCasting && !NewState.bIsCasting)
+	{
+		UNPCAbility* NPCAbility = Cast<UNPCAbility>(PreviousState.CurrentCast);
+		if (IsValid(NPCAbility) && NPCAbility->UsesTokens())
+		{
+			GetGameStateRef()->ReturnTokenForAbility(NPCAbility);
+		}
+	}
 }
 
 #pragma endregion 

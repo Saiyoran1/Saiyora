@@ -138,5 +138,12 @@ private:
 	//If we are further than this away from our reset goal, we will teleport instead of pathing back.
 	static constexpr float ResetTeleportDistance = 2000.0f;
 
-#pragma endregion 
+#pragma endregion
+
+#pragma region Tokens
+
+private:
+
+	UFUNCTION()
+	void UpdateAbilityTokensOnCastStateChanged(const FCastingState& PreviousState, const FCastingState& NewState);
 };

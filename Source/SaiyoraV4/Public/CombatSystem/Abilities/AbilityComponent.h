@@ -1,13 +1,14 @@
 ﻿#pragma once
 #include "CoreMinimal.h"
-#include "GameFramework/GameState.h"
 #include "AbilityStructs.h"
 #include "CrowdControlStructs.h"
 #include "DamageStructs.h"
 #include "CombatAbility.h"
 #include "GameplayTasksComponent.h"
+#include "SaiyoraGameState.h"
 #include "AbilityComponent.generated.h"
 
+class ASaiyoraGameState;
 class UCombatDebugOptions;
 class UCombatStatusComponent;
 class USaiyoraMovementComponent;
@@ -103,14 +104,14 @@ public:
 	virtual void InitializeComponent() override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
-	AGameState* GetGameStateRef() const { return GameStateRef; }
+	ASaiyoraGameState* GetGameStateRef() const { return GameStateRef; }
 	UResourceHandler* GetResourceHandlerRef() const { return ResourceHandlerRef; }
 
 protected:
 
 	bool IsLocallyControlled() const;
 	UPROPERTY()
-	AGameState* GameStateRef = nullptr;
+	ASaiyoraGameState* GameStateRef = nullptr;
 	UPROPERTY()
 	UResourceHandler* ResourceHandlerRef = nullptr;
 	UPROPERTY()

@@ -5,6 +5,7 @@
 #include "GameFramework/GameState.h"
 #include "SaiyoraGameState.generated.h"
 
+class USaiyoraGameInstance;
 class UHitbox;
 class ASaiyoraPlayerCharacter;
 
@@ -26,6 +27,7 @@ class SAIYORAV4_API ASaiyoraGameState : public AGameState
 public:
 
 	ASaiyoraGameState();
+	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaSeconds) override;
 	virtual double GetServerWorldTimeSeconds() const override { return WorldTime; }
 	void UpdateClientWorldTime(const float ServerTime) { WorldTime = ServerTime; }
@@ -33,6 +35,8 @@ public:
 private:
 
 	float WorldTime = 0.0f;
+	UPROPERTY()
+	USaiyoraGameInstance* GameInstanceRef = nullptr;
 
 //Player Handling
 
@@ -49,7 +53,7 @@ private:
 	UPROPERTY()
 	TArray<ASaiyoraPlayerCharacter*> ActivePlayers;
 
-//Rewinding
+#pragma region Hitbox Rewinding
 
 public:
 
@@ -65,6 +69,7 @@ private:
 	void CreateSnapshot();
 	FTimerHandle SnapshotHandle;
 
+#pragma endregion 
 #pragma region NPC Ability Tokens
 
 public:
@@ -78,7 +83,7 @@ private:
 
 	TMap<TSubclassOf<UNPCAbility>, FNPCAbilityTokens> Tokens;
 	UFUNCTION()
-	void FinishTokenCooldown(FNPCAbilityToken* Token);
+	void FinishTokenCooldown(const TSubclassOf<UNPCAbility> AbilityClass, const int TokenIndex);
 
 #pragma endregion 
 };

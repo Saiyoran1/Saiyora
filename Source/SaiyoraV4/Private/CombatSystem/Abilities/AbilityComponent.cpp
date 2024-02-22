@@ -12,6 +12,7 @@
 #include "ResourceHandler.h"
 #include "SaiyoraCombatLibrary.h"
 #include "SaiyoraGameInstance.h"
+#include "SaiyoraGameState.h"
 #include "SaiyoraMovementComponent.h"
 #include "UnrealNetwork.h"
 
@@ -53,7 +54,7 @@ void UAbilityComponent::BeginPlay()
 {
 	Super::BeginPlay();
 	
-	GameStateRef = GetWorld()->GetGameState<AGameState>();
+	GameStateRef = GetWorld()->GetGameState<ASaiyoraGameState>();
 	checkf(IsValid(GameStateRef), TEXT("Got an invalid Game State Ref in Ability Handler."));
 	if (GetOwnerRole() == ROLE_Authority)
 	{
