@@ -339,7 +339,7 @@ bool UAbilityFunctionLibrary::CheckLineOfSightInPlane(const UObject* Context, co
     
 	FHitResult Hit;
 	UKismetSystemLibrary::LineTraceSingleByProfile(Context, From, To, TraceProfile, false,
-		TArray<AActor*>(), EDrawDebugTrace::ForOneFrame, Hit, true);
+		TArray<AActor*>(), EDrawDebugTrace::None, Hit, true);
     
 	return !Hit.bBlockingHit;
 }
