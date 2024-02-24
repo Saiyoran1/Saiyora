@@ -1,7 +1,9 @@
 #pragma once
 #include "CoreMinimal.h"
+#include "InstancedStruct.h"
 #include "NPCEnums.h"
 #include "Engine/TargetPoint.h"
+#include "EnvironmentQuery/EnvQuery.h"
 #include "NPCStructs.generated.h"
 
 class UNPCAbility;
@@ -55,3 +57,74 @@ struct FNPCAbilityTokens
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FPatrolStateNotification, const EPatrolSubstate, PatrolSubstate, ATargetPoint*, LastReachedPoint);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPatrolLocationNotification, const FVector&, Location);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FCombatBehaviorNotification, const ENPCCombatBehavior, PreviousStatus, const ENPCCombatBehavior, NewStatus);
+
+//Experimenting with dodging behavior trees and just using a priority system for both movement AND abilities.
+//A combat choice can be an ability we want to cast, which includes whether we would need to move into a specific spot before casting and a movement behavior to use during the cast,
+//or it can just be a movement the NPC wants to perform. Each choice has some requirements that must be met to perform this choice.
+//Choices need to update their owning NPCAbilityComponent with whether they are valid or not, then the component can decide to override the current choice or not with newly available choices.
+USTRUCT()
+struct FNPCCombatChoice
+{
+	GENERATED_BODY()
+
+public:
+	
+	void UpdateRequirementMet(const int RequirementIdx, const bool bRequirementMet);
+
+private:
+
+	UPROPERTY(EditAnywhere, meta = (BaseStruct = "/Script/SaiyoraV4.NPCChoiceRequirement"))
+	TArray<FInstancedStruct> Requirements;
+	UPROPERTY(EditAnywhere)
+	bool bHighPriority = false;
+
+	UPROPERTY(EditAnywhere)
+	TSubclassOf<UNPCAbility> AbilityClass;
+	UPROPERTY(EditAnywhere)
+	bool bCastCanBeInterrupted = false;
+	
+	UPROPERTY(EditAnywhere)
+	bool bPreCastMove = false;
+	UPROPERTY(EditAnywhere, meta = (EditCondition = "bPreCastMove"))
+	TObjectPtr<UEnvQuery> PreCastQuery;
+	UPROPERTY(EditAnywhere, meta = (EditCondition = "bPreCastMove", BaseStruct = "/Script/SaiyoraV4.CombatParameter"))
+	TArray<FInstancedStruct> PreCastQueryParams;
+	
+	UPROPERTY(EditAnywhere)
+	bool bDuringCastMove = false;
+	UPROPERTY(EditAnywhere, meta = (EditCondition = "bDuringCastMove"))
+	TObjectPtr<UEnvQuery> DuringCastQuery;
+	UPROPERTY(EditAnywhere, meta = (EditCondition = "bDuringCastMove", BaseStruct = "/Script/SaiyoraV4.CombatParameter"))
+	TArray<FInstancedStruct> DuringCastQueryParams;
+
+	TMap<int, bool> RequirementsMap;
+};
+
+//A struct that is intended to be inherited from to be used as FInstancedStructs inside FNPCCombatChoice.
+//These requirements are event-based, and must be set up in c++. They basically constantly update their owning choice with whether they are met.
+USTRUCT()
+struct FNPCChoiceRequirement
+{
+	GENERATED_BODY()
+
+public:
+
+	bool IsMet() const { return bIsMet; }
+	void Init(const FNPCCombatChoice* Choice, APawn* NPC, const int Idx);
+	virtual void SetupRequirement() {}
+	virtual ~FNPCChoiceRequirement() {}
+
+protected:
+
+	void UpdateRequirementMet(const bool bMet);
+	APawn* GetOwningNPC() const { return OwningNPC; }
+	FNPCCombatChoice GetOwningChoice() const { return *OwningChoice; }
+
+private:
+
+	bool bIsMet = false;
+	int PriorityIndex = -1;
+	UPROPERTY()
+	APawn* OwningNPC = nullptr;
+	const FNPCCombatChoice* OwningChoice = nullptr;
+};

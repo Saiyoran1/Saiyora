@@ -69,7 +69,6 @@ private:
 	void LeaveCombatState();
 
 #pragma endregion 
-
 #pragma region Patrolling
 
 public:
@@ -122,7 +121,6 @@ private:
 	FAIRequestID CurrentMoveRequestID = FAIRequestID::InvalidRequest;
 
 #pragma endregion 
-
 #pragma region Resetting
 
 public:
@@ -139,11 +137,22 @@ private:
 	static constexpr float ResetTeleportDistance = 2000.0f;
 
 #pragma endregion
-
 #pragma region Tokens
 
 private:
 
 	UFUNCTION()
 	void UpdateAbilityTokensOnCastStateChanged(const FCastingState& PreviousState, const FCastingState& NewState);
+
+#pragma endregion
+#pragma region Test Ability Priority
+
+public:
+
+private:
+
+	UPROPERTY(EditAnywhere, Category = "TEST")
+	TArray<FNPCCombatChoice> CombatPriority;
+
+#pragma endregion 
 };
