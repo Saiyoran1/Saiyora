@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "CoreMinimal.h"
+#include "AbilityStructs.h"
 #include "DamageEnums.h"
 #include "Overlay.h"
 #include "ProgressBar.h"
@@ -8,6 +9,7 @@
 #include "Blueprint/UserWidget.h"
 #include "FloatingHealthBar.generated.h"
 
+class UAbilityComponent;
 struct FBuffApplyEvent;
 class UFloatingBuffIcon;
 class ASaiyoraPlayerCharacter;
@@ -37,7 +39,7 @@ private:
 	UProgressBar* AbsorbBar;
 
 	UPROPERTY()
-	UDamageHandler* TargetDamageHandler;
+	UDamageHandler* TargetDamageHandler = nullptr;
 
 	UFUNCTION()
 	void UpdateHealth(AActor* Actor, const float PreviousHealth, const float NewHealth);
@@ -47,7 +49,6 @@ private:
 	void UpdateLifeStatus(AActor* Actor, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus);
 
 #pragma endregion
-
 #pragma region Buffs
 
 private:
@@ -61,13 +62,32 @@ private:
 	TSubclassOf<UFloatingBuffIcon> BuffIconClass;
 	
 	UPROPERTY()
-	UBuffHandler* TargetBuffHandler;
+	UBuffHandler* TargetBuffHandler = nullptr;
 	UPROPERTY()
-	ASaiyoraPlayerCharacter* LocalPlayer;
+	ASaiyoraPlayerCharacter* LocalPlayer = nullptr;
 
 	UFUNCTION()
 	void OnIncomingBuffApplied(const FBuffApplyEvent& Event);
 
 #pragma endregion
-	
+#pragma region CastBar
+
+public:
+
+	void TickCastBar();
+
+private:
+
+	UPROPERTY(BlueprintReadWrite, meta = (BindWidget, AllowPrivateAccess = "true"))
+	UProgressBar* CastBar;
+	UPROPERTY(BlueprintReadWrite, meta = (BindWidget, AllowPrivateAccess = "true"))
+	UTextBlock* CastBarText;
+
+	UFUNCTION()
+	void UpdateCastBar(const FCastingState& PreviousState, const FCastingState& NewState);
+
+	UPROPERTY()
+	UAbilityComponent* AbilityComponentRef = nullptr;
+
+#pragma endregion 
 };

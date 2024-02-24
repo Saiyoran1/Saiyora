@@ -26,6 +26,13 @@ void UFloatingHealthBarManager::NativeTick(const FGeometry& MyGeometry, float In
 	GetOwningPlayer()->GetViewportSize(ViewportX, ViewportY);
 	CenterScreen = FVector2D(ViewportX / 2.0f, ViewportY / 2.0f);
 	UpdateHealthBarPositions(InDeltaTime);
+	for (const FFloatingHealthBarInfo& HealthBarInfo : FloatingBars)
+	{
+		if (HealthBarInfo.bOnScreen && IsValid(HealthBarInfo.WidgetRef))
+		{
+			HealthBarInfo.WidgetRef->TickCastBar();
+		}
+	}
 }
 
 void UFloatingHealthBarManager::OnEnemyCombatChanged(AActor* Combatant, const bool bNewCombat)

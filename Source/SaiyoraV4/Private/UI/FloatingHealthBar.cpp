@@ -1,5 +1,6 @@
 ﻿#include "UI/FloatingHealthBar.h"
 
+#include "AbilityComponent.h"
 #include "Buff.h"
 #include "BuffHandler.h"
 #include "DamageHandler.h"
@@ -47,6 +48,7 @@ void UFloatingHealthBar::Init(AActor* TargetActor)
 	{
 		HealthOverlay->RemoveFromParent();
 	}
+	
 	TargetBuffHandler = ISaiyoraCombatInterface::Execute_GetBuffHandler(TargetActor);
 	if (IsValid(TargetBuffHandler))
 	{
@@ -61,6 +63,30 @@ void UFloatingHealthBar::Init(AActor* TargetActor)
 		if (IsValid(DebuffBox))
 		{
 			DebuffBox->RemoveFromParent();
+		}
+	}
+
+	AbilityComponentRef = ISaiyoraCombatInterface::Execute_GetAbilityComponent(TargetActor);
+	if (IsValid(AbilityComponentRef))
+	{
+		AbilityComponentRef->OnCastStateChanged.AddDynamic(this, &UFloatingHealthBar::UpdateCastBar);
+		FCastingState CurrentCastState;
+		CurrentCastState.bIsCasting = AbilityComponentRef->IsCasting();
+		CurrentCastState.CastLength = AbilityComponentRef->GetCurrentCastLength();
+		CurrentCastState.CastStartTime = (GetWorld()->GetGameState()->GetServerWorldTimeSeconds() + AbilityComponentRef->GetCastTimeRemaining()) - CurrentCastState.CastLength;
+		CurrentCastState.CurrentCast = AbilityComponentRef->GetCurrentCast();
+		CurrentCastState.bInterruptible = AbilityComponentRef->IsInterruptible();
+		UpdateCastBar(FCastingState(), CurrentCastState);
+	}
+	else
+	{
+		if (IsValid(CastBar))
+		{
+			CastBar->RemoveFromParent();
+		}
+		if (IsValid(CastBarText))
+		{
+			CastBarText->RemoveFromParent();
 		}
 	}
 }
@@ -100,7 +126,6 @@ void UFloatingHealthBar::UpdateLifeStatus(AActor* Actor, const ELifeStatus Previ
 }
 
 #pragma endregion
-
 #pragma region Buffs
 
 void UFloatingHealthBar::OnIncomingBuffApplied(const FBuffApplyEvent& Event)
@@ -118,6 +143,35 @@ void UFloatingHealthBar::OnIncomingBuffApplied(const FBuffApplyEvent& Event)
 		UWrapBox* BoxToAddTo = Event.AffectedBuff->GetBuffType() == EBuffType::Buff ? BuffBox : DebuffBox;
 		BoxToAddTo->AddChildToWrapBox(BuffIcon);
 		BuffIcon->Init(Event.AffectedBuff);
+	}
+}
+
+#pragma endregion
+#pragma region Cast Bar
+
+void UFloatingHealthBar::UpdateCastBar(const FCastingState& PreviousState, const FCastingState& NewState)
+{
+	if (NewState.bIsCasting)
+	{
+		CastBar->SetVisibility(ESlateVisibility::HitTestInvisible);
+		CastBar->SetPercent(FMath::Clamp(1 - (AbilityComponentRef->GetCastTimeRemaining() / NewState.CastLength), 0.0f, 1.0f));
+		//TODO: Set cast bar color based on school, need to convert the "GetSchoolColor" BPFL function to c++, or put it in a data asset somewhere.
+
+		CastBarText->SetVisibility(ESlateVisibility::HitTestInvisible);
+		CastBarText->SetText(FText::FromName(NewState.CurrentCast->GetAbilityName()));
+	}
+	else
+	{
+		CastBar->SetVisibility(ESlateVisibility::Collapsed);
+		CastBarText->SetVisibility(ESlateVisibility::Collapsed);
+	}
+}
+
+void UFloatingHealthBar::TickCastBar()
+{
+	if (CastBar->GetVisibility() == ESlateVisibility::HitTestInvisible)
+	{
+		CastBar->SetPercent(FMath::Clamp(1 - (AbilityComponentRef->GetCastTimeRemaining() / AbilityComponentRef->GetCurrentCastLength()), 0.0f, 1.0f));
 	}
 }
 
