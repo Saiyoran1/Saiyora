@@ -10,3 +10,11 @@ enum class ENPCCombatBehavior : uint8
 	Combat,
 	Resetting,
 };
+
+UENUM()
+enum class ENPCCombatChoiceStatus : uint8
+{
+	None,
+	PreMoving,
+	Casting,
+};

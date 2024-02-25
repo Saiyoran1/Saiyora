@@ -154,5 +154,12 @@ private:
 	UPROPERTY(EditAnywhere, Category = "TEST")
 	TArray<FNPCCombatChoice> CombatPriority;
 
+	void InitCombatChoices();
+	void TrySelectNewChoice();
+	void StartExecuteChoice();
+	void AbortCurrentChoice();
+	int CurrentCombatChoiceIdx = -1;
+	ENPCCombatChoiceStatus CombatChoiceStatus = ENPCCombatChoiceStatus::None;
+
 #pragma endregion 
 };

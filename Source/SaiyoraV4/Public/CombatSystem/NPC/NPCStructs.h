@@ -6,6 +6,7 @@
 #include "EnvironmentQuery/EnvQuery.h"
 #include "NPCStructs.generated.h"
 
+class UNPCAbilityComponent;
 class UNPCAbility;
 class UCombatAbility;
 class AAIController;
@@ -68,8 +69,18 @@ struct FNPCCombatChoice
 	GENERATED_BODY()
 
 public:
-	
+
+	void Init(UNPCAbilityComponent* AbilityComponent, const int Index);
+	void Execute();
+	void Abort();
 	void UpdateRequirementMet(const int RequirementIdx, const bool bRequirementMet);
+
+	bool RequiresPreMove() const { return bPreCastMove; }
+	UEnvQuery* GetPreMoveQuery(TArray<FInstancedStruct>& OutParams) const { OutParams = PreCastQueryParams; return PreCastQuery; }
+	
+	bool IsHighPriority() const { return bHighPriority; }
+	bool CanAbortDuringCast() const { return bCastCanBeInterrupted; }
+	bool IsChoiceValid() const { return bValid; }
 
 private:
 
@@ -97,7 +108,11 @@ private:
 	UPROPERTY(EditAnywhere, meta = (EditCondition = "bDuringCastMove", BaseStruct = "/Script/SaiyoraV4.CombatParameter"))
 	TArray<FInstancedStruct> DuringCastQueryParams;
 
+	bool bValid = false;
 	TMap<int, bool> RequirementsMap;
+	int Priority = -1;
+	UPROPERTY()
+	UNPCAbilityComponent* OwningComponentRef = nullptr;
 };
 
 //A struct that is intended to be inherited from to be used as FInstancedStructs inside FNPCCombatChoice.

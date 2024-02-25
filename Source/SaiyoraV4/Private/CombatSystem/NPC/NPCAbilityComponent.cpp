@@ -511,4 +511,70 @@ void UNPCAbilityComponent::UpdateAbilityTokensOnCastStateChanged(const FCastingS
 	}
 }
 
+#pragma endregion
+#pragma region Test Combat Choices
+
+void UNPCAbilityComponent::InitCombatChoices()
+{
+	for (int i = 0; i < CombatPriority.Num(); i++)
+	{
+		CombatPriority[i].Init(this, i);
+	}
+	TrySelectNewChoice();
+}
+
+void UNPCAbilityComponent::TrySelectNewChoice()
+{
+	//If we are in the actual ability usage, and this choice shouldn't be aborted during the cast, don't pick a new choice.
+	if (CurrentCombatChoiceIdx != -1 && CombatChoiceStatus == ENPCCombatChoiceStatus::Casting
+		&& !CombatPriority[CurrentCombatChoiceIdx].CanAbortDuringCast())
+	{
+		return;
+	}
+	//Otherwise, we need to check for the highest priority choice. We are only looking for choices below our current index (unless the index is -1, which means we have no choice).
+	const int LastIdxToCheck = CurrentCombatChoiceIdx == -1 ? CombatPriority.Num() - 1 : CurrentCombatChoiceIdx - 1;
+	int NewIdx = -1;
+	for (int i = 0; i < LastIdxToCheck; i++)
+	{
+		if (CombatPriority[i].IsChoiceValid()
+			&& (CombatPriority[i].IsHighPriority() || CurrentCombatChoiceIdx == -1))
+		{
+			NewIdx = i;
+			break;
+		}
+	}
+
+	if (NewIdx == -1)
+	{
+		//If we failed to find a higher priority choice, we return here.
+		//Going to try NOT doing a retry timer, as the choices should be updating the component when they're available anyway.
+		return;
+	}
+
+	if (CurrentCombatChoiceIdx != -1)
+	{
+		AbortCurrentChoice();
+	}
+
+	CurrentCombatChoiceIdx = NewIdx;
+	StartExecuteChoice();
+}
+
+void UNPCAbilityComponent::StartExecuteChoice()
+{
+	//TODO: Check if we need to move. If so, start a move. If not, go straight to casting. If cast is instant, return to TrySelectNewChoice.
+	if (CombatPriority[CurrentCombatChoiceIdx].)
+}
+
+void UNPCAbilityComponent::AbortCurrentChoice()
+{
+	if (CurrentCombatChoiceIdx == -1)
+	{
+		return;
+	}
+	CombatPriority[CurrentCombatChoiceIdx].Abort();
+	CurrentCombatChoiceIdx = -1;
+	CombatChoiceStatus = ENPCCombatChoiceStatus::None;
+}
+
 #pragma endregion 
