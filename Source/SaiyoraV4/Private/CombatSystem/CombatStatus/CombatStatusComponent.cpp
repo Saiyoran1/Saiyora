@@ -8,6 +8,7 @@
 #include "WidgetComponent.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "FloatingName.h"
+#include "ThreatHandler.h"
 
 TMap<int32, UCombatStatusComponent*> UCombatStatusComponent::StencilValues = TMap<int32, UCombatStatusComponent*>();
 
@@ -18,7 +19,6 @@ UCombatStatusComponent::UCombatStatusComponent()
 	PrimaryComponentTick.bCanEverTick = true;
 	SetIsReplicatedByDefault(true);
 	bWantsInitializeComponent = true;
-	SetCollisionProfileName(FSaiyoraCollision::P_NoCollision);
 	SetRenderCustomDepth(false);
 }
 
@@ -32,8 +32,10 @@ void UCombatStatusComponent::GetLifetimeReplicatedProps(::TArray<FLifetimeProper
 
 void UCombatStatusComponent::InitializeComponent()
 {
+	SetCollisionProfileName(FSaiyoraCollision::P_NoCollision);
 	PlaneStatus.CurrentPlane = DefaultPlane;
 	PlaneStatus.LastSwapSource = nullptr;
+	ThreatHandlerRef = ISaiyoraCombatInterface::Execute_GetThreatHandler(GetOwner());
 }
 
 void UCombatStatusComponent::BeginPlay()
@@ -64,6 +66,12 @@ void UCombatStatusComponent::BeginPlay()
 	}
 	UpdateOwnerCustomRendering();
 	UpdateOwnerPlaneCollision();
+
+	//Setup binding for showing/hiding combat name when entering combat as an NPC.
+	if (GetCurrentFaction() != EFaction::Friendly && IsValid(ThreatHandlerRef))
+	{
+		ThreatHandlerRef->OnCombatChanged.AddDynamic(this, &UCombatStatusComponent::OnCombatChanged);
+	}
 }
 
 void UCombatStatusComponent::TickComponent(float DeltaTime, ELevelTick TickType,
@@ -125,6 +133,18 @@ void UCombatStatusComponent::SetupNameWidget(const ASaiyoraPlayerCharacter* Loca
 			const FAttachmentTransformRules TransformRules = FAttachmentTransformRules(EAttachmentRule::SnapToTarget, EAttachmentRule::KeepWorld, EAttachmentRule::KeepWorld, false);
 			AttachToComponent(SceneComponent, TransformRules, SocketName);
 		}
+	}
+}
+
+void UCombatStatusComponent::OnCombatChanged(UThreatHandler* Combatant, const bool bNewCombat)
+{
+	if (bNewCombat)
+	{
+		GetWidget()->SetVisibility(ESlateVisibility::Collapsed);
+	}
+	else
+	{
+		GetWidget()->SetVisibility(ESlateVisibility::HitTestInvisible);
 	}
 }
 

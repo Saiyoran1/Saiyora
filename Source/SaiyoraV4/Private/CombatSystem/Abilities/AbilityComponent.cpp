@@ -671,7 +671,7 @@ void UAbilityComponent::ServerCancelAbility_Implementation(const FCancelRequest&
 	Result.CancelTime = GameStateRef->GetServerWorldTimeSeconds();
 	Result.PredictionID = Request.CancelID;
 	Result.CancelledCastStart = CastingState.CastStartTime;
-	Result.CancelledCastEnd = CastingState.CastLength;
+	Result.CancelledCastEnd = CastingState.CastStartTime + CastingState.CastLength;
 	Result.CancelledCastID = CastID;
 	Result.ElapsedTicks = CastingState.ElapsedTicks;
 	Result.Targets = Request.Targets;

@@ -9,6 +9,7 @@
 class UFloatingName;
 class ASaiyoraGameState;
 class ASaiyoraPlayerCharacter;
+class UThreatHandler;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class SAIYORAV4_API UCombatStatusComponent : public UWidgetComponent
@@ -54,7 +55,11 @@ private:
 	void SetupNameWidget(const ASaiyoraPlayerCharacter* LocalPlayer);
 
 	UPROPERTY()
-	UCameraComponent* LocalPlayerCamera;
+	UCameraComponent* LocalPlayerCamera = nullptr;
+	UPROPERTY()
+	UThreatHandler* ThreatHandlerRef = nullptr;
+	UFUNCTION()
+	void OnCombatChanged(UThreatHandler* Combatant, const bool bNewCombat);
 
 //Plane
 
