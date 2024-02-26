@@ -70,10 +70,10 @@ struct FNPCCombatChoice
 
 public:
 
-	void Init(UNPCAbilityComponent* AbilityComponent, const int Index);
-	void Execute();
-	void Abort();
-	void UpdateRequirementMet(const int RequirementIdx, const bool bRequirementMet);
+	void Init(UNPCAbilityComponent* AbilityComponent, const int Index) {/*TODO*/}
+	void Execute() {/*TODO*/}
+	void Abort() {/*TODO*/}
+	void UpdateRequirementMet(const int RequirementIdx, const bool bRequirementMet) {/*TODO*/}
 
 	bool RequiresPreMove() const { return bPreCastMove; }
 	UEnvQuery* GetPreMoveQuery(TArray<FInstancedStruct>& OutParams) const { OutParams = PreCastQueryParams; return PreCastQuery; }
@@ -125,13 +125,13 @@ struct FNPCChoiceRequirement
 public:
 
 	bool IsMet() const { return bIsMet; }
-	void Init(const FNPCCombatChoice* Choice, APawn* NPC, const int Idx);
+	void Init(const FNPCCombatChoice* Choice, APawn* NPC, const int Idx) {/*TODO*/}
 	virtual void SetupRequirement() {}
 	virtual ~FNPCChoiceRequirement() {}
 
 protected:
 
-	void UpdateRequirementMet(const bool bMet);
+	void UpdateRequirementMet(const bool bMet) {/*TODO*/}
 	APawn* GetOwningNPC() const { return OwningNPC; }
 	FNPCCombatChoice GetOwningChoice() const { return *OwningChoice; }
 

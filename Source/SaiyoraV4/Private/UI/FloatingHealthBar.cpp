@@ -66,17 +66,19 @@ void UFloatingHealthBar::Init(AActor* TargetActor)
 		}
 	}
 
-	AbilityComponentRef = ISaiyoraCombatInterface::Execute_GetAbilityComponent(TargetActor);
-	if (IsValid(AbilityComponentRef))
+	TargetAbilityComponent = ISaiyoraCombatInterface::Execute_GetAbilityComponent(TargetActor);
+	if (IsValid(TargetAbilityComponent))
 	{
-		AbilityComponentRef->OnCastStateChanged.AddDynamic(this, &UFloatingHealthBar::UpdateCastBar);
+		TargetAbilityComponent->OnCastStateChanged.AddDynamic(this, &UFloatingHealthBar::OnCastStateChanged);
+		TargetAbilityComponent->OnAbilityCancelled.AddDynamic(this, &UFloatingHealthBar::OnCastCancelled);
+		TargetAbilityComponent->OnAbilityInterrupted.AddDynamic(this, &UFloatingHealthBar::OnCastInterrupted);
 		FCastingState CurrentCastState;
-		CurrentCastState.bIsCasting = AbilityComponentRef->IsCasting();
-		CurrentCastState.CastLength = AbilityComponentRef->GetCurrentCastLength();
-		CurrentCastState.CastStartTime = (GetWorld()->GetGameState()->GetServerWorldTimeSeconds() + AbilityComponentRef->GetCastTimeRemaining()) - CurrentCastState.CastLength;
-		CurrentCastState.CurrentCast = AbilityComponentRef->GetCurrentCast();
-		CurrentCastState.bInterruptible = AbilityComponentRef->IsInterruptible();
-		UpdateCastBar(FCastingState(), CurrentCastState);
+		CurrentCastState.bIsCasting = TargetAbilityComponent->IsCasting();
+		CurrentCastState.CastLength = TargetAbilityComponent->GetCurrentCastLength();
+		CurrentCastState.CastStartTime = (GetWorld()->GetGameState()->GetServerWorldTimeSeconds() + TargetAbilityComponent->GetCastTimeRemaining()) - CurrentCastState.CastLength;
+		CurrentCastState.CurrentCast = TargetAbilityComponent->GetCurrentCast();
+		CurrentCastState.bInterruptible = TargetAbilityComponent->IsInterruptible();
+		OnCastStateChanged(FCastingState(), CurrentCastState);
 	}
 	else
 	{
@@ -133,7 +135,7 @@ void UFloatingHealthBar::OnIncomingBuffApplied(const FBuffApplyEvent& Event)
 	//For now, we will only display buffs applied by the local player, to prevent clutter.
 	//Probably need a system in place for determining "important" buffs and debuffs.
 	if (!IsValid(Event.AffectedBuff) || Event.AffectedBuff->GetBuffType() == EBuffType::HiddenBuff
-		|| Event.AppliedBy != LocalPlayer || Event.AppliedTo != TargetBuffHandler->GetOwner())
+		|| Event.AppliedTo != TargetBuffHandler->GetOwner() || (Event.AffectedBuff->GetBuffType() == EBuffType::Debuff && Event.AppliedBy != LocalPlayer))
 	{
 		return;
 	}
@@ -147,32 +149,3 @@ void UFloatingHealthBar::OnIncomingBuffApplied(const FBuffApplyEvent& Event)
 }
 
 #pragma endregion
-#pragma region Cast Bar
-
-void UFloatingHealthBar::UpdateCastBar(const FCastingState& PreviousState, const FCastingState& NewState)
-{
-	if (NewState.bIsCasting)
-	{
-		CastBar->SetVisibility(ESlateVisibility::HitTestInvisible);
-		CastBar->SetPercent(FMath::Clamp(1 - (AbilityComponentRef->GetCastTimeRemaining() / NewState.CastLength), 0.0f, 1.0f));
-		//TODO: Set cast bar color based on school, need to convert the "GetSchoolColor" BPFL function to c++, or put it in a data asset somewhere.
-
-		CastBarText->SetVisibility(ESlateVisibility::HitTestInvisible);
-		CastBarText->SetText(FText::FromName(NewState.CurrentCast->GetAbilityName()));
-	}
-	else
-	{
-		CastBar->SetVisibility(ESlateVisibility::Collapsed);
-		CastBarText->SetVisibility(ESlateVisibility::Collapsed);
-	}
-}
-
-void UFloatingHealthBar::TickCastBar()
-{
-	if (CastBar->GetVisibility() == ESlateVisibility::HitTestInvisible)
-	{
-		CastBar->SetPercent(FMath::Clamp(1 - (AbilityComponentRef->GetCastTimeRemaining() / AbilityComponentRef->GetCurrentCastLength()), 0.0f, 1.0f));
-	}
-}
-
-#pragma endregion 

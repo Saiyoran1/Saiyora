@@ -630,7 +630,7 @@ FCancelEvent UAbilityComponent::CancelCurrentCast()
 	Result.CancelledAbility = CastingState.CurrentCast;
 	Result.CancelTime = GameStateRef->GetServerWorldTimeSeconds();
 	Result.CancelledCastStart = CastingState.CastStartTime;
-	Result.CancelledCastEnd = CastingState.CastLength;
+	Result.CancelledCastEnd = CastingState.CastStartTime + CastingState.CastLength;
 	Result.ElapsedTicks = CastingState.ElapsedTicks;
 	Result.bSuccess = true;
 	CastingState.PredictionID = GetOwnerRole() == ROLE_Authority ? CastingState.PredictionID : Result.PredictionID;
@@ -714,7 +714,7 @@ FInterruptEvent UAbilityComponent::InterruptCurrentCast(AActor* AppliedBy, UObje
 	Result.InterruptSource = InterruptSource;
 	Result.InterruptedAbility = CastingState.CurrentCast;
 	Result.InterruptedCastStart = CastingState.CastStartTime;
-	Result.InterruptedCastEnd = CastingState.CastLength;
+	Result.InterruptedCastEnd = CastingState.CastStartTime + CastingState.CastLength;
 	Result.ElapsedTicks = CastingState.ElapsedTicks;
 	Result.InterruptTime = GameStateRef->GetServerWorldTimeSeconds();
 	Result.CancelledCastID = CastingState.PredictionID;

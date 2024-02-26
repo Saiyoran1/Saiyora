@@ -58,7 +58,7 @@ struct TStructOpsTypeTraits<FAbilityCostArray> : public TStructOpsTypeTraitsBase
     enum 
     {
         WithNetDeltaSerializer = true,
-   };
+    };
 };
 
 USTRUCT()

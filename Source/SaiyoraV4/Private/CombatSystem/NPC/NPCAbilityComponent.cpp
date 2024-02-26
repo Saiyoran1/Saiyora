@@ -563,7 +563,6 @@ void UNPCAbilityComponent::TrySelectNewChoice()
 void UNPCAbilityComponent::StartExecuteChoice()
 {
 	//TODO: Check if we need to move. If so, start a move. If not, go straight to casting. If cast is instant, return to TrySelectNewChoice.
-	if (CombatPriority[CurrentCombatChoiceIdx].)
 }
 
 void UNPCAbilityComponent::AbortCurrentChoice()

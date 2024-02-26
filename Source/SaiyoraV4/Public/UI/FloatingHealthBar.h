@@ -74,7 +74,17 @@ private:
 
 public:
 
-	void TickCastBar();
+protected:
+
+	UFUNCTION(BlueprintPure)
+	UAbilityComponent* GetTargetAbilityComponent() const { return TargetAbilityComponent; }
+	
+	UFUNCTION(BlueprintImplementableEvent)
+	void OnCastStateChanged(const FCastingState& PreviousState, const FCastingState& NewState);
+	UFUNCTION(BlueprintImplementableEvent)
+	void OnCastInterrupted(const FInterruptEvent& Event);
+	UFUNCTION(BlueprintImplementableEvent)
+	void OnCastCancelled(const FCancelEvent& Event);
 
 private:
 
@@ -83,11 +93,8 @@ private:
 	UPROPERTY(BlueprintReadWrite, meta = (BindWidget, AllowPrivateAccess = "true"))
 	UTextBlock* CastBarText;
 
-	UFUNCTION()
-	void UpdateCastBar(const FCastingState& PreviousState, const FCastingState& NewState);
-
 	UPROPERTY()
-	UAbilityComponent* AbilityComponentRef = nullptr;
+	UAbilityComponent* TargetAbilityComponent = nullptr;
 
 #pragma endregion 
 };
