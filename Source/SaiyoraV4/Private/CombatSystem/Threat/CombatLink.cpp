@@ -1,21 +1,20 @@
 ﻿#include "CombatLink.h"
 #include "CombatGroup.h"
+#include "NPCAbilityComponent.h"
 #include "SaiyoraCombatInterface.h"
 #include "ThreatHandler.h"
+#include "Components/BillboardComponent.h"
 
 ACombatLink::ACombatLink()
 {
 	PrimaryActorTick.bCanEverTick = false;
-	USceneComponent* SceneComp = CreateDefaultSubobject<USceneComponent>(FName(TEXT("Scene")));
-	RootComponent = SceneComp;
+	RootComponent = CreateDefaultSubobject<USceneComponent>(FName(TEXT("Scene")));
 #if WITH_EDITOR
-	Sphere = CreateEditorOnlyDefaultSubobject<USphereComponent>(FName(TEXT("Sphere")));
-	if (IsValid(Sphere))
+	Billboard = CreateEditorOnlyDefaultSubobject<UBillboardComponent>(FName(TEXT("Billboard")));
+	if (IsValid(Billboard))
 	{
-		Sphere->InitSphereRadius(50.0f);
-		Sphere->SetupAttachment(RootComponent);
-		Sphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-		Sphere->SetCanEverAffectNavigation(false);
+		Billboard->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Billboard->SetupAttachment(RootComponent);
 	}
 #endif
 	SetHidden(true);
@@ -37,6 +36,14 @@ void ACombatLink::BeginPlay()
 			{
 				ThreatHandlers.Add(ActorThreat, false);
 				ActorThreat->OnCombatChanged.AddDynamic(this, &ACombatLink::OnActorCombat);
+			}
+			UNPCAbilityComponent* ActorAbility = Cast<UNPCAbilityComponent>(ISaiyoraCombatInterface::Execute_GetAbilityComponent(LinkedActor));
+			if (IsValid(ActorAbility))
+			{
+				CompletedPatrolSegment.Add(LinkedActor, false);
+				ActorAbility->OnPatrolLocationReached.AddDynamic(this, &ACombatLink::OnActorPatrolSegmentFinished);
+				ActorAbility->OnPatrolStateChanged.AddDynamic(this, &ACombatLink::OnActorPatrolStateChanged);
+				ActorAbility->SetupGroupPatrol(this);
 			}
 		}
 	}
@@ -65,6 +72,10 @@ void ACombatLink::OnActorCombat(UThreatHandler* Handler, const bool bInCombat)
 	ThreatHandlers.Add(Handler, bInCombat);
 	if (bInCombat)
 	{
+		if (bLinkPatrolPaths && CompletedPatrolSegment.Contains(Handler->GetOwner()))
+		{
+			CompletedPatrolSegment.Add(Handler->GetOwner(), false);
+		}
 		if (bGroupInCombat)
 		{
 			return;
@@ -95,5 +106,34 @@ void ACombatLink::OnActorCombat(UThreatHandler* Handler, const bool bInCombat)
 		{
 			bGroupInCombat = false;
 		}
+	}
+}
+
+void ACombatLink::CheckPatrolSegmentComplete()
+{
+	TArray<bool> Results;
+	CompletedPatrolSegment.GenerateValueArray(Results);
+	if (!Results.Contains(false))
+	{
+		for (TTuple<const AActor*, bool>& PatrolTuple : CompletedPatrolSegment)
+		{
+			PatrolTuple.Value = false;
+		}
+		OnPatrolSegmentCompleted.Broadcast();
+	}
+}
+
+void ACombatLink::OnActorPatrolSegmentFinished(AActor* PatrollingActor, const FVector& Location)
+{
+	CompletedPatrolSegment.Add(PatrollingActor, true);
+	CheckPatrolSegmentComplete();
+}
+
+void ACombatLink::OnActorPatrolStateChanged(AActor* PatrollingActor, const EPatrolSubstate PatrolSubstate)
+{
+	if (CompletedPatrolSegment.Contains(PatrollingActor) && PatrolSubstate == EPatrolSubstate::PatrolFinished)
+	{
+		CompletedPatrolSegment.Remove(PatrollingActor);
+		CheckPatrolSegmentComplete();
 	}
 }

@@ -55,8 +55,8 @@ struct FNPCAbilityTokens
 	FAbilityTokenNotification OnTokenAvailabilityChanged;
 };
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FPatrolStateNotification, const EPatrolSubstate, PatrolSubstate, ATargetPoint*, LastReachedPoint);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPatrolLocationNotification, const FVector&, Location);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FPatrolStateNotification, AActor*, PatrollingActor, const EPatrolSubstate, PatrolSubstate);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FPatrolLocationNotification, AActor*, PatrollingActor, const FVector&, Location);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FCombatBehaviorNotification, const ENPCCombatBehavior, PreviousStatus, const ENPCCombatBehavior, NewStatus);
 
 //Experimenting with dodging behavior trees and just using a priority system for both movement AND abilities.

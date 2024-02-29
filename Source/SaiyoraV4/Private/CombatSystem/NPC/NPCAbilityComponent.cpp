@@ -1,4 +1,6 @@
 ﻿#include "NPCAbilityComponent.h"
+
+#include "CombatLink.h"
 #include "DamageHandler.h"
 #include "NPCAbility.h"
 #include "SaiyoraCombatInterface.h"
@@ -291,8 +293,7 @@ void UNPCAbilityComponent::LeavePatrolState()
 void UNPCAbilityComponent::SetPatrolSubstate(const EPatrolSubstate NewSubstate)
 {
 	PatrolSubstate = NewSubstate;
-	ATargetPoint* LastReachedPoint = PatrolPath.IsValidIndex(LastPatrolIndex) ? PatrolPath[LastPatrolIndex].Point : nullptr;
-	OnPatrolStateChanged.Broadcast(PatrolSubstate, LastReachedPoint);
+	OnPatrolStateChanged.Broadcast(GetOwner(), PatrolSubstate);
 }
 
 void UNPCAbilityComponent::MoveToNextPatrolPoint()
@@ -308,8 +309,12 @@ void UNPCAbilityComponent::MoveToNextPatrolPoint()
 	if (!IsValid(NextPoint))
 	{
 		UE_LOG(LogTemp, Warning, TEXT("AI %s had invalid point at index %i, skipping it."), *GetOwner()->GetName(), NextPatrolIndex);
-		IncrementPatrolIndex();
-		MoveToNextPatrolPoint();
+		OnPatrolLocationReached.Broadcast(GetOwner(), GetOwner()->GetActorLocation());
+		if (!bGroupPatrolling)
+		{
+			IncrementPatrolIndex();
+			MoveToNextPatrolPoint();
+		}
 	}
 	else
 	{
@@ -364,15 +369,23 @@ void UNPCAbilityComponent::OnReachedPatrolPoint()
 	}
 	else
 	{
-		IncrementPatrolIndex();
-		MoveToNextPatrolPoint();
+		OnPatrolLocationReached.Broadcast(GetOwner(), GetOwner()->GetActorLocation());
+		if (!bGroupPatrolling)
+		{
+			IncrementPatrolIndex();
+			MoveToNextPatrolPoint();
+		}
 	}
 }
 
 void UNPCAbilityComponent::FinishPatrolWait()
 {
-	IncrementPatrolIndex();
-	MoveToNextPatrolPoint();
+	OnPatrolLocationReached.Broadcast(GetOwner(), GetOwner()->GetActorLocation());
+	if (!bGroupPatrolling)
+	{
+		IncrementPatrolIndex();
+		MoveToNextPatrolPoint();
+	}
 }
 
 void UNPCAbilityComponent::IncrementPatrolIndex()
@@ -425,6 +438,26 @@ void UNPCAbilityComponent::FinishPatrol()
 	{
 		AIController->GetPathFollowingComponent()->AbortMove(*this, FPathFollowingResultFlags::OwnerFinished, CurrentMoveRequestID);
 		CurrentMoveRequestID = FAIRequestID::InvalidRequest;
+	}
+}
+
+void UNPCAbilityComponent::SetupGroupPatrol(ACombatLink* LinkActor)
+{
+	if (!GetOwner()->HasAuthority() || !IsValid(LinkActor))
+	{
+		return;
+	}
+	bGroupPatrolling = true;
+	GroupLink = LinkActor;
+	LinkActor->OnPatrolSegmentCompleted.AddDynamic(this, &UNPCAbilityComponent::FinishGroupPatrolSegment);
+}
+
+void UNPCAbilityComponent::FinishGroupPatrolSegment()
+{
+	if (CombatBehavior == ENPCCombatBehavior::Patrolling && PatrolSubstate != EPatrolSubstate::PatrolFinished)
+	{
+		IncrementPatrolIndex();
+		MoveToNextPatrolPoint();
 	}
 }
 

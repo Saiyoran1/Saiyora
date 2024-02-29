@@ -7,6 +7,7 @@
 #include "NPCStructs.h"
 #include "NPCAbilityComponent.generated.h"
 
+class ACombatLink;
 class UBehaviorTree;
 class UThreatHandler;
 class UCombatStatusComponent;
@@ -79,6 +80,8 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FPatrolStateNotification OnPatrolStateChanged;
 
+	void SetupGroupPatrol(ACombatLink* LinkActor);
+
 protected:
 
 	//The actual points along the patrol path this NPC will walk between, in order.
@@ -110,6 +113,11 @@ private:
 	int32 LastPatrolIndex = -1;
 	void IncrementPatrolIndex();
 	bool bReversePatrolling = false;
+	bool bGroupPatrolling = false;
+	UPROPERTY()
+	ACombatLink* GroupLink = nullptr;
+	UFUNCTION()
+	void FinishGroupPatrolSegment();
 
 	FTimerHandle PatrolWaitHandle;
 	UFUNCTION()
