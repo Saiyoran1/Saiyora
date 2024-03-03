@@ -57,7 +57,8 @@ private:
 
 public:
 
-	void UpdatePatrolPointsFromComponent(const TArray<FVector>& Points);
+	void UpdatePatrolPoints();
+	virtual void PostEditMove(bool bFinished) override;
 
 #endif
 };

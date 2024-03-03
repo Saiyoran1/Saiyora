@@ -25,8 +25,6 @@ struct FPatrolPoint
 {
 	GENERATED_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	ATargetPoint* Point = nullptr;
 	UPROPERTY(VisibleAnywhere)
 	FVector Location = FVector::ZeroVector;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)

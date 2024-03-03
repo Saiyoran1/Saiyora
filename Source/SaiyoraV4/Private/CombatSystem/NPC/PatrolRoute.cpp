@@ -1,40 +1,34 @@
 ﻿#include "PatrolRoute.h"
 #include "NPCStructs.h"
 
+#pragma region Patrol Route Component
 #if WITH_EDITOR
+
 void UPatrolRouteComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
-
-	if (PropertyChangedEvent.Property != nullptr)
+	
+	if (PropertyChangedEvent.Property != nullptr && IsValid(OwningPatrolRoute)
+		&& PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(USplineComponent, SplineCurves))
 	{
-		if (IsValid(OwningPatrolRoute))
-		{
-			TArray<FVector> Locations;
-			for (int i = 0; i < GetNumberOfSplinePoints(); i++)
-			{
-				Locations.Add(GetLocationAtSplinePoint(i, ESplineCoordinateSpace::World));
-			}
-			OwningPatrolRoute->UpdatePatrolPointsFromComponent(Locations);
-		}
+		OwningPatrolRoute->UpdatePatrolPoints();
 	}
 }
 
 void UPatrolRouteComponent::OnRegister()
 {
 	Super::OnRegister();
+	
 	OwningPatrolRoute = Cast<APatrolRoute>(GetOwner());
 	if (IsValid(OwningPatrolRoute))
 	{
-		TArray<FVector> Locations;
-		for (int i = 0; i < GetNumberOfSplinePoints(); i++)
-		{
-			Locations.Add(GetLocationAtSplinePoint(i, ESplineCoordinateSpace::World));
-		}
-		OwningPatrolRoute->UpdatePatrolPointsFromComponent(Locations);
+		OwningPatrolRoute->UpdatePatrolPoints();
 	}
 }
+
 #endif
+#pragma endregion
+#pragma region Patrol Route Actor
 
 APatrolRoute::APatrolRoute()
 {
@@ -45,8 +39,19 @@ APatrolRoute::APatrolRoute()
 
 #if WITH_EDITOR
 
-void APatrolRoute::UpdatePatrolPointsFromComponent(const TArray<FVector>& Points)
+void APatrolRoute::UpdatePatrolPoints()
 {
+	if (!IsValid(SplineComponent))
+	{
+		PatrolPoints.Empty();
+		return;
+	}
+	TArray<FVector> Points;
+	for (int i = 0; i < SplineComponent->GetNumberOfSplinePoints(); i++)
+	{
+		Points.Add(SplineComponent->GetLocationAtSplinePoint(i, ESplineCoordinateSpace::World));
+	}
+	
 	while (PatrolPoints.Num() > Points.Num())
 	{
 		PatrolPoints.RemoveAt(PatrolPoints.Num() - 1);
@@ -61,4 +66,12 @@ void APatrolRoute::UpdatePatrolPointsFromComponent(const TArray<FVector>& Points
 	}
 }
 
+void APatrolRoute::PostEditMove(bool bFinished)
+{
+	Super::PostEditMove(bFinished);
+	
+	UpdatePatrolPoints();
+}
+
 #endif
+#pragma endregion 

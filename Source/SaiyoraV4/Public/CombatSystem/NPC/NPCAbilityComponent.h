@@ -11,6 +11,7 @@ class ACombatLink;
 class UBehaviorTree;
 class UThreatHandler;
 class UCombatStatusComponent;
+class APatrolRoute;
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
 class SAIYORAV4_API UNPCAbilityComponent : public UAbilityComponent
@@ -76,17 +77,15 @@ public:
 
 	UPROPERTY(BlueprintAssignable)
 	FPatrolLocationNotification OnPatrolLocationReached;
-
 	UPROPERTY(BlueprintAssignable)
 	FPatrolStateNotification OnPatrolStateChanged;
 
 	void SetupGroupPatrol(ACombatLink* LinkActor);
 
-protected:
+private:
 
-	//The actual points along the patrol path this NPC will walk between, in order.
 	UPROPERTY(EditAnywhere, Category = "Patrol")
-	TArray<FPatrolPoint> PatrolPath;
+	APatrolRoute* PatrolRoute;
 	//Whether this NPC should loop the patrol path once they reach the last point, or just stay there.
 	UPROPERTY(EditAnywhere, Category = "Patrol")
 	bool bLoopPatrol = true;
@@ -96,8 +95,6 @@ protected:
 	//Optional move speed modifier applied to the NPC when in the patrol state.
 	UPROPERTY(EditAnywhere, Category = "Patrol")
 	float PatrolMoveSpeedModifier = 0.0f;
-
-private:
 
 	void EnterPatrolState();
 	void LeavePatrolState();
@@ -109,6 +106,7 @@ private:
 	void FinishPatrol();
 
 	EPatrolSubstate PatrolSubstate = EPatrolSubstate::None;
+	TArray<FPatrolPoint> PatrolPath;
 	int32 NextPatrolIndex = 0;
 	int32 LastPatrolIndex = -1;
 	void IncrementPatrolIndex();

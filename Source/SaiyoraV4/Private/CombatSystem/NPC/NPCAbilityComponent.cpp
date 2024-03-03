@@ -3,6 +3,7 @@
 #include "CombatLink.h"
 #include "DamageHandler.h"
 #include "NPCAbility.h"
+#include "PatrolRoute.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraMovementComponent.h"
 #include "StatHandler.h"
@@ -52,6 +53,11 @@ void UNPCAbilityComponent::BeginPlay()
 		ThreatHandlerRef->OnCombatChanged.AddDynamic(this, &UNPCAbilityComponent::OnCombatChanged);
 	}
 	OnControllerChanged(OwnerAsPawn, nullptr, OwnerAsPawn->GetController());
+	
+	if (IsValid(PatrolRoute))
+	{
+		PatrolRoute->GetPatrolRoute(PatrolPath);
+	}
 }
 
 void UNPCAbilityComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -304,56 +310,42 @@ void UNPCAbilityComponent::MoveToNextPatrolPoint()
 		FinishPatrol();
 		return;
 	}
-	const ATargetPoint* NextPoint = PatrolPath[NextPatrolIndex].Point;
-	//If the next point isn't valid, we essentially want to skip over it.
-	if (!IsValid(NextPoint))
+	
+	SetPatrolSubstate(EPatrolSubstate::MovingToPoint);
+	if (IsValid(AIController))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("AI %s had invalid point at index %i, skipping it."), *GetOwner()->GetName(), NextPatrolIndex);
-		OnPatrolLocationReached.Broadcast(GetOwner(), GetOwner()->GetActorLocation());
-		if (!bGroupPatrolling)
+		//Request a move to the next patrol location from the AIController.
+		//TODO: These parameters might need to be adjusted, I don't know what some of them do.
+		FAIMoveRequest MoveReq(PatrolPath[NextPatrolIndex].Location);
+		MoveReq.SetUsePathfinding(true);
+		MoveReq.SetAllowPartialPath(false);
+		MoveReq.SetProjectGoalLocation(true);
+		MoveReq.SetNavigationFilter(AIController->GetDefaultNavigationFilterClass());
+		MoveReq.SetAcceptanceRadius(-1.0f);
+		MoveReq.SetReachTestIncludesAgentRadius(true);
+		MoveReq.SetCanStrafe(true);
+		const FPathFollowingRequestResult RequestResult = AIController->MoveTo(MoveReq);
+		if (RequestResult.Code == EPathFollowingRequestResult::RequestSuccessful)
 		{
-			IncrementPatrolIndex();
-			MoveToNextPatrolPoint();
+			CurrentMoveRequestID = RequestResult.MoveId;
+		}
+		//If we were already at the patrol point, move on to the next.
+		else if (RequestResult.Code == EPathFollowingRequestResult::AlreadyAtGoal)
+		{
+			OnReachedPatrolPoint();
+		}
+		//If the path following result failed, log an error and move to the next point.
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("NPC %s failed to path to index %i in its patrol. Result: %s. Moving to next point."),
+				*GetOwner()->GetName(), NextPatrolIndex, *UEnum::GetDisplayValueAsText(RequestResult.Code).ToString());
+			OnReachedPatrolPoint();
 		}
 	}
 	else
 	{
-		SetPatrolSubstate(EPatrolSubstate::MovingToPoint);
-		if (IsValid(AIController))
-		{
-			//Request a move to the next patrol location from the AIController.
-			//TODO: These parameters might need to be adjusted, I don't know what some of them do.
-			FAIMoveRequest MoveReq(PatrolPath[NextPatrolIndex].Point->GetActorLocation());
-			MoveReq.SetUsePathfinding(true);
-			MoveReq.SetAllowPartialPath(false);
-			MoveReq.SetProjectGoalLocation(true);
-			MoveReq.SetNavigationFilter(AIController->GetDefaultNavigationFilterClass());
-			MoveReq.SetAcceptanceRadius(-1.0f);
-			MoveReq.SetReachTestIncludesAgentRadius(true);
-			MoveReq.SetCanStrafe(true);
-			const FPathFollowingRequestResult RequestResult = AIController->MoveTo(MoveReq);
-			if (RequestResult.Code == EPathFollowingRequestResult::RequestSuccessful)
-			{
-				CurrentMoveRequestID = RequestResult.MoveId;
-			}
-			//If we were already at the patrol point, move on to the next.
-			else if (RequestResult.Code == EPathFollowingRequestResult::AlreadyAtGoal)
-			{
-				OnReachedPatrolPoint();
-			}
-			//If the path following result failed, log an error and move to the next point.
-			else
-			{
-				UE_LOG(LogTemp, Warning, TEXT("NPC %s failed to path to index %i in its patrol. Result: %s. Moving to next point."),
-					*GetOwner()->GetName(), NextPatrolIndex, *UEnum::GetDisplayValueAsText(RequestResult.Code).ToString());
-				OnReachedPatrolPoint();
-			}
-		}
-		else
-		{
-			UE_LOG(LogTemp, Warning, TEXT("NPC %s had an invalid AI Controller when trying to patrol. Ending patrol."), *GetOwner()->GetName());
-			FinishPatrol();
-		}
+		UE_LOG(LogTemp, Warning, TEXT("NPC %s had an invalid AI Controller when trying to patrol. Ending patrol."), *GetOwner()->GetName());
+		FinishPatrol();
 	}
 }
 
