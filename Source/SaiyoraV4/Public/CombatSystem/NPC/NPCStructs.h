@@ -27,8 +27,13 @@ struct FPatrolPoint
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	ATargetPoint* Point = nullptr;
+	UPROPERTY(VisibleAnywhere)
+	FVector Location = FVector::ZeroVector;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	float WaitTime = 0.0f;
+
+	FPatrolPoint() {}
+	FPatrolPoint(const FVector& InLoc) : Location(InLoc) {}
 };
 
 DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityTokenCallback, const bool, bTokensAvailable);
