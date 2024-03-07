@@ -85,7 +85,7 @@ public:
 private:
 
 	UPROPERTY(EditAnywhere, Category = "Patrol")
-	APatrolRoute* PatrolRoute;
+	APatrolRoute* PatrolRoute = nullptr;
 	//Whether this NPC should loop the patrol path once they reach the last point, or just stay there.
 	UPROPERTY(EditAnywhere, Category = "Patrol")
 	bool bLoopPatrol = true;
