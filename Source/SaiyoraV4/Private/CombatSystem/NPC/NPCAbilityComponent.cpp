@@ -601,4 +601,9 @@ void UNPCAbilityComponent::AbortCurrentChoice()
 	CombatChoiceStatus = ENPCCombatChoiceStatus::None;
 }
 
+void UNPCAbilityComponent::OnChoiceBecameValid(const int ChoiceIdx)
+{
+	
+}
+
 #pragma endregion 

@@ -155,6 +155,8 @@ private:
 
 public:
 
+	void OnChoiceBecameValid(const int ChoiceIdx);
+
 private:
 
 	UPROPERTY(EditAnywhere, Category = "TEST")
@@ -166,6 +168,7 @@ private:
 	void AbortCurrentChoice();
 	int CurrentCombatChoiceIdx = -1;
 	ENPCCombatChoiceStatus CombatChoiceStatus = ENPCCombatChoiceStatus::None;
+	bool bInitializedChoices = false;
 
 #pragma endregion 
 };

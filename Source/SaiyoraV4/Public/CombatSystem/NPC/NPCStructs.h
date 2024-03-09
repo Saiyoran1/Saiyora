@@ -73,10 +73,10 @@ struct FNPCCombatChoice
 
 public:
 
-	void Init(UNPCAbilityComponent* AbilityComponent, const int Index) {/*TODO*/}
+	void Init(UNPCAbilityComponent* AbilityComponent, const int Index);
 	void Execute() {/*TODO*/}
 	void Abort() {/*TODO*/}
-	void UpdateRequirementMet(const int RequirementIdx, const bool bRequirementMet) {/*TODO*/}
+	void UpdateRequirementMet(const int RequirementIdx, const bool bRequirementMet);
 
 	bool RequiresPreMove() const { return bPreCastMove; }
 	UEnvQuery* GetPreMoveQuery(TArray<FInstancedStruct>& OutParams) const { OutParams = PreCastQueryParams; return PreCastQuery; }
@@ -116,6 +116,7 @@ private:
 	int Priority = -1;
 	UPROPERTY()
 	UNPCAbilityComponent* OwningComponentRef = nullptr;
+	bool bInitialized = false;
 };
 
 //A struct that is intended to be inherited from to be used as FInstancedStructs inside FNPCCombatChoice.
@@ -128,21 +129,21 @@ struct FNPCChoiceRequirement
 public:
 
 	bool IsMet() const { return bIsMet; }
-	void Init(const FNPCCombatChoice* Choice, APawn* NPC, const int Idx) {/*TODO*/}
+	void Init(FNPCCombatChoice* Choice, AActor* NPC, const int Idx);
 	virtual void SetupRequirement() {}
 	virtual ~FNPCChoiceRequirement() {}
 
 protected:
 
-	void UpdateRequirementMet(const bool bMet) {/*TODO*/}
-	APawn* GetOwningNPC() const { return OwningNPC; }
+	void UpdateRequirementMet(const bool bMet);
+	AActor* GetOwningNPC() const { return OwningNPC; }
 	FNPCCombatChoice GetOwningChoice() const { return *OwningChoice; }
 
 private:
 
 	bool bIsMet = false;
-	int PriorityIndex = -1;
+	int RequirementIndex = -1;
 	UPROPERTY()
-	APawn* OwningNPC = nullptr;
-	const FNPCCombatChoice* OwningChoice = nullptr;
+	AActor* OwningNPC = nullptr;
+	FNPCCombatChoice* OwningChoice = nullptr;
 };
