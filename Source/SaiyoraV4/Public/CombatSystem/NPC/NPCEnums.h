@@ -15,6 +15,7 @@ UENUM()
 enum class ENPCCombatChoiceStatus : uint8
 {
 	None,
+	PreMoveQuery,
 	PreMoving,
 	Casting,
 };

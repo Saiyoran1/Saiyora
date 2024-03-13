@@ -5,6 +5,7 @@
 #include "AIController.h"
 #include "DungeonGameState.h"
 #include "NPCStructs.h"
+#include "EnvironmentQuery/EnvQueryManager.h"
 #include "NPCAbilityComponent.generated.h"
 
 class ACombatLink;
@@ -32,6 +33,7 @@ protected:
 	virtual void InitializeComponent() override;
 	virtual void BeginPlay() override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 private:
 
@@ -165,10 +167,21 @@ private:
 	void InitCombatChoices();
 	void TrySelectNewChoice();
 	void StartExecuteChoice();
+	
 	void AbortCurrentChoice();
 	int CurrentCombatChoiceIdx = -1;
 	ENPCCombatChoiceStatus CombatChoiceStatus = ENPCCombatChoiceStatus::None;
 	bool bInitializedChoices = false;
+
+	void RunQuery();
+	void OnQueryFinished(TSharedPtr<FEnvQueryResult> QueryResult);
+	UPROPERTY()
+	UEnvQuery* CurrentQuery = nullptr;
+	TArray<FAIDynamicParam> CurrentQueryParams;
+	int32 QueryID = INDEX_NONE;
+
+	bool bHasValidMoveLocation = false;
+	FVector CurrentMoveLocation;
 
 #pragma endregion 
 };

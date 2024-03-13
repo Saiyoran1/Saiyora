@@ -66,6 +66,19 @@ void UNPCAbilityComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
 	DOREPLIFETIME(UNPCAbilityComponent, CombatBehavior);
 }
 
+void UNPCAbilityComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+{
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+
+	if (CombatBehavior == ENPCCombatBehavior::Combat)
+	{
+		if (IsValid(CurrentQuery) && QueryID != INDEX_NONE)
+		{
+			RunQuery();
+		}
+	}
+}
+
 #pragma endregion
 #pragma region State Control
 
@@ -588,6 +601,56 @@ void UNPCAbilityComponent::TrySelectNewChoice()
 void UNPCAbilityComponent::StartExecuteChoice()
 {
 	//TODO: Check if we need to move. If so, start a move. If not, go straight to casting. If cast is instant, return to TrySelectNewChoice.
+	FNPCCombatChoice& Choice = CombatPriority[CurrentCombatChoiceIdx];
+	if (Choice.RequiresPreMove())
+	{
+		CurrentQuery = Choice.GetPreMoveQuery(CurrentQueryParams);
+		CombatChoiceStatus = ENPCCombatChoiceStatus::PreMoveQuery;
+	}
+	else
+	{
+		CombatChoiceStatus = ENPCCombatChoiceStatus::Casting;
+	}
+}
+
+void UNPCAbilityComponent::RunQuery()
+{
+	if (IsValid(CurrentQuery))
+	{
+		FEnvQueryRequest Request (CurrentQuery);
+		for (const FAIDynamicParam& Param : CurrentQueryParams)
+		{
+			Request.SetDynamicParam(Param);
+		}
+		QueryID = Request.Execute(EEnvQueryRunMode::SingleResult, this, &UNPCAbilityComponent::OnQueryFinished);
+	}
+	else
+	{
+		QueryID = INDEX_NONE;
+	}
+}
+
+void UNPCAbilityComponent::OnQueryFinished(TSharedPtr<FEnvQueryResult> QueryResult)
+{
+	if (!QueryResult.IsValid())
+	{
+		QueryID = INDEX_NONE;
+		return;
+	}
+	const FEnvQueryResult* Result = QueryResult.Get();
+	if (Result->QueryID != QueryID)
+	{
+		return;
+	}
+	if (!Result->IsFinished() || !Result->IsSuccessful() || Result->Items.Num() == 0)
+	{
+		QueryID = INDEX_NONE;
+		return;
+	}
+
+	bHasValidMoveLocation = true;
+	CurrentMoveLocation = Result->GetItemAsLocation(0);
+	QueryID = INDEX_NONE;
 }
 
 void UNPCAbilityComponent::AbortCurrentChoice()

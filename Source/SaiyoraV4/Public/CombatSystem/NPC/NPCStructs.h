@@ -79,7 +79,7 @@ public:
 	void UpdateRequirementMet(const int RequirementIdx, const bool bRequirementMet);
 
 	bool RequiresPreMove() const { return bPreCastMove; }
-	UEnvQuery* GetPreMoveQuery(TArray<FInstancedStruct>& OutParams) const { OutParams = PreCastQueryParams; return PreCastQuery; }
+	UEnvQuery* GetPreMoveQuery(TArray<FAIDynamicParam>& OutParams) const { OutParams = PreCastQueryParams; return PreCastQuery; }
 	
 	bool IsHighPriority() const { return bHighPriority; }
 	bool CanAbortDuringCast() const { return bCastCanBeInterrupted; }
@@ -101,15 +101,15 @@ private:
 	bool bPreCastMove = false;
 	UPROPERTY(EditAnywhere, meta = (EditCondition = "bPreCastMove"))
 	TObjectPtr<UEnvQuery> PreCastQuery;
-	UPROPERTY(EditAnywhere, meta = (EditCondition = "bPreCastMove", BaseStruct = "/Script/SaiyoraV4.CombatParameter"))
-	TArray<FInstancedStruct> PreCastQueryParams;
+	UPROPERTY(EditAnywhere, meta = (EditCondition = "bPreCastMove"))
+	TArray<FAIDynamicParam> PreCastQueryParams;
 	
 	UPROPERTY(EditAnywhere)
 	bool bDuringCastMove = false;
 	UPROPERTY(EditAnywhere, meta = (EditCondition = "bDuringCastMove"))
 	TObjectPtr<UEnvQuery> DuringCastQuery;
-	UPROPERTY(EditAnywhere, meta = (EditCondition = "bDuringCastMove", BaseStruct = "/Script/SaiyoraV4.CombatParameter"))
-	TArray<FInstancedStruct> DuringCastQueryParams;
+	UPROPERTY(EditAnywhere, meta = (EditCondition = "bDuringCastMove"))
+	TArray<FAIDynamicParam> DuringCastQueryParams;
 
 	bool bValid = false;
 	TMap<int, bool> RequirementsMap;
