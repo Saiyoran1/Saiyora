@@ -85,6 +85,8 @@ public:
 	bool CanAbortDuringCast() const { return bCastCanBeInterrupted; }
 	bool IsChoiceValid() const { return bValid; }
 
+	void DEBUG_GetDisplayInfo(TArray<FString>& OutInfo) const;
+
 private:
 
 	UPROPERTY(EditAnywhere, meta = (BaseStruct = "/Script/SaiyoraV4.NPCChoiceRequirement"))
@@ -117,6 +119,9 @@ private:
 	UPROPERTY()
 	UNPCAbilityComponent* OwningComponentRef = nullptr;
 	bool bInitialized = false;
+
+	UPROPERTY(EditAnywhere)
+	FString DEBUG_ChoiceName = "";
 };
 
 //A struct that is intended to be inherited from to be used as FInstancedStructs inside FNPCCombatChoice.
@@ -133,11 +138,15 @@ public:
 	virtual void SetupRequirement() {}
 	virtual ~FNPCChoiceRequirement() {}
 
+	FString DEBUG_GetReqName() const { return DEBUG_RequirementName; }
+
 protected:
 
 	void UpdateRequirementMet(const bool bMet);
 	AActor* GetOwningNPC() const { return OwningNPC; }
 	FNPCCombatChoice GetOwningChoice() const { return *OwningChoice; }
+
+	FString DEBUG_RequirementName = "";
 
 private:
 
@@ -146,4 +155,18 @@ private:
 	UPROPERTY()
 	AActor* OwningNPC = nullptr;
 	FNPCCombatChoice* OwningChoice = nullptr;
+};
+
+USTRUCT()
+struct FTargetDistanceRequirement : FNPCChoiceRequirement
+{
+	GENERATED_BODY()
+
+public:
+	
+	virtual void SetupRequirement() override;
+
+private:
+
+	
 };

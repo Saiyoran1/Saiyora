@@ -10,13 +10,15 @@
 #include "ThreatHandler.h"
 #include "UnrealNetwork.h"
 #include "BehaviorTree/BehaviorTree.h"
+#include "Kismet/KismetSystemLibrary.h"
 #include "Navigation/PathFollowingComponent.h"
 
 #pragma region Initialization
 
 UNPCAbilityComponent::UNPCAbilityComponent(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
-	PrimaryComponentTick.bCanEverTick = false;
+	PrimaryComponentTick.bCanEverTick = true;
+	PrimaryComponentTick.bStartWithTickEnabled = false;
 	bWantsInitializeComponent = true;
 }
 
@@ -70,11 +72,32 @@ void UNPCAbilityComponent::TickComponent(float DeltaTime, ELevelTick TickType, F
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	if (CombatBehavior == ENPCCombatBehavior::Combat)
+	if (CombatBehavior != ENPCCombatBehavior::Combat)
 	{
-		if (IsValid(CurrentQuery) && QueryID != INDEX_NONE)
+		return;
+	}
+	
+	if (IsValid(CurrentQuery) && QueryID != INDEX_NONE)
+	{
+		RunQuery();
+	}
+
+	//Debug print info about combat choices.
+	for (int i = CombatPriority.Num() - 1; i >= 0; i--)
+	{
+		const FNPCCombatChoice& Choice = CombatPriority[i];
+		TArray<FString> ChoiceInfo;
+		Choice.DEBUG_GetDisplayInfo(ChoiceInfo);
+		
+		for (int j = ChoiceInfo.Num() - 1; j >= 0; j--)
 		{
-			RunQuery();
+			const FString& Info = ChoiceInfo[j];
+			FColor DEBUG_Color = FColor::White;
+			if (Info.Contains("Met") || Info.Contains("Failed"))
+			{
+				DEBUG_Color = Info.Contains("Met") ? FColor::Green : FColor::Red;
+			}
+			UKismetSystemLibrary::PrintString(GetWorld(), Info, true, false, DEBUG_Color, 0);
 		}
 	}
 }
@@ -225,7 +248,7 @@ void UNPCAbilityComponent::OnMoveRequestFinished(FAIRequestID RequestID, const F
 void UNPCAbilityComponent::EnterCombatState()
 {
 	//Run the combat behavior tree for this actor.
-	if (!IsValid(CombatTree) || !IsValid(AIController))
+	/*if (!IsValid(CombatTree) || !IsValid(AIController))
 	{
 		UE_LOG(LogTemp, Warning, TEXT("NPC %s failed to run a custom combat tree."), *GetOwner()->GetName());
 		return;
@@ -234,7 +257,10 @@ void UNPCAbilityComponent::EnterCombatState()
 	if (!AIController->RunBehaviorTree(CombatTree))
 	{
 		UE_LOG(LogTemp, Warning, TEXT("NPC %s failed to run a custom combat tree."), *GetOwner()->GetName());
-	}
+	}*/
+
+	InitCombatChoices();
+	SetComponentTickEnabled(true);
 }
 
 
@@ -245,6 +271,7 @@ void UNPCAbilityComponent::LeaveCombatState()
 	{
 		AIController->GetBrainComponent()->StopLogic("Leaving combat");
 	}
+	SetComponentTickEnabled(false);
 }
 
 #pragma endregion
@@ -558,7 +585,7 @@ void UNPCAbilityComponent::InitCombatChoices()
 	{
 		CombatPriority[i].Init(this, i);
 	}
-	TrySelectNewChoice();
+	//TrySelectNewChoice();
 }
 
 void UNPCAbilityComponent::TrySelectNewChoice()
@@ -601,7 +628,7 @@ void UNPCAbilityComponent::TrySelectNewChoice()
 void UNPCAbilityComponent::StartExecuteChoice()
 {
 	//TODO: Check if we need to move. If so, start a move. If not, go straight to casting. If cast is instant, return to TrySelectNewChoice.
-	FNPCCombatChoice& Choice = CombatPriority[CurrentCombatChoiceIdx];
+	const FNPCCombatChoice& Choice = CombatPriority[CurrentCombatChoiceIdx];
 	if (Choice.RequiresPreMove())
 	{
 		CurrentQuery = Choice.GetPreMoveQuery(CurrentQueryParams);
@@ -611,6 +638,8 @@ void UNPCAbilityComponent::StartExecuteChoice()
 	{
 		CombatChoiceStatus = ENPCCombatChoiceStatus::Casting;
 	}
+
+	UE_LOG(LogTemp, Warning, TEXT("Starting choice %i: %s"), CurrentCombatChoiceIdx, *UEnum::GetDisplayValueAsText(CombatChoiceStatus).ToString());
 }
 
 void UNPCAbilityComponent::RunQuery()
