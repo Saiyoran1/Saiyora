@@ -2,7 +2,6 @@
 #include "CoreMinimal.h"
 #include "InstancedStruct.h"
 #include "NPCEnums.h"
-#include "Engine/TargetPoint.h"
 #include "EnvironmentQuery/EnvQuery.h"
 #include "NPCStructs.generated.h"
 
@@ -155,18 +154,4 @@ private:
 	UPROPERTY()
 	AActor* OwningNPC = nullptr;
 	FNPCCombatChoice* OwningChoice = nullptr;
-};
-
-USTRUCT()
-struct FTargetDistanceRequirement : FNPCChoiceRequirement
-{
-	GENERATED_BODY()
-
-public:
-	
-	virtual void SetupRequirement() override;
-
-private:
-
-	
 };
