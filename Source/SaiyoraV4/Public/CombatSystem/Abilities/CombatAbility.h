@@ -131,7 +131,7 @@ protected:
     bool bCastableWhileDead = false;
     UPROPERTY(EditDefaultsOnly, Category = "Restrictions", meta = (Categories = "CrowdControl"))
     FGameplayTagContainer RestrictedCrowdControls;
-    UPROPERTY(EditDefaultsOnly, Category = "Restrictions")
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Restrictions", meta = (AllowPrivateAccess = "true"))
     bool bCastableWhileMoving = true;
 
     void UpdateCastable();

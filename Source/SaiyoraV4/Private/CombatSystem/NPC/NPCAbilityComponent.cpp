@@ -248,7 +248,7 @@ void UNPCAbilityComponent::OnMoveRequestFinished(FAIRequestID RequestID, const F
 void UNPCAbilityComponent::EnterCombatState()
 {
 	//Run the combat behavior tree for this actor.
-	/*if (!IsValid(CombatTree) || !IsValid(AIController))
+	if (!IsValid(CombatTree) || !IsValid(AIController))
 	{
 		UE_LOG(LogTemp, Warning, TEXT("NPC %s failed to run a custom combat tree."), *GetOwner()->GetName());
 		return;
@@ -257,10 +257,20 @@ void UNPCAbilityComponent::EnterCombatState()
 	if (!AIController->RunBehaviorTree(CombatTree))
 	{
 		UE_LOG(LogTemp, Warning, TEXT("NPC %s failed to run a custom combat tree."), *GetOwner()->GetName());
-	}*/
+		return;
+	}
 
-	InitCombatChoices();
-	SetComponentTickEnabled(true);
+	if (IsValid(AbilitySelectionTree))
+	{
+		UBehaviorTreeComponent* BTComp = Cast<UBehaviorTreeComponent>(AIController->GetBrainComponent());
+		if (IsValid(BTComp))
+		{
+			BTComp->SetDynamicSubtree(FSaiyoraCombatTags::Get().CombatTree, AbilitySelectionTree);
+		}
+	}
+
+	//InitCombatChoices();
+	//SetComponentTickEnabled(true);
 }
 
 
