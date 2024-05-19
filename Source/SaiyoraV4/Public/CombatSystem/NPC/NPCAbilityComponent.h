@@ -64,12 +64,6 @@ private:
 #pragma region Combat
 
 private:
-	
-	//The behavior tree to run for combat for this actor.
-	UPROPERTY(EditAnywhere, Category = "Combat")
-	UBehaviorTree* CombatTree = nullptr;
-	UPROPERTY(EditAnywhere, Category = "Combat")
-	UBehaviorTree* AbilitySelectionTree = nullptr;
 
 	void EnterCombatState();
 	void LeaveCombatState();

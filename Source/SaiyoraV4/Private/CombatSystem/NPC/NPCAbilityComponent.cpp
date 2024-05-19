@@ -1,5 +1,4 @@
 ﻿#include "NPCAbilityComponent.h"
-
 #include "CombatLink.h"
 #include "DamageHandler.h"
 #include "NPCAbility.h"
@@ -9,7 +8,6 @@
 #include "StatHandler.h"
 #include "ThreatHandler.h"
 #include "UnrealNetwork.h"
-#include "BehaviorTree/BehaviorTree.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "Navigation/PathFollowingComponent.h"
 
@@ -247,40 +245,13 @@ void UNPCAbilityComponent::OnMoveRequestFinished(FAIRequestID RequestID, const F
 
 void UNPCAbilityComponent::EnterCombatState()
 {
-	//Run the combat behavior tree for this actor.
-	if (!IsValid(CombatTree) || !IsValid(AIController))
-	{
-		UE_LOG(LogTemp, Warning, TEXT("NPC %s failed to run a custom combat tree."), *GetOwner()->GetName());
-		return;
-	}
-	
-	if (!AIController->RunBehaviorTree(CombatTree))
-	{
-		UE_LOG(LogTemp, Warning, TEXT("NPC %s failed to run a custom combat tree."), *GetOwner()->GetName());
-		return;
-	}
-
-	if (IsValid(AbilitySelectionTree))
-	{
-		UBehaviorTreeComponent* BTComp = Cast<UBehaviorTreeComponent>(AIController->GetBrainComponent());
-		if (IsValid(BTComp))
-		{
-			BTComp->SetDynamicSubtree(FSaiyoraCombatTags::Get().CombatTree, AbilitySelectionTree);
-		}
-	}
-
-	//InitCombatChoices();
-	//SetComponentTickEnabled(true);
+	InitCombatChoices();
+	SetComponentTickEnabled(true);
 }
 
 
 void UNPCAbilityComponent::LeaveCombatState()
 {
-	//If we're using a behavior tree for combat, stop running it.
-	if (IsValid(AIController) && IsValid(AIController->GetBrainComponent()))
-	{
-		AIController->GetBrainComponent()->StopLogic("Leaving combat");
-	}
 	SetComponentTickEnabled(false);
 }
 
