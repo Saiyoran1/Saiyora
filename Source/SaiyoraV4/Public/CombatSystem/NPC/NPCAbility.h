@@ -76,8 +76,7 @@ private:
 	//These ranges can't actually be used for any kind of cast restriction, because we don't know what this ability's target is.
 	// It could be threat target, or it could be furthest target, or lowest health target, or any other arbitrary target.
 
-	//Instead, behavior trees will have to dictate what to do with this information.
-	//There's potentially a world where NPCAbilities could constantly run an EQS query for targets and check range against that, but that sounds expensive.
+	//TODO: Could potentially do a range check on tick (yikes) using the FNPCTargetContext-derived structs.
 
 #pragma endregion 
 };

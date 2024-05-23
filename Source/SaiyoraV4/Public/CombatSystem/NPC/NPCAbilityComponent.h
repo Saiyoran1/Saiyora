@@ -33,7 +33,6 @@ protected:
 	virtual void InitializeComponent() override;
 	virtual void BeginPlay() override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
-	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 private:
 
@@ -61,12 +60,43 @@ private:
 	UFUNCTION()
 	void OnCombatChanged(UThreatHandler* Handler, const bool bInCombat) { UpdateCombatBehavior(); }
 
+	void AbortActiveQuery();
+	void AbortActiveMove();
+
 #pragma region Combat
 
 private:
 
 	void EnterCombatState();
 	void LeaveCombatState();
+	
+
+	UPROPERTY(EditAnywhere, Category = "TEST")
+	TArray<FNPCCombatChoice> CombatPriority;
+
+	void InitCombatChoices();
+	void TrySelectNewChoice();
+	void StartExecuteChoice();
+	UFUNCTION()
+	void EndChoiceOnCastStateChanged(const FCastingState& Previous, const FCastingState& New);
+	
+	void AbortCurrentChoice();
+	int CurrentCombatChoiceIdx = -1;
+	ENPCCombatSubstate CombatSubstate = ENPCCombatSubstate::None;
+	bool bInitializedChoices = false;
+
+	void RunQuery(const UEnvQuery* Query, const TArray<FAIDynamicParam>& QueryParams);
+	void OnQueryFinished(TSharedPtr<FEnvQueryResult> QueryResult);
+	UPROPERTY()
+	UEnvQuery* CurrentQuery = nullptr;
+	TArray<FAIDynamicParam> CurrentQueryParams;
+	int32 QueryID = INDEX_NONE;
+
+	bool bHasValidMoveLocation = false;
+	FVector CurrentMoveLocation;
+
+	FTimerHandle ChoiceRetryHandle;
+	static constexpr float ChoiceRetryDelay = 0.1f;
 
 #pragma endregion 
 #pragma region Patrolling
@@ -97,13 +127,13 @@ private:
 	void EnterPatrolState();
 	void LeavePatrolState();
 
-	void SetPatrolSubstate(const EPatrolSubstate NewSubstate);
+	void SetPatrolSubstate(const ENPCPatrolSubstate NewSubstate);
 
 	void MoveToNextPatrolPoint();
 	void OnReachedPatrolPoint();
 	void FinishPatrol();
 
-	EPatrolSubstate PatrolSubstate = EPatrolSubstate::None;
+	ENPCPatrolSubstate PatrolSubstate = ENPCPatrolSubstate::None;
 	TArray<FPatrolPoint> PatrolPath;
 	int32 NextPatrolIndex = 0;
 	int32 LastPatrolIndex = -1;
@@ -149,35 +179,4 @@ private:
 	void UpdateAbilityTokensOnCastStateChanged(const FCastingState& PreviousState, const FCastingState& NewState);
 
 #pragma endregion
-#pragma region Test Ability Priority
-
-public:
-
-	void OnChoiceBecameValid(const int ChoiceIdx);
-
-private:
-
-	UPROPERTY(EditAnywhere, Category = "TEST")
-	TArray<FNPCCombatChoice> CombatPriority;
-
-	void InitCombatChoices();
-	void TrySelectNewChoice();
-	void StartExecuteChoice();
-	
-	void AbortCurrentChoice();
-	int CurrentCombatChoiceIdx = -1;
-	ENPCCombatChoiceStatus CombatChoiceStatus = ENPCCombatChoiceStatus::None;
-	bool bInitializedChoices = false;
-
-	void RunQuery();
-	void OnQueryFinished(TSharedPtr<FEnvQueryResult> QueryResult);
-	UPROPERTY()
-	UEnvQuery* CurrentQuery = nullptr;
-	TArray<FAIDynamicParam> CurrentQueryParams;
-	int32 QueryID = INDEX_NONE;
-
-	bool bHasValidMoveLocation = false;
-	FVector CurrentMoveLocation;
-
-#pragma endregion 
 };

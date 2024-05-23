@@ -1,14 +1,14 @@
 #include "NPCStructs.h"
+#include "NPCAbility.h"
 #include "NPCAbilityComponent.h"
 
-void FNPCCombatChoice::Init(UNPCAbilityComponent* AbilityComponent, const int Index)
+void FNPCCombatChoice::Init(UNPCAbilityComponent* AbilityComponent)
 {
 	if (bInitialized)
 	{
 		return;
 	}
 	OwningComponentRef = AbilityComponent;
-	Priority = Index;
 	for (int i = Requirements.Num() - 1; i >= 0; i--)
 	{
 		FNPCChoiceRequirement* CastRequirement = Requirements[i].GetMutablePtr<FNPCChoiceRequirement>();
@@ -17,39 +17,32 @@ void FNPCCombatChoice::Init(UNPCAbilityComponent* AbilityComponent, const int In
 			Requirements.RemoveAt(i);
 			continue;
 		}
-		CastRequirement->Init(this, AbilityComponent->GetOwner(), i);
+		CastRequirement->Init(this, AbilityComponent->GetOwner());
 	}
 	bInitialized = true;
 }
 
-void FNPCCombatChoice::UpdateRequirementMet(const int RequirementIdx, const bool bRequirementMet)
+bool FNPCCombatChoice::HasAbility() const
 {
-	RequirementsMap.Add(RequirementIdx, bRequirementMet);
-	if (!bInitialized)
+	return IsValid(AbilityClass);
+}
+
+bool FNPCCombatChoice::IsChoiceValid() const
+{
+	for (const FInstancedStruct& InstancedRequirement : Requirements)
 	{
-		return;
-	}
-	const bool bPreviouslyValid = bValid;
-	for (const TTuple<int, bool>& Requirement : RequirementsMap)
-	{
-		if (!Requirement.Value)
+		const FNPCChoiceRequirement* Requirement = InstancedRequirement.GetPtr<FNPCChoiceRequirement>();
+		if (Requirement && !Requirement->IsMet())
 		{
-			bValid = false;
-			return;
+			return false;		
 		}
 	}
-	bValid = true;
-	if (!bPreviouslyValid)
-	{
-		OwningComponentRef->OnChoiceBecameValid(Priority);
-	}
+	return true;
 }
 
 void FNPCCombatChoice::DEBUG_GetDisplayInfo(TArray<FString>& OutInfo) const
 {
 	OutInfo.Empty();
-	OutInfo.Add(FString::Printf(L"%i: %s", Priority, *DEBUG_ChoiceName));
-	OutInfo.Add(bHighPriority ? "HighPrio" : "NormalPrio");
 	for (const FInstancedStruct& InstancedReq : Requirements)
 	{
 		const FNPCChoiceRequirement* Requirement = InstancedReq.GetPtr<FNPCChoiceRequirement>();
@@ -60,17 +53,10 @@ void FNPCCombatChoice::DEBUG_GetDisplayInfo(TArray<FString>& OutInfo) const
 	}
 }
 
-void FNPCChoiceRequirement::Init(FNPCCombatChoice* Choice, AActor* NPC, const int Idx)
+void FNPCChoiceRequirement::Init(FNPCCombatChoice* Choice, AActor* NPC)
 {
 	OwningChoice = Choice;
 	OwningNPC = NPC;
-	RequirementIndex = Idx;
 	OwningChoice = Choice;
 	SetupRequirement();
-}
-
-void FNPCChoiceRequirement::UpdateRequirementMet(const bool bMet)
-{
-	bIsMet = bMet;
-	OwningChoice->UpdateRequirementMet(RequirementIndex, bIsMet);
 }

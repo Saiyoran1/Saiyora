@@ -58,7 +58,7 @@ private:
 	UFUNCTION()
 	void OnActorPatrolSegmentFinished(AActor* PatrollingActor, const FVector& Location);
 	UFUNCTION()
-	void OnActorPatrolStateChanged(AActor* PatrollingActor, const EPatrolSubstate PatrolSubstate);
+	void OnActorPatrolStateChanged(AActor* PatrollingActor, const ENPCPatrolSubstate PatrolSubstate);
 
 #pragma endregion 
 #pragma region Editor

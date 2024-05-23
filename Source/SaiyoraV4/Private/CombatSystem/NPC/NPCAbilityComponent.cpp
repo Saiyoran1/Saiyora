@@ -8,15 +8,13 @@
 #include "StatHandler.h"
 #include "ThreatHandler.h"
 #include "UnrealNetwork.h"
-#include "Kismet/KismetSystemLibrary.h"
 #include "Navigation/PathFollowingComponent.h"
 
 #pragma region Initialization
 
 UNPCAbilityComponent::UNPCAbilityComponent(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
-	PrimaryComponentTick.bCanEverTick = true;
-	PrimaryComponentTick.bStartWithTickEnabled = false;
+	PrimaryComponentTick.bCanEverTick = false;
 	bWantsInitializeComponent = true;
 }
 
@@ -66,40 +64,6 @@ void UNPCAbilityComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
 	DOREPLIFETIME(UNPCAbilityComponent, CombatBehavior);
 }
 
-void UNPCAbilityComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
-{
-	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-
-	if (CombatBehavior != ENPCCombatBehavior::Combat)
-	{
-		return;
-	}
-	
-	if (IsValid(CurrentQuery) && QueryID != INDEX_NONE)
-	{
-		RunQuery();
-	}
-
-	//Debug print info about combat choices.
-	for (int i = CombatPriority.Num() - 1; i >= 0; i--)
-	{
-		const FNPCCombatChoice& Choice = CombatPriority[i];
-		TArray<FString> ChoiceInfo;
-		Choice.DEBUG_GetDisplayInfo(ChoiceInfo);
-		
-		for (int j = ChoiceInfo.Num() - 1; j >= 0; j--)
-		{
-			const FString& Info = ChoiceInfo[j];
-			FColor DEBUG_Color = FColor::White;
-			if (Info.Contains("Met") || Info.Contains("Failed"))
-			{
-				DEBUG_Color = Info.Contains("Met") ? FColor::Green : FColor::Red;
-			}
-			UKismetSystemLibrary::PrintString(GetWorld(), Info, true, false, DEBUG_Color, 0);
-		}
-	}
-}
-
 #pragma endregion
 #pragma region State Control
 
@@ -125,6 +89,10 @@ void UNPCAbilityComponent::UpdateCombatBehavior()
 	}
 	if (NewCombatBehavior != CombatBehavior)
 	{
+		//If we switch behaviors, we should abort any active queries or moves in progress.
+		AbortActiveQuery();
+		AbortActiveMove();
+		
 		const ENPCCombatBehavior PreviousBehavior = CombatBehavior;
 		switch(PreviousBehavior)
 		{
@@ -181,6 +149,24 @@ void UNPCAbilityComponent::OnControllerChanged(APawn* PossessedPawn, AController
 
 #pragma endregion
 #pragma region Move Requests
+
+void UNPCAbilityComponent::AbortActiveQuery()
+{
+	if (QueryID != INDEX_NONE && IsValid(UEnvQueryManager::GetCurrent(GetWorld())))
+	{
+		UEnvQueryManager::GetCurrent(GetWorld())->AbortQuery(QueryID);
+		QueryID = INDEX_NONE;
+	}
+}
+
+void UNPCAbilityComponent::AbortActiveMove()
+{
+	if (CurrentMoveRequestID.IsValid() && IsValid(AIController) && IsValid(AIController->GetPathFollowingComponent()))
+	{
+		AIController->GetPathFollowingComponent()->AbortMove(*this, FPathFollowingResultFlags::OwnerFinished, CurrentMoveRequestID);
+		CurrentMoveRequestID = FAIRequestID::InvalidRequest;
+	}
+}
 
 void UNPCAbilityComponent::OnMoveRequestFinished(FAIRequestID RequestID, const FPathFollowingResult& PathResult)
 {
@@ -245,14 +231,184 @@ void UNPCAbilityComponent::OnMoveRequestFinished(FAIRequestID RequestID, const F
 
 void UNPCAbilityComponent::EnterCombatState()
 {
+	CombatSubstate = ENPCCombatSubstate::None;
 	InitCombatChoices();
-	SetComponentTickEnabled(true);
+	TrySelectNewChoice();
 }
 
+void UNPCAbilityComponent::InitCombatChoices()
+{
+	for (FNPCCombatChoice& CombatChoice : CombatPriority)
+	{
+		CombatChoice.Init(this);
+	}
+}
+
+void UNPCAbilityComponent::TrySelectNewChoice()
+{
+	if (GetWorld()->GetTimerManager().IsTimerActive(ChoiceRetryHandle))
+	{
+		GetWorld()->GetTimerManager().ClearTimer(ChoiceRetryHandle);
+	}
+	//Find the highest priority choice.
+	int NewIdx = -1;
+	for (int i = 0; i < CombatPriority.Num(); i++)
+	{
+		if (CombatPriority[i].IsChoiceValid())
+		{
+			NewIdx = i;
+			break;
+		}
+	}
+
+	if (NewIdx == -1)
+	{
+		//If we failed to find a higher priority choice, we will try again in a bit.
+		GetWorld()->GetTimerManager().SetTimer(ChoiceRetryHandle, this, &UNPCAbilityComponent::TrySelectNewChoice, ChoiceRetryDelay);
+		return;
+	}
+
+	CurrentCombatChoiceIdx = NewIdx;
+	StartExecuteChoice();
+}
+
+void UNPCAbilityComponent::StartExecuteChoice()
+{
+	const FNPCCombatChoice& Choice = CombatPriority[CurrentCombatChoiceIdx];
+	if (Choice.HasPreMoveQuery())
+	{
+		CombatSubstate = ENPCCombatSubstate::PreMoveQuery;
+		TArray<FAIDynamicParam> QueryParams;
+		const UEnvQuery* Query = Choice.GetPreMoveQuery(QueryParams);
+		RunQuery(Query, QueryParams);
+	}
+	else
+	{
+		CombatSubstate = ENPCCombatSubstate::Casting;
+		if (Choice.HasAbility())
+		{
+			TSubclassOf<UNPCAbility> AbilityClass = Choice.GetAbilityClass();
+			const UNPCAbility* DefaultAbility = AbilityClass.GetDefaultObject();
+			//If the ability is not instant and can be cast while moving, we want to do some movement while casting it.
+			if (IsValid(DefaultAbility) && DefaultAbility->GetCastType() == EAbilityCastType::Channel
+				&& DefaultAbility->IsCastableWhileMoving())
+			{
+				//If the choice is dictating movement, run that query.
+				if (Choice.HasDuringMoveQuery())
+				{
+				
+				}
+				//Otherwise, do some default movement querying instead.
+				else
+				{
+					//Do default movement and querying while we cast our ability.
+					
+				}
+			}
+			//Bind to the cast end delegate so that we can select a new choice when this ability ends.
+			//For instant abilities this will happen immediately, which is fine.
+			OnCastStateChanged.AddDynamic(this, &UNPCAbilityComponent::EndChoiceOnCastStateChanged);
+			UseAbility(AbilityClass);
+		}
+		else
+		{
+			if (Choice.HasDuringMoveQuery())
+			{
+				
+			}
+			else
+			{
+				//If the choice doesn't have an ability and doesn't need to move somewhere, then execution is complete after the pre-move.
+				CombatSubstate = ENPCCombatSubstate::None;
+				TrySelectNewChoice();
+				//TODO: Do we want to invoke the retry timer after execution of a choice?
+			}
+		}
+	}
+}
+
+void UNPCAbilityComponent::EndChoiceOnCastStateChanged(const FCastingState& Previous, const FCastingState& New)
+{
+	if (!New.bIsCasting)
+	{
+		OnCastStateChanged.RemoveDynamic(this, &UNPCAbilityComponent::EndChoiceOnCastStateChanged);
+		CombatSubstate = ENPCCombatSubstate::None;
+		//For now, abort all queries and movement. In the future, we should check whether we're using default movement.
+		//If we're using default movement, we may want to just continue on our way.
+		if (QueryID != INDEX_NONE)
+		{
+			UEnvQueryManager::GetCurrent(GetWorld())->AbortQuery(QueryID);
+		}
+		AbortActiveMove();
+	}
+}
+
+void UNPCAbilityComponent::RunQuery(const UEnvQuery* Query, const TArray<FAIDynamicParam>& QueryParams)
+{
+	if (IsValid(Query))
+	{
+		FEnvQueryRequest Request (Query);
+		for (const FAIDynamicParam& Param : QueryParams)
+		{
+			Request.SetDynamicParam(Param);
+		}
+		QueryID = Request.Execute(EEnvQueryRunMode::SingleResult, this, &UNPCAbilityComponent::OnQueryFinished);
+	}
+	else
+	{
+		QueryID = INDEX_NONE;
+	}
+}
+
+void UNPCAbilityComponent::OnQueryFinished(TSharedPtr<FEnvQueryResult> QueryResult)
+{
+	if (!QueryResult.IsValid())
+	{
+		QueryID = INDEX_NONE;
+		//TODO: Retry query? Or if this was a premove query, abort?
+		return;
+	}
+	const FEnvQueryResult* Result = QueryResult.Get();
+	if (Result->QueryID != QueryID)
+	{
+		return;
+	}
+	if (!Result->IsFinished() || !Result->IsSuccessful() || Result->Items.Num() == 0)
+	{
+		QueryID = INDEX_NONE;
+		return;
+	}
+
+	bHasValidMoveLocation = true;
+	CurrentMoveLocation = Result->GetItemAsLocation(0);
+	QueryID = INDEX_NONE;
+
+	if (CombatSubstate == ENPCCombatSubstate::PreMoveQuery)
+	{
+		CombatSubstate = ENPCCombatSubstate::PreMoving;
+	}
+}
+
+void UNPCAbilityComponent::AbortCurrentChoice()
+{
+	if (CurrentCombatChoiceIdx == -1)
+	{
+		return;
+	}
+	CurrentCombatChoiceIdx = -1;
+	CombatSubstate = ENPCCombatSubstate::None;
+	//TODO: Cancel current cast (is this already handled?)
+}
 
 void UNPCAbilityComponent::LeaveCombatState()
 {
-	SetComponentTickEnabled(false);
+	//Cancel the current choice
+	AbortCurrentChoice();
+	//Stop the choice selection retry timer.
+	if (GetWorld()->GetTimerManager().IsTimerActive(ChoiceRetryHandle))
+	{
+		GetWorld()->GetTimerManager().ClearTimer(ChoiceRetryHandle);
+	}
 }
 
 #pragma endregion
@@ -310,14 +466,9 @@ void UNPCAbilityComponent::LeavePatrolState()
 	{
 		GetWorld()->GetTimerManager().ClearTimer(PatrolWaitHandle);
 	}
-	//Cancel any move in progress.
-	if (CurrentMoveRequestID.IsValid() && IsValid(AIController) && IsValid(AIController->GetPathFollowingComponent()))
-	{
-		AIController->GetPathFollowingComponent()->AbortMove(*this, FPathFollowingResultFlags::OwnerFinished, CurrentMoveRequestID);
-	}
 }
 
-void UNPCAbilityComponent::SetPatrolSubstate(const EPatrolSubstate NewSubstate)
+void UNPCAbilityComponent::SetPatrolSubstate(const ENPCPatrolSubstate NewSubstate)
 {
 	PatrolSubstate = NewSubstate;
 	OnPatrolStateChanged.Broadcast(GetOwner(), PatrolSubstate);
@@ -332,7 +483,7 @@ void UNPCAbilityComponent::MoveToNextPatrolPoint()
 		return;
 	}
 	
-	SetPatrolSubstate(EPatrolSubstate::MovingToPoint);
+	SetPatrolSubstate(ENPCPatrolSubstate::MovingToPoint);
 	if (IsValid(AIController))
 	{
 		//Request a move to the next patrol location from the AIController.
@@ -378,7 +529,7 @@ void UNPCAbilityComponent::OnReachedPatrolPoint()
 		//Set a timer to wait at this patrol location for a duration.
 		//We don't increment the patrol index yet because if we enter combat during this wait, we don't want to skip it and move to the next point yet.
 		GetWorld()->GetTimerManager().SetTimer(PatrolWaitHandle, this, &UNPCAbilityComponent::FinishPatrolWait, PatrolPath[NextPatrolIndex].WaitTime);
-		SetPatrolSubstate(EPatrolSubstate::WaitingAtPoint);
+		SetPatrolSubstate(ENPCPatrolSubstate::WaitingAtPoint);
 	}
 	else
 	{
@@ -445,13 +596,9 @@ void UNPCAbilityComponent::IncrementPatrolIndex()
 
 void UNPCAbilityComponent::FinishPatrol()
 {
-	SetPatrolSubstate(EPatrolSubstate::PatrolFinished);
+	SetPatrolSubstate(ENPCPatrolSubstate::PatrolFinished);
 	//Cancel any move in progress.
-	if (CurrentMoveRequestID.IsValid() && IsValid(AIController) && IsValid(AIController->GetPathFollowingComponent()))
-	{
-		AIController->GetPathFollowingComponent()->AbortMove(*this, FPathFollowingResultFlags::OwnerFinished, CurrentMoveRequestID);
-		CurrentMoveRequestID = FAIRequestID::InvalidRequest;
-	}
+	AbortActiveMove();
 }
 
 void UNPCAbilityComponent::SetupGroupPatrol(ACombatLink* LinkActor)
@@ -467,7 +614,7 @@ void UNPCAbilityComponent::SetupGroupPatrol(ACombatLink* LinkActor)
 
 void UNPCAbilityComponent::FinishGroupPatrolSegment()
 {
-	if (CombatBehavior == ENPCCombatBehavior::Patrolling && PatrolSubstate != EPatrolSubstate::PatrolFinished)
+	if (CombatBehavior == ENPCCombatBehavior::Patrolling && PatrolSubstate != ENPCPatrolSubstate::PatrolFinished)
 	{
 		IncrementPatrolIndex();
 		MoveToNextPatrolPoint();
@@ -558,125 +705,3 @@ void UNPCAbilityComponent::UpdateAbilityTokensOnCastStateChanged(const FCastingS
 }
 
 #pragma endregion
-#pragma region Test Combat Choices
-
-void UNPCAbilityComponent::InitCombatChoices()
-{
-	for (int i = 0; i < CombatPriority.Num(); i++)
-	{
-		CombatPriority[i].Init(this, i);
-	}
-	//TrySelectNewChoice();
-}
-
-void UNPCAbilityComponent::TrySelectNewChoice()
-{
-	//If we are in the actual ability usage, and this choice shouldn't be aborted during the cast, don't pick a new choice.
-	if (CurrentCombatChoiceIdx != -1 && CombatChoiceStatus == ENPCCombatChoiceStatus::Casting
-		&& !CombatPriority[CurrentCombatChoiceIdx].CanAbortDuringCast())
-	{
-		return;
-	}
-	//Otherwise, we need to check for the highest priority choice. We are only looking for choices below our current index (unless the index is -1, which means we have no choice).
-	const int LastIdxToCheck = CurrentCombatChoiceIdx == -1 ? CombatPriority.Num() - 1 : CurrentCombatChoiceIdx - 1;
-	int NewIdx = -1;
-	for (int i = 0; i < LastIdxToCheck; i++)
-	{
-		if (CombatPriority[i].IsChoiceValid()
-			&& (CombatPriority[i].IsHighPriority() || CurrentCombatChoiceIdx == -1))
-		{
-			NewIdx = i;
-			break;
-		}
-	}
-
-	if (NewIdx == -1)
-	{
-		//If we failed to find a higher priority choice, we return here.
-		//Going to try NOT doing a retry timer, as the choices should be updating the component when they're available anyway.
-		return;
-	}
-
-	if (CurrentCombatChoiceIdx != -1)
-	{
-		AbortCurrentChoice();
-	}
-
-	CurrentCombatChoiceIdx = NewIdx;
-	StartExecuteChoice();
-}
-
-void UNPCAbilityComponent::StartExecuteChoice()
-{
-	//TODO: Check if we need to move. If so, start a move. If not, go straight to casting. If cast is instant, return to TrySelectNewChoice.
-	const FNPCCombatChoice& Choice = CombatPriority[CurrentCombatChoiceIdx];
-	if (Choice.RequiresPreMove())
-	{
-		CurrentQuery = Choice.GetPreMoveQuery(CurrentQueryParams);
-		CombatChoiceStatus = ENPCCombatChoiceStatus::PreMoveQuery;
-	}
-	else
-	{
-		CombatChoiceStatus = ENPCCombatChoiceStatus::Casting;
-	}
-
-	UE_LOG(LogTemp, Warning, TEXT("Starting choice %i: %s"), CurrentCombatChoiceIdx, *UEnum::GetDisplayValueAsText(CombatChoiceStatus).ToString());
-}
-
-void UNPCAbilityComponent::RunQuery()
-{
-	if (IsValid(CurrentQuery))
-	{
-		FEnvQueryRequest Request (CurrentQuery);
-		for (const FAIDynamicParam& Param : CurrentQueryParams)
-		{
-			Request.SetDynamicParam(Param);
-		}
-		QueryID = Request.Execute(EEnvQueryRunMode::SingleResult, this, &UNPCAbilityComponent::OnQueryFinished);
-	}
-	else
-	{
-		QueryID = INDEX_NONE;
-	}
-}
-
-void UNPCAbilityComponent::OnQueryFinished(TSharedPtr<FEnvQueryResult> QueryResult)
-{
-	if (!QueryResult.IsValid())
-	{
-		QueryID = INDEX_NONE;
-		return;
-	}
-	const FEnvQueryResult* Result = QueryResult.Get();
-	if (Result->QueryID != QueryID)
-	{
-		return;
-	}
-	if (!Result->IsFinished() || !Result->IsSuccessful() || Result->Items.Num() == 0)
-	{
-		QueryID = INDEX_NONE;
-		return;
-	}
-
-	bHasValidMoveLocation = true;
-	CurrentMoveLocation = Result->GetItemAsLocation(0);
-	QueryID = INDEX_NONE;
-}
-
-void UNPCAbilityComponent::AbortCurrentChoice()
-{
-	if (CurrentCombatChoiceIdx == -1)
-	{
-		return;
-	}
-	CombatPriority[CurrentCombatChoiceIdx].Abort();
-	CurrentCombatChoiceIdx = -1;
-	CombatChoiceStatus = ENPCCombatChoiceStatus::None;
-}
-
-void UNPCAbilityComponent::OnChoiceBecameValid(const int ChoiceIdx)
-{
-	
-}
-
-#pragma endregion 

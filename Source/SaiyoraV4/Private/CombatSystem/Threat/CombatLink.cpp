@@ -129,9 +129,9 @@ void ACombatLink::OnActorPatrolSegmentFinished(AActor* PatrollingActor, const FV
 	CheckPatrolSegmentComplete();
 }
 
-void ACombatLink::OnActorPatrolStateChanged(AActor* PatrollingActor, const EPatrolSubstate PatrolSubstate)
+void ACombatLink::OnActorPatrolStateChanged(AActor* PatrollingActor, const ENPCPatrolSubstate PatrolSubstate)
 {
-	if (CompletedPatrolSegment.Contains(PatrollingActor) && PatrolSubstate == EPatrolSubstate::PatrolFinished)
+	if (CompletedPatrolSegment.Contains(PatrollingActor) && PatrolSubstate == ENPCPatrolSubstate::PatrolFinished)
 	{
 		CompletedPatrolSegment.Remove(PatrollingActor);
 		CheckPatrolSegmentComplete();

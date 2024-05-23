@@ -11,8 +11,17 @@ enum class ENPCCombatBehavior : uint8
 	Resetting,
 };
 
+UENUM(BlueprintType)
+enum class ENPCPatrolSubstate : uint8
+{
+	None,
+	MovingToPoint,
+	WaitingAtPoint,
+	PatrolFinished
+};
+
 UENUM()
-enum class ENPCCombatChoiceStatus : uint8
+enum class ENPCCombatSubstate : uint8
 {
 	None,
 	PreMoveQuery,
