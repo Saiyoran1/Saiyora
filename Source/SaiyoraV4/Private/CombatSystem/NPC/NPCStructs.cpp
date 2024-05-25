@@ -29,6 +29,15 @@ bool FNPCCombatChoice::HasAbility() const
 
 bool FNPCCombatChoice::IsChoiceValid() const
 {
+	if (HasAbility())
+	{
+		UCombatAbility* AbilityInstance = OwningComponentRef->FindActiveAbility(AbilityClass);
+		TArray<ECastFailReason> FailReasons;
+		if (!IsValid(AbilityInstance) || !AbilityInstance->IsCastable(FailReasons))
+		{
+			return false;
+		}
+	}
 	for (const FInstancedStruct& InstancedRequirement : Requirements)
 	{
 		const FNPCChoiceRequirement* Requirement = InstancedRequirement.GetPtr<FNPCChoiceRequirement>();
@@ -38,19 +47,6 @@ bool FNPCCombatChoice::IsChoiceValid() const
 		}
 	}
 	return true;
-}
-
-void FNPCCombatChoice::DEBUG_GetDisplayInfo(TArray<FString>& OutInfo) const
-{
-	OutInfo.Empty();
-	for (const FInstancedStruct& InstancedReq : Requirements)
-	{
-		const FNPCChoiceRequirement* Requirement = InstancedReq.GetPtr<FNPCChoiceRequirement>();
-		if (Requirement)
-		{
-			OutInfo.Add(Requirement->DEBUG_GetReqName() + (Requirement->IsMet() ? "Met" : "Failed"));
-		}
-	}
 }
 
 void FNPCChoiceRequirement::Init(FNPCCombatChoice* Choice, AActor* NPC)

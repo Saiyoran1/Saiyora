@@ -231,9 +231,11 @@ void UNPCAbilityComponent::OnMoveRequestFinished(FAIRequestID RequestID, const F
 
 void UNPCAbilityComponent::EnterCombatState()
 {
-	CombatSubstate = ENPCCombatSubstate::None;
 	InitCombatChoices();
-	TrySelectNewChoice();
+	if (CombatPriority.Num() > 0)
+	{
+		TrySelectNewChoice();
+	}
 }
 
 void UNPCAbilityComponent::InitCombatChoices()
@@ -246,100 +248,74 @@ void UNPCAbilityComponent::InitCombatChoices()
 
 void UNPCAbilityComponent::TrySelectNewChoice()
 {
+	UE_LOG(LogTemp, Warning, TEXT("Trying to select choice."));
 	if (GetWorld()->GetTimerManager().IsTimerActive(ChoiceRetryHandle))
 	{
 		GetWorld()->GetTimerManager().ClearTimer(ChoiceRetryHandle);
 	}
 	//Find the highest priority choice.
-	int NewIdx = -1;
+	CurrentCombatChoiceIdx = -1;
 	for (int i = 0; i < CombatPriority.Num(); i++)
 	{
 		if (CombatPriority[i].IsChoiceValid())
 		{
-			NewIdx = i;
+			CurrentCombatChoiceIdx = i;
 			break;
 		}
 	}
 
-	if (NewIdx == -1)
+	if (CurrentCombatChoiceIdx == -1)
 	{
-		//If we failed to find a higher priority choice, we will try again in a bit.
+		//If we failed to find a valid choice, we will try again in a bit.
 		GetWorld()->GetTimerManager().SetTimer(ChoiceRetryHandle, this, &UNPCAbilityComponent::TrySelectNewChoice, ChoiceRetryDelay);
 		return;
 	}
-
-	CurrentCombatChoiceIdx = NewIdx;
+	
+	UE_LOG(LogTemp, Warning, TEXT("Choice made: %i, %s."), CurrentCombatChoiceIdx, *CombatPriority[CurrentCombatChoiceIdx].DEBUG_GetDisplayName());
 	StartExecuteChoice();
 }
 
 void UNPCAbilityComponent::StartExecuteChoice()
 {
 	const FNPCCombatChoice& Choice = CombatPriority[CurrentCombatChoiceIdx];
-	if (Choice.HasPreMoveQuery())
+	if (Choice.HasPreCastQuery())
 	{
-		CombatSubstate = ENPCCombatSubstate::PreMoveQuery;
 		TArray<FAIDynamicParam> QueryParams;
 		const UEnvQuery* Query = Choice.GetPreMoveQuery(QueryParams);
 		RunQuery(Query, QueryParams);
 	}
 	else
 	{
-		CombatSubstate = ENPCCombatSubstate::Casting;
 		if (Choice.HasAbility())
 		{
-			TSubclassOf<UNPCAbility> AbilityClass = Choice.GetAbilityClass();
-			const UNPCAbility* DefaultAbility = AbilityClass.GetDefaultObject();
-			//If the ability is not instant and can be cast while moving, we want to do some movement while casting it.
-			if (IsValid(DefaultAbility) && DefaultAbility->GetCastType() == EAbilityCastType::Channel
-				&& DefaultAbility->IsCastableWhileMoving())
-			{
-				//If the choice is dictating movement, run that query.
-				if (Choice.HasDuringMoveQuery())
-				{
-				
-				}
-				//Otherwise, do some default movement querying instead.
-				else
-				{
-					//Do default movement and querying while we cast our ability.
-					
-				}
-			}
-			//Bind to the cast end delegate so that we can select a new choice when this ability ends.
-			//For instant abilities this will happen immediately, which is fine.
-			OnCastStateChanged.AddDynamic(this, &UNPCAbilityComponent::EndChoiceOnCastStateChanged);
-			UseAbility(AbilityClass);
+			CastChoice();
 		}
 		else
 		{
-			if (Choice.HasDuringMoveQuery())
-			{
-				
-			}
-			else
-			{
-				//If the choice doesn't have an ability and doesn't need to move somewhere, then execution is complete after the pre-move.
-				CombatSubstate = ENPCCombatSubstate::None;
-				TrySelectNewChoice();
-				//TODO: Do we want to invoke the retry timer after execution of a choice?
-			}
+			UE_LOG(LogTemp, Warning, TEXT("Choice %i had no ability, re-selecting in %s seconds."), CurrentCombatChoiceIdx, *FString::SanitizeFloat(ChoiceRetryDelay));
+			CurrentCombatChoiceIdx = -1;
+			GetWorld()->GetTimerManager().SetTimer(ChoiceRetryHandle, this, &UNPCAbilityComponent::TrySelectNewChoice, ChoiceRetryDelay);
 		}
 	}
+}
+
+void UNPCAbilityComponent::CastChoice()
+{
+	UE_LOG(LogTemp, Warning, TEXT("Casting ability from choice %s"), *CombatPriority[CurrentCombatChoiceIdx].DEBUG_GetDisplayName());
+	//Bind to the cast end delegate so that we can select a new choice when this ability ends.
+	//For instant abilities this will happen immediately, which is fine.
+	OnCastStateChanged.AddDynamic(this, &UNPCAbilityComponent::EndChoiceOnCastStateChanged);
+	UseAbility(CombatPriority[CurrentCombatChoiceIdx].GetAbilityClass());
 }
 
 void UNPCAbilityComponent::EndChoiceOnCastStateChanged(const FCastingState& Previous, const FCastingState& New)
 {
 	if (!New.bIsCasting)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("Cast ended (%s), re-selecting in %s seconds."), *Previous.CurrentCast->GetAbilityName().ToString(), *FString::SanitizeFloat(ChoiceRetryDelay));
 		OnCastStateChanged.RemoveDynamic(this, &UNPCAbilityComponent::EndChoiceOnCastStateChanged);
-		CombatSubstate = ENPCCombatSubstate::None;
-		//For now, abort all queries and movement. In the future, we should check whether we're using default movement.
-		//If we're using default movement, we may want to just continue on our way.
-		if (QueryID != INDEX_NONE)
-		{
-			UEnvQueryManager::GetCurrent(GetWorld())->AbortQuery(QueryID);
-		}
-		AbortActiveMove();
+		CurrentCombatChoiceIdx = -1;
+		GetWorld()->GetTimerManager().SetTimer(ChoiceRetryHandle, this, &UNPCAbilityComponent::TrySelectNewChoice, ChoiceRetryDelay);
 	}
 }
 
@@ -353,10 +329,23 @@ void UNPCAbilityComponent::RunQuery(const UEnvQuery* Query, const TArray<FAIDyna
 			Request.SetDynamicParam(Param);
 		}
 		QueryID = Request.Execute(EEnvQueryRunMode::SingleResult, this, &UNPCAbilityComponent::OnQueryFinished);
+		if (QueryID == INDEX_NONE)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Query failed to run, re-selecting in %s seconds."), *FString::SanitizeFloat(ChoiceRetryDelay));
+			CurrentCombatChoiceIdx = -1;
+			GetWorld()->GetTimerManager().SetTimer(ChoiceRetryHandle, this, &UNPCAbilityComponent::TrySelectNewChoice, ChoiceRetryDelay, false);
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Running query %i"), QueryID);
+		}
 	}
 	else
 	{
 		QueryID = INDEX_NONE;
+		UE_LOG(LogTemp, Warning, TEXT("Invalid query, re-selecting choice in %s seconds."), *FString::SanitizeFloat(ChoiceRetryDelay));
+		CurrentCombatChoiceIdx = -1;
+		GetWorld()->GetTimerManager().SetTimer(ChoiceRetryHandle, this, &UNPCAbilityComponent::TrySelectNewChoice, ChoiceRetryDelay, false);
 	}
 }
 
@@ -364,18 +353,23 @@ void UNPCAbilityComponent::OnQueryFinished(TSharedPtr<FEnvQueryResult> QueryResu
 {
 	if (!QueryResult.IsValid())
 	{
+		UE_LOG(LogTemp, Warning, TEXT("Query %i finished but result wasn't valid. Re-selecting in %s seconds."), QueryID, *FString::SanitizeFloat(ChoiceRetryDelay));
 		QueryID = INDEX_NONE;
-		//TODO: Retry query? Or if this was a premove query, abort?
+		CurrentCombatChoiceIdx = -1;
+		GetWorld()->GetTimerManager().SetTimer(ChoiceRetryHandle, this, &UNPCAbilityComponent::TrySelectNewChoice, ChoiceRetryDelay, false);
 		return;
 	}
 	const FEnvQueryResult* Result = QueryResult.Get();
 	if (Result->QueryID != QueryID)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("Query %i finished but current query ID was %i, ignoring."), Result->QueryID, QueryID);
 		return;
 	}
 	if (!Result->IsFinished() || !Result->IsSuccessful() || Result->Items.Num() == 0)
 	{
+		UE_LOG(LogTemp, Warning, TEXT("Query %i finished but was unsuccessful. Re-selecting in %s seconds."), QueryID, *FString::SanitizeFloat(ChoiceRetryDelay));
 		QueryID = INDEX_NONE;
+		GetWorld()->GetTimerManager().SetTimer(ChoiceRetryHandle, this, &UNPCAbilityComponent::TrySelectNewChoice, ChoiceRetryDelay, false);
 		return;
 	}
 
@@ -383,9 +377,34 @@ void UNPCAbilityComponent::OnQueryFinished(TSharedPtr<FEnvQueryResult> QueryResu
 	CurrentMoveLocation = Result->GetItemAsLocation(0);
 	QueryID = INDEX_NONE;
 
-	if (CombatSubstate == ENPCCombatSubstate::PreMoveQuery)
+	//Request a move to the queried location.
+	//TODO: These parameters might need to be adjusted, I don't know what some of them do.
+	FAIMoveRequest MoveReq(CurrentMoveLocation);
+	MoveReq.SetUsePathfinding(true);
+	MoveReq.SetAllowPartialPath(false);
+	MoveReq.SetProjectGoalLocation(true);
+	MoveReq.SetNavigationFilter(AIController->GetDefaultNavigationFilterClass());
+	MoveReq.SetAcceptanceRadius(-1.0f);
+	MoveReq.SetReachTestIncludesAgentRadius(true);
+	MoveReq.SetCanStrafe(true);
+	const FPathFollowingRequestResult RequestResult = AIController->MoveTo(MoveReq);
+	if (RequestResult.Code == EPathFollowingRequestResult::RequestSuccessful)
 	{
-		CombatSubstate = ENPCCombatSubstate::PreMoving;
+		CurrentMoveRequestID = RequestResult.MoveId;
+		UE_LOG(LogTemp, Warning, TEXT("Move request successful, ID %i"), CurrentMoveRequestID.GetID());
+	}
+	//If we were already at the desired location, go ahead and use the ability.
+	else if (RequestResult.Code == EPathFollowingRequestResult::AlreadyAtGoal)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Move request failed because already at goal!"));
+		CastChoice();
+	}
+	//If the path following result failed, try to do something else.
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Move request failed, re-selecting in %s seconds"), *FString::SanitizeFloat(ChoiceRetryDelay));
+		CurrentCombatChoiceIdx = -1;
+		GetWorld()->GetTimerManager().SetTimer(ChoiceRetryHandle, this, &UNPCAbilityComponent::TrySelectNewChoice, ChoiceRetryDelay, false);
 	}
 }
 
@@ -396,7 +415,6 @@ void UNPCAbilityComponent::AbortCurrentChoice()
 		return;
 	}
 	CurrentCombatChoiceIdx = -1;
-	CombatSubstate = ENPCCombatSubstate::None;
 	//TODO: Cancel current cast (is this already handled?)
 }
 

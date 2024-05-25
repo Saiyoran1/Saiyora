@@ -40,18 +40,20 @@ public:
 
 	void Init(UNPCAbilityComponent* AbilityComponent);
 
-	bool HasPreMoveQuery() const { return bPreCastMove; }
+	bool HasPreCastQuery() const { return bPreCastQuery; }
 	UEnvQuery* GetPreMoveQuery(TArray<FAIDynamicParam>& OutParams) const { OutParams = PreCastQueryParams; return PreCastQuery; }
+	bool ShouldRepeatPreCastQuery() const { return bRepeatPreCastQuery; }
 
-	bool HasDuringMoveQuery() const { return bDuringCastMove; }
-	UEnvQuery* GetDuringMoveQuery(TArray<FAIDynamicParam>& OutParams) const { OutParams = DuringCastQueryParams; return DuringCastQuery; }
+	/*bool HasDuringCastQuery() const { return bDuringCastQuery; }
+	UEnvQuery* GetDuringCastQuery(TArray<FAIDynamicParam>& OutParams) const { OutParams = DuringCastQueryParams; return DuringCastQuery; }
+	bool ShouldRepeatDuringCastQuery() const { return bRepeatDuringCastQuery; }*/
 
 	bool HasAbility() const;
 	TSubclassOf<UNPCAbility> GetAbilityClass() const { return AbilityClass; }
 	
 	bool IsChoiceValid() const;
 
-	void DEBUG_GetDisplayInfo(TArray<FString>& OutInfo) const;
+	FString DEBUG_GetDisplayName() const { return DEBUG_ChoiceName; }
 
 private:
 
@@ -62,18 +64,22 @@ private:
 	TSubclassOf<UNPCAbility> AbilityClass;
 	
 	UPROPERTY(EditAnywhere)
-	bool bPreCastMove = false;
-	UPROPERTY(EditAnywhere, meta = (EditCondition = "bPreCastMove"))
+	bool bPreCastQuery = false;
+	UPROPERTY(EditAnywhere, meta = (EditCondition = "bPreCastQuery"))
 	TObjectPtr<UEnvQuery> PreCastQuery;
-	UPROPERTY(EditAnywhere, meta = (EditCondition = "bPreCastMove"))
+	UPROPERTY(EditAnywhere, meta = (EditCondition = "bPreCastQuery"))
 	TArray<FAIDynamicParam> PreCastQueryParams;
+	UPROPERTY(EditAnywhere, meta = (EditCondition = "bPreCastQuery"))
+	bool bRepeatPreCastQuery = false;
 	
-	UPROPERTY(EditAnywhere)
-	bool bDuringCastMove = false;
-	UPROPERTY(EditAnywhere, meta = (EditCondition = "bDuringCastMove"))
+	/*UPROPERTY(EditAnywhere)
+	bool bDuringCastQuery = false;
+	UPROPERTY(EditAnywhere, meta = (EditCondition = "bDuringCastQuery"))
 	TObjectPtr<UEnvQuery> DuringCastQuery;
-	UPROPERTY(EditAnywhere, meta = (EditCondition = "bDuringCastMove"))
+	UPROPERTY(EditAnywhere, meta = (EditCondition = "bDuringCastQuery"))
 	TArray<FAIDynamicParam> DuringCastQueryParams;
+	UPROPERTY(EditAnywhere, meta = (EditCondition = "bDuringCastQuery"))
+	bool bRepeatDuringCastQuery = false;*/
 	
 	UPROPERTY()
 	UNPCAbilityComponent* OwningComponentRef = nullptr;

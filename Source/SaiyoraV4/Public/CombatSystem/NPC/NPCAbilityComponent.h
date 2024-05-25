@@ -69,7 +69,6 @@ private:
 
 	void EnterCombatState();
 	void LeaveCombatState();
-	
 
 	UPROPERTY(EditAnywhere, Category = "TEST")
 	TArray<FNPCCombatChoice> CombatPriority;
@@ -77,12 +76,12 @@ private:
 	void InitCombatChoices();
 	void TrySelectNewChoice();
 	void StartExecuteChoice();
+	void CastChoice();
 	UFUNCTION()
 	void EndChoiceOnCastStateChanged(const FCastingState& Previous, const FCastingState& New);
 	
 	void AbortCurrentChoice();
 	int CurrentCombatChoiceIdx = -1;
-	ENPCCombatSubstate CombatSubstate = ENPCCombatSubstate::None;
 	bool bInitializedChoices = false;
 
 	void RunQuery(const UEnvQuery* Query, const TArray<FAIDynamicParam>& QueryParams);
@@ -96,7 +95,7 @@ private:
 	FVector CurrentMoveLocation;
 
 	FTimerHandle ChoiceRetryHandle;
-	static constexpr float ChoiceRetryDelay = 0.1f;
+	static constexpr float ChoiceRetryDelay = 0.5f;
 
 #pragma endregion 
 #pragma region Patrolling

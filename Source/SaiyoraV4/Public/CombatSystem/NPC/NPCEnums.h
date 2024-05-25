@@ -19,12 +19,3 @@ enum class ENPCPatrolSubstate : uint8
 	WaitingAtPoint,
 	PatrolFinished
 };
-
-UENUM()
-enum class ENPCCombatSubstate : uint8
-{
-	None,
-	PreMoveQuery,
-	PreMoving,
-	Casting,
-};
