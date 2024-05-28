@@ -70,18 +70,18 @@ private:
 	void EnterCombatState();
 	void LeaveCombatState();
 
-	UPROPERTY(EditAnywhere, Category = "TEST")
+	UPROPERTY(EditAnywhere, Category = "Combat")
 	TArray<FNPCCombatChoice> CombatPriority;
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	UEnvQuery* DefaultQuery = nullptr;
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	TArray<FAIDynamicParam> DefaultQueryParams;
 
 	void InitCombatChoices();
 	void TrySelectNewChoice();
-	void StartExecuteChoice();
-	void CastChoice();
 	UFUNCTION()
 	void EndChoiceOnCastStateChanged(const FCastingState& Previous, const FCastingState& New);
 	
-	void AbortCurrentChoice();
-	int CurrentCombatChoiceIdx = -1;
 	bool bInitializedChoices = false;
 
 	void RunQuery(const UEnvQuery* Query, const TArray<FAIDynamicParam>& QueryParams);

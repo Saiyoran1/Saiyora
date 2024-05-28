@@ -28,9 +28,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FPatrolStateNotification, AActor*, 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FPatrolLocationNotification, AActor*, PatrollingActor, const FVector&, Location);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FCombatBehaviorNotification, const ENPCCombatBehavior, PreviousStatus, const ENPCCombatBehavior, NewStatus);
 
-//Experimenting with dodging behavior trees and just using a priority system for both movement AND abilities.
-//A combat choice can be an ability we want to cast, which includes whether we would need to move into a specific spot before casting and a movement behavior to use during the cast,
-//or it can just be a movement the NPC wants to perform. Each choice has some requirements that must be met to perform this choice.
+//A combat choice is just the ability we want to cast and the requirements to cast that ability.
 USTRUCT()
 struct FNPCCombatChoice
 {
@@ -39,18 +37,8 @@ struct FNPCCombatChoice
 public:
 
 	void Init(UNPCAbilityComponent* AbilityComponent);
-
-	bool HasPreCastQuery() const { return bPreCastQuery; }
-	UEnvQuery* GetPreMoveQuery(TArray<FAIDynamicParam>& OutParams) const { OutParams = PreCastQueryParams; return PreCastQuery; }
-	bool ShouldRepeatPreCastQuery() const { return bRepeatPreCastQuery; }
-
-	/*bool HasDuringCastQuery() const { return bDuringCastQuery; }
-	UEnvQuery* GetDuringCastQuery(TArray<FAIDynamicParam>& OutParams) const { OutParams = DuringCastQueryParams; return DuringCastQuery; }
-	bool ShouldRepeatDuringCastQuery() const { return bRepeatDuringCastQuery; }*/
-
-	bool HasAbility() const;
-	TSubclassOf<UNPCAbility> GetAbilityClass() const { return AbilityClass; }
 	
+	TSubclassOf<UNPCAbility> GetAbilityClass() const { return AbilityClass; }
 	bool IsChoiceValid() const;
 
 	FString DEBUG_GetDisplayName() const { return DEBUG_ChoiceName; }
@@ -59,27 +47,8 @@ private:
 
 	UPROPERTY(EditAnywhere, meta = (BaseStruct = "/Script/SaiyoraV4.NPCChoiceRequirement"))
 	TArray<FInstancedStruct> Requirements;
-
 	UPROPERTY(EditAnywhere)
 	TSubclassOf<UNPCAbility> AbilityClass;
-	
-	UPROPERTY(EditAnywhere)
-	bool bPreCastQuery = false;
-	UPROPERTY(EditAnywhere, meta = (EditCondition = "bPreCastQuery"))
-	TObjectPtr<UEnvQuery> PreCastQuery;
-	UPROPERTY(EditAnywhere, meta = (EditCondition = "bPreCastQuery"))
-	TArray<FAIDynamicParam> PreCastQueryParams;
-	UPROPERTY(EditAnywhere, meta = (EditCondition = "bPreCastQuery"))
-	bool bRepeatPreCastQuery = false;
-	
-	/*UPROPERTY(EditAnywhere)
-	bool bDuringCastQuery = false;
-	UPROPERTY(EditAnywhere, meta = (EditCondition = "bDuringCastQuery"))
-	TObjectPtr<UEnvQuery> DuringCastQuery;
-	UPROPERTY(EditAnywhere, meta = (EditCondition = "bDuringCastQuery"))
-	TArray<FAIDynamicParam> DuringCastQueryParams;
-	UPROPERTY(EditAnywhere, meta = (EditCondition = "bDuringCastQuery"))
-	bool bRepeatDuringCastQuery = false;*/
 	
 	UPROPERTY()
 	UNPCAbilityComponent* OwningComponentRef = nullptr;

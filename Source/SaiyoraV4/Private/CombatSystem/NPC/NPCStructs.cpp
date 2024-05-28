@@ -22,21 +22,18 @@ void FNPCCombatChoice::Init(UNPCAbilityComponent* AbilityComponent)
 	bInitialized = true;
 }
 
-bool FNPCCombatChoice::HasAbility() const
-{
-	return IsValid(AbilityClass);
-}
-
 bool FNPCCombatChoice::IsChoiceValid() const
 {
-	if (HasAbility())
+	const UCombatAbility* AbilityInstance = OwningComponentRef->FindActiveAbility(AbilityClass);
+	TArray<ECastFailReason> FailReasons;
+	bool bIsCastable = AbilityInstance->IsCastable(FailReasons);
+	//We will say the choice is valid even if the ability isn't castable, if the reason it's not castable is because of movement.
+	//We will stop our movement before casting the ability, so this shouldn't matter.
+	//TODO: This should check whether we are moving of our own volition or because of an external move (or gravity?).
+	bIsCastable = bIsCastable || FailReasons.Num() == 1 && FailReasons[0] == ECastFailReason::Moving;
+	if (!IsValid(AbilityInstance) || !bIsCastable)
 	{
-		UCombatAbility* AbilityInstance = OwningComponentRef->FindActiveAbility(AbilityClass);
-		TArray<ECastFailReason> FailReasons;
-		if (!IsValid(AbilityInstance) || !AbilityInstance->IsCastable(FailReasons))
-		{
-			return false;
-		}
+		return false;
 	}
 	for (const FInstancedStruct& InstancedRequirement : Requirements)
 	{
