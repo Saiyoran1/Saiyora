@@ -2,7 +2,7 @@
 #include "CoreMinimal.h"
 #include "InstancedStruct.h"
 #include "NPCEnums.h"
-#include "EnvironmentQuery/EnvQuery.h"
+#include "EnvironmentQuery/EnvQueryManager.h"
 #include "NPCStructs.generated.h"
 
 class UNPCAbilityComponent;
@@ -129,4 +129,55 @@ struct FNPCAbilityTokens
 	TArray<FNPCAbilityToken> Tokens;
 	int32 AvailableCount = 0;
 	FAbilityTokenNotification OnTokenAvailabilityChanged;
+};
+
+USTRUCT()
+struct FNPCQueryParam
+{
+	GENERATED_BODY()
+
+	FName ParamName;
+
+	virtual void AddParam(FEnvQueryRequest& Request) const {}
+
+	virtual ~FNPCQueryParam() {}
+};
+
+USTRUCT()
+struct FNPCFloatParam : public FNPCQueryParam
+{
+	GENERATED_BODY()
+
+	float Value;
+
+	virtual void AddParam(FEnvQueryRequest& Request) const override
+	{
+		Request.SetFloatParam(ParamName, Value);
+	}
+};
+
+USTRUCT()
+struct FNPCIntParam : public FNPCQueryParam
+{
+	GENERATED_BODY()
+
+	int32 Value;
+
+	virtual void AddParam(FEnvQueryRequest& Request) const override
+	{
+		Request.SetIntParam(ParamName, Value);
+	}
+};
+
+USTRUCT()
+struct FNPCBoolParam : public FNPCQueryParam
+{
+	GENERATED_BODY()
+
+	bool bValue;
+
+	virtual void AddParam(FEnvQueryRequest& Request) const override
+	{
+		Request.SetBoolParam(ParamName, bValue);
+	}
 };

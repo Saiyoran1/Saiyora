@@ -74,8 +74,8 @@ private:
 	TArray<FNPCCombatChoice> CombatPriority;
 	UPROPERTY(EditAnywhere, Category = "Combat")
 	UEnvQuery* DefaultQuery = nullptr;
-	UPROPERTY(EditAnywhere, Category = "Combat")
-	TArray<FAIDynamicParam> DefaultQueryParams;
+	UPROPERTY(EditAnywhere, Category = "Combat", meta = (BaseStruct = "Script/SaiyoraV4.NPCQueryParam"))
+	TArray<FInstancedStruct> DefaultQueryParams;
 
 	void InitCombatChoices();
 	void TrySelectNewChoice();
@@ -84,7 +84,7 @@ private:
 	
 	bool bInitializedChoices = false;
 
-	void RunQuery(const UEnvQuery* Query, const TArray<FAIDynamicParam>& QueryParams);
+	void RunQuery(const UEnvQuery* Query, const TArray<FInstancedStruct>& QueryParams);
 	void OnQueryFinished(TSharedPtr<FEnvQueryResult> QueryResult);
 	UPROPERTY()
 	UEnvQuery* CurrentQuery = nullptr;

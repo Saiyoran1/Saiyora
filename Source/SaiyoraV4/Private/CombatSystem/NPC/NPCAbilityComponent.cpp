@@ -8,6 +8,7 @@
 #include "StatHandler.h"
 #include "ThreatHandler.h"
 #include "UnrealNetwork.h"
+#include "EnvironmentQuery/EnvQuery.h"
 #include "Navigation/PathFollowingComponent.h"
 
 #pragma region Initialization
@@ -309,14 +310,19 @@ void UNPCAbilityComponent::EndChoiceOnCastStateChanged(const FCastingState& Prev
 	}
 }
 
-void UNPCAbilityComponent::RunQuery(const UEnvQuery* Query, const TArray<FAIDynamicParam>& QueryParams)
+void UNPCAbilityComponent::RunQuery(const UEnvQuery* Query, const TArray<FInstancedStruct>& QueryParams)
 {
 	if (IsValid(Query))
 	{
 		FEnvQueryRequest Request (Query);
-		for (const FAIDynamicParam& Param : QueryParams)
+		for (const FInstancedStruct& InstancedParam : QueryParams)
 		{
-			Request.SetDynamicParam(Param);
+			const FNPCQueryParam* Param = InstancedParam.GetPtr<FNPCQueryParam>();
+			if (!Param)
+			{
+				continue;
+			}
+			Param->AddParam(Request);
 		}
 		QueryID = Request.Execute(EEnvQueryRunMode::SingleResult, this, &UNPCAbilityComponent::OnQueryFinished);
 		if (QueryID == INDEX_NONE)
