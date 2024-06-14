@@ -40,7 +40,7 @@ private:
 	APawn* OwnerAsPawn = nullptr;
 	UPROPERTY()
 	AAIController* AIController = nullptr;
-	void OnMoveRequestFinished(FAIRequestID RequestID, const FPathFollowingResult& PathResult);
+	
 	UPROPERTY()
 	ADungeonGameState* DungeonGameStateRef = nullptr;
 	UPROPERTY()
@@ -60,42 +60,78 @@ private:
 	UFUNCTION()
 	void OnCombatChanged(UThreatHandler* Handler, const bool bInCombat) { UpdateCombatBehavior(); }
 
-	void AbortActiveQuery();
-	void AbortActiveMove();
 
-#pragma region Combat
+#pragma region Movement
+
+public:
+
+	bool HasValidMoveGoal() const { return bHasValidMoveLocation; }
+	FVector GetMoveGoal() const { return CurrentMoveLocation; }
 
 private:
 
-	void EnterCombatState();
-	void LeaveCombatState();
+	void SetMoveGoal(const FVector& Location);
+	void SetWantsToMove(const bool bNewMove);
+	void TryMoveToGoal();
+	void AbortActiveMove();
+	void OnMoveRequestFinished(FAIRequestID RequestID, const FPathFollowingResult& PathResult);
+	bool bHasValidMoveLocation = false;
+	FVector CurrentMoveLocation;
+	bool bWantsToMove = false;
+	
+#pragma endregion
+#pragma region Query
 
-	UPROPERTY(EditAnywhere, Category = "Combat")
-	TArray<FNPCCombatChoice> CombatPriority;
+public:
+
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Combat", meta = (BaseStruct = "/Script/SaiyoraV4.NPCQueryParam"))
+	void SetQuery(UEnvQuery* Query, const TArray<FInstancedStruct>& Params);
+
+private:
+
 	UPROPERTY(EditAnywhere, Category = "Combat")
 	UEnvQuery* DefaultQuery = nullptr;
-	UPROPERTY(EditAnywhere, Category = "Combat", meta = (BaseStruct = "Script/SaiyoraV4.NPCQueryParam"))
+	UPROPERTY(EditAnywhere, Category = "Combat", meta = (BaseStruct = "/Script/SaiyoraV4.NPCQueryParam"))
 	TArray<FInstancedStruct> DefaultQueryParams;
 
+	UFUNCTION()
+	void RunQuery();
+	void OnQueryFinished(TSharedPtr<FEnvQueryResult> QueryResult);
+	void AbortActiveQuery();
+
+	UPROPERTY()
+	UEnvQuery* CurrentQuery = nullptr;
+	TArray<FInstancedStruct> CurrentQueryParams;
+	int32 QueryID = INDEX_NONE;
+	FTimerHandle QueryRetryHandle;
+	static constexpr float QueryRetryDelay = 0.2f;
+
+#pragma endregion 
+#pragma region Combat Choices
+
+public:
+
+private:
+	
+	UPROPERTY(EditAnywhere, Category = "Combat")
+	TArray<FNPCCombatChoice> CombatPriority;
+
+	void EnterCombatState();
+	void LeaveCombatState();
 	void InitCombatChoices();
+	UFUNCTION()
 	void TrySelectNewChoice();
 	UFUNCTION()
 	void EndChoiceOnCastStateChanged(const FCastingState& Previous, const FCastingState& New);
 	
 	bool bInitializedChoices = false;
-
-	void RunQuery(const UEnvQuery* Query, const TArray<FInstancedStruct>& QueryParams);
-	void OnQueryFinished(TSharedPtr<FEnvQueryResult> QueryResult);
-	UPROPERTY()
-	UEnvQuery* CurrentQuery = nullptr;
-	TArray<FAIDynamicParam> CurrentQueryParams;
-	int32 QueryID = INDEX_NONE;
-
-	bool bHasValidMoveLocation = false;
-	FVector CurrentMoveLocation;
-
 	FTimerHandle ChoiceRetryHandle;
 	static constexpr float ChoiceRetryDelay = 0.5f;
+
+	bool bWaitingOnMovementStop = false;
+	int QueuedChoiceIdx = -1;
+	UFUNCTION()
+	void TryUseQueuedAbility(AActor* Actor, const bool bNewMovement);
 
 #pragma endregion 
 #pragma region Patrolling

@@ -65,6 +65,22 @@ void UNPCAbilityComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
 	DOREPLIFETIME(UNPCAbilityComponent, CombatBehavior);
 }
 
+void UNPCAbilityComponent::OnControllerChanged(APawn* PossessedPawn, AController* OldController,
+	AController* NewController)
+{
+	if (IsValid(AIController) && IsValid(AIController->GetPathFollowingComponent()))
+	{
+		AIController->GetPathFollowingComponent()->OnRequestFinished.RemoveAll(this);
+	}
+	AIController = Cast<AAIController>(NewController);
+	if (IsValid(AIController) && IsValid(AIController->GetPathFollowingComponent()))
+	{
+		AIController->GetPathFollowingComponent()->OnRequestFinished.AddUObject(this, &UNPCAbilityComponent::OnMoveRequestFinished);
+	}
+	SetWantsToMove(true);
+	UpdateCombatBehavior();
+}
+
 #pragma endregion
 #pragma region State Control
 
@@ -133,31 +149,69 @@ void UNPCAbilityComponent::OnRep_CombatBehavior(const ENPCCombatBehavior Previou
 	OnCombatBehaviorChanged.Broadcast(Previous, CombatBehavior);
 }
 
-void UNPCAbilityComponent::OnControllerChanged(APawn* PossessedPawn, AController* OldController,
-	AController* NewController)
-{
-	if (IsValid(AIController) && IsValid(AIController->GetPathFollowingComponent()))
-	{
-		AIController->GetPathFollowingComponent()->OnRequestFinished.RemoveAll(this);
-	}
-	AIController = Cast<AAIController>(NewController);
-	if (IsValid(AIController) && IsValid(AIController->GetPathFollowingComponent()))
-	{
-		AIController->GetPathFollowingComponent()->OnRequestFinished.AddUObject(this, &UNPCAbilityComponent::OnMoveRequestFinished);
-	}
-	UpdateCombatBehavior();
-}
-
 #pragma endregion
 #pragma region Move Requests
 
-void UNPCAbilityComponent::AbortActiveQuery()
+void UNPCAbilityComponent::SetMoveGoal(const FVector& Location)
 {
-	if (QueryID != INDEX_NONE && IsValid(UEnvQueryManager::GetCurrent(GetWorld())))
+	if (GetOwnerRole() != ROLE_Authority)
 	{
-		UEnvQueryManager::GetCurrent(GetWorld())->AbortQuery(QueryID);
-		QueryID = INDEX_NONE;
+		return;
 	}
+	if (bHasValidMoveLocation && Location == CurrentMoveLocation)
+	{
+		return;
+	}
+
+	CurrentMoveLocation = Location;
+	bHasValidMoveLocation = true;
+
+	if (bWantsToMove)
+	{
+		TryMoveToGoal();
+	}
+}
+
+void UNPCAbilityComponent::SetWantsToMove(const bool bNewMove)
+{
+	const bool bShouldActuallyMove = bNewMove && IsValid(AIController) && IsValid(MovementComponentRef);
+	if (bShouldActuallyMove == bWantsToMove)
+	{
+		return;
+	}
+	bWantsToMove = bShouldActuallyMove;
+	if (bWantsToMove)
+	{
+		if (bHasValidMoveLocation)
+		{
+			TryMoveToGoal();
+		}
+	}
+	else
+	{
+		AbortActiveMove();
+	}
+}
+
+void UNPCAbilityComponent::TryMoveToGoal()
+{
+	if (CurrentMoveRequestID.IsValid())
+	{
+		AbortActiveMove();
+	}
+	
+	//Request a move to the queried location.
+	//TODO: These parameters might need to be adjusted, I don't know what some of them do.
+	FAIMoveRequest MoveReq(CurrentMoveLocation);
+	MoveReq.SetUsePathfinding(true);
+	MoveReq.SetAllowPartialPath(false);
+	MoveReq.SetProjectGoalLocation(true);
+	MoveReq.SetNavigationFilter(AIController->GetDefaultNavigationFilterClass());
+	MoveReq.SetAcceptanceRadius(-1.0f);
+	MoveReq.SetReachTestIncludesAgentRadius(true);
+	MoveReq.SetCanStrafe(true);
+	
+	CurrentMoveRequestID = AIController->MoveTo(MoveReq).MoveId;
 }
 
 void UNPCAbilityComponent::AbortActiveMove()
@@ -181,7 +235,7 @@ void UNPCAbilityComponent::OnMoveRequestFinished(FAIRequestID RequestID, const F
 	{
 		if (PathResult.Code == EPathFollowingResult::Success || bAlreadyAtGoal)
 		{
-			//If we successfully reached our goal, we can move to the next patrol location, finish our rest, or execute our chosen ability.
+			//If we successfully reached our goal, we can move to the next patrol location or finish our reset.
 			switch (CombatBehavior)
 			{
 			case ENPCCombatBehavior::Patrolling :
@@ -191,15 +245,13 @@ void UNPCAbilityComponent::OnMoveRequestFinished(FAIRequestID RequestID, const F
 				bNeedsReset = false;
 				UpdateCombatBehavior();
 				break;
-			case ENPCCombatBehavior::Combat :
-				break;
 			default :
 				return;
 			}
 		}
 		else if (bAbortedByOwner)
 		{
-			//This means we are already planning for this move to fail/end early, so nothing needs to be handled.
+			//If the move was aborted by us, we don't need to handle anything.
 		}
 		else
 		{
@@ -218,12 +270,104 @@ void UNPCAbilityComponent::OnMoveRequestFinished(FAIRequestID RequestID, const F
 				GetOwner()->SetActorLocation(ResetGoal);
 				UpdateCombatBehavior();
 				break;
-			case ENPCCombatBehavior::Combat :
-				break;
 			default :
 				return;
 			}
 		}
+	}
+}
+
+#pragma endregion
+#pragma region Query
+
+void UNPCAbilityComponent::SetQuery(UEnvQuery* Query, const TArray<FInstancedStruct>& Params)
+{
+	if (!IsValid(Query))
+	{
+		return;
+	}
+	AbortActiveQuery();
+	CurrentQuery = Query;
+	CurrentQueryParams.Empty();
+	for (const FInstancedStruct& Param : Params)
+	{
+		if (Param.GetPtr<FNPCQueryParam>())
+		{
+			CurrentQueryParams.Add(Param);
+		}
+	}
+	if (GetWorld()->GetTimerManager().IsTimerActive(QueryRetryHandle))
+	{
+		GetWorld()->GetTimerManager().ClearTimer(QueryRetryHandle);
+	}
+	RunQuery();
+}
+
+void UNPCAbilityComponent::RunQuery()
+{
+	if (!IsValid(CurrentQuery))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Invalid query."));
+		QueryID = INDEX_NONE;
+		return;
+	}
+	FEnvQueryRequest Request (CurrentQuery);
+	for (const FInstancedStruct& InstancedParam : CurrentQueryParams)
+	{
+		const FNPCQueryParam* Param = InstancedParam.GetPtr<FNPCQueryParam>();
+		if (!Param)
+		{
+			continue;
+		}
+		Param->AddParam(Request);
+	}
+	QueryID = Request.Execute(EEnvQueryRunMode::SingleResult, this, &UNPCAbilityComponent::OnQueryFinished);
+	if (QueryID == INDEX_NONE)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Query failed to run, re-trying in %s seconds."), *FString::SanitizeFloat(QueryRetryDelay));
+		GetWorld()->GetTimerManager().SetTimer(QueryRetryHandle, this, &UNPCAbilityComponent::RunQuery, QueryRetryDelay);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Running query %i"), QueryID);
+	}
+}
+
+void UNPCAbilityComponent::OnQueryFinished(TSharedPtr<FEnvQueryResult> QueryResult)
+{
+	if (!QueryResult.IsValid())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Query %i finished but result wasn't valid. Re-trying in %s seconds."), QueryID, *FString::SanitizeFloat(QueryRetryDelay));
+		QueryID = INDEX_NONE;
+		GetWorld()->GetTimerManager().SetTimer(QueryRetryHandle, this, &UNPCAbilityComponent::RunQuery, QueryRetryDelay);
+		return;
+	}
+	const FEnvQueryResult* Result = QueryResult.Get();
+	if (Result->QueryID != QueryID)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Query %i finished but current query ID was %i, ignoring."), Result->QueryID, QueryID);
+		return;
+	}
+	if (!Result->IsFinished() || !Result->IsSuccessful() || Result->Items.Num() == 0)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Query %i finished but was unsuccessful. Re-selecting in %s seconds."), QueryID, *FString::SanitizeFloat(QueryRetryDelay));
+		QueryID = INDEX_NONE;
+		GetWorld()->GetTimerManager().SetTimer(QueryRetryHandle, this, &UNPCAbilityComponent::RunQuery, QueryRetryDelay);
+		return;
+	}
+
+	SetMoveGoal(Result->GetItemAsLocation(0));
+	
+	QueryID = INDEX_NONE;
+	GetWorld()->GetTimerManager().SetTimer(QueryRetryHandle, this, &UNPCAbilityComponent::RunQuery, QueryRetryDelay);
+}
+
+void UNPCAbilityComponent::AbortActiveQuery()
+{
+	if (QueryID != INDEX_NONE && IsValid(UEnvQueryManager::GetCurrent(GetWorld())))
+	{
+		UEnvQueryManager::GetCurrent(GetWorld())->AbortQuery(QueryID);
+		QueryID = INDEX_NONE;
 	}
 }
 
@@ -237,6 +381,7 @@ void UNPCAbilityComponent::EnterCombatState()
 	{
 		TrySelectNewChoice();
 	}
+	SetQuery(DefaultQuery, DefaultQueryParams);
 }
 
 void UNPCAbilityComponent::InitCombatChoices()
@@ -249,6 +394,8 @@ void UNPCAbilityComponent::InitCombatChoices()
 
 void UNPCAbilityComponent::TrySelectNewChoice()
 {
+	bWaitingOnMovementStop = false;
+	QueuedChoiceIdx = -1;
 	UE_LOG(LogTemp, Warning, TEXT("Trying to select choice."));
 	if (GetWorld()->GetTimerManager().IsTimerActive(ChoiceRetryHandle))
 	{
@@ -284,7 +431,11 @@ void UNPCAbilityComponent::TrySelectNewChoice()
 	}
 	if (!AbilityInstance->IsCastableWhileMoving())
 	{
-		//TODO: Stop moving
+		bWaitingOnMovementStop = true;
+		QueuedChoiceIdx = ChoiceIdx;
+		MovementComponentRef->OnMovementChanged.AddDynamic(this, &UNPCAbilityComponent::TryUseQueuedAbility);
+		SetWantsToMove(false);
+		return;
 	}
 	const FAbilityEvent AbilityEvent = UseAbility(CombatPriority[ChoiceIdx].GetAbilityClass());
 	UE_LOG(LogTemp, Warning, TEXT("Cast ability %s, result was %s."), *AbilityInstance->GetAbilityName().ToString(), *UEnum::GetDisplayValueAsText(AbilityEvent.ActionTaken).ToString());
@@ -300,6 +451,41 @@ void UNPCAbilityComponent::TrySelectNewChoice()
 	}
 }
 
+void UNPCAbilityComponent::TryUseQueuedAbility(AActor* Actor, const bool bNewMovement)
+{
+	if (bNewMovement)
+	{
+		return;
+	}
+	MovementComponentRef->OnMovementChanged.RemoveDynamic(this, &UNPCAbilityComponent::TryUseQueuedAbility);
+	if (!bWaitingOnMovementStop)
+	{
+		return;
+	}
+	const int Idx = QueuedChoiceIdx;
+	QueuedChoiceIdx = -1;
+	if (!CombatPriority.IsValidIndex(Idx))
+	{
+		SetWantsToMove(true);
+		return;
+	}
+	const FNPCCombatChoice& Choice = CombatPriority[Idx];
+	const FAbilityEvent AbilityEvent = UseAbility(Choice.GetAbilityClass());
+	const UCombatAbility* AbilityInstance = FindActiveAbility(Choice.GetAbilityClass());
+	UE_LOG(LogTemp, Warning, TEXT("Cast ability %s, result was %s."), *AbilityInstance->GetAbilityName().ToString(), *UEnum::GetDisplayValueAsText(AbilityEvent.ActionTaken).ToString());
+	if (AbilityEvent.ActionTaken == ECastAction::Success && AbilityInstance->GetCastType() == EAbilityCastType::Channel)
+	{
+		//Bind to the cast end delegate so that we can select a new choice when this ability ends.
+		OnCastStateChanged.AddDynamic(this, &UNPCAbilityComponent::EndChoiceOnCastStateChanged);
+	}
+	else
+	{
+		//After casting this ability, we'll select another choice in a little bit.
+		GetWorld()->GetTimerManager().SetTimer(ChoiceRetryHandle, this, &UNPCAbilityComponent::TrySelectNewChoice, ChoiceRetryDelay);
+		SetWantsToMove(true);
+	}
+}
+
 void UNPCAbilityComponent::EndChoiceOnCastStateChanged(const FCastingState& Previous, const FCastingState& New)
 {
 	if (!New.bIsCasting)
@@ -307,95 +493,7 @@ void UNPCAbilityComponent::EndChoiceOnCastStateChanged(const FCastingState& Prev
 		UE_LOG(LogTemp, Warning, TEXT("Cast ended (%s), re-selecting in %s seconds."), *Previous.CurrentCast->GetAbilityName().ToString(), *FString::SanitizeFloat(ChoiceRetryDelay));
 		OnCastStateChanged.RemoveDynamic(this, &UNPCAbilityComponent::EndChoiceOnCastStateChanged);
 		GetWorld()->GetTimerManager().SetTimer(ChoiceRetryHandle, this, &UNPCAbilityComponent::TrySelectNewChoice, ChoiceRetryDelay);
-	}
-}
-
-void UNPCAbilityComponent::RunQuery(const UEnvQuery* Query, const TArray<FInstancedStruct>& QueryParams)
-{
-	if (IsValid(Query))
-	{
-		FEnvQueryRequest Request (Query);
-		for (const FInstancedStruct& InstancedParam : QueryParams)
-		{
-			const FNPCQueryParam* Param = InstancedParam.GetPtr<FNPCQueryParam>();
-			if (!Param)
-			{
-				continue;
-			}
-			Param->AddParam(Request);
-		}
-		QueryID = Request.Execute(EEnvQueryRunMode::SingleResult, this, &UNPCAbilityComponent::OnQueryFinished);
-		if (QueryID == INDEX_NONE)
-		{
-			UE_LOG(LogTemp, Warning, TEXT("Query failed to run, re-selecting in %s seconds."), *FString::SanitizeFloat(ChoiceRetryDelay));
-			GetWorld()->GetTimerManager().SetTimer(ChoiceRetryHandle, this, &UNPCAbilityComponent::TrySelectNewChoice, ChoiceRetryDelay, false);
-		}
-		else
-		{
-			UE_LOG(LogTemp, Warning, TEXT("Running query %i"), QueryID);
-		}
-	}
-	else
-	{
-		QueryID = INDEX_NONE;
-		UE_LOG(LogTemp, Warning, TEXT("Invalid query, re-selecting choice in %s seconds."), *FString::SanitizeFloat(ChoiceRetryDelay));
-		GetWorld()->GetTimerManager().SetTimer(ChoiceRetryHandle, this, &UNPCAbilityComponent::TrySelectNewChoice, ChoiceRetryDelay, false);
-	}
-}
-
-void UNPCAbilityComponent::OnQueryFinished(TSharedPtr<FEnvQueryResult> QueryResult)
-{
-	if (!QueryResult.IsValid())
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Query %i finished but result wasn't valid. Re-selecting in %s seconds."), QueryID, *FString::SanitizeFloat(ChoiceRetryDelay));
-		QueryID = INDEX_NONE;
-		GetWorld()->GetTimerManager().SetTimer(ChoiceRetryHandle, this, &UNPCAbilityComponent::TrySelectNewChoice, ChoiceRetryDelay, false);
-		return;
-	}
-	const FEnvQueryResult* Result = QueryResult.Get();
-	if (Result->QueryID != QueryID)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Query %i finished but current query ID was %i, ignoring."), Result->QueryID, QueryID);
-		return;
-	}
-	if (!Result->IsFinished() || !Result->IsSuccessful() || Result->Items.Num() == 0)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Query %i finished but was unsuccessful. Re-selecting in %s seconds."), QueryID, *FString::SanitizeFloat(ChoiceRetryDelay));
-		QueryID = INDEX_NONE;
-		GetWorld()->GetTimerManager().SetTimer(ChoiceRetryHandle, this, &UNPCAbilityComponent::TrySelectNewChoice, ChoiceRetryDelay, false);
-		return;
-	}
-
-	bHasValidMoveLocation = true;
-	CurrentMoveLocation = Result->GetItemAsLocation(0);
-	QueryID = INDEX_NONE;
-
-	//Request a move to the queried location.
-	//TODO: These parameters might need to be adjusted, I don't know what some of them do.
-	FAIMoveRequest MoveReq(CurrentMoveLocation);
-	MoveReq.SetUsePathfinding(true);
-	MoveReq.SetAllowPartialPath(false);
-	MoveReq.SetProjectGoalLocation(true);
-	MoveReq.SetNavigationFilter(AIController->GetDefaultNavigationFilterClass());
-	MoveReq.SetAcceptanceRadius(-1.0f);
-	MoveReq.SetReachTestIncludesAgentRadius(true);
-	MoveReq.SetCanStrafe(true);
-	const FPathFollowingRequestResult RequestResult = AIController->MoveTo(MoveReq);
-	if (RequestResult.Code == EPathFollowingRequestResult::RequestSuccessful)
-	{
-		CurrentMoveRequestID = RequestResult.MoveId;
-		UE_LOG(LogTemp, Warning, TEXT("Move request successful, ID %i"), CurrentMoveRequestID.GetID());
-	}
-	//If we were already at the desired location, go ahead and use the ability.
-	else if (RequestResult.Code == EPathFollowingRequestResult::AlreadyAtGoal)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Move request failed because already at goal!"));
-	}
-	//If the path following result failed, try to do something else.
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Move request failed, re-selecting in %s seconds"), *FString::SanitizeFloat(ChoiceRetryDelay));
-		GetWorld()->GetTimerManager().SetTimer(ChoiceRetryHandle, this, &UNPCAbilityComponent::TrySelectNewChoice, ChoiceRetryDelay, false);
+		SetWantsToMove(true);
 	}
 }
 
@@ -484,32 +582,7 @@ void UNPCAbilityComponent::MoveToNextPatrolPoint()
 	if (IsValid(AIController))
 	{
 		//Request a move to the next patrol location from the AIController.
-		//TODO: These parameters might need to be adjusted, I don't know what some of them do.
-		FAIMoveRequest MoveReq(PatrolPath[NextPatrolIndex].Location);
-		MoveReq.SetUsePathfinding(true);
-		MoveReq.SetAllowPartialPath(false);
-		MoveReq.SetProjectGoalLocation(true);
-		MoveReq.SetNavigationFilter(AIController->GetDefaultNavigationFilterClass());
-		MoveReq.SetAcceptanceRadius(-1.0f);
-		MoveReq.SetReachTestIncludesAgentRadius(true);
-		MoveReq.SetCanStrafe(true);
-		const FPathFollowingRequestResult RequestResult = AIController->MoveTo(MoveReq);
-		if (RequestResult.Code == EPathFollowingRequestResult::RequestSuccessful)
-		{
-			CurrentMoveRequestID = RequestResult.MoveId;
-		}
-		//If we were already at the patrol point, move on to the next.
-		else if (RequestResult.Code == EPathFollowingRequestResult::AlreadyAtGoal)
-		{
-			OnReachedPatrolPoint();
-		}
-		//If the path following result failed, log an error and move to the next point.
-		else
-		{
-			UE_LOG(LogTemp, Warning, TEXT("NPC %s failed to path to index %i in its patrol. Result: %s. Moving to next point."),
-				*GetOwner()->GetName(), NextPatrolIndex, *UEnum::GetDisplayValueAsText(RequestResult.Code).ToString());
-			OnReachedPatrolPoint();
-		}
+		SetMoveGoal(PatrolPath[NextPatrolIndex].Location);
 	}
 	else
 	{
@@ -594,8 +667,6 @@ void UNPCAbilityComponent::IncrementPatrolIndex()
 void UNPCAbilityComponent::FinishPatrol()
 {
 	SetPatrolSubstate(ENPCPatrolSubstate::PatrolFinished);
-	//Cancel any move in progress.
-	AbortActiveMove();
 }
 
 void UNPCAbilityComponent::SetupGroupPatrol(ACombatLink* LinkActor)

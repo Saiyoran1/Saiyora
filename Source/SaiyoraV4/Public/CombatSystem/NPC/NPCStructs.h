@@ -136,6 +136,7 @@ struct FNPCQueryParam
 {
 	GENERATED_BODY()
 
+	UPROPERTY(EditAnywhere)
 	FName ParamName;
 
 	virtual void AddParam(FEnvQueryRequest& Request) const {}
@@ -148,7 +149,8 @@ struct FNPCFloatParam : public FNPCQueryParam
 {
 	GENERATED_BODY()
 
-	float Value;
+	UPROPERTY(EditAnywhere)
+	float Value = 0.0f;
 
 	virtual void AddParam(FEnvQueryRequest& Request) const override
 	{
@@ -161,7 +163,8 @@ struct FNPCIntParam : public FNPCQueryParam
 {
 	GENERATED_BODY()
 
-	int32 Value;
+	UPROPERTY(EditAnywhere)
+	int32 Value = 0;
 
 	virtual void AddParam(FEnvQueryRequest& Request) const override
 	{
@@ -174,7 +177,8 @@ struct FNPCBoolParam : public FNPCQueryParam
 {
 	GENERATED_BODY()
 
-	bool bValue;
+	UPROPERTY(EditAnywhere)
+	bool bValue = false;
 
 	virtual void AddParam(FEnvQueryRequest& Request) const override
 	{

@@ -7,7 +7,16 @@
 void UContext_ThreatTarget::ProvideContext(FEnvQueryInstance& QueryInstance, FEnvQueryContextData& ContextData) const
 {
 	const UObject* QueryOwner = QueryInstance.Owner.Get();
-	if (!IsValid(QueryOwner) || !QueryOwner->Implements<USaiyoraCombatInterface>())
+	if (!IsValid(QueryOwner))
+	{
+		return;
+	}
+	const UActorComponent* OwnerAsComponent = Cast<UActorComponent>(QueryOwner);
+	if (IsValid(OwnerAsComponent))
+	{
+		QueryOwner = OwnerAsComponent->GetOwner();
+	}
+	if (!QueryOwner->Implements<USaiyoraCombatInterface>())
 	{
 		return;
 	}
