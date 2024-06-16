@@ -31,10 +31,17 @@ void ASaiyoraGameState::Tick(float DeltaSeconds)
 	Super::Tick(DeltaSeconds);
 	WorldTime += DeltaSeconds;
 
-	//Display debug information for ability tokens.
-	if (IsValid(GameInstanceRef) && IsValid(GameInstanceRef->CombatDebugOptions) && GameInstanceRef->CombatDebugOptions->bDisplayTokenInformation)
+	//Display debug information for ability tokens and claimed locations.
+	if (IsValid(GameInstanceRef) && IsValid(GameInstanceRef->CombatDebugOptions))
 	{
-		GameInstanceRef->CombatDebugOptions->DisplayTokenInfo(Tokens);
+		if (GameInstanceRef->CombatDebugOptions->bDisplayTokenInformation)
+		{
+			GameInstanceRef->CombatDebugOptions->DisplayTokenInfo(Tokens);
+		}
+		if (GameInstanceRef->CombatDebugOptions->bDisplayClaimedLocations)
+		{
+			GameInstanceRef->CombatDebugOptions->DisplayClaimedLocations(ClaimedLocations);
+		}
 	}
 }
 
@@ -285,6 +292,49 @@ bool ASaiyoraGameState::IsTokenAvailableForClass(const TSubclassOf<UNPCAbility> 
 		}
 	}
 	return false;
+}
+
+#pragma endregion
+#pragma region NPC Location Claiming
+
+void ASaiyoraGameState::ClaimLocation(AActor* Actor, const FVector& Location)
+{
+	if (!HasAuthority() || !IsValid(Actor))
+	{
+		return;
+	}
+	ClaimedLocations.Add(Actor, Location);
+}
+
+void ASaiyoraGameState::FreeLocation(AActor* Actor)
+{
+	if (!HasAuthority() || !IsValid(Actor))
+	{
+		return;
+	}
+	ClaimedLocations.Remove(Actor);
+}
+
+float ASaiyoraGameState::GetScorePenaltyForLocation(AActor* Actor, const FVector& Location) const
+{
+	if (!HasAuthority() || !IsValid(Actor))
+	{
+		return 0.0f;
+	}
+	float Penalty = 0.0f;
+	for (const TTuple<AActor*, FVector>& ClaimedTuple : ClaimedLocations)
+	{
+		if (!IsValid(ClaimedTuple.Key) || ClaimedTuple.Key == Actor)
+		{
+			continue;
+		}
+		const float DistSq = FVector::DistSquared(Location, ClaimedTuple.Value);
+		if (DistSq < FMath::Square(200.0f))
+		{
+			Penalty += DistSq / FMath::Square(200.0f);
+		}
+	}
+	return Penalty;
 }
 
 #pragma endregion 

@@ -85,5 +85,19 @@ private:
 	UFUNCTION()
 	void FinishTokenCooldown(const TSubclassOf<UNPCAbility> AbilityClass, const int TokenIndex);
 
+#pragma endregion
+#pragma region NPC Location Claims
+
+public:
+
+	void ClaimLocation(AActor* Actor, const FVector& Location);
+	void FreeLocation(AActor* Actor);
+	float GetScorePenaltyForLocation(AActor* Actor, const FVector& Location) const;
+
+private:
+
+	UPROPERTY()
+	TMap<AActor*, FVector> ClaimedLocations;
+
 #pragma endregion 
 };

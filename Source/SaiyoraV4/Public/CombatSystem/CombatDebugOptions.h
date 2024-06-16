@@ -20,4 +20,8 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Abilities")
 	bool bDisplayTokenInformation = false;
 	void DisplayTokenInfo(const TMap<TSubclassOf<UNPCAbility>, FNPCAbilityTokens>& Tokens);
+
+	UPROPERTY(EditAnywhere, Category = "AI")
+	bool bDisplayClaimedLocations = false;
+	void DisplayClaimedLocations(const TMap<AActor*, FVector>& Locations);
 };

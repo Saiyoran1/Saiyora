@@ -55,3 +55,17 @@ void UCombatDebugOptions::DisplayTokenInfo(const TMap<TSubclassOf<UNPCAbility>, 
 			L"%s: Available: %i, In Use: %i, On Cooldown: %i", *AbilityName, Available, InUse, OnCooldown));
 	}
 }
+
+void UCombatDebugOptions::DisplayClaimedLocations(const TMap<AActor*, FVector>& Locations)
+{
+	for (const TTuple<AActor*, FVector>& Tuple : Locations)
+	{
+		if (IsValid(Tuple.Key))
+		{
+			DrawDebugSphere(Tuple.Key->GetWorld(), Tuple.Value + FVector::UpVector * 50.0f, 50.0f, 32, FColor::Cyan, false, -1);
+			DrawDebugCircle(Tuple.Key->GetWorld(), Tuple.Value + FVector::UpVector * 50.0f, 200.0f, 32, FColor::Cyan, false, -1,
+				0, 2, FVector(0, 1, 0),FVector(1, 0, 0), false);
+			DrawDebugLine(Tuple.Key->GetWorld(), Tuple.Value, Tuple.Key->GetActorLocation() + FVector::UpVector * 50.0f, FColor::Cyan, false, -1);
+		}
+	}
+}

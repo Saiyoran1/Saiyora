@@ -165,6 +165,10 @@ void UNPCAbilityComponent::SetMoveGoal(const FVector& Location)
 
 	CurrentMoveLocation = Location;
 	bHasValidMoveLocation = true;
+	if (CombatBehavior == ENPCCombatBehavior::Combat && IsValid(DungeonGameStateRef))
+	{
+		DungeonGameStateRef->ClaimLocation(GetOwner(), CurrentMoveLocation);
+	}
 
 	if (bWantsToMove)
 	{
@@ -195,11 +199,6 @@ void UNPCAbilityComponent::SetWantsToMove(const bool bNewMove)
 
 void UNPCAbilityComponent::TryMoveToGoal()
 {
-	if (CurrentMoveRequestID.IsValid())
-	{
-		AbortActiveMove();
-	}
-	
 	//Request a move to the queried location.
 	//TODO: These parameters might need to be adjusted, I don't know what some of them do.
 	FAIMoveRequest MoveReq(CurrentMoveLocation);
@@ -255,9 +254,6 @@ void UNPCAbilityComponent::OnMoveRequestFinished(FAIRequestID RequestID, const F
 		}
 		else
 		{
-			UE_LOG(LogTemp, Warning, TEXT("NPC %s did not succeed in move request. State was %s, result was %s."),
-				*GetOwner()->GetName(), *UEnum::GetDisplayValueAsText(CombatBehavior).ToString(), *UEnum::GetDisplayValueAsText(PathResult.Code).ToString());
-
 			//For patrolling, we will just continue moving. Probably want to implement a counter so that if we just get permanently stuck we don't loop forever.
 			//For resetting, we just teleport to the reset location and leave reset state.
 			switch (CombatBehavior)
@@ -376,6 +372,10 @@ void UNPCAbilityComponent::AbortActiveQuery()
 
 void UNPCAbilityComponent::EnterCombatState()
 {
+	if (IsValid(DungeonGameStateRef))
+	{
+		DungeonGameStateRef->ClaimLocation(GetOwner(), GetOwner()->GetActorLocation());
+	}
 	InitCombatChoices();
 	if (CombatPriority.Num() > 0)
 	{
@@ -503,6 +503,10 @@ void UNPCAbilityComponent::LeaveCombatState()
 	if (GetWorld()->GetTimerManager().IsTimerActive(ChoiceRetryHandle))
 	{
 		GetWorld()->GetTimerManager().ClearTimer(ChoiceRetryHandle);
+	}
+	if (IsValid(DungeonGameStateRef))
+	{
+		DungeonGameStateRef->FreeLocation(GetOwner());
 	}
 }
 
