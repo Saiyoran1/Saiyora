@@ -45,7 +45,7 @@ public:
 
 private:
 
-	UPROPERTY(EditAnywhere, meta = (BaseStruct = "/Script/SaiyoraV4.NPCChoiceRequirement"))
+	UPROPERTY(EditAnywhere, meta = (BaseStruct = "/Script/SaiyoraV4.NPCChoiceRequirement", ExcludeBaseStruct))
 	TArray<FInstancedStruct> Requirements;
 	UPROPERTY(EditAnywhere)
 	TSubclassOf<UNPCAbility> AbilityClass;

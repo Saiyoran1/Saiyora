@@ -91,7 +91,7 @@ private:
 
 	UPROPERTY(EditAnywhere, Category = "Combat")
 	UEnvQuery* DefaultQuery = nullptr;
-	UPROPERTY(EditAnywhere, Category = "Combat", meta = (BaseStruct = "/Script/SaiyoraV4.NPCQueryParam"))
+	UPROPERTY(EditAnywhere, Category = "Combat", meta = (BaseStruct = "/Script/SaiyoraV4.NPCQueryParam", ExcludeBaseStruct))
 	TArray<FInstancedStruct> DefaultQueryParams;
 
 	UFUNCTION()

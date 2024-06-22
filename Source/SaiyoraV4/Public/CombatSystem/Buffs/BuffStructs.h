@@ -42,7 +42,7 @@ struct FBuffApplyEvent
     UPROPERTY(BlueprintReadOnly)
     UObject* Source = nullptr;
     //Any custom parameters passed in for the buff to use
-    UPROPERTY(BlueprintReadOnly, meta = (BaseStruct = "/Script/SaiyoraV4.CombatParameter"))
+    UPROPERTY(BlueprintReadOnly, meta = (BaseStruct = "/Script/SaiyoraV4.CombatParameter", ExcludeBaseStruct))
     TArray<FInstancedStruct> CombatParams;
 
     //The instance of the buff that was either created or stacked/refreshed

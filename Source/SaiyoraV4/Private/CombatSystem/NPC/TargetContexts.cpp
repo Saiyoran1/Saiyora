@@ -2,7 +2,7 @@
 #include "SaiyoraCombatInterface.h"
 #include "ThreatHandler.h"
 
-AActor* FNPCTargetContext_HighestThreat::GetBestTarget(const AActor* Querier) const
+AActor* FNPCTC_HighestThreat::GetBestTarget(const AActor* Querier) const
 {
 	if (!IsValid(Querier) || !Querier->Implements<USaiyoraCombatInterface>())
 	{
@@ -16,7 +16,7 @@ AActor* FNPCTargetContext_HighestThreat::GetBestTarget(const AActor* Querier) co
 	return QuerierThreat->GetCurrentTarget();
 }
 
-AActor* FNPCTargetContext_ClosestTarget::GetBestTarget(const AActor* Querier) const
+AActor* FNPCTC_ClosestTarget::GetBestTarget(const AActor* Querier) const
 {
 	if (!IsValid(Querier) || !Querier->Implements<USaiyoraCombatInterface>())
 	{

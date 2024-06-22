@@ -5,7 +5,7 @@
 
 //A context that simply returns the NPC's threat target, if one exists.
 USTRUCT()
-struct FNPCTargetContext_HighestThreat : public FNPCTargetContext
+struct FNPCTC_HighestThreat : public FNPCTargetContext
 {
 	GENERATED_BODY()
 	
@@ -14,7 +14,7 @@ struct FNPCTargetContext_HighestThreat : public FNPCTargetContext
 
 //A context that returns the closest threat target the NPC is in combat with.
 USTRUCT()
-struct FNPCTargetContext_ClosestTarget : public FNPCTargetContext
+struct FNPCTC_ClosestTarget : public FNPCTargetContext
 {
 	GENERATED_BODY()
 
