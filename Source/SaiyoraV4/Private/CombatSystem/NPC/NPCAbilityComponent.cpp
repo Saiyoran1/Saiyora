@@ -353,6 +353,7 @@ void UNPCAbilityComponent::OnQueryFinished(TSharedPtr<FEnvQueryResult> QueryResu
 	}
 
 	SetMoveGoal(Result->GetItemAsLocation(0));
+	DrawDebugSphere(GetWorld(), Result->GetItemAsLocation(0), 100.0f, 32, FColor::Green, false, .2f);
 	
 	QueryID = INDEX_NONE;
 	GetWorld()->GetTimerManager().SetTimer(QueryRetryHandle, this, &UNPCAbilityComponent::RunQuery, QueryRetryDelay);
@@ -431,11 +432,15 @@ void UNPCAbilityComponent::TrySelectNewChoice()
 	}
 	if (!AbilityInstance->IsCastableWhileMoving())
 	{
-		bWaitingOnMovementStop = true;
-		QueuedChoiceIdx = ChoiceIdx;
-		MovementComponentRef->OnMovementChanged.AddDynamic(this, &UNPCAbilityComponent::TryUseQueuedAbility);
 		SetWantsToMove(false);
-		return;
+		//If we're moving, and we don't want to be, we have to wait for the movement component to finish moving before using the ability.
+		if (MovementComponentRef->IsMoving())
+		{
+			bWaitingOnMovementStop = true;
+			QueuedChoiceIdx = ChoiceIdx;
+			MovementComponentRef->OnMovementChanged.AddDynamic(this, &UNPCAbilityComponent::TryUseQueuedAbility);
+			return;
+		}
 	}
 	const FAbilityEvent AbilityEvent = UseAbility(CombatPriority[ChoiceIdx].GetAbilityClass());
 	UE_LOG(LogTemp, Warning, TEXT("Cast ability %s, result was %s."), *AbilityInstance->GetAbilityName().ToString(), *UEnum::GetDisplayValueAsText(AbilityEvent.ActionTaken).ToString());
@@ -448,6 +453,7 @@ void UNPCAbilityComponent::TrySelectNewChoice()
 	{
 		//After casting this ability, we'll select another choice in a little bit.
 		GetWorld()->GetTimerManager().SetTimer(ChoiceRetryHandle, this, &UNPCAbilityComponent::TrySelectNewChoice, ChoiceRetryDelay);
+		SetWantsToMove(true);
 	}
 }
 
