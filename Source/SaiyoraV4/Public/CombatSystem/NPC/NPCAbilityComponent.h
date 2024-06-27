@@ -74,7 +74,13 @@ private:
 	void SetWantsToMove(const bool bNewMove);
 	void TryMoveToGoal();
 	void AbortActiveMove();
+	//Bound to the AIController's PathFollowingComponent, fires whenever move requests finish or fail.
 	void OnMoveRequestFinished(FAIRequestID RequestID, const FPathFollowingResult& PathResult);
+	//What behavior state the NPC was in when the last move request was sent.
+	//This is to prevent reacting to move requests from combat state after we've gone to resetting/patrolling, or vice versa.
+	ENPCCombatBehavior CurrentMoveRequestBehavior = ENPCCombatBehavior::None;
+	//RequestID of the last requested move.
+	FAIRequestID CurrentMoveRequestID = FAIRequestID::InvalidRequest;
 	bool bHasValidMoveLocation = false;
 	FVector CurrentMoveLocation;
 	bool bWantsToMove = false;
@@ -103,6 +109,7 @@ private:
 	UEnvQuery* CurrentQuery = nullptr;
 	TArray<FInstancedStruct> CurrentQueryParams;
 	int32 QueryID = INDEX_NONE;
+	ENPCCombatBehavior LastQueryBehavior = ENPCCombatBehavior::None;
 	FTimerHandle QueryRetryHandle;
 	static constexpr float QueryRetryDelay = 0.2f;
 
@@ -186,8 +193,6 @@ private:
 	
 	FCombatModifierHandle PatrolMoveSpeedModHandle;
 	float DefaultMaxWalkSpeed = 0.0f;
-
-	FAIRequestID CurrentMoveRequestID = FAIRequestID::InvalidRequest;
 
 #pragma endregion 
 #pragma region Resetting

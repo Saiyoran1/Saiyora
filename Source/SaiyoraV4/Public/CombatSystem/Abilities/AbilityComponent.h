@@ -346,7 +346,7 @@ private:
 
 #pragma region Debug
 
-private:
+protected:
 
 	UPROPERTY()
 	UCombatDebugOptions* CombatDebugOptions = nullptr;

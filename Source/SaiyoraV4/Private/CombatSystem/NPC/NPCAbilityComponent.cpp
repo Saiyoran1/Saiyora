@@ -9,6 +9,7 @@
 #include "ThreatHandler.h"
 #include "UnrealNetwork.h"
 #include "EnvironmentQuery/EnvQuery.h"
+#include "EnvironmentQuery/Items/EnvQueryItemType_VectorBase.h"
 #include "Navigation/PathFollowingComponent.h"
 
 #pragma region Initialization
@@ -52,7 +53,8 @@ void UNPCAbilityComponent::BeginPlay()
 		ThreatHandlerRef->OnCombatChanged.AddDynamic(this, &UNPCAbilityComponent::OnCombatChanged);
 	}
 	OnControllerChanged(OwnerAsPawn, nullptr, OwnerAsPawn->GetController());
-	
+
+	//Copy the patrol information out of the patrol route actor into a series of structs we can use.
 	if (IsValid(PatrolRoute))
 	{
 		PatrolRoute->GetPatrolRoute(PatrolPath);
@@ -68,11 +70,16 @@ void UNPCAbilityComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
 void UNPCAbilityComponent::OnControllerChanged(APawn* PossessedPawn, AController* OldController,
 	AController* NewController)
 {
+	//Remove any move request delegates from the previous controller.
 	if (IsValid(AIController) && IsValid(AIController->GetPathFollowingComponent()))
 	{
 		AIController->GetPathFollowingComponent()->OnRequestFinished.RemoveAll(this);
 	}
+	
+	//Actually update the controller reference here.
 	AIController = Cast<AAIController>(NewController);
+
+	//Bind to the move request delegate for the new controller.
 	if (IsValid(AIController) && IsValid(AIController->GetPathFollowingComponent()))
 	{
 		AIController->GetPathFollowingComponent()->OnRequestFinished.AddUObject(this, &UNPCAbilityComponent::OnMoveRequestFinished);
@@ -104,13 +111,12 @@ void UNPCAbilityComponent::UpdateCombatBehavior()
 			}
 		}
 	}
+	
 	if (NewCombatBehavior != CombatBehavior)
 	{
-		//If we switch behaviors, we should abort any active queries or moves in progress.
-		AbortActiveQuery();
-		AbortActiveMove();
-		
+		//Actually update the combat behavior.
 		const ENPCCombatBehavior PreviousBehavior = CombatBehavior;
+		CombatBehavior = NewCombatBehavior;
 		switch(PreviousBehavior)
 		{
 		case ENPCCombatBehavior::Combat :
@@ -125,7 +131,7 @@ void UNPCAbilityComponent::UpdateCombatBehavior()
 		default:
 			break;
 		}
-		CombatBehavior = NewCombatBehavior;
+		
 		switch (CombatBehavior)
 		{
 		case ENPCCombatBehavior::Combat :
@@ -215,23 +221,41 @@ void UNPCAbilityComponent::TryMoveToGoal()
 
 void UNPCAbilityComponent::AbortActiveMove()
 {
-	if (CurrentMoveRequestID.IsValid() && IsValid(AIController) && IsValid(AIController->GetPathFollowingComponent()))
+	//If we have a move in progress...
+	if (CurrentMoveRequestID.IsValid())
 	{
-		AIController->GetPathFollowingComponent()->AbortMove(*this, FPathFollowingResultFlags::OwnerFinished, CurrentMoveRequestID);
-		CurrentMoveRequestID = FAIRequestID::InvalidRequest;
+		//If the AI controller and PathFollowingComponent are both valid, we can actually just abort the move.
+		//This will call OnMoveRequestFinished, and clear variables for us.
+		if (IsValid(AIController) && IsValid(AIController->GetPathFollowingComponent()))
+		{
+			AIController->GetPathFollowingComponent()->AbortMove(*this, FPathFollowingResultFlags::OwnerFinished, CurrentMoveRequestID);
+		}
+		//If something wasn't valid, we'll just clear the variables here.
+		else
+		{
+			CurrentMoveRequestID = FAIRequestID::InvalidRequest;
+			CurrentMoveRequestBehavior = ENPCCombatBehavior::None;
+		}
 	}
 }
 
 void UNPCAbilityComponent::OnMoveRequestFinished(FAIRequestID RequestID, const FPathFollowingResult& PathResult)
 {
 	const bool bIDMatched = RequestID == CurrentMoveRequestID;
+	const bool bBehaviorMatched = CombatBehavior == CurrentMoveRequestBehavior;
 	CurrentMoveRequestID = FAIRequestID::InvalidRequest;
+	CurrentMoveRequestBehavior = ENPCCombatBehavior::None;
 
 	const bool bAlreadyAtGoal = PathResult.Flags & FPathFollowingResultFlags::AlreadyAtGoal;
 	const bool bAbortedByOwner = PathResult.Flags & FPathFollowingResultFlags::OwnerFinished;
 
 	if (bIDMatched)
 	{
+		//If we changed behaviors during this move request, we do not care that it finished.
+		if (!bBehaviorMatched)
+		{
+			return;
+		}
 		if (PathResult.Code == EPathFollowingResult::Success || bAlreadyAtGoal)
 		{
 			//If we successfully reached our goal, we can move to the next patrol location or finish our reset.
@@ -317,6 +341,7 @@ void UNPCAbilityComponent::RunQuery()
 		}
 		Param->AddParam(Request);
 	}
+	LastQueryBehavior = CombatBehavior;
 	QueryID = Request.Execute(EEnvQueryRunMode::SingleResult, this, &UNPCAbilityComponent::OnQueryFinished);
 	if (QueryID == INDEX_NONE)
 	{
@@ -325,45 +350,53 @@ void UNPCAbilityComponent::RunQuery()
 	}
 	else
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Running query %i"), QueryID);
+		UE_LOG(LogTemp, Warning, TEXT("Running query %i, state %s."), QueryID, *UEnum::GetDisplayValueAsText(CombatBehavior).ToString());
 	}
 }
 
 void UNPCAbilityComponent::OnQueryFinished(TSharedPtr<FEnvQueryResult> QueryResult)
 {
-	if (!QueryResult.IsValid())
+	//Ignore all query results and do not retry if we have changed behaviors.
+	if (CombatBehavior != LastQueryBehavior)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Query %i finished but result wasn't valid. Re-trying in %s seconds."), QueryID, *FString::SanitizeFloat(QueryRetryDelay));
-		QueryID = INDEX_NONE;
-		GetWorld()->GetTimerManager().SetTimer(QueryRetryHandle, this, &UNPCAbilityComponent::RunQuery, QueryRetryDelay);
 		return;
 	}
-	const FEnvQueryResult* Result = QueryResult.Get();
-	if (Result->QueryID != QueryID)
+	const FEnvQueryResult* Result = QueryResult.IsValid() ? QueryResult.Get() : nullptr;
+	if (Result)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Query %i finished but current query ID was %i, ignoring."), Result->QueryID, QueryID);
-		return;
-	}
-	if (!Result->IsFinished() || !Result->IsSuccessful() || Result->Items.Num() == 0)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Query %i finished but was unsuccessful. Re-selecting in %s seconds."), QueryID, *FString::SanitizeFloat(QueryRetryDelay));
-		QueryID = INDEX_NONE;
-		GetWorld()->GetTimerManager().SetTimer(QueryRetryHandle, this, &UNPCAbilityComponent::RunQuery, QueryRetryDelay);
-		return;
+		//If we have overwritten this query with another query, ignore the result.
+		if (Result->QueryID != QueryID)
+		{
+			return;
+		}
+		//If we aborted this query manually, ignore the result.
+		if (Result->IsAborted())
+		{
+			return;
+		}
+		//If we got a valid location from the query, update our move goal.
+		if (Result->IsFinished() && Result->IsSuccessful() && Result->Items.Num() > 0 && Result->ItemType->IsChildOf(UEnvQueryItemType_VectorBase::StaticClass()))
+		{
+			SetMoveGoal(Result->GetItemAsLocation(0));
+			DrawDebugSphere(GetWorld(), Result->GetItemAsLocation(0), 100.0f, 32, FColor::Green, false, .2f);
+		}
 	}
 
-	SetMoveGoal(Result->GetItemAsLocation(0));
-	DrawDebugSphere(GetWorld(), Result->GetItemAsLocation(0), 100.0f, 32, FColor::Green, false, .2f);
-	
+	//Reset variable and start the retry timer for the next query.
 	QueryID = INDEX_NONE;
+	LastQueryBehavior = ENPCCombatBehavior::None;
 	GetWorld()->GetTimerManager().SetTimer(QueryRetryHandle, this, &UNPCAbilityComponent::RunQuery, QueryRetryDelay);
 }
 
 void UNPCAbilityComponent::AbortActiveQuery()
 {
-	if (QueryID != INDEX_NONE && IsValid(UEnvQueryManager::GetCurrent(GetWorld())))
+	if (QueryID != INDEX_NONE)
 	{
-		UEnvQueryManager::GetCurrent(GetWorld())->AbortQuery(QueryID);
+		UEnvQueryManager* QueryManager = UEnvQueryManager::GetCurrent(GetWorld());
+		if (IsValid(QueryManager))
+		{
+			QueryManager->AbortQuery(QueryID);
+		}
 		QueryID = INDEX_NONE;
 	}
 }
@@ -470,6 +503,7 @@ void UNPCAbilityComponent::TryUseQueuedAbility(AActor* Actor, const bool bNewMov
 	}
 	const int Idx = QueuedChoiceIdx;
 	QueuedChoiceIdx = -1;
+	bWaitingOnMovementStop = false;
 	if (!CombatPriority.IsValidIndex(Idx))
 	{
 		SetWantsToMove(true);
@@ -505,6 +539,18 @@ void UNPCAbilityComponent::EndChoiceOnCastStateChanged(const FCastingState& Prev
 
 void UNPCAbilityComponent::LeaveCombatState()
 {
+	bWaitingOnMovementStop = false;
+	QueuedChoiceIdx = -1;
+	if (IsCasting())
+	{
+		CancelCurrentCast();
+	}
+	AbortActiveQuery();
+	//Stop the query retry timer.
+	if (GetWorld()->GetTimerManager().IsTimerActive(QueryRetryHandle))
+	{
+		GetWorld()->GetTimerManager().ClearTimer(QueryRetryHandle);
+	}
 	//Stop the choice selection retry timer.
 	if (GetWorld()->GetTimerManager().IsTimerActive(ChoiceRetryHandle))
 	{
