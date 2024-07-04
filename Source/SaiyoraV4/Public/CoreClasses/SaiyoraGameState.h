@@ -1,6 +1,5 @@
 ﻿#pragma once
 #include "CoreMinimal.h"
-#include "AbilityStructs.h"
 #include "NPCStructs.h"
 #include "GameFramework/GameState.h"
 #include "SaiyoraGameState.generated.h"
@@ -89,10 +88,10 @@ private:
 #pragma region NPC Location Claims
 
 public:
-
+	
 	void ClaimLocation(AActor* Actor, const FVector& Location);
 	void FreeLocation(AActor* Actor);
-	float GetScorePenaltyForLocation(AActor* Actor, const FVector& Location) const;
+	float GetScorePenaltyForLocation(const AActor* Actor, const FVector& Location) const;
 
 private:
 

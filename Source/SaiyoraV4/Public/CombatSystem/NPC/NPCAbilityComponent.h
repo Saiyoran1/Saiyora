@@ -111,7 +111,24 @@ private:
 	int32 QueryID = INDEX_NONE;
 	ENPCCombatBehavior LastQueryBehavior = ENPCCombatBehavior::None;
 	FTimerHandle QueryRetryHandle;
-	static constexpr float QueryRetryDelay = 0.2f;
+	//Base time between queries. This is used with some random variation to desync queries for multiple AI.
+	static constexpr float BaseQueryRetryDelay = 0.2f;
+	//Random seed used to determine variance between queries.
+	int QueryRetryRandomSeed = 0;
+	//Called when entering combat to get a unique seed for each enemy to calculate their random variation between queries.
+	static int GenerateQueryRetryRandomSeed()
+	{
+		static int QueryRetrySeedCounter = 0;
+		return QueryRetrySeedCounter++;
+	}
+	//Used when calculating delay time until next query. Alternates between adding this enemy's random variance and subtracting it from the base value.
+	mutable bool bQueryRetryRandomAdd = false;
+	//Get the time until the next query, using this enemy's randomized variance between queries.
+	float GetQueryRetryDelay() const
+	{
+		bQueryRetryRandomAdd = !bQueryRetryRandomAdd;
+		return BaseQueryRetryDelay + ((bQueryRetryRandomAdd ? 1.0f : -1.0f) * (QueryRetryRandomSeed % 5) * (BaseQueryRetryDelay * 0.1f));
+	}
 
 #pragma endregion 
 #pragma region Combat Choices

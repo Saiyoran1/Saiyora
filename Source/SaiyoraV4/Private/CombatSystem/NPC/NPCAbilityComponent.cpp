@@ -345,8 +345,9 @@ void UNPCAbilityComponent::RunQuery()
 	QueryID = Request.Execute(EEnvQueryRunMode::SingleResult, this, &UNPCAbilityComponent::OnQueryFinished);
 	if (QueryID == INDEX_NONE)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Query failed to run, re-trying in %s seconds."), *FString::SanitizeFloat(QueryRetryDelay));
-		GetWorld()->GetTimerManager().SetTimer(QueryRetryHandle, this, &UNPCAbilityComponent::RunQuery, QueryRetryDelay);
+		const float RetryDelay = GetQueryRetryDelay();
+		UE_LOG(LogTemp, Warning, TEXT("Query failed to run, re-trying in %s seconds."), *FString::SanitizeFloat(RetryDelay));
+		GetWorld()->GetTimerManager().SetTimer(QueryRetryHandle, this, &UNPCAbilityComponent::RunQuery, RetryDelay);
 	}
 	else
 	{
@@ -378,14 +379,13 @@ void UNPCAbilityComponent::OnQueryFinished(TSharedPtr<FEnvQueryResult> QueryResu
 		if (Result->IsFinished() && Result->IsSuccessful() && Result->Items.Num() > 0 && Result->ItemType->IsChildOf(UEnvQueryItemType_VectorBase::StaticClass()))
 		{
 			SetMoveGoal(Result->GetItemAsLocation(0));
-			DrawDebugSphere(GetWorld(), Result->GetItemAsLocation(0), 100.0f, 32, FColor::Green, false, .2f);
 		}
 	}
 
 	//Reset variable and start the retry timer for the next query.
 	QueryID = INDEX_NONE;
 	LastQueryBehavior = ENPCCombatBehavior::None;
-	GetWorld()->GetTimerManager().SetTimer(QueryRetryHandle, this, &UNPCAbilityComponent::RunQuery, QueryRetryDelay);
+	GetWorld()->GetTimerManager().SetTimer(QueryRetryHandle, this, &UNPCAbilityComponent::RunQuery, GetQueryRetryDelay());
 }
 
 void UNPCAbilityComponent::AbortActiveQuery()
@@ -415,6 +415,7 @@ void UNPCAbilityComponent::EnterCombatState()
 	{
 		TrySelectNewChoice();
 	}
+	QueryRetryRandomSeed = GenerateQueryRetryRandomSeed();
 	SetQuery(DefaultQuery, DefaultQueryParams);
 }
 

@@ -315,23 +315,23 @@ void ASaiyoraGameState::FreeLocation(AActor* Actor)
 	ClaimedLocations.Remove(Actor);
 }
 
-float ASaiyoraGameState::GetScorePenaltyForLocation(AActor* Actor, const FVector& Location) const
+float ASaiyoraGameState::GetScorePenaltyForLocation(const AActor* Actor, const FVector& Location) const
 {
-	if (!HasAuthority() || !IsValid(Actor))
+	if (!HasAuthority())
 	{
 		return 0.0f;
 	}
 	float Penalty = 0.0f;
 	for (const TTuple<AActor*, FVector>& ClaimedTuple : ClaimedLocations)
 	{
-		if (!IsValid(ClaimedTuple.Key) || ClaimedTuple.Key == Actor)
+		if (!IsValid(ClaimedTuple.Key) || (IsValid(Actor) && ClaimedTuple.Key == Actor))
 		{
 			continue;
 		}
 		const float DistSq = FVector::DistSquared(Location, ClaimedTuple.Value);
 		if (DistSq < FMath::Square(200.0f))
 		{
-			Penalty += DistSq / FMath::Square(200.0f);
+			Penalty -= (1.0f - (FMath::Sqrt(DistSq) / 200.0f));
 		}
 	}
 	return Penalty;
