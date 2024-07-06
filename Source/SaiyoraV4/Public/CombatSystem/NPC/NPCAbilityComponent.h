@@ -32,6 +32,7 @@ protected:
 
 	virtual void InitializeComponent() override;
 	virtual void BeginPlay() override;
+	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 private:
@@ -86,6 +87,18 @@ private:
 	bool bWantsToMove = false;
 	
 #pragma endregion
+#pragma region Rotation
+
+public:
+
+private:
+
+	UPROPERTY(EditAnywhere, Category = "Combat", meta = (BaseStruct = "/Script/SaiyoraV4.NPCRotationBehavior", ExcludeBaseStruct))
+	FInstancedStruct DefaultRotationBehavior;
+
+	void TickRotation(const float DeltaTime);
+
+#pragma endregion 
 #pragma region Query
 
 public:

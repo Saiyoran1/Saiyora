@@ -3,6 +3,7 @@
 #include "DamageHandler.h"
 #include "NPCAbility.h"
 #include "PatrolRoute.h"
+#include "RotationBehaviors.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraMovementComponent.h"
 #include "StatHandler.h"
@@ -16,7 +17,8 @@
 
 UNPCAbilityComponent::UNPCAbilityComponent(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
-	PrimaryComponentTick.bCanEverTick = false;
+	PrimaryComponentTick.bCanEverTick = true;
+	PrimaryComponentTick.bStartWithTickEnabled = false;
 	bWantsInitializeComponent = true;
 }
 
@@ -59,6 +61,13 @@ void UNPCAbilityComponent::BeginPlay()
 	{
 		PatrolRoute->GetPatrolRoute(PatrolPath);
 	}
+}
+
+void UNPCAbilityComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+{
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+
+	TickRotation(DeltaTime);
 }
 
 void UNPCAbilityComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -298,6 +307,22 @@ void UNPCAbilityComponent::OnMoveRequestFinished(FAIRequestID RequestID, const F
 }
 
 #pragma endregion
+#pragma region Rotation
+
+void UNPCAbilityComponent::TickRotation(const float DeltaTime)
+{
+	const FNPCRotationBehavior* RotationBehavior = DefaultRotationBehavior.GetPtr<FNPCRotationBehavior>();
+	if (!RotationBehavior)
+	{
+		//TODO: How do i do thing?
+		return;
+	}
+	FRotator OwnerRotation = GetOwner()->GetActorRotation();
+	RotationBehavior->ModifyRotation(DeltaTime, GetOwner(), OwnerRotation);
+	GetOwner()->SetActorRotation(OwnerRotation);
+}
+
+#pragma endregion
 #pragma region Query
 
 void UNPCAbilityComponent::SetQuery(UEnvQuery* Query, const TArray<FInstancedStruct>& Params)
@@ -406,6 +431,7 @@ void UNPCAbilityComponent::AbortActiveQuery()
 
 void UNPCAbilityComponent::EnterCombatState()
 {
+	SetComponentTickEnabled(true);
 	if (IsValid(DungeonGameStateRef))
 	{
 		DungeonGameStateRef->ClaimLocation(GetOwner(), GetOwner()->GetActorLocation());
@@ -540,6 +566,7 @@ void UNPCAbilityComponent::EndChoiceOnCastStateChanged(const FCastingState& Prev
 
 void UNPCAbilityComponent::LeaveCombatState()
 {
+	SetComponentTickEnabled(false);
 	bWaitingOnMovementStop = false;
 	QueuedChoiceIdx = -1;
 	if (IsCasting())
