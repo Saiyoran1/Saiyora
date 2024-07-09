@@ -1,7 +1,19 @@
 ﻿#include "ChoiceRequirements.h"
 #include "SaiyoraCombatInterface.h"
+#include "TargetContexts.h"
 #include "ThreatHandler.h"
 
+#pragma region Choice Requirement
+
+void FNPCChoiceRequirement::Init(FNPCCombatChoice* Choice, AActor* NPC)
+{
+	OwningChoice = Choice;
+	OwningNPC = NPC;
+	OwningChoice = Choice;
+	SetupRequirement();
+}
+
+#pragma endregion 
 #pragma region Time In Combat
 
 bool FNPCCR_TimeInCombat::IsMet() const

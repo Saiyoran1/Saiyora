@@ -10,22 +10,6 @@ class UNPCAbility;
 class UCombatAbility;
 class AAIController;
 
-USTRUCT(BlueprintType)
-struct FPatrolPoint
-{
-	GENERATED_BODY()
-
-	UPROPERTY(VisibleAnywhere)
-	FVector Location = FVector::ZeroVector;
-	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	float WaitTime = 0.0f;
-
-	FPatrolPoint() {}
-	FPatrolPoint(const FVector& InLoc) : Location(InLoc) {}
-};
-
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FPatrolStateNotification, AActor*, PatrollingActor, const ENPCPatrolSubstate, PatrolSubstate);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FPatrolLocationNotification, AActor*, PatrollingActor, const FVector&, Location);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FCombatBehaviorNotification, const ENPCCombatBehavior, PreviousStatus, const ENPCCombatBehavior, NewStatus);
 
 //A combat choice is just the ability we want to cast and the requirements to cast that ability.
@@ -58,54 +42,48 @@ private:
 	FString DEBUG_ChoiceName = "";
 };
 
-//A struct that is intended to be inherited from to be used as FInstancedStructs inside FNPCCombatChoice.
-//These requirements are event-based, and must be set up in c++. They basically constantly update their owning choice with whether they are met.
-USTRUCT()
-struct FNPCChoiceRequirement
+USTRUCT(BlueprintType)
+struct FRotationLock
 {
 	GENERATED_BODY()
 
-public:
+	FORCEINLINE bool operator==(const FRotationLock& Other) const { return Other.LockID == LockID; }
+
+	static FRotationLock GenerateRotationLock()
+	{
+		static int LockCounter = 0;
+		return FRotationLock(LockCounter++);
+	}
+
+	FRotationLock() {}
 	
-	void Init(FNPCCombatChoice* Choice, AActor* NPC);
-	virtual bool IsMet() const { return false; }
-	
-	virtual ~FNPCChoiceRequirement() {}
-
-	FString DEBUG_GetReqName() const { return DEBUG_RequirementName; }
-
-protected:
-	
-	AActor* GetOwningNPC() const { return OwningNPC; }
-	FNPCCombatChoice GetOwningChoice() const { return *OwningChoice; }
-
-	FString DEBUG_RequirementName = "";
-
 private:
 
-	virtual void SetupRequirement() {}
-	
-	bool bIsMet = false;
-	UPROPERTY()
-	AActor* OwningNPC = nullptr;
-	FNPCCombatChoice* OwningChoice = nullptr;
+	int LockID = -1;
+	FRotationLock(const int InID) : LockID(InID) {}
 };
 
-//A struct that is intended to be inherited from to be used as FInstancedStructs for NPCs to use.
-//Using these as context for combat choice requirements is the intended use case but they can probably be used for more.
-USTRUCT()
-struct FNPCTargetContext
+#pragma region Patrol
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FPatrolStateNotification, AActor*, PatrollingActor, const ENPCPatrolSubstate, PatrolSubstate);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FPatrolLocationNotification, AActor*, PatrollingActor, const FVector&, Location);
+
+USTRUCT(BlueprintType)
+struct FPatrolPoint
 {
 	GENERATED_BODY()
 
-public:
+	UPROPERTY(VisibleAnywhere)
+	FVector Location = FVector::ZeroVector;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly)
+	float WaitTime = 0.0f;
 
-	virtual AActor* GetBestTarget(const AActor* Querier) const { return nullptr; }
-	virtual ~FNPCTargetContext() {}
-	
-private:
-	
+	FPatrolPoint() {}
+	FPatrolPoint(const FVector& InLoc) : Location(InLoc) {}
 };
+
+#pragma endregion
+#pragma region Tokens
 
 DECLARE_DYNAMIC_DELEGATE_OneParam(FAbilityTokenCallback, const bool, bTokensAvailable);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityTokenNotification, const bool, bTokensAvailable);
@@ -130,6 +108,9 @@ struct FNPCAbilityTokens
 	int32 AvailableCount = 0;
 	FAbilityTokenNotification OnTokenAvailabilityChanged;
 };
+
+#pragma endregion
+#pragma region Query Params
 
 USTRUCT()
 struct FNPCQueryParam
@@ -185,3 +166,5 @@ struct FNPCBoolParam : public FNPCQueryParam
 		Request.SetBoolParam(ParamName, bValue);
 	}
 };
+
+#pragma endregion

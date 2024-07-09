@@ -1,4 +1,5 @@
 #include "NPCStructs.h"
+#include "ChoiceRequirements.h"
 #include "NPCAbility.h"
 #include "NPCAbilityComponent.h"
 
@@ -48,12 +49,4 @@ bool FNPCCombatChoice::IsChoiceValid() const
 		}
 	}
 	return true;
-}
-
-void FNPCChoiceRequirement::Init(FNPCCombatChoice* Choice, AActor* NPC)
-{
-	OwningChoice = Choice;
-	OwningNPC = NPC;
-	OwningChoice = Choice;
-	SetupRequirement();
 }

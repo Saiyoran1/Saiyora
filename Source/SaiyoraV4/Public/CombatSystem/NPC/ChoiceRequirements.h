@@ -4,6 +4,42 @@
 
 class UThreatHandler;
 
+#pragma region Choice Requirement
+
+//A struct that is intended to be inherited from to be used as FInstancedStructs inside FNPCCombatChoice.
+//These requirements are event-based, and must be set up in c++. They basically constantly update their owning choice with whether they are met.
+USTRUCT()
+struct FNPCChoiceRequirement
+{
+	GENERATED_BODY()
+
+public:
+	
+	void Init(FNPCCombatChoice* Choice, AActor* NPC);
+	virtual bool IsMet() const { return false; }
+	
+	virtual ~FNPCChoiceRequirement() {}
+
+	FString DEBUG_GetReqName() const { return DEBUG_RequirementName; }
+
+protected:
+	
+	AActor* GetOwningNPC() const { return OwningNPC; }
+	FNPCCombatChoice GetOwningChoice() const { return *OwningChoice; }
+
+	FString DEBUG_RequirementName = "";
+
+private:
+
+	virtual void SetupRequirement() {}
+	
+	bool bIsMet = false;
+	UPROPERTY()
+	AActor* OwningNPC = nullptr;
+	FNPCCombatChoice* OwningChoice = nullptr;
+};
+
+#pragma endregion 
 #pragma region Time In Combat
 
 USTRUCT()

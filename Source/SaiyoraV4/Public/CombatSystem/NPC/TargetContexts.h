@@ -1,7 +1,17 @@
 ﻿#pragma once
 #include "CoreMinimal.h"
-#include "NPCStructs.h"
 #include "TargetContexts.generated.h"
+
+//A struct that is intended to be inherited from to be used as FInstancedStructs for NPCs to use.
+//Indicates how to determine the "target" of a given NPC action, such as looking at a target or checking distance to a target.
+USTRUCT()
+struct FNPCTargetContext
+{
+	GENERATED_BODY()
+
+	virtual AActor* GetBestTarget(const AActor* Querier) const { return nullptr; }
+	virtual ~FNPCTargetContext() {}
+};
 
 //A context that simply returns the NPC's threat target, if one exists.
 USTRUCT()

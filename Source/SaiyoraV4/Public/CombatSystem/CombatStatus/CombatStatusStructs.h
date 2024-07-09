@@ -3,8 +3,6 @@
 #include "CombatEnums.h"
 #include "CombatStatusStructs.generated.h"
 
-class UCombatStatusComponent;
-
 USTRUCT()
 struct FPlaneStatus
 {

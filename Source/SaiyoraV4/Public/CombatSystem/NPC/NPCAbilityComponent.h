@@ -91,12 +91,19 @@ private:
 
 public:
 
+	UFUNCTION(BlueprintCallable)
+	FRotationLock LockRotation();
+	UFUNCTION(BlueprintCallable)
+	void UnlockRotation(const FRotationLock& Lock);
+
 private:
 
 	UPROPERTY(EditAnywhere, Category = "Combat", meta = (BaseStruct = "/Script/SaiyoraV4.NPCRotationBehavior", ExcludeBaseStruct))
 	FInstancedStruct DefaultRotationBehavior;
 
 	void TickRotation(const float DeltaTime);
+
+	TArray<FRotationLock> RotationLocks;
 
 #pragma endregion 
 #pragma region Query

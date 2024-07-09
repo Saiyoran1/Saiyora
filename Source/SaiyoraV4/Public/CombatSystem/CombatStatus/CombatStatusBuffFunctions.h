@@ -1,9 +1,11 @@
 ﻿#pragma once
 #include "CoreMinimal.h"
 #include "BuffFunction.h"
-#include "CombatStatusStructs.h"
 #include "CombatStatusBuffFunctions.generated.h"
 
+class UCombatStatusComponent;
+
+//A buff function that restricts plane swapping while the buff is applied.
 UCLASS()
 class SAIYORAV4_API UPlaneSwapRestrictionFunction : public UBuffFunction
 {

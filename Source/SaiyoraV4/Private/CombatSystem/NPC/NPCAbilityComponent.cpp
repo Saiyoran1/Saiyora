@@ -309,13 +309,46 @@ void UNPCAbilityComponent::OnMoveRequestFinished(FAIRequestID RequestID, const F
 #pragma endregion
 #pragma region Rotation
 
+FRotationLock UNPCAbilityComponent::LockRotation()
+{
+	const FRotationLock& NewLock = RotationLocks.Add_GetRef(FRotationLock::GenerateRotationLock());
+	return NewLock;
+}
+
+void UNPCAbilityComponent::UnlockRotation(const FRotationLock& Lock)
+{
+	RotationLocks.Remove(Lock);
+}
+
 void UNPCAbilityComponent::TickRotation(const float DeltaTime)
 {
+	//If rotation is locked, don't rotate.
+	if (RotationLocks.Num() > 0)
+	{
+		return;
+	}
 	const FNPCRotationBehavior* RotationBehavior = DefaultRotationBehavior.GetPtr<FNPCRotationBehavior>();
 	if (!RotationBehavior)
 	{
-		//TODO: How do i do thing?
+		//If we don't have a valid rotation behavior, we can just use control rotation yaw as a reasonable default.
+		if (!AIController->GetPawn()->bUseControllerRotationYaw)
+		{
+			AIController->GetPawn()->bUseControllerRotationYaw = true;
+		}
 		return;
+	}
+	//If we are using control rotation, disable that so that we can freely override rotation.
+	if (AIController->GetPawn()->bUseControllerRotationYaw)
+	{
+		AIController->GetPawn()->bUseControllerRotationYaw = false;
+	}
+	if (AIController->GetPawn()->bUseControllerRotationPitch)
+	{
+		AIController->GetPawn()->bUseControllerRotationPitch = false;
+	}
+	if (AIController->GetPawn()->bUseControllerRotationRoll)
+	{
+		AIController->GetPawn()->bUseControllerRotationRoll = false;
 	}
 	FRotator OwnerRotation = GetOwner()->GetActorRotation();
 	RotationBehavior->ModifyRotation(DeltaTime, GetOwner(), OwnerRotation);

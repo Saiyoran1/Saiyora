@@ -1,5 +1,8 @@
 ﻿#include "RotationBehaviors.h"
-#include "NPCStructs.h"
+
+#include "AIController.h"
+#include "TargetContexts.h"
+#include "Navigation/PathFollowingComponent.h"
 
 void FNPCRB_OrientToMovement::ModifyRotation(const float DeltaTime, const AActor* Actor, FRotator& OutRotation) const
 {
@@ -73,6 +76,48 @@ void FNPCRB_OrientToTarget::ModifyRotation(const float DeltaTime, const AActor* 
 		else
 		{
 			OutRotation = (TargetActor->GetActorLocation() - Actor->GetActorLocation()).Rotation();
+		}
+	}
+}
+
+void FNPCRB_OrientToPath::ModifyRotation(const float DeltaTime, const AActor* Actor, FRotator& OutRotation) const
+{
+	const APawn* ActorAsPawn = Cast<APawn>(Actor);
+	if (!IsValid(ActorAsPawn))
+	{
+		return;
+	}
+	const AAIController* Controller = Cast<AAIController>(ActorAsPawn->GetController());
+	if (!IsValid(Controller))
+	{
+		return;
+	}
+	if (!IsValid(Controller->GetPathFollowingComponent()))
+	{
+		return;
+	}
+	const FVector Direction = bOnlyYaw ? Controller->GetPathFollowingComponent()->GetCurrentDirection().GetSafeNormal2D() : Controller->GetPathFollowingComponent()->GetCurrentDirection().GetSafeNormal();
+	if (bEnforceRotationSpeed)
+	{
+		const FRotator FinalRotation = FMath::VInterpNormalRotationTo(OutRotation.Vector(), Direction, DeltaTime, MaxRotationSpeed).Rotation();
+		if (bOnlyYaw)
+		{
+			OutRotation.Yaw = FinalRotation.Yaw;
+		}
+		else
+		{
+			OutRotation = FinalRotation;
+		}
+	}
+	else
+	{
+		if (bOnlyYaw)
+		{
+			OutRotation.Yaw = Direction.Rotation().Yaw;
+		}
+		else
+		{
+			OutRotation = Direction.Rotation();
 		}
 	}
 }

@@ -41,10 +41,13 @@ void UCombatStatusComponent::InitializeComponent()
 void UCombatStatusComponent::BeginPlay()
 {
 	Super::BeginPlay();
-	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Plane Component."));
+	checkf(GetOwner()->Implements<USaiyoraCombatInterface>(), TEXT("Owner does not implement combat interface, but has Plane Component."));
+
+	//Check to see if the local player is already valid.
 	const ASaiyoraPlayerCharacter* LocalPlayer = USaiyoraCombatLibrary::GetLocalSaiyoraPlayer(this);
 	if (IsValid(LocalPlayer))
 	{
+		//If the local player is valid, we setup our name widget to face correctly toward his camera, and bind a function to update rendering when he swaps planes.
 		LocalPlayerStatusComponent = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(LocalPlayer);
 		if (IsValid(LocalPlayerStatusComponent))
 		{
@@ -54,6 +57,7 @@ void UCombatStatusComponent::BeginPlay()
 	}
 	else
 	{
+		//If the local player isn't valid, bind to the GameState to get callbacks when players are added, until we get a valid local player.
 		GameStateRef = Cast<ASaiyoraGameState>(GetWorld()->GetGameState());
 		if (!IsValid(GameStateRef))
 		{
@@ -64,6 +68,7 @@ void UCombatStatusComponent::BeginPlay()
 			GameStateRef->OnPlayerAdded.AddDynamic(this, &UCombatStatusComponent::OnPlayerAdded);
 		}
 	}
+	//Initial setting of outline and plane material and collision profile.
 	UpdateOwnerCustomRendering();
 	UpdateOwnerPlaneCollision();
 
@@ -78,6 +83,7 @@ void UCombatStatusComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 	FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+	//Face the floating name widget to the local player's camera on Tick.
 	if (IsValid(LocalPlayerCamera))
 	{
 		SetWorldRotation(UKismetMathLibrary::FindLookAtRotation(GetComponentLocation(), GetComponentLocation() - LocalPlayerCamera->GetForwardVector()));
@@ -86,6 +92,7 @@ void UCombatStatusComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 
 void UCombatStatusComponent::OnPlayerAdded(const ASaiyoraPlayerCharacter* NewPlayer)
 {
+	//If we get a valid local player, we can set up the name widget to face his camera and bind to plane swapping to update the outline and plane material.
 	if (IsValid(NewPlayer) && NewPlayer->IsLocallyControlled())
 	{
 		LocalPlayerStatusComponent = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(NewPlayer);
@@ -110,7 +117,7 @@ void UCombatStatusComponent::SetCombatName(const FName NewName)
 	}
 	const FName Previous = CombatName;
 	CombatName = NewName;
-	OnNameChanged.Broadcast(Previous, CombatName);
+	OnRep_CombatName(Previous);
 }
 
 void UCombatStatusComponent::SetupNameWidget(const ASaiyoraPlayerCharacter* LocalPlayer)
@@ -138,6 +145,7 @@ void UCombatStatusComponent::SetupNameWidget(const ASaiyoraPlayerCharacter* Loca
 
 void UCombatStatusComponent::OnCombatChanged(UThreatHandler* Combatant, const bool bNewCombat)
 {
+	//Hide the name widget while in combat, show it outside of combat.
 	if (bNewCombat)
 	{
 		GetWidget()->SetVisibility(ESlateVisibility::Collapsed);
@@ -162,11 +170,14 @@ ESaiyoraPlane UCombatStatusComponent::PlaneSwap(const bool bIgnoreRestrictions, 
 	{
 		return PlaneStatus.CurrentPlane;
 	}
-	const ESaiyoraPlane PreviousPlane = PlaneStatus.CurrentPlane;
+	const FPlaneStatus PreviousStatus = PlaneStatus;
+	//If the swap is to a specific plane, go to that plane.
 	if (bToSpecificPlane)
 	{
 		PlaneStatus.CurrentPlane = TargetPlane;
 	}
+	//Otherwise, we just go to the "opposite" of our current plane.
+	//This logic may not be desirable for Both/Neither, but we'll go with it for now.
 	else
 	{
 		switch (PlaneStatus.CurrentPlane)
@@ -188,12 +199,7 @@ ESaiyoraPlane UCombatStatusComponent::PlaneSwap(const bool bIgnoreRestrictions, 
 		}
 	}
 	PlaneStatus.LastSwapSource = Source;
-	if (PreviousPlane != PlaneStatus.CurrentPlane)
-	{
-		OnPlaneSwapped.Broadcast(PreviousPlane, PlaneStatus.CurrentPlane, Source);
-		UpdateOwnerCustomRendering();
-		UpdateOwnerPlaneCollision();
-	}
+	OnRep_PlaneStatus(PreviousStatus);
 	return PlaneStatus.CurrentPlane;
 }
 
@@ -229,8 +235,38 @@ void UCombatStatusComponent::OnRep_PlaneStatus(const FPlaneStatus& PreviousStatu
 	}
 }
 
+void UCombatStatusComponent::UpdateOwnerPlaneCollision()
+{
+	//This function specifically looks for the "Pawn" object type.
+	//This is intended to cause collision with level geometry for the actual actor. Hitboxes handle their own collision profiles.
+	TArray<UPrimitiveComponent*> Primitives;
+	GetOwner()->GetComponents<UPrimitiveComponent>(Primitives);
+	for (UPrimitiveComponent* Component : Primitives)
+	{
+		if (Component->GetCollisionObjectType() == ECC_Pawn)
+		{
+			switch (GetCurrentPlane())
+			{
+			case ESaiyoraPlane::Ancient :
+				Component->SetCollisionProfileName(FSaiyoraCollision::P_AncientPawn);
+				break;
+			case ESaiyoraPlane::Modern :
+				Component->SetCollisionProfileName(FSaiyoraCollision::P_ModernPawn);
+				break;
+			default :
+				Component->SetCollisionProfileName(FSaiyoraCollision::P_Pawn);
+			}
+		}
+	}
+}
+
+#pragma endregion
+#pragma region Rendering
+
 void UCombatStatusComponent::UpdateOwnerCustomRendering()
 {
+	//This function gets an appropriate stencil value that will correspond to the correct faction and plane relationships with the local player.
+	//It then sets all mesh components to use that stencil value and enables custom depth, to make the outline/plane material work.
 	UpdateStencilValue();
 	TArray<UMeshComponent*> Meshes;
 	GetOwner()->GetComponents<UMeshComponent>(Meshes);
@@ -261,6 +297,7 @@ void UCombatStatusComponent::UpdateStencilValue()
 	const int32 PreviousStencil = StencilValue;
 	const bool bPreviouslyUsingCustomDepth = bUseCustomDepth;
 	const bool bPreviouslyUsingDefaultID = bUsingDefaultID;
+	//If we don't have a local player or don't know our faction or plane relationship to him, don't bother trying to set a good stencil value or make the materials work.
 	if (!IsValid(LocalPlayerStatusComponent) || LocalPlayerStatusComponent == this)
 	{
 		StencilValue = DefaultStencil;
@@ -275,6 +312,7 @@ void UCombatStatusComponent::UpdateStencilValue()
 		int32 RangeEnd = DefaultStencil;
 		int32 DefaultID = DefaultStencil;
 		const bool bIsXPlane = UAbilityFunctionLibrary::IsXPlane(LocalPlayerStatusComponent->GetCurrentPlane(), GetCurrentPlane());
+		//Find the correct range of values to check from our plane and faction relationship to the local player.
 		switch (GetCurrentFaction())
 		{
 		case EFaction::Friendly :
@@ -295,8 +333,10 @@ void UCombatStatusComponent::UpdateStencilValue()
 		default :
 			break;
 		}
+		//If our current stencil value is outside the range, we need a new one.
 		if (StencilValue < RangeStart || StencilValue > RangeEnd)
 		{
+			//Check if any IDs are free within the range.
 			bool bFoundNewID = false;
 			for (int32 i = RangeStart; i <= RangeEnd; i++)
 			{
@@ -309,6 +349,10 @@ void UCombatStatusComponent::UpdateStencilValue()
 					break;
 				}
 			}
+			//If no IDs are free within the range, use the default ID for the range.
+			//The default ID will work correctly in all cases except where we overlap another actor using the same default ID, in which case outlines won't appear where the two actors overlap.
+			//This is a fairly minor problem and would require a large number of actors to all have the same plane and faction relationship to the local player while overlapping to occur.
+			//The resulting issue is visually unappealing but not gamebreaking, so this seems like a decent approach rather than trying to find a way to identify different overlapping actors within the material itself.
 			if (!bFoundNewID)
 			{
 				StencilValue = DefaultID;
@@ -316,32 +360,10 @@ void UCombatStatusComponent::UpdateStencilValue()
 			}
 		}
 	}
+	//Free up the old stencil value if we aren't using it anymore and it wasn't a default ID.
 	if (PreviousStencil != StencilValue && bPreviouslyUsingCustomDepth && StencilValues.Contains(PreviousStencil) && !bPreviouslyUsingDefaultID)
 	{
 		StencilValues.Remove(PreviousStencil);
-	}
-}
-
-void UCombatStatusComponent::UpdateOwnerPlaneCollision()
-{
-	TArray<UPrimitiveComponent*> Primitives;
-	GetOwner()->GetComponents<UPrimitiveComponent>(Primitives);
-	for (UPrimitiveComponent* Component : Primitives)
-	{
-		if (Component->GetCollisionObjectType() == ECC_Pawn)
-		{
-			switch (GetCurrentPlane())
-			{
-			case ESaiyoraPlane::Ancient :
-				Component->SetCollisionProfileName(FSaiyoraCollision::P_AncientPawn);
-				break;
-			case ESaiyoraPlane::Modern :
-				Component->SetCollisionProfileName(FSaiyoraCollision::P_ModernPawn);
-				break;
-			default :
-				Component->SetCollisionProfileName(FSaiyoraCollision::P_Pawn);
-			}
-		}
 	}
 }
 

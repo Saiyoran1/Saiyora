@@ -3,6 +3,8 @@
 #include "InstancedStruct.h"
 #include "RotationBehaviors.generated.h"
 
+//A struct intended to be inherited from for use as FInstancedStruct for NPCs.
+//Describes a basic behavior for NPC rotation during combat.
 USTRUCT()
 struct FNPCRotationBehavior
 {
@@ -22,6 +24,7 @@ struct FNPCRotationBehavior
 	virtual ~FNPCRotationBehavior() {}
 };
 
+//Causes NPCs to turn in the direction of their velocity.
 USTRUCT()
 struct FNPCRB_OrientToMovement : public FNPCRotationBehavior
 {
@@ -30,13 +33,24 @@ struct FNPCRB_OrientToMovement : public FNPCRotationBehavior
 	virtual void ModifyRotation(const float DeltaTime, const AActor* Actor, FRotator& OutRotation) const override;
 };
 
+//Causes NPCs to turn to face their target, using a target context.
 USTRUCT()
 struct FNPCRB_OrientToTarget : public FNPCRotationBehavior
 {
 	GENERATED_BODY()
 
+	//Context for what target to face toward.
 	UPROPERTY(EditAnywhere, meta = (BaseStruct = "/Script/SaiyoraV4.NPCTargetContext", ExcludeBaseStruct))
 	FInstancedStruct TargetContext;
+
+	virtual void ModifyRotation(const float DeltaTime, const AActor* Actor, FRotator& OutRotation) const override;
+};
+
+//Causes NPCs to turn in the direction of their navmesh path.
+USTRUCT()
+struct FNPCRB_OrientToPath : public FNPCRotationBehavior
+{
+	GENERATED_BODY()
 
 	virtual void ModifyRotation(const float DeltaTime, const AActor* Actor, FRotator& OutRotation) const override;
 };
