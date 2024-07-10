@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "CoreMinimal.h"
+#include "NPCAbility.h"
 #include "NPCStructs.h"
 #include "GameFramework/GameState.h"
 #include "SaiyoraGameState.generated.h"
@@ -74,9 +75,12 @@ private:
 public:
 
 	void InitTokensForAbilityClass(const TSubclassOf<UNPCAbility> AbilityClass, const FAbilityTokenCallback& TokenCallback);
-	bool RequestTokenForAbility(UNPCAbility* Ability);
-	void ReturnTokenForAbility(UNPCAbility* Ability);
-	bool IsTokenAvailableForClass(const TSubclassOf<UNPCAbility> AbilityClass) const;
+	//Request an ability token to use an ability. If bReservation is true, this will hold the token and only put it on a 1 frame cooldown if it is returned without being used.
+	bool RequestAbilityToken(const UNPCAbility* Ability, const bool bReservation = false);
+	//Returns a token so that it may be used again. Puts the token on cooldown. When freeing up a reservation that was never used, this cooldown is 1 frame.
+	void ReturnAbilityToken(const UNPCAbility* Ability);
+	//Checks whether there is either an available token, or a token already reserved for the querying ability.
+	bool IsAbilityTokenAvailable(const UNPCAbility* Ability) const;
 
 private:
 

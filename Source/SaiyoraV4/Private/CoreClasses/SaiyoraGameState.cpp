@@ -1,5 +1,4 @@
 ﻿#include "CoreClasses/SaiyoraGameState.h"
-
 #include "CombatDebugOptions.h"
 #include "Hitbox.h"
 #include "NPCAbility.h"
@@ -183,6 +182,10 @@ FTransform ASaiyoraGameState::RewindHitbox(UHitbox* Hitbox, const float Timestam
 
 void ASaiyoraGameState::InitTokensForAbilityClass(const TSubclassOf<UNPCAbility> AbilityClass, const FAbilityTokenCallback& TokenCallback)
 {
+	if (!IsValid(AbilityClass))
+	{
+		return;
+	}
 	FNPCAbilityTokens& ClassTokens = Tokens.FindOrAdd(AbilityClass);
 	//If this is the first instance of this ability class, we need to populate the array of tokens.
 	if (ClassTokens.Tokens.Num() == 0)
@@ -194,40 +197,82 @@ void ASaiyoraGameState::InitTokensForAbilityClass(const TSubclassOf<UNPCAbility>
 	ClassTokens.OnTokenAvailabilityChanged.AddUnique(TokenCallback);
 }
 
-bool ASaiyoraGameState::RequestTokenForAbility(UNPCAbility* Ability)
+bool ASaiyoraGameState::RequestAbilityToken(const UNPCAbility* Ability, const bool bReservation)
 {
+	if (!IsValid(Ability))
+	{
+		return false;
+	}
 	FNPCAbilityTokens* TokensForClass = Tokens.Find(Ability->GetClass());
 	if (!TokensForClass)
 	{
 		return false;
 	}
 	//Search to find a token that is available.
-	bool bFoundToken = false;
-	for (FNPCAbilityToken& Token : TokensForClass->Tokens)
+	bool bClaimedToken = false;
+	bool bAvailabilityChanged = false;
+	int FirstAvailableIndex = -1;
+	for (int i = 0; i < TokensForClass->Tokens.Num(); i++)
 	{
-		if (Token.bAvailable)
+		FNPCAbilityToken& Token = TokensForClass->Tokens[i];
+		//If this is a reservation, we want a token that is available.
+		if (bReservation)
 		{
-			if (!bFoundToken)
+			//TODO: Prevent multiple reservations for one ability?
+			if (Token.State == ENPCAbilityTokenState::Available)
 			{
-				//Claim this token for the instance of the ability being used.
-				Token.bAvailable = false;
+				Token.State = ENPCAbilityTokenState::Reserved;
 				Token.OwningInstance = Ability;
-				bFoundToken = true;
+				bClaimedToken = true;
 				TokensForClass->AvailableCount--;
+				bAvailabilityChanged = true;
 				break;
 			}
 		}
+		//If this is not a reservation, we can look for an existing reservation to mark as in use.
+		//If there is no existing reservation, then we can use a token that is available.
+		else
+		{
+			if (Token.State == ENPCAbilityTokenState::Reserved)
+			{
+				if (Token.OwningInstance == Ability)
+				{
+					Token.State = ENPCAbilityTokenState::InUse;
+					bClaimedToken = true;
+					break;
+				}
+			}
+			//If the token is available, save off its index so we can use it if we don't find a reservation.
+			else if (Token.State == ENPCAbilityTokenState::Available && FirstAvailableIndex == -1)
+			{
+				FirstAvailableIndex = i;
+			}
+		}
+	}
+	//If this is not a reservation, and we didn't find an existing reservation, but we found an available token, claim it here.
+	if (!bReservation && !bClaimedToken && FirstAvailableIndex != -1)
+	{
+		FNPCAbilityToken& Token = TokensForClass->Tokens[FirstAvailableIndex];
+		Token.State = ENPCAbilityTokenState::InUse;
+		Token.OwningInstance = Ability;
+		bClaimedToken = true;
+		TokensForClass->AvailableCount--;
+		bAvailabilityChanged = true;
 	}
 	//If this was the last available token, update all instances of the ability so that they become uncastable.
-	if (bFoundToken && TokensForClass->AvailableCount == 0)
+	if (bAvailabilityChanged && TokensForClass->AvailableCount == 0)
 	{
 		TokensForClass->OnTokenAvailabilityChanged.Broadcast(false);
 	}
-	return bFoundToken;
+	return bClaimedToken;
 }
 
-void ASaiyoraGameState::ReturnTokenForAbility(UNPCAbility* Ability)
+void ASaiyoraGameState::ReturnAbilityToken(const UNPCAbility* Ability)
 {
+	if (!IsValid(Ability))
+	{
+		return;
+	}
 	FNPCAbilityTokens* TokensForClass = Tokens.Find(Ability->GetClass());
 	if (!TokensForClass)
 	{
@@ -237,13 +282,12 @@ void ASaiyoraGameState::ReturnTokenForAbility(UNPCAbility* Ability)
 	for (int i = 0; i < TokensForClass->Tokens.Num(); i++)
 	{
 		FNPCAbilityToken& Token = TokensForClass->Tokens[i];
-		if (Token.OwningInstance == Ability)
+		if ((Token.State == ENPCAbilityTokenState::InUse || Token.State == ENPCAbilityTokenState::Reserved) && Token.OwningInstance == Ability)
 		{
-			Token.OwningInstance = nullptr;
-			//Place this token on cooldown. It will become usable either after 1 frame (for no cooldown) or after the cooldown time.
+			//Place this token on cooldown. It will become usable either after 1 frame (for no cooldown, or when freeing up a reservation) or after the cooldown time.
 			FTimerDelegate CooldownDelegate;
 			CooldownDelegate.BindUObject(this, &ASaiyoraGameState::FinishTokenCooldown, TSubclassOf<UNPCAbility>(Ability->GetClass()), i);
-			if (Ability->GetTokenCooldownTime() <= 0.0f)
+			if (Token.State == ENPCAbilityTokenState::Reserved || Ability->GetTokenCooldownTime() <= 0.0f)
 			{
 				GetWorld()->GetTimerManager().SetTimerForNextTick(CooldownDelegate);
 			}
@@ -251,42 +295,56 @@ void ASaiyoraGameState::ReturnTokenForAbility(UNPCAbility* Ability)
 			{
 				GetWorld()->GetTimerManager().SetTimer(Token.CooldownHandle, CooldownDelegate, Ability->GetTokenCooldownTime(), false);
 			}
+			Token.OwningInstance = nullptr;
+			Token.State = ENPCAbilityTokenState::Cooldown;
+			return;
 		}
 	}
 }
 
 void ASaiyoraGameState::FinishTokenCooldown(TSubclassOf<UNPCAbility> AbilityClass, int TokenIndex)
 {
+	if (!IsValid(AbilityClass))
+	{
+		return;
+	}
 	FNPCAbilityTokens* TokensForClass = Tokens.Find(AbilityClass);
-	if (!TokensForClass)
+	if (!TokensForClass || !TokensForClass->Tokens.IsValidIndex(TokenIndex))
 	{
 		return;
 	}
 	//Find the token this cooldown event fired for.
-	if (TokensForClass->Tokens.IsValidIndex(TokenIndex))
+	FNPCAbilityToken& Token = TokensForClass->Tokens[TokenIndex];
+	Token.State = ENPCAbilityTokenState::Available;
+	GetWorld()->GetTimerManager().ClearTimer(Token.CooldownHandle);
+	TokensForClass->AvailableCount++;
+	//If this is the only (newly) available token, alert ability instances so they can become castable.
+	if (TokensForClass->AvailableCount == 1)
 	{
-		FNPCAbilityToken& Token = TokensForClass->Tokens[TokenIndex];
-		Token.bAvailable = true;
-		GetWorld()->GetTimerManager().ClearTimer(Token.CooldownHandle);
-		TokensForClass->AvailableCount++;
-		//If this is the only (newly) available token, alert ability instances so they can become castable.
-		if (TokensForClass->AvailableCount == 1)
-		{
-			TokensForClass->OnTokenAvailabilityChanged.Broadcast(true);
-		}
+		TokensForClass->OnTokenAvailabilityChanged.Broadcast(true);
 	}
 }
 
-bool ASaiyoraGameState::IsTokenAvailableForClass(const TSubclassOf<UNPCAbility> AbilityClass) const
+bool ASaiyoraGameState::IsAbilityTokenAvailable(const UNPCAbility* Ability) const
 {
-	const FNPCAbilityTokens* TokensForClass = Tokens.Find(AbilityClass);
+	if (!IsValid(Ability))
+	{
+		return false;
+	}
+	const FNPCAbilityTokens* TokensForClass = Tokens.Find(Ability->GetClass());
 	if (!TokensForClass)
 	{
 		return false;
 	}
+	//If any tokens are freely available, return true.
+	if (TokensForClass->AvailableCount > 0)
+	{
+		return true;
+	}
+	//If all tokens are in use or reserved, check to see if any of the tokens were reserved for this ability.
 	for (const FNPCAbilityToken& Token : TokensForClass->Tokens)
 	{
-		if (Token.bAvailable)
+		if (Token.State == ENPCAbilityTokenState::Reserved && Token.OwningInstance == Ability)
 		{
 			return true;
 		}

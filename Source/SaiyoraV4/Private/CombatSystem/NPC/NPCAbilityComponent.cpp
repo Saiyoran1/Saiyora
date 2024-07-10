@@ -41,8 +41,6 @@ void UNPCAbilityComponent::BeginPlay()
 	checkf(IsValid(OwnerAsPawn), TEXT("NPC Ability Component's owner was not a valid pawn."));
 	DungeonGameStateRef = Cast<ADungeonGameState>(GetGameStateRef());
 	checkf(IsValid(DungeonGameStateRef), TEXT("Got an invalid Game State Ref in NPC Ability Component."));
-	
-	OnCastStateChanged.AddDynamic(this, &UNPCAbilityComponent::UpdateAbilityTokensOnCastStateChanged);
 
 	OwnerAsPawn->ReceiveControllerChangedDelegate.AddDynamic(this, &UNPCAbilityComponent::OnControllerChanged);
 	DungeonGameStateRef->OnDungeonPhaseChanged.AddDynamic(this, &UNPCAbilityComponent::OnDungeonPhaseChanged);
@@ -385,7 +383,6 @@ void UNPCAbilityComponent::RunQuery()
 {
 	if (!IsValid(CurrentQuery))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Invalid query."));
 		QueryID = INDEX_NONE;
 		return;
 	}
@@ -403,13 +400,7 @@ void UNPCAbilityComponent::RunQuery()
 	QueryID = Request.Execute(EEnvQueryRunMode::SingleResult, this, &UNPCAbilityComponent::OnQueryFinished);
 	if (QueryID == INDEX_NONE)
 	{
-		const float RetryDelay = GetQueryRetryDelay();
-		UE_LOG(LogTemp, Warning, TEXT("Query failed to run, re-trying in %s seconds."), *FString::SanitizeFloat(RetryDelay));
-		GetWorld()->GetTimerManager().SetTimer(QueryRetryHandle, this, &UNPCAbilityComponent::RunQuery, RetryDelay);
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Running query %i, state %s."), QueryID, *UEnum::GetDisplayValueAsText(CombatBehavior).ToString());
+		GetWorld()->GetTimerManager().SetTimer(QueryRetryHandle, this, &UNPCAbilityComponent::RunQuery, GetQueryRetryDelay());
 	}
 }
 
@@ -490,7 +481,6 @@ void UNPCAbilityComponent::TrySelectNewChoice()
 {
 	bWaitingOnMovementStop = false;
 	QueuedChoiceIdx = -1;
-	UE_LOG(LogTemp, Warning, TEXT("Trying to select choice."));
 	if (GetWorld()->GetTimerManager().IsTimerActive(ChoiceRetryHandle))
 	{
 		GetWorld()->GetTimerManager().ClearTimer(ChoiceRetryHandle);
@@ -512,13 +502,10 @@ void UNPCAbilityComponent::TrySelectNewChoice()
 		GetWorld()->GetTimerManager().SetTimer(ChoiceRetryHandle, this, &UNPCAbilityComponent::TrySelectNewChoice, ChoiceRetryDelay);
 		return;
 	}
-	
-	UE_LOG(LogTemp, Warning, TEXT("Choice made: %i, %s."), ChoiceIdx, *CombatPriority[ChoiceIdx].DEBUG_GetDisplayName());
 
-	const UCombatAbility* AbilityInstance = FindActiveAbility(CombatPriority[ChoiceIdx].GetAbilityClass());
+	UNPCAbility* AbilityInstance = Cast<UNPCAbility>(FindActiveAbility(CombatPriority[ChoiceIdx].GetAbilityClass()));
 	if (!IsValid(AbilityInstance))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Choice %i (%s) could not get a valid ability instance."), ChoiceIdx, *CombatPriority[ChoiceIdx].DEBUG_GetDisplayName());
 		//If we failed to find a valid choice, we will try again in a bit.
 		GetWorld()->GetTimerManager().SetTimer(ChoiceRetryHandle, this, &UNPCAbilityComponent::TrySelectNewChoice, ChoiceRetryDelay);
 		return;
@@ -529,6 +516,18 @@ void UNPCAbilityComponent::TrySelectNewChoice()
 		//If we're moving, and we don't want to be, we have to wait for the movement component to finish moving before using the ability.
 		if (MovementComponentRef->IsMoving())
 		{
+			//Since we have to wait before using the ability, we will reserve the ability token so no other NPCs can use it while we're waiting.
+			if (AbilityInstance->UsesTokens())
+			{
+				const bool bGotToken = GameStateRef->RequestAbilityToken(AbilityInstance, true);
+				if (!bGotToken)
+				{
+					//If we failed to get a token for the ability, we will try again in a bit.
+					GetWorld()->GetTimerManager().SetTimer(ChoiceRetryHandle, this, &UNPCAbilityComponent::TrySelectNewChoice, ChoiceRetryDelay);
+					return;
+				}
+				PossessedToken = AbilityInstance;
+			}
 			bWaitingOnMovementStop = true;
 			QueuedChoiceIdx = ChoiceIdx;
 			MovementComponentRef->OnMovementChanged.AddDynamic(this, &UNPCAbilityComponent::TryUseQueuedAbility);
@@ -536,7 +535,6 @@ void UNPCAbilityComponent::TrySelectNewChoice()
 		}
 	}
 	const FAbilityEvent AbilityEvent = UseAbility(CombatPriority[ChoiceIdx].GetAbilityClass());
-	UE_LOG(LogTemp, Warning, TEXT("Cast ability %s, result was %s."), *AbilityInstance->GetAbilityName().ToString(), *UEnum::GetDisplayValueAsText(AbilityEvent.ActionTaken).ToString());
 	if (AbilityEvent.ActionTaken == ECastAction::Success && AbilityInstance->GetCastType() == EAbilityCastType::Channel)
 	{
 		//Bind to the cast end delegate so that we can select a new choice when this ability ends.
@@ -559,6 +557,11 @@ void UNPCAbilityComponent::TryUseQueuedAbility(AActor* Actor, const bool bNewMov
 	MovementComponentRef->OnMovementChanged.RemoveDynamic(this, &UNPCAbilityComponent::TryUseQueuedAbility);
 	if (!bWaitingOnMovementStop)
 	{
+		if (IsValid(PossessedToken))
+		{
+			GameStateRef->ReturnAbilityToken(PossessedToken);
+			PossessedToken = nullptr;
+		}
 		return;
 	}
 	const int Idx = QueuedChoiceIdx;
@@ -572,7 +575,6 @@ void UNPCAbilityComponent::TryUseQueuedAbility(AActor* Actor, const bool bNewMov
 	const FNPCCombatChoice& Choice = CombatPriority[Idx];
 	const FAbilityEvent AbilityEvent = UseAbility(Choice.GetAbilityClass());
 	const UCombatAbility* AbilityInstance = FindActiveAbility(Choice.GetAbilityClass());
-	UE_LOG(LogTemp, Warning, TEXT("Cast ability %s, result was %s."), *AbilityInstance->GetAbilityName().ToString(), *UEnum::GetDisplayValueAsText(AbilityEvent.ActionTaken).ToString());
 	if (AbilityEvent.ActionTaken == ECastAction::Success && AbilityInstance->GetCastType() == EAbilityCastType::Channel)
 	{
 		//Bind to the cast end delegate so that we can select a new choice when this ability ends.
@@ -580,6 +582,12 @@ void UNPCAbilityComponent::TryUseQueuedAbility(AActor* Actor, const bool bNewMov
 	}
 	else
 	{
+		//If the ability failed to cast, we need to return the ability token we had reserved.
+		if (AbilityEvent.ActionTaken == ECastAction::Fail && IsValid(PossessedToken))
+		{
+			GameStateRef->ReturnAbilityToken(PossessedToken);
+			PossessedToken = nullptr;
+		}
 		//After casting this ability, we'll select another choice in a little bit.
 		GetWorld()->GetTimerManager().SetTimer(ChoiceRetryHandle, this, &UNPCAbilityComponent::TrySelectNewChoice, ChoiceRetryDelay);
 		SetWantsToMove(true);
@@ -590,7 +598,6 @@ void UNPCAbilityComponent::EndChoiceOnCastStateChanged(const FCastingState& Prev
 {
 	if (!New.bIsCasting)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Cast ended (%s), re-selecting in %s seconds."), *Previous.CurrentCast->GetAbilityName().ToString(), *FString::SanitizeFloat(ChoiceRetryDelay));
 		OnCastStateChanged.RemoveDynamic(this, &UNPCAbilityComponent::EndChoiceOnCastStateChanged);
 		GetWorld()->GetTimerManager().SetTimer(ChoiceRetryHandle, this, &UNPCAbilityComponent::TrySelectNewChoice, ChoiceRetryDelay);
 		SetWantsToMove(true);
@@ -600,6 +607,12 @@ void UNPCAbilityComponent::EndChoiceOnCastStateChanged(const FCastingState& Prev
 void UNPCAbilityComponent::LeaveCombatState()
 {
 	SetComponentTickEnabled(false);
+	//If we had reserved a token for an ability, release the token so other NPCs can use it.
+	if (IsValid(PossessedToken))
+	{
+		GameStateRef->ReturnAbilityToken(PossessedToken);
+		PossessedToken = nullptr;
+	}
 	bWaitingOnMovementStop = false;
 	QueuedChoiceIdx = -1;
 	if (IsCasting())
@@ -703,7 +716,6 @@ void UNPCAbilityComponent::MoveToNextPatrolPoint()
 	}
 	else
 	{
-		UE_LOG(LogTemp, Warning, TEXT("NPC %s had an invalid AI Controller when trying to patrol. Ending patrol."), *GetOwner()->GetName());
 		FinishPatrol();
 	}
 }
@@ -840,12 +852,9 @@ void UNPCAbilityComponent::EnterResetState()
 			bNeedsReset = false;
 			UpdateCombatBehavior();
 		}
-		//If the path following result failed, log an error and move to the next point.
+		//If the path following result failed, move to the next point.
 		else
 		{
-			UE_LOG(LogTemp, Warning, TEXT("NPC %s failed to path to reset goal. Result: %s. Teleporting."),
-				*GetOwner()->GetName(), *UEnum::GetDisplayValueAsText(RequestResult.Code).ToString());
-			
 			GetOwner()->SetActorLocation(ResetGoal);
 			bNeedsReset = false;
 			UpdateCombatBehavior();
@@ -859,34 +868,3 @@ void UNPCAbilityComponent::LeaveResetState()
 }
 
 #pragma endregion 
-#pragma region Tokens
-
-void UNPCAbilityComponent::UpdateAbilityTokensOnCastStateChanged(const FCastingState& PreviousState, const FCastingState& NewState)
-{
-	//If this was the start of a cast, and the ability being used is an NPCAbility that requires tokens,
-	//then we should request a token.
-	if (!PreviousState.bIsCasting && NewState.bIsCasting)
-	{
-		UNPCAbility* NPCAbility = Cast<UNPCAbility>(NewState.CurrentCast);
-		if (IsValid(NPCAbility) && NPCAbility->UsesTokens())
-		{
-			const bool bGotToken = GetGameStateRef()->RequestTokenForAbility(NPCAbility);
-			if (!bGotToken)
-			{
-				UE_LOG(LogTemp, Error, TEXT("Ability %s used even though no token was available!"), *NPCAbility->GetName());
-			}
-		}
-	}
-	//If this was the end of a cast, and the ability being cast was an NPCAbility that requires tokens,
-	//then we should return the token.
-	else if (PreviousState.bIsCasting && !NewState.bIsCasting)
-	{
-		UNPCAbility* NPCAbility = Cast<UNPCAbility>(PreviousState.CurrentCast);
-		if (IsValid(NPCAbility) && NPCAbility->UsesTokens())
-		{
-			GetGameStateRef()->ReturnTokenForAbility(NPCAbility);
-		}
-	}
-}
-
-#pragma endregion

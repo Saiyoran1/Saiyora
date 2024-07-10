@@ -19,3 +19,12 @@ enum class ENPCPatrolSubstate : uint8
 	WaitingAtPoint,
 	PatrolFinished
 };
+
+UENUM(BlueprintType)
+enum class ENPCAbilityTokenState : uint8
+{
+	Available,
+	Reserved,
+	InUse,
+	Cooldown
+};

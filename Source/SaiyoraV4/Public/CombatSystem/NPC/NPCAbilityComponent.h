@@ -177,6 +177,9 @@ private:
 	UFUNCTION()
 	void TryUseQueuedAbility(AActor* Actor, const bool bNewMovement);
 
+	UPROPERTY()
+	UNPCAbility* PossessedToken = nullptr;
+
 #pragma endregion 
 #pragma region Patrolling
 
@@ -246,14 +249,6 @@ private:
 
 	//If we are further than this away from our reset goal, we will teleport instead of pathing back.
 	static constexpr float ResetTeleportDistance = 2000.0f;
-
-#pragma endregion
-#pragma region Tokens
-
-private:
-
-	UFUNCTION()
-	void UpdateAbilityTokensOnCastStateChanged(const FCastingState& PreviousState, const FCastingState& NewState);
 
 #pragma endregion
 };

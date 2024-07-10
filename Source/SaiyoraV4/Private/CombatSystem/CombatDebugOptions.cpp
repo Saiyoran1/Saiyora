@@ -34,25 +34,31 @@ void UCombatDebugOptions::DisplayTokenInfo(const TMap<TSubclassOf<UNPCAbility>, 
 	{
 		const FString AbilityName = TokenInfo.Key->GetName();
 		int Available = 0;
+		int Reserved = 0;
 		int InUse = 0;
 		int OnCooldown = 0;
 		for (const FNPCAbilityToken& Token : TokenInfo.Value.Tokens)
 		{
-			if (Token.bAvailable)
+			switch (Token.State)
 			{
+			case ENPCAbilityTokenState::Available :
 				Available++;
-			}
-			else if (IsValid(Token.OwningInstance))
-			{
+				break;
+			case ENPCAbilityTokenState::Reserved :
+				Reserved++;
+				break;
+			case ENPCAbilityTokenState::InUse :
 				InUse++;
-			}
-			else
-			{
+				break;
+			case ENPCAbilityTokenState::Cooldown :
 				OnCooldown++;
+				break;
+			default :
+				break;
 			}
 		}
-		GEngine->AddOnScreenDebugMessage(INDEX_NONE, -1.0f, FColor::Blue, FString::Printf(
-			L"%s: Available: %i, In Use: %i, On Cooldown: %i", *AbilityName, Available, InUse, OnCooldown));
+		GEngine->AddOnScreenDebugMessage(INDEX_NONE, -1.0f, FColor::Cyan, FString::Printf(
+			L"%s: Available: %i, Reserved: %i, In Use: %i, On Cooldown: %i", *AbilityName, Available, Reserved, InUse, OnCooldown));
 	}
 }
 

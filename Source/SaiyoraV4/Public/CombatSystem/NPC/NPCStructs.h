@@ -93,10 +93,13 @@ struct FNPCAbilityToken
 {
 	GENERATED_BODY()
 
-	bool bAvailable = true;
+	//Whether the token is available, reserved for upcoming usage, currently being used, or on cooldown.
+	ENPCAbilityTokenState State = ENPCAbilityTokenState::Available;
+	//Timer handle for the token's cooldown, after it has been returned.
 	FTimerHandle CooldownHandle;
+	//The ability currently using this token. Only valid while the token is in use.
 	UPROPERTY()
-	UNPCAbility* OwningInstance = nullptr;
+	const UNPCAbility* OwningInstance = nullptr;
 };
 
 USTRUCT()

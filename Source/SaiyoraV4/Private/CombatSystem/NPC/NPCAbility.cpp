@@ -28,14 +28,14 @@ void UNPCAbility::OnServerTick_Implementation(const int32 TickNumber)
 	if (bUseTokens && IsValid(GameStateRef) && CastType == EAbilityCastType::Instant)
 	{
 		//Request a token for this ability use, so that other instances of this ability won't be castable.
-		const bool bGotToken = GameStateRef->RequestTokenForAbility(this);
+		const bool bGotToken = GameStateRef->RequestAbilityToken(this);
 		if (!bGotToken)
 		{
 			UE_LOG(LogTemp, Error, TEXT("Ability %s was used even though no token was available!"), *GetName());
 			return;
 		}
 		//Since this is an instant ability, we can instantly return the token. We only took it to start its cooldown.
-		GameStateRef->ReturnTokenForAbility(this);
+		GameStateRef->ReturnAbilityToken(this);
 	}
 }
 
@@ -45,7 +45,7 @@ void UNPCAbility::AdditionalCastableUpdate(TArray<ECastFailReason>& AdditionalFa
 
 	if (bUseTokens && IsValid(GameStateRef))
 	{
-		if (!GameStateRef->IsTokenAvailableForClass(GetClass()))
+		if (!GameStateRef->IsAbilityTokenAvailable(this))
 		{
 			AdditionalFailReasons.AddUnique(ECastFailReason::Token);
 		}
