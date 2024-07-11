@@ -8,6 +8,7 @@
 #include "EnvironmentQuery/EnvQueryManager.h"
 #include "NPCAbilityComponent.generated.h"
 
+class UNPCSubsystem;
 class ACombatLink;
 class UBehaviorTree;
 class UThreatHandler;
@@ -46,6 +47,8 @@ private:
 	ADungeonGameState* DungeonGameStateRef = nullptr;
 	UPROPERTY()
 	UThreatHandler* ThreatHandlerRef = nullptr;
+	UPROPERTY()
+	UNPCSubsystem* NPCSubsystemRef = nullptr;
 
 	UPROPERTY(ReplicatedUsing=OnRep_CombatBehavior)
 	ENPCCombatBehavior CombatBehavior = ENPCCombatBehavior::None;

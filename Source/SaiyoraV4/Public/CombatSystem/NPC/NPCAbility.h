@@ -4,7 +4,7 @@
 #include "NPCStructs.h"
 #include "NPCAbility.generated.h"
 
-class ASaiyoraGameState;
+class UNPCSubsystem;
 class UCombatGroup;
 class UThreatHandler;
 
@@ -22,9 +22,9 @@ protected:
 	virtual void AdditionalCastableUpdate(TArray<ECastFailReason>& AdditionalFailReasons) override;
 
 private:
-
+	
 	UPROPERTY()
-	ASaiyoraGameState* GameStateRef = nullptr;
+	UNPCSubsystem* NPCSubsystemRef = nullptr;
 
 #pragma endregion
 #pragma region Tokens

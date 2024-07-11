@@ -1,6 +1,5 @@
 ﻿#include "Test_ClaimedLocations.h"
-
-#include "DungeonGameState.h"
+#include "NPCSubsystem.h"
 #include "EnvironmentQuery/Items/EnvQueryItemType_VectorBase.h"
 
 UTest_ClaimedLocations::UTest_ClaimedLocations()
@@ -27,8 +26,8 @@ void UTest_ClaimedLocations::RunTest(FEnvQueryInstance& QueryInstance) const
 	{
 		return;
 	}
-	const ADungeonGameState* GameState = Cast<ADungeonGameState>(OwnerActor->GetWorld()->GetGameState());
-	if (!IsValid(GameState))
+	const UNPCSubsystem* NPCSubsystem = QueryOwner->GetWorld()->GetSubsystem<UNPCSubsystem>();
+	if (!IsValid(NPCSubsystem))
 	{
 		return;
 	}
@@ -42,7 +41,7 @@ void UTest_ClaimedLocations::RunTest(FEnvQueryInstance& QueryInstance) const
 	for (FEnvQueryInstance::ItemIterator It(this, QueryInstance); It; ++It)
 	{
 		const FVector Location = GetItemLocation(QueryInstance, It.GetIndex());
-		const float Score = GameState->GetScorePenaltyForLocation(OwnerActor, Location);
+		const float Score = NPCSubsystem->GetScorePenaltyForLocation(OwnerActor, Location);
 		It.SetScore(TestPurpose, FilterType, Score, MinThresholdValue, MaxThresholdValue);
 	}
 }

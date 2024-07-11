@@ -2,6 +2,7 @@
 #include "CombatLink.h"
 #include "DamageHandler.h"
 #include "NPCAbility.h"
+#include "NPCSubsystem.h"
 #include "PatrolRoute.h"
 #include "RotationBehaviors.h"
 #include "SaiyoraCombatInterface.h"
@@ -41,6 +42,8 @@ void UNPCAbilityComponent::BeginPlay()
 	checkf(IsValid(OwnerAsPawn), TEXT("NPC Ability Component's owner was not a valid pawn."));
 	DungeonGameStateRef = Cast<ADungeonGameState>(GetGameStateRef());
 	checkf(IsValid(DungeonGameStateRef), TEXT("Got an invalid Game State Ref in NPC Ability Component."));
+	NPCSubsystemRef = GetWorld()->GetSubsystem<UNPCSubsystem>();
+	checkf(IsValid(NPCSubsystemRef), TEXT("Invalid NPCSubsystem ref in NPC Ability Component."));
 
 	OwnerAsPawn->ReceiveControllerChangedDelegate.AddDynamic(this, &UNPCAbilityComponent::OnControllerChanged);
 	DungeonGameStateRef->OnDungeonPhaseChanged.AddDynamic(this, &UNPCAbilityComponent::OnDungeonPhaseChanged);
@@ -178,9 +181,9 @@ void UNPCAbilityComponent::SetMoveGoal(const FVector& Location)
 
 	CurrentMoveLocation = Location;
 	bHasValidMoveLocation = true;
-	if (CombatBehavior == ENPCCombatBehavior::Combat && IsValid(DungeonGameStateRef))
+	if (CombatBehavior == ENPCCombatBehavior::Combat)
 	{
-		DungeonGameStateRef->ClaimLocation(GetOwner(), CurrentMoveLocation);
+		NPCSubsystemRef->ClaimLocation(GetOwner(), CurrentMoveLocation);
 	}
 
 	if (bWantsToMove)
@@ -456,10 +459,7 @@ void UNPCAbilityComponent::AbortActiveQuery()
 void UNPCAbilityComponent::EnterCombatState()
 {
 	SetComponentTickEnabled(true);
-	if (IsValid(DungeonGameStateRef))
-	{
-		DungeonGameStateRef->ClaimLocation(GetOwner(), GetOwner()->GetActorLocation());
-	}
+	NPCSubsystemRef->ClaimLocation(GetOwner(), GetOwner()->GetActorLocation());
 	InitCombatChoices();
 	if (CombatPriority.Num() > 0)
 	{
@@ -519,7 +519,7 @@ void UNPCAbilityComponent::TrySelectNewChoice()
 			//Since we have to wait before using the ability, we will reserve the ability token so no other NPCs can use it while we're waiting.
 			if (AbilityInstance->UsesTokens())
 			{
-				const bool bGotToken = GameStateRef->RequestAbilityToken(AbilityInstance, true);
+				const bool bGotToken = NPCSubsystemRef->RequestAbilityToken(AbilityInstance, true);
 				if (!bGotToken)
 				{
 					//If we failed to get a token for the ability, we will try again in a bit.
@@ -559,7 +559,7 @@ void UNPCAbilityComponent::TryUseQueuedAbility(AActor* Actor, const bool bNewMov
 	{
 		if (IsValid(PossessedToken))
 		{
-			GameStateRef->ReturnAbilityToken(PossessedToken);
+			NPCSubsystemRef->ReturnAbilityToken(PossessedToken);
 			PossessedToken = nullptr;
 		}
 		return;
@@ -585,7 +585,7 @@ void UNPCAbilityComponent::TryUseQueuedAbility(AActor* Actor, const bool bNewMov
 		//If the ability failed to cast, we need to return the ability token we had reserved.
 		if (AbilityEvent.ActionTaken == ECastAction::Fail && IsValid(PossessedToken))
 		{
-			GameStateRef->ReturnAbilityToken(PossessedToken);
+			NPCSubsystemRef->ReturnAbilityToken(PossessedToken);
 			PossessedToken = nullptr;
 		}
 		//After casting this ability, we'll select another choice in a little bit.
@@ -610,7 +610,7 @@ void UNPCAbilityComponent::LeaveCombatState()
 	//If we had reserved a token for an ability, release the token so other NPCs can use it.
 	if (IsValid(PossessedToken))
 	{
-		GameStateRef->ReturnAbilityToken(PossessedToken);
+		NPCSubsystemRef->ReturnAbilityToken(PossessedToken);
 		PossessedToken = nullptr;
 	}
 	bWaitingOnMovementStop = false;
@@ -630,10 +630,7 @@ void UNPCAbilityComponent::LeaveCombatState()
 	{
 		GetWorld()->GetTimerManager().ClearTimer(ChoiceRetryHandle);
 	}
-	if (IsValid(DungeonGameStateRef))
-	{
-		DungeonGameStateRef->FreeLocation(GetOwner());
-	}
+	NPCSubsystemRef->FreeLocation(GetOwner());
 }
 
 #pragma endregion
