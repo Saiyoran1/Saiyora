@@ -468,13 +468,40 @@ void UCombatAbility::UpdateCostFromReplication(const FAbilityCost& Cost, const b
 #pragma endregion
 #pragma region Functionality
 
+void UCombatAbility::PredictedNoTickCastStart(const int32 PredictionID)
+{
+    CurrentPredictionID = PredictionID;
+    OnPredictedCastStart();
+    CurrentPredictionID = 0;
+}
+
+void UCombatAbility::ServerNoTickCastStart(const int32 PredictionID)
+{
+    CurrentPredictionID = PredictionID;
+    OnServerCastStart();
+    CurrentPredictionID = 0;
+}
+
+void UCombatAbility::SimulatedNoTickCastStart()
+{
+    OnSimulatedCastStart();
+}
+
 void UCombatAbility::PredictedTick(const int32 TickNumber, FAbilityOrigin& Origin, TArray<FAbilityTargetSet>& Targets, const int32 PredictionID)
 {
     CurrentPredictionID = PredictionID;
     CurrentTick = TickNumber;
     CurrentTargets.Empty();
     AbilityOrigin = Origin;
+    if (TickNumber == 0)
+    {
+        OnPredictedCastStart();
+    }
     OnPredictedTick(TickNumber);
+    if (CastType == EAbilityCastType::Instant || TickNumber >= NonInitialTicks)
+    {
+        OnPredictedCastEnd();
+    }
     Origin = AbilityOrigin;
     AbilityOrigin.Clear();
     Targets = CurrentTargets;
@@ -489,7 +516,15 @@ void UCombatAbility::ServerTick(const int32 TickNumber, FAbilityOrigin& Origin, 
     CurrentTick = TickNumber;
     CurrentTargets = Targets;
     AbilityOrigin = Origin;
+    if (TickNumber == 0)
+    {
+        OnServerCastStart();
+    }
     OnServerTick(TickNumber);
+    if (CastType == EAbilityCastType::Instant || TickNumber >= NonInitialTicks)
+    {
+        OnServerCastEnd();
+    }
     Origin = AbilityOrigin;
     AbilityOrigin.Clear();
     Targets = CurrentTargets;
@@ -503,7 +538,15 @@ void UCombatAbility::SimulatedTick(const int32 TickNumber, const FAbilityOrigin&
     CurrentTick = TickNumber;
     CurrentTargets = Targets;
     AbilityOrigin = Origin;
+    if (TickNumber == 0)
+    {
+        OnSimulatedCastStart();
+    }
     OnSimulatedTick(TickNumber);
+    if (CastType == EAbilityCastType::Instant || TickNumber >= NonInitialTicks)
+    {
+        OnSimulatedCastEnd();
+    }
     AbilityOrigin.Clear();
     CurrentTargets.Empty();
     CurrentTick = 0;
@@ -515,6 +558,7 @@ void UCombatAbility::PredictedCancel(FAbilityOrigin& Origin, TArray<FAbilityTarg
     CurrentTargets.Empty();
     AbilityOrigin = Origin;
     OnPredictedCancel();
+    OnPredictedCastEnd();
     Origin = AbilityOrigin;
     AbilityOrigin.Clear();
     Targets = CurrentTargets;
@@ -528,6 +572,7 @@ void UCombatAbility::ServerCancel(FAbilityOrigin& Origin, TArray<FAbilityTargetS
     CurrentTargets = Targets;
     AbilityOrigin = Origin;
     OnServerCancel();
+    OnServerCastEnd();
     Origin = AbilityOrigin;
     AbilityOrigin.Clear();
     Targets = CurrentTargets;
@@ -540,6 +585,7 @@ void UCombatAbility::SimulatedCancel(const FAbilityOrigin& Origin, const TArray<
     CurrentTargets = Targets;
     AbilityOrigin = Origin;
     OnSimulatedCancel();
+    OnSimulatedCastEnd();
     AbilityOrigin.Clear();
     CurrentTargets.Empty();
 }
@@ -547,11 +593,20 @@ void UCombatAbility::SimulatedCancel(const FAbilityOrigin& Origin, const TArray<
 void UCombatAbility::ServerInterrupt(const FInterruptEvent& InterruptEvent)
 {
     OnServerInterrupt(InterruptEvent);
+    OnServerCastEnd();
 }
 
 void UCombatAbility::SimulatedInterrupt(const FInterruptEvent& InterruptEvent)
 {
     OnSimulatedInterrupt(InterruptEvent);
+    OnSimulatedCastEnd();
+}
+
+void UCombatAbility::MispredictedCastEnd(const int PredictionID)
+{
+    CurrentPredictionID = PredictionID;
+    OnPredictedCastEnd();
+    CurrentPredictionID = 0;
 }
 
 void UCombatAbility::UpdatePredictionFromServer(const FServerAbilityResult& Result)
@@ -873,12 +928,9 @@ void UCombatAbility::UpdateCastable()
     //Virtual call for NPCAbility (or any other derived ability class) to add additional fail reasons.
     TArray<ECastFailReason> AdditionalFailReasons;
     AdditionalCastableUpdate(AdditionalFailReasons);
-    if (AdditionalFailReasons.Num() > 0)
+    for (const ECastFailReason FailReason : AdditionalFailReasons)
     {
-        for (const ECastFailReason FailReason : AdditionalFailReasons)
-        {
-            CastFailReasons.AddUnique(FailReason);
-        }
+        CastFailReasons.AddUnique(FailReason);
     }
     
     if (PreviousFailReasons != CastFailReasons)

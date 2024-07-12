@@ -14,10 +14,12 @@ class SAIYORAV4_API UNPCSubsystem : public UTickableWorldSubsystem
 	GENERATED_BODY()
 	
 public:
-	
-	virtual bool ShouldCreateSubsystem(UObject* Outer) const override;
+
+	//This function gives the subsystem a category for logging, but more importantly, the game crashes if this function isn't implemented.
+	virtual TStatId GetStatId() const override;
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
 	virtual void Tick(float DeltaTime) override;
+	
 
 private:
 
@@ -59,5 +61,5 @@ private:
 	UFUNCTION()
 	void FinishTokenCooldown(const TSubclassOf<UNPCAbility> AbilityClass, const int TokenIndex);
 
-#pragma endregion 
+#pragma endregion
 };

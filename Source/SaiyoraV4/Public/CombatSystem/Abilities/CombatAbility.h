@@ -366,20 +366,50 @@ private:
 
 public:
 
+    //Gets the prediction ID of the current cast. Only valid during an ability's tick functions.
+    //Used by systems that need to associate a prediction ID with some outside object for net sync, like projectiles or root motion handlers.
     int32 GetPredictionID() const { return CurrentPredictionID; }
+    //Gets the tick number of the current cast. Only valid during an ability's tick functions.
+    //Used by systems that need to associate a prediction ID with some outside object for net sync, like projectiles or root motion handlers.
     int32 GetCurrentTick() const { return CurrentTick; }
+    
+    //Called when starting a cast for a channeled ability with no initial tick.
+    //OnPredictedCastStart will be called inside PredictedTick for instant abilities or abilities with an initial tick.
+    void PredictedNoTickCastStart(const int32 PredictionID = 0);
+    //Called when starting a cast for a channeled ability with no initial tick.
+    //OnServerCastStart will be called inside ServerTick for instant abilities or abilities with an initial tick.
+    void ServerNoTickCastStart(const int32 PredictionID = 0);
+    //Called when starting a cast for a channeled ability with no initial tick.
+    //OnSimulatedCastStart will be called inside SimulatedTick for instant abilities or abilities with an initial tick.
+    void SimulatedNoTickCastStart();
+    
     void PredictedTick(const int32 TickNumber, FAbilityOrigin& Origin, TArray<FAbilityTargetSet>& Targets, const int32 PredictionID = 0);
     void ServerTick(const int32 TickNumber, FAbilityOrigin& Origin, TArray<FAbilityTargetSet>& Targets, const int32 PredictionID = 0);
     void SimulatedTick(const int32 TickNumber, const FAbilityOrigin& Origin, const TArray<FAbilityTargetSet>& Targets);
+    
     void PredictedCancel(FAbilityOrigin& Origin, TArray<FAbilityTargetSet>& Targets, const int32 PredictionID = 0);
     void ServerCancel(FAbilityOrigin& Origin, TArray<FAbilityTargetSet>& Targets, const int32 PredictionID = 0);
     void SimulatedCancel(const FAbilityOrigin& Origin, const TArray<FAbilityTargetSet>& Targets);
+    
     void ServerInterrupt(const FInterruptEvent& InterruptEvent);
     void SimulatedInterrupt(const FInterruptEvent& InterruptEvent);
+
+    //Called on the auto proxy when ending a cast early due to misprediction.
+    void MispredictedCastEnd(const int32 PredictionID = 0);
+    
     void UpdatePredictionFromServer(const FServerAbilityResult& Result);
     
 protected:
 
+    UFUNCTION(BlueprintNativeEvent)
+    void OnPredictedCastStart();
+    virtual void OnPredictedCastStart_Implementation() {}
+    UFUNCTION(BlueprintNativeEvent)
+    void OnServerCastStart();
+    virtual void OnServerCastStart_Implementation() {}
+    UFUNCTION(BlueprintNativeEvent)
+    void OnSimulatedCastStart();
+    virtual void OnSimulatedCastStart_Implementation() {}
     UFUNCTION(BlueprintNativeEvent)
     void OnPredictedTick(const int32 TickNumber);
     virtual void OnPredictedTick_Implementation(const int32 TickNumber) {}
@@ -404,6 +434,15 @@ protected:
     UFUNCTION(BlueprintNativeEvent)
     void OnSimulatedInterrupt(const FInterruptEvent& InterruptEvent);
     virtual void OnSimulatedInterrupt_Implementation(const FInterruptEvent& InterruptEvent) {}
+    UFUNCTION(BlueprintNativeEvent)
+    void OnPredictedCastEnd();
+    virtual void OnPredictedCastEnd_Implementation() {}
+    UFUNCTION(BlueprintNativeEvent)
+    void OnServerCastEnd();
+    virtual void OnServerCastEnd_Implementation() {}
+    UFUNCTION(BlueprintNativeEvent)
+    void OnSimulatedCastEnd();
+    virtual void OnSimulatedCastEnd_Implementation() {}
     UFUNCTION(BlueprintNativeEvent)
     void OnMisprediction(const int32 PredictionID, const TArray<ECastFailReason>& FailReasons);
     virtual void OnMisprediction_Implementation(const int32 PredictionID, const TArray<ECastFailReason>& FailReasons) {}

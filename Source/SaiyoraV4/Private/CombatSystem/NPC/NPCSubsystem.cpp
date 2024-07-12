@@ -3,19 +3,9 @@
 #include "NPCAbility.h"
 #include "SaiyoraGameInstance.h"
 
-bool UNPCSubsystem::ShouldCreateSubsystem(UObject* Outer) const
+TStatId UNPCSubsystem::GetStatId() const
 {
-	if (!Super::ShouldCreateSubsystem(Outer))
-	{
-		return false;
-	}
-	const UWorld* World = Cast<UWorld>(Outer);
-	//Don't spawn this subsystem on clients. Only the server needs to manage NPCs.
-	if (!IsValid(World) || World->IsNetMode(NM_Client))
-	{
-		return false;
-	}
-	return true;
+	RETURN_QUICK_DECLARE_CYCLE_STAT(UNPCSubsystem, STATGROUP_Tickables);
 }
 
 void UNPCSubsystem::Initialize(FSubsystemCollectionBase& Collection)

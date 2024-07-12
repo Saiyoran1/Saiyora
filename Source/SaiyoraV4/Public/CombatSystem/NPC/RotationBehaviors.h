@@ -15,7 +15,7 @@ struct FNPCRotationBehavior
 	bool bEnforceRotationSpeed = true;
 	//When enforcing a max rotation speed, this is the max degrees per second that the NPC can rotate.
 	UPROPERTY(EditAnywhere, meta = (EditCondition = "bEnforceRotationSpeed"))
-	float MaxRotationSpeed = 180.0f;
+	float MaxRotationSpeed = 540.0f;
 	//Whether to rotate only yaw, or to rotate on multiple axes.
 	UPROPERTY(EditAnywhere)
 	bool bOnlyYaw = true;

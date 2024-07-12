@@ -17,12 +17,14 @@ class SAIYORAV4_API UNPCAbility : public UCombatAbility
 
 protected:
 
+	//Override post-init because we need to setup our NPCSubsystem ref to be able to request and return ability tokens.
 	virtual void PostInitializeAbility_Implementation() override;
-	virtual void OnServerTick_Implementation(const int32 TickNumber) override;
+	//Override castable update because we may need to require an ability token to be available to be castable.
 	virtual void AdditionalCastableUpdate(TArray<ECastFailReason>& AdditionalFailReasons) override;
 
 private:
-	
+
+	//Subsystem that handles some AI behaviors, including ability tokens.
 	UPROPERTY()
 	UNPCSubsystem* NPCSubsystemRef = nullptr;
 
@@ -31,20 +33,35 @@ private:
 
 public:
 
+	//Whether this ability requires ability tokens to be used.
 	bool UsesTokens() const { return bUseTokens; }
+	//How many tokens for this ability can be available at once. Used to initialize a pool of tokens when the first instance of this ability initializes.
 	int32 GetMaxTokens() const { return MaxTokens; }
+	//Gets how long a token used by this ability goes on cooldown after it is returned. This controls how frequently NPCs can use this ability.
 	float GetTokenCooldownTime() const { return TokenCooldown; }
+
+protected:
+
+	//Override cast start to claim an ability token if necessary.
+	virtual void OnServerCastStart_Implementation() override;
+	//Override cast end to return a claimed ability token if necessary.
+	virtual void OnServerCastEnd_Implementation() override;
 
 private:
 
+	//Whether this ability requires an NPC Ability Token to be cast.
 	UPROPERTY(EditDefaultsOnly, Category = "Ability")
 	bool bUseTokens = false;
+	//The max number of tokens available for this class of ability at one time, globally.
 	UPROPERTY(EditDefaultsOnly, Category = "Ability", meta = (EditCondition = "bUseTokens"))
 	int32 MaxTokens = 1;
+	//How long a token goes on cooldown and is not usable by other NPCs once one NPC has claimed it to use an ability.
 	UPROPERTY(EditDefaultsOnly, Category = "Ability", meta = (EditCondition = "bUseTokens"))
 	float TokenCooldown = 0.0f;
 
+	//Delegate for updating castable status when token availability changes.
 	FAbilityTokenCallback TokenCallback;
+	//Called when token availability for this class changes, to update castable status.
 	UFUNCTION()
 	void OnTokenAvailabilityChanged(const bool bAvailable) { UpdateCastable(); }
 

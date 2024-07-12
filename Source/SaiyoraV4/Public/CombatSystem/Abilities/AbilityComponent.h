@@ -192,6 +192,10 @@ private:
 	void TickCurrentCast();
 	UFUNCTION(NetMulticast, Unreliable)
 	void MulticastAbilityTick(const FAbilityEvent& Event);
+	//Used to fire off the SimulatedCastStart event for sim proxies when an ability is channeled with no initial tick.
+	//Relying on the CastingState OnRep could cause a race condition (which may or may not matter).
+	UFUNCTION(NetMulticast, Unreliable)
+	void MulticastNoTickCastStart(UCombatAbility* Ability);
 	TMap<FPredictedTick, bool> PredictedTickRecord;
 	TArray<FAbilityEvent> TicksAwaitingParams;
 	TMap<FPredictedTick, FAbilityParams> ParamsAwaitingTicks;

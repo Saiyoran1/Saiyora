@@ -244,8 +244,24 @@ FAbilityEvent UAbilityComponent::UseAbility(const TSubclassOf<UCombatAbility> Ab
 				if (Result.Ability->HasInitialTick())
 				{
 					Result.Ability->PredictedTick(0, Result.Origin, Result.Targets);
+				}
+				else
+				{
+					Result.Ability->PredictedNoTickCastStart();
+				}
+				//StartCast will only call the PredictedCastStart event on the ability, so we need to call ServerCastStart here.
+				//This is to avoid ordering issues where ServerCastStart happens before PredictedTick for listen servers.
+				if (Result.Ability->HasInitialTick())
+				{
 					Result.Ability->ServerTick(0, Result.Origin, Result.Targets);
 					MulticastAbilityTick(Result);
+				}
+				//If the ability is instant or has an initial tick, ServerCastStart and SimulatedCastStart will fire from those events.
+				//If the ability is channeled and has no initial tick, we need to manually call ServerCastStart and RPC to trigger SimulatedCastStart.
+				else
+				{
+					Result.Ability->ServerNoTickCastStart();
+					MulticastNoTickCastStart(Result.Ability);
 				}
 			}
 			break;
@@ -284,6 +300,12 @@ FAbilityEvent UAbilityComponent::UseAbility(const TSubclassOf<UCombatAbility> Ab
                     	Request.Targets = Result.Targets;
                     	Request.Origin = Result.Origin;
                     	OnAbilityTick.Broadcast(Result);
+                    }
+					//If the ability is instant or has an initial tick, PredictedCastStart will fire from those events.
+					//If the ability is channeled and has no initial tick, we need to manually call PredictedCastStart.
+                    else
+                    {
+	                    Result.Ability->PredictedNoTickCastStart(Result.PredictionID);
                     }
                     break;
 				}
@@ -395,6 +417,13 @@ void UAbilityComponent::ServerPredictAbility_Implementation(const FAbilityReques
         			Ability->ServerTick(0, Result.Origin, Result.Targets, Result.PredictionID);
         			MulticastAbilityTick(Result);
         		}
+        		//If the ability is instant or has an initial tick, ServerCastStart and SimulatedCastStart will fire from those events.
+        		//If the ability is channeled and has no initial tick, we need to manually call ServerCastStart and RPC to trigger SimulatedCastStart.
+		        else
+		        {
+		        	Ability->ServerNoTickCastStart(Result.PredictionID);
+			        MulticastNoTickCastStart(Result.Ability);
+		        }
 	        }
         	break;
         default :
@@ -567,6 +596,14 @@ void UAbilityComponent::MulticastAbilityTick_Implementation(const FAbilityEvent&
 	{
 		//Auto proxy already fired this delegate for predicted tick.
 		OnAbilityTick.Broadcast(Event);
+	}
+}
+
+void UAbilityComponent::MulticastNoTickCastStart_Implementation(UCombatAbility* Ability)
+{
+	if (IsValid(Ability))
+	{
+		Ability->SimulatedNoTickCastStart();
 	}
 }
 
@@ -905,6 +942,11 @@ void UAbilityComponent::UpdateCastFromServerResult(const float PredictionTime, c
 		}
 		else if (CastingState.bIsCasting)
 		{
+			//If we're ending a cast due to misprediction, we need to fire off the PredictedCastEnd event for the ability that is normally handled by cancelling, interrupting, or the final tick of the channel.
+			if (IsValid(CastingState.CurrentCast))
+			{
+				CastingState.CurrentCast->MispredictedCastEnd(Result.PredictionID);
+			}
 			//TODO: Potential to miss ticks here if the cast should've already completed.
 			EndCast();
 		}
