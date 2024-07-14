@@ -153,10 +153,6 @@ private:
 	void DestroyGroundAttack();
 	UFUNCTION()
 	void DelayedDestroy() { Destroy(); }
-	UPROPERTY(ReplicatedUsing = OnRep_Destroyed)
-	bool bDestroyed = false;
-	UFUNCTION()
-	void OnRep_Destroyed() { Destroy(); }
 
 	UPROPERTY()
 	UAbilityComponent* OwnerAbilityCompRef = nullptr;

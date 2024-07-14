@@ -3,6 +3,7 @@
 #include "CombatAbility.h"
 #include "NPCStructs.h"
 #include "NPCAbility.h"
+#include "RotationBehaviors.h"
 
 void UCombatDebugOptions::LogAbilityEvent(const AActor* Actor, const FAbilityEvent& Event)
 {
@@ -74,4 +75,19 @@ void UCombatDebugOptions::DisplayClaimedLocations(const TMap<AActor*, FVector>& 
 			DrawDebugLine(Tuple.Key->GetWorld(), Tuple.Value, Tuple.Key->GetActorLocation() + FVector::UpVector * 50.0f, FColor::Cyan, false, -1);
 		}
 	}
+}
+
+void UCombatDebugOptions::DrawRotationBehavior(const AActor* Actor, const FRotationDebugInfo& DebugInfo)
+{
+	if (!IsValid(Actor))
+	{
+		return;
+	}
+	const FVector StartLoc = Actor->GetActorLocation() + FVector::UpVector * 50.0f;
+	DrawDebugDirectionalArrow(Actor->GetWorld(), StartLoc, StartLoc + DebugInfo.OriginalRotation.Vector() * 100.0f, 100.0f, FColor::Red);
+	if (DebugInfo.bClampingRotation)
+	{
+		DrawDebugDirectionalArrow(Actor->GetWorld(), StartLoc, StartLoc + DebugInfo.UnclampedRotation.Vector() * 100.0f, 100.0f, FColor::Yellow);
+	}
+	DrawDebugDirectionalArrow(Actor->GetWorld(), StartLoc, StartLoc + DebugInfo.FinalRotation.Vector() * 100.0f, 100.0f, FColor::Green);
 }

@@ -5,6 +5,7 @@
 class UNPCAbility;
 struct FNPCAbilityTokens;
 struct FAbilityEvent;
+struct FRotationDebugInfo;
 
 UCLASS()
 class SAIYORAV4_API UCombatDebugOptions : public UDataAsset
@@ -24,4 +25,8 @@ public:
 	UPROPERTY(EditAnywhere, Category = "AI")
 	bool bDisplayClaimedLocations = false;
 	void DisplayClaimedLocations(const TMap<AActor*, FVector>& Locations);
+
+	UPROPERTY(EditAnywhere, Category = "AI")
+	bool bDrawRotationBehavior = false;
+	void DrawRotationBehavior(const AActor* Actor, const FRotationDebugInfo& DebugInfo);
 };

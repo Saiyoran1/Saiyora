@@ -1,4 +1,6 @@
 ﻿#include "NPCAbilityComponent.h"
+
+#include "CombatDebugOptions.h"
 #include "CombatLink.h"
 #include "DamageHandler.h"
 #include "NPCAbility.h"
@@ -328,7 +330,7 @@ void UNPCAbilityComponent::TickRotation(const float DeltaTime)
 	{
 		return;
 	}
-	const FNPCRotationBehavior* RotationBehavior = DefaultRotationBehavior.GetPtr<FNPCRotationBehavior>();
+	FNPCRotationBehavior* RotationBehavior = DefaultRotationBehavior.GetMutablePtr<FNPCRotationBehavior>();
 	if (!RotationBehavior)
 	{
 		//If we don't have a valid rotation behavior, we can just use control rotation yaw as a reasonable default.
@@ -337,6 +339,11 @@ void UNPCAbilityComponent::TickRotation(const float DeltaTime)
 			AIController->GetPawn()->bUseControllerRotationYaw = true;
 		}
 		return;
+	}
+	//Initialize the rotation behavior if we haven't already.
+	if (!RotationBehavior->IsInitialized())
+	{
+		RotationBehavior->Initialize(GetOwner());
 	}
 	//If we are using control rotation, disable that so that we can freely override rotation.
 	if (AIController->GetPawn()->bUseControllerRotationYaw)
@@ -351,9 +358,22 @@ void UNPCAbilityComponent::TickRotation(const float DeltaTime)
 	{
 		AIController->GetPawn()->bUseControllerRotationRoll = false;
 	}
-	FRotator OwnerRotation = GetOwner()->GetActorRotation();
-	RotationBehavior->ModifyRotation(DeltaTime, GetOwner(), OwnerRotation);
+	
+	const FRotator PreviousRotation = GetOwner()->GetActorRotation();
+	FRotator OwnerRotation = PreviousRotation;
+	FRotator UnclampedRotation = OwnerRotation;
+	RotationBehavior->ModifyRotation(DeltaTime, GetOwner(), OwnerRotation, UnclampedRotation);
 	GetOwner()->SetActorRotation(OwnerRotation);
+
+	if (CombatDebugOptions->bDrawRotationBehavior)
+	{
+		FRotationDebugInfo DebugInfo;
+		DebugInfo.OriginalRotation = PreviousRotation;
+		DebugInfo.bClampingRotation = RotationBehavior->bEnforceRotationSpeed;
+		DebugInfo.UnclampedRotation = UnclampedRotation;
+		DebugInfo.FinalRotation = OwnerRotation;
+		CombatDebugOptions->DrawRotationBehavior(GetOwner(), DebugInfo);
+	}
 }
 
 #pragma endregion

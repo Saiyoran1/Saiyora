@@ -3,12 +3,29 @@
 #include "InstancedStruct.h"
 #include "RotationBehaviors.generated.h"
 
+//Struct for debug drawing rotation info.
+USTRUCT()
+struct FRotationDebugInfo
+{
+	GENERATED_BODY()
+	
+	FRotator OriginalRotation = FRotator::ZeroRotator;
+	bool bClampingRotation = false;
+	FRotator UnclampedRotation = FRotator::ZeroRotator;
+	FRotator FinalRotation = FRotator::ZeroRotator;
+};
+
 //A struct intended to be inherited from for use as FInstancedStruct for NPCs.
 //Describes a basic behavior for NPC rotation during combat.
 USTRUCT()
 struct FNPCRotationBehavior
 {
 	GENERATED_BODY()
+
+	void Initialize(const AActor* Actor);
+	bool IsInitialized() const { return bInitialized; }
+	
+	virtual ~FNPCRotationBehavior() {}
 
 	//Whether to enforce max rotation speed or just snap to the desired rotation.
 	UPROPERTY(EditAnywhere)
@@ -20,8 +37,14 @@ struct FNPCRotationBehavior
 	UPROPERTY(EditAnywhere)
 	bool bOnlyYaw = true;
 
-	virtual void ModifyRotation(const float DeltaTime, const AActor* Actor, FRotator& OutRotation) const {}
-	virtual ~FNPCRotationBehavior() {}
+	//Virtual function for child classes to initialize any extra variables.
+	virtual void InitializeBehavior(const AActor* Actor) {}
+	//Virtual function for child classes to actually perform rotation logic.
+	virtual void ModifyRotation(const float DeltaTime, const AActor* Actor, FRotator& OutRotation, FRotator& UnclampedRotation) const {}
+
+private:
+
+	bool bInitialized = false;
 };
 
 //Causes NPCs to turn in the direction of their velocity.
@@ -30,7 +53,7 @@ struct FNPCRB_OrientToMovement : public FNPCRotationBehavior
 {
 	GENERATED_BODY()
 
-	virtual void ModifyRotation(const float DeltaTime, const AActor* Actor, FRotator& OutRotation) const override;
+	virtual void ModifyRotation(const float DeltaTime, const AActor* Actor, FRotator& OutRotation, FRotator& UnclampedRotation) const override;
 };
 
 //Causes NPCs to turn to face their target, using a target context.
@@ -43,7 +66,7 @@ struct FNPCRB_OrientToTarget : public FNPCRotationBehavior
 	UPROPERTY(EditAnywhere, meta = (BaseStruct = "/Script/SaiyoraV4.NPCTargetContext", ExcludeBaseStruct))
 	FInstancedStruct TargetContext;
 
-	virtual void ModifyRotation(const float DeltaTime, const AActor* Actor, FRotator& OutRotation) const override;
+	virtual void ModifyRotation(const float DeltaTime, const AActor* Actor, FRotator& OutRotation, FRotator& UnclampedRotation) const override;
 };
 
 //Causes NPCs to turn in the direction of their navmesh path.
@@ -51,6 +74,42 @@ USTRUCT()
 struct FNPCRB_OrientToPath : public FNPCRotationBehavior
 {
 	GENERATED_BODY()
+	
+	virtual void ModifyRotation(const float DeltaTime, const AActor* Actor, FRotator& OutRotation, FRotator& UnclampedRotation) const override;
+};
 
-	virtual void ModifyRotation(const float DeltaTime, const AActor* Actor, FRotator& OutRotation) const override;
+//A rotation behavior that chooses between two other rotation behaviors based on distance to a target.
+USTRUCT()
+struct FNPCRB_SwitchOnDistance : public FNPCRotationBehavior
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, meta = (BaseStruct = "/Script/SaiyoraV4.NPCRotationBehavior", ExcludeBaseStruct))
+	FInstancedStruct InRangeBehavior;
+	UPROPERTY(EditAnywhere, meta = (BaseStruct = "/Script/SaiyoraV4.NPCRotationBehavior", ExcludeBaseStruct))
+	FInstancedStruct OutOfRangeBehavior;
+	UPROPERTY(EditAnywhere)
+	float DistanceThreshold = 2000.0f;
+	UPROPERTY(EditAnywhere)
+	float StickinessFactor = .1f;
+	UPROPERTY(EditAnywhere)
+	bool bIncludeZDistance = true;
+	UPROPERTY(EditAnywhere, meta = (BaseStruct = "/Script/SaiyoraV4.NPCTargetContext", ExcludeBaseStruct))
+	FInstancedStruct TargetContext;
+
+	virtual void InitializeBehavior(const AActor* Actor) override;
+	virtual void ModifyRotation(const float DeltaTime, const AActor* Actor, FRotator& OutRotation, FRotator& UnclampedRotation) const override;
+
+private:
+
+	enum class ERotationSwitchBehavior : uint8
+	{
+		Valid,
+		InRange,
+		OutOfRange,
+		Invalid
+	};
+
+	ERotationSwitchBehavior SwitchBehavior = ERotationSwitchBehavior::Valid;
+	mutable bool bPreviouslyInRange = false;
 };
