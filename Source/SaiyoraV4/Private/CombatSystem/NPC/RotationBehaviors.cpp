@@ -3,11 +3,13 @@
 #include "TargetContexts.h"
 #include "Navigation/PathFollowingComponent.h"
 
-void FNPCRotationBehavior::Initialize(const AActor* Actor)
+void FNPCRotationBehavior::Initialize(AActor* Actor)
 {
 	InitializeBehavior(Actor);
 	bInitialized = true;
 }
+
+#pragma region Orient to Movement
 
 void FNPCRB_OrientToMovement::ModifyRotation(const float DeltaTime, const AActor* Actor, FRotator& OutRotation, FRotator& UnclampedRotation) const
 {
@@ -44,6 +46,9 @@ void FNPCRB_OrientToMovement::ModifyRotation(const float DeltaTime, const AActor
 		}
 	}
 }
+
+#pragma endregion
+#pragma region Orient to Target
 
 void FNPCRB_OrientToTarget::ModifyRotation(const float DeltaTime, const AActor* Actor, FRotator& OutRotation, FRotator& UnclampedRotation) const
 {
@@ -86,6 +91,9 @@ void FNPCRB_OrientToTarget::ModifyRotation(const float DeltaTime, const AActor* 
 		}
 	}
 }
+
+#pragma endregion 
+#pragma region Orient to Path
 
 void FNPCRB_OrientToPath::ModifyRotation(const float DeltaTime, const AActor* Actor, FRotator& OutRotation, FRotator& UnclampedRotation) const
 {
@@ -131,95 +139,93 @@ void FNPCRB_OrientToPath::ModifyRotation(const float DeltaTime, const AActor* Ac
 	}
 }
 
-void FNPCRB_SwitchOnDistance::InitializeBehavior(const AActor* Actor)
+#pragma endregion 
+#pragma region Switch on Conditions
+
+void FNPCRB_SwitchOnConditions::InitializeBehavior(AActor* Actor)
 {
-	FNPCRotationBehavior* InRange = InRangeBehavior.GetMutablePtr<FNPCRotationBehavior>();
-	if (InRange)
+	FNPCRotationBehavior* MetBehavior = ConditionsMetBehavior.GetMutablePtr<FNPCRotationBehavior>();
+	if (MetBehavior)
 	{
-		InRange->Initialize(Actor);
+		MetBehavior->Initialize(Actor);
 	}
-	FNPCRotationBehavior* OutRange = OutOfRangeBehavior.GetMutablePtr<FNPCRotationBehavior>();
-	if (OutRange)
+	FNPCRotationBehavior* UnmetBehavior = ConditionsUnmetBehavior.GetMutablePtr<FNPCRotationBehavior>();
+	if (UnmetBehavior)
 	{
-		OutRange->Initialize(Actor);
+		UnmetBehavior->Initialize(Actor);
 	}
 	//Set an enum value to decide whether we can actually switch between two valid behaviors, or if we should just use one of them, or if they're both invalid.
-	SwitchBehavior = InRange ? OutRange ? ERotationSwitchBehavior::Valid : ERotationSwitchBehavior::InRange
-		: OutRange ? ERotationSwitchBehavior::OutOfRange : ERotationSwitchBehavior::Invalid;
+	Validity = MetBehavior ? UnmetBehavior ? ERotationSwitchValidity::BothValid : ERotationSwitchValidity::ConditionsMetValid
+		: UnmetBehavior ? ERotationSwitchValidity::ConditionsUnmetValid : ERotationSwitchValidity::BothInvalid;
+	//If we're actually able to swap between two valid behaviors, initialize conditions for checking.
+	if (Validity == ERotationSwitchValidity::BothValid)
+	{
+		for (FInstancedStruct& InstancedCondition : Conditions)
+		{
+			if (FNPCChoiceRequirement* Condition = InstancedCondition.GetMutablePtr<FNPCChoiceRequirement>())
+			{
+				Condition->Init(Actor);
+			}
+		}
+	}
 }
 
-void FNPCRB_SwitchOnDistance::ModifyRotation(const float DeltaTime, const AActor* Actor, FRotator& OutRotation, FRotator& UnclampedRotation) const
+void FNPCRB_SwitchOnConditions::ModifyRotation(const float DeltaTime, const AActor* Actor, FRotator& OutRotation, FRotator& UnclampedRotation) const
 {
 	if (!IsValid(Actor))
 	{
 		return;
 	}
-	switch (SwitchBehavior)
+	switch (Validity)
 	{
-	case ERotationSwitchBehavior::Valid :
+	case ERotationSwitchValidity::BothValid :
 		{
-			const FNPCTargetContext* Context = TargetContext.GetPtr<FNPCTargetContext>();
-			if (!Context)
+			//For All criteria, we start as true and set to false if any requirement isn't met.
+			//For Any criteria, we start as false and set to true if any requirement is met.
+			bool bConditionsMet = Criteria == EChoiceRequirementCriteria::All;
+			for (const FInstancedStruct& InstancedCondition : Conditions)
 			{
-				return;
-			}
-			const AActor* Target = Context->GetBestTarget(Actor);
-			if (!IsValid(Target))
-			{
-				return;
-			}
-			const float Distance = bIncludeZDistance ? FVector::Dist(Target->GetActorLocation(), Actor->GetActorLocation()) : FVector::Dist2D(Target->GetActorLocation(), Actor->GetActorLocation());
-			if (bPreviouslyInRange)
-			{
-				if (Distance > DistanceThreshold * (FMath::Max(0.0f, 1.0f + StickinessFactor)))
+				if (const FNPCChoiceRequirement* Requirement = InstancedCondition.GetPtr<FNPCChoiceRequirement>())
 				{
-					if (const FNPCRotationBehavior* OutRange = OutOfRangeBehavior.GetPtr<FNPCRotationBehavior>())
+					const bool bConditionMet = Requirement->IsMet();
+					if (bConditionMet != bConditionsMet)
 					{
-						OutRange->ModifyRotation(DeltaTime, Actor, OutRotation, UnclampedRotation);
-					}
-					bPreviouslyInRange = false;
-				}
-				else
-				{
-					if (const FNPCRotationBehavior* InRange = InRangeBehavior.GetPtr<FNPCRotationBehavior>())
-					{
-						InRange->ModifyRotation(DeltaTime, Actor, OutRotation, UnclampedRotation);
+						bConditionsMet = !bConditionsMet;
+						break;
 					}
 				}
 			}
+			//If conditions are met, we do the conditions met behavior.
+			if (bConditionsMet)
+			{
+				if (const FNPCRotationBehavior* MetBehavior = ConditionsMetBehavior.GetPtr<FNPCRotationBehavior>())
+				{
+					MetBehavior->ModifyRotation(DeltaTime, Actor, OutRotation, UnclampedRotation);
+				}
+			}
+			//If conditions aren't met, we do the conditions unmet behavior.
 			else
 			{
-				if (Distance < DistanceThreshold * (FMath::Max(0.0f, 1.0f - StickinessFactor)))
+				if (const FNPCRotationBehavior* UnmetBehavior = ConditionsUnmetBehavior.GetPtr<FNPCRotationBehavior>())
 				{
-					if (const FNPCRotationBehavior* InRange = InRangeBehavior.GetPtr<FNPCRotationBehavior>())
-					{
-						InRange->ModifyRotation(DeltaTime, Actor, OutRotation, UnclampedRotation);
-					}
-					bPreviouslyInRange = true;
-				}
-				else
-				{
-					if (const FNPCRotationBehavior* OutRange = OutOfRangeBehavior.GetPtr<FNPCRotationBehavior>())
-					{
-						OutRange->ModifyRotation(DeltaTime, Actor, OutRotation, UnclampedRotation);
-					}
+					UnmetBehavior->ModifyRotation(DeltaTime, Actor, OutRotation, UnclampedRotation);
 				}
 			}
 		}
 		break;
-	case ERotationSwitchBehavior::InRange :
+	case ERotationSwitchValidity::ConditionsMetValid :
 		{
-			if (const FNPCRotationBehavior* InRange = InRangeBehavior.GetPtr<FNPCRotationBehavior>())
+			if (const FNPCRotationBehavior* MetBehavior = ConditionsMetBehavior.GetPtr<FNPCRotationBehavior>())
 			{
-				InRange->ModifyRotation(DeltaTime, Actor, OutRotation, UnclampedRotation);
+				MetBehavior->ModifyRotation(DeltaTime, Actor, OutRotation, UnclampedRotation);
 			}
 		}
 		break;
-	case ERotationSwitchBehavior::OutOfRange :
+	case ERotationSwitchValidity::ConditionsUnmetValid :
 		{
-			if (const FNPCRotationBehavior* OutRange = OutOfRangeBehavior.GetPtr<FNPCRotationBehavior>())
+			if (const FNPCRotationBehavior* UnmetBehavior = ConditionsUnmetBehavior.GetPtr<FNPCRotationBehavior>())
 			{
-				OutRange->ModifyRotation(DeltaTime, Actor, OutRotation, UnclampedRotation);
+				UnmetBehavior->ModifyRotation(DeltaTime, Actor, OutRotation, UnclampedRotation);
 			}
 		}
 		break;
@@ -227,3 +233,5 @@ void FNPCRB_SwitchOnDistance::ModifyRotation(const float DeltaTime, const AActor
 		break;
 	}
 }
+
+#pragma endregion 

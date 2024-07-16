@@ -1,8 +1,10 @@
 ﻿#pragma once
 #include "CoreMinimal.h"
+#include "ChoiceRequirements.h"
 #include "InstancedStruct.h"
 #include "RotationBehaviors.generated.h"
 
+enum class EChoiceRequirementCriteria : uint8;
 //Struct for debug drawing rotation info.
 USTRUCT()
 struct FRotationDebugInfo
@@ -22,25 +24,31 @@ struct FNPCRotationBehavior
 {
 	GENERATED_BODY()
 
-	void Initialize(const AActor* Actor);
+	void Initialize(AActor* Actor);
 	bool IsInitialized() const { return bInitialized; }
 	
 	virtual ~FNPCRotationBehavior() {}
 
 	//Whether to enforce max rotation speed or just snap to the desired rotation.
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, meta = (EditCondition = "!bDeferRotation"))
 	bool bEnforceRotationSpeed = true;
 	//When enforcing a max rotation speed, this is the max degrees per second that the NPC can rotate.
-	UPROPERTY(EditAnywhere, meta = (EditCondition = "bEnforceRotationSpeed"))
+	UPROPERTY(EditAnywhere, meta = (EditCondition = "!bDeferRotation && bEnforceRotationSpeed"))
 	float MaxRotationSpeed = 540.0f;
 	//Whether to rotate only yaw, or to rotate on multiple axes.
-	UPROPERTY(EditAnywhere)
+	UPROPERTY(EditAnywhere, meta = (EditCondition = "!bDeferRotation"))
 	bool bOnlyYaw = true;
 
 	//Virtual function for child classes to initialize any extra variables.
-	virtual void InitializeBehavior(const AActor* Actor) {}
+	virtual void InitializeBehavior(AActor* Actor) {}
 	//Virtual function for child classes to actually perform rotation logic.
 	virtual void ModifyRotation(const float DeltaTime, const AActor* Actor, FRotator& OutRotation, FRotator& UnclampedRotation) const {}
+
+protected:
+
+	//This property exists so that "meta-behaviors" that defer rotation to one of a few sub-behaviors can hide their base properties in the editor.
+	UPROPERTY()
+	bool bDeferRotation = false;
 
 private:
 
@@ -78,38 +86,36 @@ struct FNPCRB_OrientToPath : public FNPCRotationBehavior
 	virtual void ModifyRotation(const float DeltaTime, const AActor* Actor, FRotator& OutRotation, FRotator& UnclampedRotation) const override;
 };
 
-//A rotation behavior that chooses between two other rotation behaviors based on distance to a target.
+//Switches between two different rotation behaviors depending on whether a set of conditions are met or not.
 USTRUCT()
-struct FNPCRB_SwitchOnDistance : public FNPCRotationBehavior
+struct FNPCRB_SwitchOnConditions : public FNPCRotationBehavior
 {
 	GENERATED_BODY()
 
 	UPROPERTY(EditAnywhere, meta = (BaseStruct = "/Script/SaiyoraV4.NPCRotationBehavior", ExcludeBaseStruct))
-	FInstancedStruct InRangeBehavior;
+	FInstancedStruct ConditionsMetBehavior;
 	UPROPERTY(EditAnywhere, meta = (BaseStruct = "/Script/SaiyoraV4.NPCRotationBehavior", ExcludeBaseStruct))
-	FInstancedStruct OutOfRangeBehavior;
+	FInstancedStruct ConditionsUnmetBehavior;
 	UPROPERTY(EditAnywhere)
-	float DistanceThreshold = 2000.0f;
-	UPROPERTY(EditAnywhere)
-	float StickinessFactor = .1f;
-	UPROPERTY(EditAnywhere)
-	bool bIncludeZDistance = true;
-	UPROPERTY(EditAnywhere, meta = (BaseStruct = "/Script/SaiyoraV4.NPCTargetContext", ExcludeBaseStruct))
-	FInstancedStruct TargetContext;
+	EChoiceRequirementCriteria Criteria = EChoiceRequirementCriteria::All;
+	UPROPERTY(EditAnywhere, meta = (BaseStruct = "/Script/SaiyoraV4.NPCChoiceRequirement", ExcludeBaseStruct))
+	TArray<FInstancedStruct> Conditions;
 
-	virtual void InitializeBehavior(const AActor* Actor) override;
+	virtual void InitializeBehavior(AActor* Actor) override;
 	virtual void ModifyRotation(const float DeltaTime, const AActor* Actor, FRotator& OutRotation, FRotator& UnclampedRotation) const override;
+
+	//This hides the base properties of the struct in the editor, since we'll be using a sub-behavior's properties anyway.
+	FNPCRB_SwitchOnConditions() { bDeferRotation = true; }
 
 private:
 
-	enum class ERotationSwitchBehavior : uint8
+	enum class ERotationSwitchValidity : uint8
 	{
-		Valid,
-		InRange,
-		OutOfRange,
-		Invalid
+		BothValid,
+		BothInvalid,
+		ConditionsMetValid,
+		ConditionsUnmetValid
 	};
 
-	ERotationSwitchBehavior SwitchBehavior = ERotationSwitchBehavior::Valid;
-	mutable bool bPreviouslyInRange = false;
+	ERotationSwitchValidity Validity = ERotationSwitchValidity::BothValid;
 };

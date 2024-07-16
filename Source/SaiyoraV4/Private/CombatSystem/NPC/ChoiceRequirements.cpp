@@ -2,14 +2,13 @@
 #include "SaiyoraCombatInterface.h"
 #include "TargetContexts.h"
 #include "ThreatHandler.h"
+#include "Kismet/KismetMathLibrary.h"
 
 #pragma region Choice Requirement
 
-void FNPCChoiceRequirement::Init(FNPCCombatChoice* Choice, AActor* NPC)
+void FNPCChoiceRequirement::Init(AActor* NPC)
 {
-	OwningChoice = Choice;
 	OwningNPC = NPC;
-	OwningChoice = Choice;
 	SetupRequirement();
 }
 
@@ -55,6 +54,28 @@ bool FNPCCR_RangeOfTarget::IsMet() const
 		: FVector::DistSquared2D(Target->GetActorLocation(), GetOwningNPC()->GetActorLocation());
 	const float ClampedRangeSq = FMath::Square(FMath::Max(0.0f, Range));
 	return bWithinRange ? DistSqToTarget < ClampedRangeSq : DistSqToTarget >= ClampedRangeSq;
+}
+
+#pragma endregion
+#pragma region Rotation To Target
+
+bool FNPCCR_RotationToTarget::IsMet() const
+{
+	const FNPCTargetContext* Context = TargetContext.GetPtr<FNPCTargetContext>();
+	if (!Context)
+	{
+		return false;
+	}
+	const AActor* Target = Context->GetBestTarget(GetOwningNPC());
+	if (!IsValid(Target))
+	{
+		return false;
+	}
+	const FVector OwnerVector = bIncludeZAngle ? GetOwningNPC()->GetActorRotation().Vector().GetSafeNormal() : GetOwningNPC()->GetActorRotation().Vector().GetSafeNormal2D();
+	const FVector TowardTarget = bIncludeZAngle ? (Target->GetActorLocation() - GetOwningNPC()->GetActorLocation()).GetSafeNormal() : (Target->GetActorLocation() - GetOwningNPC()->GetActorLocation()).GetSafeNormal2D();
+	const float Angle = UKismetMathLibrary::DegAcos(FVector::DotProduct(OwnerVector, TowardTarget));
+	DrawDebugString(GetOwningNPC()->GetWorld(), GetOwningNPC()->GetActorLocation() + FVector::UpVector * 150.0f, FString::SanitizeFloat(Angle),0,  FColor::White, .2f);
+	return bWithinAngle ? Angle < AngleThreshold : Angle >= AngleThreshold;
 }
 
 #pragma endregion 

@@ -6,8 +6,16 @@ class UThreatHandler;
 
 #pragma region Choice Requirement
 
+//Used for arrays of choice requirements to determine whether conditions being met requires all conditions, or only one condition.
+UENUM()
+enum class EChoiceRequirementCriteria : uint8
+{
+	Any,
+	All
+};
+
 //A struct that is intended to be inherited from to be used as FInstancedStructs inside FNPCCombatChoice.
-//These requirements are event-based, and must be set up in c++. They basically constantly update their owning choice with whether they are met.
+//Requirements that must be met for an NPC to choose a combat choice, rotation behavior, etc.
 USTRUCT()
 struct FNPCChoiceRequirement
 {
@@ -15,8 +23,8 @@ struct FNPCChoiceRequirement
 
 public:
 	
-	void Init(FNPCCombatChoice* Choice, AActor* NPC);
-	virtual bool IsMet() const { return false; }
+	void Init(AActor* NPC);
+	virtual bool IsMet() const { return bIsMet; }
 	
 	virtual ~FNPCChoiceRequirement() {}
 
@@ -25,7 +33,6 @@ public:
 protected:
 	
 	AActor* GetOwningNPC() const { return OwningNPC; }
-	FNPCCombatChoice GetOwningChoice() const { return *OwningChoice; }
 
 	FString DEBUG_RequirementName = "";
 
@@ -36,7 +43,6 @@ private:
 	bool bIsMet = false;
 	UPROPERTY()
 	AActor* OwningNPC = nullptr;
-	FNPCCombatChoice* OwningChoice = nullptr;
 };
 
 #pragma endregion 
@@ -89,4 +95,28 @@ private:
 	bool bIncludeZDistance = true;
 };
 
-#pragma endregion 
+#pragma endregion
+#pragma region Rotation to Target
+
+USTRUCT()
+struct FNPCCR_RotationToTarget : public FNPCChoiceRequirement
+{
+	GENERATED_BODY()
+
+	virtual bool IsMet() const override;
+
+private:
+
+	//Target to check rotation against.
+	UPROPERTY(EditAnywhere, meta = (BaseStruct = "/Script/SaiyoraV4.NPCTargetContext", ExcludeBaseStruct))
+	FInstancedStruct TargetContext;
+	//The angle the NPC must be within (or without).
+	UPROPERTY(EditAnywhere, meta = (ClampMin = "0"))
+	float AngleThreshold = 15.0f;
+	//Whether the NPC should be facing within the angle threshold, or outside of the angle threshold.
+	UPROPERTY(EditAnywhere)
+	bool bWithinAngle = true;
+	//Whether to check angle in 3 dimensions or only check yaw.
+	UPROPERTY(EditAnywhere)
+	bool bIncludeZAngle = false;
+};

@@ -18,7 +18,7 @@ void FNPCCombatChoice::Init(UNPCAbilityComponent* AbilityComponent)
 			Requirements.RemoveAt(i);
 			continue;
 		}
-		CastRequirement->Init(this, AbilityComponent->GetOwner());
+		CastRequirement->Init(AbilityComponent->GetOwner());
 	}
 	bInitialized = true;
 }
