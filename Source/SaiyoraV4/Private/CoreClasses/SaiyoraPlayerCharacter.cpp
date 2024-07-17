@@ -6,7 +6,6 @@
 #include "DamageHandler.h"
 #include "CombatStatusComponent.h"
 #include "DungeonGameState.h"
-#include "IMessageTracer.h"
 #include "ModernSpecialization.h"
 #include "Weapons/FireWeapon.h"
 #include "PredictableProjectile.h"
