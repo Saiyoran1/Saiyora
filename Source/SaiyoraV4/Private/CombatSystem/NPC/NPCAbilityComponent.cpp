@@ -28,6 +28,12 @@ UNPCAbilityComponent::UNPCAbilityComponent(const FObjectInitializer& ObjectIniti
 void UNPCAbilityComponent::InitializeComponent()
 {
 	Super::InitializeComponent();
+
+	if (!GetWorld() || !GetWorld()->IsGameWorld())
+	{
+		return;
+	}
+	
 	ThreatHandlerRef = ISaiyoraCombatInterface::Execute_GetThreatHandler(GetOwner());
 	MovementComponentRef = ISaiyoraCombatInterface::Execute_GetCustomMovementComponent(GetOwner());
 }

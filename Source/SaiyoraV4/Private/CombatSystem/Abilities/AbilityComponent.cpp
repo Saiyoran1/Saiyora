@@ -35,6 +35,13 @@ bool UAbilityComponent::IsLocallyControlled() const
 
 void UAbilityComponent::InitializeComponent()
 {
+	Super::InitializeComponent();
+
+	if (!GetWorld() || !GetWorld()->IsGameWorld())
+	{
+		return;
+	}
+	
 	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Ability Handler."));
 	ResourceHandlerRef = ISaiyoraCombatInterface::Execute_GetResourceHandler(GetOwner());
 	StatHandlerRef = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
@@ -47,7 +54,6 @@ void UAbilityComponent::InitializeComponent()
 	{
 		CombatDebugOptions = GameInstance->CombatDebugOptions;
 	}
-	Super::InitializeComponent();
 }
 
 void UAbilityComponent::BeginPlay()

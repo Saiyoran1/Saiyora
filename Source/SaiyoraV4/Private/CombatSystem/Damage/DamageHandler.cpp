@@ -19,6 +19,13 @@ UDamageHandler::UDamageHandler()
 
 void UDamageHandler::InitializeComponent()
 {
+	Super::InitializeComponent();
+
+	if (!GetWorld() || !GetWorld()->IsGameWorld())
+	{
+		return;
+	}
+	
 	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Damage Handler."));
 	if (GetOwnerRole() == ROLE_Authority)
 	{

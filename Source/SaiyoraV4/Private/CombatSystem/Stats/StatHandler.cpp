@@ -14,6 +14,13 @@ UStatHandler::UStatHandler()
 
 void UStatHandler::InitializeComponent()
 {
+	Super::InitializeComponent();
+
+	if (!GetWorld() || !GetWorld()->IsGameWorld())
+	{
+		return;
+	}
+	
 	checkf(GetOwner()->Implements<USaiyoraCombatInterface>(), TEXT("Owner does not implement combat interface, but has Stat Handler."));
 	if (GetOwnerRole() == ROLE_Authority)
 	{

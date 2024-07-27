@@ -102,6 +102,12 @@ void ASaiyoraPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerI
 void ASaiyoraPlayerCharacter::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
+
+	if (!GetWorld() || !GetWorld()->IsGameWorld())
+	{
+		return;
+	}
+	
 	CustomMovementComponent = Cast<USaiyoraMovementComponent>(Super::GetMovementComponent());
 	AbilityComponent->OnCastStateChanged.AddDynamic(this, &ASaiyoraPlayerCharacter::UpdateQueueOnCastEnd);
 	AbilityComponent->OnGlobalCooldownChanged.AddDynamic(this, &ASaiyoraPlayerCharacter::UpdateQueueOnGlobalEnd);

@@ -43,47 +43,47 @@ FString UUIFunctionLibrary::GetTimeDisplayString(const float Seconds)
 
 FLinearColor UUIFunctionLibrary::GetElementalSchoolColor(UObject* WorldContext, const EElementalSchool School)
 {
-	const USaiyoraUIDataAsset* UIDataAsset = GetUIDataAsset(WorldContext);
-	if (IsValid(UIDataAsset))
+	const USaiyoraUIDataAsset* DataAsset = GetUIDataAsset(WorldContext);
+	if (IsValid(DataAsset))
 	{
-		return UIDataAsset->SchoolColors.FindRef(School);
+		return DataAsset->SchoolColors.FindRef(School);
 	}
 	return FLinearColor::White;
 }
 
 FLinearColor UUIFunctionLibrary::GetPlayerHealthColor(UObject* WorldContext)
 {
-	const USaiyoraUIDataAsset* UIDataAsset = GetUIDataAsset(WorldContext);
-	if (IsValid(UIDataAsset))
+	const USaiyoraUIDataAsset* DataAsset = GetUIDataAsset(WorldContext);
+	if (IsValid(DataAsset))
 	{
-		return UIDataAsset->PlayerHealthColor;
+		return DataAsset->PlayerHealthColor;
 	}
 	return FLinearColor::Red;
 }
 
 FLinearColor UUIFunctionLibrary::GetPlayerDeadColor(UObject* WorldContext)
 {
-	const USaiyoraUIDataAsset* UIDataAsset = GetUIDataAsset(WorldContext);
-	if (IsValid(UIDataAsset))
+	const USaiyoraUIDataAsset* DataAsset = GetUIDataAsset(WorldContext);
+	if (IsValid(DataAsset))
 	{
-		return UIDataAsset->PlayerDeadColor;
+		return DataAsset->PlayerDeadColor;
 	}
 	return FLinearColor::Black;
 }
 
 FLinearColor UUIFunctionLibrary::GetHealthEventOutlineColor(UObject* WorldContext, const EHealthEventType EventType)
 {
-	const USaiyoraUIDataAsset* UIDataAsset = GetUIDataAsset(WorldContext);
-	if (IsValid(UIDataAsset))
+	const USaiyoraUIDataAsset* DataAsset = GetUIDataAsset(WorldContext);
+	if (IsValid(DataAsset))
 	{
 		switch (EventType)
 		{
 		case EHealthEventType::Damage :
-			return UIDataAsset->DamageOutlineColor;
+			return DataAsset->DamageOutlineColor;
 		case EHealthEventType::Healing :
-			return UIDataAsset->HealingOutlineColor;
+			return DataAsset->HealingOutlineColor;
 		case EHealthEventType::Absorb :
-			return UIDataAsset->AbsorbOutlineColor;
+			return DataAsset->AbsorbOutlineColor;
 		default :
 			return FLinearColor::Transparent;
 		}
@@ -93,30 +93,30 @@ FLinearColor UUIFunctionLibrary::GetHealthEventOutlineColor(UObject* WorldContex
 
 FLinearColor UUIFunctionLibrary::GetUninterruptibleCastColor(UObject* WorldContext)
 {
-	const USaiyoraUIDataAsset* UIDataAsset = GetUIDataAsset(WorldContext);
-	if (IsValid(UIDataAsset))
+	const USaiyoraUIDataAsset* DataAsset = GetUIDataAsset(WorldContext);
+	if (IsValid(DataAsset))
 	{
-		return UIDataAsset->UninterruptibleCastColor;
+		return DataAsset->UninterruptibleCastColor;
 	}
 	return FLinearColor::Gray;
 }
 
 FLinearColor UUIFunctionLibrary::GetInterruptedCastColor(UObject* WorldContext)
 {
-	const USaiyoraUIDataAsset* UIDataAsset = GetUIDataAsset(WorldContext);
-	if (IsValid(UIDataAsset))
+	const USaiyoraUIDataAsset* DataAsset = GetUIDataAsset(WorldContext);
+	if (IsValid(DataAsset))
 	{
-		return UIDataAsset->InterruptedCastColor;
+		return DataAsset->InterruptedCastColor;
 	}
 	return FLinearColor::Red;
 }
 
 FLinearColor UUIFunctionLibrary::GetCancelledCastColor(UObject* WorldContext)
 {
-	const USaiyoraUIDataAsset* UIDataAsset = GetUIDataAsset(WorldContext);
-	if (IsValid(UIDataAsset))
+	const USaiyoraUIDataAsset* DataAsset = GetUIDataAsset(WorldContext);
+	if (IsValid(DataAsset))
 	{
-		return UIDataAsset->CancelledCastColor;
+		return DataAsset->CancelledCastColor;
 	}
 	return FLinearColor::Gray;
 }

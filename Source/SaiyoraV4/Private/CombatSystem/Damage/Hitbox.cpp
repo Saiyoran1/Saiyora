@@ -13,6 +13,13 @@ UHitbox::UHitbox()
 
 void UHitbox::InitializeComponent()
 {
+	Super::InitializeComponent();
+
+	if (!GetWorld() || !GetWorld()->IsGameWorld())
+	{
+		return;
+	}
+	
 	SetCollisionProfileName(FSaiyoraCollision::P_NoCollision);
 	if (GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
 	{

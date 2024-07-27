@@ -32,6 +32,13 @@ void UCombatStatusComponent::GetLifetimeReplicatedProps(::TArray<FLifetimeProper
 
 void UCombatStatusComponent::InitializeComponent()
 {
+	Super::InitializeComponent();
+
+	if (!GetWorld() || !GetWorld()->IsGameWorld())
+	{
+		return;
+	}
+	
 	SetCollisionProfileName(FSaiyoraCollision::P_NoCollision);
 	PlaneStatus.CurrentPlane = DefaultPlane;
 	PlaneStatus.LastSwapSource = nullptr;

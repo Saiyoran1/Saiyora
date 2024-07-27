@@ -26,9 +26,9 @@ private:
 	UPROPERTY()
 	ASaiyoraGameState* GameState = nullptr;
 	UPROPERTY()
-	UNPCAbilityComponent* NPCComponentRef;
+	UNPCAbilityComponent* NPCComponentRef = nullptr;
 	UPROPERTY()
-	UCombatStatusComponent* CombatStatusComponentRef;
+	UCombatStatusComponent* CombatStatusComponentRef = nullptr;
 
 	UFUNCTION()
 	void OnCombatBehaviorChanged(const ENPCCombatBehavior PreviousBehavior, const ENPCCombatBehavior NewBehavior);

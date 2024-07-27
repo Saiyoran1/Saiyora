@@ -41,6 +41,13 @@ void UAggroRadius::TickComponent(float DeltaTime, ELevelTick TickType, FActorCom
 
 void UAggroRadius::InitializeComponent()
 {
+	Super::InitializeComponent();
+
+	if (!GetWorld() || !GetWorld()->IsGameWorld())
+	{
+		return;
+	}
+	
 	SetCollisionProfileName(FSaiyoraCollision::P_NoCollision);
 	OnComponentBeginOverlap.AddDynamic(this, &UAggroRadius::OnOverlap);
 }

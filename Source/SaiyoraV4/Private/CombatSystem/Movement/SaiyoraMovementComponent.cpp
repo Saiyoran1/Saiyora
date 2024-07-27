@@ -185,6 +185,12 @@ void USaiyoraMovementComponent::GetLifetimeReplicatedProps(TArray<FLifetimePrope
 void USaiyoraMovementComponent::InitializeComponent()
 {
 	Super::InitializeComponent();
+
+	if (!GetWorld() || !GetWorld()->IsGameWorld())
+	{
+		return;
+	}
+	
 	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Custom Movement Component."));
 	PendingServerMoveStats.OwningComponent = this;
 	ConfirmedServerMoveStats.OwningComponent = this;
