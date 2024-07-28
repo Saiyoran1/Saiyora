@@ -2,6 +2,7 @@
 #include "NPCStructs.h"
 #include "ChoiceRequirements.generated.h"
 
+class UBuff;
 class UThreatHandler;
 
 #pragma region Choice Requirement
@@ -101,7 +102,7 @@ private:
 USTRUCT()
 struct FNPCCR_RotationToTarget : public FNPCChoiceRequirement
 {
-	GENERATED_BODY()
+	GENERATED_BODY();
 
 	virtual bool IsMet() const override;
 
@@ -119,4 +120,22 @@ private:
 	//Whether to check angle in 3 dimensions or only check yaw.
 	UPROPERTY(EditAnywhere)
 	bool bIncludeZAngle = false;
+};
+
+#pragma endregion
+#pragma region Buff
+
+USTRUCT()
+struct FNPCCR_Buff : public FNPCChoiceRequirement
+{
+	GENERATED_BODY();
+
+	virtual bool IsMet() const override;
+
+private:
+
+	UPROPERTY(EditAnywhere)
+	bool bRequireBuff = true;
+	UPROPERTY(EditAnywhere)
+	TSubclassOf<UBuff> BuffClass;
 };

@@ -1,4 +1,7 @@
 ﻿#include "ChoiceRequirements.h"
+
+#include "Buff.h"
+#include "BuffHandler.h"
 #include "SaiyoraCombatInterface.h"
 #include "TargetContexts.h"
 #include "ThreatHandler.h"
@@ -76,6 +79,29 @@ bool FNPCCR_RotationToTarget::IsMet() const
 	const float Angle = UKismetMathLibrary::DegAcos(FVector::DotProduct(OwnerVector, TowardTarget));
 	DrawDebugString(GetOwningNPC()->GetWorld(), GetOwningNPC()->GetActorLocation() + FVector::UpVector * 150.0f, FString::SanitizeFloat(Angle),0,  FColor::White, .2f);
 	return bWithinAngle ? Angle < AngleThreshold : Angle >= AngleThreshold;
+}
+
+#pragma endregion
+#pragma region Buff
+
+bool FNPCCR_Buff::IsMet() const
+{
+	if (!IsValid(BuffClass) || BuffClass == UBuff::StaticClass())
+	{
+		return !bRequireBuff;
+	}
+	if (!GetOwningNPC()->Implements<USaiyoraCombatInterface>())
+	{
+		return !bRequireBuff;
+	}
+	const UBuffHandler* OwnerBuff = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwningNPC());
+	if (!IsValid(OwnerBuff))
+	{
+		return !bRequireBuff;
+	}
+	TArray<UBuff*> AppliedBuffs;
+	OwnerBuff->GetBuffsOfClass(BuffClass, AppliedBuffs);
+	return bRequireBuff ? AppliedBuffs.Num() > 0 : AppliedBuffs.Num() == 0;
 }
 
 #pragma endregion 
