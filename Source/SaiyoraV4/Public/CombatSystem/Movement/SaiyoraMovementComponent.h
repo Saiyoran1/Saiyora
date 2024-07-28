@@ -207,7 +207,7 @@ private:
 public:
 
 	UFUNCTION(BlueprintCallable, Category = "Movement", meta = (DefaultToSelf = "Source", HidePin = "Source"))
-	void ApplyConstantForce(UObject* Source, const ERootMotionAccumulateMode AccumulateMode, const int32 Priority, const float Duration, const FVector& Force,
+	void ApplyConstantForce(UObject* Source, const ERootMotionAccumulateMode AccumulateMode, const bool bIgnoreZAccumulate, const int32 Priority, const float Duration, const FVector& Force,
 		UCurveFloat* StrengthOverTime, const bool bIgnoreRestrictions);
 
 	void ExecuteServerRootMotion(USaiyoraRootMotionTask* Task);

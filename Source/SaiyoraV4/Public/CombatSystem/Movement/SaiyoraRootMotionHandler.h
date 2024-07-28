@@ -39,9 +39,11 @@ public:
 	float Duration = 0.0f;
 	UPROPERTY(Replicated)
 	bool bIgnoreRestrictions = false;
+	UPROPERTY(Replicated)
+	bool bIgnoreZAccumulate = false;
 	UPROPERTY(ReplicatedUsing = OnRep_ServerWaitID)
 	int32 ServerWaitID = 0;
-
+	
 	FTimerHandle ServerWaitHandle;
 
 private:

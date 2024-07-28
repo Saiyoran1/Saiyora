@@ -1399,7 +1399,8 @@ APredictableProjectile* UAbilityFunctionLibrary::PredictProjectile(UCombatAbilit
 	}
 
 	const FPredictedTick CurrentTick = FPredictedTick(Ability->GetPredictionID(), Ability->GetCurrentTick());
-	const int32 NewProjectileID = Shooter->GetNewProjectileID(CurrentTick);
+	UCombatNetSubsystem* NetSubsystem = Shooter->GetWorld()->GetSubsystem<UCombatNetSubsystem>();
+	const int32 NewProjectileID = IsValid(NetSubsystem) ? NetSubsystem->GetNewProjectileID(Shooter, CurrentTick) : -1;
 	
 	FTransform SpawnTransform;
 	SpawnTransform.SetLocation(OutOrigin.Origin);
@@ -1443,15 +1444,11 @@ APredictableProjectile* UAbilityFunctionLibrary::ValidateProjectile(UCombatAbili
 	}
 	
 	const FPredictedTick CurrentTick = FPredictedTick(Ability->GetPredictionID(), Ability->GetCurrentTick());
-	const int32 NewProjectileID = Shooter->GetNewProjectileID(CurrentTick);
-
-	//Going to try this without rewinding for now due to performance issues.
-	/*TMap<UHitbox*, FTransform> ReturnTransforms;
-	RewindRelevantHitboxesForShooter(Shooter, Origin, TArray<AActor*>(), TArray<AActor*>(), ReturnTransforms);*/
+	UCombatNetSubsystem* NetSubsystem = Shooter->GetWorld()->GetSubsystem<UCombatNetSubsystem>();
+	const int32 NewProjectileID = IsValid(NetSubsystem) ? NetSubsystem->GetNewProjectileID(Shooter, CurrentTick) : -1;
 	
 	if (!IsValid(ProjectileClass))
 	{
-		Shooter->ClientNotifyFailedProjectileSpawn(CurrentTick, NewProjectileID);
 		return nullptr;
 	}
 	
@@ -1484,62 +1481,9 @@ APredictableProjectile* UAbilityFunctionLibrary::ValidateProjectile(UCombatAbili
 	APredictableProjectile* NewProjectile = Shooter->GetWorld()->SpawnActor<APredictableProjectile>(ProjectileClass, SpawnTransform, SpawnParams);
 	if (!IsValid(NewProjectile))
 	{
-		Shooter->ClientNotifyFailedProjectileSpawn(CurrentTick, NewProjectileID);
 		return nullptr;
 	}
 	NewProjectile->InitializeProjectile(Ability, CurrentTick, NewProjectileID, ProjectilePlane, ProjectileHostility);
-
-	//This method rewinds everything and does 50ms steps for the projectile until it is caught up to client time.
-	//This appears to be super heavy computationally because firing a lot of projectiles lags the game.
-	/*if (!Shooter->IsLocallyControlled())
-	{
-		AGameStateBase* GameState = Shooter->GetWorld()->GetGameState();
-		if (IsValid(GameState))
-		{
-			UProjectileMovementComponent* MoveComp = NewProjectile->FindComponentByClass<UProjectileMovementComponent>();
-			//Calculate how many 50ms steps we need to go through before we'd arrive less than 50ms from current time.
-			const float Ping = USaiyoraCombatLibrary::GetActorPing(Shooter);
-			const int32 Steps = FMath::Floor(Ping / .05f);
-			if (Steps == 0)
-			{
-				//Ping was less than 50ms, we can just do one step against the already rewound hitboxes.
-				if (IsValid(MoveComp))
-				{
-					MoveComp->TickComponent(Ping, ELevelTick::LEVELTICK_All, &MoveComp->PrimaryComponentTick);
-				}
-			}
-			else
-			{
-				//Only concerned with rewinding hitboxes hit with our initial rewind trace, otherwise performance costs could get crazy.
-				TArray<UHitbox*> RelevantHitboxes;
-				ReturnTransforms.GetKeys(RelevantHitboxes);
-				for (int i = 0; i < Steps; i++)
-				{
-					//Don't need to rewind for the first loop iteration since we are already rewound.
-					if (i != 0)
-					{
-						TMap<UHitbox*, FTransform> DummyTransforms;
-						RewindHitboxesToTimestamp(RelevantHitboxes, (GameState->GetServerWorldTimeSeconds() - Ping) + (i * .05f), DummyTransforms);
-					}
-					//Tick the projectile through 50ms against rewound targets.
-					if (IsValid(MoveComp))
-					{
-						MoveComp->TickComponent(.05f, ELevelTick::LEVELTICK_All, &MoveComp->PrimaryComponentTick);
-					}
-				}
-				//Partial step for any remainder less than 50ms at the end.
-				const float LastStepMs = Ping - (Steps * .05f);
-				TMap<UHitbox*, FTransform> DummyTransforms;
-				RewindHitboxesToTimestamp(RelevantHitboxes, (GameState->GetServerWorldTimeSeconds() - LastStepMs), DummyTransforms);
-				if (IsValid(MoveComp))
-				{
-					MoveComp->TickComponent(LastStepMs, ELevelTick::LEVELTICK_All, &MoveComp->PrimaryComponentTick);
-				}
-			}
-		}
-	}
-
-	UnrewindHitboxes(ReturnTransforms);*/
 	return NewProjectile;
 }
 

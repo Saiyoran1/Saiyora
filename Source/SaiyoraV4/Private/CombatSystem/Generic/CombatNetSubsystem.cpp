@@ -1,8 +1,9 @@
 ﻿#include "CombatNetSubsystem.h"
 #include "CombatDebugOptions.h"
 #include "Hitbox.h"
+#include "PredictableProjectile.h"
 #include "SaiyoraGameInstance.h"
-#include "SaiyoraGameState.h"
+#include "SaiyoraPlayerCharacter.h"
 
 #pragma region Hitbox Rewinding
 
@@ -139,3 +140,70 @@ FTransform UCombatNetSubsystem::RewindHitbox(UHitbox* Hitbox, const float Timest
 }
 
 #pragma endregion
+#pragma region Projectiles
+
+int32 UCombatNetSubsystem::GetNewProjectileID(ASaiyoraPlayerCharacter* Player, const FPredictedTick& Tick)
+{
+	if (!IsValid(Player))
+	{
+		return -1;
+	}
+	//Get the projectile info for this player.
+	FPlayerProjectileInfo& PlayerProjectileInfo = PlayerProjectiles.FindOrAdd(Player);
+	//Get the player's projectile info for the given tick.
+	FPredictedTickProjectiles& PredictedTickInfo = PlayerProjectileInfo.TickProjectiles.FindOrAdd(Tick);
+	//Increment the ID counter for this tick.
+	return PredictedTickInfo.IDCounter++;
+}
+
+void UCombatNetSubsystem::RegisterClientProjectile(ASaiyoraPlayerCharacter* Player, APredictableProjectile* Projectile)
+{
+	if (!IsValid(Player) || Player->GetLocalRole() != ROLE_AutonomousProxy || !IsValid(Projectile))
+	{
+		return;
+	}
+	//Get the projectile info for the given player.
+	FPlayerProjectileInfo& PlayerProjectileInfo = PlayerProjectiles.FindOrAdd(Player);
+	//Get the player's projectile info for this predicted tick.
+	FPredictedTickProjectiles& ProjectileIDs = PlayerProjectileInfo.TickProjectiles.FindOrAdd(Projectile->GetSourceInfo().SourceTick);
+	//Add the projectile and its ID to the projectile map for this tick.
+	ProjectileIDs.Projectiles.Add(Projectile->GetSourceInfo().ID, Projectile);
+}
+
+void UCombatNetSubsystem::ReplaceProjectile(APredictableProjectile* AuthProjectile)
+{
+	if (!IsValid(AuthProjectile) || AuthProjectile->IsFake())
+	{
+		return;
+	}
+	//Get the projectile info for the projectile's owner.
+	FPlayerProjectileInfo* PlayerProjectileInfo = PlayerProjectiles.Find(AuthProjectile->GetSourceInfo().Owner);
+	if (!PlayerProjectileInfo)
+	{
+		return;
+	}
+	//Get the info for the predicted tick this projectile was spawned during.
+	FPredictedTickProjectiles* TickInfo = PlayerProjectileInfo->TickProjectiles.Find(AuthProjectile->GetSourceInfo().SourceTick);
+	if (!TickInfo)
+	{
+		return;
+	}
+	//Get the client predicted projectile matching the auth projectile's ID.
+	APredictableProjectile* ClientProjectile = TickInfo->Projectiles.FindRef(AuthProjectile->GetSourceInfo().ID);
+	//If we found a client projectile, replace it (destroying it) with the server projectile.
+	//Update the server projectile to be invisible if the client projectile was predicted to be destroyed already.
+	if (IsValid(ClientProjectile))
+	{
+		const bool bWasLocallyDestroyed = ClientProjectile->Replace();
+		AuthProjectile->UpdateLocallyDestroyed(bWasLocallyDestroyed);
+	}
+	//Remove the info for this tick/ID combo since it has already been replaced.
+	TickInfo->Projectiles.Remove(AuthProjectile->GetSourceInfo().ID);
+	//If there's no more predicted projectiles for this predicted tick, we can go ahead and remove the info struct for this tick.
+	if (TickInfo->Projectiles.Num() == 0)
+	{
+		PlayerProjectileInfo->TickProjectiles.Remove(AuthProjectile->GetSourceInfo().SourceTick);
+	}
+}
+
+#pragma endregion 

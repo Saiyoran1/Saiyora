@@ -4,6 +4,7 @@
 #include "Hitbox.h"
 #include "NPCStructs.h"
 #include "NPCAbility.h"
+#include "PredictableProjectile.h"
 #include "RotationBehaviors.h"
 
 void UCombatDebugOptions::LogAbilityEvent(const AActor* Actor, const FAbilityEvent& Event)
@@ -101,4 +102,13 @@ void UCombatDebugOptions::DrawRewindHitbox(const UHitbox* Hitbox, const FTransfo
 	}
 	DrawDebugBox(Hitbox->GetWorld(), Hitbox->GetComponentLocation(), Hitbox->GetScaledBoxExtent(), Hitbox->GetComponentQuat(), FColor::Blue, false, 5.0f, 0, 2);
 	DrawDebugBox(Hitbox->GetWorld(), PreviousTransform.GetLocation(), Hitbox->GetUnscaledBoxExtent() * PreviousTransform.GetScale3D(), PreviousTransform.GetRotation(), FColor::Green, false, 5.0f, 0, 2);
+}
+
+void UCombatDebugOptions::DrawHiddenProjectile(const APredictableProjectile* Projectile)
+{
+	if (!IsValid(Projectile))
+	{
+		return;
+	}
+	DrawDebugSphere(Projectile->GetWorld(), Projectile->GetRootComponent()->Bounds.Origin, Projectile->GetRootComponent()->Bounds.SphereRadius, 32, FColor::Green);
 }

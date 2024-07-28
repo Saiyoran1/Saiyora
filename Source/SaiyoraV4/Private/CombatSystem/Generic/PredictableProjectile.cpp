@@ -1,17 +1,14 @@
 ﻿#include "PredictableProjectile.h"
 #include "AbilityComponent.h"
 #include "CombatAbility.h"
+#include "CombatDebugOptions.h"
+#include "CombatNetSubsystem.h"
 #include "SaiyoraCombatLibrary.h"
+#include "SaiyoraGameInstance.h"
 #include "SaiyoraProjectileComponent.h"
 #include "UnrealNetwork.h"
 #include "CoreClasses/SaiyoraPlayerCharacter.h"
 #include "GameFramework/ProjectileMovementComponent.h"
-
-static TAutoConsoleVariable<int32> DrawHiddenProjectiles(
-		TEXT("game.DrawHiddenProjectiles"),
-		0,
-		TEXT("Determines whether projectiles from the server that haven't caught up and replaced their respective client predictions should be drawn."),
-		ECVF_Default);
 
 APredictableProjectile::APredictableProjectile(const class FObjectInitializer& ObjectInitializer)
 {
@@ -30,8 +27,15 @@ void APredictableProjectile::PostNetReceiveLocationAndRotation()
 void APredictableProjectile::PostNetInit()
 {
 	Super::PostNetInit();
+	
 	if (IsValid(SourceInfo.Owner) && SourceInfo.Owner->IsLocallyControlled() && !bShouldReplace)
 	{
+		const USaiyoraGameInstance* GameInstance = Cast<USaiyoraGameInstance>(GetWorld()->GetGameInstance());
+		if (IsValid(GameInstance))
+		{
+			DebugOptions = GameInstance->CombatDebugOptions;
+		}
+		
 		TArray<UPrimitiveComponent*> PrimitiveComponents;
 		GetComponents<UPrimitiveComponent>(PrimitiveComponents);
 		for (UPrimitiveComponent* Comp : PrimitiveComponents)
@@ -45,9 +49,10 @@ void APredictableProjectile::PostNetInit()
 void APredictableProjectile::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
-	if (DrawHiddenProjectiles.GetValueOnGameThread() > 0 && bHidden)
+	
+	if (bHidden && IsValid(DebugOptions) && DebugOptions->bDrawHiddenProjectiles)
 	{
-		DrawDebugSphere(GetWorld(), GetActorLocation(), 50.0f, 12, FColor::Green);
+		DebugOptions->DrawHiddenProjectile(this);
 	}
 }
 
@@ -62,15 +67,19 @@ void APredictableProjectile::InitializeProjectile(UCombatAbility* Source, const 
 	SourceInfo.Owner = Cast<ASaiyoraPlayerCharacter>(GetOwner());
 	SourceInfo.SourceClass = Source->GetClass();
 	SourceInfo.SourceTick = Tick;
-	SourceInfo.ID = ID;
 	SourceInfo.SourceAbility = Source;
 	if (Source->GetHandler()->GetOwnerRole() == ROLE_AutonomousProxy)
 	{
 		Source->GetHandler()->OnAbilityMispredicted.AddDynamic(this, &APredictableProjectile::DeleteOnMisprediction);
-		SourceInfo.Owner->RegisterClientProjectile(this);
+		UCombatNetSubsystem* NetSubsystem = GetWorld()->GetSubsystem<UCombatNetSubsystem>();
+		if (IsValid(NetSubsystem))
+		{
+			NetSubsystem->RegisterClientProjectile(SourceInfo.Owner, this);
+		}
 	}
 	else if (Source->GetHandler()->GetOwnerRole() == ROLE_Authority)
 	{
+		SourceInfo.ID = ID;
 		//TODO: Currently no lag comp cap here?
 		ProjectileMovement->SetInitialCatchUpTime(this, USaiyoraCombatLibrary::GetActorPing(Source->GetHandler()->GetOwner()));
 	}
@@ -121,6 +130,12 @@ void APredictableProjectile::InitializeProjectile(UCombatAbility* Source, const 
 		}
 	}
 	OnInitialize();
+
+	const USaiyoraGameInstance* GameInstance = Cast<USaiyoraGameInstance>(GetWorld()->GetGameInstance());
+	if (IsValid(GameInstance))
+	{
+		DebugOptions = GameInstance->CombatDebugOptions;
+	}
 }
 
 void APredictableProjectile::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -133,29 +148,40 @@ void APredictableProjectile::GetLifetimeReplicatedProps(TArray<FLifetimeProperty
 
 void APredictableProjectile::OnRep_SourceInfo()
 {
+	//If bShouldReplace is already true when we first replicate to this client, go ahead and replace the predicted projectile.
 	if (!bReplaced && bShouldReplace && IsValid(SourceInfo.Owner) && SourceInfo.Owner->IsLocallyControlled())
 	{
-		SourceInfo.Owner->ReplaceProjectile(this);
-		bReplaced = true;
-		bHidden = false;
+		UCombatNetSubsystem* NetSubsystem = GetWorld()->GetSubsystem<UCombatNetSubsystem>();
+		if (IsValid(NetSubsystem))
+		{
+			NetSubsystem->ReplaceProjectile(this);
+			bReplaced = true;
+			bHidden = false;
+		}
 	}
 }
 
 void APredictableProjectile::OnRep_ShouldReplace()
 {
+	//When the server replicates that it's time to replace the predicted projectile, do so here.
+	//This may have already happened in OnRep_SourceInfo.
 	if (!bReplaced && bShouldReplace && IsValid(SourceInfo.Owner) && SourceInfo.Owner->IsLocallyControlled())
 	{
-		SourceInfo.Owner->ReplaceProjectile(this);
-		for (const TTuple<UPrimitiveComponent*, FName>& Collision : PreHideCollision)
+		UCombatNetSubsystem* NetSubsystem = GetWorld()->GetSubsystem<UCombatNetSubsystem>();
+		if (IsValid(NetSubsystem))
 		{
-			if (IsValid(Collision.Key))
+			NetSubsystem->ReplaceProjectile(this);
+			for (const TTuple<UPrimitiveComponent*, FName>& Collision : PreHideCollision)
 			{
-				Collision.Key->SetCollisionProfileName(Collision.Value);
-				Collision.Key->SetVisibility(true);
+				if (IsValid(Collision.Key))
+				{
+					Collision.Key->SetCollisionProfileName(Collision.Value);
+					Collision.Key->SetVisibility(true);
+				}
 			}
+			bReplaced = true;
+			bHidden = false;
 		}
-		bReplaced = true;
-		bHidden = false;
 	}
 }
 

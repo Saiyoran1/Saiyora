@@ -2,6 +2,7 @@
 #include "CoreMinimal.h"
 #include "CombatDebugOptions.generated.h"
 
+class APredictableProjectile;
 class UNPCAbility;
 class UHitbox;
 struct FNPCAbilityTokens;
@@ -34,4 +35,8 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Net")
 	bool bDrawRewindHitboxes = false;
 	void DrawRewindHitbox(const UHitbox* Hitbox, const FTransform& PreviousTransform);
+
+	UPROPERTY(EditAnywhere, Category = "Net")
+	bool bDrawHiddenProjectiles = false;
+	void DrawHiddenProjectile(const APredictableProjectile* Projectile);
 };

@@ -200,6 +200,8 @@ void USaiyoraMovementComponent::InitializeComponent()
 	StatHandlerRef = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
 	BuffHandlerRef = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwner());
 	StatCallback.BindDynamic(this, &USaiyoraMovementComponent::OnServerMoveStatChanged);
+
+	//Cache off default movement parameters, as they may be modified by Stats.
 	DefaultMaxWalkSpeed = MaxWalkSpeed;
 	DefaultCrouchSpeed = MaxWalkSpeedCrouched;
 	DefaultGroundFriction = GroundFriction;
@@ -626,7 +628,7 @@ void USaiyoraMovementComponent::ExecuteLaunchPlayer(const FCustomMoveParams& Cus
 #pragma endregion
 #pragma region Root Motion
 
-void USaiyoraMovementComponent::ApplyConstantForce(UObject* Source, const ERootMotionAccumulateMode AccumulateMode, const int32 Priority,
+void USaiyoraMovementComponent::ApplyConstantForce(UObject* Source, const ERootMotionAccumulateMode AccumulateMode, const bool bIgnoreZAccumulate, const int32 Priority,
 	const float Duration, const FVector& Force, UCurveFloat* StrengthOverTime, const bool bIgnoreRestrictions)
 {
 	USaiyoraConstantForce* ConstantForce = UGameplayTask::NewTask<USaiyoraConstantForce>(AbilityComponentRef);
@@ -634,6 +636,7 @@ void USaiyoraMovementComponent::ApplyConstantForce(UObject* Source, const ERootM
 	ConstantForce->Duration = Duration;
 	ConstantForce->Priority = Priority;
 	ConstantForce->AccumulateMode = AccumulateMode;
+	ConstantForce->bIgnoreZAccumulate = bIgnoreZAccumulate;
 	ConstantForce->Force = Force;
 	ConstantForce->StrengthOverTime = StrengthOverTime;
 	ConstantForce->bIgnoreRestrictions = bIgnoreRestrictions;

@@ -17,7 +17,6 @@ class USaiyoraUIDataAsset;
 class ASaiyoraGameState;
 class ASaiyoraPlayerController;
 class UCombatAbility;
-class APredictableProjectile;
 class UFireWeapon;
 class UStopFiring;
 class AWeapon;
@@ -26,15 +25,6 @@ class UAncientSpecialization;
 class UAncientTalent;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnMappingChanged, const ESaiyoraPlane, Plane, const int32, MappingID, TSubclassOf<UCombatAbility>, Ability);
-
-USTRUCT()
-struct FPredictedTickProjectiles
-{
-	GENERATED_BODY()
-
-	UPROPERTY()
-	TMap<int32, APredictableProjectile*> Projectiles;
-};
 
 UCLASS()
 class SAIYORAV4_API ASaiyoraPlayerCharacter : public ACharacter, public ISaiyoraCombatInterface
@@ -341,24 +331,6 @@ private:
 	TSet<UPrimitiveComponent*> XPlaneOverlaps;
 
 #pragma endregion 
-#pragma region Projectiles
-
-public:
-
-	void RegisterClientProjectile(APredictableProjectile* Projectile);
-	void ReplaceProjectile(APredictableProjectile* AuthProjectile);
-
-	int32 GetNewProjectileID(const FPredictedTick& Tick);
-
-	UFUNCTION(Client, Reliable)
-	void ClientNotifyFailedProjectileSpawn(const FPredictedTick& Tick, const int32 ProjectileID);
-
-private:
-	
-	TMap<FPredictedTick, FPredictedTickProjectiles> PredictedProjectiles;
-	TMap<FPredictedTick, int32> ProjectileIDs;
-
-#pragma endregion
 #pragma region Resurrection
 
 public:

@@ -106,6 +106,10 @@ TSharedPtr<FRootMotionSource> USaiyoraConstantForce::MakeRootMotionSource()
 		ConstantForce->Duration = Duration;
 		ConstantForce->Priority = Priority;
 		ConstantForce->AccumulateMode = AccumulateMode;
+		if (bIgnoreZAccumulate)
+		{
+			ConstantForce->Settings.SetFlag(ERootMotionSourceSettingsFlags::IgnoreZAccumulate);
+		}
 		ConstantForce->FinishVelocityParams.Mode = FinishVelocityMode;
 		ConstantForce->FinishVelocityParams.SetVelocity = FinishSetVelocity;
 		ConstantForce->FinishVelocityParams.ClampVelocity = FinishClampVelocity;

@@ -4,6 +4,7 @@
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "PredictableProjectile.generated.h"
 
+class UCombatDebugOptions;
 class USaiyoraProjectileComponent;
 class ASaiyoraPlayerCharacter;
 class UCombatAbility;
@@ -92,4 +93,7 @@ private:
 	UPROPERTY()
 	TMap<UPrimitiveComponent*, FName> PreHideCollision;
 	bool bHidden = false;
+
+	UPROPERTY()
+	UCombatDebugOptions* DebugOptions;
 };
