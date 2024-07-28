@@ -1,6 +1,7 @@
 ﻿#include "CombatDebugOptions.h"
 #include "AbilityStructs.h"
 #include "CombatAbility.h"
+#include "Hitbox.h"
 #include "NPCStructs.h"
 #include "NPCAbility.h"
 #include "RotationBehaviors.h"
@@ -90,4 +91,14 @@ void UCombatDebugOptions::DrawRotationBehavior(const AActor* Actor, const FRotat
 		DrawDebugDirectionalArrow(Actor->GetWorld(), StartLoc, StartLoc + DebugInfo.UnclampedRotation.Vector() * 100.0f, 100.0f, FColor::Yellow);
 	}
 	DrawDebugDirectionalArrow(Actor->GetWorld(), StartLoc, StartLoc + DebugInfo.FinalRotation.Vector() * 100.0f, 100.0f, FColor::Green);
+}
+
+void UCombatDebugOptions::DrawRewindHitbox(const UHitbox* Hitbox, const FTransform& PreviousTransform)
+{
+	if (!IsValid(Hitbox))
+	{
+		return;
+	}
+	DrawDebugBox(Hitbox->GetWorld(), Hitbox->GetComponentLocation(), Hitbox->GetScaledBoxExtent(), Hitbox->GetComponentQuat(), FColor::Blue, false, 5.0f, 0, 2);
+	DrawDebugBox(Hitbox->GetWorld(), PreviousTransform.GetLocation(), Hitbox->GetUnscaledBoxExtent() * PreviousTransform.GetScale3D(), PreviousTransform.GetRotation(), FColor::Green, false, 5.0f, 0, 2);
 }

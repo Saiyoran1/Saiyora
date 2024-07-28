@@ -1,6 +1,7 @@
 ﻿#include "AbilityFunctionLibrary.h"
 #include "AbilityComponent.h"
 #include "CombatAbility.h"
+#include "CombatNetSubsystem.h"
 #include "CombatStatusComponent.h"
 #include "GroundAttack.h"
 #include "Hitbox.h"
@@ -592,14 +593,14 @@ void UAbilityFunctionLibrary::RewindHitboxesToTimestamp(const TArray<UHitbox*>& 
 	{
 		return;
 	}
-	ASaiyoraGameState* GameState = Cast<ASaiyoraGameState>(Hitboxes[0]->GetWorld()->GetGameState());
-	if (!IsValid(GameState))
+	UCombatNetSubsystem* NetSubsystem = Hitboxes[0]->GetWorld()->GetSubsystem<UCombatNetSubsystem>();
+	if (!IsValid(NetSubsystem))
 	{
 		return;
 	}
 	for (UHitbox* Hitbox : Hitboxes)
 	{
-		ReturnTransforms.Add(Hitbox, GameState->RewindHitbox(Hitbox, Timestamp));
+		ReturnTransforms.Add(Hitbox, NetSubsystem->RewindHitbox(Hitbox, Timestamp));
 	}
 }
 

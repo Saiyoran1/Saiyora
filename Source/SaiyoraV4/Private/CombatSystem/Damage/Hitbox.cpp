@@ -1,5 +1,6 @@
 #include "CombatSystem/Damage/Hitbox.h"
 #include "AbilityComponent.h"
+#include "CombatNetSubsystem.h"
 #include "SaiyoraCombatInterface.h"
 #include "CoreClasses/SaiyoraGameState.h"
 #include "CombatStatusComponent.h"
@@ -35,6 +36,7 @@ void UHitbox::InitializeComponent()
 void UHitbox::BeginPlay()
 {
 	Super::BeginPlay();
+	
 	if (IsValid(NPCComponentRef))
 	{
 		NPCComponentRef->OnCombatBehaviorChanged.AddDynamic(this, &UHitbox::OnCombatBehaviorChanged);
@@ -44,12 +46,13 @@ void UHitbox::BeginPlay()
 	{
 		UpdateFactionCollision(CombatStatusComponentRef->GetCurrentFaction());
 	}
+	
 	if (GetOwnerRole() == ROLE_Authority)
 	{
-		GameState = GetWorld()->GetGameState<ASaiyoraGameState>();
-		if (IsValid(GameState))
+		UCombatNetSubsystem* NetSubsystem = GetWorld()->GetSubsystem<UCombatNetSubsystem>();
+		if (IsValid(NetSubsystem))
 		{
-			GameState->RegisterNewHitbox(this);
+			NetSubsystem->RegisterNewHitbox(this);
 		}
 	}
 }

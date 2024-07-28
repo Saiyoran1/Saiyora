@@ -3,6 +3,7 @@
 #include "CombatDebugOptions.generated.h"
 
 class UNPCAbility;
+class UHitbox;
 struct FNPCAbilityTokens;
 struct FAbilityEvent;
 struct FRotationDebugInfo;
@@ -29,4 +30,8 @@ public:
 	UPROPERTY(EditAnywhere, Category = "AI")
 	bool bDrawRotationBehavior = false;
 	void DrawRotationBehavior(const AActor* Actor, const FRotationDebugInfo& DebugInfo);
+
+	UPROPERTY(EditAnywhere, Category = "Net")
+	bool bDrawRewindHitboxes = false;
+	void DrawRewindHitbox(const UHitbox* Hitbox, const FTransform& PreviousTransform);
 };
