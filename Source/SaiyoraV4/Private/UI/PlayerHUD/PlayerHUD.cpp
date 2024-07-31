@@ -14,6 +14,15 @@ void UPlayerHUD::NativeOnInitialized()
 
 	if (IsValid(HealthBar))
 	{
-		HealthBar->InitHealthBar(OwningPlayer);
+		HealthBar->InitHealthBar(this, OwningPlayer);
+	}
+}
+
+void UPlayerHUD::ToggleExtraInfo(const bool bShowExtraInfo)
+{
+	if (bShowExtraInfo != bDisplayingExtraInfo)
+	{
+		bDisplayingExtraInfo = bShowExtraInfo;
+		OnExtraInfoToggled.Broadcast(bDisplayingExtraInfo);
 	}
 }

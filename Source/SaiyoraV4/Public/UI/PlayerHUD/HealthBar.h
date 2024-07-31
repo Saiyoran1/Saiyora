@@ -4,6 +4,7 @@
 #include "UserWidget.h"
 #include "HealthBar.generated.h"
 
+class UPlayerHUD;
 class USaiyoraUIDataAsset;
 class UTextBlock;
 class UProgressBar;
@@ -17,7 +18,8 @@ class SAIYORAV4_API UHealthBar : public UUserWidget
 
 public:
 
-	void InitHealthBar(ASaiyoraPlayerCharacter* OwningPlayer);
+	virtual void NativeDestruct() override;
+	void InitHealthBar(UPlayerHUD* OwningHUD, ASaiyoraPlayerCharacter* OwningPlayer);
 
 private:
 
@@ -33,12 +35,18 @@ private:
 	UTextBlock* RightText;
 
 	UPROPERTY()
+	UPlayerHUD* OwnerHUD;
+	UPROPERTY()
 	UDamageHandler* OwnerDamageHandler = nullptr;
 	UPROPERTY()
 	USaiyoraUIDataAsset* UIDataAsset = nullptr;
 
 	UFUNCTION()
-	void UpdateHealth(AActor* Actor, const float PreviousHealth, const float NewHealth);
+	void UpdateHealth(AActor* Actor = nullptr, const float PreviousHealth = 0.0f, const float NewHealth = 0.0f);
 	UFUNCTION()
 	void UpdateLifeStatus(AActor* Actor, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus);
+
+	bool bShowingExtraInfo = false;
+	UFUNCTION()
+	void ToggleExtraInfo(const bool bShowExtraInfo);
 };
