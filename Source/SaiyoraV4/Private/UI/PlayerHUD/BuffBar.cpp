@@ -6,7 +6,7 @@
 #include "TextBlock.h"
 #include "UIFunctionLibrary.h"
 
-void UBuffBar::Init(UPlayerHUD* OwnerHUD)
+void UBuffBar::InitBuffWidget(UPlayerHUD* OwnerHUD)
 {
 	if (!IsValid(OwnerHUD))
 	{

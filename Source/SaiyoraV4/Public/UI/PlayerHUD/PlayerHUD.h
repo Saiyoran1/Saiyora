@@ -15,8 +15,8 @@ class SAIYORAV4_API UPlayerHUD : public UUserWidget
 	GENERATED_BODY()
 
 public:
-
-	virtual void NativeOnInitialized() override;
+	
+	void InitializePlayerHUD(ASaiyoraPlayerCharacter* OwnerPlayer);
 
 	void ToggleExtraInfo(const bool bShowExtraInfo);
 	bool IsExtraInfoToggled() const { return bDisplayingExtraInfo; }

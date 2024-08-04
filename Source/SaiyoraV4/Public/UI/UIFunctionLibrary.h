@@ -3,6 +3,7 @@
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "UIFunctionLibrary.generated.h"
 
+class UPlayerHUD;
 enum class EHealthEventType : uint8;
 enum class EElementalSchool : uint8;
 class USaiyoraUIDataAsset;
@@ -14,12 +15,23 @@ class SAIYORAV4_API UUIFunctionLibrary : public UBlueprintFunctionLibrary
 	GENERATED_BODY()
 
 #pragma region Setup
+
+public:
+
+	UFUNCTION(BlueprintPure, meta = (HidePin = "WorldContext", DefaultToSelf = "WorldContext"))
+	static USaiyoraUIDataAsset* GetUIDataAsset(UObject* WorldContext);
 	
 private:
-
-	static USaiyoraUIDataAsset* GetUIDataAsset(UObject* WorldContext);
+	
 	static USaiyoraUIDataAsset* UIDataAsset;
 
+#pragma endregion
+#pragma region Widget Classes
+
+public:
+	
+	static TSubclassOf<UPlayerHUD> GetPlayerHUDClass(UObject* WorldContext);
+	
 #pragma endregion 
 #pragma region Formatting Strings
 	

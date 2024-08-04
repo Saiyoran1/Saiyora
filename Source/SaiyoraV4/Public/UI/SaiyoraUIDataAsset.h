@@ -3,6 +3,7 @@
 #include "Engine/DataAsset.h"
 #include "SaiyoraUIDataAsset.generated.h"
 
+class UPlayerHUD;
 enum class EElementalSchool : uint8;
 class USaiyoraErrorMessage;
 
@@ -15,7 +16,9 @@ public:
 	
 	USaiyoraUIDataAsset();
 
-	UPROPERTY(EditAnywhere, Category = "Errors")
+	UPROPERTY(EditAnywhere, Category = "Widget Classes")
+	TSubclassOf<UPlayerHUD> PlayerHUDClass;
+	UPROPERTY(EditAnywhere, Category = "Widget Classes")
 	TSubclassOf<USaiyoraErrorMessage> ErrorMessageWidgetClass;
 
 	UPROPERTY(EditAnywhere, Category = "Colors")

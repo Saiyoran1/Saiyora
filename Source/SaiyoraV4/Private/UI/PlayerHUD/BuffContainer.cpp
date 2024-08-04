@@ -52,7 +52,7 @@ void UBuffContainer::OnBuffApplied(const FBuffApplyEvent& Event)
 		{
 			return;
 		}
-		NewBuffWidget->Init(OwnerHUD);
+		NewBuffWidget->InitBuffWidget(OwnerHUD);
 		InactiveBuffWidgets.Add(NewBuffWidget);
 	}
 	UBuffBar* BuffWidget = InactiveBuffWidgets.Pop();

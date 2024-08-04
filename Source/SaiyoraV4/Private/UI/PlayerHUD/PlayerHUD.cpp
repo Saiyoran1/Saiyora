@@ -1,19 +1,15 @@
 ﻿#include "PlayerHUD.h"
-
 #include "BuffContainer.h"
 #include "HealthBar.h"
 #include "SaiyoraPlayerCharacter.h"
 
-void UPlayerHUD::NativeOnInitialized()
+void UPlayerHUD::InitializePlayerHUD(ASaiyoraPlayerCharacter* OwnerPlayer)
 {
-	Super::NativeOnInitialized();
-
-	OwningPlayer = Cast<ASaiyoraPlayerCharacter>(GetOwningPlayerPawn());
-	if (!IsValid(OwningPlayer))
+	if (!IsValid(OwnerPlayer))
 	{
 		return;
 	}
-
+	OwningPlayer = OwnerPlayer;
 	if (IsValid(HealthBar))
 	{
 		HealthBar->InitHealthBar(this, OwningPlayer);

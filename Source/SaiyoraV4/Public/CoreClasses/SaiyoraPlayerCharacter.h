@@ -12,6 +12,7 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "SaiyoraPlayerCharacter.generated.h"
 
+class UPlayerHUD;
 class USaiyoraErrorMessage;
 class USaiyoraUIDataAsset;
 class ASaiyoraGameState;
@@ -84,11 +85,16 @@ protected:
 
 	UFUNCTION(BlueprintImplementableEvent)
 	void CreateUserInterface();
+	void InitUserInterface();
 
 private:
 
-	UPROPERTY(EditDefaultsOnly, Category = "User Interface")
-	USaiyoraUIDataAsset* UIDataAsset;
+	UFUNCTION()
+	void ShowExtraInfo();
+	UFUNCTION()
+	void HideExtraInfo();
+	UPROPERTY()
+	UPlayerHUD* PlayerHUD = nullptr;
 	UPROPERTY()
 	USaiyoraErrorMessage* ErrorWidget;
 	UFUNCTION(Client, Unreliable)

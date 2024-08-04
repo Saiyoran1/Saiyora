@@ -20,7 +20,7 @@ public:
 	virtual void NativeDestruct() override;
 	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
 
-	void Init(UPlayerHUD* OwnerHUD);
+	void InitBuffWidget(UPlayerHUD* OwnerHUD);
 	void SetBuff(UBuff* NewBuff);
 
 private:

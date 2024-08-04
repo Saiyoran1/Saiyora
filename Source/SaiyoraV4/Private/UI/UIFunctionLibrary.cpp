@@ -1,5 +1,4 @@
 ﻿#include "UIFunctionLibrary.h"
-
 #include "DamageEnums.h"
 #include "SaiyoraGameInstance.h"
 #include "SaiyoraUIDataAsset.h"

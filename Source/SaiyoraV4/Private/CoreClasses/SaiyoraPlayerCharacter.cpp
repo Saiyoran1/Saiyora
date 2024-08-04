@@ -7,6 +7,7 @@
 #include "CombatStatusComponent.h"
 #include "DungeonGameState.h"
 #include "ModernSpecialization.h"
+#include "PlayerHUD.h"
 #include "Weapons/FireWeapon.h"
 #include "ResourceHandler.h"
 #include "SaiyoraErrorMessage.h"
@@ -15,6 +16,7 @@
 #include "CoreClasses/SaiyoraPlayerController.h"
 #include "StatHandler.h"
 #include "ThreatHandler.h"
+#include "UIFunctionLibrary.h"
 #include "UnrealNetwork.h"
 #include "Components/CapsuleComponent.h"
 #include "CoreClasses/SaiyoraGameState.h"
@@ -96,6 +98,9 @@ void ASaiyoraPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerI
 	PlayerInputComponent->BindAction("Action4", IE_Released, this, &ASaiyoraPlayerCharacter::InputStopAbility4);
 	PlayerInputComponent->BindAction("Action5", IE_Pressed, this, &ASaiyoraPlayerCharacter::InputStartAbility5);
 	PlayerInputComponent->BindAction("Action5", IE_Released, this, &ASaiyoraPlayerCharacter::InputStopAbility5);
+
+	PlayerInputComponent->BindAction("ToggleInfo", IE_Pressed, this, &ASaiyoraPlayerCharacter::ShowExtraInfo);
+	PlayerInputComponent->BindAction("ToggleInfo", IE_Released, this, &ASaiyoraPlayerCharacter::HideExtraInfo);
 }
 
 void ASaiyoraPlayerCharacter::PostInitializeComponents()
@@ -194,11 +199,31 @@ void ASaiyoraPlayerCharacter::InitializeCharacter()
 	if (IsLocallyControlled())
 	{
 		SetupAbilityMappings();
+		//TODO: Remove this once all widgets have been moved to c++.
+		//Currently the death overlay widget is still set up in Blueprints.
 		CreateUserInterface();
+		InitUserInterface();
 		CombatStatusComponent->OnPlaneSwapped.AddDynamic(this, &ASaiyoraPlayerCharacter::ClearQueueAndAutoFireOnPlaneSwap);
 	}
 	GameStateRef->InitPlayer(this);
 	bInitialized = true;
+}
+
+void ASaiyoraPlayerCharacter::InitUserInterface()
+{
+	const USaiyoraUIDataAsset* UIDataAsset = UUIFunctionLibrary::GetUIDataAsset(GetWorld());
+	if (!IsValid(UIDataAsset) || !IsValid(UIDataAsset->PlayerHUDClass))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Player HUD class wasn't valid in ASaiyoraPlayerCharacter::InitUserInterface. Please set a valid HUD class in the UI Data Asset."));
+		return;
+	}
+	PlayerHUD = CreateWidget<UPlayerHUD>(PlayerControllerRef, UIDataAsset->PlayerHUDClass);
+	if (!IsValid(PlayerHUD))
+	{
+		return;
+	}
+	PlayerHUD->InitializePlayerHUD(this);
+	PlayerHUD->AddToViewport();
 }
 
 #pragma endregion
@@ -687,12 +712,29 @@ void ASaiyoraPlayerCharacter::OnRep_ModernSpec(UModernSpecialization* PreviousSp
 #pragma endregion
 #pragma region User Interface
 
+void ASaiyoraPlayerCharacter::ShowExtraInfo()
+{
+	if (IsValid(PlayerHUD))
+	{
+		PlayerHUD->ToggleExtraInfo(true);
+	}
+}
+
+void ASaiyoraPlayerCharacter::HideExtraInfo()
+{
+	if (IsValid(PlayerHUD))
+	{
+		PlayerHUD->ToggleExtraInfo(false);
+	}
+}
+
 void ASaiyoraPlayerCharacter::Client_DisplayErrorMessage_Implementation(const FText& Message, const float Duration)
 {
 	if (!IsLocallyControlled() || !bInitialized || Message.IsEmpty())
 	{
 		return;
 	}
+	const USaiyoraUIDataAsset* UIDataAsset = UUIFunctionLibrary::GetUIDataAsset(GetWorld());
 	if (!IsValid(UIDataAsset) || !IsValid(UIDataAsset->ErrorMessageWidgetClass))
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Tried to display an error message for a player, but the UI Data Asset or Error Widget class was null."));
