@@ -1,4 +1,6 @@
 ﻿#include "PlayerHUD.h"
+
+#include "BuffContainer.h"
 #include "HealthBar.h"
 #include "SaiyoraPlayerCharacter.h"
 
@@ -15,6 +17,14 @@ void UPlayerHUD::NativeOnInitialized()
 	if (IsValid(HealthBar))
 	{
 		HealthBar->InitHealthBar(this, OwningPlayer);
+	}
+	if (IsValid(BuffContainer))
+	{
+		BuffContainer->InitBuffContainer(this, OwningPlayer, EBuffType::Buff);
+	}
+	if (IsValid(DebuffContainer))
+	{
+		DebuffContainer->InitBuffContainer(this, OwningPlayer, EBuffType::Debuff);
 	}
 }
 

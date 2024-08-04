@@ -29,7 +29,7 @@ USaiyoraUIDataAsset* UUIFunctionLibrary::GetUIDataAsset(UObject* WorldContext)
 
 FString UUIFunctionLibrary::GetTimeDisplayString(const float Seconds)
 {
-	const int IntSeconds = FMath::FloorToInt(Seconds);
+	const int IntSeconds = FMath::CeilToInt(Seconds);
 	const int Minutes = IntSeconds / 60;
 	const int RemainingSeconds = IntSeconds - (Minutes * 60);
 	FString TimeString = FString::Printf(L"%s%i:%s%i",

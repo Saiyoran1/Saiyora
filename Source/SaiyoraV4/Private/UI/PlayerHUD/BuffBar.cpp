@@ -30,8 +30,10 @@ void UBuffBar::SetBuff(UBuff* NewBuff)
 	AssignedBuff = NewBuff;
 	if (!IsValid(AssignedBuff))
 	{
+		SetVisibility(ESlateVisibility::Collapsed);
 		return;
 	}
+	SetVisibility(ESlateVisibility::HitTestInvisible);
 	IconImage->SetBrushFromTexture(AssignedBuff->GetBuffIcon());
 	NameText->SetText(FText::FromName(AssignedBuff->GetBuffName()));
 	DescriptionText->SetText(AssignedBuff->GetBuffDescription());
