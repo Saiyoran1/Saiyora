@@ -26,13 +26,6 @@ private:
 	static USaiyoraUIDataAsset* UIDataAsset;
 
 #pragma endregion
-#pragma region Widget Classes
-
-public:
-	
-	static TSubclassOf<UPlayerHUD> GetPlayerHUDClass(UObject* WorldContext);
-	
-#pragma endregion 
 #pragma region Formatting Strings
 	
 public:

@@ -66,11 +66,11 @@ void ADungeonGameState::OnRep_DungeonProgress(const FDungeonProgress& PreviousPr
 	}
 	if (PreviousProgress.KillCount != DungeonProgress.KillCount)
 	{
-		OnKillCountChanged.Broadcast(DungeonProgress.KillCount);
+		OnKillCountChanged.Broadcast(DungeonProgress.KillCount, KillCountRequirement);
 	}
 	if (PreviousProgress.DeathCount != DungeonProgress.DeathCount)
 	{
-		OnDeathCountChanged.Broadcast(DungeonProgress.DeathCount);
+		OnDeathCountChanged.Broadcast(DungeonProgress.DeathCount, GetCurrentDeathPenaltyTime());
 	}
 	TArray<FBossKillStatus> PreviousBosses = PreviousProgress.BossesKilled;
 	for (const FBossKillStatus& BossKillStatus : DungeonProgress.BossesKilled)
@@ -91,7 +91,7 @@ void ADungeonGameState::OnRep_DungeonProgress(const FDungeonProgress& PreviousPr
 			}
 		}
 	}
-	if (PreviousProgress.bDepleted != DungeonProgress.bDepleted && DungeonProgress.bDepleted)
+	if (!PreviousProgress.bDepleted && DungeonProgress.bDepleted)
 	{
 		OnDungeonDepleted.Broadcast();
 	}

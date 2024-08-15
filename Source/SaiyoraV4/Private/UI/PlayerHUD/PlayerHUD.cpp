@@ -1,5 +1,6 @@
 ﻿#include "PlayerHUD.h"
 #include "BuffContainer.h"
+#include "DungeonDisplay.h"
 #include "HealthBar.h"
 #include "SaiyoraPlayerCharacter.h"
 
@@ -21,6 +22,10 @@ void UPlayerHUD::InitializePlayerHUD(ASaiyoraPlayerCharacter* OwnerPlayer)
 	if (IsValid(DebuffContainer))
 	{
 		DebuffContainer->InitBuffContainer(this, OwningPlayer, EBuffType::Debuff);
+	}
+	if (IsValid(DungeonDisplay))
+	{
+		DungeonDisplay->InitDungeonDisplay(this);
 	}
 }
 

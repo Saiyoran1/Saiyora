@@ -41,4 +41,18 @@ public:
 	FLinearColor InterruptedCastColor = FLinearColor::Red;
 	UPROPERTY(EditAnywhere, Category = "Colors")
 	FLinearColor CancelledCastColor = FLinearColor::Gray;
+	UPROPERTY(EditAnywhere, Category = "Colors")
+	FLinearColor DefaultTextColor = FLinearColor::White;
+	UPROPERTY(EditAnywhere, Category = "Colors")
+	FLinearColor SuccessTextColor = FLinearColor::Green;
+	UPROPERTY(EditAnywhere, Category = "Colors")
+	FLinearColor FailureTextColor = FLinearColor::Red;
+	UPROPERTY(EditAnywhere, Category = "Colors")
+	FLinearColor StartProgressColor = FLinearColor::Yellow;
+	UPROPERTY(EditAnywhere, Category = "Colors")
+	FLinearColor EndProgressColor = FLinearColor::Red;
+	UPROPERTY(EditAnywhere, Category = "Colors")
+	FLinearColor SuccessProgressColor = FLinearColor::Green;
+	UPROPERTY(EditAnywhere, Category = "Colors")
+	FLinearColor FailureProgressColor = FLinearColor::Gray;
 };

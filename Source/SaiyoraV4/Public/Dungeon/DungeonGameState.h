@@ -52,8 +52,8 @@ struct FDungeonProgress
 };
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnDungeonPhaseChanged, const EDungeonPhase, OldPhase, const EDungeonPhase, NewPhase);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnKillCountChanged, const int32, KillCount);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnDeathCountChanged, const int32, DeathCount);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnKillCountChanged, const int32, KillCount, const int32, MaxCount);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnDeathCountChanged, const int32, DeathCount, const float, DeathTime);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnBossKilled, const FGameplayTag, BossTag, const FString&, BossName);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnDungeonDepleted);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnDungeonCompleted, const float, CompletionTime);

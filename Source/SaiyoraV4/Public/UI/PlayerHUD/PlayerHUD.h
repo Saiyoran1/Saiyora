@@ -3,6 +3,7 @@
 #include "UserWidget.h"
 #include "PlayerHUD.generated.h"
 
+class UDungeonDisplay;
 class UBuffContainer;
 class UHealthBar;
 class ASaiyoraPlayerCharacter;
@@ -32,6 +33,8 @@ private:
 	UBuffContainer* BuffContainer;
 	UPROPERTY(VisibleAnywhere, meta = (BindWidget))
 	UBuffContainer* DebuffContainer;
+	UPROPERTY(VisibleAnywhere, meta = (BindWidget))
+	UDungeonDisplay* DungeonDisplay;
 
 	UPROPERTY()
 	ASaiyoraPlayerCharacter* OwningPlayer;
