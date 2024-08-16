@@ -264,6 +264,7 @@ public:
     float GetCurrentCastLength() const { return CastingState.bIsCasting ? CastingState.CastLength : -1.0f; }
     UFUNCTION(BlueprintPure, Category = "Abilities")
     float GetCastTimeRemaining() const { return CastingState.bIsCasting ? FMath::Max(0.0f, CastingState.CastStartTime + CastingState.CastLength - GameStateRef->GetServerWorldTimeSeconds()) : -1.0f; }
+	FCastingState GetCurrentCastingState() const { return CastingState; }
 	UPROPERTY(BlueprintAssignable)
 	FCastingStateNotification OnCastStateChanged;
 
