@@ -1,5 +1,6 @@
 ﻿#include "PlayerHUD.h"
 #include "BuffContainer.h"
+#include "CastBar.h"
 #include "DungeonDisplay.h"
 #include "HealthBar.h"
 #include "SaiyoraPlayerCharacter.h"
@@ -26,6 +27,10 @@ void UPlayerHUD::InitializePlayerHUD(ASaiyoraPlayerCharacter* OwnerPlayer)
 	if (IsValid(DungeonDisplay))
 	{
 		DungeonDisplay->InitDungeonDisplay(this);
+	}
+	if (IsValid(CastBar))
+	{
+		CastBar->InitCastBar(OwningPlayer, true);
 	}
 }
 

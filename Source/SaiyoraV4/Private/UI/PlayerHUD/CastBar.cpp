@@ -55,7 +55,7 @@ void UCastBar::InitCastBar(AActor* OwnerActor, const bool bDisplayDurationText)
 		}
 		else
 		{
-			DurationText->SetVisibility(ESlateVisibility::Collapsed);
+			DurationText->SetVisibility(ESlateVisibility::Hidden);
 		}
 	}
 	if (AbilityComponentRef->IsCasting())
@@ -78,6 +78,11 @@ void UCastBar::OnCastStateChanged(const FCastingState& PreviousState, const FCas
 	if (NewState.bIsCasting && IsValid(NewState.CurrentCast))
 	{
 		SetVisibility(ESlateVisibility::HitTestInvisible);
+		SetRenderOpacity(1.0f);
+		if (GetWorld()->GetTimerManager().IsTimerActive(FadeTimerHandle))
+		{
+			GetWorld()->GetTimerManager().ClearTimer(FadeTimerHandle);
+		}
 		if (IsValid(CastText))
 		{
 			CastText->SetText(FText::FromString(NewState.CurrentCast->GetAbilityName().ToString()));
@@ -101,17 +106,55 @@ void UCastBar::OnCastStateChanged(const FCastingState& PreviousState, const FCas
 				InterruptibleBorder->SetVisibility(ESlateVisibility::HitTestInvisible);
 			}
 		}
+		if (bDisplayDuration && IsValid(DurationText))
+		{
+			DurationText->SetVisibility(ESlateVisibility::HitTestInvisible);
+		}
 	}
 }
 
 void UCastBar::OnCastInterrupted(const FInterruptEvent& Event)
 {
-	//TODO: Set color to UIDataAsset failure color, set percent, set text to INTERRUPTED, set fade timer.
+	if (IsValid(CastProgress))
+	{
+		const float Percent = FMath::Clamp((Event.InterruptTime - Event.InterruptedCastStart) / (Event.InterruptedCastEnd - Event.InterruptedCastStart), 0.0f, 1.0f);
+		CastProgress->SetPercent(Percent);
+		if (IsValid(UIDataAsset))
+		{
+			CastProgress->SetFillColorAndOpacity(UIDataAsset->FailureProgressColor);
+		}
+	}
+	if (IsValid(CastText))
+	{
+		CastText->SetText(FText::FromString("INTERRUPTED"));
+	}
+	if (IsValid(DurationText))
+	{
+		DurationText->SetVisibility(ESlateVisibility::Hidden);
+	}
+	StartFade(1.0f);
 }
 
 void UCastBar::OnCastCancelled(const FCancelEvent& Event)
 {
-	//TODO: Set color to UIDataAsset default color, set percent, set text to CANCELLED, set fade timer.
+	if (IsValid(CastProgress))
+	{
+		const float Percent = FMath::Clamp((Event.CancelTime - Event.CancelledCastStart) / (Event.CancelledCastEnd - Event.CancelledCastStart), 0.0f, 1.0f);
+		CastProgress->SetPercent(Percent);
+		if (IsValid(UIDataAsset))
+		{
+			CastProgress->SetFillColorAndOpacity(UIDataAsset->FailureProgressColor);
+		}
+	}
+	if (IsValid(CastText))
+	{
+		CastText->SetText(FText::FromString("CANCELLED"));
+	}
+	if (IsValid(DurationText))
+	{
+		DurationText->SetVisibility(ESlateVisibility::Hidden);
+	}
+	StartFade(0.5f);
 }
 
 void UCastBar::OnCastTick(const FAbilityEvent& Event)
@@ -127,6 +170,10 @@ void UCastBar::OnCastTick(const FAbilityEvent& Event)
 				CastProgress->SetFillColorAndOpacity(UIDataAsset->SuccessProgressColor);
 			}
 			CastProgress->SetPercent(1.0f);
+		}
+		if (IsValid(DurationText))
+		{
+			DurationText->SetVisibility(ESlateVisibility::Hidden);
 		}
 		StartFade(0.2f);
 	}
