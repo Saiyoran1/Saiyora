@@ -23,24 +23,30 @@ public:
 
 	UPROPERTY(EditAnywhere, Category = "Colors")
 	TMap<EElementalSchool, FLinearColor> SchoolColors;
+	FLinearColor GetSchoolColor(const EElementalSchool School) const { return SchoolColors.FindRef(School); }
+	
 	UPROPERTY(EditAnywhere, Category = "Colors")
 	FLinearColor PlayerHealthColor = FLinearColor::Red;
 	UPROPERTY(EditAnywhere, Category = "Colors")
 	FLinearColor PlayerDeadColor = FLinearColor::Black;
+	
 	UPROPERTY(EditAnywhere, Category = "Colors")
 	FLinearColor EnemyHealthColor = FLinearColor::Red;
+	
 	UPROPERTY(EditAnywhere, Category = "Colors")
 	FLinearColor DamageOutlineColor = FLinearColor::Black;
 	UPROPERTY(EditAnywhere, Category = "Colors")
 	FLinearColor HealingOutlineColor = FLinearColor::Green;
 	UPROPERTY(EditAnywhere, Category = "Colors")
 	FLinearColor AbsorbOutlineColor = FLinearColor::Blue;
+	
 	UPROPERTY(EditAnywhere, Category = "Colors")
 	FLinearColor UninterruptibleCastColor = FLinearColor::Gray;
 	UPROPERTY(EditAnywhere, Category = "Colors")
 	FLinearColor InterruptedCastColor = FLinearColor::Red;
 	UPROPERTY(EditAnywhere, Category = "Colors")
 	FLinearColor CancelledCastColor = FLinearColor::Gray;
+	
 	UPROPERTY(EditAnywhere, Category = "Colors")
 	FLinearColor DefaultTextColor = FLinearColor::White;
 	UPROPERTY(EditAnywhere, Category = "Colors")
@@ -55,4 +61,7 @@ public:
 	FLinearColor SuccessProgressColor = FLinearColor::Green;
 	UPROPERTY(EditAnywhere, Category = "Colors")
 	FLinearColor FailureProgressColor = FLinearColor::Gray;
+
+	UPROPERTY(EditAnywhere, Category = "Icons")
+	UTexture2D* UninterruptibleCastIcon = nullptr;
 };

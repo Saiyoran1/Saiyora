@@ -35,7 +35,7 @@ private:
 	UPROPERTY(VisibleAnywhere, meta = (BindWidget))
 	UImage* CastIcon;
 	UPROPERTY(VisibleAnywhere, meta = (BindWidget))
-	UBorder* InterruptibleBorder;
+	UImage* UninterruptibleIcon;
 
 	UPROPERTY()
 	UAbilityComponent* AbilityComponentRef = nullptr;

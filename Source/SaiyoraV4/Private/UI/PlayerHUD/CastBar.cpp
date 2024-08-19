@@ -66,6 +66,10 @@ void UCastBar::InitCastBar(AActor* OwnerActor, const bool bDisplayDurationText)
 	{
 		SetVisibility(ESlateVisibility::Collapsed);
 	}
+	if (IsValid(UIDataAsset) && IsValid(UninterruptibleIcon))
+	{
+		UninterruptibleIcon->SetBrushFromTexture(UIDataAsset->UninterruptibleCastIcon);
+	}
 	AbilityComponentRef->OnCastStateChanged.AddDynamic(this, &UCastBar::OnCastStateChanged);
 	AbilityComponentRef->OnAbilityInterrupted.AddDynamic(this, &UCastBar::OnCastInterrupted);
 	AbilityComponentRef->OnAbilityCancelled.AddDynamic(this, &UCastBar::OnCastCancelled);
@@ -91,19 +95,20 @@ void UCastBar::OnCastStateChanged(const FCastingState& PreviousState, const FCas
 		{
 			CastIcon->SetBrushFromTexture(NewState.CurrentCast->GetAbilityIcon());
 		}
-		if (IsValid(CastProgress))
+		if (IsValid(CastProgress) && IsValid(UIDataAsset))
 		{
-			CastProgress->SetFillColorAndOpacity(UUIFunctionLibrary::GetElementalSchoolColor(GetWorld(), NewState.CurrentCast->GetAbilitySchool()));
+			const FLinearColor ProgressColor = NewState.bInterruptible ? UIDataAsset->GetSchoolColor(NewState.CurrentCast->GetAbilitySchool()) : UIDataAsset->UninterruptibleCastColor;
+			CastProgress->SetFillColorAndOpacity(ProgressColor);
 		}
-		if (IsValid(InterruptibleBorder))
+		if (IsValid(UninterruptibleIcon))
 		{
 			if (NewState.bInterruptible)
 			{
-				InterruptibleBorder->SetVisibility(ESlateVisibility::Collapsed);
+				UninterruptibleIcon->SetVisibility(ESlateVisibility::Hidden);
 			}
 			else
 			{
-				InterruptibleBorder->SetVisibility(ESlateVisibility::HitTestInvisible);
+				UninterruptibleIcon->SetVisibility(ESlateVisibility::HitTestInvisible);
 			}
 		}
 		if (bDisplayDuration && IsValid(DurationText))
