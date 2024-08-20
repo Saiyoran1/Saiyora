@@ -22,7 +22,7 @@ class SAIYORAV4_API UCastBar : public UUserWidget
 public:
 
 	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
-	void InitCastBar(AActor* OwnerActor, const bool bDisplayDurationText);
+	void InitCastBar(AActor* OwnerActor);
 
 private:
 
@@ -30,7 +30,7 @@ private:
 	UProgressBar* CastProgress;
 	UPROPERTY(VisibleAnywhere, meta = (BindWidget))
 	UTextBlock* CastText;
-	UPROPERTY(VisibleAnywhere, meta = (BindWidget))
+	UPROPERTY(VisibleAnywhere, meta = (BindWidgetOptional))
 	UTextBlock* DurationText;
 	UPROPERTY(VisibleAnywhere, meta = (BindWidget))
 	UImage* CastIcon;
@@ -48,7 +48,6 @@ private:
 	void OnCastCancelled(const FCancelEvent& Event);
 	UFUNCTION()
 	void OnCastTick(const FAbilityEvent& Event);
-	bool bDisplayDuration = false;
 
 	UPROPERTY()
 	USaiyoraUIDataAsset* UIDataAsset = nullptr;

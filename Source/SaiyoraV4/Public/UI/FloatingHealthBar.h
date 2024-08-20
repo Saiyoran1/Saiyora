@@ -9,6 +9,7 @@
 #include "Blueprint/UserWidget.h"
 #include "FloatingHealthBar.generated.h"
 
+class UCastBar;
 class UAbilityComponent;
 struct FBuffApplyEvent;
 class UFloatingBuffIcon;
@@ -16,7 +17,7 @@ class ASaiyoraPlayerCharacter;
 class UDamageHandler;
 class UBuffHandler;
 
-UCLASS(Abstract)
+UCLASS()
 class SAIYORAV4_API UFloatingHealthBar : public UUserWidget
 {
 	GENERATED_BODY()
@@ -74,27 +75,10 @@ private:
 
 public:
 
-protected:
-
-	UFUNCTION(BlueprintPure)
-	UAbilityComponent* GetTargetAbilityComponent() const { return TargetAbilityComponent; }
-	
-	UFUNCTION(BlueprintImplementableEvent)
-	void OnCastStateChanged(const FCastingState& PreviousState, const FCastingState& NewState);
-	UFUNCTION(BlueprintImplementableEvent)
-	void OnCastInterrupted(const FInterruptEvent& Event);
-	UFUNCTION(BlueprintImplementableEvent)
-	void OnCastCancelled(const FCancelEvent& Event);
-
 private:
 
-	UPROPERTY(BlueprintReadWrite, meta = (BindWidget, AllowPrivateAccess = "true"))
-	UProgressBar* CastBar;
-	UPROPERTY(BlueprintReadWrite, meta = (BindWidget, AllowPrivateAccess = "true"))
-	UTextBlock* CastBarText;
-
-	UPROPERTY()
-	UAbilityComponent* TargetAbilityComponent = nullptr;
+	UPROPERTY(VisibleAnywhere, meta = (BindWidget))
+	UCastBar* CastBar;
 
 #pragma endregion 
 };

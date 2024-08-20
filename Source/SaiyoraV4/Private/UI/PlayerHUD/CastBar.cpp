@@ -21,6 +21,10 @@ void UCastBar::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 		SetRenderOpacity(Opacity);
 		return;
 	}
+	if (GetVisibility() == ESlateVisibility::Hidden)
+	{
+		return;
+	}
 	//During a cast, update progress and duration text.
 	if (IsValid(CastProgress))
 	{
@@ -28,13 +32,13 @@ void UCastBar::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 			1.0f - FMath::Clamp(AbilityComponentRef->GetCastTimeRemaining() / AbilityComponentRef->GetCurrentCastLength(), 0.0f, 1.0f);
 		CastProgress->SetPercent(Percent);
 	}
-	if (bDisplayDuration && IsValid(DurationText))
+	if (IsValid(DurationText))
 	{
 		DurationText->SetText(FText::FromString(UUIFunctionLibrary::GetTimeDisplayString(AbilityComponentRef->GetCastTimeRemaining())));
 	}
 }
 
-void UCastBar::InitCastBar(AActor* OwnerActor, const bool bDisplayDurationText)
+void UCastBar::InitCastBar(AActor* OwnerActor)
 {
 	if (!IsValid(OwnerActor) || !OwnerActor->Implements<USaiyoraCombatInterface>())
 	{
@@ -46,18 +50,6 @@ void UCastBar::InitCastBar(AActor* OwnerActor, const bool bDisplayDurationText)
 		return;
 	}
 	UIDataAsset = UUIFunctionLibrary::GetUIDataAsset(GetWorld());
-	bDisplayDuration = bDisplayDurationText;
-	if (IsValid(DurationText))
-	{
-		if (bDisplayDuration)
-		{
-			DurationText->SetVisibility(ESlateVisibility::HitTestInvisible);
-		}
-		else
-		{
-			DurationText->SetVisibility(ESlateVisibility::Hidden);
-		}
-	}
 	if (AbilityComponentRef->IsCasting())
 	{
 		OnCastStateChanged(FCastingState(), AbilityComponentRef->GetCurrentCastingState());
@@ -111,7 +103,7 @@ void UCastBar::OnCastStateChanged(const FCastingState& PreviousState, const FCas
 				UninterruptibleIcon->SetVisibility(ESlateVisibility::HitTestInvisible);
 			}
 		}
-		if (bDisplayDuration && IsValid(DurationText))
+		if (IsValid(DurationText))
 		{
 			DurationText->SetVisibility(ESlateVisibility::HitTestInvisible);
 		}
@@ -170,10 +162,6 @@ void UCastBar::OnCastTick(const FAbilityEvent& Event)
 	{
 		if (IsValid(CastProgress))
 		{
-			if (IsValid(UIDataAsset))
-			{
-				CastProgress->SetFillColorAndOpacity(UIDataAsset->SuccessProgressColor);
-			}
 			CastProgress->SetPercent(1.0f);
 		}
 		if (IsValid(DurationText))

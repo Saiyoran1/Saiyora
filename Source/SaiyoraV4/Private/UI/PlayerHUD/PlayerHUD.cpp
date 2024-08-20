@@ -30,7 +30,7 @@ void UPlayerHUD::InitializePlayerHUD(ASaiyoraPlayerCharacter* OwnerPlayer)
 	}
 	if (IsValid(CastBar))
 	{
-		CastBar->InitCastBar(OwningPlayer, true);
+		CastBar->InitCastBar(OwningPlayer);
 	}
 }
 

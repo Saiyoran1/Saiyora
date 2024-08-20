@@ -1,8 +1,7 @@
 ﻿#include "UI/FloatingHealthBar.h"
-
-#include "AbilityComponent.h"
 #include "Buff.h"
 #include "BuffHandler.h"
+#include "CastBar.h"
 #include "DamageHandler.h"
 #include "FloatingBuffIcon.h"
 #include "SaiyoraCombatInterface.h"
@@ -66,30 +65,9 @@ void UFloatingHealthBar::Init(AActor* TargetActor)
 		}
 	}
 
-	TargetAbilityComponent = ISaiyoraCombatInterface::Execute_GetAbilityComponent(TargetActor);
-	if (IsValid(TargetAbilityComponent))
+	if (IsValid(CastBar))
 	{
-		TargetAbilityComponent->OnCastStateChanged.AddDynamic(this, &UFloatingHealthBar::OnCastStateChanged);
-		TargetAbilityComponent->OnAbilityCancelled.AddDynamic(this, &UFloatingHealthBar::OnCastCancelled);
-		TargetAbilityComponent->OnAbilityInterrupted.AddDynamic(this, &UFloatingHealthBar::OnCastInterrupted);
-		FCastingState CurrentCastState;
-		CurrentCastState.bIsCasting = TargetAbilityComponent->IsCasting();
-		CurrentCastState.CastLength = TargetAbilityComponent->GetCurrentCastLength();
-		CurrentCastState.CastStartTime = (GetWorld()->GetGameState()->GetServerWorldTimeSeconds() + TargetAbilityComponent->GetCastTimeRemaining()) - CurrentCastState.CastLength;
-		CurrentCastState.CurrentCast = TargetAbilityComponent->GetCurrentCast();
-		CurrentCastState.bInterruptible = TargetAbilityComponent->IsInterruptible();
-		OnCastStateChanged(FCastingState(), CurrentCastState);
-	}
-	else
-	{
-		if (IsValid(CastBar))
-		{
-			CastBar->RemoveFromParent();
-		}
-		if (IsValid(CastBarText))
-		{
-			CastBarText->RemoveFromParent();
-		}
+		CastBar->InitCastBar(TargetActor);
 	}
 }
 
