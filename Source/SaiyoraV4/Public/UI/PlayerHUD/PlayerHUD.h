@@ -3,6 +3,7 @@
 #include "UserWidget.h"
 #include "PlayerHUD.generated.h"
 
+class UResourceContainer;
 class UCastBar;
 class UDungeonDisplay;
 class UBuffContainer;
@@ -38,6 +39,8 @@ private:
 	UDungeonDisplay* DungeonDisplay;
 	UPROPERTY(VisibleAnywhere, meta = (BindWidget))
 	UCastBar* CastBar;
+	UPROPERTY(VisibleAnywhere, meta = (BindWidget))
+	UResourceContainer* ResourceContainer;
 
 	UPROPERTY()
 	ASaiyoraPlayerCharacter* OwningPlayer;

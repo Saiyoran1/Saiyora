@@ -6,6 +6,7 @@
 #include "Styling/SlateBrush.h"
 #include "Resource.generated.h"
 
+class UResourceBar;
 class UCombatAbility;
 class UResourceHandler;
 class UStatHandler;
@@ -57,17 +58,18 @@ private:
 
 public:
 
-	UFUNCTION(BlueprintPure, Category = "Resource")
-	FSlateBrush GetDisplayFillBrush() const { return BarFillBrush; }
-	UFUNCTION(BlueprintPure, Category = "Resource")
-	FSlateBrush GetDisplayBackgroundBrush() const { return BarBackgroundBrush; }
+	TSubclassOf<UResourceBar> GetHUDResourceWidget() const { return HUDResourceWidget; }
+	TSubclassOf<UResourceBar> GetNameplateResourceWidget() const { return NameplateResourceWidget; }
+	TSubclassOf<UResourceBar> GetPartyFrameResourceWidget() const { return PartyFrameResourceWidget; }
 
 private:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Resource")
-	FSlateBrush BarFillBrush;
+	TSubclassOf<UResourceBar> HUDResourceWidget;
 	UPROPERTY(EditDefaultsOnly, Category = "Resource")
-	FSlateBrush BarBackgroundBrush;
+	TSubclassOf<UResourceBar> NameplateResourceWidget;
+	UPROPERTY(EditDefaultsOnly, Category = "Resource")
+	TSubclassOf<UResourceBar> PartyFrameResourceWidget;
 
 #pragma endregion 
 #pragma region State

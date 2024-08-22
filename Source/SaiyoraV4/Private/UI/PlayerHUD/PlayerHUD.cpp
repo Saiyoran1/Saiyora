@@ -3,6 +3,7 @@
 #include "CastBar.h"
 #include "DungeonDisplay.h"
 #include "HealthBar.h"
+#include "ResourceContainer.h"
 #include "SaiyoraPlayerCharacter.h"
 
 void UPlayerHUD::InitializePlayerHUD(ASaiyoraPlayerCharacter* OwnerPlayer)
@@ -31,6 +32,10 @@ void UPlayerHUD::InitializePlayerHUD(ASaiyoraPlayerCharacter* OwnerPlayer)
 	if (IsValid(CastBar))
 	{
 		CastBar->InitCastBar(OwningPlayer);
+	}
+	if (IsValid(ResourceContainer))
+	{
+		ResourceContainer->InitResourceContainer(OwningPlayer);
 	}
 }
 
