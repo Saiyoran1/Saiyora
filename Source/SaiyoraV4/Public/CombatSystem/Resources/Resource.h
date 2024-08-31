@@ -59,17 +59,11 @@ private:
 public:
 
 	TSubclassOf<UResourceBar> GetHUDResourceWidget() const { return HUDResourceWidget; }
-	TSubclassOf<UResourceBar> GetNameplateResourceWidget() const { return NameplateResourceWidget; }
-	TSubclassOf<UResourceBar> GetPartyFrameResourceWidget() const { return PartyFrameResourceWidget; }
 
 private:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Resource")
 	TSubclassOf<UResourceBar> HUDResourceWidget;
-	UPROPERTY(EditDefaultsOnly, Category = "Resource")
-	TSubclassOf<UResourceBar> NameplateResourceWidget;
-	UPROPERTY(EditDefaultsOnly, Category = "Resource")
-	TSubclassOf<UResourceBar> PartyFrameResourceWidget;
 
 #pragma endregion 
 #pragma region State
@@ -79,13 +73,13 @@ public:
 	//Get the current value of the resource, or the client's predicted value if not on the server.
 	UFUNCTION(BlueprintPure, Category = "Resource")
 	float GetCurrentValue() const;
-	UFUNCTION(BlueprintPure, Category = "Resource")
-	float GetMinimum() const { return ResourceState.Minimum; }
+	//Get the current max value of the resource.
 	UFUNCTION(BlueprintPure, Category = "Resource")
 	float GetMaximum() const { return ResourceState.Maximum; }
 	//Used to adjust the resource value for everything that isn't an ability cost.
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Resource")
 	void ModifyResource(UObject* Source, const float Amount, const bool bIgnoreModifiers);
+	//Delegate fired when the resource's value or max value changes.
 	UPROPERTY(BlueprintAssignable)
 	FResourceValueNotification OnResourceChanged;
 
@@ -105,26 +99,23 @@ protected:
 
 private:
 
-	UPROPERTY(EditDefaultsOnly, Category = "Resource", meta = (ClampMin = "0"))
-	float DefaultMinimum = 0.0f;
-	//Setting this allows the resource's minimum value to be bound to a stat's value, if the actor has that stat.
-	UPROPERTY(EditDefaultsOnly, Category = "Resource", meta = (GameplayTagFilter = "Stat"))
-	FGameplayTag MinimumBindStat;
-	UPROPERTY(EditDefaultsOnly, Category = "Resource", meta = (ClampMin = "0"))
-	float DefaultMaximum = 0.0f;
-	//Setting this allows the resource's maximum value to be bound to a stat's value, if the actor has that stat.
+	//If no custom max value is used to initialize this resource, this is the initial maximum value of the resource.
+	UPROPERTY(EditDefaultsOnly, Category = "Resource", meta = (ClampMin = "1"))
+	float DefaultMaximum = 1.0f;
+	//Setting this allows the resource's maximum value to be bound to a stat's value, if the owning actor has that stat.
 	UPROPERTY(EditDefaultsOnly, Category = "Resource", meta = (GameplayTagFilter = "Stat"))
 	FGameplayTag MaximumBindStat;
+	//If no custom initial value is used to initialize this resource, this is the initial value of the resource.
 	UPROPERTY(EditDefaultsOnly, Category = "Resource", meta = (ClampMin = "0"))
 	float DefaultValue = 0.0f;
+	//Determines how the resource's current value is affected when the max value changes.
+	UPROPERTY(EditDefaultsOnly, Category = "Resource")
+	EResourceAdjustmentBehavior ResourceAdjustmentBehavior = EResourceAdjustmentBehavior::PercentOfMax;
 
 	UPROPERTY(ReplicatedUsing = OnRep_ResourceState)
 	FResourceState ResourceState;
 	UFUNCTION()
 	void OnRep_ResourceState(const FResourceState& PreviousState);
-	FStatCallback MinStatBind;
-	UFUNCTION()
-	void UpdateMinimumFromStatBind(const FGameplayTag StatTag, const float NewValue);
 	FStatCallback MaxStatBind;
 	UFUNCTION()
 	void UpdateMaximumFromStatBind(const FGameplayTag StatTag, const float NewValue);

@@ -11,6 +11,6 @@ void UResourceBar::InitResourceBar(UResource* Resource)
 	OnInit();
 	Resource->OnResourceChanged.AddDynamic(this, &UResourceBar::OnResourceChanged);
 	OnResourceChanged(OwnerResource, nullptr,
-		FResourceState(OwnerResource->GetMinimum(), OwnerResource->GetMaximum(), OwnerResource->GetCurrentValue()),
-		FResourceState(OwnerResource->GetMinimum(), OwnerResource->GetMaximum(), OwnerResource->GetCurrentValue()));
+		FResourceState(OwnerResource->GetMaximum(), OwnerResource->GetCurrentValue()),
+		FResourceState(OwnerResource->GetMaximum(), OwnerResource->GetCurrentValue()));
 }

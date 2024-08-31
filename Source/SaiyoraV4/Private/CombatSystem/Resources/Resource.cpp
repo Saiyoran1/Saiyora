@@ -53,29 +53,9 @@ void UResource::InitializeResource(UResourceHandler* NewHandler, const FResource
     Handler = NewHandler;
     StatHandlerRef = ISaiyoraCombatInterface::Execute_GetStatHandler(Handler->GetOwner());
     //Set initial values using either the provided init info or the class defaults.
-    ResourceState.Minimum = FMath::Max(0.0f, InitInfo.bHasCustomMinimum ? InitInfo.CustomMinValue : DefaultMinimum);
-    ResourceState.Maximum = FMath::Max(ResourceState.Minimum, InitInfo.bHasCustomMaximum ? InitInfo.CustomMaxValue : DefaultMaximum);
-    ResourceState.CurrentValue = FMath::Clamp(InitInfo.bHasCustomInitial ? InitInfo.CustomInitialValue : DefaultValue, ResourceState.Minimum, ResourceState.Maximum);
+    ResourceState.Maximum = FMath::Max(1.0f, InitInfo.bHasCustomMaximum ? InitInfo.CustomMaxValue : DefaultMaximum);
+    ResourceState.CurrentValue = FMath::Clamp(InitInfo.bHasCustomInitial ? InitInfo.CustomInitialValue : DefaultValue, 0.0f, ResourceState.Maximum);
     ResourceState.PredictionID = 0;
-    
-    //Bind the resource minimum to a stat if needed.
-    if (MinimumBindStat.IsValid() && MinimumBindStat.MatchesTag(FSaiyoraCombatTags::Get().Stat) && !MinimumBindStat.MatchesTagExact(FSaiyoraCombatTags::Get().Stat))
-    {
-        if (IsValid(StatHandlerRef) && StatHandlerRef->IsStatValid(MinimumBindStat))
-        {
-            MinStatBind.BindDynamic(this, &UResource::UpdateMinimumFromStatBind);
-            StatHandlerRef->SubscribeToStatChanged(MinimumBindStat, MinStatBind);
-            //Manually set the minimum with the initial stat value.
-            if (const float StatValue = StatHandlerRef->GetStatValue(MinimumBindStat) >= 0.0f)
-            {
-                const float PreviousMin = ResourceState.Minimum;
-                ResourceState.Minimum = FMath::Clamp(StatValue, 0.0f, ResourceState.Maximum);
-                //Maintain current value relative to the max and min.
-                ResourceState.CurrentValue = FMath::GetMappedRangeValueClamped(
-                    FVector2D(PreviousMin, ResourceState.Maximum), FVector2D(ResourceState.Minimum, ResourceState.Maximum), ResourceState.CurrentValue);
-            }
-        }
-    }
 
     //Bind the resource maximum to a stat if needed.
     if (MaximumBindStat.IsValid() && MaximumBindStat.MatchesTag(FSaiyoraCombatTags::Get().Stat))
@@ -84,15 +64,7 @@ void UResource::InitializeResource(UResourceHandler* NewHandler, const FResource
         {
             MaxStatBind.BindDynamic(this, &UResource::UpdateMaximumFromStatBind);
             StatHandlerRef->SubscribeToStatChanged(MaximumBindStat, MaxStatBind);
-            //Manually set the maximum with the initial stat value.
-            if (const float StatValue = StatHandlerRef->GetStatValue(MaximumBindStat) >= 0.0f)
-            {
-                const float PreviousMax = GetMaximum();
-                ResourceState.Maximum = FMath::Max(StatValue, GetMinimum());
-                //Maintain current value relative to the max and min.
-                ResourceState.CurrentValue = FMath::GetMappedRangeValueClamped(
-                    FVector2D(ResourceState.Minimum, PreviousMax), FVector2D(ResourceState.Minimum, ResourceState.Maximum), ResourceState.CurrentValue);
-            }
+            UpdateMaximumFromStatBind(MaximumBindStat, StatHandlerRef->GetStatValue(MaximumBindStat));
         }
     }
     
@@ -151,7 +123,7 @@ void UResource::SetResourceValue(const float NewValue, UObject* Source, const in
         return;
     }
     const FResourceState PreviousState = ResourceState;
-    ResourceState.CurrentValue = FMath::Clamp(NewValue, ResourceState.Minimum, ResourceState.Maximum);
+    ResourceState.CurrentValue = FMath::Clamp(NewValue, 0.0f, ResourceState.Maximum);
     //This function is only called on the server, so we update the prediction ID that last modified this resource.
     //When the client receives this updated ID it can discard its old predictions from before this ID, and recalculate its predicted value.
     if (PredictionID != 0)
@@ -165,36 +137,34 @@ void UResource::SetResourceValue(const float NewValue, UObject* Source, const in
     }
 }
 
-void UResource::UpdateMinimumFromStatBind(const FGameplayTag StatTag, const float NewValue)
-{
-    if (Handler->GetOwnerRole() != ROLE_Authority || !StatTag.MatchesTagExact(MinimumBindStat) || !bInitialized || bDeactivated)
-    {
-        return;
-    }
-    const FResourceState PreviousState = ResourceState;
-    ResourceState.Minimum = FMath::Clamp(NewValue, 0.0f, ResourceState.Maximum);
-    //Keep current value the same relative to the max and min.
-    ResourceState.CurrentValue = FMath::GetMappedRangeValueClamped(
-        FVector2D(PreviousState.Minimum, ResourceState.Maximum), FVector2D(ResourceState.Minimum, ResourceState.Maximum), ResourceState.CurrentValue);
-    if (PreviousState.Minimum != ResourceState.Minimum || PreviousState.CurrentValue != ResourceState.CurrentValue)
-    {
-        OnResourceChanged.Broadcast(this, nullptr, PreviousState, ResourceState);
-        PostResourceUpdated(nullptr, PreviousState);
-    }
-}
-
 void UResource::UpdateMaximumFromStatBind(const FGameplayTag StatTag, const float NewValue)
 {
-    if (Handler->GetOwnerRole() != ROLE_Authority || !StatTag.MatchesTagExact(MaximumBindStat) || !bInitialized || bDeactivated)
+    if (Handler->GetOwnerRole() != ROLE_Authority || !StatTag.MatchesTagExact(MaximumBindStat) || bDeactivated)
     {
         return;
     }
     const FResourceState PreviousState = ResourceState;
-    ResourceState.Maximum = FMath::Max(NewValue, GetMinimum());
-    //Keep current value the same relative to the max and min.
-    ResourceState.CurrentValue = FMath::GetMappedRangeValueClamped(
-        FVector2D(GetMinimum(), PreviousState.Maximum), FVector2D(GetMinimum(), GetMaximum()), GetCurrentValue());
-    if (PreviousState.Maximum != ResourceState.Maximum || PreviousState.CurrentValue != ResourceState.CurrentValue)
+    ResourceState.Maximum = FMath::Max(NewValue, 1.0f);
+    //Adjust the current value to accommodate for the new maximum.
+    switch (ResourceAdjustmentBehavior)
+    {
+    case EResourceAdjustmentBehavior::OffsetFromMax :
+        {
+            const float Offset = PreviousState.Maximum - PreviousState.CurrentValue;
+            ResourceState.CurrentValue = ResourceState.Maximum - Offset;
+        }
+        break;
+    case EResourceAdjustmentBehavior::PercentOfMax :
+        {
+            ResourceState.CurrentValue = (ResourceState.CurrentValue / PreviousState.Maximum) * ResourceState.Maximum;
+        }
+        break;
+    default :
+        break;
+    }
+    ResourceState.CurrentValue = FMath::Clamp(ResourceState.CurrentValue, 0.0f, ResourceState.Maximum);
+    
+    if (bInitialized && PreviousState.Maximum != ResourceState.Maximum || PreviousState.CurrentValue != ResourceState.CurrentValue)
     {
         OnResourceChanged.Broadcast(this, nullptr, PreviousState, ResourceState);
         PostResourceUpdated(nullptr, PreviousState);
@@ -216,7 +186,7 @@ void UResource::OnRep_ResourceState(const FResourceState& PreviousState)
     //Sim proxies can just fire off the OnResourceChangedDelegate.
     else
     {
-        if (PreviousState.Maximum != ResourceState.Maximum || PreviousState.Minimum != ResourceState.Minimum || PreviousState.CurrentValue != ResourceState.CurrentValue)
+        if (PreviousState.Maximum != ResourceState.Maximum || PreviousState.CurrentValue != ResourceState.CurrentValue)
         {
             OnResourceChanged.Broadcast(this, nullptr, PreviousState, ResourceState);
             PostResourceUpdated(nullptr, PreviousState);
@@ -254,17 +224,17 @@ void UResource::UpdateCostPredictionFromServer(const int32 PredictionID, const f
 
 void UResource::RecalculatePredictedResource(UObject* ChangeSource)
 {
-    const FResourceState PreviousState = FResourceState(ResourceState.Minimum, ResourceState.Maximum, PredictedResourceValue);
+    const FResourceState PreviousState = FResourceState(ResourceState.Maximum, PredictedResourceValue);
     //Start with the last replicated value from the server.
     PredictedResourceValue = ResourceState.CurrentValue;
     //Apply all predictions in order.
     for (const TTuple<int32, float>& Prediction : ResourcePredictions)
     {
-        PredictedResourceValue = FMath::Clamp(PredictedResourceValue - Prediction.Value, ResourceState.Minimum, ResourceState.Maximum);
+        PredictedResourceValue = FMath::Clamp(PredictedResourceValue - Prediction.Value, 0.0f, ResourceState.Maximum);
     }
     if (PreviousState.CurrentValue != PredictedResourceValue)
     {
-        OnResourceChanged.Broadcast(this, ChangeSource, PreviousState, FResourceState(ResourceState.Minimum, ResourceState.Maximum, PredictedResourceValue));
+        OnResourceChanged.Broadcast(this, ChangeSource, PreviousState, FResourceState(ResourceState.Maximum, PredictedResourceValue));
         PostResourceUpdated(ChangeSource, PreviousState);
     }
 }

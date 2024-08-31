@@ -134,7 +134,7 @@ void UCombatAbility::SetupCostCheckingForNewResource(UResource* Resource)
     if (UninitializedResources.Contains(Resource->GetClass()))
     {
         OnResourceValueChanged(Resource, nullptr, FResourceState(),
-            FResourceState(Resource->GetMinimum(), Resource->GetMaximum(), Resource->GetCurrentValue()));
+            FResourceState(Resource->GetMaximum(), Resource->GetCurrentValue()));
         Resource->OnResourceChanged.AddDynamic(this, &UCombatAbility::OnResourceValueChanged);
         UninitializedResources.Remove(Resource->GetClass());
         if (UninitializedResources.Num() <= 0)
