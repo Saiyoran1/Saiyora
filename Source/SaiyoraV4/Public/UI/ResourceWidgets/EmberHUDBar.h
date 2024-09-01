@@ -3,9 +3,9 @@
 #include "ResourceBar.h"
 #include "EmberHUDBar.generated.h"
 
+class UOverlay;
 class UEmberImage;
 class UImage;
-class UHorizontalBox;
 
 UCLASS()
 class SAIYORAV4_API UEmberHUDBar : public UResourceBar
@@ -15,7 +15,11 @@ class SAIYORAV4_API UEmberHUDBar : public UResourceBar
 private:
 
 	UPROPERTY(VisibleAnywhere, meta = (BindWidget))
-	UHorizontalBox* EmberBox;
+	UOverlay* RootSlot;
+	UPROPERTY(EditAnywhere, Category = "Embers")
+	float VerticalExtent = 400.0f;
+	UPROPERTY(EditAnywhere, Category = "Embers")
+	float HorizontalExtent = 80.0f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Embers")
 	TSubclassOf<UEmberImage> EmberWidgetClass;
