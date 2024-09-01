@@ -1,18 +1,18 @@
 ﻿#pragma once
 #include "CoreMinimal.h"
-#include "UserWidget.h"
+#include "DiscreteResourceIcon.h"
 #include "EmberImage.generated.h"
 
 class UImage;
 
 UCLASS()
-class SAIYORAV4_API UEmberImage : public UUserWidget
+class SAIYORAV4_API UEmberImage : public UDiscreteResourceIcon
 {
 	GENERATED_BODY()
 
-public:
+protected:
 
-	void SetActive(const bool bActive);
+	virtual void OnSetActive(const bool bActive) override;
 
 private:
 

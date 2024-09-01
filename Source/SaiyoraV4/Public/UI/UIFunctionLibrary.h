@@ -19,7 +19,7 @@ class SAIYORAV4_API UUIFunctionLibrary : public UBlueprintFunctionLibrary
 public:
 
 	UFUNCTION(BlueprintPure, meta = (HidePin = "WorldContext", DefaultToSelf = "WorldContext"))
-	static USaiyoraUIDataAsset* GetUIDataAsset(UObject* WorldContext);
+	static const USaiyoraUIDataAsset* GetUIDataAsset(const UObject* WorldContext);
 	
 private:
 	

@@ -53,7 +53,7 @@ private:
 	UPROPERTY()
 	ADungeonGameState* GameStateRef = nullptr;
 	UPROPERTY()
-	USaiyoraUIDataAsset* UIDataAsset = nullptr;
+	const USaiyoraUIDataAsset* UIDataAsset = nullptr;
 
 	UFUNCTION()
 	void OnDungeonPhaseChanged(const EDungeonPhase PreviousPhase, const EDungeonPhase NewPhase);

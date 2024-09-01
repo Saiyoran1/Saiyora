@@ -1,14 +1,14 @@
 ﻿#pragma once
 #include "CoreMinimal.h"
 #include "ResourceBar.h"
-#include "EmberHUDBar.generated.h"
+#include "DiscreteResourceBar.generated.h"
 
+class UDiscreteResourceIcon;
 class UOverlay;
-class UEmberImage;
 class UImage;
 
 UCLASS()
-class SAIYORAV4_API UEmberHUDBar : public UResourceBar
+class SAIYORAV4_API UDiscreteResourceBar : public UResourceBar
 {
 	GENERATED_BODY()
 
@@ -16,16 +16,12 @@ private:
 
 	UPROPERTY(VisibleAnywhere, meta = (BindWidget))
 	UOverlay* RootSlot;
-	UPROPERTY(EditAnywhere, Category = "Embers")
-	float VerticalExtent = 400.0f;
-	UPROPERTY(EditAnywhere, Category = "Embers")
-	float HorizontalExtent = 80.0f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Embers")
-	TSubclassOf<UEmberImage> EmberWidgetClass;
+	TSubclassOf<UDiscreteResourceIcon> IconWidgetClass;
 
 	UPROPERTY()
-	TArray<UEmberImage*> EmberWidgets;
+	TArray<UDiscreteResourceIcon*> IconWidgets;
 	
 	virtual void OnChange(const FResourceState& PreviousState, const FResourceState& NewState) override;
 };

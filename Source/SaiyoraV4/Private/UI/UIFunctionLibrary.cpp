@@ -7,7 +7,7 @@
 
 USaiyoraUIDataAsset* UUIFunctionLibrary::UIDataAsset = nullptr;
 
-USaiyoraUIDataAsset* UUIFunctionLibrary::GetUIDataAsset(UObject* WorldContext)
+const USaiyoraUIDataAsset* UUIFunctionLibrary::GetUIDataAsset(const UObject* WorldContext)
 {
 	if (!IsValid(UIDataAsset))
 	{

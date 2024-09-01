@@ -50,7 +50,7 @@ private:
 	void OnCastTick(const FAbilityEvent& Event);
 
 	UPROPERTY()
-	USaiyoraUIDataAsset* UIDataAsset = nullptr;
+	const USaiyoraUIDataAsset* UIDataAsset = nullptr;
 
 	void StartFade(const float Duration);
 	FTimerHandle FadeTimerHandle;

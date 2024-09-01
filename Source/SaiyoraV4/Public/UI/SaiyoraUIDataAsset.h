@@ -64,4 +64,11 @@ public:
 
 	UPROPERTY(EditAnywhere, Category = "Icons")
 	UTexture2D* UninterruptibleCastIcon = nullptr;
+
+	UPROPERTY(EditAnywhere, Category = "Resources")
+	float HUDResourceBarRadius = 240.0f;
+	UPROPERTY(EditAnywhere, Category = "Resources")
+	float HUDResourceBarAngleExtent = 110.0f;
+	UPROPERTY(EditAnywhere, Category = "Resources")
+	FLinearColor InactiveDiscreteResourceIconColor = FLinearColor(1.0f, 1.0f, 1.0f, 0.1f);
 };
