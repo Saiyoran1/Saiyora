@@ -12,7 +12,7 @@ class SAIYORAV4_API UEmberImage : public UDiscreteResourceIcon
 
 protected:
 
-	virtual void OnSetActive(const bool bActive) override;
+	virtual void OnSetActive(const bool bNewActive) override;
 
 private:
 

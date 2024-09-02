@@ -71,4 +71,9 @@ public:
 	float HUDResourceBarAngleExtent = 110.0f;
 	UPROPERTY(EditAnywhere, Category = "Resources")
 	FLinearColor InactiveDiscreteResourceIconColor = FLinearColor(1.0f, 1.0f, 1.0f, 0.1f);
+
+	UPROPERTY(EditAnywhere, Category = "Ability")
+	UTexture2D* InvalidAbilityTexture;
+	UPROPERTY(EditAnywhere, Category = "Ability")
+	FLinearColor InvalidAbilityTint = FLinearColor::Transparent;
 };

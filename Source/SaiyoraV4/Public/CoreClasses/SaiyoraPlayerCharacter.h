@@ -190,6 +190,8 @@ private:
 
 public:
 
+	static constexpr int32 MaxAbilityBinds = 6;
+
 	UPROPERTY(BlueprintAssignable)
 	FOnMappingChanged OnMappingChanged;
 	UFUNCTION(BlueprintPure, Category = "Abilities")
@@ -206,7 +208,6 @@ public:
 
 private:
 	
-	static constexpr int32 MaxAbilityBinds = 6;
 	void SetupAbilityMappings();
 	TMap<int32, TSubclassOf<UCombatAbility>> ModernAbilityMappings;
 	TMap<int32, TSubclassOf<UCombatAbility>> AncientAbilityMappings;
