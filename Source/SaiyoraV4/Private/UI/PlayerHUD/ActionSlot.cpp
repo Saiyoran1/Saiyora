@@ -38,11 +38,23 @@ void UActionSlot::InitActionSlot(UAbilityComponent* AbilityComponent, const ESai
 	}
 	OwnerAbilityComp->OnAbilityAdded.AddDynamic(this, &UActionSlot::OnAbilityAdded);
 	OwnerAbilityComp->OnAbilityRemoved.AddDynamic(this, &UActionSlot::OnAbilityRemoved);
+	OwnerCharacter->OnMappingChanged.AddDynamic(this, &UActionSlot::OnMappingChanged);
+	OnMappingChanged(AssignedPlane, AssignedIdx, OwnerCharacter->GetAbilityMapping(AssignedPlane, AssignedIdx));
+
+	bInitialized = true;
+}
+
+void UActionSlot::OnMappingChanged(const ESaiyoraPlane Plane, const int32 Index, TSubclassOf<UCombatAbility> AbilityClass)
+{
+	if (Plane == AssignedPlane && Index == AssignedIdx)
+	{
+		SetAbilityClass(AbilityClass);
+	}
 }
 
 void UActionSlot::SetAbilityClass(const TSubclassOf<UCombatAbility> NewAbilityClass)
 {
-	if (!IsValid(OwnerAbilityComp) || AbilityClass == NewAbilityClass)
+	if (!IsValid(OwnerAbilityComp) || (bInitialized && AbilityClass == NewAbilityClass))
 	{
 		return;
 	}
@@ -72,6 +84,18 @@ void UActionSlot::SetAbilityClass(const TSubclassOf<UCombatAbility> NewAbilityCl
 			{
 				ImageInstance->SetTextureParameterValue(FName("Texture"), UIDataAsset->InvalidAbilityTexture);
 				ImageInstance->SetVectorParameterValue(FName("Tint"), UIDataAsset->InvalidAbilityTint);
+				if (IsValid(CooldownText) && CooldownText->GetVisibility() != ESlateVisibility::Collapsed)
+				{
+					CooldownText->SetVisibility(ESlateVisibility::Collapsed);
+				}
+				if (IsValid(CooldownProgress) && CooldownProgress->GetVisibility() != ESlateVisibility::Collapsed)
+				{
+					CooldownProgress->SetVisibility(ESlateVisibility::Collapsed);
+				}
+				if (IsValid(ChargesText) && ChargesText->GetVisibility() != ESlateVisibility::Collapsed)
+				{
+					ChargesText->SetVisibility(ESlateVisibility::Collapsed);
+				}
 			}
 		}
 	}
@@ -93,34 +117,6 @@ void UActionSlot::OnAbilityRemoved(UCombatAbility* RemovedAbility)
 	if (IsValid(RemovedAbility) && RemovedAbility == AssociatedAbility)
 	{
 		UpdateAbilityInstance(nullptr);
-	}
-}
-
-void UActionSlot::OnChargesChanged(UCombatAbility* Ability, const int32 PreviousCharges, const int32 NewCharges)
-{
-	if (IsValid(ChargesText))
-	{
-		if (NewCharges > 1)
-		{
-			ChargesText->SetVisibility(ESlateVisibility::HitTestInvisible);
-			ChargesText->SetText(FText::FromString(FString::FromInt(NewCharges)));
-		}
-		else
-		{
-			ChargesText->SetVisibility(ESlateVisibility::Collapsed);
-		}
-	}
-}
-
-void UActionSlot::OnCastableChanged(UCombatAbility* Ability, const bool bCastable, const TArray<ECastFailReason>& FailReasons)
-{
-	if (IsValid(KeybindText))
-	{
-		KeybindText->SetColorAndOpacity(bCastable ? FLinearColor::White : FLinearColor::Red);
-	}
-	if (IsValid(CooldownText))
-	{
-		KeybindText->SetColorAndOpacity(bCastable ? FLinearColor::White : FLinearColor::Red);
 	}
 }
 
@@ -162,6 +158,37 @@ void UActionSlot::UpdateAbilityInstance(UCombatAbility* NewAbility)
 	}
 }
 
+void UActionSlot::OnChargesChanged(UCombatAbility* Ability, const int32 PreviousCharges, const int32 NewCharges)
+{
+	if (IsValid(ChargesText))
+	{
+		if (NewCharges > 1)
+		{
+			if (ChargesText->GetVisibility() != ESlateVisibility::HitTestInvisible)
+			{
+				ChargesText->SetVisibility(ESlateVisibility::HitTestInvisible);
+			}
+			ChargesText->SetText(FText::FromString(FString::FromInt(NewCharges)));
+		}
+		else if (ChargesText->GetVisibility() != ESlateVisibility::Collapsed)
+		{
+			ChargesText->SetVisibility(ESlateVisibility::Collapsed);
+		}
+	}
+}
+
+void UActionSlot::OnCastableChanged(UCombatAbility* Ability, const bool bCastable, const TArray<ECastFailReason>& FailReasons)
+{
+	if (IsValid(KeybindText))
+	{
+		KeybindText->SetColorAndOpacity(bCastable ? FLinearColor::White : FLinearColor::Red);
+	}
+	if (IsValid(CooldownText))
+	{
+		CooldownText->SetColorAndOpacity(bCastable ? FLinearColor::White : FLinearColor::Red);
+	}
+}
+
 void UActionSlot::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
 	Super::NativeTick(MyGeometry, InDeltaTime);
@@ -199,6 +226,21 @@ void UActionSlot::UpdateCooldown()
 	}
 	if (IsValid(CooldownProgress))
 	{
-			
+		if ((AssociatedAbility->IsCooldownActive() && AssociatedAbility->GetRemainingCooldown() > 0.0f)
+			|| (AssociatedAbility->HasGlobalCooldown() && OwnerAbilityComp->IsGlobalCooldownActive()))
+		{
+			if (CooldownProgress->GetVisibility() != ESlateVisibility::HitTestInvisible)
+			{
+				CooldownProgress->SetVisibility(ESlateVisibility::HitTestInvisible);
+			}
+			const float CooldownPercent = FMath::Clamp(AssociatedAbility->GetRemainingCooldown() / AssociatedAbility->GetCooldownLength(), 0.0f, 1.0f);
+			const float GlobalPercent = AssociatedAbility->HasGlobalCooldown() && OwnerAbilityComp->IsGlobalCooldownActive() ?
+				FMath::Clamp(OwnerAbilityComp->GetGlobalCooldownTimeRemaining() / OwnerAbilityComp->GetCurrentGlobalCooldownLength(), 0.0f, 1.0f) : 0.0f;
+			CooldownProgress->SetPercent(FMath::Max(CooldownPercent, GlobalPercent));
+		}
+		else if (CooldownProgress->GetVisibility() != ESlateVisibility::Collapsed)
+		{
+			CooldownProgress->SetVisibility(ESlateVisibility::Collapsed);
+		}
 	}
 }

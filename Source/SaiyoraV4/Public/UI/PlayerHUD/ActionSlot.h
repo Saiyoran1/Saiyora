@@ -37,9 +37,9 @@ private:
 	UTextBlock* KeybindText;
 	UPROPERTY(VisibleAnywhere, meta = (BindWidget))
 	UProgressBar* CooldownProgress;
-	UPROPERTY(VisibleAnywhere, meta = (BindWidgetOptional))
+	UPROPERTY(VisibleAnywhere, meta = (BindWidget))
 	UTextBlock* CooldownText;
-	UPROPERTY(VisibleAnywhere, meta = (BindWidgetOptional))
+	UPROPERTY(VisibleAnywhere, meta = (BindWidget))
 	UTextBlock* ChargesText;
 
 	UPROPERTY()
@@ -65,6 +65,10 @@ private:
 	void OnChargesChanged(UCombatAbility* Ability, const int32 PreviousCharges, const int32 NewCharges);
 	UFUNCTION()
 	void OnCastableChanged(UCombatAbility* Ability, const bool bCastable, const TArray<ECastFailReason>& FailReasons);
+	UFUNCTION()
+	void OnMappingChanged(const ESaiyoraPlane Plane, const int32 Index, TSubclassOf<UCombatAbility> AbilityClass);
 
 	void UpdateAbilityInstance(UCombatAbility* NewAbility);
+
+	bool bInitialized = false;
 };

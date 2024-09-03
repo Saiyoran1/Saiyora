@@ -1,4 +1,6 @@
 ﻿#include "PlayerHUD.h"
+
+#include "ActionBar.h"
 #include "BuffContainer.h"
 #include "CastBar.h"
 #include "DungeonDisplay.h"
@@ -36,6 +38,14 @@ void UPlayerHUD::InitializePlayerHUD(ASaiyoraPlayerCharacter* OwnerPlayer)
 	if (IsValid(ResourceContainer))
 	{
 		ResourceContainer->InitResourceContainer(OwningPlayer);
+	}
+	if (IsValid(AncientBar))
+	{
+		AncientBar->InitActionBar(ESaiyoraPlane::Ancient, OwningPlayer);
+	}
+	if (IsValid(ModernBar))
+	{
+		ModernBar->InitActionBar(ESaiyoraPlane::Modern, OwningPlayer);
 	}
 }
 

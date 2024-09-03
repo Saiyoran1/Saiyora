@@ -285,6 +285,23 @@ void ASaiyoraPlayerCharacter::SetAbilityMapping(const ESaiyoraPlane Plane, const
 	}
 }
 
+TSubclassOf<UCombatAbility> ASaiyoraPlayerCharacter::GetAbilityMapping(const ESaiyoraPlane Plane, const int32 BindIndex) const
+{
+	if (!IsLocallyControlled())
+	{
+		return nullptr;
+	}
+	switch (Plane)
+	{
+	case ESaiyoraPlane::Ancient :
+		return AncientAbilityMappings.FindRef(BindIndex);
+	case ESaiyoraPlane::Modern :
+		return ModernAbilityMappings.FindRef(BindIndex);
+	default :
+		return nullptr;
+	}
+}
+
 void ASaiyoraPlayerCharacter::OnAbilityAdded(UCombatAbility* NewAbility)
 {
 	//When we get a new FireWeapon, Reload, or StopFiring ability, save those off.

@@ -205,6 +205,8 @@ public:
 	void GetModernMappings(TMap<int32, TSubclassOf<UCombatAbility>>& ModernMappings) const { ModernMappings = ModernAbilityMappings; }
 	UFUNCTION(BlueprintCallable, Category = "Abilities")
 	void SetAbilityMapping(const ESaiyoraPlane Plane, const int32 BindIndex, const TSubclassOf<UCombatAbility> AbilityClass);
+	UFUNCTION(BlueprintPure, Category = "Abilities")
+	TSubclassOf<UCombatAbility> GetAbilityMapping(const ESaiyoraPlane Plane, const int32 BindIndex) const;
 
 private:
 	
