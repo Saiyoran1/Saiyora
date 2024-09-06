@@ -1,6 +1,8 @@
 ﻿#include "PlayerHUD/ActionBar.h"
 #include "AbilityComponent.h"
 #include "ActionSlot.h"
+#include "Border.h"
+#include "CombatStatusComponent.h"
 #include "SaiyoraPlayerCharacter.h"
 
 void UActionBar::InitActionBar(const ESaiyoraPlane Plane, const ASaiyoraPlayerCharacter* OwningPlayer)
@@ -29,4 +31,40 @@ void UActionBar::InitActionBar(const ESaiyoraPlane Plane, const ASaiyoraPlayerCh
 			ActionBox->AddChildToHorizontalBox(ActionSlot);
 		}
 	}
+	UCombatStatusComponent* OwnerCombatComp = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(OwningPlayer);
+	if (!IsValid(OwnerCombatComp))
+	{
+		return;
+	}
+	OwnerCombatComp->OnPlaneSwapped.AddDynamic(this, &UActionBar::OnPlaneSwapped);
+	OnPlaneSwapped(ESaiyoraPlane::Neither, OwnerCombatComp->GetCurrentPlane(), nullptr);
+}
+
+void UActionBar::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
+{
+	Super::NativeTick(MyGeometry, InDeltaTime);
+
+	const float PreviousAlpha = PlaneSwapAlpha;
+	if (bInCorrectPlane && PlaneSwapAlpha < 1.0f)
+	{
+		PlaneSwapAlpha = FMath::Clamp(PlaneSwapAlpha + (InDeltaTime / PlaneSwapAnimDuration), 0.0f, 1.0f);
+	}
+	else if (!bInCorrectPlane && PlaneSwapAlpha > 0.0f)
+	{
+		PlaneSwapAlpha = FMath::Clamp(PlaneSwapAlpha - (InDeltaTime / PlaneSwapAnimDuration), 0.0f, 1.0f);
+	}
+	if (PreviousAlpha != PlaneSwapAlpha)
+	{
+		const float ActualAlpha = IsValid(PlaneSwapAnimCurve) ? PlaneSwapAnimCurve->GetFloatValue(PlaneSwapAlpha) : PlaneSwapAlpha;
+		SetRenderScale(FVector2D(FMath::Lerp(MinScale, MaxScale, ActualAlpha)));
+		if (IsValid(ActionBorder))
+		{
+			ActionBorder->SetContentColorAndOpacity(FMath::Lerp(DesaturatedTint, FLinearColor::White, ActualAlpha));
+		}
+	}
+}
+
+void UActionBar::OnPlaneSwapped(const ESaiyoraPlane PreviousPlane, const ESaiyoraPlane NewPlane, UObject* Source)
+{
+	bInCorrectPlane = NewPlane == AssignedPlane;
 }

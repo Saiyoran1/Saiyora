@@ -84,13 +84,10 @@ void UActionSlot::SetAbilityClass(const TSubclassOf<UCombatAbility> NewAbilityCl
 			{
 				ImageInstance->SetTextureParameterValue(FName("Texture"), UIDataAsset->InvalidAbilityTexture);
 				ImageInstance->SetVectorParameterValue(FName("Tint"), UIDataAsset->InvalidAbilityTint);
+				ImageInstance->SetScalarParameterValue(FName("CooldownPercent"), 1.0f);
 				if (IsValid(CooldownText) && CooldownText->GetVisibility() != ESlateVisibility::Collapsed)
 				{
 					CooldownText->SetVisibility(ESlateVisibility::Collapsed);
-				}
-				if (IsValid(CooldownProgress) && CooldownProgress->GetVisibility() != ESlateVisibility::Collapsed)
-				{
-					CooldownProgress->SetVisibility(ESlateVisibility::Collapsed);
 				}
 				if (IsValid(ChargesText) && ChargesText->GetVisibility() != ESlateVisibility::Collapsed)
 				{
@@ -151,10 +148,7 @@ void UActionSlot::UpdateAbilityInstance(UCombatAbility* NewAbility)
 		{
 			CooldownText->SetVisibility(ESlateVisibility::Collapsed);
 		}
-		if (IsValid(CooldownProgress) && CooldownProgress->GetVisibility() != ESlateVisibility::Collapsed)
-		{
-			CooldownProgress->SetVisibility(ESlateVisibility::Collapsed);
-		}
+		ImageInstance->SetScalarParameterValue(FName("CooldownPercent"), 1.0f);
 	}
 }
 
@@ -224,23 +218,17 @@ void UActionSlot::UpdateCooldown()
 			CooldownText->SetVisibility(ESlateVisibility::Collapsed);
 		}
 	}
-	if (IsValid(CooldownProgress))
+
+	if ((AssociatedAbility->IsCooldownActive() && AssociatedAbility->GetRemainingCooldown() > 0.0f)
+		|| (AssociatedAbility->HasGlobalCooldown() && OwnerAbilityComp->IsGlobalCooldownActive()))
 	{
-		if ((AssociatedAbility->IsCooldownActive() && AssociatedAbility->GetRemainingCooldown() > 0.0f)
-			|| (AssociatedAbility->HasGlobalCooldown() && OwnerAbilityComp->IsGlobalCooldownActive()))
-		{
-			if (CooldownProgress->GetVisibility() != ESlateVisibility::HitTestInvisible)
-			{
-				CooldownProgress->SetVisibility(ESlateVisibility::HitTestInvisible);
-			}
-			const float CooldownPercent = FMath::Clamp(AssociatedAbility->GetRemainingCooldown() / AssociatedAbility->GetCooldownLength(), 0.0f, 1.0f);
-			const float GlobalPercent = AssociatedAbility->HasGlobalCooldown() && OwnerAbilityComp->IsGlobalCooldownActive() ?
-				FMath::Clamp(OwnerAbilityComp->GetGlobalCooldownTimeRemaining() / OwnerAbilityComp->GetCurrentGlobalCooldownLength(), 0.0f, 1.0f) : 0.0f;
-			CooldownProgress->SetPercent(FMath::Max(CooldownPercent, GlobalPercent));
-		}
-		else if (CooldownProgress->GetVisibility() != ESlateVisibility::Collapsed)
-		{
-			CooldownProgress->SetVisibility(ESlateVisibility::Collapsed);
-		}
+		const float CooldownPercent = FMath::Clamp(AssociatedAbility->GetRemainingCooldown() / AssociatedAbility->GetCooldownLength(), 0.0f, 1.0f);
+		const float GlobalPercent = AssociatedAbility->HasGlobalCooldown() && OwnerAbilityComp->IsGlobalCooldownActive() ?
+			FMath::Clamp(OwnerAbilityComp->GetGlobalCooldownTimeRemaining() / OwnerAbilityComp->GetCurrentGlobalCooldownLength(), 0.0f, 1.0f) : 0.0f;
+		ImageInstance->SetScalarParameterValue(FName("CooldownPercent"), 1.0f - FMath::Max(CooldownPercent, GlobalPercent));
+	}
+	else
+	{
+		ImageInstance->SetScalarParameterValue(FName("CooldownPercent"), 1.0f);
 	}
 }

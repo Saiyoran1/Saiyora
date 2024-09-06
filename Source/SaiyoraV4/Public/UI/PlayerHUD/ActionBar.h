@@ -5,6 +5,7 @@
 #include "UserWidget.h"
 #include "ActionBar.generated.h"
 
+class UBorder;
 class ASaiyoraPlayerCharacter;
 class UActionSlot;
 
@@ -16,11 +17,14 @@ class SAIYORAV4_API UActionBar : public UUserWidget
 public:
 
 	void InitActionBar(const ESaiyoraPlane Plane, const ASaiyoraPlayerCharacter* OwningPlayer);
+	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
 
 private:
 
 	UPROPERTY(VisibleAnywhere, meta = (BindWidget))
 	UHorizontalBox* ActionBox;
+	UPROPERTY(VisibleAnywhere, meta = (BindWidget))
+	UBorder* ActionBorder;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Abilities")
 	TSubclassOf<UActionSlot> ActionSlotWidget;
@@ -30,4 +34,20 @@ private:
 	ESaiyoraPlane AssignedPlane = ESaiyoraPlane::Ancient;
 	UPROPERTY()
 	ASaiyoraPlayerCharacter* OwnerCharacter = nullptr;
+
+	UFUNCTION()
+	void OnPlaneSwapped(const ESaiyoraPlane PreviousPlane, const ESaiyoraPlane NewPlane, UObject* Source);
+	bool bInCorrectPlane = false;
+	float PlaneSwapAlpha = 0.5f;
+	
+	UPROPERTY(EditAnywhere, Category = "Abilities")
+	float PlaneSwapAnimDuration = 0.5f;
+	UPROPERTY(EditAnywhere, Category = "Abilities")
+	UCurveFloat* PlaneSwapAnimCurve = nullptr;
+	UPROPERTY(EditAnywhere, Category = "Abilities")
+	float MinScale = 0.7f;
+	UPROPERTY(EditAnywhere, Category = "Abilities")
+	float MaxScale = 1.0f;
+	UPROPERTY(EditAnywhere, Category = "Abilities")
+	FLinearColor DesaturatedTint = FLinearColor::Gray;
 };

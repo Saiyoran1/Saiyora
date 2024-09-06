@@ -36,8 +36,6 @@ private:
 	UPROPERTY(VisibleAnywhere, meta = (BindWidget))
 	UTextBlock* KeybindText;
 	UPROPERTY(VisibleAnywhere, meta = (BindWidget))
-	UProgressBar* CooldownProgress;
-	UPROPERTY(VisibleAnywhere, meta = (BindWidget))
 	UTextBlock* CooldownText;
 	UPROPERTY(VisibleAnywhere, meta = (BindWidget))
 	UTextBlock* ChargesText;
