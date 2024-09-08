@@ -2,7 +2,6 @@
 #include "AbilityComponent.h"
 #include "CombatAbility.h"
 #include "Image.h"
-#include "ProgressBar.h"
 #include "SaiyoraPlayerCharacter.h"
 #include "SaiyoraUIDataAsset.h"
 #include "TextBlock.h"
@@ -70,10 +69,10 @@ void UActionSlot::SetAbilityClass(const TSubclassOf<UCombatAbility> NewAbilityCl
 			const UCombatAbility* ClassDefault = AbilityClass->GetDefaultObject<UCombatAbility>();
 			if (IsValid(ClassDefault))
 			{
-				ImageInstance->SetTextureParameterValue(FName("Texture"), ClassDefault->GetAbilityIcon());
+				ImageInstance->SetTextureParameterValue(FName("IconTexture"), ClassDefault->GetAbilityIcon());
 				if (IsValid(UIDataAsset))
 				{
-					ImageInstance->SetVectorParameterValue(FName("Tint"), UIDataAsset->GetSchoolColor(ClassDefault->GetAbilitySchool()));
+					ImageInstance->SetVectorParameterValue(FName("IconColor"), UIDataAsset->GetSchoolColor(ClassDefault->GetAbilitySchool()));
 				}
 			}
 		}
@@ -82,8 +81,8 @@ void UActionSlot::SetAbilityClass(const TSubclassOf<UCombatAbility> NewAbilityCl
 		{
 			if (IsValid(UIDataAsset))
 			{
-				ImageInstance->SetTextureParameterValue(FName("Texture"), UIDataAsset->InvalidAbilityTexture);
-				ImageInstance->SetVectorParameterValue(FName("Tint"), UIDataAsset->InvalidAbilityTint);
+				ImageInstance->SetTextureParameterValue(FName("IconTexture"), UIDataAsset->InvalidAbilityTexture);
+				ImageInstance->SetVectorParameterValue(FName("IconColor"), UIDataAsset->InvalidAbilityTint);
 				ImageInstance->SetScalarParameterValue(FName("CooldownPercent"), 1.0f);
 				if (IsValid(CooldownText) && CooldownText->GetVisibility() != ESlateVisibility::Collapsed)
 				{
@@ -222,13 +221,22 @@ void UActionSlot::UpdateCooldown()
 	if ((AssociatedAbility->IsCooldownActive() && AssociatedAbility->GetRemainingCooldown() > 0.0f)
 		|| (AssociatedAbility->HasGlobalCooldown() && OwnerAbilityComp->IsGlobalCooldownActive()))
 	{
-		const float CooldownPercent = FMath::Clamp(AssociatedAbility->GetRemainingCooldown() / AssociatedAbility->GetCooldownLength(), 0.0f, 1.0f);
+		const float CooldownPercent = 1.0f - FMath::Clamp(AssociatedAbility->GetRemainingCooldown() / AssociatedAbility->GetCooldownLength(), 0.0f, 1.0f);
 		const float GlobalPercent = AssociatedAbility->HasGlobalCooldown() && OwnerAbilityComp->IsGlobalCooldownActive() ?
-			FMath::Clamp(OwnerAbilityComp->GetGlobalCooldownTimeRemaining() / OwnerAbilityComp->GetCurrentGlobalCooldownLength(), 0.0f, 1.0f) : 0.0f;
-		ImageInstance->SetScalarParameterValue(FName("CooldownPercent"), 1.0f - FMath::Max(CooldownPercent, GlobalPercent));
+			1.0f - FMath::Clamp(OwnerAbilityComp->GetGlobalCooldownTimeRemaining() / OwnerAbilityComp->GetCurrentGlobalCooldownLength(), 0.0f, 1.0f) : 1.0f;
+		ImageInstance->SetScalarParameterValue(FName("CooldownPercent"), FMath::Min(CooldownPercent, GlobalPercent));
 	}
 	else
 	{
 		ImageInstance->SetScalarParameterValue(FName("CooldownPercent"), 1.0f);
+	}
+
+	if (AssociatedAbility->GetCurrentCharges() < AssociatedAbility->GetChargeCost())
+	{
+		ImageInstance->SetScalarParameterValue(FName("OnCooldownAlpha"), 0.0f);
+	}
+	else
+	{
+		ImageInstance->SetScalarParameterValue(FName("OnCooldownAlpha"), 1.0f);
 	}
 }
