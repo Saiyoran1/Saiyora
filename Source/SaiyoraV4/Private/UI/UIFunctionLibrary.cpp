@@ -37,6 +37,66 @@ FString UUIFunctionLibrary::GetTimeDisplayString(const float Seconds)
 	return TimeString;
 }
 
+FString UUIFunctionLibrary::GetShortKeybind(const FKey& Key)
+{
+	if (Key == EKeys::LeftMouseButton)
+	{
+		return "LMB";
+	}
+	if (Key == EKeys::RightMouseButton)
+	{
+		return "RMB";
+	}
+	if (Key == EKeys::MiddleMouseButton)
+	{
+		return "MMB";
+	}
+	if (Key == EKeys::MouseScrollUp)
+	{
+		return "SU";
+	}
+	if (Key == EKeys::MouseScrollDown)
+	{
+		return "SD";
+	}
+	if (Key == EKeys::CapsLock)
+	{
+		return "Caps";
+	}
+	if (Key == EKeys::Escape)
+	{
+		return "Esc";
+	}
+	if (Key == EKeys::SpaceBar)
+	{
+		return "Space";
+	}
+	
+	return Key.GetDisplayName(false).ToString();
+}
+
+FString UUIFunctionLibrary::GetInputChordString(const FInputChord& InputChord)
+{
+	FString ModifierString;
+	if (InputChord.bAlt)
+	{
+		ModifierString += "A+";
+	}
+	if (InputChord.bCmd)
+	{
+		ModifierString += "Cmd+";
+	}
+	if (InputChord.bCtrl)
+	{
+		ModifierString += "Ctrl+";
+	}
+	if (InputChord.bShift)
+	{
+		ModifierString += "S+";
+	}
+	return ModifierString + GetShortKeybind(InputChord.Key);
+}
+
 #pragma endregion
 #pragma region Colors
 

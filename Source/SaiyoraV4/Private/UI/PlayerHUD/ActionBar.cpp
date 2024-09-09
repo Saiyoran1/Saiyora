@@ -28,6 +28,8 @@ void UActionBar::InitActionBar(const ESaiyoraPlane Plane, const ASaiyoraPlayerCh
 		if (IsValid(ActionSlot))
 		{
 			ActionSlot->InitActionSlot(OwnerAbilityComp, AssignedPlane, i);
+			ActionSlots.Add(ActionSlot);
+			ActionSlot->SetActive(PlaneSwapAlpha);
 			ActionBox->AddChildToHorizontalBox(ActionSlot);
 		}
 	}
@@ -60,6 +62,13 @@ void UActionBar::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 		if (IsValid(ActionBorder))
 		{
 			ActionBorder->SetContentColorAndOpacity(FMath::Lerp(DesaturatedTint, FLinearColor::White, ActualAlpha));
+		}
+		for (UActionSlot* ActionSlot : ActionSlots)
+		{
+			if (IsValid(ActionSlot))
+			{
+				ActionSlot->SetActive(PlaneSwapAlpha);
+			}
 		}
 	}
 }

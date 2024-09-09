@@ -33,6 +33,10 @@ public:
 	//Converts seconds into a string formatted as mm:ss.
 	UFUNCTION(BlueprintPure)
 	static FString GetTimeDisplayString(const float Seconds);
+	UFUNCTION(BlueprintPure)
+	static FString GetShortKeybind(const FKey& Key);
+	UFUNCTION(BlueprintPure)
+	static FString GetInputChordString(const FInputChord& InputChord);
 
 #pragma endregion 
 #pragma region Colors

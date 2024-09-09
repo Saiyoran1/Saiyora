@@ -40,14 +40,14 @@ private:
 	bool bInCorrectPlane = false;
 	float PlaneSwapAlpha = 0.5f;
 	
-	UPROPERTY(EditAnywhere, Category = "Abilities")
+	UPROPERTY(EditDefaultsOnly, Category = "Abilities")
 	float PlaneSwapAnimDuration = 0.5f;
-	UPROPERTY(EditAnywhere, Category = "Abilities")
+	UPROPERTY(EditDefaultsOnly, Category = "Abilities")
 	UCurveFloat* PlaneSwapAnimCurve = nullptr;
-	UPROPERTY(EditAnywhere, Category = "Abilities")
+	UPROPERTY(EditDefaultsOnly, Category = "Abilities")
 	float MinScale = 0.7f;
-	UPROPERTY(EditAnywhere, Category = "Abilities")
+	UPROPERTY(EditDefaultsOnly, Category = "Abilities")
 	float MaxScale = 1.0f;
-	UPROPERTY(EditAnywhere, Category = "Abilities")
+	UPROPERTY(EditDefaultsOnly, Category = "Abilities")
 	FLinearColor DesaturatedTint = FLinearColor::Gray;
 };

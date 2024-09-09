@@ -5,6 +5,7 @@
 #include "UserWidget.h"
 #include "ActionSlot.generated.h"
 
+struct FInputActionKeyMapping;
 class ASaiyoraPlayerCharacter;
 class UProgressBar;
 class UTextBlock;
@@ -20,6 +21,7 @@ class SAIYORAV4_API UActionSlot : public UUserWidget
 public:
 
 	void InitActionSlot(UAbilityComponent* AbilityComponent, const ESaiyoraPlane Plane, const int32 SlotIdx);
+	void SetActive(const float UpdateAlpha);
 	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
 
 protected:
@@ -67,6 +69,8 @@ private:
 	void OnMappingChanged(const ESaiyoraPlane Plane, const int32 Index, TSubclassOf<UCombatAbility> AbilityClass);
 
 	void UpdateAbilityInstance(UCombatAbility* NewAbility);
+
+	void UpdateKeybind(const FInputActionKeyMapping& Mapping);
 
 	bool bInitialized = false;
 };
