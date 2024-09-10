@@ -3,6 +3,8 @@
 #include "UserWidget.h"
 #include "PlayerHUD.generated.h"
 
+class UCombatAbility;
+class UBuff;
 class UActionBar;
 class UResourceContainer;
 class UCastBar;
@@ -25,6 +27,8 @@ public:
 	void ToggleExtraInfo(const bool bShowExtraInfo);
 	bool IsExtraInfoToggled() const { return bDisplayingExtraInfo; }
 	FInfoToggleNotification OnExtraInfoToggled;
+
+	void AddAbilityProc(UBuff* SourceBuff, const TSubclassOf<UCombatAbility> AbilityClass);
 
 private:
 

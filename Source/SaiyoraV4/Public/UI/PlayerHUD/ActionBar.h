@@ -5,6 +5,8 @@
 #include "UserWidget.h"
 #include "ActionBar.generated.h"
 
+class UBuff;
+class UCombatAbility;
 class UBorder;
 class ASaiyoraPlayerCharacter;
 class UActionSlot;
@@ -18,6 +20,8 @@ public:
 
 	void InitActionBar(const ESaiyoraPlane Plane, const ASaiyoraPlayerCharacter* OwningPlayer);
 	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
+
+	void AddAbilityProc(UBuff* SourceBuff, const TSubclassOf<UCombatAbility> AbilityClass);
 
 private:
 

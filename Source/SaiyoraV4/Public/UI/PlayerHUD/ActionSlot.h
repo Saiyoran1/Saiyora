@@ -5,6 +5,8 @@
 #include "UserWidget.h"
 #include "ActionSlot.generated.h"
 
+struct FBuffRemoveEvent;
+class UBuff;
 struct FInputActionKeyMapping;
 class ASaiyoraPlayerCharacter;
 class UProgressBar;
@@ -23,6 +25,9 @@ public:
 	void InitActionSlot(UAbilityComponent* AbilityComponent, const ESaiyoraPlane Plane, const int32 SlotIdx);
 	void SetActive(const float UpdateAlpha);
 	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
+
+	TSubclassOf<UCombatAbility> GetAbilityClass() const { return AbilityClass; }
+	void ApplyProc(UBuff* SourceBuff);
 
 protected:
 
@@ -73,4 +78,15 @@ private:
 	void UpdateKeybind(const FInputActionKeyMapping& Mapping);
 
 	bool bInitialized = false;
+
+	UPROPERTY()
+	TArray<UBuff*> ProcBuffs;
+	bool bProcActive = false;
+	float ProcStartAlpha = 0.0f;
+	UPROPERTY(EditDefaultsOnly, Category = "Ability")
+	float ProcAnimationLength = 0.5f;
+
+	void UpdateProc(const float DeltaTime);
+	UFUNCTION()
+	void RemoveProcFromBuff(const FBuffRemoveEvent& Event);
 };

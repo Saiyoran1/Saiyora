@@ -1,6 +1,7 @@
 ﻿#include "PlayerHUD.h"
 
 #include "ActionBar.h"
+#include "Buff.h"
 #include "BuffContainer.h"
 #include "CastBar.h"
 #include "DungeonDisplay.h"
@@ -55,5 +56,35 @@ void UPlayerHUD::ToggleExtraInfo(const bool bShowExtraInfo)
 	{
 		bDisplayingExtraInfo = bShowExtraInfo;
 		OnExtraInfoToggled.Broadcast(bDisplayingExtraInfo);
+	}
+}
+
+void UPlayerHUD::AddAbilityProc(UBuff* SourceBuff, const TSubclassOf<UCombatAbility> AbilityClass)
+{
+	if (!IsValid(SourceBuff) || !IsValid(AbilityClass))
+	{
+		return;
+	}
+	const UCombatAbility* DefaultAbility = AbilityClass->GetDefaultObject<UCombatAbility>();
+	if (!IsValid(DefaultAbility))
+	{
+		return;
+	}
+	switch (DefaultAbility->GetAbilityPlane())
+	{
+	case ESaiyoraPlane::Ancient :
+		if (IsValid(AncientBar))
+		{
+			AncientBar->AddAbilityProc(SourceBuff, AbilityClass);
+		}
+		break;
+	case ESaiyoraPlane::Modern :
+		if (IsValid(ModernBar))
+		{
+			ModernBar->AddAbilityProc(SourceBuff, AbilityClass);
+		}
+		break;
+	default :
+		return;
 	}
 }

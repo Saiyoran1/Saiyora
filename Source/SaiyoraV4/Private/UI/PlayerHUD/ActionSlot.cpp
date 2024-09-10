@@ -1,5 +1,6 @@
 ﻿#include "PlayerHUD/ActionSlot.h"
 #include "AbilityComponent.h"
+#include "Buff.h"
 #include "CombatAbility.h"
 #include "Image.h"
 #include "SaiyoraPlayerCharacter.h"
@@ -69,7 +70,6 @@ void UActionSlot::UpdateKeybind(const FInputActionKeyMapping& Mapping)
 		KeybindText->SetText(FText::FromString(UUIFunctionLibrary::GetInputChordString(FInputChord(Mapping.Key, Mapping.bShift, Mapping.bCtrl, Mapping.bAlt, Mapping.bCmd))));
 	}
 }
-
 
 void UActionSlot::SetActive(const float UpdateAlpha)
 {
@@ -251,6 +251,7 @@ void UActionSlot::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 	}
 	
 	UpdateCooldown();
+	UpdateProc(InDeltaTime);
 }
 
 void UActionSlot::UpdateCooldown()
@@ -305,4 +306,39 @@ void UActionSlot::UpdateCooldown()
 		? 1.0f : 0.0f);
 	//Set the swipe percent to match the actual cooldown, not the GCD.
 	ImageInstance->SetScalarParameterValue(FName("SwipePercent"), CooldownPercent);
+}
+
+void UActionSlot::ApplyProc(UBuff* SourceBuff)
+{
+	if (IsValid(SourceBuff))
+	{
+		SourceBuff->OnRemoved.AddDynamic(this, &UActionSlot::RemoveProcFromBuff);
+		ProcBuffs.AddUnique(SourceBuff);
+	}
+	if (!bProcActive && ProcBuffs.Num() > 0)
+	{
+		bProcActive = true;
+		ProcStartAlpha = 0.0f;
+	}
+}
+
+void UActionSlot::UpdateProc(const float DeltaTime)
+{
+	if (!bProcActive)
+	{
+		//TODO: Fade out proc.
+		ImageInstance->SetScalarParameterValue(FName("ProcAlpha"), 0.0f);
+		return;
+	}
+	ProcStartAlpha += FMath::Clamp(DeltaTime / ProcAnimationLength, 0.0f, 1.0f);
+	ImageInstance->SetScalarParameterValue(FName("ProcAlpha"), ProcStartAlpha);
+}
+
+void UActionSlot::RemoveProcFromBuff(const FBuffRemoveEvent& Event)
+{
+	ProcBuffs.Remove(Event.RemovedBuff);
+	if (bProcActive && ProcBuffs.Num() <= 0)
+	{
+		bProcActive = false;
+	}
 }

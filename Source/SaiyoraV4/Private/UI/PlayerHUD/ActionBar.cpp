@@ -77,3 +77,14 @@ void UActionBar::OnPlaneSwapped(const ESaiyoraPlane PreviousPlane, const ESaiyor
 {
 	bInCorrectPlane = NewPlane == AssignedPlane;
 }
+
+void UActionBar::AddAbilityProc(UBuff* SourceBuff, const TSubclassOf<UCombatAbility> AbilityClass)
+{
+	for (UActionSlot* ActionSlot : ActionSlots)
+	{
+		if (ActionSlot->GetAbilityClass() == AbilityClass)
+		{
+			ActionSlot->ApplyProc(SourceBuff);
+		}
+	}
+}

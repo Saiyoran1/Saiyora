@@ -81,6 +81,8 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FActorCombatNotification OnEnemyCombatChanged;
 
+	UPlayerHUD* GetPlayerHUD() const { return PlayerHUD; }
+
 protected:
 
 	UFUNCTION(BlueprintImplementableEvent)
