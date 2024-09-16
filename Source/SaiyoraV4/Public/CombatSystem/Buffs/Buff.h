@@ -268,7 +268,7 @@ private:
 public:
 
 	//Called by buff functions during their setup
-	void RegisterBuffFunction(UBuffFunction* NewFunction) { if (Status == EBuffStatus::Spawning) { BuffFunctions.AddUnique(NewFunction); }}
+	void RegisterBuffFunction(UBuffFunction* NewFunction) { return; }
 
 protected:
 
@@ -287,9 +287,14 @@ protected:
 	
 private:
 
-	//Array of all buff functions to update on apply/stack/refresh/remove
-	UPROPERTY()
-	TArray<UBuffFunction*> BuffFunctions;
+	UPROPERTY(EditDefaultsOnly, Category = "Buff Functions", meta = (BaseStruct = "/Script/SaiyoraV4.BuffFunction", ExcludeBaseStruct))
+	TArray<FInstancedStruct> BuffFunctions;
+
+	//These functions exist to get the names of functions matching specific signatures for delegates.
+	//This allows buff functions to have a populated dropdown of function names for things like conditional modifiers and restrictions.
+	
+	UFUNCTION()
+	static TArray<FName> GetComplexAbilityModFunctionNames();
 
 #pragma endregion 
 };

@@ -1,77 +1,71 @@
 ﻿#include "AbilityBuffFunctions.h"
 #include "AbilityComponent.h"
 #include "Buff.h"
+#include "BuffHandler.h"
 #include "CombatAbility.h"
 #include "Resource.h"
 #include "SaiyoraCombatInterface.h"
 
 #pragma region Complex Ability Modifier
 
-void UComplexAbilityModifierFunction::ComplexAbilityModifier(UBuff* Buff, const EComplexAbilityModType ModifierType, const FAbilityModCondition& Modifier)
+void FComplexAbilityMod::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
-	if (!IsValid(Buff) || ModifierType == EComplexAbilityModType::None || !Modifier.IsBound() || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
+	FBuffFunction::OnApply(ApplyEvent);
+
+	TargetHandler = ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwningBuff()->GetHandler()->GetOwner());
+	if (!IsValid(TargetHandler))
 	{
 		return;
 	}
-	UComplexAbilityModifierFunction* NewAbilityModifierFunction = Cast<UComplexAbilityModifierFunction>(InstantiateBuffFunction(Buff, StaticClass()));
-	if (!IsValid(NewAbilityModifierFunction))
+	if (ModiferFunction.IsNone())
 	{
 		return;
 	}
-	NewAbilityModifierFunction->SetModifierVars(ModifierType, Modifier);
-}
-
-void UComplexAbilityModifierFunction::SetModifierVars(const EComplexAbilityModType ModifierType, const FAbilityModCondition& Modifier)
-{
-	ModType = ModifierType;
-	Mod = Modifier;
-}
-
-void UComplexAbilityModifierFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
-{
-	if (!GetOwningBuff()->GetAppliedTo()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
-    {
-        return;
-    }
-    TargetHandler = ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwningBuff()->GetAppliedTo());
-    if (!IsValid(TargetHandler))
-    {
-        return;
-    }
-	switch (ModType)
+	const UBuffFunctionLibrary* BuffFunctionLibrary = UBuffFunctionLibrary::StaticClass()->GetDefaultObject<UBuffFunctionLibrary>();
+	if (!IsValid(BuffFunctionLibrary))
 	{
-		case EComplexAbilityModType::CastLength :
-			TargetHandler->AddCastLengthModifier(Mod);
-			break;
-		case EComplexAbilityModType::CooldownLength :
-			TargetHandler->AddCooldownModifier(Mod);
-			break;
-		case EComplexAbilityModType::GlobalCooldownLength :
-			TargetHandler->AddGlobalCooldownModifier(Mod);
-			break;
-		default :
-			break;
+		return;
 	}
+	//TODO: Find function by name.
+	Modifier.BindDynamic(BuffFunctionLibrary, &UBuffFunctionLibrary::TestComplexAbilityMod);
+	switch (ModifierType)
+	{
+	case EComplexAbilityModType::CastLength :
+		TargetHandler->AddCastLengthModifier(Modifier);
+		break;
+	case EComplexAbilityModType::CooldownLength :
+		TargetHandler->AddCooldownModifier(Modifier);
+		break;
+	case EComplexAbilityModType::GlobalCooldownLength :
+		TargetHandler->AddGlobalCooldownModifier(Modifier);
+		break;
+	default :
+		break;
+	}
+	
 }
 
-void UComplexAbilityModifierFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
+void FComplexAbilityMod::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
-	if (IsValid(TargetHandler))
+	FBuffFunction::OnRemove(RemoveEvent);
+
+	if (!IsValid(TargetHandler))
 	{
-		switch (ModType)
-		{
-			case EComplexAbilityModType::CastLength :
-				TargetHandler->RemoveCastLengthModifier(Mod);
-				break;
-			case EComplexAbilityModType::CooldownLength :
-				TargetHandler->RemoveCooldownModifier(Mod);
-				break;
-			case EComplexAbilityModType::GlobalCooldownLength :
-				TargetHandler->RemoveGlobalCooldownModifier(Mod);
-				break;
-			default :
-				break;
-		}
+		return;
+	}
+	switch (ModifierType)
+	{
+	case EComplexAbilityModType::CastLength :
+		TargetHandler->RemoveCastLengthModifier(Modifier);
+		break;
+	case EComplexAbilityModType::CooldownLength :
+		TargetHandler->RemoveCooldownModifier(Modifier);
+		break;
+	case EComplexAbilityModType::GlobalCooldownLength :
+		TargetHandler->RemoveGlobalCooldownModifier(Modifier);
+		break;
+	default :
+		break;
 	}
 }
 

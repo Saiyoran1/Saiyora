@@ -88,20 +88,26 @@ void UBuff::InitializeBuff(FBuffApplyEvent& Event, UBuffHandler* NewHandler, con
     CreationEvent = Event;
     bIgnoringRestrictions = bIgnoreRestrictions;
 
-    //Allow derived classes to setup buff functions
-    SetupCommonBuffFunctions();
+    //Initial setup for buff function structs
+    for (FInstancedStruct& BuffFunction : BuffFunctions)
+    {
+        if (FBuffFunction* CastBuffFunction = BuffFunction.GetMutablePtr<FBuffFunction>())
+        {
+            CastBuffFunction->Init(this);
+        }
+    }
     
     Status = EBuffStatus::Active;
 
     //Add ourselves to the handler arrays of the actor we are applied to and the actor we were applied by
     Handler->NotifyOfNewIncomingBuff(CreationEvent);
 
-    //Run BuffFunction OnApply logic
-    for (UBuffFunction* Function : BuffFunctions)
+    //Run OnApply logic for buff function structs
+    for (FInstancedStruct& BuffFunction : BuffFunctions)
     {
-        if (IsValid(Function))
+        if (FBuffFunction* CastBuffFunction = BuffFunction.GetMutablePtr<FBuffFunction>())
         {
-            Function->OnApply(CreationEvent);
+            CastBuffFunction->OnApply(CreationEvent);
         }
     }
     
@@ -123,8 +129,14 @@ void UBuff::OnRep_CreationEvent()
     LastRefreshTime = CreationEvent.NewApplyTime;
     ExpireTime = CreationEvent.NewDuration + LastRefreshTime;
 
-    //Allow child classes to setup buff functions locally
-    SetupCommonBuffFunctions();
+    //Initial setup for buff function structs
+    for (FInstancedStruct& BuffFunction : BuffFunctions)
+    {
+        if (FBuffFunction* CastBuffFunction = BuffFunction.GetMutablePtr<FBuffFunction>())
+        {
+            CastBuffFunction->Init(this);
+        }
+    }
     
     Status = EBuffStatus::Active;
 
@@ -138,12 +150,12 @@ void UBuff::OnRep_CreationEvent()
         }
     }
 
-    //Run BuffFunction OnApply logic
-    for (UBuffFunction* Function : BuffFunctions)
+    //Run OnApply logic for buff function structs
+    for (FInstancedStruct& BuffFunction : BuffFunctions)
     {
-        if (IsValid(Function))
+        if (FBuffFunction* CastBuffFunction = BuffFunction.GetMutablePtr<FBuffFunction>())
         {
-            Function->OnApply(CreationEvent);
+            CastBuffFunction->OnApply(CreationEvent);
         }
     }
 
@@ -219,15 +231,12 @@ void UBuff::ApplyEvent(FBuffApplyEvent& ApplicationEvent, const EBuffApplication
         return;
     }
     LastApplyEvent = ApplicationEvent;
-    for (UBuffFunction* Function : BuffFunctions)
+    //Update buff functions
+    for (FInstancedStruct& BuffFunction : BuffFunctions)
     {
-        if (LastApplyEvent.ActionTaken == EBuffApplyAction::Stacked || LastApplyEvent.ActionTaken == EBuffApplyAction::StackedAndRefreshed)
+        if (FBuffFunction* CastBuffFunction = BuffFunction.GetMutablePtr<FBuffFunction>())
         {
-            Function->OnStack(LastApplyEvent);
-        }
-        if (LastApplyEvent.ActionTaken == EBuffApplyAction::Refreshed || LastApplyEvent.ActionTaken == EBuffApplyAction::StackedAndRefreshed)
-        {
-            Function->OnRefresh(LastApplyEvent);
+            CastBuffFunction->OnChange(LastApplyEvent);
         }
     }
     OnApply(LastApplyEvent);
@@ -247,15 +256,12 @@ void UBuff::OnRep_LastApplyEvent()
         LastRefreshTime = LastApplyEvent.NewApplyTime;
         ExpireTime = LastApplyEvent.NewDuration + LastRefreshTime;
     }
-    for (UBuffFunction* Function : BuffFunctions)
+    //Update buff functions
+    for (FInstancedStruct& BuffFunction : BuffFunctions)
     {
-        if (LastApplyEvent.ActionTaken == EBuffApplyAction::Stacked || LastApplyEvent.ActionTaken == EBuffApplyAction::StackedAndRefreshed)
+        if (FBuffFunction* CastBuffFunction = BuffFunction.GetMutablePtr<FBuffFunction>())
         {
-            Function->OnStack(LastApplyEvent);
-        }
-        if (LastApplyEvent.ActionTaken == EBuffApplyAction::Refreshed || LastApplyEvent.ActionTaken == EBuffApplyAction::StackedAndRefreshed)
-        {
-            Function->OnRefresh(LastApplyEvent);
+            CastBuffFunction->OnChange(LastApplyEvent);
         }
     }
     OnApply(LastApplyEvent);
@@ -297,12 +303,14 @@ FBuffRemoveEvent UBuff::TerminateBuff(const EBuffExpireReason TerminationReason)
     RemoveEvent.RemovedFrom = CreationEvent.AppliedTo;
     RemoveEvent.AppliedBy = CreationEvent.AppliedBy;
     RemoveEvent.ExpireReason = RemovalReason;
-
-    //Run BuffFunction OnRemove logic, then get rid of the buff function objects
-    for (UBuffFunction* Function : BuffFunctions)
+    
+    //Run BuffFunction OnRemove logic
+    for (FInstancedStruct& BuffFunction : BuffFunctions)
     {
-        Function->OnRemove(RemoveEvent);
-        Function->CleanupBuffFunction();
+        if (FBuffFunction* CastBuffFunction = BuffFunction.GetMutablePtr<FBuffFunction>())
+        {
+            CastBuffFunction->OnRemove(RemoveEvent);
+        }
     }
 
     //Run derived class OnRemove logic
@@ -327,6 +335,19 @@ void UBuff::OnRep_RemovalReason()
         return;
     }
     TerminateBuff(RemovalReason);
+}
+
+#pragma endregion
+#pragma region Buff Functions
+
+TArray<FName> UBuff::GetComplexAbilityModFunctionNames()
+{
+    TArray<FName> FunctionNames;
+    FunctionNames.Add(FName("Test1"));
+    FunctionNames.Add(FName("Test2"));
+    //TODO: Iterate over BuffFunctionLibrary to get functions matching the signature of ability function modifiers.
+    //FCombatModifier FuncName(UCombatAbility* Ability);
+    return FunctionNames;
 }
 
 #pragma endregion 

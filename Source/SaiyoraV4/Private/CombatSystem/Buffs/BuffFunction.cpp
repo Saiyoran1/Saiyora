@@ -43,23 +43,6 @@ void UBuffFunction::InitializeBuffFunction(UBuff* BuffRef)
 }
 
 #pragma endregion
-#pragma region UCustomBuffFunction
-
-void UCustomBuffFunction::SetupCustomBuffFunction(UBuff* Buff, const TSubclassOf<UCustomBuffFunction> FunctionClass)
-{
-    InstantiateBuffFunction(Buff, FunctionClass);
-}
-
-void UCustomBuffFunction::SetupCustomBuffFunctions(UBuff* Buff,
-    const TArray<TSubclassOf<UCustomBuffFunction>>& FunctionClasses)
-{
-    for (const TSubclassOf<UCustomBuffFunction>& FunctionClass : FunctionClasses)
-    {
-        InstantiateBuffFunction(Buff, FunctionClass);
-    }
-}
-
-#pragma endregion
 #pragma region UBuffRestrictionFunction
 
 void UBuffRestrictionFunction::BuffRestriction(UBuff* Buff, const ECombatEventDirection RestrictionDirection, const FBuffRestriction& Restriction)

@@ -2,6 +2,7 @@
 #include "BuffStructs.h"
 #include "BuffFunction.generated.h"
 
+class UCombatAbility;
 class UBuffHandler;
 
 #pragma region UBuffFunction
@@ -44,53 +45,6 @@ private:
 };
 
 #pragma endregion
-#pragma region UCustomBuffFunction
-
-//Subclass of UBuffFunction that exposes functionality to Blueprints
-UCLASS(Abstract, Blueprintable)
-class UCustomBuffFunction : public UBuffFunction
-{
-	GENERATED_BODY()
-
-public:
-
-	//Static blueprint-callable function to create/init a buff function of a given blueprint subclass
-	UFUNCTION(BlueprintCallable, Category = "BuffFunctions")
-	static void SetupCustomBuffFunction(UBuff* Buff, const TSubclassOf<UCustomBuffFunction> FunctionClass);
-	//Static blueprint-callable function to create/init multiple buff functions of varying blueprint subclasses
-	UFUNCTION(BlueprintCallable, Category = "BuffFunctions")
-	static void SetupCustomBuffFunctions(UBuff* Buff, const TArray<TSubclassOf<UCustomBuffFunction>>& FunctionClasses);
-	
-	virtual void SetupBuffFunction() override { CustomSetup(); }
-	virtual void OnApply(const FBuffApplyEvent& ApplyEvent) override { CustomApply(ApplyEvent); }
-	virtual void OnStack(const FBuffApplyEvent& ApplyEvent) override { CustomStack(ApplyEvent); }
-	virtual void OnRefresh(const FBuffApplyEvent& ApplyEvent) override { CustomRefresh(ApplyEvent); }
-	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) override { CustomRemove(RemoveEvent); }
-	virtual void CleanupBuffFunction() override { CustomCleanup(); }
-
-protected:
-
-	//Called before OnApply to setup the buff function
-	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "Setup"))
-	void CustomSetup();
-	//Called during application of the buff
-	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Apply"))
-	void CustomApply(FBuffApplyEvent const& ApplyEvent);
-	//Called when the buff's stacks change
-	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Stack"))
-	void CustomStack(FBuffApplyEvent const& ApplyEvent);
-	//Called when the buff's duration is updated
-	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Refresh"))
-	void CustomRefresh(FBuffApplyEvent const& ApplyEvent);
-	//Called when the buff is removed
-	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Remove"))
-	void CustomRemove(FBuffRemoveEvent const& RemoveEvent);
-	//Called after removal to cleanup any refs or bindings
-	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "Cleanup"))
-	void CustomCleanup();
-};
-
-#pragma endregion
 #pragma region UBuffRestrictionFunction
 
 //Buff function for adding a conditional restriction to incoming or outgoing buffs
@@ -121,4 +75,43 @@ private:
 	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) override;
 };
 
+#pragma endregion
+
+USTRUCT()
+struct FBuffFunction
+{
+	GENERATED_BODY()
+
+public:
+
+	void Init(UBuff* Buff) { OwningBuff = Buff; }
+	virtual void OnApply(const FBuffApplyEvent& ApplyEvent) {}
+	virtual void OnChange(const FBuffApplyEvent& ChangeEvent) {}
+	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) {}
+
+	virtual ~FBuffFunction() {}
+
+protected:
+
+	UBuff* GetOwningBuff() const { return OwningBuff; }
+
+private:
+
+	UPROPERTY()
+	UBuff* OwningBuff = nullptr;
+};
+
+UCLASS()
+class UBuffFunctionLibrary : public UObject
+{
+	GENERATED_BODY()
+
+public:
+	
+#pragma region Complex Ability Modifiers
+
+	UFUNCTION()
+	FCombatModifier TestComplexAbilityMod(UCombatAbility* Ability);
+
 #pragma endregion 
+};

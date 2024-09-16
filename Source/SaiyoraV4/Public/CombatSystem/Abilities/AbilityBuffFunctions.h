@@ -15,23 +15,26 @@ enum class EComplexAbilityModType : uint8
 	CooldownLength,
 };
 
-UCLASS()
-class UComplexAbilityModifierFunction : public UBuffFunction
+USTRUCT()
+struct FComplexAbilityMod : public FBuffFunction
 {
 	GENERATED_BODY()
-	
-	FAbilityModCondition Mod;
-	EComplexAbilityModType ModType = EComplexAbilityModType::None;
-	UPROPERTY()
-	UAbilityComponent* TargetHandler = nullptr;
 
-	void SetModifierVars(const EComplexAbilityModType ModifierType, const FAbilityModCondition& Modifier);
+public:
 
 	virtual void OnApply(const FBuffApplyEvent& ApplyEvent) override;
 	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) override;
 
-	UFUNCTION(BlueprintCallable, Category = "Buff Function", meta = (DefaultToSelf = "Buff", HidePin = "Buff"))
-	static void ComplexAbilityModifier(UBuff* Buff, const EComplexAbilityModType ModifierType, const FAbilityModCondition& Modifier);
+private:
+
+	UPROPERTY(EditDefaultsOnly)
+	EComplexAbilityModType ModifierType = EComplexAbilityModType::CastLength;
+	UPROPERTY(EditDefaultsOnly, meta = (GetOptions = "GetComplexAbilityModFunctionNames"))
+	FName ModiferFunction;
+	
+	FAbilityModCondition Modifier;
+	UPROPERTY()
+	UAbilityComponent* TargetHandler = nullptr;
 };
 
 UENUM(BlueprintType)
