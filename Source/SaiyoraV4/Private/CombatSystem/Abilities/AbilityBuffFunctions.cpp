@@ -10,44 +10,40 @@
 
 void FComplexAbilityMod::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
-	FBuffFunction::OnApply(ApplyEvent);
+	FBuffFunctionality::OnApply(ApplyEvent);
 
 	TargetHandler = ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwningBuff()->GetHandler()->GetOwner());
 	if (!IsValid(TargetHandler))
 	{
 		return;
 	}
-	if (ModiferFunction.IsNone())
+	if (ModifierFunction.IsNone())
 	{
 		return;
 	}
-	const UBuffFunctionLibrary* BuffFunctionLibrary = UBuffFunctionLibrary::StaticClass()->GetDefaultObject<UBuffFunctionLibrary>();
-	if (!IsValid(BuffFunctionLibrary))
+	Modifier.BindUFunction(GetOwningBuff(), ModifierFunction);
+	if (Modifier.IsBound())
 	{
-		return;
+		switch (ModifierType)
+		{
+		case EComplexAbilityModType::CastLength :
+			TargetHandler->AddCastLengthModifier(Modifier);
+			break;
+		case EComplexAbilityModType::CooldownLength :
+			TargetHandler->AddCooldownModifier(Modifier);
+			break;
+		case EComplexAbilityModType::GlobalCooldownLength :
+			TargetHandler->AddGlobalCooldownModifier(Modifier);
+			break;
+		default :
+			break;
+		}
 	}
-	//TODO: Find function by name.
-	Modifier.BindDynamic(BuffFunctionLibrary, &UBuffFunctionLibrary::TestComplexAbilityMod);
-	switch (ModifierType)
-	{
-	case EComplexAbilityModType::CastLength :
-		TargetHandler->AddCastLengthModifier(Modifier);
-		break;
-	case EComplexAbilityModType::CooldownLength :
-		TargetHandler->AddCooldownModifier(Modifier);
-		break;
-	case EComplexAbilityModType::GlobalCooldownLength :
-		TargetHandler->AddGlobalCooldownModifier(Modifier);
-		break;
-	default :
-		break;
-	}
-	
 }
 
 void FComplexAbilityMod::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
-	FBuffFunction::OnRemove(RemoveEvent);
+	FBuffFunctionality::OnRemove(RemoveEvent);
 
 	if (!IsValid(TargetHandler))
 	{

@@ -1,6 +1,6 @@
 #pragma once
 #include "BuffStructs.h"
-#include "BuffFunction.generated.h"
+#include "BuffFunctionality.generated.h"
 
 class UCombatAbility;
 class UBuffHandler;
@@ -78,7 +78,7 @@ private:
 #pragma endregion
 
 USTRUCT()
-struct FBuffFunction
+struct FBuffFunctionality
 {
 	GENERATED_BODY()
 
@@ -89,7 +89,7 @@ public:
 	virtual void OnChange(const FBuffApplyEvent& ChangeEvent) {}
 	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) {}
 
-	virtual ~FBuffFunction() {}
+	virtual ~FBuffFunctionality() {}
 
 protected:
 
@@ -110,8 +110,7 @@ public:
 	
 #pragma region Complex Ability Modifiers
 
-	UFUNCTION()
-	FCombatModifier TestComplexAbilityMod(UCombatAbility* Ability);
+	
 
 #pragma endregion 
 };

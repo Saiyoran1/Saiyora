@@ -1,6 +1,6 @@
 ﻿#pragma once
 #include "CoreMinimal.h"
-#include "BuffFunction.h"
+#include "BuffFunctionality.h"
 #include "Object.h"
 #include "UIBuffFunctions.generated.h"
 

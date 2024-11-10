@@ -1,5 +1,5 @@
 #include "Buff.h"
-#include "BuffFunction.h"
+#include "BuffFunctionality.h"
 #include "UnrealNetwork.h"
 #include "BuffHandler.h"
 #include "SaiyoraCombatInterface.h"
@@ -91,7 +91,7 @@ void UBuff::InitializeBuff(FBuffApplyEvent& Event, UBuffHandler* NewHandler, con
     //Initial setup for buff function structs
     for (FInstancedStruct& BuffFunction : BuffFunctions)
     {
-        if (FBuffFunction* CastBuffFunction = BuffFunction.GetMutablePtr<FBuffFunction>())
+        if (FBuffFunctionality* CastBuffFunction = BuffFunction.GetMutablePtr<FBuffFunctionality>())
         {
             CastBuffFunction->Init(this);
         }
@@ -105,7 +105,7 @@ void UBuff::InitializeBuff(FBuffApplyEvent& Event, UBuffHandler* NewHandler, con
     //Run OnApply logic for buff function structs
     for (FInstancedStruct& BuffFunction : BuffFunctions)
     {
-        if (FBuffFunction* CastBuffFunction = BuffFunction.GetMutablePtr<FBuffFunction>())
+        if (FBuffFunctionality* CastBuffFunction = BuffFunction.GetMutablePtr<FBuffFunctionality>())
         {
             CastBuffFunction->OnApply(CreationEvent);
         }
@@ -132,7 +132,7 @@ void UBuff::OnRep_CreationEvent()
     //Initial setup for buff function structs
     for (FInstancedStruct& BuffFunction : BuffFunctions)
     {
-        if (FBuffFunction* CastBuffFunction = BuffFunction.GetMutablePtr<FBuffFunction>())
+        if (FBuffFunctionality* CastBuffFunction = BuffFunction.GetMutablePtr<FBuffFunctionality>())
         {
             CastBuffFunction->Init(this);
         }
@@ -153,7 +153,7 @@ void UBuff::OnRep_CreationEvent()
     //Run OnApply logic for buff function structs
     for (FInstancedStruct& BuffFunction : BuffFunctions)
     {
-        if (FBuffFunction* CastBuffFunction = BuffFunction.GetMutablePtr<FBuffFunction>())
+        if (FBuffFunctionality* CastBuffFunction = BuffFunction.GetMutablePtr<FBuffFunctionality>())
         {
             CastBuffFunction->OnApply(CreationEvent);
         }
@@ -234,7 +234,7 @@ void UBuff::ApplyEvent(FBuffApplyEvent& ApplicationEvent, const EBuffApplication
     //Update buff functions
     for (FInstancedStruct& BuffFunction : BuffFunctions)
     {
-        if (FBuffFunction* CastBuffFunction = BuffFunction.GetMutablePtr<FBuffFunction>())
+        if (FBuffFunctionality* CastBuffFunction = BuffFunction.GetMutablePtr<FBuffFunctionality>())
         {
             CastBuffFunction->OnChange(LastApplyEvent);
         }
@@ -259,7 +259,7 @@ void UBuff::OnRep_LastApplyEvent()
     //Update buff functions
     for (FInstancedStruct& BuffFunction : BuffFunctions)
     {
-        if (FBuffFunction* CastBuffFunction = BuffFunction.GetMutablePtr<FBuffFunction>())
+        if (FBuffFunctionality* CastBuffFunction = BuffFunction.GetMutablePtr<FBuffFunctionality>())
         {
             CastBuffFunction->OnChange(LastApplyEvent);
         }
@@ -307,7 +307,7 @@ FBuffRemoveEvent UBuff::TerminateBuff(const EBuffExpireReason TerminationReason)
     //Run BuffFunction OnRemove logic
     for (FInstancedStruct& BuffFunction : BuffFunctions)
     {
-        if (FBuffFunction* CastBuffFunction = BuffFunction.GetMutablePtr<FBuffFunction>())
+        if (FBuffFunctionality* CastBuffFunction = BuffFunction.GetMutablePtr<FBuffFunctionality>())
         {
             CastBuffFunction->OnRemove(RemoveEvent);
         }
@@ -340,14 +340,65 @@ void UBuff::OnRep_RemovalReason()
 #pragma endregion
 #pragma region Buff Functions
 
-TArray<FName> UBuff::GetComplexAbilityModFunctionNames()
+TArray<FName> UBuff::GetComplexAbilityModFunctionNames() const
 {
     TArray<FName> FunctionNames;
-    FunctionNames.Add(FName("Test1"));
-    FunctionNames.Add(FName("Test2"));
-    //TODO: Iterate over BuffFunctionLibrary to get functions matching the signature of ability function modifiers.
-    //FCombatModifier FuncName(UCombatAbility* Ability);
+    const UFunction* ExampleFunction = FindFunction("AbilityModSignatureExample");
+    if (!ExampleFunction)
+    {
+        return FunctionNames;
+    }
+   
+    for (TFieldIterator<UFunction> FunctionIt (GetClass()); FunctionIt; ++FunctionIt)
+    {
+        const UFunction* Function = *FunctionIt;
+        // Early out if they're exactly the same function
+        if (Function == ExampleFunction)
+        {
+            continue;
+        }
+        if (IsSignatureTheSame(Function, ExampleFunction))
+        {
+            FunctionNames.Add((*FunctionIt)->GetFName());
+        }
+    }
     return FunctionNames;
+}
+
+bool UBuff::IsSignatureTheSame(const UFunction* Function, const UFunction* Example) const
+{
+    const int NumParamsFunc = Function->NumParms;
+    const int NumParamsExample = Example->NumParms;
+    // Run thru the parameter property chains to compare each property
+    TFieldIterator<FProperty> IteratorA(Function);
+    TFieldIterator<FProperty> IteratorB(Example);
+
+    while (IteratorA && (IteratorA->PropertyFlags & CPF_Parm))
+    {
+        if (IteratorB && (IteratorB->PropertyFlags & CPF_Parm))
+        {
+            // Compare the two properties to make sure their types are identical
+            // Note: currently this requires both to be strictly identical and wouldn't allow functions that differ only by how derived a class is,
+            // which might be desirable when binding delegates, assuming there is directionality in the SignatureIsCompatibleWith call
+            FProperty* PropA = *IteratorA;
+            FProperty* PropB = *IteratorB;
+                
+            if (!FStructUtils::ArePropertiesTheSame(PropA, PropB, false))
+            {
+                return false;
+            }
+        }
+        else
+        {
+            // B ran out of arguments before A did
+             return false;
+        }
+        ++IteratorA;
+        ++IteratorB;
+    }
+
+    // They matched all the way thru A's properties, but it could still be a mismatch if B has remaining parameters
+    return !(IteratorB && (IteratorB->PropertyFlags & CPF_Parm));
 }
 
 #pragma endregion 

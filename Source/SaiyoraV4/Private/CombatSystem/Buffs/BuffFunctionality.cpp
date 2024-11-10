@@ -1,4 +1,4 @@
-#include "BuffFunction.h"
+#include "BuffFunctionality.h"
 #include "Buff.h"
 #include "BuffHandler.h"
 #include "CombatStatusComponent.h"
@@ -8,38 +8,17 @@
 
 UWorld* UBuffFunction::GetWorld() const
 {
-    if (!HasAnyFlags(RF_ClassDefaultObject))
-    {
-        return GetOuter()->GetWorld();
-    }
     return nullptr;
 }
 
 UBuffFunction* UBuffFunction::InstantiateBuffFunction(UBuff* Buff, const TSubclassOf<UBuffFunction> FunctionClass)
 {
-    if (!IsValid(Buff) || !IsValid(FunctionClass))
-    {
-        return nullptr;
-    }
-    UBuffFunction* NewFunction = NewObject<UBuffFunction>(Buff, FunctionClass);
-    NewFunction->InitializeBuffFunction(Buff);
-    return NewFunction;
+    return nullptr;
 }
 
 void UBuffFunction::InitializeBuffFunction(UBuff* BuffRef)
 {
-    if (!bBuffFunctionInitialized)
-    {
-        if (!IsValid(BuffRef))
-        {
-            UE_LOG(LogTemp, Warning, TEXT("Invalid owning buff provided to buff function."));
-            return;
-        }
-        OwningBuff = BuffRef;
-        OwningBuff->RegisterBuffFunction(this);
-        bBuffFunctionInitialized = true;
-        SetupBuffFunction();
-    }
+   
 }
 
 #pragma endregion

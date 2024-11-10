@@ -1,7 +1,7 @@
 ﻿#pragma once
 #include "CoreMinimal.h"
 #include "AbilityStructs.h"
-#include "BuffFunction.h"
+#include "BuffFunctionality.h"
 #include "AbilityBuffFunctions.generated.h"
 
 class UAbilityComponent;
@@ -16,7 +16,7 @@ enum class EComplexAbilityModType : uint8
 };
 
 USTRUCT()
-struct FComplexAbilityMod : public FBuffFunction
+struct FComplexAbilityMod : public FBuffFunctionality
 {
 	GENERATED_BODY()
 
@@ -30,7 +30,7 @@ private:
 	UPROPERTY(EditDefaultsOnly)
 	EComplexAbilityModType ModifierType = EComplexAbilityModType::CastLength;
 	UPROPERTY(EditDefaultsOnly, meta = (GetOptions = "GetComplexAbilityModFunctionNames"))
-	FName ModiferFunction;
+	FName ModifierFunction;
 	
 	FAbilityModCondition Modifier;
 	UPROPERTY()
