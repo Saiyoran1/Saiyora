@@ -71,7 +71,7 @@ private:
 	UFUNCTION()
 	void OnCastableChanged(UCombatAbility* Ability, const bool bCastable, const TArray<ECastFailReason>& FailReasons);
 	UFUNCTION()
-	void OnMappingChanged(const ESaiyoraPlane Plane, const int32 Index, TSubclassOf<UCombatAbility> AbilityClass);
+	void OnMappingChanged(const ESaiyoraPlane Plane, const int32 Index, TSubclassOf<UCombatAbility> NewAbilityClass);
 
 	void UpdateAbilityInstance(UCombatAbility* NewAbility);
 

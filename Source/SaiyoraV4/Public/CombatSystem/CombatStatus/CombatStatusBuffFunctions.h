@@ -10,15 +10,15 @@ UCLASS()
 class SAIYORAV4_API UPlaneSwapRestrictionFunction : public UBuffFunction
 {
 	GENERATED_BODY()
-	
-	UPROPERTY()
-	UCombatStatusComponent* TargetComponent = nullptr;
 
-	void SetRestrictionVars();
+public:
 
+	virtual void SetupBuffFunction() override;
 	virtual void OnApply(const FBuffApplyEvent& ApplyEvent) override;
 	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) override;
 
-	UFUNCTION(BlueprintCallable, Category = "Buff Function", meta = (DefaultToSelf = "Buff", HidePin = "Buff"))
-	static void PlaneSwapRestriction(UBuff* Buff);
+private:
+	
+	UPROPERTY()
+	UCombatStatusComponent* TargetComponent = nullptr;
 };

@@ -6,21 +6,6 @@
 
 #pragma region Cc Immunity
 
-void UCrowdControlImmunityFunction::CrowdControlImmunity(UBuff* Buff, const FGameplayTag ImmunedCrowdControl)
-{
-	if (!IsValid(Buff) || !ImmunedCrowdControl.IsValid() || !ImmunedCrowdControl.MatchesTag(FSaiyoraCombatTags::Get().CrowdControl) ||
-		ImmunedCrowdControl.MatchesTagExact(FSaiyoraCombatTags::Get().CrowdControl) || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
-	{
-		return;
-	}
-	UCrowdControlImmunityFunction* NewCcImmunityFunction = Cast<UCrowdControlImmunityFunction>(InstantiateBuffFunction(Buff, StaticClass()));
-	if (!IsValid(NewCcImmunityFunction))
-	{
-		return;
-	}
-	NewCcImmunityFunction->SetRestrictionVars(ImmunedCrowdControl);
-}
-
 bool UCrowdControlImmunityFunction::RestrictCcBuff(const FBuffApplyEvent& ApplyEvent)
 {
 	FGameplayTagContainer BuffTags;
@@ -28,31 +13,29 @@ bool UCrowdControlImmunityFunction::RestrictCcBuff(const FBuffApplyEvent& ApplyE
 	return BuffTags.HasTagExact(ImmuneCc);
 }
 
-void UCrowdControlImmunityFunction::SetRestrictionVars(const FGameplayTag ImmunedCc)
+void UCrowdControlImmunityFunction::SetupBuffFunction()
 {
-	if (GetOwningBuff()->GetAppliedTo()->Implements<USaiyoraCombatInterface>())
-	{
-		TargetCcHandler = ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(GetOwningBuff()->GetAppliedTo());
-		TargetBuffHandler = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwningBuff()->GetAppliedTo());
-		ImmuneCc = ImmunedCc;
-		CcImmunity.BindDynamic(this, &UCrowdControlImmunityFunction::RestrictCcBuff);
-	}
+	TargetCcHandler = ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(GetOwningBuff()->GetAppliedTo());
+	TargetBuffHandler = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwningBuff()->GetAppliedTo());
+	CcImmunity.BindDynamic(this, &UCrowdControlImmunityFunction::RestrictCcBuff);
 }
 
 void UCrowdControlImmunityFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
-	if (IsValid(TargetBuffHandler) && IsValid(TargetCcHandler))
+	if (IsValid(TargetCcHandler))
 	{
 		//Remove any buffs currently appling the CC
 		const FCrowdControlStatus Status = TargetCcHandler->GetCrowdControlStatus(ImmuneCc);
 		if (Status.bActive)
 		{
-			TArray<UBuff*> Ccs = Status.Sources;
-			for (UBuff* Cc : Ccs)
+			for (UBuff* Cc : Status.Sources)
 			{
 				TargetBuffHandler->RemoveBuff(Cc, EBuffExpireReason::Dispel);
 			}
 		}
+	}
+	if (IsValid(TargetBuffHandler))
+	{
 		//Restrict future buffs from applying the CC
 		TargetBuffHandler->AddIncomingBuffRestriction(CcImmunity);
 	}

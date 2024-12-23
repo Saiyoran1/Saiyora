@@ -2,52 +2,41 @@
 #include "Buff.h"
 #include "ResourceHandler.h"
 #include "SaiyoraCombatInterface.h"
+#include "SaiyoraCombatLibrary.h"
 
 #pragma region Resource Delta Modifier
 
-void UResourceDeltaModifierFunction::ResourceDeltaModifier(UBuff* Buff, const TSubclassOf<UResource> ResourceClass,
-                                                           const FResourceDeltaModifier& Modifier)
+void UResourceDeltaModifierFunction::SetupBuffFunction()
 {
-	if (!IsValid(Buff) || !IsValid(ResourceClass) || !Modifier.IsBound() || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
-	{
-		return;
-	}
-	UResourceDeltaModifierFunction* NewResourceModifierFunction = Cast<UResourceDeltaModifierFunction>(InstantiateBuffFunction(Buff, StaticClass()));
-	if (!IsValid(NewResourceModifierFunction))
-	{
-		return;
-	}
-	NewResourceModifierFunction->SetModifierVars(ResourceClass, Modifier);
-}
+	Super::SetupBuffFunction();
 
-void UResourceDeltaModifierFunction::SetModifierVars(const TSubclassOf<UResource> ResourceClass,
-                                              const FResourceDeltaModifier& Modifier)
-{
-	if (GetOwningBuff()->GetAppliedTo()->Implements<USaiyoraCombatInterface>())
+	const UResourceHandler* TargetHandler = ISaiyoraCombatInterface::Execute_GetResourceHandler(GetOwningBuff()->GetAppliedTo());
+	if (IsValid(TargetHandler))
 	{
-		const UResourceHandler* TargetHandler = ISaiyoraCombatInterface::Execute_GetResourceHandler(GetOwningBuff()->GetAppliedTo());
-		if (IsValid(TargetHandler))
-		{
-			TargetResource = TargetHandler->FindActiveResource(ResourceClass);
-			Mod = Modifier;
-		}
+		TargetResource = TargetHandler->FindActiveResource(ResourceClass);
+		Modifier.BindUFunction(GetOwningBuff(), ModifierFunctionName);
 	}
 }
 
 void UResourceDeltaModifierFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
-	if (IsValid(TargetResource))
+	if (IsValid(TargetResource) && Modifier.IsBound())
 	{
-		TargetResource->AddResourceDeltaModifier(Mod);
+		TargetResource->AddResourceDeltaModifier(Modifier);
 	}
 }
 
 void UResourceDeltaModifierFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
-	if (IsValid(TargetResource))
+	if (IsValid(TargetResource) && Modifier.IsBound())
 	{
-		TargetResource->RemoveResourceDeltaModifier(Mod);
+		TargetResource->RemoveResourceDeltaModifier(Modifier);
 	}
+}
+
+TArray<FName> UResourceDeltaModifierFunction::GetResourceDeltaModifierFunctionNames() const
+{
+	return USaiyoraCombatLibrary::GetMatchingFunctionNames(GetOuter(), FindFunction("ExampleModifierFunction"));
 }
 
 #pragma endregion

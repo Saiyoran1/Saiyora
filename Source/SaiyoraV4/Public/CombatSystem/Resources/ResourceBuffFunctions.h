@@ -11,16 +11,25 @@ class SAIYORAV4_API UResourceDeltaModifierFunction : public UBuffFunction
 {
 	GENERATED_BODY()
 
-	FResourceDeltaModifier Mod;
-	UPROPERTY()
-	UResource* TargetResource = nullptr;
+public:
 
-	void SetModifierVars(const TSubclassOf<UResource> ResourceClass, const FResourceDeltaModifier& Modifier);
-
+	virtual void SetupBuffFunction() override;
 	virtual void OnApply(const FBuffApplyEvent& ApplyEvent) override;
 	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) override;
 
-	//Factory function for creating a UResourceDeltaModifierFunction that will manage modifiers to non-ability cost resource changes.
-	UFUNCTION(BlueprintCallable, Category = "Buff Function", meta = (DefaultToSelf = "Buff", HidePin = "Buff"))
-	static void ResourceDeltaModifier(UBuff* Buff, const TSubclassOf<UResource> ResourceClass, const FResourceDeltaModifier& Modifier);
+private:
+
+	UPROPERTY(EditAnywhere, Category = "Resource Modifier")
+	TSubclassOf<UResource> ResourceClass;
+	UPROPERTY(EditAnywhere, Category = "Resource Modifier", meta = (GetOptions = "GetResourceDeltaModifierFunctionNames"))
+	FName ModifierFunctionName;
+	
+	FResourceDeltaModifier Modifier;
+	UPROPERTY()
+	UResource* TargetResource = nullptr;
+
+	UFUNCTION()
+	TArray<FName> GetResourceDeltaModifierFunctionNames() const;
+	UFUNCTION()
+	FCombatModifier ExampleModifierFunction(UResource* Resource, UObject* Source, const float InitialDelta) const { return FCombatModifier(); }
 };

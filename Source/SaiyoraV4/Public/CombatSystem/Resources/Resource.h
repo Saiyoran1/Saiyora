@@ -103,7 +103,7 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Resource", meta = (ClampMin = "1"))
 	float DefaultMaximum = 1.0f;
 	//Setting this allows the resource's maximum value to be bound to a stat's value, if the owning actor has that stat.
-	UPROPERTY(EditDefaultsOnly, Category = "Resource", meta = (GameplayTagFilter = "Stat"))
+	UPROPERTY(EditDefaultsOnly, Category = "Resource", meta = (Categories = "Stat"))
 	FGameplayTag MaximumBindStat;
 	//If no custom initial value is used to initialize this resource, this is the initial value of the resource.
 	UPROPERTY(EditDefaultsOnly, Category = "Resource", meta = (ClampMin = "0"))

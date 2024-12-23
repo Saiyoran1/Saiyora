@@ -32,6 +32,13 @@ public:
 	static void AttachCombatActorToComponent(AActor* Target, USceneComponent* Parent, const FName SocketName, const EAttachmentRule LocationRule,
 		const EAttachmentRule RotationRule, const EAttachmentRule ScaleRule, const bool bWeldSimulatedBodies);
 
+	//Editor Utility
+
+	//Get a list of names of functions on the provided object that match the signature of the provided example function.
+	static TArray<FName> GetMatchingFunctionNames(const UObject* Object, const UFunction* ExampleFunction);
+	//Check if two function signatures are the same. Useful for populating lists of modifier/restriction functions with appropriate function names.
+	static bool IsSignatureTheSame(const UFunction* Function, const UFunction* Example);
+
 #pragma region Combat Parameter Functions
 
 	/*

@@ -5,32 +5,12 @@
 
 #pragma region Stat Modifiers
 
-void UStatModifierFunction::StatModifiers(UBuff* Buff, const TMap<FGameplayTag, FCombatModifier>& Modifiers)
+void UStatModifierFunction::SetupBuffFunction()
 {
-	if (!IsValid(Buff) || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
+	TargetHandler = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwningBuff()->GetAppliedTo());
+	for (TTuple<FGameplayTag, FCombatModifier>& Mod : StatMods)
 	{
-		return;
-	}
-	UStatModifierFunction* NewStatModFunction = Cast<UStatModifierFunction>(InstantiateBuffFunction(Buff, StaticClass()));
-	if (!IsValid(NewStatModFunction))
-	{
-		return;
-	}
-	NewStatModFunction->SetModifierVars(Modifiers);
-}
-
-void UStatModifierFunction::SetModifierVars(const TMap<FGameplayTag, FCombatModifier>& Modifiers)
-{
-	if (GetOwningBuff()->GetAppliedTo()->Implements<USaiyoraCombatInterface>())
-	{
-		TargetHandler = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwningBuff()->GetAppliedTo());
-		for (const TTuple<FGameplayTag, FCombatModifier>& ModTuple : Modifiers)
-		{
-			if (ModTuple.Key.IsValid() && ModTuple.Key.MatchesTag(FSaiyoraCombatTags::Get().Stat) && !ModTuple.Key.MatchesTagExact(FSaiyoraCombatTags::Get().Stat) && ModTuple.Value.Type != EModifierType::Invalid)
-			{
-				StatMods.Add(ModTuple.Key, FCombatModifier(ModTuple.Value.Value, ModTuple.Value.Type, GetOwningBuff(), ModTuple.Value.bStackable));
-			}
-		}
+		Mod.Value.BuffSource = GetOwningBuff();
 	}
 }
 
@@ -45,9 +25,9 @@ void UStatModifierFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 	}
 }
 
-void UStatModifierFunction::OnStack(const FBuffApplyEvent& ApplyEvent)
+void UStatModifierFunction::OnChange(const FBuffApplyEvent& ApplyEvent)
 {
-	if (IsValid(TargetHandler))
+	if (IsValid(TargetHandler) && ApplyEvent.PreviousStacks != ApplyEvent.NewStacks)
 	{
 		for (const TTuple<FGameplayTag, FCombatModifier>& Mod : StatMods)
 		{

@@ -88,12 +88,12 @@ void UBuff::InitializeBuff(FBuffApplyEvent& Event, UBuffHandler* NewHandler, con
     CreationEvent = Event;
     bIgnoringRestrictions = bIgnoreRestrictions;
 
-    //Initial setup for buff function structs
-    for (FInstancedStruct& BuffFunction : BuffFunctions)
+    //Initial setup for buff function objects
+    for (UBuffFunction* BuffFunction : BuffFunctionObjects)
     {
-        if (FBuffFunctionality* CastBuffFunction = BuffFunction.GetMutablePtr<FBuffFunctionality>())
+        if (IsValid(BuffFunction))
         {
-            CastBuffFunction->Init(this);
+            BuffFunction->InitializeBuffFunction(this);
         }
     }
     
@@ -103,11 +103,11 @@ void UBuff::InitializeBuff(FBuffApplyEvent& Event, UBuffHandler* NewHandler, con
     Handler->NotifyOfNewIncomingBuff(CreationEvent);
 
     //Run OnApply logic for buff function structs
-    for (FInstancedStruct& BuffFunction : BuffFunctions)
+    for (UBuffFunction* BuffFunction : BuffFunctionObjects)
     {
-        if (FBuffFunctionality* CastBuffFunction = BuffFunction.GetMutablePtr<FBuffFunctionality>())
+        if (BuffFunction)
         {
-            CastBuffFunction->OnApply(CreationEvent);
+            BuffFunction->OnApply(CreationEvent);
         }
     }
     
@@ -130,11 +130,11 @@ void UBuff::OnRep_CreationEvent()
     ExpireTime = CreationEvent.NewDuration + LastRefreshTime;
 
     //Initial setup for buff function structs
-    for (FInstancedStruct& BuffFunction : BuffFunctions)
+    for (UBuffFunction* BuffFunction : BuffFunctionObjects)
     {
-        if (FBuffFunctionality* CastBuffFunction = BuffFunction.GetMutablePtr<FBuffFunctionality>())
+        if (BuffFunction)
         {
-            CastBuffFunction->Init(this);
+            BuffFunction->InitializeBuffFunction(this);
         }
     }
     
@@ -151,11 +151,11 @@ void UBuff::OnRep_CreationEvent()
     }
 
     //Run OnApply logic for buff function structs
-    for (FInstancedStruct& BuffFunction : BuffFunctions)
+    for (UBuffFunction* BuffFunction : BuffFunctionObjects)
     {
-        if (FBuffFunctionality* CastBuffFunction = BuffFunction.GetMutablePtr<FBuffFunctionality>())
+        if (BuffFunction)
         {
-            CastBuffFunction->OnApply(CreationEvent);
+            BuffFunction->OnApply(CreationEvent);
         }
     }
 
@@ -232,11 +232,11 @@ void UBuff::ApplyEvent(FBuffApplyEvent& ApplicationEvent, const EBuffApplication
     }
     LastApplyEvent = ApplicationEvent;
     //Update buff functions
-    for (FInstancedStruct& BuffFunction : BuffFunctions)
+    for (UBuffFunction* BuffFunction : BuffFunctionObjects)
     {
-        if (FBuffFunctionality* CastBuffFunction = BuffFunction.GetMutablePtr<FBuffFunctionality>())
+        if (BuffFunction)
         {
-            CastBuffFunction->OnChange(LastApplyEvent);
+            BuffFunction->OnChange(LastApplyEvent);
         }
     }
     OnApply(LastApplyEvent);
@@ -257,11 +257,11 @@ void UBuff::OnRep_LastApplyEvent()
         ExpireTime = LastApplyEvent.NewDuration + LastRefreshTime;
     }
     //Update buff functions
-    for (FInstancedStruct& BuffFunction : BuffFunctions)
+    for (UBuffFunction* BuffFunction : BuffFunctionObjects)
     {
-        if (FBuffFunctionality* CastBuffFunction = BuffFunction.GetMutablePtr<FBuffFunctionality>())
+        if (BuffFunction)
         {
-            CastBuffFunction->OnChange(LastApplyEvent);
+            BuffFunction->OnChange(LastApplyEvent);
         }
     }
     OnApply(LastApplyEvent);
@@ -305,11 +305,11 @@ FBuffRemoveEvent UBuff::TerminateBuff(const EBuffExpireReason TerminationReason)
     RemoveEvent.ExpireReason = RemovalReason;
     
     //Run BuffFunction OnRemove logic
-    for (FInstancedStruct& BuffFunction : BuffFunctions)
+    for (UBuffFunction* BuffFunction : BuffFunctionObjects)
     {
-        if (FBuffFunctionality* CastBuffFunction = BuffFunction.GetMutablePtr<FBuffFunctionality>())
+        if (BuffFunction)
         {
-            CastBuffFunction->OnRemove(RemoveEvent);
+            BuffFunction->OnRemove(RemoveEvent);
         }
     }
 
@@ -338,67 +338,3 @@ void UBuff::OnRep_RemovalReason()
 }
 
 #pragma endregion
-#pragma region Buff Functions
-
-TArray<FName> UBuff::GetComplexAbilityModFunctionNames() const
-{
-    TArray<FName> FunctionNames;
-    const UFunction* ExampleFunction = FindFunction("AbilityModSignatureExample");
-    if (!ExampleFunction)
-    {
-        return FunctionNames;
-    }
-   
-    for (TFieldIterator<UFunction> FunctionIt (GetClass()); FunctionIt; ++FunctionIt)
-    {
-        const UFunction* Function = *FunctionIt;
-        // Early out if they're exactly the same function
-        if (Function == ExampleFunction)
-        {
-            continue;
-        }
-        if (IsSignatureTheSame(Function, ExampleFunction))
-        {
-            FunctionNames.Add((*FunctionIt)->GetFName());
-        }
-    }
-    return FunctionNames;
-}
-
-bool UBuff::IsSignatureTheSame(const UFunction* Function, const UFunction* Example) const
-{
-    const int NumParamsFunc = Function->NumParms;
-    const int NumParamsExample = Example->NumParms;
-    // Run thru the parameter property chains to compare each property
-    TFieldIterator<FProperty> IteratorA(Function);
-    TFieldIterator<FProperty> IteratorB(Example);
-
-    while (IteratorA && (IteratorA->PropertyFlags & CPF_Parm))
-    {
-        if (IteratorB && (IteratorB->PropertyFlags & CPF_Parm))
-        {
-            // Compare the two properties to make sure their types are identical
-            // Note: currently this requires both to be strictly identical and wouldn't allow functions that differ only by how derived a class is,
-            // which might be desirable when binding delegates, assuming there is directionality in the SignatureIsCompatibleWith call
-            FProperty* PropA = *IteratorA;
-            FProperty* PropB = *IteratorB;
-                
-            if (!FStructUtils::ArePropertiesTheSame(PropA, PropB, false))
-            {
-                return false;
-            }
-        }
-        else
-        {
-            // B ran out of arguments before A did
-             return false;
-        }
-        ++IteratorA;
-        ++IteratorB;
-    }
-
-    // They matched all the way thru A's properties, but it could still be a mismatch if B has remaining parameters
-    return !(IteratorB && (IteratorB->PropertyFlags & CPF_Parm));
-}
-
-#pragma endregion 

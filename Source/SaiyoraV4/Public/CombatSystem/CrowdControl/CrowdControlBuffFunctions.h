@@ -11,8 +11,18 @@ class SAIYORAV4_API UCrowdControlImmunityFunction : public UBuffFunction
 {
 	GENERATED_BODY()
 
+public:
+
+	virtual void SetupBuffFunction() override;
+	virtual void OnApply(const FBuffApplyEvent& ApplyEvent) override;
+	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) override;
+
+private:
+
 	//The type of CC we are immuning
+	UPROPERTY(EditAnywhere, Category = "Crowd Control", meta = (Categories = "CrowdControl"))
     FGameplayTag ImmuneCc;
+	
 	UPROPERTY()
 	UBuffHandler* TargetBuffHandler = nullptr;
     UPROPERTY()
@@ -21,13 +31,4 @@ class SAIYORAV4_API UCrowdControlImmunityFunction : public UBuffFunction
 	FBuffRestriction CcImmunity;
 	UFUNCTION()
 	bool RestrictCcBuff(const FBuffApplyEvent& ApplyEvent);
-    
-    void SetRestrictionVars(const FGameplayTag ImmunedCc);
-    
-    virtual void OnApply(const FBuffApplyEvent& ApplyEvent) override;
-    virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) override;
-
-	//Factory function to instantiate and set up a buff function that blocks buff applications that apply a specific type of crowd control
-    UFUNCTION(BlueprintCallable, Category = "Buff Function", meta = (GameplayTagFilter = "CrowdControl", DefaultToSelf = "Buff", HidePin = "Buff"))
-    static void CrowdControlImmunity(UBuff* Buff, const FGameplayTag ImmunedCrowdControl);
 };

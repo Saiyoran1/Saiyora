@@ -83,11 +83,11 @@ void UActionSlot::SetActive(const float UpdateAlpha)
 	}
 }
 
-void UActionSlot::OnMappingChanged(const ESaiyoraPlane Plane, const int32 Index, TSubclassOf<UCombatAbility> AbilityClass)
+void UActionSlot::OnMappingChanged(const ESaiyoraPlane Plane, const int32 Index, TSubclassOf<UCombatAbility> NewAbilityClass)
 {
 	if (Plane == AssignedPlane && Index == AssignedIdx)
 	{
-		SetAbilityClass(AbilityClass);
+		SetAbilityClass(NewAbilityClass);
 	}
 }
 

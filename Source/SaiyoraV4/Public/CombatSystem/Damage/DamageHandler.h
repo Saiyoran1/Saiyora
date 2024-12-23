@@ -138,7 +138,7 @@ private:
 	EKillCountType KillCountType = EKillCountType::None;
 	UPROPERTY(EditAnywhere, Category = "Kill Count")
 	int32 KillCountValue = 0;
-	UPROPERTY(EditAnywhere, Category = "Kill Count", meta = (GameplayTagFilter = "Boss"))
+	UPROPERTY(EditAnywhere, Category = "Kill Count", meta = (Categories = "Boss"))
 	FGameplayTag BossTag;
 
 //Health Events

@@ -3,12 +3,13 @@
 #include "BuffHandler.h"
 #include "CombatStatusComponent.h"
 #include "SaiyoraCombatInterface.h"
+#include "SaiyoraCombatLibrary.h"
 
 #pragma region UBuffFunction
 
 UWorld* UBuffFunction::GetWorld() const
 {
-    return nullptr;
+    return GetOwningBuff()->GetWorld();
 }
 
 UBuffFunction* UBuffFunction::InstantiateBuffFunction(UBuff* Buff, const TSubclassOf<UBuffFunction> FunctionClass)
@@ -18,70 +19,60 @@ UBuffFunction* UBuffFunction::InstantiateBuffFunction(UBuff* Buff, const TSubcla
 
 void UBuffFunction::InitializeBuffFunction(UBuff* BuffRef)
 {
-   
+    OwningBuff = BuffRef;
+    SetupBuffFunction();
 }
 
 #pragma endregion
 #pragma region UBuffRestrictionFunction
 
-void UBuffRestrictionFunction::BuffRestriction(UBuff* Buff, const ECombatEventDirection RestrictionDirection, const FBuffRestriction& Restriction)
+void UBuffRestrictionFunction::SetupBuffFunction()
 {
-    if (!IsValid(Buff) || !Restriction.IsBound() || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
-    {
-        return;
-    }
-    UBuffRestrictionFunction* NewBuffRestrictionFunction = Cast<UBuffRestrictionFunction>(InstantiateBuffFunction(Buff, StaticClass()));
-    if (!IsValid(NewBuffRestrictionFunction))
-    {
-        return;
-    }
-    NewBuffRestrictionFunction->SetRestrictionVars(RestrictionDirection, Restriction);
-}
-
-void UBuffRestrictionFunction::SetRestrictionVars(const ECombatEventDirection RestrictionDirection, const FBuffRestriction& Restriction)
-{
-    if (GetOwningBuff()->GetAppliedTo()->Implements<USaiyoraCombatInterface>())
-    {
-        TargetComponent = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwningBuff()->GetAppliedTo());
-        Direction = RestrictionDirection;
-        Restrict = Restriction;
-    }
+    TargetComponent = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwningBuff()->GetAppliedTo());
+    Restriction.BindUFunction(GetOwningBuff(), RestrictionFunctionName);
 }
 
 void UBuffRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
-    if (IsValid(TargetComponent))
+    if (!IsValid(TargetComponent) || !Restriction.IsBound())
     {
-        switch (Direction)
-        {
-            case ECombatEventDirection::Outgoing :
-                TargetComponent->AddOutgoingBuffRestriction(Restrict);
-                break;
-            case ECombatEventDirection::Incoming :
-                TargetComponent->AddIncomingBuffRestriction(Restrict);
-                break;
-            default :
-                break;
-        }
+        return;
+    }
+    switch (Direction)
+    {
+        case ECombatEventDirection::Outgoing :
+            TargetComponent->AddOutgoingBuffRestriction(Restriction);
+            break;
+        case ECombatEventDirection::Incoming :
+            TargetComponent->AddIncomingBuffRestriction(Restriction);
+            break;
+        default :
+            break;
     }
 }
 
 void UBuffRestrictionFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
-    if (IsValid(TargetComponent))
+    if (!IsValid(TargetComponent) || !Restriction.IsBound())
     {
-        switch (Direction)
-        {
-        case ECombatEventDirection::Outgoing :
-            TargetComponent->RemoveOutgoingBuffRestriction(Restrict);
-            break;
-        case ECombatEventDirection::Incoming :
-            TargetComponent->RemoveIncomingBuffRestriction(Restrict);
-            break;
-        default :
-            break;
-        }
+        return;
     }
+    switch (Direction)
+    {
+    case ECombatEventDirection::Outgoing :
+        TargetComponent->RemoveOutgoingBuffRestriction(Restriction);
+        break;
+    case ECombatEventDirection::Incoming :
+        TargetComponent->RemoveIncomingBuffRestriction(Restriction);
+        break;
+    default :
+        break;
+    }
+}
+
+TArray<FName> UBuffRestrictionFunction::GetBuffRestrictionFunctionNames() const
+{
+    return USaiyoraCombatLibrary::GetMatchingFunctionNames(GetOuter(), FindFunction("ExampleRestrictionFunction"));
 }
 
 #pragma endregion 

@@ -12,14 +12,17 @@ class SAIYORAV4_API UAbilityProcFunction : public UBuffFunction
 {
 	GENERATED_BODY()
 
-	TSubclassOf<UCombatAbility> TargetAbility;
-	UPROPERTY()
-	UPlayerHUD* LocalPlayerHUD = nullptr;
+public:
 
-	void SetModifierVars(const TSubclassOf<UCombatAbility> AbilityClass);
-
+	virtual void SetupBuffFunction() override;
+	//TODO: Should probably add an OnRemove instead of making the ActionSlot bind to the delegate?
 	virtual void OnApply(const FBuffApplyEvent& ApplyEvent) override;
 
-	UFUNCTION(BlueprintCallable, Category = "Buff Function", meta = (DefaultToSelf = "Buff", HidePin = "Buff"))
-	static void ProcAbility(UBuff* Buff, const TSubclassOf<UCombatAbility> AbilityClass);
+private:
+
+	UPROPERTY(EditAnywhere, Category = "Proc")
+	TSubclassOf<UCombatAbility> AbilityClass;
+	
+	UPROPERTY()
+	UPlayerHUD* LocalPlayerHUD = nullptr;
 };
