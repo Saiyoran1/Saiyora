@@ -6,55 +6,17 @@
 #include "DamageHandler.h"
 #include "CombatStatusComponent.h"
 #include "SaiyoraCombatInterface.h"
+#include "SaiyoraCombatLibrary.h"
 
 #pragma region Periodic Health Event
 
-void UPeriodicHealthEventFunction::PeriodicHealthEvent(UBuff* Buff, const EHealthEventType HealthEventType, const float Amount, const EElementalSchool School, const float Interval,
-	const bool bBypassAbsorbs, const bool bIgnoreRestrictions, const bool bIgnoreModifiers, const bool bSnapshots, const bool bScaleWithStacks,
-	const bool bPartialTickOnExpire, const bool bInitialTick, const bool bUseSeparateInitialAmount,
-	const float InitialAmount, const EElementalSchool InitialSchool, const FThreatFromDamage& ThreatParams, const FHealthEventCallback& TickCallback)
+void UPeriodicHealthEventFunction::SetupBuffFunction()
 {
-	if (!IsValid(Buff) || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
+	TargetComponent = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwningBuff()->GetAppliedTo());
+	GeneratorComponent = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwningBuff()->GetAppliedBy());
+	if (bHasHealthEventCallback)
 	{
-		return;
-	}
-	UPeriodicHealthEventFunction* NewDotFunction = Cast<UPeriodicHealthEventFunction>(InstantiateBuffFunction(Buff, StaticClass()));
-	if (!IsValid(NewDotFunction))
-	{
-		return;
-	}
-	NewDotFunction->SetEventVars(HealthEventType, Amount, School, Interval, bBypassAbsorbs, bIgnoreRestrictions, bIgnoreModifiers, bSnapshots,
-		bScaleWithStacks, bPartialTickOnExpire, bInitialTick, bUseSeparateInitialAmount, InitialAmount, InitialSchool, ThreatParams, TickCallback);
-}
-
-void UPeriodicHealthEventFunction::SetEventVars(const EHealthEventType HealthEventType, const float Amount, const EElementalSchool School, const float Interval,
-	const bool bBypassAbsorbs, const bool bIgnoreRestrictions, const bool bIgnoreModifiers, const bool bSnapshot, const bool bScaleWithStacks,
-	const bool bPartialTickOnExpire, const bool bInitialTick, const bool bUseSeparateInitialAmount,
-	const float InitialAmount, const EElementalSchool InitialSchool, const FThreatFromDamage& ThreatParams, const FHealthEventCallback& TickCallback)
-{
-	if (GetOwningBuff()->GetAppliedTo()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
-	{
-		TargetComponent = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwningBuff()->GetAppliedTo());
-		if (IsValid(GetOwningBuff()->GetAppliedBy()) && GetOwningBuff()->GetAppliedBy()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
-		{
-			GeneratorComponent = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwningBuff()->GetAppliedBy());
-		}
-		EventType = HealthEventType;
-		BaseValue = Amount;
-		EventSchool = School;
-		EventInterval = Interval;
-		bBypassesAbsorbs = bBypassAbsorbs;
-		bIgnoresRestrictions = bIgnoreRestrictions;
-		bIgnoresModifiers = bIgnoreModifiers;
-		bSnapshots = bSnapshot;
-		bScalesWithStacks = bScaleWithStacks;
-		bTicksOnExpire = bPartialTickOnExpire;
-		bHasInitialTick = bInitialTick;
-		bUsesSeparateInitialValue = bUseSeparateInitialAmount;
-		InitialValue = InitialAmount;
-		InitialEventSchool = InitialSchool;
-		ThreatInfo = ThreatParams;
-		Callback = TickCallback;
+		Callback.BindUFunction(GetOwningBuff(), HealthEventCallbackName);
 	}
 }
 
@@ -155,6 +117,11 @@ void UPeriodicHealthEventFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 void UPeriodicHealthEventFunction::CleanupBuffFunction()
 {
     GetWorld()->GetTimerManager().ClearTimer(TickHandle);
+}
+
+TArray<FName> UPeriodicHealthEventFunction::GetHealthEventCallbackFunctionNames() const
+{
+	return USaiyoraCombatLibrary::GetMatchingFunctionNames(GetOuter(), FindFunction("ExampleHealthEventCallback"));
 }
 
 #pragma endregion

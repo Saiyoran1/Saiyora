@@ -12,53 +12,70 @@ class UPeriodicHealthEventFunction : public UBuffFunction
 {
 	GENERATED_BODY()
 
-	UPROPERTY()
-	UDamageHandler* TargetComponent = nullptr;
-	UPROPERTY()
-	UDamageHandler* GeneratorComponent = nullptr;
+public:
 
-	EHealthEventType EventType = EHealthEventType::None;
-	float BaseValue = 0.0f;
-	EElementalSchool EventSchool = EElementalSchool::None;
-	float EventInterval = 0.0f;
-	bool bBypassesAbsorbs = false;
-	bool bIgnoresRestrictions = false;
-	bool bIgnoresModifiers = false;
-	bool bSnapshots = false;
-	bool bScalesWithStacks = true;
-	bool bTicksOnExpire = false;
-	
-	bool bHasInitialTick = false;
-	bool bUsesSeparateInitialValue = false;
-	float InitialValue = 0.0f;
-	EElementalSchool InitialEventSchool = EElementalSchool::None;
-
-	FThreatFromDamage ThreatInfo;
-
-	FHealthEventCallback Callback;
-	
-	FTimerHandle TickHandle;
-
-	void InitialTick();
-	UFUNCTION()
-	void TickHealthEvent();
-
-	void SetEventVars(const EHealthEventType HealthEventType, const float Amount, const EElementalSchool School,
-		const float Interval, const bool bBypassAbsorbs, const bool bIgnoreRestrictions, const bool bIgnoreModifiers,
-		const bool bSnapshot, const bool bScaleWithStacks, const bool bPartialTickOnExpire,
-		const bool bInitialTick, const bool bUseSeparateInitialAmount, const float InitialAmount,
-		const EElementalSchool InitialSchool, const FThreatFromDamage& ThreatParams, const FHealthEventCallback& TickCallback);
-	
+	virtual void SetupBuffFunction() override;
 	virtual void OnApply(const FBuffApplyEvent& ApplyEvent) override;
 	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) override;
 	virtual void CleanupBuffFunction() override;
 
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Health", meta = (DefaultToSelf = "Buff", HidePin = "Buff", AutoCreateRefTerm = "ThreatParams, TickCallback"))
-	static void PeriodicHealthEvent(UBuff* Buff, const EHealthEventType EventType, const float Amount, const EElementalSchool School,
-		const float Interval, const bool bBypassAbsorbs, const bool bIgnoreRestrictions, const bool bIgnoreModifiers,
-		const bool bSnapshots, const bool bScaleWithStacks, const bool bPartialTickOnExpire,
-		const bool bInitialTick, const bool bUseSeparateInitialAmount, const float InitialAmount,
-		const EElementalSchool InitialSchool, const FThreatFromDamage& ThreatParams, const FHealthEventCallback& TickCallback);
+private:
+
+	UPROPERTY(EditAnywhere, Category = "Health Event")
+	EHealthEventType EventType = EHealthEventType::None;
+	UPROPERTY(EditAnywhere, Category = "Health Event")
+	float BaseValue = 0.0f;
+	UPROPERTY(EditAnywhere, Category = "Health Event")
+	EElementalSchool EventSchool = EElementalSchool::None;
+	UPROPERTY(EditAnywhere, Category = "Health Event")
+	bool bBypassesAbsorbs = false;
+	UPROPERTY(EditAnywhere, Category = "Health Event")
+	bool bIgnoresRestrictions = false;
+	UPROPERTY(EditAnywhere, Category = "Health Event")
+	bool bIgnoresModifiers = false;
+	UPROPERTY(EditAnywhere, Category = "Health Event")
+	bool bSnapshots = false;
+	UPROPERTY(EditAnywhere, Category = "Health Event")
+	bool bScalesWithStacks = true;
+	
+	UPROPERTY(EditAnywhere, Category = "Health Event")
+	float EventInterval = 0.0f;
+	
+	UPROPERTY(EditAnywhere, Category = "Health Event")
+	bool bHasInitialTick = false;
+	UPROPERTY(EditAnywhere, Category = "Health Event", meta = (EditCondition = "bHasInitialTick"))
+	bool bUsesSeparateInitialValue = false;
+	UPROPERTY(EditAnywhere, Category = "Health Event", meta = (EditCondition = "bHasInitialTick && bUsesSeparateInitialValue"))
+	float InitialValue = 0.0f;
+	UPROPERTY(EditAnywhere, Category = "Health Event", meta = (EditCondition = "bHasInitialTick && bUsesSeparateInitialValue"))
+	EElementalSchool InitialEventSchool = EElementalSchool::None;
+
+	UPROPERTY(EditAnywhere, Category = "Health Event")
+	bool bTicksOnExpire = false;
+
+	UPROPERTY(EditAnywhere, Category = "Health Event")
+	FThreatFromDamage ThreatInfo;
+
+	UPROPERTY(EditAnywhere, Category = "Health Event", meta = (InlineEditConditionToggle))
+	bool bHasHealthEventCallback = false;
+	UPROPERTY(EditAnywhere, Category = "Health Event", meta = (GetOptions = "GetHealthEventCallbackFunctionNames", EditCondition = "bHasHealthEventCallback"))
+	FName HealthEventCallbackName;
+
+	UFUNCTION()
+	TArray<FName> GetHealthEventCallbackFunctionNames() const;
+	UFUNCTION()
+	void ExampleHealthEventCallback(const FHealthEvent& Event) {}
+	FHealthEventCallback Callback;
+	
+	void InitialTick();
+	FTimerHandle TickHandle;
+	UFUNCTION()
+	void TickHealthEvent();
+
+	UPROPERTY()
+	UDamageHandler* TargetComponent = nullptr;
+	UPROPERTY()
+	UDamageHandler* GeneratorComponent = nullptr;
 };
 
 UCLASS()
