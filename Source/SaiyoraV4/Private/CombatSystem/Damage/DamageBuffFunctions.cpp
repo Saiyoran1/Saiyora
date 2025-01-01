@@ -127,169 +127,137 @@ TArray<FName> UPeriodicHealthEventFunction::GetHealthEventCallbackFunctionNames(
 #pragma endregion
 #pragma region Health Event Modifiers
 
-void UHealthEventModifierFunction::HealthEventModifier(UBuff* Buff, const ECombatEventDirection HealthEventDirection, const FHealthEventModCondition& Modifier)
+void UHealthEventModifierFunction::SetupBuffFunction()
 {
-	if (!IsValid(Buff) || !Modifier.IsBound() || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
-	{
-		return;
-	}
-	UHealthEventModifierFunction* NewDamageModifierFunction = Cast<UHealthEventModifierFunction>(InstantiateBuffFunction(Buff, StaticClass()));
-	if (!IsValid(NewDamageModifierFunction))
-	{
-		return;
-	}
-	NewDamageModifierFunction->SetModifierVars(HealthEventDirection, Modifier);
-}
-
-void UHealthEventModifierFunction::SetModifierVars(const ECombatEventDirection HealthEventDirection, const FHealthEventModCondition& Modifier)
-{
-	if (GetOwningBuff()->GetAppliedTo()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
-	{
-		TargetHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwningBuff()->GetAppliedTo());
-		EventDirection = HealthEventDirection;
-		Mod = Modifier;
-	}
+	TargetHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwningBuff()->GetAppliedTo());
+	Modifier.BindUFunction(GetOwningBuff(), ModifierFunctionName);
 }
 
 void UHealthEventModifierFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
-	if (IsValid(TargetHandler))
+	if (!IsValid(TargetHandler) || !Modifier.IsBound())
 	{
-		switch (EventDirection)
-		{
-		case ECombatEventDirection::Incoming :
-			TargetHandler->AddIncomingHealthEventModifier(Mod);
-			break;
-		case ECombatEventDirection::Outgoing :
-			TargetHandler->AddOutgoingHealthEventModifier(Mod);
-			break;
-		default :
-			break;
-		}
+		return;
+	}
+	switch (EventDirection)
+	{
+	case ECombatEventDirection::Incoming :
+		TargetHandler->AddIncomingHealthEventModifier(Modifier);
+		break;
+	case ECombatEventDirection::Outgoing :
+		TargetHandler->AddOutgoingHealthEventModifier(Modifier);
+		break;
+	default :
+		break;
 	}
 }
 
 void UHealthEventModifierFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
-	if (IsValid(TargetHandler))
+	if (!IsValid(TargetHandler) || !Modifier.IsBound())
 	{
-		switch (EventDirection)
-		{
-		case ECombatEventDirection::Incoming :
-			TargetHandler->RemoveIncomingHealthEventModifier(Mod);
-			break;
-		case ECombatEventDirection::Outgoing :
-			TargetHandler->RemoveOutgoingHealthEventModifier(Mod);
-			break;
-		default :
-			break;
-		}
+		return;
 	}
+	switch (EventDirection)
+	{
+	case ECombatEventDirection::Incoming :
+		TargetHandler->RemoveIncomingHealthEventModifier(Modifier);
+		break;
+	case ECombatEventDirection::Outgoing :
+		TargetHandler->RemoveOutgoingHealthEventModifier(Modifier);
+		break;
+	default :
+		break;
+	}
+}
+
+TArray<FName> UHealthEventModifierFunction::GetHealthEventModifierFunctionNames() const
+{
+	return USaiyoraCombatLibrary::GetMatchingFunctionNames(GetOuter(), FindFunction("ExampleModifierFunction"));
 }
 
 #pragma endregion 
 #pragma region Health Event Restrictions
 
-void UHealthEventRestrictionFunction::HealthEventRestriction(UBuff* Buff, const ECombatEventDirection HealthEventDirection, const FHealthEventRestriction& Restriction)
+void UHealthEventRestrictionFunction::SetupBuffFunction()
 {
-	if (!IsValid(Buff) || !Restriction.IsBound() || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
-	{
-		return;
-	}
-	UHealthEventRestrictionFunction* NewDamageRestrictionFunction = Cast<UHealthEventRestrictionFunction>(InstantiateBuffFunction(Buff, StaticClass()));
-	if (!IsValid(NewDamageRestrictionFunction))
-	{
-		return;
-	}
-	NewDamageRestrictionFunction->SetRestrictionVars(HealthEventDirection, Restriction);
-}
-
-void UHealthEventRestrictionFunction::SetRestrictionVars(const ECombatEventDirection HealthEventDirection, const FHealthEventRestriction& Restriction)
-{
-	if (GetOwningBuff()->GetAppliedTo()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
-	{
-		TargetHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwningBuff()->GetAppliedTo());
-		EventDirection = HealthEventDirection;
-		Restrict = Restriction;
-	}
+	TargetHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwningBuff()->GetAppliedTo());
+	Restriction.BindUFunction(GetOwningBuff(), RestrictionFunctionName);
 }
 
 void UHealthEventRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
-	if (IsValid(TargetHandler))
+	if (!IsValid(TargetHandler) || !Restriction.IsBound())
 	{
-		switch (EventDirection)
-		{
-		case ECombatEventDirection::Incoming :
-			TargetHandler->AddIncomingHealthEventRestriction(Restrict);
-			break;
-		case ECombatEventDirection::Outgoing :
-			TargetHandler->AddOutgoingHealthEventRestriction(Restrict);
-			break;
-		default :
-			break;
-		}
+		return;
+	}
+	switch (EventDirection)
+	{
+	case ECombatEventDirection::Incoming :
+		TargetHandler->AddIncomingHealthEventRestriction(Restriction);
+		break;
+	case ECombatEventDirection::Outgoing :
+		TargetHandler->AddOutgoingHealthEventRestriction(Restriction);
+		break;
+	default :
+		break;
 	}
 }
 
 void UHealthEventRestrictionFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
-	if (IsValid(TargetHandler))
+	if (!IsValid(TargetHandler) || !Restriction.IsBound())
 	{
-		switch (EventDirection)
-		{
-		case ECombatEventDirection::Incoming :
-			TargetHandler->RemoveIncomingHealthEventRestriction(Restrict);
-			break;
-		case ECombatEventDirection::Outgoing :
-			TargetHandler->RemoveOutgoingHealthEventRestriction(Restrict);
-			break;
-		default :
-			break;
-		}
+		return;
 	}
+	switch (EventDirection)
+	{
+	case ECombatEventDirection::Incoming :
+		TargetHandler->RemoveIncomingHealthEventRestriction(Restriction);
+			break;
+	case ECombatEventDirection::Outgoing :
+		TargetHandler->RemoveOutgoingHealthEventRestriction(Restriction);
+		break;
+	default :
+		break;
+	}
+}
+
+TArray<FName> UHealthEventRestrictionFunction::GetHealthEventRestrictionFunctionNames() const
+{
+	return USaiyoraCombatLibrary::GetMatchingFunctionNames(GetOuter(), FindFunction("ExampleRestrictionFunction"));
 }
 
 #pragma endregion
 #pragma region Death Restriction
 
-void UDeathRestrictionFunction::DeathRestriction(UBuff* Buff, const FDeathRestriction& Restriction)
+void UDeathRestrictionFunction::SetupBuffFunction()
 {
-	if (!IsValid(Buff) || !Restriction.IsBound() || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
-	{
-		return;
-	}
-	UDeathRestrictionFunction* NewDeathRestrictionFunction = Cast<UDeathRestrictionFunction>(InstantiateBuffFunction(Buff, StaticClass()));
-	if (!IsValid(NewDeathRestrictionFunction))
-	{
-		return;
-	}
-	NewDeathRestrictionFunction->SetRestrictionVars(Restriction);
-}
-
-void UDeathRestrictionFunction::SetRestrictionVars(const FDeathRestriction& Restriction)
-{
-	if (GetOwningBuff()->GetAppliedTo()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
-	{
-		TargetHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwningBuff()->GetAppliedTo());
-		Restrict = Restriction;
-	}
+	TargetHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwningBuff()->GetAppliedTo());
+	Restriction.BindUFunction(GetOwningBuff(), RestrictionFunctionName);
 }
 
 void UDeathRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
-	if (IsValid(TargetHandler))
+	if (!IsValid(TargetHandler) || !Restriction.IsBound())
 	{
-		TargetHandler->AddDeathRestriction(Restrict);
+		return;
 	}
+	TargetHandler->AddDeathRestriction(Restriction);
 }
 
 void UDeathRestrictionFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
-	if (IsValid(TargetHandler))
+	if (!IsValid(TargetHandler) || !Restriction.IsBound())
 	{
-		TargetHandler->RemoveDeathRestriction(Restrict);
+		return;
 	}
+	TargetHandler->RemoveDeathRestriction(Restriction);
+}
+
+TArray<FName> UDeathRestrictionFunction::GetDeathEventRestrictionFunctionNames() const
+{
+	return USaiyoraCombatLibrary::GetMatchingFunctionNames(GetOuter(), FindFunction("ExampleRestrictionFunction"));
 }
 
 #pragma endregion

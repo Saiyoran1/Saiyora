@@ -83,18 +83,27 @@ class SAIYORAV4_API UHealthEventModifierFunction : public UBuffFunction
 {
 	GENERATED_BODY()
 
-	ECombatEventDirection EventDirection = ECombatEventDirection::Incoming;
-	FHealthEventModCondition Mod;
-	UPROPERTY()
-	UDamageHandler* TargetHandler = nullptr;
+public:
 
-	void SetModifierVars(const ECombatEventDirection HealthEventDirection, const FHealthEventModCondition& Modifier);
-
+	virtual void SetupBuffFunction() override;
 	virtual void OnApply(const FBuffApplyEvent& ApplyEvent) override;
 	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) override;
 
-	UFUNCTION(BlueprintCallable, Category = "Buff Function", meta = (DefaultToSelf = "Buff", HidePin = "Buff"))
-	static void HealthEventModifier(UBuff* Buff, const ECombatEventDirection HealthEventDirection, const FHealthEventModCondition& Modifier);
+private:
+
+	UPROPERTY(EditAnywhere, Category = "Health Event")
+	ECombatEventDirection EventDirection = ECombatEventDirection::Incoming;
+	UPROPERTY(EditAnywhere, Category = "Health Event", meta = (GetOptions = "GetHealthEventModifierFunctionNames"))
+	FName ModifierFunctionName;
+	
+	FHealthEventModCondition Modifier;
+	UPROPERTY()
+	UDamageHandler* TargetHandler = nullptr;
+
+	UFUNCTION()
+	TArray<FName> GetHealthEventModifierFunctionNames() const;
+	UFUNCTION()
+	FCombatModifier ExampleModifierFunction(const FHealthEvent& Event) const { return FCombatModifier(); }
 };
 
 UCLASS()
@@ -102,18 +111,27 @@ class SAIYORAV4_API UHealthEventRestrictionFunction : public UBuffFunction
 {
 	GENERATED_BODY()
 
-	FHealthEventRestriction Restrict;
-	ECombatEventDirection EventDirection = ECombatEventDirection::Incoming;
-	UPROPERTY()
-	UDamageHandler* TargetHandler = nullptr;
+public:
 
-	void SetRestrictionVars(const ECombatEventDirection HealthEventDirection, const FHealthEventRestriction& Restriction);
-
+	virtual void SetupBuffFunction() override;
 	virtual void OnApply(const FBuffApplyEvent& ApplyEvent) override;
 	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) override;
 
-	UFUNCTION(BlueprintCallable, Category = "Buff Function", meta = (DefaultToSelf = "Buff", HidePin = "Buff"))
-	static void HealthEventRestriction(UBuff* Buff, const ECombatEventDirection HealthEventDirection, const FHealthEventRestriction& Restriction);
+private:
+	
+	UPROPERTY(EditAnywhere, Category = "Health Event")
+	ECombatEventDirection EventDirection = ECombatEventDirection::Incoming;
+	UPROPERTY(EditAnywhere, Category = "Health Event", meta = (GetOptions = "GetHealthEventRestrictionFunctionNames"))
+	FName RestrictionFunctionName;
+
+	FHealthEventRestriction Restriction;
+	UPROPERTY()
+	UDamageHandler* TargetHandler = nullptr;
+
+	UFUNCTION()
+	TArray<FName> GetHealthEventRestrictionFunctionNames() const;
+	UFUNCTION()
+	bool ExampleRestrictionFunction(const FHealthEvent& Event) const { return false; }
 };
 
 UCLASS()
@@ -121,17 +139,25 @@ class SAIYORAV4_API UDeathRestrictionFunction : public UBuffFunction
 {
 	GENERATED_BODY()
 
-	FDeathRestriction Restrict;
-	UPROPERTY()
-	UDamageHandler* TargetHandler = nullptr;
+public:
 
-	void SetRestrictionVars(const FDeathRestriction& Restriction);
-
+	virtual void SetupBuffFunction() override;
 	virtual void OnApply(const FBuffApplyEvent& ApplyEvent) override;
 	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) override;
 
-	UFUNCTION(BlueprintCallable, Category = "Buff Function", meta = (DefaultToSelf = "Buff", HidePin = "Buff"))
-	static void DeathRestriction(UBuff* Buff, const FDeathRestriction& Restriction);
+private:
+
+	UPROPERTY(EditAnywhere, Category = "Death Event", meta = (GetOptions = "GetDeathEventRestrictionFunctionNames"))
+	FName RestrictionFunctionName;
+
+	FDeathRestriction Restriction;
+	UPROPERTY()
+	UDamageHandler* TargetHandler = nullptr;
+
+	UFUNCTION()
+	TArray<FName> GetDeathEventRestrictionFunctionNames() const;
+	UFUNCTION()
+	bool ExampleRestrictionEvent(const FHealthEvent& Event) const { return false; }
 };
 
 UCLASS()
