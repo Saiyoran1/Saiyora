@@ -8,6 +8,7 @@
 #include "StatStructs.h"
 #include "DamageHandler.generated.h"
 
+class UPendingResurrectionFunction;
 class UStatHandler;
 class UBuffHandler;
 class UCombatStatusComponent;
@@ -56,19 +57,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Health")
 	float GetCurrentAbsorb() const { return CurrentAbsorb; }
 	UFUNCTION(BlueprintPure, Category = "Health")
-	ELifeStatus GetLifeStatus() const { return LifeStatus; }
-	UFUNCTION(BlueprintPure, Category = "Health")
 	bool HasHealth() const { return bHasHealth; }
 	UFUNCTION(BlueprintPure, Category = "Health")
 	bool IsDead() const { return bHasHealth && LifeStatus != ELifeStatus::Alive; }
-
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Health")
-	void KillActor(AActor* Attacker, UObject* Source, const bool bIgnoreDeathRestrictions);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Health", meta = (AutoCreateRefTerm = "OverrideRespawnLocation"))
-	void RespawnActor(const bool bForceRespawnLocation = false, const FVector& OverrideRespawnLocation = FVector::ZeroVector,
-		const bool bForceHealthPercentage = false, const float OverrideHealthPercentage = 1.0f);
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Health")
-	void UpdateRespawnPoint(const FVector& NewLocation);
 
 	UPROPERTY(BlueprintAssignable)
 	FHealthChangeNotification OnHealthChanged;
@@ -76,11 +67,6 @@ public:
 	FHealthChangeNotification OnMaxHealthChanged;
 	UPROPERTY(BlueprintAssignable)
 	FHealthChangeNotification OnAbsorbChanged;
-	UPROPERTY(BlueprintAssignable)
-	FLifeStatusNotification OnLifeStatusChanged;
-
-	void AddDeathRestriction(const FDeathRestriction& Restriction) { DeathRestrictions.Add(Restriction); }
-	void RemoveDeathRestriction(const FDeathRestriction& Restriction);
 
 private:
 
@@ -90,10 +76,6 @@ private:
 	bool bStaticMaxHealth = false;
 	UPROPERTY(EditAnywhere, Category = "Health", meta = (ClampMin = "1"))
 	float DefaultMaxHealth = 1.0f;
-	UPROPERTY(EditAnywhere, Category = "Health")
-	bool bCanRespawn = false;
-	UPROPERTY(EditAnywhere, Category = "Health")
-	bool bRespawnInPlace = false;
 
 	UPROPERTY(ReplicatedUsing = OnRep_CurrentHealth)
 	float CurrentHealth = 0.0f;
@@ -107,19 +89,62 @@ private:
 	float CurrentAbsorb = 0.0f;
 	UFUNCTION()
 	void OnRep_CurrentAbsorb(const float PreviousValue);
-	UPROPERTY(ReplicatedUsing = OnRep_LifeStatus)
-	ELifeStatus LifeStatus = ELifeStatus::Invalid;
-	UFUNCTION()
-	void OnRep_LifeStatus(const ELifeStatus PreviousValue);
-	FVector RespawnLocation;
 	
-	TConditionalRestrictionList<FDeathRestriction> DeathRestrictions;
-
 	void UpdateMaxHealth(const float NewMaxHealth);
 	FStatCallback MaxHealthStatCallback;
 	UFUNCTION()
 	void ReactToMaxHealthStat(const FGameplayTag StatTag, const float NewValue);
+
+#pragma region Death and Resurrection
+
+public:
+
+	UFUNCTION(BlueprintPure, Category = "Health")
+	ELifeStatus GetLifeStatus() const { return LifeStatus; }
+	UPROPERTY(BlueprintAssignable)
+	FLifeStatusNotification OnLifeStatusChanged;
+
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Health")
+	void KillActor(AActor* Attacker, UObject* Source, const bool bIgnoreDeathRestrictions);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Health", meta = (AutoCreateRefTerm = "OverrideRespawnLocation"))
+	void RespawnActor(const bool bForceRespawnLocation = false, const FVector& OverrideRespawnLocation = FVector::ZeroVector,
+		const bool bForceHealthPercentage = false, const float OverrideHealthPercentage = 1.0f);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Health")
+	void UpdateRespawnPoint(const FVector& NewLocation);
+
+	int AddPendingResurrection(UPendingResurrectionFunction* PendingResFunction);
+	void RemovePendingResurrection(const int ResID);
+	FPendingResNotification OnPendingResAdded;
+	FPendingResNotification OnPendingResRemoved;
+	void AcceptResurrection(const int ResID);
+	void DeclineResurrection(const int ResID);
+
+	void AddDeathRestriction(const FDeathRestriction& Restriction) { DeathRestrictions.Add(Restriction); }
+	void RemoveDeathRestriction(const FDeathRestriction& Restriction);
+
+private:
+
+	UPROPERTY(EditAnywhere, Category = "Health")
+	bool bCanRespawn = false;
+	UPROPERTY(EditAnywhere, Category = "Health")
+	bool bRespawnInPlace = false;
+
+	UPROPERTY(ReplicatedUsing = OnRep_LifeStatus)
+	ELifeStatus LifeStatus = ELifeStatus::Invalid;
+	UFUNCTION()
+	void OnRep_LifeStatus(const ELifeStatus PreviousValue) { OnLifeStatusChanged.Broadcast(GetOwner(), PreviousValue, LifeStatus); }
+
+	FVector RespawnLocation;
+	
+	UPROPERTY(ReplicatedUsing = OnRep_PendingResurrections)
+	TArray<FPendingResurrection> PendingResurrections;
+	UFUNCTION()
+	void OnRep_PendingResurrections(const TArray<FPendingResurrection>& PreviousResurrections);
+
 	void Die();
+	TConditionalRestrictionList<FDeathRestriction> DeathRestrictions;
+
+#pragma endregion 
 
 //Kill Count
 

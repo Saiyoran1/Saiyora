@@ -6,6 +6,7 @@
 #include "ThreatStructs.h"
 #include "DamageStructs.generated.h"
 
+class UPendingResurrectionFunction;
 class UCombatComponent;
 
 USTRUCT(BlueprintType)
@@ -67,30 +68,32 @@ struct FHealthEvent
     FThreatFromDamage ThreatInfo;
 };
 
-DECLARE_DYNAMIC_DELEGATE_OneParam(FResDecisionCallback, const bool, bAccepted);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FPendingResNotification, const bool, bResAvailable, const FVector&, ResLocation);
-
-USTRUCT(BlueprintType)
+//A struct representing a pending resurrection.
+//Basically encapsulates UPendingResurrectionFunction's data in a way that is replication-friendly and allows identification via ID over the network.
+USTRUCT()
 struct FPendingResurrection
 {
     GENERATED_BODY()
     
-    UPROPERTY(NotReplicated)
-    UBuff* ResSource = nullptr;
-    FResDecisionCallback DecisionCallback;
+    UPROPERTY()
+    UBuff* BuffSource = nullptr;
+    UPROPERTY()
+    FName CallbackName;
     
-    UPROPERTY(BlueprintReadOnly)
-    bool bResAvailable = false;
-    UPROPERTY(BlueprintReadOnly)
+    UPROPERTY()
     FVector ResLocation = FVector::ZeroVector;
+    UPROPERTY()
+    bool bOverrideHealth = false;
+    UPROPERTY()
+    float OverrideHealthPercent = 1.0f;
+    
+    UPROPERTY()
+    int ResID = -1;
 
-    void Clear()
-    {
-        ResSource = nullptr;
-        DecisionCallback.Unbind();
-        bResAvailable = false;
-        ResLocation = FVector::ZeroVector;
-    }
+    FPendingResurrection() {}
+    FPendingResurrection(const UPendingResurrectionFunction* InResFunction);
+
+    FORCEINLINE bool operator==(const FPendingResurrection& Other) const { return Other.ResID == ResID; }
 };
 
 DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(bool, FHealthEventRestriction, const FHealthEventInfo&, EventInfo);
@@ -100,3 +103,4 @@ DECLARE_DYNAMIC_DELEGATE_OneParam(FHealthEventCallback, const FHealthEvent&, Hea
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FHealthEventNotification, const FHealthEvent&, HealthEvent);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FHealthChangeNotification, AActor*, Actor, const float, PreviousHealth, const float, NewHealth);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FLifeStatusNotification, AActor*, Actor, const ELifeStatus, PreviousStatus, const ELifeStatus, NewStatus);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPendingResNotification, const FPendingResurrection&, PendingResurrection);

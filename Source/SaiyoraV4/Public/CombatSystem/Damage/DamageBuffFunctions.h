@@ -64,7 +64,7 @@ private:
 	UFUNCTION()
 	TArray<FName> GetHealthEventCallbackFunctionNames() const;
 	UFUNCTION()
-	void ExampleHealthEventCallback(const FHealthEvent& Event) {}
+	void ExampleCallbackEvent(const FHealthEvent& Event) {}
 	FHealthEventCallback Callback;
 	
 	void InitialTick();
@@ -157,35 +157,38 @@ private:
 	UFUNCTION()
 	TArray<FName> GetDeathEventRestrictionFunctionNames() const;
 	UFUNCTION()
-	bool ExampleRestrictionEvent(const FHealthEvent& Event) const { return false; }
+	bool ExampleRestrictionFunction(const FHealthEvent& Event) const { return false; }
 };
 
 UCLASS()
 class SAIYORAV4_API UPendingResurrectionFunction : public UBuffFunction
 {
 	GENERATED_BODY()
-	
-	FVector ResLocation;
-	bool bOverrideHealth = false;
-	float HealthOverride = 1.0f;
-	UPROPERTY()
-	ASaiyoraPlayerCharacter* TargetPlayer = nullptr;
-	UPROPERTY()
-	UDamageHandler* TargetHandler = nullptr;
-	//The owning buff can optionally bind a callback for when the res is accepted or declined.
-	//Most resurrection buffs will want to do this to remove themselves upon a decision being made.
-	FResDecisionCallback ResDecisionCallback;
 
-	//This callback is for the player class to execute when a decision is made, so that this buff function can trigger the res and subsequently call the owning buff callback.
-	FResDecisionCallback InternalResDecisionCallback;
-	UFUNCTION()
-	void OnResDecision(const bool bAccepted);
+public:
 
-	void SetResurrectionVars(const FVector& ResurrectLocation, const bool bOverrideHealthPercent, const float HealthOverridePercent, const FResDecisionCallback& DecisionCallback);
+	friend struct FPendingResurrection;
 
+	virtual void SetupBuffFunction() override;
 	virtual void OnApply(const FBuffApplyEvent& ApplyEvent) override;
 	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) override;
 
-	UFUNCTION(BlueprintCallable, Category = "Buff Function", meta = (DefaultToSelf = "Buff", HidePin = "Buff", AutoCreateRefTerm = "ResDecisionCallback"))
-	static void OfferResurrection(UBuff* Buff, const FVector& ResurrectLocation, const bool bOverrideHealthPercent, const float HealthOverridePercent, const FResDecisionCallback& DecisionCallback);
+private:
+	
+	FVector ResLocation;
+	UPROPERTY(EditAnywhere, Category = "Res Event", meta = (InlineEditConditionToggle))
+	bool bOverrideHealth = false;
+	UPROPERTY(EditAnywhere, Category = "Res Event", meta = (EditCondition = "bOverrideHealth"))
+	float HealthPercentageOverride = 1.0f;
+	UPROPERTY(EditAnywhere, Category = "Res Event", meta = (GetOptions = "GetResCallbackFunctionNames"))
+	FName CallbackFunctionName;
+	
+	UPROPERTY()
+	UDamageHandler* TargetHandler = nullptr;
+	int ResID = -1;
+
+	UFUNCTION()
+	TArray<FName> GetResCallbackFunctionNames() const;
+	UFUNCTION()
+	void ExampleCallbackFunction(const FVector& ResLocation) const {}
 };

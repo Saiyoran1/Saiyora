@@ -121,7 +121,7 @@ void UPeriodicHealthEventFunction::CleanupBuffFunction()
 
 TArray<FName> UPeriodicHealthEventFunction::GetHealthEventCallbackFunctionNames() const
 {
-	return USaiyoraCombatLibrary::GetMatchingFunctionNames(GetOuter(), FindFunction("ExampleHealthEventCallback"));
+	return USaiyoraCombatLibrary::GetMatchingFunctionNames(GetOuter(), FindFunction("ExampleCallbackEvent"));
 }
 
 #pragma endregion
@@ -263,65 +263,37 @@ TArray<FName> UDeathRestrictionFunction::GetDeathEventRestrictionFunctionNames()
 #pragma endregion
 #pragma region Resurrection
 
-void UPendingResurrectionFunction::OfferResurrection(UBuff* Buff, const FVector& ResurrectLocation,
-	const bool bOverrideHealthPercent, const float HealthOverridePercent, const FResDecisionCallback& DecisionCallback)
+void UPendingResurrectionFunction::SetupBuffFunction()
 {
-	if (!IsValid(Buff) || Buff->GetAppliedTo()->GetLocalRole() != ROLE_Authority)
-	{
-		return;
-	}
-	UPendingResurrectionFunction* NewResFunction = Cast<UPendingResurrectionFunction>(InstantiateBuffFunction(Buff, StaticClass()));
-	if (!IsValid(NewResFunction))
-	{
-		return;
-	}
-	NewResFunction->SetResurrectionVars(ResurrectLocation, bOverrideHealthPercent, HealthOverridePercent, DecisionCallback);
-}
-
-void UPendingResurrectionFunction::SetResurrectionVars(const FVector& ResurrectLocation, const bool bOverrideHealthPercent,
-	const float HealthOverridePercent, const FResDecisionCallback& DecisionCallback)
-{
-	if (GetOwningBuff()->GetAppliedTo()->Implements<USaiyoraCombatInterface>())
-	{
-		TargetPlayer = Cast<ASaiyoraPlayerCharacter>(GetOwningBuff()->GetAppliedTo());
-		TargetHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(TargetPlayer);
-		ResLocation = ResurrectLocation;
-		bOverrideHealth = bOverrideHealthPercent;
-		HealthOverride = HealthOverridePercent;
-		ResDecisionCallback = DecisionCallback;
-		InternalResDecisionCallback.BindDynamic(this, &UPendingResurrectionFunction::OnResDecision);
-	}
+	TargetHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwningBuff()->GetAppliedTo());
 }
 
 void UPendingResurrectionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
-	if (IsValid(TargetPlayer))
+	if (!IsValid(TargetHandler))
 	{
-		TargetPlayer->OfferResurrection(GetOwningBuff(), ResLocation, InternalResDecisionCallback);
+		return;
 	}
+	//Get the res location that was passed in as a buff parameter.
+	//If one isn't found, then we will just use the location of the actor applying the buff.
+	if (!USaiyoraCombatLibrary::GetVectorParam(ApplyEvent.CombatParams, "ResLocation", ResLocation))
+	{
+		ResLocation = GetOwningBuff()->GetAppliedBy()->GetActorLocation();
+	}
+	ResID = TargetHandler->AddPendingResurrection(this);
 }
 
 void UPendingResurrectionFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
-	if (IsValid(TargetPlayer))
+	if (IsValid(TargetHandler))
 	{
-		TargetPlayer->RescindResurrection(GetOwningBuff());
+		TargetHandler->RemovePendingResurrection(ResID);
 	}
 }
 
-void UPendingResurrectionFunction::OnResDecision(const bool bAccepted)
+TArray<FName> UPendingResurrectionFunction::GetResCallbackFunctionNames() const
 {
-	if (bAccepted)
-	{
-		if (IsValid(TargetHandler))
-		{
-			TargetHandler->RespawnActor(true, ResLocation, bOverrideHealth, HealthOverride);
-		}
-	}
-	if (ResDecisionCallback.IsBound())
-	{
-		ResDecisionCallback.Execute(bAccepted);
-	}
+	return USaiyoraCombatLibrary::GetMatchingFunctionNames(GetOuter(), FindFunction("ExampleCallbackFunction"));
 }
 
 #pragma endregion 

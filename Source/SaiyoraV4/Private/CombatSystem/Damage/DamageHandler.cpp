@@ -1,10 +1,14 @@
 #include "DamageHandler.h"
 #include "AbilityComponent.h"
 #include "AbilityFunctionLibrary.h"
+#include "Buff.h"
+#include "BuffHandler.h"
 #include "StatHandler.h"
 #include "CombatStatusComponent.h"
+#include "DamageBuffFunctions.h"
 #include "SaiyoraCombatInterface.h"
 #include "DungeonGameState.h"
+#include "IAsyncTask.h"
 #include "NPCAbilityComponent.h"
 #include "UnrealNetwork.h"
 
@@ -144,43 +148,28 @@ void UDamageHandler::ReactToMaxHealthStat(const FGameplayTag StatTag, const floa
 	}
 }
 
+void UDamageHandler::OnRep_CurrentHealth(const float PreviousValue)
+{
+	OnHealthChanged.Broadcast(GetOwner(), PreviousValue, CurrentHealth);
+}
+
+void UDamageHandler::OnRep_MaxHealth(const float PreviousValue)
+{
+	OnMaxHealthChanged.Broadcast(GetOwner(), PreviousValue, MaxHealth);
+}
+
+void UDamageHandler::OnRep_CurrentAbsorb(const float PreviousValue)
+{
+	OnAbsorbChanged.Broadcast(GetOwner(), PreviousValue, CurrentAbsorb);	
+}
+
+#pragma endregion
+#pragma region Death and Resurrection
+
 void UDamageHandler::KillActor(AActor* Attacker, UObject* Source, const bool bIgnoreDeathRestrictions)
 {
 	ApplyHealthEvent(EHealthEventType::Damage, CurrentHealth, Attacker, Source, EEventHitStyle::Authority, EElementalSchool::None, true, true,
 	                 true, bIgnoreDeathRestrictions, false, FHealthEventModCondition(), FThreatFromDamage());
-}
-
-void UDamageHandler::RespawnActor(const bool bForceRespawnLocation, const FVector& OverrideRespawnLocation,
-	const bool bForceHealthPercentage, const float OverrideHealthPercentage)
-{
-	if (GetOwnerRole() != ROLE_Authority || !bCanRespawn || LifeStatus == ELifeStatus::Alive)
-	{
-		return;
-	}
-	if (!bRespawnInPlace || bForceRespawnLocation)
-	{
-		GetOwner()->SetActorLocation(bForceRespawnLocation ? OverrideRespawnLocation : RespawnLocation);
-	}
-	CurrentHealth = FMath::Clamp(MaxHealth * (bForceHealthPercentage ? FMath::Clamp(OverrideHealthPercentage, 0.0f, 1.0f) : 1.0f), 1.0f, MaxHealth);
-	if (CurrentAbsorb != 0.0f)
-	{
-		const float PreviousAbsorb = CurrentAbsorb;
-		CurrentAbsorb = 0.0f;
-		OnAbsorbChanged.Broadcast(GetOwner(), PreviousAbsorb, CurrentAbsorb);
-	}
-	OnHealthChanged.Broadcast(GetOwner(), 0.0f, CurrentHealth);
-	const ELifeStatus PreviousStatus = LifeStatus;
-	LifeStatus = ELifeStatus::Alive;
-	OnLifeStatusChanged.Broadcast(GetOwner(), PreviousStatus, ELifeStatus::Alive);
-}
-
-void UDamageHandler::UpdateRespawnPoint(const FVector& NewLocation)
-{
-	if (GetOwnerRole() != ROLE_Authority || !bCanRespawn || bRespawnInPlace)
-	{
-		return;
-	}
-	RespawnLocation = NewLocation;
 }
 
 void UDamageHandler::Die()
@@ -219,30 +208,159 @@ void UDamageHandler::Die()
 			return;
 		}
 	}
-	
 }
 
-void UDamageHandler::OnRep_CurrentHealth(const float PreviousValue)
+void UDamageHandler::RespawnActor(const bool bForceRespawnLocation, const FVector& OverrideRespawnLocation,
+	const bool bForceHealthPercentage, const float OverrideHealthPercentage)
 {
-	OnHealthChanged.Broadcast(GetOwner(), PreviousValue, CurrentHealth);
+	if (GetOwnerRole() != ROLE_Authority || !bCanRespawn || LifeStatus == ELifeStatus::Alive)
+	{
+		return;
+	}
+	if (!bRespawnInPlace || bForceRespawnLocation)
+	{
+		GetOwner()->SetActorLocation(bForceRespawnLocation ? OverrideRespawnLocation : RespawnLocation);
+	}
+	CurrentHealth = FMath::Clamp(MaxHealth * (bForceHealthPercentage ? FMath::Clamp(OverrideHealthPercentage, 0.0f, 1.0f) : 1.0f), 1.0f, MaxHealth);
+	if (CurrentAbsorb != 0.0f)
+	{
+		const float PreviousAbsorb = CurrentAbsorb;
+		CurrentAbsorb = 0.0f;
+		OnAbsorbChanged.Broadcast(GetOwner(), PreviousAbsorb, CurrentAbsorb);
+	}
+	OnHealthChanged.Broadcast(GetOwner(), 0.0f, CurrentHealth);
+	const ELifeStatus PreviousStatus = LifeStatus;
+	LifeStatus = ELifeStatus::Alive;
+	OnLifeStatusChanged.Broadcast(GetOwner(), PreviousStatus, ELifeStatus::Alive);
 }
 
-void UDamageHandler::OnRep_MaxHealth(const float PreviousValue)
+void UDamageHandler::UpdateRespawnPoint(const FVector& NewLocation)
 {
-	OnMaxHealthChanged.Broadcast(GetOwner(), PreviousValue, MaxHealth);
+	if (GetOwnerRole() != ROLE_Authority || !bCanRespawn || bRespawnInPlace)
+	{
+		return;
+	}
+	RespawnLocation = NewLocation;
 }
 
-void UDamageHandler::OnRep_CurrentAbsorb(const float PreviousValue)
+int UDamageHandler::AddPendingResurrection(UPendingResurrectionFunction* PendingResFunction)
 {
-	OnAbsorbChanged.Broadcast(GetOwner(), PreviousValue, CurrentAbsorb);	
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(PendingResFunction) || !bCanRespawn)
+	{
+		return -1;
+	}
+	const FPendingResurrection& Res = PendingResurrections.Emplace_GetRef(PendingResFunction);
+	OnPendingResAdded.Broadcast(Res);
+	return Res.ResID;
 }
 
-void UDamageHandler::OnRep_LifeStatus(const ELifeStatus PreviousValue)
+void UDamageHandler::RemovePendingResurrection(const int ResID)
 {
-	OnLifeStatusChanged.Broadcast(GetOwner(), PreviousValue, LifeStatus);
+	if (GetOwnerRole() != ROLE_Authority || !bCanRespawn || ResID == -1)
+	{
+		return;
+	}
+	FPendingResurrection FoundRes;
+	for (int i = PendingResurrections.Num() - 1; i >= 0; i--)
+	{
+		if (PendingResurrections[i].ResID == ResID)
+		{
+			FoundRes = PendingResurrections[i];
+			PendingResurrections.RemoveAt(i);
+			break;
+		}
+	}
+	//If ID != -1, it means we found a valid res from this buff and removed it.
+	if (FoundRes.ResID != -1)
+	{
+		OnPendingResRemoved.Broadcast(FoundRes);
+	}
 }
 
-#pragma endregion
+void UDamageHandler::OnRep_PendingResurrections(const TArray<FPendingResurrection>& PreviousResurrections)
+{
+	TArray<FPendingResurrection> Removed;
+	TArray<FPendingResurrection> Added;
+	for (const FPendingResurrection& PreviousRes : PreviousResurrections)
+	{
+		if (!PendingResurrections.Contains(PreviousRes))
+		{
+			Removed.Add(PreviousRes);
+		}
+	}
+	for (const FPendingResurrection& NewRes : PendingResurrections)
+	{
+		if (!PreviousResurrections.Contains(NewRes))
+		{
+			Added.Add(NewRes);
+		}
+	}
+	for (const FPendingResurrection& RemovedRes : Removed)
+	{
+		OnPendingResRemoved.Broadcast(RemovedRes);
+	}
+	for (const FPendingResurrection& AddedRes : Added)
+	{
+		OnPendingResAdded.Broadcast(AddedRes);
+	}
+}
+
+void UDamageHandler::AcceptResurrection(const int ResID)
+{
+	if (GetOwnerRole() != ROLE_Authority || !bCanRespawn)
+	{
+		return;
+	}
+	for (const FPendingResurrection& PendingRes : PendingResurrections)
+	{
+		if (PendingRes.ResID == ResID)
+		{
+			//Call the callback function on the source of the res, if one exists.
+			//This plays some cosmetic effects when accepting the res.
+			if (IsValid(PendingRes.BuffSource))
+			{
+				if (UFunction* Callback = PendingRes.BuffSource->FindFunction(PendingRes.CallbackName))
+				{
+					//To pass parameters to a UFunction dynamically, you need to pass a struct pointer containing the params.
+					struct
+					{
+						FVector ResLocation;
+					} Params;
+					Params.ResLocation = PendingRes.ResLocation;
+					//Call the callback function.
+					PendingRes.BuffSource->ProcessEvent(Callback, &Params);
+				}
+			}
+			RespawnActor(true, PendingRes.ResLocation, PendingRes.bOverrideHealth, PendingRes.OverrideHealthPercent);
+		}
+	}
+}
+
+void UDamageHandler::DeclineResurrection(const int ResID)
+{
+	if (GetOwnerRole() != ROLE_Authority || !bCanRespawn)
+	{
+		return;
+	}
+	for (int i = PendingResurrections.Num() - 1; i >= 0; i--)
+	{
+		const FPendingResurrection& PendingRes = PendingResurrections[i];
+		if (PendingRes.ResID == ResID)
+		{
+			if (IsValid(PendingRes.BuffSource))
+			{
+				PendingRes.BuffSource->GetHandler()->RemoveBuff(PendingRes.BuffSource, EBuffExpireReason::Dispel);
+			}
+			else
+			{
+				RemovePendingResurrection(PendingRes.ResID);
+			}
+			break;
+		}
+	}
+}
+
+#pragma endregion 
 #pragma region Damage
 
 FHealthEvent UDamageHandler::ApplyHealthEvent(const EHealthEventType EventType, const float Amount, AActor* AppliedBy,

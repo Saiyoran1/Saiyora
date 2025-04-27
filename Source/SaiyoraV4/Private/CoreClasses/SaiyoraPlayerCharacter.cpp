@@ -153,7 +153,6 @@ void ASaiyoraPlayerCharacter::GetLifetimeReplicatedProps(TArray<FLifetimePropert
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(ASaiyoraPlayerCharacter, AncientSpec);
 	DOREPLIFETIME(ASaiyoraPlayerCharacter, ModernSpec);
-	DOREPLIFETIME(ASaiyoraPlayerCharacter, PendingResurrection);
 }
 
 bool ASaiyoraPlayerCharacter::ReplicateSubobjects(UActorChannel* Channel, FOutBunch* Bunch, FReplicationFlags* RepFlags)
@@ -772,48 +771,3 @@ void ASaiyoraPlayerCharacter::Client_DisplayErrorMessage_Implementation(const FT
 }
 
 #pragma endregion
-#pragma region Resurrection
-
-void ASaiyoraPlayerCharacter::OfferResurrection(UBuff* Source, const FVector& ResLocation,
-	const FResDecisionCallback& DecisionCallback)
-{
-	if (!HasAuthority() || PendingResurrection.bResAvailable || !IsValid(Source) || !DecisionCallback.IsBound())
-	{
-		return;
-	}
-	PendingResurrection.bResAvailable = true;
-	PendingResurrection.ResSource = Source;
-	PendingResurrection.DecisionCallback = DecisionCallback;
-	PendingResurrection.ResLocation = ResLocation;
-
-	OnRep_PendingResurrection();
-}
-
-void ASaiyoraPlayerCharacter::RescindResurrection(const UBuff* Source)
-{
-	if (!HasAuthority() || !PendingResurrection.bResAvailable || !IsValid(Source) || Source != PendingResurrection.ResSource)
-	{
-		return;
-	}
-	PendingResurrection.Clear();
-
-	OnRep_PendingResurrection();
-}
-
-void ASaiyoraPlayerCharacter::Server_MakeResDecision_Implementation(const bool bAccepted)
-{
-	if (!HasAuthority())
-	{
-		return;
-	}
-	if (PendingResurrection.bResAvailable && PendingResurrection.DecisionCallback.IsBound())
-	{
-		PendingResurrection.DecisionCallback.Execute(bAccepted);
-	}
-	else if (bAccepted)
-	{
-		DamageHandler->RespawnActor();
-	}
-}
-
-#pragma endregion 

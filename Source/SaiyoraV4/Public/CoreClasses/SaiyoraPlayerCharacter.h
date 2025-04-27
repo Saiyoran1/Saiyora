@@ -342,39 +342,4 @@ private:
 	TSet<UPrimitiveComponent*> XPlaneOverlaps;
 
 #pragma endregion 
-#pragma region Resurrection
-
-public:
-
-	//Called by the resurrection buff function to actually try and offer the player a res.
-	void OfferResurrection(UBuff* Source, const FVector& ResLocation, const FResDecisionCallback& DecisionCallback);
-	//Called when the resurrection buff is removed to remove the ability to accept or decline the res.
-	void RescindResurrection(const UBuff* Source);
-
-	//Delegate for when a player gains or loses a pending res. The UI can show this on party frames, for example.
-	UPROPERTY(BlueprintAssignable)
-	FPendingResNotification OnPendingResChanged;
-
-	//Called on the client, presumably from the UI, to accept or decline a resurrection.
-	//If no res was actually pending, we take this as a respawn request.
-	UFUNCTION(BlueprintCallable)
-	void MakeLocalResDecision(const bool bAccepted) { if (IsLocallyControlled()) Server_MakeResDecision(bAccepted); }
-
-	UFUNCTION(BlueprintPure, Category = "Resurrection")
-	bool HasPendingResurrection() const { return PendingResurrection.bResAvailable; }
-
-private:
-
-	//The actual pending res information. Only location and availability are replicated.
-	UPROPERTY(ReplicatedUsing=OnRep_PendingResurrection)
-	FPendingResurrection PendingResurrection;
-	UFUNCTION()
-	void OnRep_PendingResurrection() { OnPendingResChanged.Broadcast(PendingResurrection.bResAvailable, PendingResurrection.ResLocation); }
-
-	//RPC called from MakeLocalResDecision for the client to tell the server to accept or decline the res.
-	//If no pending res was available, we take this as a respawn request.
-	UFUNCTION(Server, Reliable)
-	void Server_MakeResDecision(const bool bAccepted);
-
-#pragma endregion 
 };
