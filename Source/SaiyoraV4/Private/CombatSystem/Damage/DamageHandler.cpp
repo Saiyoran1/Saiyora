@@ -213,7 +213,7 @@ void UDamageHandler::Die()
 void UDamageHandler::RespawnActor(const bool bForceRespawnLocation, const FVector& OverrideRespawnLocation,
 	const bool bForceHealthPercentage, const float OverrideHealthPercentage)
 {
-	if (GetOwnerRole() != ROLE_Authority || !bCanRespawn || LifeStatus == ELifeStatus::Alive)
+	if (GetOwnerRole() != ROLE_Authority || !bCanRespawn || LifeStatus != ELifeStatus::Dead)
 	{
 		return;
 	}
@@ -241,6 +241,11 @@ void UDamageHandler::UpdateRespawnPoint(const FVector& NewLocation)
 		return;
 	}
 	RespawnLocation = NewLocation;
+}
+
+void UDamageHandler::Server_RequestRespawn_Implementation()
+{
+	RespawnActor();
 }
 
 int UDamageHandler::AddPendingResurrection(UPendingResurrectionFunction* PendingResFunction)
@@ -307,7 +312,18 @@ void UDamageHandler::OnRep_PendingResurrections(const TArray<FPendingResurrectio
 
 void UDamageHandler::AcceptResurrection(const int ResID)
 {
-	if (GetOwnerRole() != ROLE_Authority || !bCanRespawn)
+	if (ResID == -1 || !bCanRespawn || LifeStatus != ELifeStatus::Dead)
+	{
+		return;
+	}
+	//If this is called by the local player, we'll route to the server to try and accept the resurrection.
+	if (GetOwnerRole() == ROLE_AutonomousProxy)
+	{
+		Server_MakeResDecision(ResID, true);
+		return;
+	}
+	//Otherwise, we need to be the server to be resurrected.
+	if (GetOwnerRole() != ROLE_Authority)
 	{
 		return;
 	}
@@ -338,7 +354,18 @@ void UDamageHandler::AcceptResurrection(const int ResID)
 
 void UDamageHandler::DeclineResurrection(const int ResID)
 {
-	if (GetOwnerRole() != ROLE_Authority || !bCanRespawn)
+	if (ResID == -1 || !bCanRespawn || LifeStatus != ELifeStatus::Dead)
+	{
+		return;
+	}
+	//If this is called by the local player, we'll route to the server to try and accept the resurrection.
+	if (GetOwnerRole() == ROLE_AutonomousProxy)
+	{
+		Server_MakeResDecision(ResID, false);
+		return;
+	}
+	//Otherwise, we need to be the server to be resurrected.
+	if (GetOwnerRole() != ROLE_Authority)
 	{
 		return;
 	}
@@ -357,6 +384,18 @@ void UDamageHandler::DeclineResurrection(const int ResID)
 			}
 			break;
 		}
+	}
+}
+
+void UDamageHandler::Server_MakeResDecision_Implementation(const int ResID, const bool bAccept)
+{
+	if (bAccept)
+	{
+		AcceptResurrection(ResID);
+	}
+	else
+	{
+		DeclineResurrection(ResID);
 	}
 }
 

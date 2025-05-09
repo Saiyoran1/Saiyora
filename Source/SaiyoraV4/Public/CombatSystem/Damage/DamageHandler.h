@@ -111,9 +111,12 @@ public:
 		const bool bForceHealthPercentage = false, const float OverrideHealthPercentage = 1.0f);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Health")
 	void UpdateRespawnPoint(const FVector& NewLocation);
+	//Local-callable respawn function, for when a player requests to respawn at his default location.
+	void RequestDefaultRespawn() { Server_RequestRespawn(); }
 
 	int AddPendingResurrection(UPendingResurrectionFunction* PendingResFunction);
 	void RemovePendingResurrection(const int ResID);
+	const TArray<FPendingResurrection>& GetPendingResurrections() const { return PendingResurrections; }
 	FPendingResNotification OnPendingResAdded;
 	FPendingResNotification OnPendingResRemoved;
 	void AcceptResurrection(const int ResID);
@@ -140,6 +143,11 @@ private:
 	TArray<FPendingResurrection> PendingResurrections;
 	UFUNCTION()
 	void OnRep_PendingResurrections(const TArray<FPendingResurrection>& PreviousResurrections);
+	
+	UFUNCTION(Server, Reliable)
+	void Server_MakeResDecision(const int ResID, const bool bAccept);
+	UFUNCTION(Server, Reliable)
+	void Server_RequestRespawn();
 
 	void Die();
 	TConditionalRestrictionList<FDeathRestriction> DeathRestrictions;

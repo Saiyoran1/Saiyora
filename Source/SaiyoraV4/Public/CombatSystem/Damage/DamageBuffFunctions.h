@@ -190,5 +190,5 @@ private:
 	UFUNCTION()
 	TArray<FName> GetResCallbackFunctionNames() const;
 	UFUNCTION()
-	void ExampleCallbackFunction(const FVector& ResLocation) const {}
+	void ExampleCallbackFunction(const FVector& Location) const {}
 };
