@@ -8,7 +8,6 @@
 #include "DamageBuffFunctions.h"
 #include "SaiyoraCombatInterface.h"
 #include "DungeonGameState.h"
-#include "IAsyncTask.h"
 #include "NPCAbilityComponent.h"
 #include "UnrealNetwork.h"
 
@@ -90,6 +89,7 @@ void UDamageHandler::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& Out
 	DOREPLIFETIME(UDamageHandler, MaxHealth);
 	DOREPLIFETIME(UDamageHandler, CurrentAbsorb);
 	DOREPLIFETIME(UDamageHandler, LifeStatus);
+	DOREPLIFETIME(UDamageHandler, PendingResurrections);
 }
 
 void UDamageHandler::OnCombatBehaviorChanged(const ENPCCombatBehavior PreviousBehavior,
@@ -448,10 +448,10 @@ FHealthEvent UDamageHandler::ApplyHealthEvent(const EHealthEventType EventType, 
 	}
     HealthEvent.Info.AppliedToPlane = IsValid(CombatStatusComponentRef) ? CombatStatusComponentRef->GetCurrentPlane() : ESaiyoraPlane::Both;
     HealthEvent.Info.AppliedXPlane = UAbilityFunctionLibrary::IsXPlane(HealthEvent.Info.AppliedByPlane, HealthEvent.Info.AppliedToPlane);
-	if (ThreatParams.GeneratesThreat)
+	if (ThreatParams.bGeneratesThreat)
 	{
 		HealthEvent.ThreatInfo = ThreatParams;
-		if (!ThreatParams.SeparateBaseThreat)
+		if (!ThreatParams.bSeparateBaseThreat)
 		{
 			HealthEvent.ThreatInfo.BaseThreat = HealthEvent.Info.Value;
 		}

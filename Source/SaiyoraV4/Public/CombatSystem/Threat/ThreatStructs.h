@@ -87,16 +87,17 @@ struct FThreatFromDamage
 {
 	GENERATED_BODY()
 
-	UPROPERTY()
-	bool GeneratesThreat = true;
-	UPROPERTY()
-	bool SeparateBaseThreat = false;
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite, EditAnywhere)
+	bool bGeneratesThreat = true;
+	UPROPERTY(BlueprintReadWrite, EditAnywhere)
+	bool bSeparateBaseThreat = false;
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, meta = (EditCondition = "bSeparateBaseThreat"))
 	float BaseThreat = 0.0f;
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite, EditAnywhere)
 	bool IgnoreModifiers = false;
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite, EditAnywhere)
 	bool IgnoreRestrictions = false;
+	//TODO: Need an editor-exposed way of setting this via function name, like all other modifiers.
 	UPROPERTY()
 	FThreatModCondition SourceModifier;
 };

@@ -103,7 +103,7 @@ private:
 	UFUNCTION()
 	TArray<FName> GetHealthEventModifierFunctionNames() const;
 	UFUNCTION()
-	FCombatModifier ExampleModifierFunction(const FHealthEvent& Event) const { return FCombatModifier(); }
+	FCombatModifier ExampleModifierFunction(const FHealthEventInfo& Event) const { return FCombatModifier(); }
 };
 
 UCLASS()

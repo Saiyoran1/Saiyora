@@ -199,7 +199,7 @@ void UCombatGroup::UpdateCombatantFadeStatus(const UThreatHandler* Combatant, co
 
 void UCombatGroup::OnCombatantIncomingHealthEvent(const FHealthEvent& Event)
 {
-	if (!Event.Result.Success || !Event.ThreatInfo.GeneratesThreat ||
+	if (!Event.Result.Success || !Event.ThreatInfo.bGeneratesThreat ||
 		!(Event.Info.EventType == EHealthEventType::Healing || Event.Info.EventType == EHealthEventType::Absorb))
 	{
 		return;
@@ -235,7 +235,7 @@ void UCombatGroup::OnCombatantIncomingHealthEvent(const FHealthEvent& Event)
 	}
 	for (UThreatHandler* Enemy : bIsFriendly ? Enemies : Friendlies)
 	{
-		Enemy->AddThreat(EThreatType::Healing, Event.ThreatInfo.SeparateBaseThreat ? Event.ThreatInfo.BaseThreat : Event.Result.AppliedValue,
+		Enemy->AddThreat(EThreatType::Healing, Event.ThreatInfo.bSeparateBaseThreat ? Event.ThreatInfo.BaseThreat : Event.Result.AppliedValue,
 			Event.Info.AppliedBy, Event.Info.Source,Event.ThreatInfo.IgnoreRestrictions, Event.ThreatInfo.IgnoreModifiers,
 			Event.ThreatInfo.SourceModifier);
 	}
@@ -243,7 +243,7 @@ void UCombatGroup::OnCombatantIncomingHealthEvent(const FHealthEvent& Event)
 
 void UCombatGroup::OnCombatantOutgoingHealthEvent(const FHealthEvent& Event)
 {
-	if (!Event.Result.Success || !Event.ThreatInfo.GeneratesThreat ||
+	if (!Event.Result.Success || !Event.ThreatInfo.bGeneratesThreat ||
 		!(Event.Info.EventType == EHealthEventType::Healing || Event.Info.EventType == EHealthEventType::Absorb))
 	{
 		return;
@@ -267,7 +267,7 @@ void UCombatGroup::OnCombatantOutgoingHealthEvent(const FHealthEvent& Event)
 	const bool bIsFriendly = HealerCombat->GetCurrentFaction() == EFaction::Friendly;
 	for (UThreatHandler* Enemy : bIsFriendly ? Enemies : Friendlies)
 	{
-		Enemy->AddThreat(EThreatType::Healing, Event.ThreatInfo.SeparateBaseThreat ? Event.ThreatInfo.BaseThreat : Event.Result.AppliedValue,
+		Enemy->AddThreat(EThreatType::Healing, Event.ThreatInfo.bSeparateBaseThreat ? Event.ThreatInfo.BaseThreat : Event.Result.AppliedValue,
 			Event.Info.AppliedBy, Event.Info.Source,Event.ThreatInfo.IgnoreRestrictions, Event.ThreatInfo.IgnoreModifiers,
 			Event.ThreatInfo.SourceModifier);
 	}

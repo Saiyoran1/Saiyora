@@ -103,7 +103,7 @@ void UThreatHandler::OnCombatBehaviorChanged(const ENPCCombatBehavior PreviousBe
 
 void UThreatHandler::OnOwnerDamageTaken(const FHealthEvent& DamageEvent)
 {
-	if (!DamageEvent.Result.Success || !DamageEvent.ThreatInfo.GeneratesThreat)
+	if (!DamageEvent.Result.Success || !DamageEvent.ThreatInfo.bGeneratesThreat)
 	{
 		return;
 	}

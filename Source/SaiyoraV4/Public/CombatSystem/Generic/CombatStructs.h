@@ -361,12 +361,12 @@ struct FCombatModifier
     GENERATED_BODY()
 
     //How to calculate this modifier's effect on a value. Invalid means the modifier will not be used in this calculation.
-    UPROPERTY(BlueprintReadWrite)
+    UPROPERTY(BlueprintReadWrite, EditAnywhere)
     EModifierType Type = EModifierType::Invalid;
-    UPROPERTY(BlueprintReadWrite)
+    UPROPERTY(BlueprintReadWrite, EditAnywhere)
     float Value = 0.0f;
     //For modifiers that are sourced from buffs, they can optionally stack with the buff's stacks.
-    UPROPERTY(BlueprintReadWrite)
+    UPROPERTY(BlueprintReadWrite, EditAnywhere)
     bool bStackable = true;
     //Optional buff source. Modifiers without a valid buff source can not stack.
     UPROPERTY(BlueprintReadWrite)

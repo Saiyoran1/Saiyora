@@ -5,8 +5,8 @@ FThreatFromDamage USaiyoraThreatFunctions::MakeThreatFromDamage(FThreatModCondit
 	bool const bIgnoreRestrictions)
 {
 	FThreatFromDamage New;
-	New.GeneratesThreat = bGeneratesThreat;
-	New.SeparateBaseThreat = bSeparateBaseThreat;
+	New.bGeneratesThreat = bGeneratesThreat;
+	New.bSeparateBaseThreat = bSeparateBaseThreat;
 	New.BaseThreat = BaseThreat;
 	New.IgnoreModifiers = bIgnoreModifiers;
 	New.IgnoreRestrictions = bIgnoreRestrictions;
