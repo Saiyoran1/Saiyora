@@ -28,6 +28,8 @@ void UDeathOverlay::Init(ASaiyoraPlayerCharacter* OwningChar)
 	OnPendingResUpdated(FPendingResurrection());
 	OnLifeStatusChanged(OwningChar, ELifeStatus::Invalid, OwnerDamageHandler->GetLifeStatus());
 	bDoingInit = false;
+
+	AddToViewport();
 }
 
 void UDeathOverlay::OnLifeStatusChanged(AActor* Actor, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus)
@@ -37,6 +39,7 @@ void UDeathOverlay::OnLifeStatusChanged(AActor* Actor, const ELifeStatus Previou
 		if (!bWasDisplayed || bDoingInit)
 		{
 			SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+			bWasDisplayed = true;
 		}
 	}
 	else
@@ -44,6 +47,7 @@ void UDeathOverlay::OnLifeStatusChanged(AActor* Actor, const ELifeStatus Previou
 		if (bWasDisplayed || bDoingInit)
 		{
 			SetVisibility(ESlateVisibility::Collapsed);
+			bWasDisplayed = false;
 		}
 	}
 }

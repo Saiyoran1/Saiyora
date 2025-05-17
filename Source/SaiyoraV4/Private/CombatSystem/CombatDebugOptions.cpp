@@ -1,11 +1,42 @@
 ﻿#include "CombatDebugOptions.h"
 #include "AbilityStructs.h"
 #include "CombatAbility.h"
+#include "EngineUtils.h"
 #include "Hitbox.h"
 #include "NPCStructs.h"
 #include "NPCAbility.h"
 #include "PredictableProjectile.h"
 #include "RotationBehaviors.h"
+#include "SaiyoraPlayerCharacter.h"
+
+#pragma region Console Commands
+#if WITH_EDITOR
+
+static FAutoConsoleCommandWithWorld KillSelf
+(
+	TEXT("Combat.KillSelf"),
+	TEXT("Kills the local player instantly."),
+	FConsoleCommandWithWorldDelegate::CreateLambda(
+		[](UWorld* World)
+		{
+			if (!World)
+			{
+				return;
+			}
+			for (TActorIterator<ASaiyoraPlayerCharacter> It(World); It; ++It)
+			{
+				ASaiyoraPlayerCharacter* Player = *It;
+				if (IsValid(Player) && Player->IsLocallyControlled())
+				{
+					Player->DEBUG_RequestKillSelf();
+					break;
+				}
+			}
+		})
+	);
+
+#endif
+#pragma endregion 
 
 void UCombatDebugOptions::LogAbilityEvent(const AActor* Actor, const FAbilityEvent& Event)
 {

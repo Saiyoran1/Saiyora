@@ -48,6 +48,7 @@ void UPlayerHUD::InitializePlayerHUD(ASaiyoraPlayerCharacter* OwnerPlayer)
 	{
 		ModernBar->InitActionBar(ESaiyoraPlane::Modern, OwningPlayer);
 	}
+	AddToViewport();
 }
 
 void UPlayerHUD::ToggleExtraInfo(const bool bShowExtraInfo)

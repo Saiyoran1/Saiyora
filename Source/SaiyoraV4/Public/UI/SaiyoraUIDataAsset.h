@@ -3,6 +3,7 @@
 #include "Engine/DataAsset.h"
 #include "SaiyoraUIDataAsset.generated.h"
 
+class UDeathOverlay;
 class UPlayerHUD;
 enum class EElementalSchool : uint8;
 class USaiyoraErrorMessage;
@@ -20,6 +21,8 @@ public:
 	TSubclassOf<UPlayerHUD> PlayerHUDClass;
 	UPROPERTY(EditAnywhere, Category = "Widget Classes")
 	TSubclassOf<USaiyoraErrorMessage> ErrorMessageWidgetClass;
+	UPROPERTY(EditAnywhere, Category = "Widget Classes")
+	TSubclassOf<UDeathOverlay> DeathOverlayClass;
 
 	UPROPERTY(EditAnywhere, Category = "Colors")
 	TMap<EElementalSchool, FLinearColor> SchoolColors;

@@ -5,6 +5,7 @@
 #include "CrowdControlHandler.h"
 #include "DamageHandler.h"
 #include "CombatStatusComponent.h"
+#include "DeathOverlay.h"
 #include "DungeonGameState.h"
 #include "ModernSpecialization.h"
 #include "PlayerHUD.h"
@@ -198,31 +199,12 @@ void ASaiyoraPlayerCharacter::InitializeCharacter()
 	if (IsLocallyControlled())
 	{
 		SetupAbilityMappings();
-		//TODO: Remove this once all widgets have been moved to c++.
-		//Currently the death overlay widget is still set up in Blueprints.
-		CreateUserInterface();
 		InitUserInterface();
 		CombatStatusComponent->OnPlaneSwapped.AddDynamic(this, &ASaiyoraPlayerCharacter::ClearQueueAndAutoFireOnPlaneSwap);
+		DamageHandler->OnLifeStatusChanged.AddDynamic(this, &ASaiyoraPlayerCharacter::UpdateControlsOnLifeStatusChanged);
 	}
 	GameStateRef->InitPlayer(this);
 	bInitialized = true;
-}
-
-void ASaiyoraPlayerCharacter::InitUserInterface()
-{
-	const USaiyoraUIDataAsset* UIDataAsset = UUIFunctionLibrary::GetUIDataAsset(GetWorld());
-	if (!IsValid(UIDataAsset) || !IsValid(UIDataAsset->PlayerHUDClass))
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Player HUD class wasn't valid in ASaiyoraPlayerCharacter::InitUserInterface. Please set a valid HUD class in the UI Data Asset."));
-		return;
-	}
-	PlayerHUD = CreateWidget<UPlayerHUD>(PlayerControllerRef, UIDataAsset->PlayerHUDClass);
-	if (!IsValid(PlayerHUD))
-	{
-		return;
-	}
-	PlayerHUD->InitializePlayerHUD(this);
-	PlayerHUD->AddToViewport();
 }
 
 #pragma endregion
@@ -243,6 +225,50 @@ void ASaiyoraPlayerCharacter::InputReload()
 		return;
 	}
 	AbilityComponent->UseAbility(ReloadAbility->GetClass());
+}
+
+void ASaiyoraPlayerCharacter::UpdateControlsOnLifeStatusChanged(AActor* Actor, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus)
+{
+	if (!IsValid(GetSaiyoraPlayerController()))
+	{
+		return;
+	}
+	if (NewStatus == ELifeStatus::Alive)
+	{
+		//Make the player character rotate with the camera once again.
+		bUseControllerRotationYaw = true;
+		//Set the input mode so we don't interact with the UI anymore.
+		GetSaiyoraPlayerController()->SetInputMode(FInputModeGameOnly());
+		//Hide the mouse cursor.
+		GetSaiyoraPlayerController()->SetShowMouseCursor(false);
+		//Restore the camera saturation to normal values (getting rid of the desaturate effect from being dead).
+		if (IsValid(Camera))
+		{
+			Camera->PostProcessSettings.bOverride_ColorSaturation = false;
+		}
+	}
+	else
+	{
+		//Make the player character stop rotating when we turn the camera.
+		bUseControllerRotationYaw = false;
+		//Set the input mode to allow us to click on the death overlay UI.
+		FInputModeGameAndUI InputMode;
+		InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+		InputMode.SetHideCursorDuringCapture(true);
+		if (IsValid(DeathOverlay))
+		{
+			InputMode.SetWidgetToFocus(DeathOverlay->TakeWidget());
+		}
+		GetSaiyoraPlayerController()->SetInputMode(InputMode);
+		//Show the mouse cursor.
+		GetSaiyoraPlayerController()->SetShowMouseCursor(true);
+		//Post process setting to desaturate the world while dead.
+		if (IsValid(Camera))
+		{
+			Camera->PostProcessSettings.ColorSaturation = FVector4(0.0f, 0.0f, 0.0f, 0.0f);
+			Camera->PostProcessSettings.bOverride_ColorSaturation = true;
+		}
+	}
 }
 
 #pragma endregion
@@ -728,6 +754,44 @@ void ASaiyoraPlayerCharacter::OnRep_ModernSpec(UModernSpecialization* PreviousSp
 #pragma endregion
 #pragma region User Interface
 
+void ASaiyoraPlayerCharacter::InitUserInterface()
+{
+	const USaiyoraUIDataAsset* UIDataAsset = UUIFunctionLibrary::GetUIDataAsset(GetWorld());
+	if (!IsValid(UIDataAsset))
+	{
+		UE_LOG(LogTemp, Error, TEXT("UI Data Asset wasn't valid in ASaiyoraPlayerCharacter::InitUserInterface. Please set a reference to the data asset in the GameInstance."));
+		return;
+	}
+	
+	//Init player HUD
+	if (!IsValid(UIDataAsset->PlayerHUDClass))
+	{
+		UE_LOG(LogTemp, Error, TEXT("Player HUD class wasn't valid in ASaiyoraPlayerCharacter::InitUserInterface. Please set a valid HUD class in the UI Data Asset."));
+		return;
+	}
+	PlayerHUD = CreateWidget<UPlayerHUD>(PlayerControllerRef, UIDataAsset->PlayerHUDClass);
+	if (!IsValid(PlayerHUD))
+	{
+		UE_LOG(LogTemp, Error, TEXT("Failed to create Player HUD of class %s."), *UIDataAsset->PlayerHUDClass->GetName());
+		return;
+	}
+	PlayerHUD->InitializePlayerHUD(this);
+	
+	//Init the death overlay that comes up when the player is waiting to respawn or be resurrected.
+	if (!IsValid(UIDataAsset->DeathOverlayClass))
+	{
+		UE_LOG(LogTemp, Error, TEXT("Player Death Overlay widget class wasn't valid in ASaiyoraPlayerCharacter::InitUserInterface. Please set a valid Death Overlay class in the UI Data Asset."));
+		return;
+	}
+	DeathOverlay = CreateWidget<UDeathOverlay>(PlayerControllerRef, UIDataAsset->DeathOverlayClass);
+	if (!IsValid(DeathOverlay))
+	{
+		UE_LOG(LogTemp, Error, TEXT("Failed to create Death Overlay of class %s."), *UIDataAsset->DeathOverlayClass->GetName());
+		return;
+	}
+	DeathOverlay->Init(this);
+}
+
 void ASaiyoraPlayerCharacter::ShowExtraInfo()
 {
 	if (IsValid(PlayerHUD))
@@ -771,3 +835,24 @@ void ASaiyoraPlayerCharacter::Client_DisplayErrorMessage_Implementation(const FT
 }
 
 #pragma endregion
+#pragma region DEBUG
+#if WITH_EDITOR
+
+void ASaiyoraPlayerCharacter::DEBUG_RequestKillSelf()
+{
+	if (IsLocallyControlled())
+	{
+		DEBUG_Server_KillSelf();
+	}
+}
+
+void ASaiyoraPlayerCharacter::DEBUG_Server_KillSelf_Implementation()
+{
+	if (IsValid(DamageHandler))
+	{
+		DamageHandler->KillActor(this, this, true);
+	}
+}
+
+#endif
+#pragma endregion 

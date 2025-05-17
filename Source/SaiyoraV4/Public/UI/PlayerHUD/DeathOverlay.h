@@ -13,7 +13,7 @@ class UDamageHandler;
 struct FPendingResurrection;
 class ASaiyoraPlayerCharacter;
 
-UCLASS()
+UCLASS(Abstract)
 class SAIYORAV4_API UDeathOverlay : public UUserWidget
 {
 	GENERATED_BODY()

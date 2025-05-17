@@ -12,6 +12,7 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "SaiyoraPlayerCharacter.generated.h"
 
+class UDeathOverlay;
 class UPlayerHUD;
 class USaiyoraErrorMessage;
 class USaiyoraUIDataAsset;
@@ -83,13 +84,9 @@ public:
 
 	UPlayerHUD* GetPlayerHUD() const { return PlayerHUD; }
 
-protected:
-
-	UFUNCTION(BlueprintImplementableEvent)
-	void CreateUserInterface();
-	void InitUserInterface();
-
 private:
+
+	void InitUserInterface();
 
 	UFUNCTION()
 	void ShowExtraInfo();
@@ -97,6 +94,8 @@ private:
 	void HideExtraInfo();
 	UPROPERTY()
 	UPlayerHUD* PlayerHUD = nullptr;
+	UPROPERTY()
+	UDeathOverlay* DeathOverlay = nullptr;
 	UPROPERTY()
 	USaiyoraErrorMessage* ErrorWidget;
 	UFUNCTION(Client, Unreliable)
@@ -128,6 +127,10 @@ private:
 	void InputLookHorizontal(const float AxisValue) { AddControllerYawInput(AxisValue); }
 	UFUNCTION()
 	void InputLookVertical(const float AxisValue) { AddControllerPitchInput(AxisValue * -1.0f); }
+
+	//Callback on life status change to apply a post process effect, modify camera behavior, and change input mode.
+	UFUNCTION()
+	void UpdateControlsOnLifeStatusChanged(AActor* Actor, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus);
 
 #pragma endregion 
 #pragma region Saiyora Combat Interface
@@ -341,5 +344,19 @@ private:
 	UPROPERTY()
 	TSet<UPrimitiveComponent*> XPlaneOverlaps;
 
+#pragma endregion
+#pragma region DEBUG
+#if WITH_EDITOR
+	
+public:
+
+	void DEBUG_RequestKillSelf();
+
+private:
+
+	UFUNCTION(Server, Reliable)
+	void DEBUG_Server_KillSelf();
+	
+#endif
 #pragma endregion 
 };
