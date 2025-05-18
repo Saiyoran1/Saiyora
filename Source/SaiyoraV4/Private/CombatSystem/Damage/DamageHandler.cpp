@@ -348,6 +348,7 @@ void UDamageHandler::AcceptResurrection(const int ResID)
 				}
 			}
 			RespawnActor(true, PendingRes.ResLocation, PendingRes.bOverrideHealth, PendingRes.OverrideHealthPercent);
+			break;
 		}
 	}
 }

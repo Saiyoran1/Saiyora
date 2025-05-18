@@ -186,6 +186,8 @@ private:
 	UPROPERTY()
 	UDamageHandler* TargetHandler = nullptr;
 	int ResID = -1;
+	UFUNCTION()
+	void OnLifeStatusChanged(AActor* Actor, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus);
 
 	UFUNCTION()
 	TArray<FName> GetResCallbackFunctionNames() const;

@@ -59,9 +59,9 @@ void UDeathOverlay::OnPendingResUpdated(const FPendingResurrection& PendingRes)
 	{
 		RespawnResurrectSwitcher->SetActiveWidget(PendingResOverlay);
 		const FPendingResurrection& MostRecentRes = PendingResurrections.Last();
-		if (IsValid(MostRecentRes.BuffSource))
+		if (IsValid(MostRecentRes.Icon))
 		{
-			PendingResIcon->SetBrushFromTexture(MostRecentRes.BuffSource->GetBuffIcon());
+			PendingResIcon->SetBrushFromTexture(MostRecentRes.Icon);
 		}
 		PendingResID = MostRecentRes.ResID;
 	}

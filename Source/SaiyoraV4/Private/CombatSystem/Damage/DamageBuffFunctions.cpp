@@ -280,6 +280,7 @@ void UPendingResurrectionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 	{
 		ResLocation = GetOwningBuff()->GetAppliedBy()->GetActorLocation();
 	}
+	TargetHandler->OnLifeStatusChanged.AddDynamic(this, &UPendingResurrectionFunction::OnLifeStatusChanged);
 	ResID = TargetHandler->AddPendingResurrection(this);
 }
 
@@ -288,6 +289,15 @@ void UPendingResurrectionFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 	if (IsValid(TargetHandler))
 	{
 		TargetHandler->RemovePendingResurrection(ResID);
+		TargetHandler->OnLifeStatusChanged.RemoveDynamic(this, &UPendingResurrectionFunction::OnLifeStatusChanged);
+	}
+}
+
+void UPendingResurrectionFunction::OnLifeStatusChanged(AActor* Actor, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus)
+{
+	if (NewStatus == ELifeStatus::Alive)
+	{
+		GetOwningBuff()->GetHandler()->RemoveBuff(GetOwningBuff(), EBuffExpireReason::Dispel);
 	}
 }
 

@@ -75,10 +75,14 @@ struct FPendingResurrection
 {
     GENERATED_BODY()
     
-    UPROPERTY()
+    UPROPERTY(NotReplicated)
     UBuff* BuffSource = nullptr;
-    UPROPERTY()
+    UPROPERTY(NotReplicated)
     FName CallbackName;
+    //Replicate the display icon because replicating the buff source itself introduces a race condition.
+    //In the future it might be smart to just replicate the buff class so we can extract school/plane info if needed too.
+    UPROPERTY()
+    UTexture2D* Icon = nullptr;
     
     UPROPERTY()
     FVector ResLocation = FVector::ZeroVector;
