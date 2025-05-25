@@ -1,7 +1,6 @@
 #include "CombatGroup.h"
 #include "CombatStatusComponent.h"
 #include "DamageHandler.h"
-#include "HairStrandsInterface.h"
 #include "SaiyoraCombatInterface.h"
 #include "ThreatHandler.h"
 

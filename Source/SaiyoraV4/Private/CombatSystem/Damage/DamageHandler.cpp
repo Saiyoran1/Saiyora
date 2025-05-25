@@ -46,6 +46,12 @@ void UDamageHandler::InitializeComponent()
 			NPCComponentRef = Cast<UNPCAbilityComponent>(AbilityComponent);
 		}
 		DisableHealthEvents.BindDynamic(this, &UDamageHandler::DisableAllHealthEvents);
+		//NPCs that can respawn should auto accept any resurrections they receive.
+		//This allows for mechanics like bosses that resurrect their adds.
+		if (bCanBeResurrected && !GetOwner()->GetClass()->IsChildOf(ASaiyoraPlayerCharacter::StaticClass()))
+		{
+			OnPendingResAdded.AddDynamic(this, &UDamageHandler::QueueResurrectionAutoAccept);
+		}
 	}
 }
 
@@ -211,9 +217,9 @@ void UDamageHandler::Die()
 }
 
 void UDamageHandler::RespawnActor(const bool bForceRespawnLocation, const FVector& OverrideRespawnLocation,
-	const bool bForceHealthPercentage, const float OverrideHealthPercentage)
+                                  const bool bForceHealthPercentage, const float OverrideHealthPercentage)
 {
-	if (GetOwnerRole() != ROLE_Authority || !bCanRespawn || LifeStatus != ELifeStatus::Dead)
+	if (GetOwnerRole() != ROLE_Authority || !bCanBeResurrected || LifeStatus != ELifeStatus::Dead)
 	{
 		return;
 	}
@@ -236,7 +242,7 @@ void UDamageHandler::RespawnActor(const bool bForceRespawnLocation, const FVecto
 
 void UDamageHandler::UpdateRespawnPoint(const FVector& NewLocation)
 {
-	if (GetOwnerRole() != ROLE_Authority || !bCanRespawn || bRespawnInPlace)
+	if (GetOwnerRole() != ROLE_Authority || !bCanBeResurrected || bRespawnInPlace)
 	{
 		return;
 	}
@@ -250,7 +256,7 @@ void UDamageHandler::Server_RequestRespawn_Implementation()
 
 int UDamageHandler::AddPendingResurrection(UPendingResurrectionFunction* PendingResFunction)
 {
-	if (GetOwnerRole() != ROLE_Authority || !IsValid(PendingResFunction) || !bCanRespawn)
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(PendingResFunction) || !bCanBeResurrected)
 	{
 		return -1;
 	}
@@ -261,7 +267,7 @@ int UDamageHandler::AddPendingResurrection(UPendingResurrectionFunction* Pending
 
 void UDamageHandler::RemovePendingResurrection(const int ResID)
 {
-	if (GetOwnerRole() != ROLE_Authority || !bCanRespawn || ResID == -1)
+	if (GetOwnerRole() != ROLE_Authority || !bCanBeResurrected || ResID == -1)
 	{
 		return;
 	}
@@ -312,7 +318,7 @@ void UDamageHandler::OnRep_PendingResurrections(const TArray<FPendingResurrectio
 
 void UDamageHandler::AcceptResurrection(const int ResID)
 {
-	if (ResID == -1 || !bCanRespawn || LifeStatus != ELifeStatus::Dead)
+	if (ResID == -1 || !bCanBeResurrected || LifeStatus != ELifeStatus::Dead)
 	{
 		return;
 	}
@@ -355,7 +361,7 @@ void UDamageHandler::AcceptResurrection(const int ResID)
 
 void UDamageHandler::DeclineResurrection(const int ResID)
 {
-	if (ResID == -1 || !bCanRespawn || LifeStatus != ELifeStatus::Dead)
+	if (ResID == -1 || !bCanBeResurrected || LifeStatus != ELifeStatus::Dead)
 	{
 		return;
 	}
@@ -397,6 +403,20 @@ void UDamageHandler::Server_MakeResDecision_Implementation(const int ResID, cons
 	else
 	{
 		DeclineResurrection(ResID);
+	}
+}
+
+void UDamageHandler::QueueResurrectionAutoAccept(const FPendingResurrection& PendingRes)
+{
+	const FTimerDelegate AutoAcceptDelegate = FTimerDelegate::CreateUObject(this, &UDamageHandler::AutoAcceptResurrection, PendingRes.ResID);
+	GetWorld()->GetTimerManager().SetTimerForNextTick(AutoAcceptDelegate);
+}
+
+void UDamageHandler::AutoAcceptResurrection(const int ResID)
+{
+	if (GetLifeStatus() == ELifeStatus::Dead)
+	{
+		AcceptResurrection(ResID);
 	}
 }
 

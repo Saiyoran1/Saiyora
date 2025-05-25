@@ -128,7 +128,7 @@ public:
 private:
 
 	UPROPERTY(EditAnywhere, Category = "Health")
-	bool bCanRespawn = false;
+	bool bCanBeResurrected = false;
 	UPROPERTY(EditAnywhere, Category = "Health")
 	bool bRespawnInPlace = false;
 
@@ -151,6 +151,15 @@ private:
 
 	void Die();
 	TConditionalRestrictionList<FDeathRestriction> DeathRestrictions;
+
+	//Called when an NPC receives a resurrection.
+	//This waits one frame then accepts the resurrection. Accepting on the same frame causes issues with the OnApply function of the resurrection buff function.
+	UFUNCTION()
+	void QueueResurrectionAutoAccept(const FPendingResurrection& PendingRes);
+	//Called one frame after an NPC receives a resurrection.
+	//Automatically takes the resurrection if the NPC is dead and the resurrection buff is still applied.
+	UFUNCTION()
+	void AutoAcceptResurrection(const int ResID);
 
 #pragma endregion 
 

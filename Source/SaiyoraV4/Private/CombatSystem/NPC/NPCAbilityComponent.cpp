@@ -235,6 +235,7 @@ void UNPCAbilityComponent::TryMoveToGoal()
 	MoveReq.SetCanStrafe(true);
 	
 	CurrentMoveRequestID = AIController->MoveTo(MoveReq).MoveId;
+	CurrentMoveRequestBehavior = CombatBehavior;
 }
 
 void UNPCAbilityComponent::AbortActiveMove()
@@ -868,6 +869,7 @@ void UNPCAbilityComponent::EnterResetState()
 		if (RequestResult.Code == EPathFollowingRequestResult::RequestSuccessful)
 		{
 			CurrentMoveRequestID = RequestResult.MoveId;
+			CurrentMoveRequestBehavior = CombatBehavior;
 		}
 		//If we were already at the reset goal, we can immediately move to patrol state.
 		else if (RequestResult.Code == EPathFollowingRequestResult::AlreadyAtGoal)
