@@ -134,7 +134,7 @@ void ULevelGeoPlaneComponent::UpdateCameraCollision()
 	}
 }
 
-void ULevelGeoPlaneComponent::OnPlayerAdded(const ASaiyoraPlayerCharacter* NewPlayer)
+void ULevelGeoPlaneComponent::OnPlayerAdded(ASaiyoraPlayerCharacter* NewPlayer)
 {
 	if (IsValid(NewPlayer) && NewPlayer->IsLocallyControlled())
 	{

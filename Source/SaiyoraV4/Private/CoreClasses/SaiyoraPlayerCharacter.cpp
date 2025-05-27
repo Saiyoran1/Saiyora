@@ -123,29 +123,28 @@ void ASaiyoraPlayerCharacter::PostInitializeComponents()
 void ASaiyoraPlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
-	GameStateRef = GetWorld()->GetGameState<ASaiyoraGameState>();
-	//Initialize character called here, with valid GameState.
+	//We attempt to initialize the player in a number of places, but it will only succeed once all necessary references are valid.
 	InitializeCharacter();
 }
 
 void ASaiyoraPlayerCharacter::PossessedBy(AController* NewController)
 {
 	Super::PossessedBy(NewController);
-	//Initialize character called here with valid controller, on the server.
+	//We attempt to initialize the player in a number of places, but it will only succeed once all necessary references are valid.
 	InitializeCharacter();
 }
 
 void ASaiyoraPlayerCharacter::OnRep_Controller()
 {
 	Super::OnRep_Controller();
-	//Initialize character called here with valid controller, on client.
+	//We attempt to initialize the player in a number of places, but it will only succeed once all necessary references are valid.
 	InitializeCharacter();
 }
 
 void ASaiyoraPlayerCharacter::OnRep_PlayerState()
 {
 	Super::OnRep_PlayerState();
-	//Initialize character called here with valid player state, on client.
+	//We attempt to initialize the player in a number of places, but it will only succeed once all necessary references are valid.
 	InitializeCharacter();
 }
 
@@ -184,11 +183,30 @@ void ASaiyoraPlayerCharacter::InitializeCharacter()
 	{
 		return;
 	}
-	if (!IsValid(GameStateRef) || !IsValid(GetPlayerState()) || (GetLocalRole() != ROLE_SimulatedProxy && !IsValid(GetController())))
+	//Wait for BeginPlay.
+	if (!HasActorBegunPlay())
 	{
 		return;
 	}
-	if (!IsValid(PlayerControllerRef))
+	//We don't consider the player "done setting up" until it has begun play, has a valid GameState ref, has a valid PlayerState ref, and (if server or locally controlled) a PlayerController ref.
+	if (!IsValid(GameStateRef))
+	{
+		GameStateRef = GetWorld()->GetGameState<ASaiyoraGameState>();
+		if (!IsValid(GameStateRef))
+		{
+			return;
+		}
+	}
+	if (!IsValid(GetPlayerState()))
+	{
+		return;
+	}
+	if (GetLocalRole() != ROLE_SimulatedProxy && !IsValid(GetController()))
+	{
+		return;
+	}
+	//Server and locally controlled need a valid player controller ref for the player.
+	if (GetLocalRole() != ROLE_SimulatedProxy && !IsValid(PlayerControllerRef))
 	{
 		PlayerControllerRef = Cast<ASaiyoraPlayerController>(GetController());
 		if (!IsValid(PlayerControllerRef))
@@ -196,6 +214,7 @@ void ASaiyoraPlayerCharacter::InitializeCharacter()
 			return;
 		}
 	}
+	//Locally controlled players set up their input mappings, UI, and other related callbacks.
 	if (IsLocallyControlled())
 	{
 		SetupAbilityMappings();
@@ -203,6 +222,7 @@ void ASaiyoraPlayerCharacter::InitializeCharacter()
 		CombatStatusComponent->OnPlaneSwapped.AddDynamic(this, &ASaiyoraPlayerCharacter::ClearQueueAndAutoFireOnPlaneSwap);
 		DamageHandler->OnLifeStatusChanged.AddDynamic(this, &ASaiyoraPlayerCharacter::UpdateControlsOnLifeStatusChanged);
 	}
+	//This fires the delegate that alerts the local player that a new player has been added to the game.
 	GameStateRef->InitPlayer(this);
 	bInitialized = true;
 }

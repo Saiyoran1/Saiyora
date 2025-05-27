@@ -97,7 +97,7 @@ void UCombatStatusComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 	}
 }
 
-void UCombatStatusComponent::OnPlayerAdded(const ASaiyoraPlayerCharacter* NewPlayer)
+void UCombatStatusComponent::OnPlayerAdded(ASaiyoraPlayerCharacter* NewPlayer)
 {
 	//If we get a valid local player, we can set up the name widget to face his camera and bind to plane swapping to update the outline and plane material.
 	if (IsValid(NewPlayer) && NewPlayer->IsLocallyControlled())

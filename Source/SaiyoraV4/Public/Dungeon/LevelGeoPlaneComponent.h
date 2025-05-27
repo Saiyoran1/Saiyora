@@ -50,5 +50,5 @@ private:
 	UPROPERTY()
 	ASaiyoraGameState* GameStateRef = nullptr;
 	UFUNCTION()
-	void OnPlayerAdded(const ASaiyoraPlayerCharacter* NewPlayer);
+	void OnPlayerAdded(ASaiyoraPlayerCharacter* NewPlayer);
 };

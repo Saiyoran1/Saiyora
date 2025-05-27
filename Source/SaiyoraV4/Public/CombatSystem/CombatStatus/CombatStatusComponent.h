@@ -34,7 +34,7 @@ private:
 	//Called when a new player is added by the GameState. This is only called until a local player is found, after which it is unbound.
 	//This is used because this component has a name widget that faces the local player's camera, and rendering of the outline material and plane material depend on the local player's faction and plane status.
 	UFUNCTION()
-	void OnPlayerAdded(const ASaiyoraPlayerCharacter* NewPlayer);
+	void OnPlayerAdded(ASaiyoraPlayerCharacter* NewPlayer);
 
 #pragma endregion
 #pragma region Names

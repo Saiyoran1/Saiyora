@@ -6,7 +6,8 @@
 class USaiyoraGameInstance;
 class ASaiyoraPlayerCharacter;
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPlayerAdded, const ASaiyoraPlayerCharacter*, Player);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPlayerAdded, ASaiyoraPlayerCharacter*, Player);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnPlayerRemoved);
 
 UCLASS()
 class SAIYORAV4_API ASaiyoraGameState : public AGameState
@@ -16,29 +17,38 @@ class SAIYORAV4_API ASaiyoraGameState : public AGameState
 public:
 
 	ASaiyoraGameState();
-	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaSeconds) override;
+
+#pragma region Time
+
+public:
+
 	virtual double GetServerWorldTimeSeconds() const override { return WorldTime; }
 	void UpdateClientWorldTime(const float ServerTime) { WorldTime = ServerTime; }
 
 private:
 
 	float WorldTime = 0.0f;
-	UPROPERTY()
-	USaiyoraGameInstance* GameInstanceRef = nullptr;
 
-//Player Handling
+#pragma endregion 
+#pragma region Player Handling
 
 public:
-
-	void InitPlayer(ASaiyoraPlayerCharacter* Player);
-	UPROPERTY(BlueprintAssignable)
-	FOnPlayerAdded OnPlayerAdded;
+	
 	UFUNCTION(BlueprintPure, Category = "Players")
 	void GetActivePlayers(TArray<ASaiyoraPlayerCharacter*>& OutActivePlayers) const { OutActivePlayers = ActivePlayers; }
+	
+	void InitPlayer(ASaiyoraPlayerCharacter* Player);
+
+	UPROPERTY(BlueprintAssignable)
+	FOnPlayerAdded OnPlayerAdded;
+	UPROPERTY(BlueprintAssignable)
+	FOnPlayerRemoved OnPlayerRemoved;
 
 private:
 
 	UPROPERTY()
 	TArray<ASaiyoraPlayerCharacter*> ActivePlayers;
+
+#pragma endregion 
 };

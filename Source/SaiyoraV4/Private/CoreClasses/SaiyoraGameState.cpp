@@ -1,8 +1,5 @@
 ﻿#include "CoreClasses/SaiyoraGameState.h"
-#include "Hitbox.h"
-#include "SaiyoraGameInstance.h"
 #include "SaiyoraPlayerCharacter.h"
-#include "Kismet/KismetSystemLibrary.h"
 
 ASaiyoraGameState::ASaiyoraGameState()
 {
@@ -10,17 +7,22 @@ ASaiyoraGameState::ASaiyoraGameState()
 	PrimaryActorTick.bStartWithTickEnabled = true;
 }
 
-void ASaiyoraGameState::BeginPlay()
-{
-	Super::BeginPlay();
-
-	GameInstanceRef = Cast<USaiyoraGameInstance>(GetGameInstance());
-}
-
 void ASaiyoraGameState::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 	WorldTime += DeltaSeconds;
+
+	//We just brute force check for players becoming invalid.
+	//Since we're managing our PlayerArray locally on every machine (and waiting for refs to become valid before adding them to the array),
+	//only the server would be able to rely on things like PostLogin or OnLogout from the GameMode.
+	for (int i = ActivePlayers.Num() - 1; i >= 0; i--)
+	{
+		if (!IsValid(ActivePlayers[i]))
+		{
+			ActivePlayers.RemoveAt(i);
+			OnPlayerRemoved.Broadcast();
+		}
+	}
 }
 
 void ASaiyoraGameState::InitPlayer(ASaiyoraPlayerCharacter* Player)
