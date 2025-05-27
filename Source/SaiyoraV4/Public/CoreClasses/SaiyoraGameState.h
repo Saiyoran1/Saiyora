@@ -6,8 +6,7 @@
 class USaiyoraGameInstance;
 class ASaiyoraPlayerCharacter;
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPlayerAdded, ASaiyoraPlayerCharacter*, Player);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnPlayerRemoved);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPlayerAddRemoveNotification, ASaiyoraPlayerCharacter*, Player);
 
 UCLASS()
 class SAIYORAV4_API ASaiyoraGameState : public AGameState
@@ -39,11 +38,12 @@ public:
 	void GetActivePlayers(TArray<ASaiyoraPlayerCharacter*>& OutActivePlayers) const { OutActivePlayers = ActivePlayers; }
 	
 	void InitPlayer(ASaiyoraPlayerCharacter* Player);
+	void RemovePlayer(ASaiyoraPlayerCharacter* Player);
 
 	UPROPERTY(BlueprintAssignable)
-	FOnPlayerAdded OnPlayerAdded;
+	FPlayerAddRemoveNotification OnPlayerAdded;
 	UPROPERTY(BlueprintAssignable)
-	FOnPlayerRemoved OnPlayerRemoved;
+	FPlayerAddRemoveNotification OnPlayerRemoved;
 
 private:
 

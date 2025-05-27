@@ -30,19 +30,12 @@ void UPartyFrames::OnPlayerJoined(ASaiyoraPlayerCharacter* PlayerCharacter)
 	PartyFramesVBox->AddChildToVerticalBox(NewFrame);
 }
 
-void UPartyFrames::OnPlayerLeft()
+void UPartyFrames::OnPlayerLeft(ASaiyoraPlayerCharacter* PlayerCharacter)
 {
-	ASaiyoraGameState* GameStateRef = GetWorld()->GetGameState<ASaiyoraGameState>();
-	if (!IsValid(GameStateRef))
-	{
-		return;
-	}
-	TArray<ASaiyoraPlayerCharacter*> ActivePlayers;
-	GameStateRef->GetActivePlayers(ActivePlayers);
 	//Check which of the party frames is pointing to a player that left and remove it.
 	for (int i = ActiveFrames.Num() - 1; i >= 0; i--)
 	{
-		if (!IsValid(ActiveFrames[i]->GetAssignedPlayer()) || !ActivePlayers.Contains(ActiveFrames[i]->GetAssignedPlayer()))
+		if (!IsValid(ActiveFrames[i]->GetAssignedPlayer()) || ActiveFrames[i]->GetAssignedPlayer() == PlayerCharacter)
 		{
 			ActiveFrames[i]->RemoveFromParent();
 			ActiveFrames.RemoveAt(i);

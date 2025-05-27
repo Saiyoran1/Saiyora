@@ -28,7 +28,7 @@ private:
 	UFUNCTION()
 	void OnPlayerJoined(ASaiyoraPlayerCharacter* PlayerCharacter);
 	UFUNCTION()
-	void OnPlayerLeft();
+	void OnPlayerLeft(ASaiyoraPlayerCharacter* PlayerCharacter);
 
 	UPROPERTY()
 	TArray<UPartyFrame*> ActiveFrames;

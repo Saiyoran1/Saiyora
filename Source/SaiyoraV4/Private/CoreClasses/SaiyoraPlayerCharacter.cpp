@@ -127,6 +127,16 @@ void ASaiyoraPlayerCharacter::BeginPlay()
 	InitializeCharacter();
 }
 
+void ASaiyoraPlayerCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	Super::EndPlay(EndPlayReason);
+
+	if (ASaiyoraGameState* GameState = GetWorld()->GetGameState<ASaiyoraGameState>())
+	{
+		GameState->RemovePlayer(this);
+	}
+}
+
 void ASaiyoraPlayerCharacter::PossessedBy(AController* NewController)
 {
 	Super::PossessedBy(NewController);
@@ -189,13 +199,10 @@ void ASaiyoraPlayerCharacter::InitializeCharacter()
 		return;
 	}
 	//We don't consider the player "done setting up" until it has begun play, has a valid GameState ref, has a valid PlayerState ref, and (if server or locally controlled) a PlayerController ref.
-	if (!IsValid(GameStateRef))
+	ASaiyoraGameState* SaiyoraGameState = GetWorld()->GetGameState<ASaiyoraGameState>();
+	if (!IsValid(SaiyoraGameState))
 	{
-		GameStateRef = GetWorld()->GetGameState<ASaiyoraGameState>();
-		if (!IsValid(GameStateRef))
-		{
-			return;
-		}
+		return;
 	}
 	if (!IsValid(GetPlayerState()))
 	{
@@ -223,7 +230,7 @@ void ASaiyoraPlayerCharacter::InitializeCharacter()
 		DamageHandler->OnLifeStatusChanged.AddDynamic(this, &ASaiyoraPlayerCharacter::UpdateControlsOnLifeStatusChanged);
 	}
 	//This fires the delegate that alerts the local player that a new player has been added to the game.
-	GameStateRef->InitPlayer(this);
+	SaiyoraGameState->InitPlayer(this);
 	bInitialized = true;
 }
 
@@ -624,7 +631,7 @@ void ASaiyoraPlayerCharacter::ApplyNewAncientLayout(const FAncientSpecLayout& Ne
 		return;
 	}
 	//Check if we are in a dungeon, and if so, if we are in the "waiting to start" phase.
-	const ADungeonGameState* DungeonGameState = Cast<ADungeonGameState>(GameStateRef);
+	const ADungeonGameState* DungeonGameState = GetWorld()->GetGameState<ADungeonGameState>();
 	if (IsValid(DungeonGameState) && DungeonGameState->GetDungeonPhase() != EDungeonPhase::WaitingToStart)
 	{
 		//If the dungeon has already started or finished, we can't change talents.
@@ -646,7 +653,7 @@ void ASaiyoraPlayerCharacter::Server_UpdateAncientSpecAndTalents_Implementation(
 		return;
 	}
 	//Check if we are in a dungeon, and if so, if we are in the "waiting to start" phase.
-	const ADungeonGameState* DungeonGameState = Cast<ADungeonGameState>(GameStateRef);
+	const ADungeonGameState* DungeonGameState = GetWorld()->GetGameState<ADungeonGameState>();
 	if (IsValid(DungeonGameState) && DungeonGameState->GetDungeonPhase() != EDungeonPhase::WaitingToStart)
 	{
 		//If the dungeon has already started or finished, we can't change talents.
@@ -704,7 +711,7 @@ void ASaiyoraPlayerCharacter::ApplyNewModernLayout(const FModernSpecLayout& NewL
 		return;
 	}
 	//Check if we are in a dungeon, and if so, if we are in the "waiting to start" phase.
-	const ADungeonGameState* DungeonGameState = Cast<ADungeonGameState>(GameStateRef);
+	const ADungeonGameState* DungeonGameState = GetWorld()->GetGameState<ADungeonGameState>();
 	if (IsValid(DungeonGameState) && DungeonGameState->GetDungeonPhase() != EDungeonPhase::WaitingToStart)
 	{
 		//If the dungeon has already started or finished, we can't change talents.
@@ -723,7 +730,7 @@ void ASaiyoraPlayerCharacter::Server_UpdateModernSpecAndTalents_Implementation(
 		return;
 	}
 	//Check if we are in a dungeon, and if so, if we are in the "waiting to start" phase.
-	const ADungeonGameState* DungeonGameState = Cast<ADungeonGameState>(GameStateRef);
+	const ADungeonGameState* DungeonGameState = GetWorld()->GetGameState<ADungeonGameState>();
 	if (IsValid(DungeonGameState) && DungeonGameState->GetDungeonPhase() != EDungeonPhase::WaitingToStart)
 	{
 		//If the dungeon has already started or finished, we can't change talents.
