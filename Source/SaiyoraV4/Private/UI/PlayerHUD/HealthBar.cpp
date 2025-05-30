@@ -1,5 +1,9 @@
 ﻿#include "PlayerHUD/HealthBar.h"
+
+#include "AncientSpecialization.h"
+#include "CombatStatusComponent.h"
 #include "DamageHandler.h"
+#include "ModernSpecialization.h"
 #include "PlayerHUD.h"
 #include "ProgressBar.h"
 #include "SaiyoraGameInstance.h"
@@ -11,12 +15,21 @@ void UHealthBar::NativeDestruct()
 {
 	Super::NativeDestruct();
 
+	if (IsValid(OwningPlayerChar))
+	{
+		OwningPlayerChar->OnAncientSpecChanged.RemoveDynamic(this, &UHealthBar::UpdateClassColorOnAncientSpecChanged);
+		OwningPlayerChar->OnModernSpecChanged.RemoveDynamic(this, &UHealthBar::UpdateClassColorOnModernSpecChanged);
+	}
 	if (IsValid(OwnerDamageHandler))
 	{
 		OwnerDamageHandler->OnHealthChanged.RemoveDynamic(this, &UHealthBar::UpdateHealth);
 		OwnerDamageHandler->OnMaxHealthChanged.RemoveDynamic(this, &UHealthBar::UpdateHealth);
 		OwnerDamageHandler->OnAbsorbChanged.RemoveDynamic(this, &UHealthBar::UpdateHealth);
 		OwnerDamageHandler->OnLifeStatusChanged.RemoveDynamic(this, &UHealthBar::UpdateLifeStatus);
+	}
+	if (IsValid(OwnerCombatStatusComp))
+	{
+		OwnerCombatStatusComp->OnPlaneSwapped.RemoveDynamic(this, &UHealthBar::UpdateClassColorOnPlaneSwap);
 	}
 	if (IsValid(OwnerHUD))
 	{
@@ -30,10 +43,22 @@ void UHealthBar::InitHealthBar(UPlayerHUD* OwningHUD, ASaiyoraPlayerCharacter* O
 	{
 		return;
 	}
+	OwningPlayerChar = OwningPlayer;
+	OwnerHUD = OwningHUD;
 	UIDataAsset = Cast<USaiyoraGameInstance>(GetGameInstance())->UIDataAsset;
 	if (IsValid(UIDataAsset))
 	{
-		HealthBar->SetFillColorAndOpacity(UIDataAsset->PlayerHealthColor);
+		if (bUseClassColor)
+		{
+			OwningPlayerChar->OnAncientSpecChanged.AddDynamic(this, &UHealthBar::UpdateClassColorOnAncientSpecChanged);
+			OwningPlayerChar->OnModernSpecChanged.AddDynamic(this, &UHealthBar::UpdateClassColorOnModernSpecChanged);
+			OwnerCombatStatusComp = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(OwningPlayer);
+			if (IsValid(OwnerCombatStatusComp))
+			{
+				OwnerCombatStatusComp->OnPlaneSwapped.AddDynamic(this, &UHealthBar::UpdateClassColorOnPlaneSwap);
+			}
+		}
+		UpdateHealthBarColor();
 		AbsorbBar->SetFillColorAndOpacity(UIDataAsset->AbsorbOutlineColor);
 	}
 	OwnerDamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(OwningPlayer);
@@ -45,7 +70,6 @@ void UHealthBar::InitHealthBar(UPlayerHUD* OwningHUD, ASaiyoraPlayerCharacter* O
 		OwnerDamageHandler->OnLifeStatusChanged.AddDynamic(this, &UHealthBar::UpdateLifeStatus);
 		UpdateLifeStatus(OwnerDamageHandler->GetOwner(), ELifeStatus::Invalid, OwnerDamageHandler->GetLifeStatus());
 	}
-	OwnerHUD = OwningHUD;
 	OwnerHUD->OnExtraInfoToggled.AddDynamic(this, &UHealthBar::ToggleExtraInfo);
 	ToggleExtraInfo(OwnerHUD->IsExtraInfoToggled());
 }
@@ -110,6 +134,7 @@ void UHealthBar::UpdateLifeStatus(AActor* Actor, const ELifeStatus PreviousStatu
 		MiddleText->SetText(FText::FromString("Dead"));
 		break;
 	}
+	UpdateHealthBarColor();
 }
 
 void UHealthBar::ToggleExtraInfo(const bool bShowExtraInfo)
@@ -119,4 +144,42 @@ void UHealthBar::ToggleExtraInfo(const bool bShowExtraInfo)
 		bShowingExtraInfo = bShowExtraInfo;
 		UpdateHealth();
 	}
+}
+
+void UHealthBar::UpdateHealthBarColor()
+{
+	if (!IsValid(UIDataAsset))
+	{
+		return;
+	}
+	if (IsValid(OwnerDamageHandler) && OwnerDamageHandler->GetLifeStatus() != ELifeStatus::Alive)
+	{
+		HealthBar->SetFillColorAndOpacity(UIDataAsset->PlayerDeadColor);
+		return;
+	}
+	if (!bUseClassColor || !IsValid(OwningPlayerChar) || !IsValid(OwnerCombatStatusComp))
+	{
+		HealthBar->SetFillColorAndOpacity(UIDataAsset->DefaultPlayerHealthColor);
+		return;
+	}
+	switch (OwnerCombatStatusComp->GetCurrentPlane())
+	{
+	case ESaiyoraPlane::Ancient :
+		if (IsValid(OwningPlayerChar->GetAncientSpecialization()))
+		{
+			HealthBar->SetFillColorAndOpacity(UIDataAsset->GetSchoolColor(OwningPlayerChar->GetAncientSpecialization()->GetSpecSchool()));
+			return;
+		}
+		break;
+	case ESaiyoraPlane::Modern :
+		if (IsValid(OwningPlayerChar->GetModernSpecialization()))
+		{
+			HealthBar->SetFillColorAndOpacity(UIDataAsset->GetSchoolColor(OwningPlayerChar->GetModernSpecialization()->GetSpecSchool()));
+			return;
+		}
+		break;
+	default :
+		break;
+	}
+	HealthBar->SetFillColorAndOpacity(UIDataAsset->DefaultPlayerHealthColor);
 }

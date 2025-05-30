@@ -24,16 +24,16 @@ void UBossRequirementDisplay::UpdateRequirementMet(const bool bMet)
 		{
 			if (IsValid(GameStateRef) && GameStateRef->IsDungeonDepleted())
 			{
-				RequirementText->SetColorAndOpacity(UIDataAsset->FailureTextColor);
+				RequirementText->SetColorAndOpacity(UIDataAsset->DungeonProgressFailureTextColor);
 			}
 			else
 			{
-				RequirementText->SetColorAndOpacity(UIDataAsset->SuccessTextColor);
+				RequirementText->SetColorAndOpacity(UIDataAsset->DungeonProgressSuccessTextColor);
 			}
 		}
 		else
 		{
-			RequirementText->SetColorAndOpacity(UIDataAsset->DefaultTextColor);
+			RequirementText->SetColorAndOpacity(UIDataAsset->DungeonProgressDefaultTextColor);
 		}
 	}
 	if (IsValid(TimestampText))
@@ -45,11 +45,11 @@ void UBossRequirementDisplay::UpdateRequirementMet(const bool bMet)
 			{
 				if (GameStateRef->IsDungeonDepleted())
 				{
-					TimestampText->SetColorAndOpacity(UIDataAsset->FailureTextColor);
+					TimestampText->SetColorAndOpacity(UIDataAsset->DungeonProgressFailureTextColor);
 				}
 				else
 				{
-					TimestampText->SetColorAndOpacity(UIDataAsset->SuccessTextColor);
+					TimestampText->SetColorAndOpacity(UIDataAsset->DungeonProgressSuccessTextColor);
 				}
 			}
 			TimestampText->SetVisibility(ESlateVisibility::HitTestInvisible);

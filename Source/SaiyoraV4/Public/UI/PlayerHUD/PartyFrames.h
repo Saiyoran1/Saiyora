@@ -4,18 +4,19 @@
 #include "VerticalBox.h"
 #include "PartyFrames.generated.h"
 
+class UPlayerHUD;
 class UPartyFrame;
 class ASaiyoraPlayerCharacter;
 
 //The overall party frame widget that contains the individual party frames for each group member.
-UCLASS()
+UCLASS(Abstract)
 class SAIYORAV4_API UPartyFrames : public UUserWidget
 {
 	GENERATED_BODY()
 
 public:
 
-	void Init();
+	void Init(UPlayerHUD* OwningHUD);
 
 private:
 
@@ -32,4 +33,6 @@ private:
 
 	UPROPERTY()
 	TArray<UPartyFrame*> ActiveFrames;
+	UPROPERTY()
+	UPlayerHUD* OwnerHUD;
 };

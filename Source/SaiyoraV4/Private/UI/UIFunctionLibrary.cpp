@@ -110,26 +110,6 @@ FLinearColor UUIFunctionLibrary::GetElementalSchoolColor(UObject* WorldContext, 
 	return FLinearColor::White;
 }
 
-FLinearColor UUIFunctionLibrary::GetPlayerHealthColor(UObject* WorldContext)
-{
-	const USaiyoraUIDataAsset* DataAsset = GetUIDataAsset(WorldContext);
-	if (IsValid(DataAsset))
-	{
-		return DataAsset->PlayerHealthColor;
-	}
-	return FLinearColor::Red;
-}
-
-FLinearColor UUIFunctionLibrary::GetPlayerDeadColor(UObject* WorldContext)
-{
-	const USaiyoraUIDataAsset* DataAsset = GetUIDataAsset(WorldContext);
-	if (IsValid(DataAsset))
-	{
-		return DataAsset->PlayerDeadColor;
-	}
-	return FLinearColor::Black;
-}
-
 FLinearColor UUIFunctionLibrary::GetHealthEventOutlineColor(UObject* WorldContext, const EHealthEventType EventType)
 {
 	const USaiyoraUIDataAsset* DataAsset = GetUIDataAsset(WorldContext);
@@ -148,36 +128,6 @@ FLinearColor UUIFunctionLibrary::GetHealthEventOutlineColor(UObject* WorldContex
 		}
 	}
 	return FLinearColor::Transparent;
-}
-
-FLinearColor UUIFunctionLibrary::GetUninterruptibleCastColor(UObject* WorldContext)
-{
-	const USaiyoraUIDataAsset* DataAsset = GetUIDataAsset(WorldContext);
-	if (IsValid(DataAsset))
-	{
-		return DataAsset->UninterruptibleCastColor;
-	}
-	return FLinearColor::Gray;
-}
-
-FLinearColor UUIFunctionLibrary::GetInterruptedCastColor(UObject* WorldContext)
-{
-	const USaiyoraUIDataAsset* DataAsset = GetUIDataAsset(WorldContext);
-	if (IsValid(DataAsset))
-	{
-		return DataAsset->InterruptedCastColor;
-	}
-	return FLinearColor::Red;
-}
-
-FLinearColor UUIFunctionLibrary::GetCancelledCastColor(UObject* WorldContext)
-{
-	const USaiyoraUIDataAsset* DataAsset = GetUIDataAsset(WorldContext);
-	if (IsValid(DataAsset))
-	{
-		return DataAsset->CancelledCastColor;
-	}
-	return FLinearColor::Gray;
 }
 
 #pragma endregion 

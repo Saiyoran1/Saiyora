@@ -1,9 +1,13 @@
 ﻿#pragma once
 #include "CoreMinimal.h"
+#include "CombatEnums.h"
 #include "DamageEnums.h"
 #include "UserWidget.h"
 #include "HealthBar.generated.h"
 
+class UModernSpecialization;
+class UAncientSpecialization;
+class UCombatStatusComponent;
 class UPlayerHUD;
 class USaiyoraUIDataAsset;
 class UTextBlock;
@@ -39,6 +43,10 @@ private:
 	UPROPERTY()
 	UDamageHandler* OwnerDamageHandler = nullptr;
 	UPROPERTY()
+	UCombatStatusComponent* OwnerCombatStatusComp = nullptr;
+	UPROPERTY()
+	ASaiyoraPlayerCharacter* OwningPlayerChar = nullptr;
+	UPROPERTY()
 	USaiyoraUIDataAsset* UIDataAsset = nullptr;
 
 	UFUNCTION()
@@ -49,4 +57,14 @@ private:
 	bool bShowingExtraInfo = false;
 	UFUNCTION()
 	void ToggleExtraInfo(const bool bShowExtraInfo);
+
+	UPROPERTY(EditAnywhere, Category = "Health")
+	bool bUseClassColor = false;
+	void UpdateHealthBarColor();
+	UFUNCTION()
+	void UpdateClassColorOnAncientSpecChanged(UAncientSpecialization* OldSpec, UAncientSpecialization* NewSpec) { UpdateHealthBarColor(); }
+	UFUNCTION()
+	void UpdateClassColorOnModernSpecChanged(UModernSpecialization* OldSpec, UModernSpecialization* NewSpec) { UpdateHealthBarColor(); }
+	UFUNCTION()
+	void UpdateClassColorOnPlaneSwap(const ESaiyoraPlane PreviousPlane, const ESaiyoraPlane NewPlane, UObject* Source) { UpdateHealthBarColor(); }
 };

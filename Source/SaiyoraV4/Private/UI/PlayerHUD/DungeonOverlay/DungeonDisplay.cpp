@@ -83,7 +83,7 @@ void UDungeonDisplay::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 		TimeProgress->SetPercent(Percent);
 		if (IsValid(UIDataAsset))
 		{
-			TimeProgress->SetFillColorAndOpacity(FMath::Lerp(UIDataAsset->StartProgressColor, UIDataAsset->EndProgressColor, Percent));
+			TimeProgress->SetFillColorAndOpacity(FMath::Lerp(UIDataAsset->DungeonProgressStartBarColor, UIDataAsset->DungeonProgressEndBarColor, Percent));
 		}
 	}
 }
@@ -130,11 +130,11 @@ void UDungeonDisplay::OnDeathCountChanged(const int32 DeathCount, const float Pe
 		{
 			if (DeathCount > 0)
 			{
-				DeathCountText->SetColorAndOpacity(UIDataAsset->FailureTextColor);
+				DeathCountText->SetColorAndOpacity(UIDataAsset->DungeonProgressFailureTextColor);
 			}
 			else
 			{
-				DeathCountText->SetColorAndOpacity(UIDataAsset->DefaultTextColor);
+				DeathCountText->SetColorAndOpacity(UIDataAsset->DungeonProgressDefaultTextColor);
 			}
 		}
 	}
@@ -149,11 +149,11 @@ void UDungeonDisplay::OnKillCountChanged(const int32 KillCount, const int32 MaxC
 		{
 			if (KillCount >= MaxCount)
 			{
-				KillCountText->SetColorAndOpacity(UIDataAsset->SuccessTextColor);
+				KillCountText->SetColorAndOpacity(UIDataAsset->DungeonProgressSuccessTextColor);
 			}
 			else
 			{
-				KillCountText->SetColorAndOpacity(UIDataAsset->DefaultTextColor);
+				KillCountText->SetColorAndOpacity(UIDataAsset->DungeonProgressDefaultTextColor);
 			}
 		}
 	}
@@ -165,7 +165,7 @@ void UDungeonDisplay::OnKillCountChanged(const int32 KillCount, const int32 MaxC
 		{
 			if (KillCount < MaxCount)
 			{
-				KillCountProgress->SetFillColorAndOpacity(FMath::Lerp(UIDataAsset->EndProgressColor, UIDataAsset->StartProgressColor, Percent));
+				KillCountProgress->SetFillColorAndOpacity(FMath::Lerp(UIDataAsset->DungeonProgressEndBarColor, UIDataAsset->DungeonProgressStartBarColor, Percent));
 			}
 			else
 			{
@@ -190,7 +190,7 @@ void UDungeonDisplay::OnDungeonDepleted()
 	{
 		if (IsValid(TimeText))
 		{
-			TimeText->SetColorAndOpacity(UIDataAsset->FailureTextColor);
+			TimeText->SetColorAndOpacity(UIDataAsset->DungeonProgressFailureTextColor);
 		}
 		if (IsValid(TimeProgress))
 		{

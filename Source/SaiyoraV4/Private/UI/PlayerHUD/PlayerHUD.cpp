@@ -6,6 +6,7 @@
 #include "CastBar.h"
 #include "DungeonDisplay.h"
 #include "HealthBar.h"
+#include "PartyFrames.h"
 #include "ResourceContainer.h"
 #include "SaiyoraPlayerCharacter.h"
 
@@ -47,6 +48,10 @@ void UPlayerHUD::InitializePlayerHUD(ASaiyoraPlayerCharacter* OwnerPlayer)
 	if (IsValid(ModernBar))
 	{
 		ModernBar->InitActionBar(ESaiyoraPlane::Modern, OwningPlayer);
+	}
+	if (IsValid(PartyFrames))
+	{
+		PartyFrames->Init(this);
 	}
 	AddToViewport();
 }

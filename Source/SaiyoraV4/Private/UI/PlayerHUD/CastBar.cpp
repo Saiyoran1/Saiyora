@@ -118,7 +118,7 @@ void UCastBar::OnCastInterrupted(const FInterruptEvent& Event)
 		CastProgress->SetPercent(Percent);
 		if (IsValid(UIDataAsset))
 		{
-			CastProgress->SetFillColorAndOpacity(UIDataAsset->FailureProgressColor);
+			CastProgress->SetFillColorAndOpacity(UIDataAsset->InterruptedCastColor);
 		}
 	}
 	if (IsValid(CastText))
@@ -140,7 +140,7 @@ void UCastBar::OnCastCancelled(const FCancelEvent& Event)
 		CastProgress->SetPercent(Percent);
 		if (IsValid(UIDataAsset))
 		{
-			CastProgress->SetFillColorAndOpacity(UIDataAsset->FailureProgressColor);
+			CastProgress->SetFillColorAndOpacity(UIDataAsset->CancelledCastColor);
 		}
 	}
 	if (IsValid(CastText))
