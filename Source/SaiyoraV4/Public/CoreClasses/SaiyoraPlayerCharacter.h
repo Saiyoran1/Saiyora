@@ -12,6 +12,7 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "SaiyoraPlayerCharacter.generated.h"
 
+class UEscapeMenu;
 class UDeathOverlay;
 class UPlayerHUD;
 class USaiyoraErrorMessage;
@@ -95,6 +96,12 @@ private:
 	UPlayerHUD* PlayerHUD = nullptr;
 	UPROPERTY()
 	UDeathOverlay* DeathOverlay = nullptr;
+
+	UPROPERTY()
+	UEscapeMenu* EscapeMenu = nullptr;
+	UFUNCTION()
+	void ToggleEscapeMenu();
+	
 	UPROPERTY()
 	USaiyoraErrorMessage* ErrorWidget;
 	UFUNCTION(Client, Unreliable)

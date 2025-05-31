@@ -3,6 +3,7 @@
 #include "Engine/DataAsset.h"
 #include "SaiyoraUIDataAsset.generated.h"
 
+class UEscapeMenu;
 class UDeathOverlay;
 class UPlayerHUD;
 enum class EElementalSchool : uint8;
@@ -26,6 +27,9 @@ public:
 	//The overlay that appears when a player is dead to offer options about resurrection and respawning.
 	UPROPERTY(EditAnywhere, Category = "Widget Classes")
 	TSubclassOf<UDeathOverlay> DeathOverlayClass;
+	//The overlay that pops up when a player presses escape.
+	UPROPERTY(EditDefaultsOnly, Category = "Widget Classes")
+	TSubclassOf<UEscapeMenu> EscapeMenuClass;
 
 	//Colors that represent each spell school in a variety of contexts.
 	UPROPERTY(EditAnywhere, Category = "Combat")

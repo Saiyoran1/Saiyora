@@ -7,32 +7,6 @@
 #include "MultiplayerSessionsSubsystem.generated.h"
 
 USTRUCT(BlueprintType)
-struct FMapInformation : public FTableRowBase
-{
-	GENERATED_BODY()
-	
-	UPROPERTY(BlueprintReadOnly, EditAnywhere)
-	TSoftObjectPtr<UWorld> Level;
-	UPROPERTY(BlueprintReadOnly, EditAnywhere)
-	FName DisplayName;
-	UPROPERTY(BlueprintReadOnly, EditAnywhere)
-	FString Description;
-	UPROPERTY(BlueprintReadOnly, EditAnywhere)
-	UTexture2D* Image = nullptr;
-};
-
-UCLASS(Blueprintable)
-class UMapPool : public UDataAsset
-{
-	GENERATED_BODY()
-
-public:
-	
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Maps")
-	TArray<FMapInformation> Maps;
-};
-
-USTRUCT(BlueprintType)
 struct FSaiyoraSession
 {
 	GENERATED_BODY()
@@ -81,7 +55,8 @@ public:
 	FOnlineSessionSettings GetSessionSettings(const FName SessionName) const;
 
 	UFUNCTION(BlueprintCallable, BlueprintPure)
-	FString GetSessionState() const;
+	FString GetSessionStateString() const;
+	EOnlineSessionState::Type GetSessionState() const;
 	
 private:
 

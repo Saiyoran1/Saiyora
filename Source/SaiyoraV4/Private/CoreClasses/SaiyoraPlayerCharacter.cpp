@@ -7,11 +7,13 @@
 #include "CombatStatusComponent.h"
 #include "DeathOverlay.h"
 #include "DungeonGameState.h"
+#include "EscapeMenu.h"
 #include "ModernSpecialization.h"
 #include "PlayerHUD.h"
 #include "Weapons/FireWeapon.h"
 #include "ResourceHandler.h"
 #include "SaiyoraErrorMessage.h"
+#include "SaiyoraGameInstance.h"
 #include "SaiyoraMovementComponent.h"
 #include "SaiyoraUIDataAsset.h"
 #include "CoreClasses/SaiyoraPlayerController.h"
@@ -100,6 +102,7 @@ void ASaiyoraPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerI
 	PlayerInputComponent->BindAction("Action5", IE_Pressed, this, &ASaiyoraPlayerCharacter::InputStartAbility5);
 	PlayerInputComponent->BindAction("Action5", IE_Released, this, &ASaiyoraPlayerCharacter::InputStopAbility5);
 
+	PlayerInputComponent->BindAction("EscapeMenu", IE_Pressed, this, &ASaiyoraPlayerCharacter::ToggleEscapeMenu);
 	PlayerInputComponent->BindAction("ToggleInfo", IE_Pressed, this, &ASaiyoraPlayerCharacter::ShowExtraInfo);
 	PlayerInputComponent->BindAction("ToggleInfo", IE_Released, this, &ASaiyoraPlayerCharacter::HideExtraInfo);
 }
@@ -817,6 +820,18 @@ void ASaiyoraPlayerCharacter::InitUserInterface()
 		return;
 	}
 	DeathOverlay->Init(this);
+
+	if (!IsValid(UIDataAsset->EscapeMenuClass))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Escape Menu widget class wasn't valid in ASaiyoraPlayerCharacter::InitUserInterface. Please set a valid Escape Menu class in the UI Data Asset."));
+		return;
+	}
+	EscapeMenu = CreateWidget<UEscapeMenu>(PlayerControllerRef, UIDataAsset->EscapeMenuClass);
+	if (!IsValid(EscapeMenu))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Failed to create Escape Menu of class %s."), *UIDataAsset->EscapeMenuClass->GetName());
+	}
+	EscapeMenu->Init();
 }
 
 void ASaiyoraPlayerCharacter::ShowExtraInfo()
@@ -832,6 +847,25 @@ void ASaiyoraPlayerCharacter::HideExtraInfo()
 	if (IsValid(PlayerHUD))
 	{
 		PlayerHUD->ToggleExtraInfo(false);
+	}
+}
+
+void ASaiyoraPlayerCharacter::ToggleEscapeMenu()
+{
+	if (IsValid(EscapeMenu))
+	{
+		if (EscapeMenu->GetVisibility() == ESlateVisibility::Collapsed)
+		{
+			EscapeMenu->SetVisibility(ESlateVisibility::Visible);
+			PlayerControllerRef->SetInputMode(FInputModeGameAndUI());
+			PlayerControllerRef->SetShowMouseCursor(true);
+		}
+		else
+		{
+			EscapeMenu->SetVisibility(ESlateVisibility::Collapsed);
+			PlayerControllerRef->SetInputMode(FInputModeGameOnly());
+			PlayerControllerRef->SetShowMouseCursor(false);
+		}
 	}
 }
 

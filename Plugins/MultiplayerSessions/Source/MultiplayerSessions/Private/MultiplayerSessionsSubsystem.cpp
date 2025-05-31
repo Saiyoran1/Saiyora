@@ -436,7 +436,7 @@ FOnlineSessionSettings UMultiplayerSessionsSubsystem::GetSessionSettings(const F
 	return Session->SessionSettings;
 }
 
-FString UMultiplayerSessionsSubsystem::GetSessionState() const
+FString UMultiplayerSessionsSubsystem::GetSessionStateString() const
 {
 	const IOnlineSubsystem* Subsystem = Online::GetSubsystem(GetWorld());
 	if (!Subsystem)
@@ -474,4 +474,24 @@ FString UMultiplayerSessionsSubsystem::GetSessionState() const
 	default:
 		return FString(TEXT("defaulted"));
 	}
+}
+
+EOnlineSessionState::Type UMultiplayerSessionsSubsystem::GetSessionState() const
+{
+	const IOnlineSubsystem* Subsystem = Online::GetSubsystem(GetWorld());
+	if (!Subsystem)
+	{
+		return EOnlineSessionState::NoSession;
+	}
+	const IOnlineSessionPtr SessionInterface = Subsystem->GetSessionInterface();
+	if (!SessionInterface.IsValid())
+	{
+		return EOnlineSessionState::NoSession;
+	}
+	const FNamedOnlineSession* Session = SessionInterface->GetNamedSession(NAME_GameSession);
+	if (!Session)
+	{
+		return EOnlineSessionState::NoSession;
+	}
+	return Session->SessionState;
 }
