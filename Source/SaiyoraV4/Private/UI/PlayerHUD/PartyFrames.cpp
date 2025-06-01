@@ -25,6 +25,7 @@ void UPartyFrames::Init(UPlayerHUD* OwningHUD)
 	{
 		OnPlayerJoined(Player);
 	}
+	UpdateFramesVisibility();
 }
 
 void UPartyFrames::OnPlayerJoined(ASaiyoraPlayerCharacter* PlayerCharacter)
@@ -46,6 +47,8 @@ void UPartyFrames::OnPlayerJoined(ASaiyoraPlayerCharacter* PlayerCharacter)
 		NewFrameSlot->SetHorizontalAlignment(HAlign_Center);
 		NewFrameSlot->SetVerticalAlignment(VAlign_Top);
 	}
+	//We only show the party frames when at least one non-local player frame exists.
+	UpdateFramesVisibility();
 }
 
 void UPartyFrames::OnPlayerLeft(ASaiyoraPlayerCharacter* PlayerCharacter)
@@ -59,4 +62,24 @@ void UPartyFrames::OnPlayerLeft(ASaiyoraPlayerCharacter* PlayerCharacter)
 			ActiveFrames.RemoveAt(i);
 		}
 	}
+	//We only show the party frames when at least one non-local player frame exists.
+	UpdateFramesVisibility();
+}
+
+void UPartyFrames::UpdateFramesVisibility()
+{
+	if (ActiveFrames.Num() == 0)
+	{
+		SetVisibility(ESlateVisibility::Collapsed);
+		return;
+	}
+	for (UPartyFrame* Frame : ActiveFrames)
+	{
+		if (IsValid(Frame->GetAssignedPlayer()) && !Frame->GetAssignedPlayer()->IsLocallyControlled())
+		{
+			SetVisibility(ESlateVisibility::HitTestInvisible);
+			return;
+		}
+	}
+	SetVisibility(ESlateVisibility::Collapsed);
 }

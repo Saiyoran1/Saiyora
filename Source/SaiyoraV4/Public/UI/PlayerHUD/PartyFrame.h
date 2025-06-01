@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "CoreMinimal.h"
+#include "TextBlock.h"
 #include "UserWidget.h"
 #include "PartyFrame.generated.h"
 
@@ -22,6 +23,11 @@ private:
 
 	UPROPERTY(meta = (BindWidget))
 	UHealthBar* HealthBar;
+	UPROPERTY(meta = (BindWidget))
+	UTextBlock* NameText;
+
+	UPROPERTY(EditAnywhere, Category = "Party Frame")
+	int PlayerNameCharLimit = 12;
 	
 	UPROPERTY()
 	ASaiyoraPlayerCharacter* PlayerCharacter;

@@ -35,4 +35,6 @@ private:
 	TArray<UPartyFrame*> ActiveFrames;
 	UPROPERTY()
 	UPlayerHUD* OwnerHUD;
+
+	void UpdateFramesVisibility();
 };
