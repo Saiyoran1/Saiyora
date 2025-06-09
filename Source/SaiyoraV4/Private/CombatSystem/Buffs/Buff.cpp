@@ -338,3 +338,69 @@ void UBuff::OnRep_RemovalReason()
 }
 
 #pragma endregion
+#pragma region Display
+
+bool UBuff::ShouldDisplayOnPlayerHUD() const
+{
+    switch (PlayerHUDDisplay)
+    {
+    case EBuffDisplayOption::NoDisplay :
+        return false;
+    case EBuffDisplayOption::Display :
+        return true;
+    case EBuffDisplayOption::DisplayOnlyFromSelf :
+        {
+            if (const ASaiyoraPlayerCharacter* Player = Cast<ASaiyoraPlayerCharacter>(GetAppliedBy()))
+            {
+                return Player->IsLocallyControlled();
+            }
+            return false;
+        }
+    default :
+        return true;
+    }
+}
+
+bool UBuff::ShouldDisplayOnNameplate() const
+{
+    switch (NameplateDisplay)
+    {
+    case EBuffDisplayOption::NoDisplay :
+        return false;
+    case EBuffDisplayOption::Display :
+        return true;
+    case EBuffDisplayOption::DisplayOnlyFromSelf :
+        {
+            if (const ASaiyoraPlayerCharacter* Player = Cast<ASaiyoraPlayerCharacter>(GetAppliedBy()))
+            {
+                return Player->IsLocallyControlled();
+            }
+            return false;
+        }
+    default :
+        return true;
+    }
+}
+
+bool UBuff::ShouldDisplayOnPartyFrame() const
+{
+    switch (PartyFrameDisplay)
+    {
+    case EBuffDisplayOption::NoDisplay :
+        return false;
+    case EBuffDisplayOption::Display :
+        return true;
+    case EBuffDisplayOption::DisplayOnlyFromSelf :
+        {
+            if (const ASaiyoraPlayerCharacter* Player = Cast<ASaiyoraPlayerCharacter>(GetAppliedBy()))
+            {
+                return Player->IsLocallyControlled();
+            }
+            return false;
+        }
+    default :
+        return true;
+    }
+}
+
+#pragma endregion 

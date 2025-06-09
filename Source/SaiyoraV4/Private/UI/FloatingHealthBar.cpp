@@ -110,10 +110,7 @@ void UFloatingHealthBar::UpdateLifeStatus(AActor* Actor, const ELifeStatus Previ
 
 void UFloatingHealthBar::OnIncomingBuffApplied(const FBuffApplyEvent& Event)
 {
-	//For now, we will only display buffs applied by the local player, to prevent clutter.
-	//Probably need a system in place for determining "important" buffs and debuffs.
-	if (!IsValid(Event.AffectedBuff) || Event.AffectedBuff->GetBuffType() == EBuffType::HiddenBuff
-		|| Event.AppliedTo != TargetBuffHandler->GetOwner() || (Event.AffectedBuff->GetBuffType() == EBuffType::Debuff && Event.AppliedBy != LocalPlayer))
+	if (!IsValid(Event.AffectedBuff) || !Event.AffectedBuff->ShouldDisplayOnNameplate())
 	{
 		return;
 	}

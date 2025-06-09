@@ -9,7 +9,7 @@
 void UBuffContainer::InitBuffContainer(UPlayerHUD* OwningHUD, ASaiyoraPlayerCharacter* OwningPlayer, const EBuffType BuffType)
 {
 	if (!IsValid(OwningHUD) || !IsValid(OwningPlayer) || !OwningPlayer->Implements<USaiyoraCombatInterface>()
-		|| BuffType == EBuffType::HiddenBuff || !IsValid(BuffWidgetClass))
+		|| !IsValid(BuffWidgetClass))
 	{
 		return;
 	}
@@ -23,14 +23,7 @@ void UBuffContainer::InitBuffContainer(UPlayerHUD* OwningHUD, ASaiyoraPlayerChar
 	OwnerBuffHandler->OnIncomingBuffApplied.AddDynamic(this, &UBuffContainer::OnBuffApplied);
 	OwnerBuffHandler->OnIncomingBuffRemoved.AddDynamic(this, &UBuffContainer::OnBuffRemoved);
 	TArray<UBuff*> Buffs;
-	if (ContainerType == EBuffType::Buff)
-	{
-		OwnerBuffHandler->GetBuffs(Buffs);
-	}
-	else
-	{
-		OwnerBuffHandler->GetDebuffs(Buffs);
-	}
+	OwnerBuffHandler->GetBuffsOfType(ContainerType, Buffs);
 	for (UBuff* Buff : Buffs)
 	{
 		FBuffApplyEvent Event;
@@ -41,7 +34,8 @@ void UBuffContainer::InitBuffContainer(UPlayerHUD* OwningHUD, ASaiyoraPlayerChar
 
 void UBuffContainer::OnBuffApplied(const FBuffApplyEvent& Event)
 {
-	if (!IsValid(Event.AffectedBuff) || Event.AffectedBuff->GetBuffType() != ContainerType)
+	if (!IsValid(Event.AffectedBuff) || Event.AffectedBuff->GetBuffType() != ContainerType
+		|| !Event.AffectedBuff->ShouldDisplayOnPlayerHUD())
 	{
 		return;
 	}
@@ -63,7 +57,8 @@ void UBuffContainer::OnBuffApplied(const FBuffApplyEvent& Event)
 
 void UBuffContainer::OnBuffRemoved(const FBuffRemoveEvent& Event)
 {
-	if (!IsValid(Event.RemovedBuff) || Event.RemovedBuff->GetBuffType() != ContainerType)
+	if (!IsValid(Event.RemovedBuff) || Event.RemovedBuff->GetBuffType() != ContainerType
+		|| !Event.RemovedBuff->ShouldDisplayOnPlayerHUD())
 	{
 		return;
 	}

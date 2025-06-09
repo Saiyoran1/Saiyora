@@ -54,18 +54,28 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Buff")
 	EBuffType GetBuffType() const { return BuffType; }
 
+	bool ShouldDisplayOnPlayerHUD() const;
+	bool ShouldDisplayOnNameplate() const;
+	bool ShouldDisplayOnPartyFrame() const;
+
 private:
 
 	UPROPERTY(EditDefaultsOnly, Category = "Display Information")
 	FName Name;
 	UPROPERTY(EditDefaultsOnly, Category = "Display Information")
-	UTexture2D* Icon;
+	UTexture2D* Icon = nullptr;
 	UPROPERTY(EditDefaultsOnly, Category = "Display Information")
 	FText Description;
 	UPROPERTY(EditDefaultsOnly, Category = "Display Information")
-	FLinearColor ProgressColor;
+	FLinearColor ProgressColor = FColor::White;
 	UPROPERTY(EditDefaultsOnly, Category = "Display Information")
-	EBuffType BuffType = EBuffType::Buff;	
+	EBuffType BuffType = EBuffType::Buff;
+	UPROPERTY(EditDefaultsOnly, Category = "Display Information")
+	EBuffDisplayOption PlayerHUDDisplay = EBuffDisplayOption::Display;
+	UPROPERTY(EditDefaultsOnly, Category = "Display Information")
+	EBuffDisplayOption NameplateDisplay = EBuffDisplayOption::DisplayOnlyFromSelf;
+	UPROPERTY(EditDefaultsOnly, Category = "Display Information")
+	EBuffDisplayOption PartyFrameDisplay = EBuffDisplayOption::Display;
 
 #pragma endregion
 #pragma region Application

@@ -63,15 +63,8 @@ public:
 	//Actors may want to have outgoing buffs and restrictions without being buffed themselves.
 	UFUNCTION(BlueprintPure, Category = "Buffs")
 	bool CanEverReceiveBuffs() const { return bCanEverReceiveBuffs; }
-	//Get buffs applied to this actor (not debuffs or hidden buffs).
-	UFUNCTION(BlueprintPure, Category = "Buff")
-	void GetBuffs(TArray<UBuff*>& OutBuffs) const { OutBuffs = Buffs; }
-	//Get debuffs applied to this actor.
-	UFUNCTION(BlueprintPure, Category = "Buff")
-	void GetDebuffs(TArray<UBuff*>& OutDebuffs) const { OutDebuffs = Debuffs; }
-	//Get hidden buffs applied to this actor.
-	UFUNCTION(BlueprintPure, Category = "Buff")
-	void GetHiddenBuffs(TArray<UBuff*>& OutHiddenBuffs) const { OutHiddenBuffs = HiddenBuffs; }
+	//Get either buffs or debuffs applied to this actor.
+	void GetBuffsOfType(const EBuffType BuffType, TArray<UBuff*>& OutBuffs) const;
 	//Get buffs applied to this actor of a specific class.
 	UFUNCTION(BlueprintPure, Category = "Buff")
 	void GetBuffsOfClass(const TSubclassOf<UBuff> BuffClass, TArray<UBuff*>& OutBuffs) const;
@@ -107,18 +100,9 @@ private:
 	//Does not change during gameplay.
 	UPROPERTY(EditAnywhere, Category = "Buffs")
 	bool bCanEverReceiveBuffs = true;
-	//One of three arrays of active buffs applied to this actor.
-	//These are typically "positive" effects.
+	//Active buffs applied to this actor.
 	UPROPERTY()
-	TArray<UBuff*> Buffs;
-	//One of three arrays of active buffs applied to this actor.
-	//These are typically "negative" effects.
-	UPROPERTY()
-	TArray<UBuff*> Debuffs;
-	//One of three arrays of active buffs applied to this actor.
-	//These effects are hidden from player UI.
-	UPROPERTY()
-	TArray<UBuff*> HiddenBuffs;
+	TArray<UBuff*> ActiveBuffs;
 	//Called after removing a buff on the server to stop replicating it and drop the pointer.
 	UFUNCTION()
 	void PostRemoveCleanup(UBuff* Buff);

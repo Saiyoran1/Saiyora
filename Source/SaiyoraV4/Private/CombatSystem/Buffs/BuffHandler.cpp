@@ -151,27 +151,11 @@ void UBuffHandler::NotifyOfNewIncomingBuff(const FBuffApplyEvent& ApplicationEve
 	{
 		return;
 	}
-	//Buff will be added to an array based on its type (buff, debuff, or hidden).
-	TArray<UBuff*>* BuffArray;
-	switch (ApplicationEvent.AffectedBuff->GetBuffType())
-	{
-	case EBuffType::Buff :
-		BuffArray = &Buffs;
-		break;
-	case EBuffType::Debuff :
-		BuffArray = &Debuffs;
-		break;
-	case EBuffType::HiddenBuff :
-		BuffArray = &HiddenBuffs;
-		break;
-	default :
-		return;
-	}
-	if (BuffArray->Contains(ApplicationEvent.AffectedBuff))
+	if (ActiveBuffs.Contains(ApplicationEvent.AffectedBuff))
 	{
 		return;
 	}
-	BuffArray->Add(ApplicationEvent.AffectedBuff);
+	ActiveBuffs.Add(ApplicationEvent.AffectedBuff);
 	AddReplicatedSubObject(ApplicationEvent.AffectedBuff);
 	OnIncomingBuffApplied.Broadcast(ApplicationEvent);
 	//Alert the actor who applied this buff that they should keep track of it as well.
@@ -213,23 +197,7 @@ void UBuffHandler::NotifyOfIncomingBuffRemoval(const FBuffRemoveEvent& RemoveEve
 	{
 		return;
 	}
-	//Remove the buff from an array based on buff type (buff, debuff, or hidden).
-	TArray<UBuff*>* BuffArray;
-	switch (RemoveEvent.RemovedBuff->GetBuffType())
-	{
-	case EBuffType::Buff :
-		BuffArray = &Buffs;
-		break;
-	case EBuffType::Debuff :
-		BuffArray = &Debuffs;
-		break;
-	case EBuffType::HiddenBuff :
-		BuffArray = &HiddenBuffs;
-		break;
-	default :
-		return;
-	}
-	if (BuffArray->Remove(RemoveEvent.RemovedBuff) > 0)
+	if (ActiveBuffs.Remove(RemoveEvent.RemovedBuff) > 0)
 	{
 		OnIncomingBuffRemoved.Broadcast(RemoveEvent);
 		//Move the buff to another array that will continue to replicate for a short time.
@@ -273,25 +241,11 @@ void UBuffHandler::RemoveBuffsOnOwnerDeath(AActor* Actor, const ELifeStatus Prev
 	if (NewStatus != ELifeStatus::Alive)
 	{
 		TArray<UBuff*> BuffsToRemove;
-		for (UBuff* Buff : Buffs)
+		for (UBuff* Buff : ActiveBuffs)
 		{
 			if (!Buff->CanBeAppliedWhileDead())
 			{
 				BuffsToRemove.Add(Buff);
-			}
-		}
-		for (UBuff* Debuff : Debuffs)
-		{
-			if (!Debuff->CanBeAppliedWhileDead())
-			{
-				BuffsToRemove.Add(Debuff);
-			}
-		}
-		for (UBuff* HiddenBuff : HiddenBuffs)
-		{
-			if (!HiddenBuff->CanBeAppliedWhileDead())
-			{
-				BuffsToRemove.Add(HiddenBuff);
 			}
 		}
 		for (UBuff* BuffToRemove : BuffsToRemove)
@@ -307,21 +261,7 @@ void UBuffHandler::RemoveBuffsOnCombatEnd(const ENPCCombatBehavior PreviousBehav
 	if (PreviousBehavior == ENPCCombatBehavior::Combat && NewBehavior != ENPCCombatBehavior::Combat)
 	{
 		TArray<UBuff*> BuffsToRemove;
-		for (UBuff* Buff : Buffs)
-		{
-			if (Buff->IsRemovedOnCombatEnd())
-			{
-				BuffsToRemove.Add(Buff);
-			}
-		}
-		for (UBuff* Buff : Debuffs)
-		{
-			if (Buff->IsRemovedOnCombatEnd())
-			{
-				BuffsToRemove.Add(Buff);
-			}
-		}
-		for (UBuff* Buff : HiddenBuffs)
+		for (UBuff* Buff : ActiveBuffs)
 		{
 			if (Buff->IsRemovedOnCombatEnd())
 			{
@@ -338,6 +278,18 @@ void UBuffHandler::RemoveBuffsOnCombatEnd(const ENPCCombatBehavior PreviousBehav
 #pragma endregion 
 #pragma region Get Buffs
 
+void UBuffHandler::GetBuffsOfType(const EBuffType BuffType, TArray<UBuff*>& OutBuffs) const
+{
+	OutBuffs.Empty();
+	for (UBuff* Buff : ActiveBuffs)
+	{
+		if (IsValid(Buff) && Buff->GetBuffType() == BuffType)
+		{
+			OutBuffs.Add(Buff);
+		}
+	}
+}
+
 void UBuffHandler::GetBuffsOfClass(const TSubclassOf<UBuff> BuffClass, TArray<UBuff*>& OutBuffs) const
 {
 	OutBuffs.Empty();
@@ -345,22 +297,7 @@ void UBuffHandler::GetBuffsOfClass(const TSubclassOf<UBuff> BuffClass, TArray<UB
 	{
 		return;
 	}
-	TArray<UBuff*> const* BuffArray;
-	switch (BuffClass.GetDefaultObject()->GetBuffType())
-	{
-		case EBuffType::Buff :
-			BuffArray = &Buffs;
-			break;
-		case EBuffType::Debuff :
-			BuffArray = &Debuffs;
-			break;
-		case EBuffType::HiddenBuff :
-			BuffArray = &HiddenBuffs;
-			break;
-		default :
-			return;
-	}
-	for (UBuff* Buff : *BuffArray)
+	for (UBuff* Buff : ActiveBuffs)
 	{
 		if (IsValid(Buff) && Buff->GetClass() == BuffClass)
 		{
@@ -376,27 +313,29 @@ void UBuffHandler::GetBuffsAppliedByActor(const AActor* Actor, TArray<UBuff*>& O
 	{
 		return;
 	}
-	for (UBuff* Buff : Buffs)
+	for (UBuff* Buff : ActiveBuffs)
 	{
 		if (IsValid(Buff) && Buff->GetAppliedBy() == Actor)
 		{
 			OutBuffs.Add(Buff);
 		}
 	}
-	for (UBuff* Debuff : Debuffs)
+}
+
+UBuff* UBuffHandler::FindExistingBuff(const TSubclassOf<UBuff> BuffClass, const bool bSpecificOwner, const AActor* BuffOwner) const
+{
+	if (!IsValid(BuffClass) || (bSpecificOwner && !IsValid(BuffOwner)))
 	{
-		if (IsValid(Debuff) && Debuff->GetAppliedBy() == Actor)
+		return nullptr;
+	}
+	for (UBuff* Buff : ActiveBuffs)
+	{
+		if (IsValid(Buff) && Buff->GetClass() == BuffClass && (!bSpecificOwner || Buff->GetAppliedBy() == BuffOwner))
 		{
-			OutBuffs.Add(Debuff);
+			return Buff;
 		}
 	}
-	for (UBuff* HiddenBuff : HiddenBuffs)
-	{
-		if (IsValid(HiddenBuff) && HiddenBuff->GetAppliedBy() == Actor)
-		{
-			OutBuffs.Add(HiddenBuff);
-		}
-	}
+	return nullptr;
 }
 
 void UBuffHandler::GetOutgoingBuffsOfClass(const TSubclassOf<UBuff> BuffClass, TArray<UBuff*>& OutBuffs) const
@@ -441,37 +380,6 @@ UBuff* UBuffHandler::FindExistingOutgoingBuff(const TSubclassOf<UBuff> BuffClass
 	for (UBuff* Buff : OutgoingBuffs)
 	{
 		if (IsValid(Buff) && Buff->GetClass() == BuffClass && (!bSpecificTarget || Buff->GetAppliedTo() == BuffTarget))
-		{
-			return Buff;
-		}
-	}
-	return nullptr;
-}
-
-UBuff* UBuffHandler::FindExistingBuff(const TSubclassOf<UBuff> BuffClass, const bool bSpecificOwner, const AActor* BuffOwner) const
-{
-	if (!IsValid(BuffClass) || (bSpecificOwner && !IsValid(BuffOwner)))
-	{
-		return nullptr;
-	}
-	TArray<UBuff*> const* BuffArray;
-	switch (BuffClass.GetDefaultObject()->GetBuffType())
-	{
-		case EBuffType::Buff :
-			BuffArray = &Buffs;
-			break;
-		case EBuffType::Debuff :
-			BuffArray = &Debuffs;
-			break;
-		case EBuffType::HiddenBuff :
-			BuffArray = &HiddenBuffs;
-			break;
-		default :
-			return nullptr;
-	}
-	for (UBuff* Buff : *BuffArray)
-	{
-		if (IsValid(Buff) && Buff->GetClass() == BuffClass && (!bSpecificOwner || Buff->GetAppliedBy() == BuffOwner))
 		{
 			return Buff;
 		}

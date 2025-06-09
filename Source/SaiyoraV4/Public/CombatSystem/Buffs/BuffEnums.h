@@ -1,6 +1,6 @@
 #pragma once
 
-//The type of buff, to sort into arrays and display in different ways for players
+//The type of buff, mostly just used to determine display information.
 UENUM(BlueprintType)
 enum class EBuffType : uint8
 {
@@ -8,8 +8,6 @@ enum class EBuffType : uint8
 	Buff,
 	//Typically a "negative" status effect
 	Debuff,
-	//Status effect not displayed on player UI
-	HiddenBuff,
 };
 
 //The type of override to use when calculating new buff stacks or duration, or when deciding to duplicate a buff
@@ -101,4 +99,12 @@ enum class EBuffApplyFailReason : uint8
 	InvalidThreatTarget,
 	//Existing buff couldn't stack or refresh, and the buff wasn't duplicable
 	NoStackRefreshOrDuplicate,
+};
+
+UENUM()
+enum class EBuffDisplayOption : uint8
+{
+	NoDisplay,
+	Display,
+	DisplayOnlyFromSelf,
 };
