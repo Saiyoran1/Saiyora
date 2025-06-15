@@ -63,6 +63,8 @@ public:
 	//Actors may want to have outgoing buffs and restrictions without being buffed themselves.
 	UFUNCTION(BlueprintPure, Category = "Buffs")
 	bool CanEverReceiveBuffs() const { return bCanEverReceiveBuffs; }
+	//Get all buffs and debuffs applied to this actor.
+	void GetBuffs(TArray<UBuff*>& OutBuffs) const { OutBuffs = ActiveBuffs; } 
 	//Get either buffs or debuffs applied to this actor.
 	void GetBuffsOfType(const EBuffType BuffType, TArray<UBuff*>& OutBuffs) const;
 	//Get buffs applied to this actor of a specific class.

@@ -1,9 +1,12 @@
 ﻿#pragma once
 #include "CoreMinimal.h"
+#include "BuffStructs.h"
+#include "HorizontalBox.h"
 #include "TextBlock.h"
 #include "UserWidget.h"
 #include "PartyFrame.generated.h"
 
+class UBuffIcon;
 class UPlayerHUD;
 class UHealthBar;
 class ASaiyoraPlayerCharacter;
@@ -25,12 +28,25 @@ private:
 	UHealthBar* HealthBar;
 	UPROPERTY(meta = (BindWidget))
 	UTextBlock* NameText;
+	UPROPERTY(meta = (BindWidget))
+	UHorizontalBox* BuffBox;
 
 	UPROPERTY(EditAnywhere, Category = "Party Frame")
 	int PlayerNameCharLimit = 12;
+	UPROPERTY(EditAnywhere, Category = "Party Frame")
+	TSubclassOf<UBuffIcon> BuffIconClass;
 	
 	UPROPERTY()
 	ASaiyoraPlayerCharacter* PlayerCharacter;
 	UPROPERTY()
 	UPlayerHUD* OwnerHUD;
+
+	UFUNCTION()
+	void OnBuffApplied(const FBuffApplyEvent& ApplyEvent) { OnBuffApplied(ApplyEvent.AffectedBuff); }
+	void OnBuffApplied(UBuff* Buff);
+	UFUNCTION()
+	void OnBuffRemoved(const FBuffRemoveEvent& RemoveEvent);
+
+	UPROPERTY()
+	TMap<UBuff*, UBuffIcon*> BuffIcons;
 };
