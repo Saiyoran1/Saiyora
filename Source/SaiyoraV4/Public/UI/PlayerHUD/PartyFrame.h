@@ -2,10 +2,12 @@
 #include "CoreMinimal.h"
 #include "BuffStructs.h"
 #include "HorizontalBox.h"
+#include "Image.h"
 #include "TextBlock.h"
 #include "UserWidget.h"
 #include "PartyFrame.generated.h"
 
+class UCombatStatusComponent;
 class UBuffIcon;
 class UPlayerHUD;
 class UHealthBar;
@@ -21,6 +23,7 @@ public:
 
 	void InitFrame(UPlayerHUD* OwningHUD, ASaiyoraPlayerCharacter* Player);
 	ASaiyoraPlayerCharacter* GetAssignedPlayer() const { return PlayerCharacter; }
+	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
 
 private:
 
@@ -30,11 +33,18 @@ private:
 	UTextBlock* NameText;
 	UPROPERTY(meta = (BindWidget))
 	UHorizontalBox* BuffBox;
+	UPROPERTY(meta = (BindWidget))
+	UImage* XPlaneOverlayImage;
 
 	UPROPERTY(EditAnywhere, Category = "Party Frame")
 	int PlayerNameCharLimit = 12;
 	UPROPERTY(EditAnywhere, Category = "Party Frame")
 	TSubclassOf<UBuffIcon> BuffIconClass;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Party Frame")
+	UMaterialInstance* XPlaneOverlayMaterial;
+	UPROPERTY(EditDefaultsOnly, Category = "Party Frame")
+	float XPlaneAnimationLength = 0.5f;
 	
 	UPROPERTY()
 	ASaiyoraPlayerCharacter* PlayerCharacter;
@@ -46,7 +56,17 @@ private:
 	void OnBuffApplied(UBuff* Buff);
 	UFUNCTION()
 	void OnBuffRemoved(const FBuffRemoveEvent& RemoveEvent);
-
 	UPROPERTY()
 	TMap<UBuff*, UBuffIcon*> BuffIcons;
+
+	float XPlaneAlpha = 0.0f;
+	bool bIsXPlaneFromLocalPlayer = false;
+	UPROPERTY()
+	UMaterialInstanceDynamic* DynamicXPlaneOverlayMat;
+	UPROPERTY()
+	UCombatStatusComponent* AssignedPlayerCombatComp;
+	UPROPERTY()
+	UCombatStatusComponent* LocalPlayerCombatComp;
+	UFUNCTION()
+	void OnPlaneSwap(const ESaiyoraPlane PreviousPlane, const ESaiyoraPlane NewPlane, UObject* Source);
 };

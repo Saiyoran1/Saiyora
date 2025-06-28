@@ -2,8 +2,10 @@
 #include "BuffHandler.h"
 #include "Buff.h"
 #include "BuffIcon.h"
+#include "CombatStatusComponent.h"
 #include "PlayerHUD.h"
 #include "HealthBar.h"
+#include "SaiyoraCombatLibrary.h"
 #include "SaiyoraPlayerCharacter.h"
 #include "GameFramework/PlayerState.h"
 
@@ -37,6 +39,48 @@ void UPartyFrame::InitFrame(UPlayerHUD* OwningHUD, ASaiyoraPlayerCharacter* Play
 			OnBuffApplied(Buff);
 		}
 	}
+	//For players other than the local player, we'll play an animation when a plane swap happens, to indicate whether the player is xplane from the local player.
+	if (!Player->IsLocallyControlled())
+	{
+		DynamicXPlaneOverlayMat = UMaterialInstanceDynamic::Create(XPlaneOverlayMaterial, this);
+		if (IsValid(DynamicXPlaneOverlayMat))
+		{
+			XPlaneOverlayImage->SetBrushFromMaterial(DynamicXPlaneOverlayMat);
+		}
+		const ASaiyoraPlayerCharacter* LocalPlayer = USaiyoraCombatLibrary::GetLocalSaiyoraPlayer(GetWorld());
+		if (IsValid(LocalPlayer))
+		{
+			LocalPlayerCombatComp = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(LocalPlayer);
+			AssignedPlayerCombatComp = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(Player);
+			if (IsValid(AssignedPlayerCombatComp) && IsValid(LocalPlayerCombatComp))
+			{
+				
+				//If we have a valid combat status component for both the local player and the assigned player, bind to both of their plane swap delegates.
+				AssignedPlayerCombatComp->OnPlaneSwapped.AddDynamic(this, &UPartyFrame::OnPlaneSwap);
+				LocalPlayerCombatComp->OnPlaneSwapped.AddDynamic(this, &UPartyFrame::OnPlaneSwap);
+				OnPlaneSwap(ESaiyoraPlane::Neither, AssignedPlayerCombatComp->GetCurrentPlane(), nullptr);
+			}
+		}
+	}
+}
+
+void UPartyFrame::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
+{
+	Super::NativeTick(MyGeometry, InDeltaTime);
+
+	if (IsValid(XPlaneOverlayImage) && IsValid(DynamicXPlaneOverlayMat))
+	{
+		if ((bIsXPlaneFromLocalPlayer && XPlaneAlpha < 1.0f) || (!bIsXPlaneFromLocalPlayer && XPlaneAlpha > 0.0f))
+		{
+			XPlaneAlpha = FMath::Clamp(XPlaneAlpha + ((InDeltaTime / XPlaneAnimationLength) * bIsXPlaneFromLocalPlayer ? 1.0f : -1.0f), 0.0f, 1.0f);
+			DynamicXPlaneOverlayMat->SetScalarParameterValue(FName("Alpha"), XPlaneAlpha);
+		}
+		const ESlateVisibility DesiredVisibility = XPlaneAlpha == 0.0f ? ESlateVisibility::Collapsed : ESlateVisibility::HitTestInvisible;
+		if (DesiredVisibility != XPlaneOverlayImage->GetVisibility())
+		{
+			XPlaneOverlayImage->SetVisibility(DesiredVisibility);
+		}
+	}
 }
 
 void UPartyFrame::OnBuffApplied(UBuff* Buff)
@@ -68,4 +112,14 @@ void UPartyFrame::OnBuffRemoved(const FBuffRemoveEvent& RemoveEvent)
 		Icon->RemoveFromParent();
 		BuffIcons.Remove(RemoveEvent.RemovedBuff);
 	}
+}
+
+void UPartyFrame::OnPlaneSwap(const ESaiyoraPlane PreviousPlane, const ESaiyoraPlane NewPlane, UObject* Source)
+{
+	if (!IsValid(LocalPlayerCombatComp) || !IsValid(AssignedPlayerCombatComp))
+	{
+		bIsXPlaneFromLocalPlayer = false;
+		return;
+	}
+	bIsXPlaneFromLocalPlayer = UAbilityFunctionLibrary::IsXPlane(LocalPlayerCombatComp->GetCurrentPlane(), AssignedPlayerCombatComp->GetCurrentPlane());
 }
