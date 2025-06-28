@@ -46,6 +46,8 @@ void UPartyFrame::InitFrame(UPlayerHUD* OwningHUD, ASaiyoraPlayerCharacter* Play
 		if (IsValid(DynamicXPlaneOverlayMat))
 		{
 			XPlaneOverlayImage->SetBrushFromMaterial(DynamicXPlaneOverlayMat);
+			DynamicXPlaneOverlayMat->SetScalarParameterValue("Alpha", 0.0f);
+			XPlaneOverlayImage->SetVisibility(ESlateVisibility::Collapsed);
 		}
 		const ASaiyoraPlayerCharacter* LocalPlayer = USaiyoraCombatLibrary::GetLocalSaiyoraPlayer(GetWorld());
 		if (IsValid(LocalPlayer))
@@ -62,6 +64,10 @@ void UPartyFrame::InitFrame(UPlayerHUD* OwningHUD, ASaiyoraPlayerCharacter* Play
 			}
 		}
 	}
+	else
+	{
+		XPlaneOverlayImage->SetVisibility(ESlateVisibility::Collapsed);
+	}
 }
 
 void UPartyFrame::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
@@ -72,11 +78,11 @@ void UPartyFrame::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 	{
 		if ((bIsXPlaneFromLocalPlayer && XPlaneAlpha < 1.0f) || (!bIsXPlaneFromLocalPlayer && XPlaneAlpha > 0.0f))
 		{
-			XPlaneAlpha = FMath::Clamp(XPlaneAlpha + ((InDeltaTime / XPlaneAnimationLength) * bIsXPlaneFromLocalPlayer ? 1.0f : -1.0f), 0.0f, 1.0f);
+			XPlaneAlpha = FMath::Clamp(XPlaneAlpha + ((InDeltaTime / XPlaneAnimationLength) * (bIsXPlaneFromLocalPlayer ? 1.0f : -1.0f)), 0.0f, 1.0f);
 			DynamicXPlaneOverlayMat->SetScalarParameterValue(FName("Alpha"), XPlaneAlpha);
 		}
-		const ESlateVisibility DesiredVisibility = XPlaneAlpha == 0.0f ? ESlateVisibility::Collapsed : ESlateVisibility::HitTestInvisible;
-		if (DesiredVisibility != XPlaneOverlayImage->GetVisibility())
+		const ESlateVisibility DesiredVisibility = XPlaneAlpha > 0.0f ? ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed;
+		if (XPlaneOverlayImage->GetVisibility() != DesiredVisibility)
 		{
 			XPlaneOverlayImage->SetVisibility(DesiredVisibility);
 		}
