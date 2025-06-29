@@ -1,12 +1,14 @@
 ﻿#pragma once
 #include "CoreMinimal.h"
 #include "BuffStructs.h"
+#include "DamageStructs.h"
 #include "HorizontalBox.h"
 #include "Image.h"
 #include "TextBlock.h"
 #include "UserWidget.h"
 #include "PartyFrame.generated.h"
 
+class UDamageHandler;
 class UCombatStatusComponent;
 class UBuffIcon;
 class UPlayerHUD;
@@ -35,6 +37,8 @@ private:
 	UHorizontalBox* BuffBox;
 	UPROPERTY(meta = (BindWidget))
 	UImage* XPlaneOverlayImage;
+	UPROPERTY(meta = (BindWidget))
+	UImage* PendingResIcon;
 
 	UPROPERTY(EditAnywhere, Category = "Party Frame")
 	int PlayerNameCharLimit = 12;
@@ -69,4 +73,14 @@ private:
 	UCombatStatusComponent* LocalPlayerCombatComp;
 	UFUNCTION()
 	void OnPlaneSwap(const ESaiyoraPlane PreviousPlane, const ESaiyoraPlane NewPlane, UObject* Source);
+
+	UFUNCTION()
+	void OnPendingResAdded(const FPendingResurrection& PendingRes) { UpdatePendingResVisibility(); }
+	UFUNCTION()
+	void OnPendingResRemoved(const FPendingResurrection& PendingRes) { UpdatePendingResVisibility(); }
+	UFUNCTION()
+	void OnLifeStatusChanged(AActor* Actor, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus) { UpdatePendingResVisibility(); }
+	void UpdatePendingResVisibility();
+	UPROPERTY()
+	UDamageHandler* DamageHandlerRef;
 };

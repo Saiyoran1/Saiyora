@@ -3,6 +3,7 @@
 #include "Buff.h"
 #include "BuffIcon.h"
 #include "CombatStatusComponent.h"
+#include "DamageHandler.h"
 #include "PlayerHUD.h"
 #include "HealthBar.h"
 #include "SaiyoraCombatLibrary.h"
@@ -38,6 +39,15 @@ void UPartyFrame::InitFrame(UPlayerHUD* OwningHUD, ASaiyoraPlayerCharacter* Play
 		{
 			OnBuffApplied(Buff);
 		}
+	}
+	//When players have a pending res while dead, a little icon appears on their party frame.
+	DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(Player);
+	if (IsValid(DamageHandlerRef))
+	{
+		DamageHandlerRef->OnPendingResAdded.AddDynamic(this, &UPartyFrame::OnPendingResAdded);
+		DamageHandlerRef->OnPendingResRemoved.AddDynamic(this, &UPartyFrame::OnPendingResRemoved);
+		DamageHandlerRef->OnLifeStatusChanged.AddDynamic(this, &UPartyFrame::OnLifeStatusChanged);
+		UpdatePendingResVisibility();
 	}
 	//For players other than the local player, we'll play an animation when a plane swap happens, to indicate whether the player is xplane from the local player.
 	if (!Player->IsLocallyControlled())
@@ -128,4 +138,20 @@ void UPartyFrame::OnPlaneSwap(const ESaiyoraPlane PreviousPlane, const ESaiyoraP
 		return;
 	}
 	bIsXPlaneFromLocalPlayer = UAbilityFunctionLibrary::IsXPlane(LocalPlayerCombatComp->GetCurrentPlane(), AssignedPlayerCombatComp->GetCurrentPlane());
+}
+
+void UPartyFrame::UpdatePendingResVisibility()
+{
+	if (!IsValid(DamageHandlerRef))
+	{
+		PendingResIcon->SetVisibility(ESlateVisibility::Collapsed);
+		return;
+	}
+	if (DamageHandlerRef->GetLifeStatus() != ELifeStatus::Dead)
+	{
+		PendingResIcon->SetVisibility(ESlateVisibility::Collapsed);
+		return;
+	}
+	PendingResIcon->SetVisibility(DamageHandlerRef->GetPendingResurrections().Num() > 0
+		? ESlateVisibility::HitTestInvisible : ESlateVisibility::Collapsed);
 }
