@@ -153,6 +153,10 @@ void UCombatStatusComponent::SetupNameWidget(const ASaiyoraPlayerCharacter* Loca
 void UCombatStatusComponent::OnCombatChanged(UThreatHandler* Combatant, const bool bNewCombat)
 {
 	//Hide the name widget while in combat, show it outside of combat.
+	if (!IsValid(GetWidget()))
+	{
+		return;
+	}
 	if (bNewCombat)
 	{
 		GetWidget()->SetVisibility(ESlateVisibility::Collapsed);

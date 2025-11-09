@@ -4,7 +4,7 @@
 #include "Buff.h"
 #include "BuffContainer.h"
 #include "CastBar.h"
-#include "Crosshair.h"
+#include "CrosshairManager.h"
 #include "DungeonDisplay.h"
 #include "HealthBar.h"
 #include "PartyFrames.h"
@@ -54,9 +54,9 @@ void UPlayerHUD::InitializePlayerHUD(ASaiyoraPlayerCharacter* OwnerPlayer)
 	{
 		PartyFrames->Init(this);
 	}
-	if (IsValid(Crosshair))
+	if (IsValid(CrosshairManager))
 	{
-		Crosshair->Init(OwningPlayer);
+		CrosshairManager->Init(OwningPlayer);
 	}
 	AddToViewport();
 }

@@ -3,6 +3,7 @@
 #include "CombatAbility.h"
 #include "FireWeapon.generated.h"
 
+class UModernCrosshair;
 class AWeapon;
 
 USTRUCT(BlueprintType)
@@ -26,7 +27,8 @@ struct FShotVerificationInfo
 	float CooldownAtTime = 0.0f;
 
 	FShotVerificationInfo() {}
-	FShotVerificationInfo(const float InTimestamp, const float InCooldown) : Timestamp(InTimestamp), CooldownAtTime(InCooldown) {}
+	FShotVerificationInfo(const float InTimestamp, const float InCooldown)
+		: Timestamp(InTimestamp), CooldownAtTime(InCooldown) {}
 };
 
 UCLASS(Abstract, Blueprintable)
@@ -37,21 +39,13 @@ class SAIYORAV4_API UFireWeapon : public UCombatAbility
 public:
 
 	UFireWeapon();
-	virtual void GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
-//Fire Delay
+#pragma region Firing
 
 public:
 
 	virtual float GetCooldownLength() override;
-	
-private:
-	
-	FTimerHandle FireDelayTimer;
-	UFUNCTION()
-	void EndFireDelay();
-
-//Firing
 
 protected:
 
@@ -59,7 +53,14 @@ protected:
 	virtual void OnServerTick_Implementation(const int32 TickNumber) override;
 	virtual void OnSimulatedTick_Implementation(const int32 TickNumber) override;
 
-//Ammo
+private:
+	
+	FTimerHandle FireDelayTimer;
+	UFUNCTION()
+	void EndFireDelay();
+
+#pragma endregion 
+#pragma region Ammo
 
 public:
 
@@ -97,8 +98,9 @@ private:
 	UResourceHandler* ResourceHandlerRef = nullptr;
 	UPROPERTY()
 	UResource* AmmoResourceRef = nullptr;
-	
-//Weapon
+
+#pragma endregion 
+#pragma region Weapon
 	
 public:
 
@@ -117,7 +119,8 @@ private:
 	UPROPERTY()
 	AWeapon* Weapon = nullptr;
 
-//Verification
+#pragma endregion 
+#pragma region Verification
 
 private:
 
@@ -132,4 +135,18 @@ private:
 	FTimerHandle ServerFireRateTimer;
 	UFUNCTION()
 	void OnReloadComplete(const FAbilityEvent& AbilityEvent);
+
+#pragma endregion 
+#pragma region Crosshair
+
+public:
+
+	TSubclassOf<UModernCrosshair> GetCrosshairClass() const { return CrosshairClass; }
+
+private:
+
+	UPROPERTY(EditDefaultsOnly, Category = "Crosshair")
+	TSubclassOf<UModernCrosshair> CrosshairClass;
+
+#pragma endregion 
 };

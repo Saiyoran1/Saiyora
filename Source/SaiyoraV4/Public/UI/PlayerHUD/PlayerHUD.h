@@ -3,7 +3,8 @@
 #include "UserWidget.h"
 #include "PlayerHUD.generated.h"
 
-class UCrosshair;
+class AWeapon;
+class UCrosshairManager;
 class UPartyFrames;
 class UCombatAbility;
 class UBuff;
@@ -55,7 +56,7 @@ private:
 	UPROPERTY(meta = (BindWidget))
 	UPartyFrames* PartyFrames;
 	UPROPERTY(meta = (BindWidget))
-	UCrosshair* Crosshair;
+	UCrosshairManager* CrosshairManager;
 
 	UPROPERTY()
 	ASaiyoraPlayerCharacter* OwningPlayer;
