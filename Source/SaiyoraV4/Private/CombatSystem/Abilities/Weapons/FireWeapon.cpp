@@ -7,6 +7,7 @@
 #include "SaiyoraCombatLibrary.h"
 #include "SaiyoraPlayerCharacter.h"
 #include "UnrealNetwork.h"
+#include "Kismet/KismetMathLibrary.h"
 #include "Weapons/Reload.h"
 #include "Weapons/StopFiring.h"
 #include "Weapons/Weapon.h"
@@ -52,6 +53,7 @@ void UFireWeapon::OnPredictedTick_Implementation(const int32 TickNumber)
 	{
 		Weapon->FireWeapon();
 	}
+	UpdateSpreadForShot();
 }
 
 void UFireWeapon::OnServerTick_Implementation(const int32 TickNumber)
@@ -220,3 +222,121 @@ void UFireWeapon::OnReloadComplete(const FAbilityEvent& AbilityEvent)
 		ResetVerificationWindow();
 	}
 }
+
+#pragma region Crosshair
+
+void UFireWeapon::UpdateSpreadForShot()
+{
+	//If this weapon doesn't have a spread curve, it just doesn't have spread.
+	if (!IsValid(SpreadCurve))
+	{
+		return;
+	}
+	//Update our delay time until spread starts to decay. This is reset each time we shoot.
+	if (SpreadDecayDelay > 0.0f)
+	{
+		SpreadDecayDelayRemaining = SpreadDecayDelay;
+	}
+	//If our spread was in the process of decaying, stop decaying.
+	if (bDecayingSpread)
+	{
+		EndSpreadDecay();
+	}
+	//Update spread alpha (0-1) which is what we use to access the angle from our curve.
+	CurrentSpreadAlpha = FMath::Min(CurrentSpreadAlpha + SpreadAlphaPerShot, 1.0f);
+	//Update the spread angle from our curve using the new alpha.
+	const float PreviousAngle = CurrentSpreadAngle;
+	CurrentSpreadAngle = SpreadCurve->GetFloatValue(CurrentSpreadAlpha);
+	if (PreviousAngle != CurrentSpreadAngle)
+	{
+		OnSpreadChanged.Broadcast(CurrentSpreadAngle);
+	}
+}
+
+void UFireWeapon::StartSpreadDecay()
+{
+	bDecayingSpread = true;
+	DecayStartAlpha = CurrentSpreadAlpha;
+	DecayStartAngle = CurrentSpreadAngle;
+	CurrentDecayLength = SpreadDecayLength * CurrentSpreadAlpha;
+	TimeDecaying = 0.0f;
+}
+
+void UFireWeapon::EndSpreadDecay()
+{
+	bDecayingSpread = false;
+	DecayStartAlpha = 0.0f;
+	DecayStartAngle = 0.0f;
+	CurrentDecayLength = 0.0f;
+	TimeDecaying = 0.0f;
+}
+
+void UFireWeapon::TickSpreadDecay(const float DeltaTime)
+{
+	const ASaiyoraPlayerCharacter* OwningPlayer = Cast<ASaiyoraPlayerCharacter>(GetHandler()->GetOwner());
+	if (IsValid(OwningPlayer))
+	{
+		const FVector Forward = OwningPlayer->Camera->GetForwardVector();
+		DrawDebugLine(OwningPlayer->GetWorld(), OwningPlayer->Camera->GetComponentLocation() + Forward * 100.0f,
+			OwningPlayer->Camera->GetComponentLocation() + Forward * 1000.0f, FColor::Blue);
+		DrawDebugSphere(OwningPlayer->GetWorld(), OwningPlayer->Camera->GetComponentLocation() + Forward * 1000.f,
+			UKismetMathLibrary::DegTan(CurrentSpreadAngle) * 1000.0f, 32, FColor::Blue);
+	}
+	
+	//If we have no spread, then no need to decay.
+	if (CurrentSpreadAlpha <= 0.0f && CurrentSpreadAngle <= 0.0f)
+	{
+		return;
+	}
+	//If we recently shot, we might be waiting to decay the spread value.
+	float ActualDelta = DeltaTime;
+	if (SpreadDecayDelayRemaining > 0.0f)
+	{
+		//Reduce the decay delay time.
+		SpreadDecayDelayRemaining -= DeltaTime;
+		//If we should still be waiting after this tick, then return.
+		if (SpreadDecayDelayRemaining > 0.0f)
+		{
+			return;
+		}
+		//Check how much extra time we have beyond finishing our delay.
+		ActualDelta = FMath::Abs(SpreadDecayDelayRemaining);
+		SpreadDecayDelayRemaining = 0.0f;
+	}
+	//If we just started decaying our spread, set up some initial values.
+	//We don't just go backward over the curve, as we want spread decay to be linear.
+	//We also need to decay the alpha value under the hood separately,
+	//since there isn't a good way to invert the curve or handle situations where alpha might be > 0 even though spread is still 0.
+	if (!bDecayingSpread)
+	{
+		StartSpreadDecay();
+	}
+	//We'll use TimeDecaying to calculate an alpha value to lerp from our decay start to 0 for both spread alpha and angle.
+	TimeDecaying = FMath::Min(TimeDecaying + ActualDelta, CurrentDecayLength);
+	const float PreviousSpread = CurrentSpreadAngle;
+	//Once we've reached the total length of the spread decay, everything should ultimately be set to 0 and decay should be turned off.
+	if (CurrentDecayLength <= 0.0f || TimeDecaying >= CurrentDecayLength)
+	{
+		EndSpreadDecay();
+		CurrentSpreadAngle = 0.0f;
+		CurrentSpreadAlpha = 0.0f;
+	}
+	else
+	{
+		//If we haven't finished decaying, we'll just lerp both alpha and angle to the correct values.
+		const float DecayAlpha = FMath::Clamp(TimeDecaying / CurrentDecayLength, 0.0f, 1.0f);
+		CurrentSpreadAlpha = FMath::Lerp(DecayStartAlpha, 0.0f, DecayAlpha);
+		CurrentSpreadAngle = FMath::Lerp(DecayStartAngle, 0.0f, DecayAlpha);
+	}
+	if (PreviousSpread != CurrentSpreadAngle)
+	{
+		OnSpreadChanged.Broadcast(CurrentSpreadAngle);
+	}
+}
+
+bool UFireWeapon::IsTickable() const
+{
+	return IsValid(GetHandler()) && (IsValid(SpreadCurve) || IsValid(RecoilCurve));
+}
+
+#pragma endregion
