@@ -227,8 +227,7 @@ void UFireWeapon::OnReloadComplete(const FAbilityEvent& AbilityEvent)
 
 void UFireWeapon::UpdateSpreadForShot()
 {
-	//If this weapon doesn't have a spread curve, it just doesn't have spread.
-	if (!IsValid(SpreadCurve))
+	if (!UsesSpread())
 	{
 		return;
 	}
@@ -336,7 +335,7 @@ void UFireWeapon::TickSpreadDecay(const float DeltaTime)
 
 bool UFireWeapon::IsTickable() const
 {
-	return IsValid(GetHandler()) && (IsValid(SpreadCurve) || IsValid(RecoilCurve));
+	return IsValid(GetHandler()) && (UsesSpread() || IsValid(RecoilCurve));
 }
 
 #pragma endregion

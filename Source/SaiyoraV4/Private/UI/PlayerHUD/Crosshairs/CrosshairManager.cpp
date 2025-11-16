@@ -1,10 +1,10 @@
-﻿#include "CrosshairManager.h"
-
+﻿#include "Crosshairs/CrosshairManager.h"
 #include "AbilityComponent.h"
+#include "CanvasPanelSlot.h"
 #include "CombatStatusComponent.h"
 #include "FireWeapon.h"
-#include "ModernCrosshair.h"
 #include "SaiyoraPlayerCharacter.h"
+#include "Crosshairs/ModernCrosshair.h"
 
 void UCrosshairManager::Init(ASaiyoraPlayerCharacter* PlayerRef)
 {
@@ -80,7 +80,10 @@ void UCrosshairManager::OnAbilityAdded(UCombatAbility* NewAbility)
 		ModernCrosshair = CreateWidget<UModernCrosshair>(this, WeaponAbility->GetCrosshairClass());
 		if (IsValid(ModernCrosshair))
 		{
-			CrosshairCanvas->AddChildToCanvas(ModernCrosshair);
+			UCanvasPanelSlot* PanelSlot = CrosshairCanvas->AddChildToCanvas(ModernCrosshair);
+			PanelSlot->SetAutoSize(true);
+			PanelSlot->SetAnchors({ 0.5f });
+			PanelSlot->SetAlignment({ 0.5f, 0.5f });
 			ModernCrosshair->Init(PlayerChar, WeaponAbility);
 		}
 	}

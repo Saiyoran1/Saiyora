@@ -11,7 +11,7 @@ class UFireWeapon;
 class UModernCrosshair;
 class ASaiyoraPlayerCharacter;
 
-UCLASS()
+UCLASS(Abstract)
 class SAIYORAV4_API UCrosshairManager : public UUserWidget
 {
 	GENERATED_BODY()

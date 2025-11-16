@@ -145,6 +145,8 @@ private:
 public:
 
 	TSubclassOf<UModernCrosshair> GetCrosshairClass() const { return CrosshairClass; }
+	bool UsesSpread() const { return IsValid(SpreadCurve); }
+	float GetOptimalDisplayRange() const { return OptimalDisplayRange; }
 	float GetCurrentSpreadAngle() const { return CurrentSpreadAngle; }
 	FWeaponSpreadNotification OnSpreadChanged;
 
@@ -165,6 +167,9 @@ private:
 	//The time between the weapon firing and spread beginning to decay back to 0.
 	UPROPERTY(EditDefaultsOnly, Category = "Crosshair")
 	float SpreadDecayDelay = 0.0f;
+	//Used for displaying spread on the UI. Basically a good "average" range for the weapon.
+	UPROPERTY(EditDefaultsOnly, Category = "Crosshair")
+	float OptimalDisplayRange = 2000.0f;
 
 	//Called when the weapon is fired to increase the spread alpha and recalculate the spread angle.
 	//Also resets the spread decay delay and cancels the current decaying of spread.
