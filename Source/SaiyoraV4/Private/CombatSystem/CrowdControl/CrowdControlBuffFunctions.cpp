@@ -1,52 +1,82 @@
 ﻿#include "CrowdControlBuffFunctions.h"
 #include "Buff.h"
-#include "BuffHandler.h"
 #include "CrowdControlHandler.h"
 #include "SaiyoraCombatInterface.h"
 
-#pragma region Cc Immunity
+#pragma region Crowd Control
 
-bool UCrowdControlImmunityFunction::RestrictCcBuff(const FBuffApplyEvent& ApplyEvent)
+void UCrowdControlFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
-	FGameplayTagContainer BuffTags;
-	ApplyEvent.BuffClass.GetDefaultObject()->GetBuffTags(BuffTags);
-	return BuffTags.HasTagExact(ImmuneCc);
+	if (!GetOwningBuff()->GetAppliedTo()->HasAuthority())
+	{
+		return;
+	}
+	TargetHandler = ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(GetOwningBuff()->GetAppliedTo());
+	if (!IsValid(TargetHandler))
+	{
+		return;
+	}
+	TargetHandler->AddCrowdControl(GetOwningBuff(), CrowdControl);
 }
 
-void UCrowdControlImmunityFunction::SetupBuffFunction()
+void UCrowdControlFunction::OnChange(const FBuffApplyEvent& ApplyEvent)
 {
-	TargetCcHandler = ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(GetOwningBuff()->GetAppliedTo());
-	TargetBuffHandler = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwningBuff()->GetAppliedTo());
-	CcImmunity.BindDynamic(this, &UCrowdControlImmunityFunction::RestrictCcBuff);
+	if (!GetOwningBuff()->GetAppliedTo()->HasAuthority())
+	{
+		return;
+	}
+	if (!IsValid(TargetHandler))
+	{
+		return;
+	}
+	if (ApplyEvent.ActionTaken == EBuffApplyAction::Refreshed
+		|| ApplyEvent.ActionTaken == EBuffApplyAction::StackedAndRefreshed)
+	{
+		TargetHandler->RefreshCrowdControl(GetOwningBuff());
+	}
 }
+
+void UCrowdControlFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
+{
+	if (!GetOwningBuff()->GetAppliedTo()->HasAuthority())
+	{
+		return;
+	}
+	if (!IsValid(TargetHandler))
+	{
+		return;
+	}
+	TargetHandler->RemoveCrowdControl(GetOwningBuff());
+}
+
+#pragma endregion 
+#pragma region Crowd Control Immunity
 
 void UCrowdControlImmunityFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
-	if (IsValid(TargetCcHandler))
+	if (!GetOwningBuff()->GetAppliedTo()->HasAuthority())
 	{
-		//Remove any buffs currently appling the CC
-		const FCrowdControlStatus Status = TargetCcHandler->GetCrowdControlStatus(ImmuneCc);
-		if (Status.bActive)
-		{
-			for (UBuff* Cc : Status.Sources)
-			{
-				TargetBuffHandler->RemoveBuff(Cc, EBuffExpireReason::Dispel);
-			}
-		}
+		return;
 	}
-	if (IsValid(TargetBuffHandler))
+	TargetHandler = ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(GetOwningBuff()->GetAppliedTo());
+	if (!IsValid(TargetHandler))
 	{
-		//Restrict future buffs from applying the CC
-		TargetBuffHandler->AddIncomingBuffRestriction(CcImmunity);
+		return;
 	}
+	TargetHandler->AddImmunities(GetOwningBuff(), ImmuneCcs);
 }
 
 void UCrowdControlImmunityFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
-	if (IsValid(TargetBuffHandler))
+	if (!GetOwningBuff()->GetAppliedTo()->HasAuthority())
 	{
-		TargetBuffHandler->RemoveIncomingBuffRestriction(CcImmunity);
+		return;
 	}
+	if (!IsValid(TargetHandler))
+	{
+		return;
+	}
+	TargetHandler->RemoveImmunities(GetOwningBuff());
 }
 
 #pragma endregion

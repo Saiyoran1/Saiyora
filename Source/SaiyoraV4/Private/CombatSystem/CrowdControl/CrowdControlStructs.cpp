@@ -1,5 +1,6 @@
 #include "CrowdControlStructs.h"
 #include "Buff.h"
+#include "CrowdControlHandler.h"
 
 bool FCrowdControlStatus::AddNewBuff(UBuff* Source)
 {
@@ -93,3 +94,30 @@ UBuff* FCrowdControlStatus::GetLongestBuff()
     return LongestBuff;
 }
 
+void FCrowdControlStatusArray::Init(UCrowdControlHandler* InHandler)
+{
+    OwningHandler = InHandler;
+    if (OwningHandler->GetOwnerRole() != ROLE_Authority)
+    {
+        for (FCrowdControlStatus& Cc : Items)
+        {
+            Cc.PostReplicatedAdd(*this);
+        }
+    }
+}
+
+void FCrowdControlStatus::PostReplicatedAdd(const struct FCrowdControlStatusArray& InArraySerializer)
+{
+    if (InArraySerializer.GetHandler())
+    {
+        InArraySerializer.GetHandler()->OnReplicatedCrowdControlUpdated(*this);
+    }
+}
+
+void FCrowdControlStatus::PostReplicatedChange(const struct FCrowdControlStatusArray& InArraySerializer)
+{
+    if (InArraySerializer.GetHandler())
+    {
+        InArraySerializer.GetHandler()->OnReplicatedCrowdControlUpdated(*this);
+    }
+}

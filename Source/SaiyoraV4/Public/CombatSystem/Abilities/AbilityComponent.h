@@ -240,7 +240,7 @@ private:
 	UFUNCTION(Client, Reliable)
 	void ClientAbilityInterrupt(const FInterruptEvent& InterruptEvent);
 	UFUNCTION()
-	void InterruptCastOnCrowdControl(const FCrowdControlStatus& PreviousStatus, const FCrowdControlStatus& NewStatus);
+	void InterruptCastOnCrowdControl(const FCrowdControlStatus& NewStatus);
 	UFUNCTION()
 	void InterruptCastOnDeath(AActor* Actor, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus);
 	UFUNCTION()

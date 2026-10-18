@@ -8,7 +8,6 @@
 class UNPCAbilityComponent;
 class USaiyoraMovementComponent;
 class UThreatHandler;
-class UCrowdControlHandler;
 class UStatHandler;
 class UDamageHandler;
 class UCombatStatusComponent;
@@ -36,8 +35,6 @@ private:
 	UDamageHandler* DamageHandlerRef;
 	UPROPERTY()
 	UStatHandler* StatHandlerRef;
-	UPROPERTY()
-	UCrowdControlHandler* CcHandlerRef;
 	UPROPERTY()
 	UThreatHandler* ThreatHandlerRef;
 	UPROPERTY()

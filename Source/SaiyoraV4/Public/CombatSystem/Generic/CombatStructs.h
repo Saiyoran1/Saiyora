@@ -80,13 +80,6 @@ struct SAIYORAV4_API FSaiyoraCombatTags : public FGameplayTagNativeAdder
     FGameplayTag ReloadAbility;
     FGameplayTag StopFireAbility;
 
-    FGameplayTag CrowdControl;
-    FGameplayTag Cc_Stun;
-    FGameplayTag Cc_Incapacitate;
-    FGameplayTag Cc_Root;
-    FGameplayTag Cc_Silence;
-    FGameplayTag Cc_Disarm;
-
     FGameplayTag Damage;
     FGameplayTag Healing;
 
@@ -146,13 +139,6 @@ protected:
         FireWeaponAbility = Manager.AddNativeGameplayTag(TEXT("Ability.FireWeapon"));
         ReloadAbility = Manager.AddNativeGameplayTag(TEXT("Ability.ReloadWeapon"));
         StopFireAbility = Manager.AddNativeGameplayTag(TEXT("Ability.StopFireWeapon"));
-
-        CrowdControl = Manager.AddNativeGameplayTag(TEXT("CrowdControl"));
-        Cc_Stun = Manager.AddNativeGameplayTag(TEXT("CrowdControl.Stun"));
-        Cc_Incapacitate = Manager.AddNativeGameplayTag(TEXT("CrowdControl.Incapacitate"));
-        Cc_Root = Manager.AddNativeGameplayTag(TEXT("CrowdControl.Root"));
-        Cc_Silence = Manager.AddNativeGameplayTag(TEXT("CrowdControl.Silence"));
-        Cc_Disarm = Manager.AddNativeGameplayTag(TEXT("CrowdControl.Disarm"));
 
         Damage = Manager.AddNativeGameplayTag(TEXT("Damage"));
         Healing = Manager.AddNativeGameplayTag(TEXT("Healing"));

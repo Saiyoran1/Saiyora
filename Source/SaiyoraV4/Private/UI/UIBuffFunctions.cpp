@@ -2,18 +2,14 @@
 #include "Buff.h"
 #include "PlayerHUD.h"
 
-void UAbilityProcFunction::SetupBuffFunction()
+void UAbilityProcFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
-	ASaiyoraPlayerCharacter* PlayerTarget = Cast<ASaiyoraPlayerCharacter>(GetOwningBuff()->GetAppliedTo());
+	const ASaiyoraPlayerCharacter* PlayerTarget = Cast<ASaiyoraPlayerCharacter>(GetOwningBuff()->GetAppliedTo());
 	if (!IsValid(PlayerTarget) || !PlayerTarget->IsLocallyControlled())
 	{
 		return;
 	}
 	LocalPlayerHUD = PlayerTarget->GetPlayerHUD();
-}
-
-void UAbilityProcFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
-{
 	if (!IsValid(LocalPlayerHUD))
 	{
 		return;

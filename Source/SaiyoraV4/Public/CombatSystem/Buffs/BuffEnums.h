@@ -89,8 +89,6 @@ enum class EBuffApplyFailReason : uint8
 	ImmuneToHealing,
 	//Target did not have stat or that stat wasn't modifiable for this target
 	StatNotModifiable,
-	//Target is immune to this kind of CC
-	ImmuneToCc,
 	//Target does not have a threat table
 	NoThreatTable,
 	//Target does not have a movement component

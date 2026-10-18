@@ -1,22 +1,21 @@
 ﻿#include "AbilityBuffFunctions.h"
 #include "AbilityComponent.h"
 #include "Buff.h"
-#include "BuffHandler.h"
 #include "CombatAbility.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraCombatLibrary.h"
 
 #pragma region Complex Ability Modifier
 
-void UComplexAbilityModifierFunction::SetupBuffFunction()
+UComplexAbilityModifierFunction::UComplexAbilityModifierFunction()
 {
-	TargetHandler = ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwningBuff()->GetHandler()->GetOwner());
-	Modifier.BindUFunction(GetOwningBuff(), ModifierFunctionName);
+	SetDelegateProperty(GET_MEMBER_NAME_CHECKED(UComplexAbilityModifierFunction, Modifier));
 }
 
 void UComplexAbilityModifierFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
-	if (!IsValid(TargetHandler) || !Modifier.IsBound())
+	TargetHandler = ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwningBuff()->GetAppliedTo());
+	if (!IsValid(TargetHandler))
 	{
 		return;
 	}
@@ -38,7 +37,7 @@ void UComplexAbilityModifierFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 
 void UComplexAbilityModifierFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
-	if (!IsValid(TargetHandler) || !Modifier.IsBound())
+	if (!IsValid(TargetHandler))
 	{
 		return;
 	}
@@ -58,39 +57,31 @@ void UComplexAbilityModifierFunction::OnRemove(const FBuffRemoveEvent& RemoveEve
 	}
 }
 
-TArray<FName> UComplexAbilityModifierFunction::GetComplexAbilityModFunctionNames() const
-{
-	return USaiyoraCombatLibrary::GetMatchingFunctionNames(GetOuter(), FindFunction("ExampleModifierFunction"));
-}
-
 #pragma endregion 
 #pragma region Simple Ability Modifier
 
-void USimpleAbilityModifierFunction::SetupBuffFunction()
+void USimpleAbilityModifierFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
 	const UAbilityComponent* AbilityHandler = ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwningBuff()->GetAppliedTo());
 	if (IsValid(AbilityHandler))
 	{
 		TargetAbility = AbilityHandler->FindActiveAbility(AbilityClass);
 	}
-}
-
-void USimpleAbilityModifierFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
-{
 	if (!IsValid(TargetAbility))
 	{
 		return;
 	}
+	Modifier.BuffSource = GetOwningBuff();
 	switch (ModType)
 	{
 		case ESimpleAbilityModType::ChargeCost :
-			ModHandle = TargetAbility->AddChargeCostModifier(Modifier);
+			Handle = TargetAbility->AddChargeCostModifier(Modifier);
 			break;
 		case ESimpleAbilityModType::MaxCharges :
-			ModHandle = TargetAbility->AddMaxChargeModifier(Modifier);
+			Handle = TargetAbility->AddMaxChargeModifier(Modifier);
 			break;
 		case ESimpleAbilityModType::ChargesPerCooldown :
-			ModHandle = TargetAbility->AddChargesPerCooldownModifier(Modifier);
+			Handle = TargetAbility->AddChargesPerCooldownModifier(Modifier);
 			break;
 		default :
 			break;
@@ -108,13 +99,13 @@ void USimpleAbilityModifierFunction::OnChange(const FBuffApplyEvent& ApplyEvent)
 		switch (ModType)
 		{
 		case ESimpleAbilityModType::ChargeCost :
-			TargetAbility->UpdateChargeCostModifier(ModHandle, Modifier);
+			TargetAbility->UpdateChargeCostModifier(Handle, Modifier);
 			break;
 		case ESimpleAbilityModType::MaxCharges :
-			TargetAbility->UpdateMaxChargeModifier(ModHandle, Modifier);
+			TargetAbility->UpdateMaxChargeModifier(Handle, Modifier);
 			break;
 		case ESimpleAbilityModType::ChargesPerCooldown :
-			TargetAbility->UpdateChargesPerCooldownModifier(ModHandle, Modifier);
+			TargetAbility->UpdateChargesPerCooldownModifier(Handle, Modifier);
 			break;
 		default :
 			break;
@@ -131,13 +122,13 @@ void USimpleAbilityModifierFunction::OnRemove(const FBuffRemoveEvent& RemoveEven
 	switch (ModType)
 	{
 		case ESimpleAbilityModType::ChargeCost :
-			TargetAbility->RemoveChargeCostModifier(ModHandle);
+			TargetAbility->RemoveChargeCostModifier(Handle);
 			break;
 		case ESimpleAbilityModType::MaxCharges :
-			TargetAbility->RemoveMaxChargeModifier(ModHandle);
+			TargetAbility->RemoveMaxChargeModifier(Handle);
 			break;
 		case ESimpleAbilityModType::ChargesPerCooldown :
-			TargetAbility->RemoveChargesPerCooldownModifier(ModHandle);
+			TargetAbility->RemoveChargesPerCooldownModifier(Handle);
 			break;
 		default :
 			break;
@@ -147,23 +138,17 @@ void USimpleAbilityModifierFunction::OnRemove(const FBuffRemoveEvent& RemoveEven
 #pragma endregion
 #pragma region Ability Cost Modifier
 
-void UAbilityCostModifierFunction::SetupBuffFunction()
-{
-	TargetHandler = ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwningBuff()->GetAppliedTo());
-	if (IsValid(TargetHandler) && bSpecificAbility && IsValid(AbilityClass))
-	{
-		TargetAbility = TargetHandler->FindActiveAbility(AbilityClass);
-	}
-}
-
 void UAbilityCostModifierFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
+	TargetHandler = ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwningBuff()->GetAppliedTo());
 	if (!IsValid(TargetHandler))
 	{
 		return;
 	}
+	Modifier.BuffSource = GetOwningBuff();
 	if (bSpecificAbility && IsValid(AbilityClass))
 	{
+		TargetAbility = TargetHandler->FindActiveAbility(AbilityClass);
 		if (IsValid(TargetAbility))
 		{
 			Handle = TargetAbility->AddResourceCostModifier(ResourceClass, Modifier);
@@ -219,13 +204,9 @@ void UAbilityCostModifierFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 #pragma endregion
 #pragma region Ability Class Restriction
 
-void UAbilityClassRestrictionFunction::SetupBuffFunction()
-{
-	TargetComponent = ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwningBuff()->GetAppliedTo());
-}
-
 void UAbilityClassRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
+	TargetComponent = ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwningBuff()->GetAppliedTo());
 	if (!IsValid(TargetComponent))
 	{
 		return;
@@ -257,13 +238,9 @@ void UAbilityClassRestrictionFunction::OnRemove(const FBuffRemoveEvent& RemoveEv
 #pragma endregion
 #pragma region Ability Tag Restriction
 
-void UAbilityTagRestrictionFunction::SetupBuffFunction()
-{
-	TargetComponent = ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwningBuff()->GetAppliedTo());
-}
-
 void UAbilityTagRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
+	TargetComponent = ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwningBuff()->GetAppliedTo());
 	if (!IsValid(TargetComponent))
 	{
 		return;
@@ -299,31 +276,28 @@ void UAbilityTagRestrictionFunction::OnRemove(const FBuffRemoveEvent& RemoveEven
 #pragma endregion 
 #pragma region Interrupt Restriction
 
-void UInterruptRestrictionFunction::SetupBuffFunction()
+UInterruptRestrictionFunction::UInterruptRestrictionFunction()
 {
-	TargetComponent = ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwningBuff()->GetAppliedTo());
-	Restriction.BindUFunction(GetOwningBuff(), RestrictionFunctionName);
+	SetDelegateProperty(GET_MEMBER_NAME_CHECKED(UInterruptRestrictionFunction, Restriction));
 }
 
 void UInterruptRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
-	if (IsValid(TargetComponent) && Restriction.IsBound())
+	TargetComponent = ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwningBuff()->GetAppliedTo());
+	if (!IsValid(TargetComponent))
 	{
-		TargetComponent->AddInterruptRestriction(Restriction);
+		return;
 	}
+	TargetComponent->AddInterruptRestriction(Restriction);
 }
 
 void UInterruptRestrictionFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
-	if (IsValid(TargetComponent) && Restriction.IsBound())
+	if (!IsValid(TargetComponent))
 	{
-		TargetComponent->RemoveInterruptRestriction(Restriction);
+		return;
 	}
-}
-
-TArray<FName> UInterruptRestrictionFunction::GetInterruptRestrictionNames() const
-{
-	return USaiyoraCombatLibrary::GetMatchingFunctionNames(GetOuter(), FindFunction("ExampleRestrictionFunction"));
+	TargetComponent->RemoveInterruptRestriction(Restriction);
 }
 
 #pragma endregion 

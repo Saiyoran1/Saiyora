@@ -12,29 +12,63 @@ UWorld* UBuffFunction::GetWorld() const
     return GetOwningBuff()->GetWorld();
 }
 
-UBuffFunction* UBuffFunction::InstantiateBuffFunction(UBuff* Buff, const TSubclassOf<UBuffFunction> FunctionClass)
-{
-    return nullptr;
-}
-
 void UBuffFunction::InitializeBuffFunction(UBuff* BuffRef)
 {
     OwningBuff = BuffRef;
-    SetupBuffFunction();
+    if (bBindToDelegate)
+    {
+        if (const FDelegateProperty* DelegateProperty = GetDelegateProperty())
+        {
+            DelegateProperty->ContainerPtrToValuePtr<FScriptDelegate>(this)->BindUFunction(OwningBuff, DelegateFunctionName);
+        }
+    }
+}
+
+void UBuffFunction::SetDelegateProperty(const FName PropertyName)
+{
+    if (PropertyName.IsNone())
+    {
+        bBindToDelegate = false;
+        return;
+    }
+    bBindToDelegate = true;
+    DelegatePropertyName = PropertyName;
+}
+
+const FDelegateProperty* UBuffFunction::GetDelegateProperty() const
+{
+    return FindFProperty<FDelegateProperty>(GetClass(), DelegatePropertyName);
+}
+
+TArray<FName> UBuffFunction::GetDelegateFunctionNames() const
+{
+    TArray<FName> Names;
+    Names.Add(NAME_None);
+    if (!bBindToDelegate)
+    {
+        return Names;
+    }
+    const FDelegateProperty* CallbackProperty = GetDelegateProperty();
+    if (!CallbackProperty)
+    {
+        return Names;
+    }
+    Names.Append(USaiyoraCombatLibrary::GetMatchingFunctionNames(GetOuter(), CallbackProperty->SignatureFunction));
+    return Names;
 }
 
 #pragma endregion
 #pragma region UBuffRestrictionFunction
 
-void UBuffRestrictionFunction::SetupBuffFunction()
+UBuffRestrictionFunction::UBuffRestrictionFunction()
 {
-    TargetComponent = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwningBuff()->GetAppliedTo());
-    Restriction.BindUFunction(GetOwningBuff(), RestrictionFunctionName);
+    SetDelegateProperty(GET_MEMBER_NAME_CHECKED(UBuffRestrictionFunction, Restriction));
 }
 
 void UBuffRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
-    if (!IsValid(TargetComponent) || !Restriction.IsBound())
+    TargetComponent = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwningBuff()->GetAppliedTo());
+    if (!IsValid(TargetComponent))
     {
         return;
     }
@@ -53,7 +87,7 @@ void UBuffRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 
 void UBuffRestrictionFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
-    if (!IsValid(TargetComponent) || !Restriction.IsBound())
+    if (!IsValid(TargetComponent))
     {
         return;
     }
@@ -68,11 +102,6 @@ void UBuffRestrictionFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
     default :
         break;
     }
-}
-
-TArray<FName> UBuffRestrictionFunction::GetBuffRestrictionFunctionNames() const
-{
-    return USaiyoraCombatLibrary::GetMatchingFunctionNames(GetOuter(), FindFunction("ExampleRestrictionFunction"));
 }
 
 #pragma endregion 

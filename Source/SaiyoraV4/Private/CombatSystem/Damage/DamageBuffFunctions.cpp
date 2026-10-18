@@ -10,18 +10,19 @@
 
 #pragma region Periodic Health Event
 
-void UPeriodicHealthEventFunction::SetupBuffFunction()
+UPeriodicHealthEventFunction::UPeriodicHealthEventFunction()
 {
-	TargetComponent = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwningBuff()->GetAppliedTo());
-	GeneratorComponent = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwningBuff()->GetAppliedBy());
-	if (bHasHealthEventCallback)
-	{
-		Callback.BindUFunction(GetOwningBuff(), HealthEventCallbackName);
-	}
+	SetDelegateProperty(GET_MEMBER_NAME_CHECKED(UPeriodicHealthEventFunction, Callback));
 }
 
 void UPeriodicHealthEventFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
+	TargetHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwningBuff()->GetAppliedTo());
+	if (!IsValid(TargetHandler))
+	{
+		return;
+	}
+	const UDamageHandler* GeneratorComponent = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwningBuff()->GetAppliedBy());
 	if (bSnapshots && !bIgnoresModifiers && IsValid(GeneratorComponent))
 	{
 		FHealthEventInfo SnapshotInfo;
@@ -65,77 +66,70 @@ void UPeriodicHealthEventFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 
 void UPeriodicHealthEventFunction::InitialTick()
 {
-    if (IsValid(TargetComponent))
-    {
-        const float InitAmount = bUsesSeparateInitialValue ? InitialValue : BaseValue;
-        const EElementalSchool InitSchool = bUsesSeparateInitialValue ? InitialEventSchool : EventSchool;
-        const bool FromSnapshot = bSnapshots && !bUsesSeparateInitialValue;
-        const FHealthEvent TickResult = TargetComponent->ApplyHealthEvent(EventType, InitAmount, GetOwningBuff()->GetAppliedBy(),
-                                          GetOwningBuff(), EEventHitStyle::Chronic, InitSchool, bBypassesAbsorbs, bIgnoresModifiers,
-                                          bIgnoresRestrictions, false, FromSnapshot, FHealthEventModCondition(), ThreatInfo);
-    	if (Callback.IsBound())
-    	{
-    		Callback.Execute(TickResult);
-    	}
-    }
+	if (!IsValid(TargetHandler))
+	{
+		return;
+	}
+    const float InitAmount = bUsesSeparateInitialValue ? InitialValue : BaseValue;
+    const EElementalSchool InitSchool = bUsesSeparateInitialValue ? InitialEventSchool : EventSchool;
+    const bool FromSnapshot = bSnapshots && !bUsesSeparateInitialValue;
+    const FHealthEvent TickResult = TargetHandler->ApplyHealthEvent(EventType, InitAmount, GetOwningBuff()->GetAppliedBy(),
+    GetOwningBuff(), EEventHitStyle::Chronic, InitSchool, bBypassesAbsorbs, bIgnoresModifiers,
+    bIgnoresRestrictions, false, FromSnapshot, FHealthEventModCondition(), ThreatInfo);
+	//This returns a bool and Rider is mad if I don't save the return value.
+    const bool bExecuted = Callback.ExecuteIfBound(TickResult);
 }
 
 void UPeriodicHealthEventFunction::TickHealthEvent()
 {
-    if (IsValid(TargetComponent))
-    {
-        const float TickAmount = bScalesWithStacks ? BaseValue * GetOwningBuff()->GetCurrentStacks() : BaseValue;
-        const FHealthEvent TickResult = TargetComponent->ApplyHealthEvent(EventType, TickAmount, GetOwningBuff()->GetAppliedBy(), GetOwningBuff(),
-                                          EEventHitStyle::Chronic, EventSchool, bBypassesAbsorbs, bIgnoresModifiers,
-                                          bIgnoresRestrictions, false, bSnapshots, FHealthEventModCondition(), ThreatInfo);
-    	if (Callback.IsBound())
-    	{
-    		Callback.Execute(TickResult);
-    	}
-    }
+	if (!IsValid(TargetHandler))
+	{
+		return;
+	}
+    const float TickAmount = bScalesWithStacks ? BaseValue * GetOwningBuff()->GetCurrentStacks() : BaseValue;
+    const FHealthEvent TickResult = TargetHandler->ApplyHealthEvent(EventType, TickAmount, GetOwningBuff()->GetAppliedBy(), GetOwningBuff(),
+		EEventHitStyle::Chronic, EventSchool, bBypassesAbsorbs, bIgnoresModifiers,
+		bIgnoresRestrictions, false, bSnapshots, FHealthEventModCondition(), ThreatInfo);
+	//This returns a bool and Rider is mad if I don't save the return value.
+    const bool bExecuted = Callback.ExecuteIfBound(TickResult);
 }
 
 void UPeriodicHealthEventFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
-    if (IsValid(TargetComponent) && bTicksOnExpire && RemoveEvent.ExpireReason == EBuffExpireReason::TimedOut && EventInterval > 0.0f)
+	if (!IsValid(TargetHandler))
+	{
+		//Clear the handle here in case the target became null during the buff's lifetime.
+		GetWorld()->GetTimerManager().ClearTimer(TickHandle);
+		return;
+	}
+    if (bTicksOnExpire && RemoveEvent.ExpireReason == EBuffExpireReason::TimedOut && EventInterval > 0.0f)
     {
     	const float TickFraction = GetWorld()->GetTimerManager().GetTimerElapsed(TickHandle) / EventInterval;
     	const float ExpireTickAmount = (bScalesWithStacks ? BaseValue * GetOwningBuff()->GetCurrentStacks() : BaseValue) * TickFraction;
     	if (ExpireTickAmount > 0.0f)
     	{
-    		const FHealthEvent TickResult = TargetComponent->ApplyHealthEvent(EventType, ExpireTickAmount, GetOwningBuff()->GetAppliedBy(), GetOwningBuff(),
-			EEventHitStyle::Chronic, EventSchool, bBypassesAbsorbs, bIgnoresModifiers, bIgnoresRestrictions, false,
-			bSnapshots, FHealthEventModCondition(), ThreatInfo);
-    		if (Callback.IsBound())
-    		{
-    			Callback.Execute(TickResult);
-    		}
+    		const FHealthEvent TickResult = TargetHandler->ApplyHealthEvent(EventType, ExpireTickAmount, GetOwningBuff()->GetAppliedBy(), GetOwningBuff(),
+				EEventHitStyle::Chronic, EventSchool, bBypassesAbsorbs, bIgnoresModifiers, bIgnoresRestrictions, false,
+				bSnapshots, FHealthEventModCondition(), ThreatInfo);
+    		//This returns a bool and Rider is mad if I don't save the return value.
+    		const bool bExecuted = Callback.ExecuteIfBound(TickResult);
     	}
     }
-}
-
-void UPeriodicHealthEventFunction::CleanupBuffFunction()
-{
-    GetWorld()->GetTimerManager().ClearTimer(TickHandle);
-}
-
-TArray<FName> UPeriodicHealthEventFunction::GetHealthEventCallbackFunctionNames() const
-{
-	return USaiyoraCombatLibrary::GetMatchingFunctionNames(GetOuter(), FindFunction("ExampleCallbackEvent"));
+	GetWorld()->GetTimerManager().ClearTimer(TickHandle);
 }
 
 #pragma endregion
 #pragma region Health Event Modifiers
 
-void UHealthEventModifierFunction::SetupBuffFunction()
+UHealthEventModifierFunction::UHealthEventModifierFunction()
 {
-	TargetHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwningBuff()->GetAppliedTo());
-	Modifier.BindUFunction(GetOwningBuff(), ModifierFunctionName);
+	SetDelegateProperty(GET_MEMBER_NAME_CHECKED(UHealthEventModifierFunction, Modifier));
 }
 
 void UHealthEventModifierFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
-	if (!IsValid(TargetHandler) || !Modifier.IsBound())
+	TargetHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwningBuff()->GetAppliedTo());
+	if (!IsValid(TargetHandler))
 	{
 		return;
 	}
@@ -154,7 +148,7 @@ void UHealthEventModifierFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 
 void UHealthEventModifierFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
-	if (!IsValid(TargetHandler) || !Modifier.IsBound())
+	if (!IsValid(TargetHandler))
 	{
 		return;
 	}
@@ -171,23 +165,18 @@ void UHealthEventModifierFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 	}
 }
 
-TArray<FName> UHealthEventModifierFunction::GetHealthEventModifierFunctionNames() const
-{
-	return USaiyoraCombatLibrary::GetMatchingFunctionNames(GetOuter(), FindFunction("ExampleModifierFunction"));
-}
-
 #pragma endregion 
 #pragma region Health Event Restrictions
 
-void UHealthEventRestrictionFunction::SetupBuffFunction()
+UHealthEventRestrictionFunction::UHealthEventRestrictionFunction()
 {
-	TargetHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwningBuff()->GetAppliedTo());
-	Restriction.BindUFunction(GetOwningBuff(), RestrictionFunctionName);
+	SetDelegateProperty(GET_MEMBER_NAME_CHECKED(UHealthEventRestrictionFunction, Restriction));
 }
 
 void UHealthEventRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
-	if (!IsValid(TargetHandler) || !Restriction.IsBound())
+	TargetHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwningBuff()->GetAppliedTo());
+	if (!IsValid(TargetHandler))
 	{
 		return;
 	}
@@ -206,7 +195,7 @@ void UHealthEventRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 
 void UHealthEventRestrictionFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
-	if (!IsValid(TargetHandler) || !Restriction.IsBound())
+	if (!IsValid(TargetHandler))
 	{
 		return;
 	}
@@ -223,23 +212,18 @@ void UHealthEventRestrictionFunction::OnRemove(const FBuffRemoveEvent& RemoveEve
 	}
 }
 
-TArray<FName> UHealthEventRestrictionFunction::GetHealthEventRestrictionFunctionNames() const
-{
-	return USaiyoraCombatLibrary::GetMatchingFunctionNames(GetOuter(), FindFunction("ExampleRestrictionFunction"));
-}
-
 #pragma endregion
 #pragma region Death Restriction
 
-void UDeathRestrictionFunction::SetupBuffFunction()
+UDeathRestrictionFunction::UDeathRestrictionFunction()
 {
-	TargetHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwningBuff()->GetAppliedTo());
-	Restriction.BindUFunction(GetOwningBuff(), RestrictionFunctionName);
+	SetDelegateProperty(GET_MEMBER_NAME_CHECKED(UDeathRestrictionFunction, Restriction));
 }
 
 void UDeathRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
-	if (!IsValid(TargetHandler) || !Restriction.IsBound())
+	TargetHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwningBuff()->GetAppliedTo());
+	if (!IsValid(TargetHandler))
 	{
 		return;
 	}
@@ -248,28 +232,19 @@ void UDeathRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 
 void UDeathRestrictionFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
-	if (!IsValid(TargetHandler) || !Restriction.IsBound())
+	if (!IsValid(TargetHandler))
 	{
 		return;
 	}
 	TargetHandler->RemoveDeathRestriction(Restriction);
 }
 
-TArray<FName> UDeathRestrictionFunction::GetDeathEventRestrictionFunctionNames() const
-{
-	return USaiyoraCombatLibrary::GetMatchingFunctionNames(GetOuter(), FindFunction("ExampleRestrictionFunction"));
-}
-
 #pragma endregion
 #pragma region Resurrection
 
-void UPendingResurrectionFunction::SetupBuffFunction()
-{
-	TargetHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwningBuff()->GetAppliedTo());
-}
-
 void UPendingResurrectionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
+	TargetHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwningBuff()->GetAppliedTo());
 	if (!IsValid(TargetHandler))
 	{
 		return;
@@ -286,11 +261,12 @@ void UPendingResurrectionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 
 void UPendingResurrectionFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
-	if (IsValid(TargetHandler))
+	if (!IsValid(TargetHandler))
 	{
-		TargetHandler->RemovePendingResurrection(ResID);
-		TargetHandler->OnLifeStatusChanged.RemoveDynamic(this, &UPendingResurrectionFunction::OnLifeStatusChanged);
+		return;
 	}
+	TargetHandler->RemovePendingResurrection(ResID);
+	TargetHandler->OnLifeStatusChanged.RemoveDynamic(this, &UPendingResurrectionFunction::OnLifeStatusChanged);
 }
 
 void UPendingResurrectionFunction::OnLifeStatusChanged(AActor* Actor, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus)
@@ -299,11 +275,6 @@ void UPendingResurrectionFunction::OnLifeStatusChanged(AActor* Actor, const ELif
 	{
 		GetOwningBuff()->GetHandler()->RemoveBuff(GetOwningBuff(), EBuffExpireReason::Dispel);
 	}
-}
-
-TArray<FName> UPendingResurrectionFunction::GetResCallbackFunctionNames() const
-{
-	return USaiyoraCombatLibrary::GetMatchingFunctionNames(GetOuter(), FindFunction("ExampleCallbackFunction"));
 }
 
 #pragma endregion 

@@ -161,7 +161,7 @@ public:
 	bool HasActiveFade() const { return Fades.Num() != 0; }
 	void NotifyOfCombatantFadeStatus(const UThreatHandler* Combatant, const bool FadeStatus);
 	
-	void AddMisdirect(UBuff* Source, AActor* Target);
+	void AddMisdirect(AActor* Target, UBuff* Source);
 	void RemoveMisdirect(const UBuff* Source);
 	AActor* GetMisdirectTarget() const { return Misdirects.Num() == 0 ? nullptr : Misdirects[Misdirects.Num() - 1].Target; }
 

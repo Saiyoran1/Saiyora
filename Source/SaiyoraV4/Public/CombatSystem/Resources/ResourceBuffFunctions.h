@@ -13,23 +13,17 @@ class SAIYORAV4_API UResourceDeltaModifierFunction : public UBuffFunction
 
 public:
 
-	virtual void SetupBuffFunction() override;
+	UResourceDeltaModifierFunction();
 	virtual void OnApply(const FBuffApplyEvent& ApplyEvent) override;
 	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) override;
 
 private:
 
-	UPROPERTY(EditAnywhere, Category = "Resource Modifier")
+	UPROPERTY(EditAnywhere)
 	TSubclassOf<UResource> ResourceClass;
-	UPROPERTY(EditAnywhere, Category = "Resource Modifier", meta = (GetOptions = "GetResourceDeltaModifierFunctionNames"))
-	FName ModifierFunctionName;
-	
+
+	UPROPERTY(Transient)
 	FResourceDeltaModifier Modifier;
 	UPROPERTY()
 	UResource* TargetResource = nullptr;
-
-	UFUNCTION()
-	TArray<FName> GetResourceDeltaModifierFunctionNames() const;
-	UFUNCTION()
-	FCombatModifier ExampleModifierFunction(UResource* Resource, UObject* Source, const float InitialDelta) const { return FCombatModifier(); }
 };

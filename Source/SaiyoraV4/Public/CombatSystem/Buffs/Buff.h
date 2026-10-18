@@ -185,6 +185,7 @@ private:
 	//Whether the buff is removed from NPCs when they leave combat
 	UPROPERTY(EditDefaultsOnly, Category = "Application Behavior")
 	bool bRemoveOnCombatEnd = true;
+	
 	//The application event for the initial application of this buff instance
 	UPROPERTY(ReplicatedUsing = OnRep_CreationEvent)
 	FBuffApplyEvent CreationEvent;
@@ -275,12 +276,24 @@ private:
 #pragma endregion
 #pragma region Buff Functions
 
+public:
+
+	const TArray<UBuffFunction*>& GetBuffFunctions() const { return BuffFunctionObjects; }
+
 protected:
 
-	//Blueprint-exposed event to setup and pass parameters to any common buff functions this buff should use
-	UFUNCTION(BlueprintNativeEvent)
-	void SetupCommonBuffFunctions();
-	virtual void SetupCommonBuffFunctions_Implementation() {}
+	//Adds a buff function. Should only be called in the constructor of UBuff.
+	//Useful for buffs that want to add buff functions in code rather that can then be adjusted via Blueprint.
+	template <typename T>
+	T* AddBuffFunction(const FName FunctionName)
+	{
+		//Make sure this templated function doesn't get called for things that aren't buff functions.
+		static_assert(TIsDerivedFrom<T, UBuffFunction>::Value, "Tried to call AddBuffFunction with a type that wasn't derived from UBuffFunction.");
+		T* BuffFunction = CreateDefaultSubobject<T>(FunctionName);
+		BuffFunctionObjects.Add(BuffFunction);
+		return BuffFunction;
+	}
+	
 	//Blueprint-exposed event for performing logic on each application of this buff
 	UFUNCTION(BlueprintNativeEvent)
 	void OnApply(const FBuffApplyEvent& Event);

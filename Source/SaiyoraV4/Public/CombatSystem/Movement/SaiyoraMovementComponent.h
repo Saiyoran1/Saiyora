@@ -244,7 +244,7 @@ private:
 	UFUNCTION()
 	void StopMotionOnOwnerDeath(AActor* Target, const ELifeStatus Previous, const ELifeStatus New);
 	UFUNCTION()
-	void StopMotionOnRooted(const FCrowdControlStatus& Previous, const FCrowdControlStatus& New);
+	void StopMotionOnRooted(const FCrowdControlStatus& New);
 	UFUNCTION()
 	void ApplyMoveRestrictionFromBuff(const FBuffApplyEvent& ApplyEvent);
 	UFUNCTION()

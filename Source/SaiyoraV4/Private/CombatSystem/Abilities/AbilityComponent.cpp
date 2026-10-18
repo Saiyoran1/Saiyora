@@ -805,14 +805,13 @@ void UAbilityComponent::MulticastAbilityInterrupt_Implementation(const FInterrup
 	}
 }
 
-void UAbilityComponent::InterruptCastOnCrowdControl(const FCrowdControlStatus& PreviousStatus,
-	const FCrowdControlStatus& NewStatus)
+void UAbilityComponent::InterruptCastOnCrowdControl(const FCrowdControlStatus& NewStatus)
 {
 	if (CastingState.bIsCasting && IsValid(CastingState.CurrentCast) && NewStatus.bActive == true)
 	{
-		FGameplayTagContainer RestrictedCcs;
+		TSet<ECrowdControl> RestrictedCcs;
 		CastingState.CurrentCast->GetRestrictedCrowdControls(RestrictedCcs);
-		if (RestrictedCcs.HasTagExact(NewStatus.CrowdControlType))
+		if (RestrictedCcs.Contains(NewStatus.CrowdControlType))
 		{
 			InterruptCurrentCast(NewStatus.DominantBuffInstance->GetHandler()->GetOwner(), NewStatus.DominantBuffInstance, true);
 		}

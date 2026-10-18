@@ -3,6 +3,7 @@
 #include "SaiyoraCombatInterface.h"
 #include "UnrealNetwork.h"
 #include "BuffHandler.h"
+#include "CrowdControlBuffFunctions.h"
 #include "DamageHandler.h"
 
 #pragma region Setup
@@ -25,13 +26,21 @@ void UCrowdControlHandler::InitializeComponent()
 	
 	checkf(GetOwner()->Implements<USaiyoraCombatInterface>(), TEXT("Owner does not implement combat interface, but has Crowd Control Handler."));
 	BuffHandlerRef = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwner());
+	checkf(IsValid(BuffHandlerRef), TEXT("Owner does not have a valid Buff Handler, which CC Handler depends on."));
+	CrowdControlRestriction.BindDynamic(this, &UCrowdControlHandler::CheckBuffForImmunedCc);
 	DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
-	const FSaiyoraCombatTags& CombatTags = FSaiyoraCombatTags::Get();
-	StunStatus.CrowdControlType = CombatTags.Cc_Stun;
-	IncapStatus.CrowdControlType = CombatTags.Cc_Incapacitate;
-	RootStatus.CrowdControlType = CombatTags.Cc_Root;
-	SilenceStatus.CrowdControlType = CombatTags.Cc_Silence;
-	DisarmStatus.CrowdControlType = CombatTags.Cc_Disarm;
+
+	//Init the array of crowd control statuses
+	if (GetOwner()->HasAuthority())
+	{
+		for (const ECrowdControl Cc : TEnumRange<ECrowdControl>())
+		{
+			FCrowdControlStatus& Status = CurrentCrowdControls.Items.AddDefaulted_GetRef();
+			Status.CrowdControlType = Cc;
+			Status.bDefaultImmuned = DefaultCrowdControlImmunities.Contains(Cc);
+			CurrentCrowdControls.MarkItemDirty(Status);
+		}
+	}
 }
 
 void UCrowdControlHandler::BeginPlay()
@@ -40,233 +49,205 @@ void UCrowdControlHandler::BeginPlay()
 	
 	if (GetOwnerRole() == ROLE_Authority)
 	{
-		checkf(IsValid(BuffHandlerRef), TEXT("Owner does not have a valid Buff Handler, which CC Handler depends on."));
-		BuffHandlerRef->OnIncomingBuffApplied.AddDynamic(this, &UCrowdControlHandler::CheckAppliedBuffForCc);
-		BuffHandlerRef->OnIncomingBuffRemoved.AddDynamic(this, &UCrowdControlHandler::CheckRemovedBuffForCc);
+		BuffHandlerRef->AddIncomingBuffRestriction(CrowdControlRestriction);
 		if (IsValid(DamageHandlerRef))
 		{
 			DamageHandlerRef->OnIncomingHealthEvent.AddDynamic(this, &UCrowdControlHandler::RemoveIncapacitatesOnDamageTaken);
 		}
 	}
+	CurrentCrowdControls.Init(this);
 }
 
 void UCrowdControlHandler::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	DOREPLIFETIME(UCrowdControlHandler, StunStatus);
-	DOREPLIFETIME(UCrowdControlHandler, IncapStatus);
-	DOREPLIFETIME(UCrowdControlHandler, RootStatus);
-	DOREPLIFETIME(UCrowdControlHandler, SilenceStatus);
-	DOREPLIFETIME(UCrowdControlHandler, DisarmStatus);
+	DOREPLIFETIME(UCrowdControlHandler, CurrentCrowdControls);
 }
 
 #pragma endregion
 #pragma region Status
 
-bool UCrowdControlHandler::IsCrowdControlActive(const FGameplayTag CcTag) const
+void UCrowdControlHandler::AddCrowdControl(UBuff* Source, const ECrowdControl CcType)
 {
-	if (FCrowdControlStatus const* CcStruct = GetCcStructConst(CcTag))
+	if (!GetOwner()->HasAuthority())
 	{
-		return CcStruct->bActive;
+		return;
 	}
-	return false;
-}
-
-void UCrowdControlHandler::GetActiveCrowdControls(FGameplayTagContainer& OutCcs) const
-{
-	OutCcs.Reset();
-	if (StunStatus.bActive)
+	if (FCrowdControlStatus* Status = GetCcStruct(CcType))
 	{
-		OutCcs.AddTag(FSaiyoraCombatTags::Get().Cc_Stun);
-	}
-	if (IncapStatus.bActive)
-	{
-		OutCcs.AddTag(FSaiyoraCombatTags::Get().Cc_Incapacitate);
-	}
-	if (RootStatus.bActive)
-	{
-		OutCcs.AddTag(FSaiyoraCombatTags::Get().Cc_Root);
-	}
-	if (SilenceStatus.bActive)
-	{
-		OutCcs.AddTag(FSaiyoraCombatTags::Get().Cc_Silence);
-	}
-	if (DisarmStatus.bActive)
-	{
-		OutCcs.AddTag(FSaiyoraCombatTags::Get().Cc_Disarm);
+		if (Status->AddNewBuff(Source))
+		{
+			OnCrowdControlChanged.Broadcast(*Status);
+			CurrentCrowdControls.MarkItemDirty(*Status);
+		}
 	}
 }
 
-FCrowdControlStatus* UCrowdControlHandler::GetCcStruct(const FGameplayTag CcTag)
+void UCrowdControlHandler::RefreshCrowdControl(UBuff* Source)
 {
-	if (!CcTag.IsValid() || !CcTag.MatchesTag(FSaiyoraCombatTags::Get().CrowdControl) || CcTag.MatchesTagExact(FSaiyoraCombatTags::Get().CrowdControl))
+	if (!GetOwner()->HasAuthority())
 	{
-		return nullptr;
+		return;
 	}
-	if (CcTag.MatchesTagExact(FSaiyoraCombatTags::Get().Cc_Stun))
+	for (FCrowdControlStatus& Cc : CurrentCrowdControls.Items)
 	{
-		return &StunStatus;
+		if (Cc.RefreshBuff(Source))
+		{
+			OnCrowdControlChanged.Broadcast(Cc);
+			CurrentCrowdControls.MarkItemDirty(Cc);
+		}
 	}
-	if (CcTag.MatchesTagExact(FSaiyoraCombatTags::Get().Cc_Incapacitate))
+}
+
+void UCrowdControlHandler::RemoveCrowdControl(UBuff* Source)
+{
+	if (!GetOwner()->HasAuthority())
 	{
-		return &IncapStatus;
+		return;
 	}
-	if (CcTag.MatchesTagExact(FSaiyoraCombatTags::Get().Cc_Root))
+	for (FCrowdControlStatus& Cc : CurrentCrowdControls.Items)
 	{
-		return &RootStatus;
+		if (Cc.RemoveBuff(Source))
+		{
+			OnCrowdControlChanged.Broadcast(Cc);
+			CurrentCrowdControls.MarkItemDirty(Cc);
+		}
 	}
-	if (CcTag.MatchesTagExact(FSaiyoraCombatTags::Get().Cc_Silence))
+}
+
+bool UCrowdControlHandler::IsCrowdControlActive(const ECrowdControl CcType) const
+{
+	const FCrowdControlStatus* Status = GetCcStructConst(CcType);
+	return Status != nullptr && Status->bActive;
+}
+
+FCrowdControlStatus* UCrowdControlHandler::GetCcStruct(const ECrowdControl CcType)
+{
+	for (FCrowdControlStatus& Cc : CurrentCrowdControls.Items)
 	{
-		return &SilenceStatus;
-	}
-	if (CcTag.MatchesTagExact(FSaiyoraCombatTags::Get().Cc_Disarm))
-	{
-		return &DisarmStatus;
+		if (Cc.CrowdControlType == CcType)
+		{
+			return &Cc;
+		}
 	}
 	return nullptr;
 }
 
-FCrowdControlStatus const* UCrowdControlHandler::GetCcStructConst(const FGameplayTag CcTag) const
+FCrowdControlStatus const* UCrowdControlHandler::GetCcStructConst(const ECrowdControl CcType) const
 {
-	if (!CcTag.IsValid() || !CcTag.MatchesTag(FSaiyoraCombatTags::Get().CrowdControl) || CcTag.MatchesTagExact(FSaiyoraCombatTags::Get().CrowdControl))
+	for (const FCrowdControlStatus& Cc : CurrentCrowdControls.Items)
 	{
-		return nullptr;
-	}
-	if (CcTag.MatchesTagExact(FSaiyoraCombatTags::Get().Cc_Stun))
-	{
-		return &StunStatus;
-	}
-	if (CcTag.MatchesTagExact(FSaiyoraCombatTags::Get().Cc_Incapacitate))
-	{
-		return &IncapStatus;
-	}
-	if (CcTag.MatchesTagExact(FSaiyoraCombatTags::Get().Cc_Root))
-	{
-		return &RootStatus;
-	}
-	if (CcTag.MatchesTagExact(FSaiyoraCombatTags::Get().Cc_Silence))
-	{
-		return &SilenceStatus;
-	}
-	if (CcTag.MatchesTagExact(FSaiyoraCombatTags::Get().Cc_Disarm))
-	{
-		return &DisarmStatus;
+		if (Cc.CrowdControlType == CcType)
+		{
+			return &Cc;
+		}
 	}
 	return nullptr;
-}
-
-void UCrowdControlHandler::CheckAppliedBuffForCc(const FBuffApplyEvent& BuffEvent)
-{
-	if (BuffEvent.ActionTaken == EBuffApplyAction::Failed || BuffEvent.ActionTaken == EBuffApplyAction::Stacked || !IsValid(BuffEvent.AffectedBuff))
-	{
-		return;
-	}
-	
-	//Check if the applied buff had any CC tags
-	FGameplayTagContainer BuffTags;
-	BuffEvent.AffectedBuff->GetBuffTags(BuffTags);
-
-	//If this is a new buff, we want to add it to the list for any relevant cc types
-	if (BuffEvent.ActionTaken == EBuffApplyAction::NewBuff)
-	{
-		for (const FGameplayTag Tag : BuffTags)
-		{
-			if (Tag.IsValid() && Tag.MatchesTag(FSaiyoraCombatTags::Get().CrowdControl) && !Tag.MatchesTagExact(FSaiyoraCombatTags::Get().CrowdControl))
-			{
-				if (FCrowdControlStatus* CcStruct = GetCcStruct(Tag))
-				{
-					const FCrowdControlStatus Previous = *CcStruct;
-					if (CcStruct->AddNewBuff(BuffEvent.AffectedBuff))
-					{
-						OnCrowdControlChanged.Broadcast(Previous, *CcStruct);
-					}
-				}
-			}
-		}
-	}
-	//If this is just a refresh of an existing buff, we are checking for whether it can be the new dominant buff (or if it was and is no longer the dominant buff) for a cc type
-	else if (BuffEvent.ActionTaken == EBuffApplyAction::Refreshed || BuffEvent.ActionTaken == EBuffApplyAction::StackedAndRefreshed)
-	{
-		for (const FGameplayTag Tag : BuffTags)
-		{
-			if (Tag.IsValid() && Tag.MatchesTag(FSaiyoraCombatTags::Get().CrowdControl) && !Tag.MatchesTagExact(FSaiyoraCombatTags::Get().CrowdControl))
-			{
-				if (FCrowdControlStatus* CcStruct = GetCcStruct(Tag))
-				{
-					const FCrowdControlStatus Previous = *CcStruct;
-					if (CcStruct->RefreshBuff(BuffEvent.AffectedBuff))
-					{
-						OnCrowdControlChanged.Broadcast(Previous, *CcStruct);
-					}
-				}
-			}
-		}
-	}
-}
-
-void UCrowdControlHandler::CheckRemovedBuffForCc(const FBuffRemoveEvent& RemoveEvent)
-{
-	if (!RemoveEvent.Result || !IsValid(RemoveEvent.RemovedBuff))
-	{
-		return;
-	}
-	
-	//Check if the removed buff had any CC tags
-	FGameplayTagContainer BuffTags;
-	RemoveEvent.RemovedBuff->GetBuffTags(BuffTags);
-
-	//We want to check if this changes the dominant buff for any CC type, or deactivates it entirely
-	for (const FGameplayTag Tag : BuffTags)
-	{
-		if (Tag.IsValid() && Tag.MatchesTag(FSaiyoraCombatTags::Get().CrowdControl) && !Tag.MatchesTagExact(FSaiyoraCombatTags::Get().CrowdControl))
-		{
-			if (FCrowdControlStatus* CcStruct = GetCcStruct(Tag))
-			{
-				const FCrowdControlStatus Previous = *CcStruct;
-				if (CcStruct->RemoveBuff(RemoveEvent.RemovedBuff))
-				{
-					OnCrowdControlChanged.Broadcast(Previous, *CcStruct);
-				}
-			}
-		}
-	}
-}
-
-void UCrowdControlHandler::OnRep_StunStatus(const FCrowdControlStatus& Previous)
-{
-	OnCrowdControlChanged.Broadcast(Previous, StunStatus);
-}
-
-void UCrowdControlHandler::OnRep_IncapStatus(const FCrowdControlStatus& Previous)
-{
-	OnCrowdControlChanged.Broadcast(Previous, IncapStatus);
-}
-
-void UCrowdControlHandler::OnRep_RootStatus(const FCrowdControlStatus& Previous)
-{
-	OnCrowdControlChanged.Broadcast(Previous, RootStatus);
-}
-
-void UCrowdControlHandler::OnRep_SilenceStatus(const FCrowdControlStatus& Previous)
-{
-	OnCrowdControlChanged.Broadcast(Previous, SilenceStatus);
-}
-
-void UCrowdControlHandler::OnRep_DisarmStatus(const FCrowdControlStatus& Previous)
-{
-	OnCrowdControlChanged.Broadcast(Previous, DisarmStatus);
 }
 
 void UCrowdControlHandler::RemoveIncapacitatesOnDamageTaken(const FHealthEvent& HealthEvent)
 {
-	//Currently any non-zero and non-DoT damage will break all incaps.
-	if (HealthEvent.Info.EventType == EHealthEventType::Damage && HealthEvent.Result.AppliedValue > 0.0f && HealthEvent.Info.HitStyle != EEventHitStyle::Chronic)
+	if (!IsValid(BuffHandlerRef))
 	{
-		for(UBuff* Cc : IncapStatus.Sources)
+		return;
+	}
+	//Currently any non-zero and non-DoT damage will break all incaps.
+	if (HealthEvent.Info.EventType == EHealthEventType::Damage
+		&& HealthEvent.Result.AppliedValue > 0.0f
+		&& HealthEvent.Info.HitStyle != EEventHitStyle::Chronic)
+	{
+		DispelCcsOfType(ECrowdControl::Incapacitate);
+	}
+}
+
+#pragma endregion
+#pragma region Immunities
+
+void UCrowdControlHandler::AddImmunities(UBuff* Source, const TSet<ECrowdControl>& Immunities)
+{
+	if (!GetOwner()->HasAuthority())
+	{
+		return;
+	}
+	if (!IsValid(Source))
+	{
+		return;
+	}
+	TArray<ECrowdControl> BecameImmune;
+	for (const ECrowdControl Immunity : Immunities)
+	{
+		if (FCrowdControlStatus* Status = GetCcStruct(Immunity))
 		{
-			//We break CCs by removing buffs that are applying those CCs
-			BuffHandlerRef->RemoveBuff(Cc, EBuffExpireReason::Dispel);
+			const bool bNoImmunity = Status->Immunities.Num() == 0 && !Status->bDefaultImmuned;
+			Status->Immunities.Add(Source);
+			if (bNoImmunity)
+			{
+				BecameImmune.Add(Immunity);
+			}
+		}
+	}
+	//For any CC type that we just became immune to, we need to dispel any active CCs of that type.
+	for (const ECrowdControl NewImmunity : BecameImmune)
+	{
+		DispelCcsOfType(NewImmunity);
+	}
+}
+
+void UCrowdControlHandler::RemoveImmunities(UBuff* Source)
+{
+	if (!GetOwner()->HasAuthority())
+	{
+		return;
+	}
+	if (!IsValid(Source))
+	{
+		return;
+	}
+	for (FCrowdControlStatus& Cc : CurrentCrowdControls.Items)
+	{
+		if (Cc.Immunities.Contains(Source))
+		{
+			Cc.Immunities.Remove(Source);
+		}
+	}
+}
+
+bool UCrowdControlHandler::CheckBuffForImmunedCc(const FBuffApplyEvent& Event)
+{
+	const UBuff* DefaultBuff = Event.BuffClass.GetDefaultObject();
+	if (IsValid(DefaultBuff))
+	{
+		for (const UBuffFunction* Function : DefaultBuff->GetBuffFunctions())
+		{
+			if (const UCrowdControlFunction* CcFunction = Cast<UCrowdControlFunction>(Function))
+			{
+				if (IsImmuneToCc(CcFunction->GetCrowdControlType()))
+				{
+					return true;
+				}
+			}
+		}
+	}
+	return false;
+}
+
+bool UCrowdControlHandler::IsImmuneToCc(const ECrowdControl CcType) const
+{
+	const FCrowdControlStatus* Status = GetCcStructConst(CcType);
+	return Status != nullptr && (Status->bDefaultImmuned || Status->Immunities.Num() > 0);
+}
+
+void UCrowdControlHandler::DispelCcsOfType(const ECrowdControl CcType)
+{
+	if (const FCrowdControlStatus* Status = GetCcStructConst(CcType))
+	{
+		//Copy the buffs array, since we'll be removing those buffs while iterating.
+		TSet<UBuff*> Buffs = Status->Sources;
+		for (UBuff* IncapBuff : Buffs)
+		{
+			//We break Ccs by removing all buffs that are applying those CCs
+			BuffHandlerRef->RemoveBuff(IncapBuff, EBuffExpireReason::Dispel);
 		}
 	}
 }

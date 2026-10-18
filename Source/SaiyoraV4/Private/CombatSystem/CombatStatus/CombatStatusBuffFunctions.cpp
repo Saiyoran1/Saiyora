@@ -3,23 +3,21 @@
 #include "CombatStatusComponent.h"
 #include "SaiyoraCombatInterface.h"
 
-void UPlaneSwapRestrictionFunction::SetupBuffFunction()
-{
-	TargetComponent = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(GetOwningBuff()->GetAppliedTo());
-}
-
 void UPlaneSwapRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
-	if (IsValid(TargetComponent))
+	TargetHandler = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(GetOwningBuff()->GetAppliedTo());
+	if (!IsValid(TargetHandler))
 	{
-		TargetComponent->AddPlaneSwapRestriction(GetOwningBuff());
+		return;
 	}
+	TargetHandler->AddPlaneSwapRestriction(GetOwningBuff());
 }
 
 void UPlaneSwapRestrictionFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
-	if (IsValid(TargetComponent))
+	if (!IsValid(TargetHandler))
 	{
-		TargetComponent->RemovePlaneSwapRestriction(GetOwningBuff());
+		return;
 	}
+	TargetHandler->RemovePlaneSwapRestriction(GetOwningBuff());
 }

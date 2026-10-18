@@ -5,29 +5,27 @@
 
 #pragma region Stat Modifiers
 
-void UStatModifierFunction::SetupBuffFunction()
+void UStatModifierFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
 	TargetHandler = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwningBuff()->GetAppliedTo());
+	if (!IsValid(TargetHandler))
+	{
+		return;
+	}
 	for (TTuple<FGameplayTag, FCombatModifier>& Mod : StatMods)
 	{
 		Mod.Value.BuffSource = GetOwningBuff();
-	}
-}
-
-void UStatModifierFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
-{
-	if (IsValid(TargetHandler))
-	{
-		for (const TTuple<FGameplayTag, FCombatModifier>& Mod : StatMods)
-		{
-			StatModHandles.Add(Mod.Key, TargetHandler->AddStatModifier(Mod.Key, Mod.Value));
-		}
+		StatModHandles.Add(Mod.Key, TargetHandler->AddStatModifier(Mod.Key, Mod.Value));
 	}
 }
 
 void UStatModifierFunction::OnChange(const FBuffApplyEvent& ApplyEvent)
 {
-	if (IsValid(TargetHandler) && ApplyEvent.PreviousStacks != ApplyEvent.NewStacks)
+	if (!IsValid(TargetHandler))
+	{
+		return;
+	}
+	if (ApplyEvent.PreviousStacks != ApplyEvent.NewStacks)
 	{
 		for (const TTuple<FGameplayTag, FCombatModifier>& Mod : StatMods)
 		{
@@ -41,12 +39,13 @@ void UStatModifierFunction::OnChange(const FBuffApplyEvent& ApplyEvent)
 
 void UStatModifierFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
-	if (IsValid(TargetHandler))
+	if (!IsValid(TargetHandler))
 	{
-		for (const TTuple<FGameplayTag, FCombatModifierHandle>& ModHandle : StatModHandles)
-		{
-			TargetHandler->RemoveStatModifier(ModHandle.Key, ModHandle.Value);
-		}
+		return;
+	}
+	for (const TTuple<FGameplayTag, FCombatModifierHandle>& ModHandle : StatModHandles)
+	{
+		TargetHandler->RemoveStatModifier(ModHandle.Key, ModHandle.Value);
 	}
 }
 

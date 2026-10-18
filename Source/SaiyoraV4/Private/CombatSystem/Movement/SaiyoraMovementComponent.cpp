@@ -373,7 +373,7 @@ void USaiyoraMovementComponent::ApplyCustomMove(UObject* Source, const FCustomMo
 	//If not ignoring restrictions, check for roots or for active movement restriction.
 	if (!CustomMove.bIgnoreRestrictions)
 	{
-		if (IsValid(CcHandlerRef) && CcHandlerRef->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Root))
+		if (IsValid(CcHandlerRef) && CcHandlerRef->IsCrowdControlActive(ECrowdControl::Root))
 		{
 			return;
 		}
@@ -660,7 +660,7 @@ void USaiyoraMovementComponent::ApplyRootMotionTask(USaiyoraRootMotionTask* Task
 	//If not ignoring restrictions, check for roots or for active movement restriction.
 	if (!Task->bIgnoreRestrictions)
 	{
-		if (IsValid(CcHandlerRef) && CcHandlerRef->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Root))
+		if (IsValid(CcHandlerRef) && CcHandlerRef->IsCrowdControlActive(ECrowdControl::Root))
 		{
 			return;
 		}
@@ -719,7 +719,7 @@ uint16 USaiyoraMovementComponent::ExecuteRootMotionTask(USaiyoraRootMotionTask* 
 	{
 		return (uint16)ERootMotionSourceID::Invalid;
 	}
-	if (!Task->bIgnoreRestrictions && IsValid(CcHandlerRef) && CcHandlerRef->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Root))
+	if (!Task->bIgnoreRestrictions && IsValid(CcHandlerRef) && CcHandlerRef->IsCrowdControlActive(ECrowdControl::Root))
 	{
 		return (uint16)ERootMotionSourceID::Invalid;		
 	}
@@ -821,10 +821,10 @@ void USaiyoraMovementComponent::StopMotionOnOwnerDeath(AActor* Target, const ELi
 	}
 }
 
-void USaiyoraMovementComponent::StopMotionOnRooted(const FCrowdControlStatus& Previous, const FCrowdControlStatus& New)
+void USaiyoraMovementComponent::StopMotionOnRooted(const FCrowdControlStatus& New)
 {
 	//TODO: Can add ping delay to root taking effect for auto proxies? How does this work with sim proxies?
-	if (New.CrowdControlType == FSaiyoraCombatTags::Get().Cc_Root && New.bActive)
+	if (New.CrowdControlType == ECrowdControl::Root && New.bActive)
 	{
 		for (USaiyoraRootMotionTask* ActiveRMTask : ActiveRootMotionTasks)
 		{
@@ -852,7 +852,9 @@ bool USaiyoraMovementComponent::CanAttemptJump() const
 	}
 	if (IsValid(CcHandlerRef))
 	{
-		if (CcHandlerRef->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Stun) || CcHandlerRef->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Incapacitate) || CcHandlerRef->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Root))
+		if (CcHandlerRef->IsCrowdControlActive(ECrowdControl::Stun)
+			|| CcHandlerRef->IsCrowdControlActive(ECrowdControl::Incapacitate)
+			|| CcHandlerRef->IsCrowdControlActive(ECrowdControl::Root))
 		{
 			return false;
 		}
@@ -872,7 +874,8 @@ bool USaiyoraMovementComponent::CanCrouchInCurrentState() const
 	}
 	if (IsValid(CcHandlerRef))
 	{
-		if (CcHandlerRef->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Stun) || CcHandlerRef->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Incapacitate))
+		if (CcHandlerRef->IsCrowdControlActive(ECrowdControl::Stun)
+			|| CcHandlerRef->IsCrowdControlActive(ECrowdControl::Incapacitate))
 		{
 			return false;
 		}
@@ -888,7 +891,9 @@ FVector USaiyoraMovementComponent::ConsumeInputVector()
 	}
 	if (IsValid(CcHandlerRef))
 	{
-		if (CcHandlerRef->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Stun) || CcHandlerRef->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Incapacitate) || CcHandlerRef->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Root))
+		if (CcHandlerRef->IsCrowdControlActive(ECrowdControl::Stun)
+			|| CcHandlerRef->IsCrowdControlActive(ECrowdControl::Incapacitate)
+			|| CcHandlerRef->IsCrowdControlActive(ECrowdControl::Root))
 		{
 			return FVector::ZeroVector;
 		}
@@ -904,7 +909,9 @@ float USaiyoraMovementComponent::GetMaxAcceleration() const
 	}
 	if (IsValid(CcHandlerRef))
 	{
-		if (CcHandlerRef->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Stun) || CcHandlerRef->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Incapacitate) || CcHandlerRef->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Root))
+		if (CcHandlerRef->IsCrowdControlActive(ECrowdControl::Stun)
+			|| CcHandlerRef->IsCrowdControlActive(ECrowdControl::Incapacitate)
+			|| CcHandlerRef->IsCrowdControlActive(ECrowdControl::Root))
 		{
 			return 0.0f;
 		}
@@ -920,7 +927,9 @@ float USaiyoraMovementComponent::GetMaxSpeed() const
 	}
 	if (IsValid(CcHandlerRef))
 	{
-		if (CcHandlerRef->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Stun) || CcHandlerRef->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Incapacitate) || CcHandlerRef->IsCrowdControlActive(FSaiyoraCombatTags::Get().Cc_Root))
+		if (CcHandlerRef->IsCrowdControlActive(ECrowdControl::Stun)
+			|| CcHandlerRef->IsCrowdControlActive(ECrowdControl::Incapacitate)
+			|| CcHandlerRef->IsCrowdControlActive(ECrowdControl::Root))
 		{
 			return 0.0f;
 		}

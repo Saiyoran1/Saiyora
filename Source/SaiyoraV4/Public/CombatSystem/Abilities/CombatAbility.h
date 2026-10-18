@@ -3,12 +3,12 @@
 #include "CombatEnums.h"
 #include "DamageEnums.h"
 #include "AbilityStructs.h"
+#include "CrowdControlEnums.h"
 #include "ResourceStructs.h"
 #include "GameFramework/GameStateBase.h"
 #include "CombatAbility.generated.h"
 
 class USaiyoraMovementComponent;
-class UCrowdControl;
 class UDamageHandler;
 class UAbilityComponent;
 struct FServerAbilityResult;
@@ -107,7 +107,7 @@ public:
     UFUNCTION(BlueprintPure, Category = "Abilities")
     bool IsCastableWhileDead() const { return bCastableWhileDead; }
     UFUNCTION(BlueprintPure, Category = "Abilities")
-    void GetRestrictedCrowdControls(FGameplayTagContainer& OutCrowdControls) const { OutCrowdControls = RestrictedCrowdControls; }
+    void GetRestrictedCrowdControls(TSet<ECrowdControl>& OutCrowdControls) const { OutCrowdControls = RestrictedCrowdControls; }
     UFUNCTION(BlueprintPure, Category = "Abilities")
     bool IsCastableWhileMoving() const { return bCastableWhileMoving; }
 
@@ -129,8 +129,8 @@ protected:
 
     UPROPERTY(EditDefaultsOnly, Category = "Restrictions")
     bool bCastableWhileDead = false;
-    UPROPERTY(EditDefaultsOnly, Category = "Restrictions", meta = (Categories = "CrowdControl"))
-    FGameplayTagContainer RestrictedCrowdControls;
+    UPROPERTY(EditDefaultsOnly, Category = "Restrictions")
+    TSet<ECrowdControl> RestrictedCrowdControls;
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Restrictions", meta = (AllowPrivateAccess = "true"))
     bool bCastableWhileMoving = true;
 

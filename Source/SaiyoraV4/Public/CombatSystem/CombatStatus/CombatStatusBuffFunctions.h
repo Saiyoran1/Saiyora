@@ -12,13 +12,12 @@ class SAIYORAV4_API UPlaneSwapRestrictionFunction : public UBuffFunction
 	GENERATED_BODY()
 
 public:
-
-	virtual void SetupBuffFunction() override;
+	
 	virtual void OnApply(const FBuffApplyEvent& ApplyEvent) override;
 	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) override;
 
 private:
 	
 	UPROPERTY()
-	UCombatStatusComponent* TargetComponent = nullptr;
+	UCombatStatusComponent* TargetHandler = nullptr;
 };

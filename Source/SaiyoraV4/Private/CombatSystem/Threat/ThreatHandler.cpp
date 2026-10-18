@@ -711,7 +711,7 @@ void UThreatHandler::NotifyOfCombatantFadeStatus(const UThreatHandler* Combatant
 	SortModifiedThreatTarget(TargetIndex);
 }
 
-void UThreatHandler::AddMisdirect(UBuff* Source, AActor* Target)
+void UThreatHandler::AddMisdirect(AActor* Target, UBuff* Source)
 {
 	if (GetOwnerRole() != ROLE_Authority || !IsValid(Source) || !IsValid(Target) || Source->GetAppliedTo() != GetOwner())
 	{

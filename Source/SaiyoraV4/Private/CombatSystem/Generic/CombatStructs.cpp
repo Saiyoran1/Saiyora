@@ -193,7 +193,7 @@ void FModifiableInt::UpdateModifier(const FCombatModifierHandle& ModifierHandle,
         return;
     }
     const FCombatModifier* FoundMod = Modifiers.Find(ModifierHandle);
-    if (!FoundMod || *FoundMod == NewModifier)
+    if (!FoundMod)
     {
         return;
     }

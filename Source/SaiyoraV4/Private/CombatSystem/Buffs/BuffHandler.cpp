@@ -4,7 +4,6 @@
 #include "CombatStatusComponent.h"
 #include "SaiyoraCombatInterface.h"
 #include "AbilityComponent.h"
-#include "CrowdControlHandler.h"
 #include "DamageHandler.h"
 #include "NPCAbilityComponent.h"
 #include "SaiyoraMovementComponent.h"
@@ -36,7 +35,6 @@ void UBuffHandler::InitializeComponent()
 	StatHandlerRef = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
 	ThreatHandlerRef = ISaiyoraCombatInterface::Execute_GetThreatHandler(GetOwner());
 	MovementComponentRef = ISaiyoraCombatInterface::Execute_GetCustomMovementComponent(GetOwner());
-	CcHandlerRef = ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(GetOwner());
 	NPCComponentRef = Cast<UNPCAbilityComponent>(ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwner()));
 }
 
@@ -426,11 +424,6 @@ bool UBuffHandler::CheckIncomingBuffRestricted(const FBuffApplyEvent& BuffEvent,
 		if (Tag.MatchesTag(FSaiyoraCombatTags::Get().Stat) && !Tag.MatchesTagExact(FSaiyoraCombatTags::Get().Stat) && (!IsValid(StatHandlerRef) || !StatHandlerRef->IsStatModifiable(Tag)))
 		{
 			OutFailReasons.AddUnique(EBuffApplyFailReason::StatNotModifiable);
-			bRestricted = true;
-		}
-		if (Tag.MatchesTag(FSaiyoraCombatTags::Get().CrowdControl) && !Tag.MatchesTagExact(FSaiyoraCombatTags::Get().CrowdControl) && (!IsValid(CcHandlerRef) || CcHandlerRef->IsImmuneToCrowdControl(Tag)))
-		{
-			OutFailReasons.AddUnique(EBuffApplyFailReason::ImmuneToCc);
 			bRestricted = true;
 		}
 		if (Tag.MatchesTag(FSaiyoraCombatTags::Get().Threat) && (!IsValid(ThreatHandlerRef) || !ThreatHandlerRef->HasThreatTable()))
