@@ -118,6 +118,19 @@ void UPeriodicHealthEventFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 	GetWorld()->GetTimerManager().ClearTimer(TickHandle);
 }
 
+bool UPeriodicHealthEventFunction::CheckBuffFunctionRestricted(const FBuffApplyEvent& ApplyEvent, EBuffApplyFailReason& OutFailReason) const
+{
+	const UDamageHandler* DamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(ApplyEvent.AppliedTo);
+	if (!IsValid(DamageHandler)
+		|| (EventType == EHealthEventType::Damage && !DamageHandler->CanEverReceiveDamage())
+		|| ((EventType == EHealthEventType::Absorb || EventType == EHealthEventType::Healing) && !DamageHandler->CanEverReceiveHealing()))
+	{
+		OutFailReason = EBuffApplyFailReason::ImmuneToHealthEvent;
+		return true;
+	}
+	return false;
+}
+
 #pragma endregion
 #pragma region Health Event Modifiers
 

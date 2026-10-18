@@ -1,5 +1,6 @@
 #pragma once
 #include "AbilityFunctionLibrary.h"
+#include "BuffFunctionality.h"
 #include "BuffStructs.h"
 #include "InstancedStruct.h"
 #include "GameFramework/GameState.h"
@@ -278,7 +279,8 @@ private:
 
 public:
 
-	const TArray<UBuffFunction*>& GetBuffFunctions() const { return BuffFunctionObjects; }
+	//Get the array of all BuffFunctions on this buff.
+	const TArray<UBuffFunction*>& GetAllBuffFunctions() const { return BuffFunctionObjects; }
 
 protected:
 

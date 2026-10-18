@@ -59,6 +59,7 @@ public:
 	
 	virtual void OnApply(const FBuffApplyEvent& ApplyEvent) override;
 	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) override;
+	virtual bool CheckBuffFunctionRestricted(const FBuffApplyEvent& ApplyEvent, EBuffApplyFailReason& OutFailReason) const override;
 
 private:
 
@@ -75,9 +76,11 @@ public:
 	
 	virtual void OnApply(const FBuffApplyEvent& ApplyEvent) override;
 	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) override;
+	virtual bool CheckBuffFunctionRestricted(const FBuffApplyEvent& ApplyEvent, EBuffApplyFailReason& OutFailReason) const override;
 
 private:
-	
+
+	AActor* TryGetFixateTarget(const FBuffApplyEvent& ApplyEvent) const;
 	UPROPERTY()
 	UThreatHandler* TargetHandler;
 	UPROPERTY()
@@ -93,9 +96,11 @@ public:
 	
 	virtual void OnApply(const FBuffApplyEvent& ApplyEvent) override;
 	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) override;
+	virtual bool CheckBuffFunctionRestricted(const FBuffApplyEvent& ApplyEvent, EBuffApplyFailReason& OutFailReason) const override;
 
 private:
-	
+
+	AActor* TryGetBlindTarget(const FBuffApplyEvent& ApplyEvent) const;
 	UPROPERTY()
 	UThreatHandler* TargetHandler;
 	UPROPERTY()
@@ -111,9 +116,11 @@ public:
 	
 	virtual void OnApply(const FBuffApplyEvent& ApplyEvent) override;
 	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) override;
+	virtual bool CheckBuffFunctionRestricted(const FBuffApplyEvent& ApplyEvent, EBuffApplyFailReason& OutFailReason) const override;
 
 private:
-	
+
+	AActor* TryGetMisdirectTarget(const FBuffApplyEvent& ApplyEvent) const;
 	UPROPERTY()
 	UThreatHandler* TargetHandler;
 	UPROPERTY()

@@ -36,8 +36,12 @@ private:
 
 public:
 
+	//Called by buff functions to apply a crowd control.
 	void AddCrowdControl(UBuff* Source, const ECrowdControl CcType);
+	//Called by buff functions to update the duration of a crowd control.
+	//This really just serves to potentially update which buff providing a given CC type will last the longest, for display.
 	void RefreshCrowdControl(UBuff* Source);
+	//Called on buff removal to remove any CCs provided by a buff.
 	void RemoveCrowdControl(UBuff* Source);
 
 	//Gets whether a crowd control of the given type is active
@@ -73,8 +77,12 @@ private:
 
 public:
 
+	//Called by buff functions to add a temporary immunity to some CC types.
 	void AddImmunities(UBuff* Source, const TSet<ECrowdControl>& Immunities);
+	//Called on buff removal to remove any CC immunities provided by that buff.
 	void RemoveImmunities(UBuff* Source);
+	//Checks whether we are currently immune to a given CC type, either via default immunity or a buff.
+	bool IsImmuneToCc(const ECrowdControl CcType) const;
 
 private:
 
@@ -82,14 +90,7 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Crowd Control")
 	TSet<ECrowdControl> DefaultCrowdControlImmunities;
 	
-	FBuffRestriction CrowdControlRestriction;
-	//Restriction that prevents application of buffs that will apply a certain Cc, when we are immune to that Cc.
-	UFUNCTION()
-	bool CheckBuffForImmunedCc(const FBuffApplyEvent& Event);
-
-	//Checks whether we are currently immune to a given Cc type, either via default immunity or a buff.
-	bool IsImmuneToCc(const ECrowdControl CcType) const;
-	//Removes all buffs that are applying a given type of Cc.
+	//Removes all buffs that are applying a given type of CC.
 	void DispelCcsOfType(const ECrowdControl CcType);
 
 #pragma endregion 

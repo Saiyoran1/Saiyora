@@ -49,6 +49,17 @@ void UCrowdControlFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 	TargetHandler->RemoveCrowdControl(GetOwningBuff());
 }
 
+bool UCrowdControlFunction::CheckBuffFunctionRestricted(const FBuffApplyEvent& ApplyEvent, EBuffApplyFailReason& OutFailReason) const
+{
+	const UCrowdControlHandler* CcHandler = ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(ApplyEvent.AppliedTo);
+	if (!IsValid(CcHandler) || CcHandler->IsImmuneToCc(CrowdControl))
+	{
+		OutFailReason = EBuffApplyFailReason::ImmuneToCc;
+		return true;
+	}
+	return false;
+}
+
 #pragma endregion 
 #pragma region Crowd Control Immunity
 

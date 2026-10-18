@@ -152,9 +152,11 @@ public:
 
 	void AddFixate(const AActor* Target, UBuff* Source);
 	void RemoveFixate(const AActor* Target, UBuff* Source);
+	static bool CanFixate(const AActor* Fixating, const AActor* FixatedOn);
 	
 	void AddBlind(const AActor* Target, UBuff* Source);
 	void RemoveBlind(const AActor* Target, UBuff* Source);
+	static bool CanBlind(const AActor* Blinded, const AActor* BlindTo);
 	
 	void AddFade(UBuff* Source);
 	void RemoveFade(UBuff* Source);
@@ -163,7 +165,8 @@ public:
 	
 	void AddMisdirect(AActor* Target, UBuff* Source);
 	void RemoveMisdirect(const UBuff* Source);
-	AActor* GetMisdirectTarget() const { return Misdirects.Num() == 0 ? nullptr : Misdirects[Misdirects.Num() - 1].Target; }
+	AActor* GetMisdirectTarget() const;
+	static bool CanMisdirectThreat(const AActor* ThreatFrom, const AActor* ThreatTo);
 
 private:
 	

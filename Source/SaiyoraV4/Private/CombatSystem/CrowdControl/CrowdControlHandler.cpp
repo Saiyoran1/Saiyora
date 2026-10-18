@@ -27,7 +27,6 @@ void UCrowdControlHandler::InitializeComponent()
 	checkf(GetOwner()->Implements<USaiyoraCombatInterface>(), TEXT("Owner does not implement combat interface, but has Crowd Control Handler."));
 	BuffHandlerRef = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwner());
 	checkf(IsValid(BuffHandlerRef), TEXT("Owner does not have a valid Buff Handler, which CC Handler depends on."));
-	CrowdControlRestriction.BindDynamic(this, &UCrowdControlHandler::CheckBuffForImmunedCc);
 	DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
 
 	//Init the array of crowd control statuses
@@ -49,7 +48,6 @@ void UCrowdControlHandler::BeginPlay()
 	
 	if (GetOwnerRole() == ROLE_Authority)
 	{
-		BuffHandlerRef->AddIncomingBuffRestriction(CrowdControlRestriction);
 		if (IsValid(DamageHandlerRef))
 		{
 			DamageHandlerRef->OnIncomingHealthEvent.AddDynamic(this, &UCrowdControlHandler::RemoveIncapacitatesOnDamageTaken);
@@ -211,25 +209,6 @@ void UCrowdControlHandler::RemoveImmunities(UBuff* Source)
 			Cc.Immunities.Remove(Source);
 		}
 	}
-}
-
-bool UCrowdControlHandler::CheckBuffForImmunedCc(const FBuffApplyEvent& Event)
-{
-	const UBuff* DefaultBuff = Event.BuffClass.GetDefaultObject();
-	if (IsValid(DefaultBuff))
-	{
-		for (const UBuffFunction* Function : DefaultBuff->GetBuffFunctions())
-		{
-			if (const UCrowdControlFunction* CcFunction = Cast<UCrowdControlFunction>(Function))
-			{
-				if (IsImmuneToCc(CcFunction->GetCrowdControlType()))
-				{
-					return true;
-				}
-			}
-		}
-	}
-	return false;
 }
 
 bool UCrowdControlHandler::IsImmuneToCc(const ECrowdControl CcType) const

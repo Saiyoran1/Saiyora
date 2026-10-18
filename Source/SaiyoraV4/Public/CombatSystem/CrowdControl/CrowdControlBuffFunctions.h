@@ -16,6 +16,7 @@ public:
 	virtual void OnApply(const FBuffApplyEvent& ApplyEvent) override;
 	virtual void OnChange(const FBuffApplyEvent& ApplyEvent) override;
 	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) override;
+	virtual bool CheckBuffFunctionRestricted(const FBuffApplyEvent& ApplyEvent, EBuffApplyFailReason& OutFailReason) const override;
 
 	ECrowdControl GetCrowdControlType() const { return CrowdControl; }
 

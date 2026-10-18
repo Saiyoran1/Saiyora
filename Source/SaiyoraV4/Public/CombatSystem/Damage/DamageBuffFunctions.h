@@ -17,6 +17,9 @@ public:
 	UPeriodicHealthEventFunction();
 	virtual void OnApply(const FBuffApplyEvent& ApplyEvent) override;
 	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) override;
+	virtual bool CheckBuffFunctionRestricted(const FBuffApplyEvent& ApplyEvent, EBuffApplyFailReason& OutFailReason) const override;
+
+	EHealthEventType GetEventType() const { return EventType; }
 
 private:
 

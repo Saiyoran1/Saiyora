@@ -29,6 +29,9 @@ public:
 	virtual void OnChange(const FBuffApplyEvent& ApplyEvent) {}
 	//Pure virtual function called when the buff is removed for child classes to use
 	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) {}
+	//Virtual function for child classes to determine specific restrictions on buff application.
+	//Useful for things like "don't apply a DoT to a target that can't take damage."
+	virtual bool CheckBuffFunctionRestricted(const FBuffApplyEvent& ApplyEvent, EBuffApplyFailReason& OutFailReason) const { return false; }
 
 protected:
 

@@ -4,6 +4,7 @@
 #include "CombatStatusComponent.h"
 #include "SaiyoraCombatInterface.h"
 #include "AbilityComponent.h"
+#include "CrowdControlHandler.h"
 #include "DamageHandler.h"
 #include "NPCAbilityComponent.h"
 #include "SaiyoraMovementComponent.h"
@@ -35,6 +36,7 @@ void UBuffHandler::InitializeComponent()
 	StatHandlerRef = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
 	ThreatHandlerRef = ISaiyoraCombatInterface::Execute_GetThreatHandler(GetOwner());
 	MovementComponentRef = ISaiyoraCombatInterface::Execute_GetCustomMovementComponent(GetOwner());
+	CcHandlerRef = ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(GetOwner());
 	NPCComponentRef = Cast<UNPCAbilityComponent>(ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwner()));
 }
 
@@ -115,6 +117,14 @@ FBuffApplyEvent UBuffHandler::ApplyBuff(const TSubclassOf<UBuff> BuffClass, AAct
 	Event.TargetPlane = IsValid(CombatStatusComponentRef) ? CombatStatusComponentRef->GetCurrentPlane() : ESaiyoraPlane::Both;
 	Event.Source = Source;
 	Event.CombatParams = BuffParams;
+
+	//Check here if we'll be working on an existing buff or if we are creating a new buff instance.
+	//This can be relevant to restrictions, so we set AffectedBuff to valid before doing restrictions, if we aren't creating a new buff instance.
+	UBuff* AffectedBuff = FindExistingBuff(BuffClass, true, AppliedBy);
+	if (IsValid(AffectedBuff) && !AffectedBuff->IsDuplicable() && !DuplicateOverride)
+	{
+		Event.AffectedBuff = AffectedBuff;
+	}
 	
 	//Check buff restrictions, and other restrictions applied by combat components.
 	//These functions will add their fail reasons if they have any.
@@ -124,21 +134,20 @@ FBuffApplyEvent UBuffHandler::ApplyBuff(const TSubclassOf<UBuff> BuffClass, AAct
     	return Event;
     }
 
-	//If an existing buff of this class from this owner exists, and we aren't trying to duplicate (via normal behavior or an override),
-	//then we want to try and stack or refresh the existing buff.
-	UBuff* AffectedBuff = FindExistingBuff(BuffClass, true, AppliedBy);
-	if (IsValid(AffectedBuff) && !AffectedBuff->IsDuplicable() && !DuplicateOverride)
+	//If we're acting on an existing buff (stacking/refreshing), do that.
+	if (IsValid(Event.AffectedBuff))
 	{
 		//The event can still fail here, if the existing buff can not be stacked or refreshed and there aren't overrides for either.
 		AffectedBuff->ApplyEvent(Event, StackOverrideType, OverrideStacks, RefreshOverrideType, OverrideDuration);
 	}
-	//If we are duplicating or there isn't an existing buff, create a new buff instance.
+	//Otherwise, we'll create and initialize a brand new buff instance.
 	else
 	{
 		//Currently, this can't fail from this point on. We assume the object will be created and initialize okay.
 		Event.AffectedBuff = NewObject<UBuff>(GetOwner(), Event.BuffClass);
 		Event.AffectedBuff->InitializeBuff(Event, this, IgnoreRestrictions, StackOverrideType, OverrideStacks, RefreshOverrideType, OverrideDuration);
 	}
+	
     return Event;
 }
 
@@ -404,36 +413,17 @@ bool UBuffHandler::CheckIncomingBuffRestricted(const FBuffApplyEvent& BuffEvent,
 		OutFailReasons.AddUnique(EBuffApplyFailReason::Dead);
 		bRestricted = true;
 	}
-	//Check the buff's tags for any restrictions inherent to other combat components.
-	//This would mean things like trying to do damage over time when a target is immune to damage, trying to move a target with no movement component, etc.
-	//I'm not 100% convinced this is the best way to do these kinds of restrictions, but it does make outputting fail reasons more clear.
-	FGameplayTagContainer BuffTags;
-	BuffEvent.BuffClass.GetDefaultObject()->GetBuffTags(BuffTags);
-	for (const FGameplayTag Tag : BuffTags)
+	//Check if any of the buff's functions would prevent it from being applied.
+	for (const UBuffFunction* Function : BuffEvent.BuffClass.GetDefaultObject()->GetAllBuffFunctions())
 	{
-		if (Tag.MatchesTagExact(FSaiyoraCombatTags::Get().Damage) && (!IsValid(DamageHandlerRef) || !DamageHandlerRef->CanEverReceiveDamage()))
+		EBuffApplyFailReason FailReason = EBuffApplyFailReason::None;
+		if (IsValid(Function) && Function->CheckBuffFunctionRestricted(BuffEvent, FailReason))
 		{
-			OutFailReasons.AddUnique(EBuffApplyFailReason::ImmuneToDamage);
-			bRestricted = true;
-		}
-		if (Tag.MatchesTagExact(FSaiyoraCombatTags::Get().Healing) && (!IsValid(DamageHandlerRef) || !DamageHandlerRef->CanEverReceiveHealing()))
-		{
-			OutFailReasons.AddUnique(EBuffApplyFailReason::ImmuneToHealing);
-			bRestricted = true;
-		}
-		if (Tag.MatchesTag(FSaiyoraCombatTags::Get().Stat) && !Tag.MatchesTagExact(FSaiyoraCombatTags::Get().Stat) && (!IsValid(StatHandlerRef) || !StatHandlerRef->IsStatModifiable(Tag)))
-		{
-			OutFailReasons.AddUnique(EBuffApplyFailReason::StatNotModifiable);
-			bRestricted = true;
-		}
-		if (Tag.MatchesTag(FSaiyoraCombatTags::Get().Threat) && (!IsValid(ThreatHandlerRef) || !ThreatHandlerRef->HasThreatTable()))
-		{
-			OutFailReasons.AddUnique(EBuffApplyFailReason::NoThreatTable);
-			bRestricted = true;
-		}
-		if (Tag.MatchesTagExact(FSaiyoraCombatTags::Get().ExternalMovement) && !IsValid(MovementComponentRef))
-		{
-			OutFailReasons.AddUnique(EBuffApplyFailReason::NoMovement);
+			//We might forget to set a fail reason, that's fine, but don't add "None" to the array.
+			if (FailReason != EBuffApplyFailReason::None)
+			{
+				OutFailReasons.AddUnique(FailReason);
+			}
 			bRestricted = true;
 		}
 	}
@@ -449,19 +439,6 @@ bool UBuffHandler::CheckOutgoingBuffRestricted(const FBuffApplyEvent& BuffEvent,
 	{
 		OutFailReasons.AddUnique(EBuffApplyFailReason::OutgoingRestriction);
 		bRestricted = true;
-	}
-	//Check buff tags for restrictions inherent to other combat components.
-	//In this case, its just whether the instigator can be in a threat table, if it's trying to apply a buff that generates threat.
-	FGameplayTagContainer BuffTags;
-	BuffEvent.BuffClass.GetDefaultObject()->GetBuffTags(BuffTags);
-	for (const FGameplayTag Tag : BuffTags)
-	{
-		if (Tag.MatchesTag(FSaiyoraCombatTags::Get().Threat) && (!IsValid(ThreatHandlerRef) || !ThreatHandlerRef->CanBeInThreatTable()))
-		{
-			OutFailReasons.AddUnique(EBuffApplyFailReason::InvalidThreatTarget);
-			bRestricted = true;
-			break;
-		}
 	}
 	return bRestricted;
 }

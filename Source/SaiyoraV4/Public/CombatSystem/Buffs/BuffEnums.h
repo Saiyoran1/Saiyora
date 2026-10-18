@@ -67,6 +67,7 @@ enum class EBuffStatus : uint8
 UENUM(BlueprintType)
 enum class EBuffApplyFailReason : uint8
 {
+	None UMETA(Hidden),
 	//Tried to apply a buff on a client
 	NetRole,
 	//Buff class supplied wasn't valid
@@ -83,18 +84,16 @@ enum class EBuffApplyFailReason : uint8
 	IncomingRestriction,
 	//Target was dead
 	Dead,
-	//Target can not receive damage
-	ImmuneToDamage,
-	//Target can not receive healing
-	ImmuneToHealing,
+	//Target can't receive damage or healing.
+	ImmuneToHealthEvent,
+	//Target can't be affected by a given crowd control.
+	ImmuneToCc,
 	//Target did not have stat or that stat wasn't modifiable for this target
 	StatNotModifiable,
-	//Target does not have a threat table
-	NoThreatTable,
+	//Target can't have a specific threat action or event applied to them.
+	InvalidThreatEvent,
 	//Target does not have a movement component
 	NoMovement,
-	//Target can not be in a threat table
-	InvalidThreatTarget,
 	//Existing buff couldn't stack or refresh, and the buff wasn't duplicable
 	NoStackRefreshOrDuplicate,
 };

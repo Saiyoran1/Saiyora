@@ -403,4 +403,4 @@ bool UBuff::ShouldDisplayOnPartyFrame() const
     }
 }
 
-#pragma endregion 
+#pragma endregion

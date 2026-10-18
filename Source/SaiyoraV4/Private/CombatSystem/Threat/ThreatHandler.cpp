@@ -35,6 +35,7 @@ void UThreatHandler::InitializeComponent()
 	
 	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Threat Handler."));
 	CombatStatusComponentRef = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(GetOwner());
+	checkf(IsValid(CombatStatusComponentRef), TEXT("Owner does not have a valid Combat Status Component, which Threat Handler depends on."));
 	DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
 	UAbilityComponent* AbilityComponent = ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwner());
 	if (IsValid(AbilityComponent))
@@ -282,53 +283,47 @@ FThreatEvent UThreatHandler::AddThreat(const EThreatType ThreatType, const float
 	{
 		return Result;
 	}
-	
-	bool bUseMisdirectTarget = false;
-	UThreatHandler* MisdirectThreat = nullptr;
-	if (IsValid(GeneratorThreat->GetMisdirectTarget()) && GeneratorThreat->GetMisdirectTarget()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+
+	//Make sure the actor applying threat and the one receiving it aren't the same faction.
+	const UCombatStatusComponent* GeneratorCombatStatus = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(AppliedBy);
+	if (!IsValid(GeneratorCombatStatus) || GeneratorCombatStatus->GetCurrentFaction() == CombatStatusComponentRef->GetCurrentFaction())
 	{
-		MisdirectThreat = ISaiyoraCombatInterface::Execute_GetThreatHandler(GeneratorThreat->GetMisdirectTarget());
-		if (IsValid(MisdirectThreat) && MisdirectThreat->CanBeInThreatTable())
-		{
-			const UDamageHandler* MisdirectHealth = ISaiyoraCombatInterface::Execute_GetDamageHandler(GeneratorThreat->GetMisdirectTarget());
-			if (!IsValid(MisdirectHealth) || !MisdirectHealth->IsDead())
-			{
-				const UCombatStatusComponent* MisdirectCombatStatus = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(GeneratorThreat->GetMisdirectTarget());
-				if (IsValid(MisdirectCombatStatus) && MisdirectCombatStatus->GetCurrentFaction() != CombatStatusComponentRef->GetCurrentFaction())
-				{
-					bUseMisdirectTarget = true;
-					Result.AppliedByPlane = MisdirectCombatStatus->GetCurrentPlane();
-				}
-			}
-		}
+		return Result;
 	}
-	if (!bUseMisdirectTarget)
+
+	//Check to see if we should redirect this threat to a different actor due to Misdirect.
+	AActor* MisdirectTarget = GeneratorThreat->GetMisdirectTarget();
+	if (IsValid(MisdirectTarget))
 	{
+		//GetMisdirectTarget does all the required checks, so if MisdirectTarget is valid we're good to go.
+		Result.AppliedBy = MisdirectTarget;
+		//No need to IsValid check this, if it wasn't valid then GetMisdirectTarget would've failed.
+		const UCombatStatusComponent* MisdirectCombatStatus = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(MisdirectTarget);
+		Result.AppliedByPlane = MisdirectCombatStatus->GetCurrentPlane();
+	}
+	else
+	{
+		//Make sure the actor generating the threat isn't dead.
 		const UDamageHandler* GeneratorHealth = ISaiyoraCombatInterface::Execute_GetDamageHandler(AppliedBy);
 		if (IsValid(GeneratorHealth) && GeneratorHealth->IsDead())
 		{
 			return Result;
 		}
-		const UCombatStatusComponent* GeneratorCombatStatus = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(AppliedBy);
-		if (!IsValid(GeneratorCombatStatus) || GeneratorCombatStatus->GetCurrentFaction() == CombatStatusComponentRef->GetCurrentFaction())
-		{
-			return Result;
-		}
+		Result.AppliedBy = AppliedBy;
 		Result.AppliedByPlane = GeneratorCombatStatus->GetCurrentPlane();
 	}
 	
-	Result.AppliedBy = bUseMisdirectTarget ? GeneratorThreat->GetMisdirectTarget() : AppliedBy;
 	Result.AppliedTo = GetOwner();
 	Result.Source = Source;
 	Result.ThreatType = ThreatType;
-	Result.AppliedToPlane = IsValid(CombatStatusComponentRef) ? CombatStatusComponentRef->GetCurrentPlane() : ESaiyoraPlane::Both;
+	Result.AppliedToPlane = CombatStatusComponentRef->GetCurrentPlane();
 	Result.AppliedXPlane = UAbilityFunctionLibrary::IsXPlane(Result.AppliedByPlane, Result.AppliedToPlane);
 	Result.Threat = BaseThreat;
 
 	if (!bIgnoreModifiers)
 	{
+		//Note that even if we are misdirecting, we are still using the outgoing threat modifiers from the ACTUAL instigator.
 		Result.Threat = GeneratorThreat->GetModifiedOutgoingThreat(Result, SourceModifier);
-		//Currently this uses the generator to modify outgoing threat, even if a misdirect is applied.
 		Result.Threat = GetModifiedIncomingThreat(Result);
 		if (Result.Threat <= 0.0f)
 		{
@@ -336,13 +331,15 @@ FThreatEvent UThreatHandler::AddThreat(const EThreatType ThreatType, const float
 		}
 	}
 
-	if (!bIgnoreRestrictions && (IncomingThreatRestrictions.IsRestricted(Result) || GeneratorThreat->CheckOutgoingThreatRestricted(Result)))
+	if (!bIgnoreRestrictions &&
+		//Note that even if we are misdirecting, we are still using the outgoing threat restrictions from the ACTUAL instigator.
+		(IncomingThreatRestrictions.IsRestricted(Result) || GeneratorThreat->CheckOutgoingThreatRestricted(Result)))
 	{
-		//Currently this uses the generator to check restrictions, even if a misdirect is active.
 		return Result;
 	}
-	
-	const int32 TargetIndex = FindOrAddToThreatTable(bUseMisdirectTarget ? MisdirectThreat : GeneratorThreat, Result.bInitialThreat);
+
+	//We already know the threat handler is valid, because of the checks above. We re-get it here so that we get the right target factoring in misdirects.
+	const int32 TargetIndex = FindOrAddToThreatTable(ISaiyoraCombatInterface::Execute_GetThreatHandler(Result.AppliedBy), Result.bInitialThreat);
 	if (TargetIndex == -1)
 	{
 		//Failed to add to threat table.
@@ -472,7 +469,7 @@ void UThreatHandler::OnRep_bInCombat()
 
 void UThreatHandler::NotifyLocalPlayerOfCombatChange()
 {
-	if (IsValid(CombatStatusComponentRef) && CombatStatusComponentRef->GetCurrentFaction() == EFaction::Enemy)
+	if (CombatStatusComponentRef->GetCurrentFaction() == EFaction::Enemy)
 	{
 		if (!IsValid(LocalPlayer))
 		{
@@ -572,19 +569,20 @@ void UThreatHandler::Vanish()
 	CombatGroup->RemoveCombatant(this);
 }
 
+#pragma endregion
+#pragma region Fixate
+
 void UThreatHandler::AddFixate(const AActor* Target, UBuff* Source)
 {
-	if (GetOwnerRole() != ROLE_Authority || !bHasThreatTable || !IsValid(Target)
-		|| !Target->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()) || !IsValid(Source)
-		|| Source->GetAppliedTo() != GetOwner())
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(Source) || !IsValid(Target) || Source->GetAppliedTo() != GetOwner())
+	{
+		return;
+	}
+	if (!CanFixate(GetOwner(), Target))
 	{
 		return;
 	}
 	UThreatHandler* GeneratorThreat = ISaiyoraCombatInterface::Execute_GetThreatHandler(Target);
-	if (!IsValid(GeneratorThreat) || !GeneratorThreat->CanBeInThreatTable())
-	{
-		return;
-	}
 	bool bAdded = false;
 	const int32 TargetIndex = FindOrAddToThreatTable(GeneratorThreat, bAdded);
 	if (TargetIndex == -1)
@@ -618,20 +616,69 @@ void UThreatHandler::RemoveFixate(const AActor* Target, UBuff* Source)
 	}
 }
 
+bool UThreatHandler::CanFixate(const AActor* Fixating, const AActor* FixatedOn)
+{
+	//Validity/interface checks
+	if (!IsValid(Fixating) || !Fixating->Implements<USaiyoraCombatInterface>()
+		|| !IsValid(FixatedOn) || !FixatedOn->Implements<USaiyoraCombatInterface>())
+	{
+		return false;
+	}
+	//Check that the fixating actor has a threat handler and a threat table.
+	const UThreatHandler* FixatingThreatHandler = ISaiyoraCombatInterface::Execute_GetThreatHandler(Fixating);
+	if (!IsValid(FixatingThreatHandler) || !FixatingThreatHandler->HasThreatTable())
+	{
+		return false;
+	}
+	//Check that the fixate target has a threat handler and can be in a threat table.
+	const UThreatHandler* TargetThreatHandler = ISaiyoraCombatInterface::Execute_GetThreatHandler(FixatedOn);
+	if (!IsValid(TargetThreatHandler) || !TargetThreatHandler->CanBeInThreatTable())
+	{
+		return false;
+	}
+	//Check that both actors have combat status components and aren't the same faction.
+	const UCombatStatusComponent* FixatingStatusComponent = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(Fixating);
+	if (!IsValid(FixatingStatusComponent))
+	{
+		return false;
+	}
+	const UCombatStatusComponent* TargetStatusComponent = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(FixatedOn);
+	if (!IsValid(TargetStatusComponent))
+	{
+		return false;
+	}
+	if (FixatingStatusComponent->GetCurrentFaction() == TargetStatusComponent->GetCurrentFaction())
+	{
+		return false;
+	}
+	//Make sure both parties aren't dead.
+	const UDamageHandler* FixatingDamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(Fixating);
+	if (IsValid(FixatingDamageHandler) && FixatingDamageHandler->IsDead())
+	{
+		return false;
+	}
+	const UDamageHandler* TargetDamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(FixatedOn);
+	if (IsValid(TargetDamageHandler) && TargetDamageHandler->IsDead())
+	{
+		return false;
+	}
+	return true;
+}
+
+#pragma endregion
+#pragma region Blind
+
 void UThreatHandler::AddBlind(const AActor* Target, UBuff* Source)
 {
-	//TODO: How to handle Blind added for target not yet in threat table?
-	//Currently a blind will just enter combat, which isn't really intuitive.
-	if (GetOwnerRole() != ROLE_Authority || !bHasThreatTable ||
-		!IsValid(Target) || !Target->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()) || !IsValid(Source))
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(Source) || !IsValid(Target) || Source->GetAppliedTo() != GetOwner())
+	{
+		return;
+	}
+	if (!CanBlind(GetOwner(), Target))
 	{
 		return;
 	}
 	UThreatHandler* GeneratorThreat = ISaiyoraCombatInterface::Execute_GetThreatHandler(Target);
-	if (!IsValid(GeneratorThreat) || !GeneratorThreat->CanBeInThreatTable())
-	{
-		return;
-	}
 	bool bAdded = false;
 	const int32 TargetIndex = FindOrAddToThreatTable(GeneratorThreat, bAdded);
 	if (TargetIndex == -1)
@@ -663,6 +710,58 @@ void UThreatHandler::RemoveBlind(const AActor* Target, UBuff* Source)
 		SortModifiedThreatTarget(TargetIndex);
 	}
 }
+
+bool UThreatHandler::CanBlind(const AActor* Blinded, const AActor* BlindTo)
+{
+	//Validity/interface checks
+	if (!IsValid(Blinded) || !Blinded->Implements<USaiyoraCombatInterface>()
+		|| !IsValid(BlindTo) || !BlindTo->Implements<USaiyoraCombatInterface>())
+	{
+		return false;
+	}
+	//Check that the blinded actor has a threat handler and a threat table.
+	const UThreatHandler* BlindedThreatHandler = ISaiyoraCombatInterface::Execute_GetThreatHandler(Blinded);
+	if (!IsValid(BlindedThreatHandler) || !BlindedThreatHandler->HasThreatTable())
+	{
+		return false;
+	}
+	//Check that the actor to blind the target to has a threat handler and can be in a threat table.
+	const UThreatHandler* TargetThreatHandler = ISaiyoraCombatInterface::Execute_GetThreatHandler(BlindTo);
+	if (!IsValid(TargetThreatHandler) || !TargetThreatHandler->CanBeInThreatTable())
+	{
+		return false;
+	}
+	//Check that both actors have combat status components and aren't the same faction.
+	const UCombatStatusComponent* BlindedStatusComponent = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(Blinded);
+	if (!IsValid(BlindedStatusComponent))
+	{
+		return false;
+	}
+	const UCombatStatusComponent* TargetStatusComponent = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(BlindTo);
+	if (!IsValid(TargetStatusComponent))
+	{
+		return false;
+	}
+	if (BlindedStatusComponent->GetCurrentFaction() == TargetStatusComponent->GetCurrentFaction())
+	{
+		return false;
+	}
+	//Make sure both parties aren't dead.
+	const UDamageHandler* BlindedDamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(Blinded);
+	if (IsValid(BlindedDamageHandler) && BlindedDamageHandler->IsDead())
+	{
+		return false;
+	}
+	const UDamageHandler* TargetDamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(BlindTo);
+	if (IsValid(TargetDamageHandler) && TargetDamageHandler->IsDead())
+	{
+		return false;
+	}
+	return true;
+}
+
+#pragma endregion
+#pragma region Fade
 
 void UThreatHandler::AddFade(UBuff* Source)
 {
@@ -711,9 +810,16 @@ void UThreatHandler::NotifyOfCombatantFadeStatus(const UThreatHandler* Combatant
 	SortModifiedThreatTarget(TargetIndex);
 }
 
+#pragma endregion
+#pragma region Misdirect
+
 void UThreatHandler::AddMisdirect(AActor* Target, UBuff* Source)
 {
 	if (GetOwnerRole() != ROLE_Authority || !IsValid(Source) || !IsValid(Target) || Source->GetAppliedTo() != GetOwner())
+	{
+		return;
+	}
+	if (!CanMisdirectThreat(GetOwner(), Target))
 	{
 		return;
 	}
@@ -741,6 +847,62 @@ void UThreatHandler::RemoveMisdirect(const UBuff* Source)
 			return;
 		}
 	}
+}
+
+AActor* UThreatHandler::GetMisdirectTarget() const
+{
+	for (int i = Misdirects.Num() - 1; i >= 0; i--)
+	{
+		if (CanMisdirectThreat(GetOwner(), Misdirects[i].Target))
+		{
+			return Misdirects[i].Target;
+		}
+	}
+	return nullptr;
+}
+
+bool UThreatHandler::CanMisdirectThreat(const AActor* ThreatFrom, const AActor* ThreatTo)
+{
+	//Validity/interface checks and also making sure From and To aren't the same actor.
+	if (!IsValid(ThreatFrom) || !ThreatFrom->Implements<USaiyoraCombatInterface>()
+		|| !IsValid(ThreatTo) || !ThreatTo->Implements<USaiyoraCombatInterface>()
+		|| ThreatFrom == ThreatTo)
+	{
+		return false;
+	}
+	//Check that both From and To have threat handlers and can be in threat tables.
+	const UThreatHandler* FromThreatHandler = ISaiyoraCombatInterface::Execute_GetThreatHandler(ThreatFrom);
+	if (!IsValid(FromThreatHandler) || !FromThreatHandler->CanBeInThreatTable())
+	{
+		return false;
+	}
+	const UThreatHandler* ToThreatHandler = ISaiyoraCombatInterface::Execute_GetThreatHandler(ThreatTo);
+	if (!IsValid(ToThreatHandler) || !ToThreatHandler->CanBeInThreatTable())
+	{
+		return false;
+	}
+	//Check that both From and To have combat status components and are the same faction.
+	const UCombatStatusComponent* FromStatusComponent = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(ThreatFrom);
+	if (!IsValid(FromStatusComponent))
+	{
+		return false;
+	}
+	const UCombatStatusComponent* ToStatusComponent = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(ThreatTo);
+	if (!IsValid(ToStatusComponent))
+	{
+		return false;
+	}
+	if (FromStatusComponent->GetCurrentFaction() != ToStatusComponent->GetCurrentFaction())
+	{
+		return false;
+	}
+	//If the To target has a damage handler, make sure he's not dead. We actually let the From actor be dead (DoTs can generate threat while dead, for example).
+	const UDamageHandler* ToDamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(ThreatTo);
+	if (IsValid(ToDamageHandler) && ToDamageHandler->IsDead())
+	{
+		return false;
+	}
+	return true;
 }
 
 #pragma endregion

@@ -80,9 +80,6 @@ struct SAIYORAV4_API FSaiyoraCombatTags : public FGameplayTagNativeAdder
     FGameplayTag ReloadAbility;
     FGameplayTag StopFireAbility;
 
-    FGameplayTag Damage;
-    FGameplayTag Healing;
-
     FGameplayTag ExternalMovement;
     FGameplayTag MovementRestriction;
 
@@ -110,12 +107,6 @@ struct SAIYORAV4_API FSaiyoraCombatTags : public FGameplayTagNativeAdder
 
     FGameplayTag Stat_AggroRadius;
 
-    FGameplayTag Threat;
-    FGameplayTag Threat_Fixate;
-    FGameplayTag Threat_Blind;
-    FGameplayTag Threat_Fade;
-    FGameplayTag Threat_Misdirect;
-
     FGameplayTag Resurrection;
 
     FORCEINLINE static const FSaiyoraCombatTags& Get() { return SaiyoraCombatTags; }
@@ -140,9 +131,6 @@ protected:
         ReloadAbility = Manager.AddNativeGameplayTag(TEXT("Ability.ReloadWeapon"));
         StopFireAbility = Manager.AddNativeGameplayTag(TEXT("Ability.StopFireWeapon"));
 
-        Damage = Manager.AddNativeGameplayTag(TEXT("Damage"));
-        Healing = Manager.AddNativeGameplayTag(TEXT("Healing"));
-
         ExternalMovement = Manager.AddNativeGameplayTag(TEXT("Movement"));
         MovementRestriction = Manager.AddNativeGameplayTag(TEXT("Movement.Restriction"));
 
@@ -164,12 +152,6 @@ protected:
         Stat_GravityScale = Manager.AddNativeGameplayTag(TEXT("Stat.GravityScale"));
         Stat_JumpZVelocity = Manager.AddNativeGameplayTag(TEXT("Stat.JumpZVelocity"));
         Stat_AirControl = Manager.AddNativeGameplayTag(TEXT("Stat.AirControl"));
-
-        Threat = Manager.AddNativeGameplayTag(TEXT("Threat"));
-        Threat_Fixate = Manager.AddNativeGameplayTag(TEXT("Threat.Fixate"));
-        Threat_Blind = Manager.AddNativeGameplayTag(TEXT("Threat.Blind"));
-        Threat_Fade = Manager.AddNativeGameplayTag(TEXT("Threat.Fade"));
-        Threat_Misdirect = Manager.AddNativeGameplayTag(TEXT("Threat.Misdirect"));
 
         Resurrection = Manager.AddNativeGameplayTag(TEXT("Buff.Resurrection"));
     }
