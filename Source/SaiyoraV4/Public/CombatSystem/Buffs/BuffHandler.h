@@ -5,11 +5,7 @@
 #include "Components/ActorComponent.h"
 #include "BuffHandler.generated.h"
 
-class UCrowdControlHandler;
 class UNPCAbilityComponent;
-class USaiyoraMovementComponent;
-class UThreatHandler;
-class UStatHandler;
 class UDamageHandler;
 class UCombatStatusComponent;
 
@@ -34,14 +30,6 @@ private:
 	UCombatStatusComponent* CombatStatusComponentRef;
 	UPROPERTY()
 	UDamageHandler* DamageHandlerRef;
-	UPROPERTY()
-	UCrowdControlHandler* CcHandlerRef;
-	UPROPERTY()
-	UStatHandler* StatHandlerRef;
-	UPROPERTY()
-	UThreatHandler* ThreatHandlerRef;
-	UPROPERTY()
-	USaiyoraMovementComponent* MovementComponentRef;
 	UPROPERTY()
 	UNPCAbilityComponent* NPCComponentRef;
 

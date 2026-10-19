@@ -1,6 +1,6 @@
 ﻿#pragma once
 #include "CoreMinimal.h"
-#include "NPCStructs.h"
+#include "NPCEnums.h"
 #include "GameFramework/Actor.h"
 #include "CombatLink.generated.h"
 

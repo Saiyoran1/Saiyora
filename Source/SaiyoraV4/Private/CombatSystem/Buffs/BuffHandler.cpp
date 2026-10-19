@@ -1,15 +1,9 @@
 #include "BuffHandler.h"
 #include "Buff.h"
-#include "CombatAbility.h"
 #include "CombatStatusComponent.h"
 #include "SaiyoraCombatInterface.h"
-#include "AbilityComponent.h"
-#include "CrowdControlHandler.h"
 #include "DamageHandler.h"
 #include "NPCAbilityComponent.h"
-#include "SaiyoraMovementComponent.h"
-#include "StatHandler.h"
-#include "ThreatHandler.h"
 
 #pragma region Initialization
 
@@ -33,10 +27,6 @@ void UBuffHandler::InitializeComponent()
 	checkf(GetOwner()->Implements<USaiyoraCombatInterface>(), TEXT("Owner does not implement combat interface, but has Buff Handler."));
 	CombatStatusComponentRef = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(GetOwner());
 	DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
-	StatHandlerRef = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
-	ThreatHandlerRef = ISaiyoraCombatInterface::Execute_GetThreatHandler(GetOwner());
-	MovementComponentRef = ISaiyoraCombatInterface::Execute_GetCustomMovementComponent(GetOwner());
-	CcHandlerRef = ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(GetOwner());
 	NPCComponentRef = Cast<UNPCAbilityComponent>(ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwner()));
 }
 

@@ -1,7 +1,6 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "CrowdControlEnums.h"
-#include "GameplayTagContainer.h"
 #include "Net/Serialization/FastArraySerializer.h"
 #include "CrowdControlStructs.generated.h"
 

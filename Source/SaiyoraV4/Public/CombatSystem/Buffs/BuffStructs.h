@@ -1,7 +1,6 @@
 #pragma once
 #include "BuffEnums.h"
 #include "CombatEnums.h"
-#include "CombatStructs.h"
 #include "InstancedStruct.h"
 #include "BuffStructs.generated.h"
 

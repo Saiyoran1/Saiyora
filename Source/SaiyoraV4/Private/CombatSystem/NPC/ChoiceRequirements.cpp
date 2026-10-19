@@ -1,5 +1,4 @@
 ﻿#include "ChoiceRequirements.h"
-
 #include "Buff.h"
 #include "BuffHandler.h"
 #include "SaiyoraCombatInterface.h"

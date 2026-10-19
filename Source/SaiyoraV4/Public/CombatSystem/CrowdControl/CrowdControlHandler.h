@@ -3,7 +3,6 @@
 #include "BuffStructs.h"
 #include "CrowdControlStructs.h"
 #include "DamageStructs.h"
-#include "GameplayTagContainer.h"
 #include "Components/ActorComponent.h"
 #include "CrowdControlHandler.generated.h"
 

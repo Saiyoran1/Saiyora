@@ -1,6 +1,5 @@
 #include "StatHandler.h"
 #include "UnrealNetwork.h"
-#include "Buff.h"
 #include "SaiyoraCombatInterface.h"
 
 #pragma region Init

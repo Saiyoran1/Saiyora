@@ -6,7 +6,6 @@
 #include "CombatStatusComponent.h"
 #include "NPCAbilityComponent.h"
 #include "SaiyoraCombatInterface.h"
-#include "SaiyoraCombatLibrary.h"
 #include "StatHandler.h"
 #include "ThreatHandler.h"
 #include "Kismet/KismetSystemLibrary.h"

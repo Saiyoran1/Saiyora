@@ -3,7 +3,6 @@
 #include "ResourceStructs.h"
 #include "GameplayTagContainer.h"
 #include "StatStructs.h"
-#include "Styling/SlateBrush.h"
 #include "Resource.generated.h"
 
 class UResourceBar;

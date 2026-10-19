@@ -2,7 +2,6 @@
 #include "AbilityComponent.h"
 #include "CombatNetSubsystem.h"
 #include "SaiyoraCombatInterface.h"
-#include "CoreClasses/SaiyoraGameState.h"
 #include "CombatStatusComponent.h"
 #include "NPCAbilityComponent.h"
 

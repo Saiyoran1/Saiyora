@@ -1,7 +1,6 @@
 ﻿#include "NPCAbility.h"
 #include "AbilityComponent.h"
 #include "NPCSubsystem.h"
-#include "ThreatHandler.h"
 
 void UNPCAbility::PostInitializeAbility_Implementation()
 {

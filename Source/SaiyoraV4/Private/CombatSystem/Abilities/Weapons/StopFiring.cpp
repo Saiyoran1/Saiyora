@@ -1,7 +1,6 @@
 ﻿#include "Weapons/StopFiring.h"
 #include "AbilityComponent.h"
 #include "SaiyoraPlayerCharacter.h"
-#include "Weapons/FireWeapon.h"
 #include "Weapons/Weapon.h"
 
 UStopFiring::UStopFiring()

@@ -1,6 +1,5 @@
 ﻿#include "ThreatBuffFunctions.h"
 #include "Buff.h"
-#include "CombatStatusComponent.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraCombatLibrary.h"
 #include "ThreatHandler.h"

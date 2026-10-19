@@ -1,6 +1,5 @@
 ﻿#include "Specialization/SpecializationStructs.h"
 
-#include "ModernSpecialization.h"
 #include "Specialization/AncientSpecialization.h"
 #include "SaiyoraPlayerCharacter.h"
 #include "Specialization/AncientTalent.h"

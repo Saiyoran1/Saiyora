@@ -1,5 +1,4 @@
 #include "StatStructs.h"
-#include "Buff.h"
 
 void FCombatStat::PostReplicatedAdd(const FCombatStatArray& InArraySerializer)
 {

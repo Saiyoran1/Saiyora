@@ -1,5 +1,6 @@
 ﻿#pragma once
-#include "NPCStructs.h"
+#include "CoreMinimal.h"
+#include "InstancedStruct.h"
 #include "ChoiceRequirements.generated.h"
 
 class UBuff;
@@ -139,3 +140,5 @@ private:
 	UPROPERTY(EditAnywhere)
 	TSubclassOf<UBuff> BuffClass;
 };
+
+#pragma endregion 

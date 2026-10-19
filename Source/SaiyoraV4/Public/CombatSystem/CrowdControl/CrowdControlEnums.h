@@ -1,6 +1,5 @@
 ﻿#pragma once
 #include "CoreMinimal.h"
-#include "Object.h"
 #include "CrowdControlEnums.generated.h"
 
 UENUM(BlueprintType)

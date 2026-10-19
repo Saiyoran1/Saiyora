@@ -1,7 +1,6 @@
 ﻿#pragma once
 #include "CoreMinimal.h"
 #include "AbilityStructs.h"
-#include "GameFramework/ProjectileMovementComponent.h"
 #include "PredictableProjectile.generated.h"
 
 class UCombatDebugOptions;

@@ -1,6 +1,5 @@
 #include "CombatAbility.h"
 #include "AbilityComponent.h"
-#include "Buff.h"
 #include "DamageHandler.h"
 #include "Resource.h"
 #include "ResourceHandler.h"

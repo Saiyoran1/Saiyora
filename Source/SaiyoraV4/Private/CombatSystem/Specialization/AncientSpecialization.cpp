@@ -1,6 +1,5 @@
 ﻿#include "Specialization/AncientSpecialization.h"
 #include "AbilityComponent.h"
-#include "CombatAbility.h"
 #include "ResourceHandler.h"
 #include "UnrealNetwork.h"
 #include "Specialization/AncientTalent.h"

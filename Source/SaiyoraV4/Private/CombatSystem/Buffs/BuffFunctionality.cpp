@@ -1,7 +1,6 @@
 #include "BuffFunctionality.h"
 #include "Buff.h"
 #include "BuffHandler.h"
-#include "CombatStatusComponent.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraCombatLibrary.h"
 

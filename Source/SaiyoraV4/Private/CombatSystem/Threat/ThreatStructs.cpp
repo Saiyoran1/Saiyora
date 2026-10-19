@@ -1,5 +1,4 @@
 ﻿#include "Threat/ThreatStructs.h"
-#include "Buff.h"
 #include "ThreatHandler.h"
 
 FThreatTarget::FThreatTarget(UThreatHandler* NewTarget)

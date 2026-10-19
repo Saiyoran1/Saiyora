@@ -1,7 +1,7 @@
 #include "NPCStructs.h"
 #include "ChoiceRequirements.h"
-#include "NPCAbility.h"
 #include "NPCAbilityComponent.h"
+#include "NPCAbility.h"
 
 void FNPCCombatChoice::Init(UNPCAbilityComponent* AbilityComponent)
 {

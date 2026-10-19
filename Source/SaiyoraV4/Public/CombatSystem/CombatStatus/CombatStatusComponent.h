@@ -1,7 +1,6 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "CombatStatusStructs.h"
-#include "CombatStructs.h"
 #include "WidgetComponent.h"
 #include "Camera/CameraComponent.h"
 #include "CombatStatusComponent.generated.h"
