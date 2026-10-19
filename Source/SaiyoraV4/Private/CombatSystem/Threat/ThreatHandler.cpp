@@ -33,7 +33,7 @@ void UThreatHandler::InitializeComponent()
 		return;
 	}
 	
-	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Threat Handler."));
+	checkf(GetOwner()->Implements<USaiyoraCombatInterface>(), TEXT("Owner does not implement combat interface, but has Threat Handler."));
 	CombatStatusComponentRef = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(GetOwner());
 	checkf(IsValid(CombatStatusComponentRef), TEXT("Owner does not have a valid Combat Status Component, which Threat Handler depends on."));
 	DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
@@ -274,7 +274,7 @@ FThreatEvent UThreatHandler::AddThreat(const EThreatType ThreatType, const float
 	{
 		return Result;		
 	}
-	if (!IsValid(AppliedBy) || !AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	if (!IsValid(AppliedBy) || !AppliedBy->Implements<USaiyoraCombatInterface>())
 	{
 		return Result;
 	}
@@ -357,7 +357,7 @@ void UThreatHandler::RemoveThreat(const float Amount, const AActor* AppliedBy)
 	{
 		return;
 	}
-	if (!AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	if (!AppliedBy->Implements<USaiyoraCombatInterface>())
 	{
 		return;
 	}

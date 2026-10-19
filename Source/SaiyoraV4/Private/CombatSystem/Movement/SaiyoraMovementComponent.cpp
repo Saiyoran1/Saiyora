@@ -190,7 +190,7 @@ void USaiyoraMovementComponent::InitializeComponent()
 		return;
 	}
 	
-	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Custom Movement Component."));
+	checkf(GetOwner()->Implements<USaiyoraCombatInterface>(), TEXT("Owner does not implement combat interface, but has Custom Movement Component."));
 	PendingServerMoveStats.OwningComponent = this;
 	ConfirmedServerMoveStats.OwningComponent = this;
 	AbilityComponentRef = ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwner());

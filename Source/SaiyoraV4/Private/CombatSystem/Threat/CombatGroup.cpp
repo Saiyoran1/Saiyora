@@ -203,7 +203,7 @@ void UCombatGroup::OnCombatantIncomingHealthEvent(const FHealthEvent& Event)
 	{
 		return;
 	}
-	if (!IsValid(Event.Info.AppliedBy) || !Event.Info.AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	if (!IsValid(Event.Info.AppliedBy) || !Event.Info.AppliedBy->Implements<USaiyoraCombatInterface>())
 	{
 		return;
 	}
@@ -247,8 +247,8 @@ void UCombatGroup::OnCombatantOutgoingHealthEvent(const FHealthEvent& Event)
 	{
 		return;
 	}
-	if (!IsValid(Event.Info.AppliedTo) || !Event.Info.AppliedTo->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass())
-		|| !IsValid(Event.Info.AppliedBy) || !Event.Info.AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	if (!IsValid(Event.Info.AppliedTo) || !Event.Info.AppliedTo->Implements<USaiyoraCombatInterface>()
+		|| !IsValid(Event.Info.AppliedBy) || !Event.Info.AppliedBy->Implements<USaiyoraCombatInterface>())
 	{
 		return;
 	}
@@ -275,7 +275,7 @@ void UCombatGroup::OnCombatantOutgoingHealthEvent(const FHealthEvent& Event)
 void UCombatGroup::OnCombatantLifeStatusChanged(AActor* Actor, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus)
 {
 	if (NewStatus != ELifeStatus::Alive && IsValid(Actor)
-		&& Actor->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+		&& Actor->Implements<USaiyoraCombatInterface>())
 	{
 		UThreatHandler* Combatant = ISaiyoraCombatInterface::Execute_GetThreatHandler(Actor);
 		if (IsValid(Combatant))

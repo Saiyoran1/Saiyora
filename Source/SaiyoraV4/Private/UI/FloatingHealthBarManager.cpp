@@ -9,7 +9,7 @@ void UFloatingHealthBarManager::NativeConstruct()
 {
 	Super::NativeConstruct();
 	CanvasPanelRef = Cast<UCanvasPanel>(GetParent());
-	if (IsValid(GetOwningPlayerPawn()) && GetOwningPlayerPawn()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	if (IsValid(GetOwningPlayerPawn()) && GetOwningPlayerPawn()->Implements<USaiyoraCombatInterface>())
 	{
 		LocalPlayer = Cast<ASaiyoraPlayerCharacter>(GetOwningPlayerPawn());
 		if (IsValid(LocalPlayer))
@@ -159,7 +159,7 @@ void UFloatingHealthBarManager::NewHealthBar(AActor* Target)
 {
 	FFloatingHealthBarInfo NewHealthBarInfo;
 	NewHealthBarInfo.Target = Target;
-	if (Target->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	if (Target->Implements<USaiyoraCombatInterface>())
 	{
 		NewHealthBarInfo.TargetComponent = ISaiyoraCombatInterface::Execute_GetFloatingHealthSocket(Target, NewHealthBarInfo.TargetSocket);
 	}

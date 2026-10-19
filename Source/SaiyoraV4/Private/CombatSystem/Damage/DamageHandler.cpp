@@ -29,7 +29,7 @@ void UDamageHandler::InitializeComponent()
 		return;
 	}
 	
-	checkf(GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()), TEXT("Owner does not implement combat interface, but has Damage Handler."));
+	checkf(GetOwner()->Implements<USaiyoraCombatInterface>(), TEXT("Owner does not implement combat interface, but has Damage Handler."));
 	if (GetOwnerRole() == ROLE_Authority)
 	{
 		StatHandlerRef = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
@@ -458,7 +458,7 @@ FHealthEvent UDamageHandler::ApplyHealthEvent(const EHealthEventType EventType, 
     HealthEvent.Info.Source = Source;
     HealthEvent.Info.HitStyle = HitStyle;
     HealthEvent.Info.School = School;
-	if (HealthEvent.Info.AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	if (HealthEvent.Info.AppliedBy->Implements<USaiyoraCombatInterface>())
 	{
 		const UCombatStatusComponent* AppliedByCombatStatusComp = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(HealthEvent.Info.AppliedBy);
 		HealthEvent.Info.AppliedByPlane = IsValid(AppliedByCombatStatusComp) ? AppliedByCombatStatusComp->GetCurrentPlane() : ESaiyoraPlane::Both;
@@ -478,7 +478,7 @@ FHealthEvent UDamageHandler::ApplyHealthEvent(const EHealthEventType EventType, 
 		}
 	}
 
-	UDamageHandler* GeneratorComponent = AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()) ?
+	UDamageHandler* GeneratorComponent = AppliedBy->Implements<USaiyoraCombatInterface>() ?
 		ISaiyoraCombatInterface::Execute_GetDamageHandler(AppliedBy) : nullptr;
 	
     if (!bIgnoreModifiers)

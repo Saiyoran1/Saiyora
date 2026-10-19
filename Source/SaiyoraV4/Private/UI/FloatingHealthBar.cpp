@@ -25,7 +25,7 @@ void UFloatingHealthBar::Init(AActor* TargetActor)
 		return;
 	}
 	
-	if (!IsValid(TargetActor) || !TargetActor->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	if (!IsValid(TargetActor) || !TargetActor->Implements<USaiyoraCombatInterface>())
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Floating health bar tried to init with an invalid target actor, or its target actor didn't implement the combat interface."));
 		RemoveFromParent();

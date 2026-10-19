@@ -29,7 +29,7 @@ void ACombatLink::BeginPlay()
 	}
 	for (const AActor* LinkedActor : LinkedActors)
 	{
-		if (IsValid(LinkedActor) && LinkedActor->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+		if (IsValid(LinkedActor) && LinkedActor->Implements<USaiyoraCombatInterface>())
 		{
 			UThreatHandler* ActorThreat = ISaiyoraCombatInterface::Execute_GetThreatHandler(LinkedActor);
 			if (IsValid(ActorThreat))

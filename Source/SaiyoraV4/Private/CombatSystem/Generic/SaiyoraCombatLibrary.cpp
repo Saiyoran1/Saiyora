@@ -30,7 +30,7 @@ void USaiyoraCombatLibrary::AttachCombatActorToComponent(AActor* Target, USceneC
     }
     Target->AttachToComponent(Parent, FAttachmentTransformRules(LocationRule, RotationRule, ScaleRule, bWeldSimulatedBodies), SocketName);
     AActor* ParentActor = Parent->GetOwner();
-    if (ParentActor->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+    if (ParentActor->Implements<USaiyoraCombatInterface>())
     {
         UCombatStatusComponent* CombatStatusComponent = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(ParentActor);
         if (IsValid(CombatStatusComponent))

@@ -30,7 +30,7 @@ void UPeriodicHealthEventFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 		SnapshotInfo.Source = GetOwningBuff();
 		SnapshotInfo.AppliedBy = GetOwningBuff()->GetAppliedBy();
 		SnapshotInfo.AppliedTo = GetOwningBuff()->GetAppliedTo();
-		if (SnapshotInfo.AppliedBy->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+		if (SnapshotInfo.AppliedBy->Implements<USaiyoraCombatInterface>())
 		{
 			const UCombatStatusComponent* AppliedByCombatStatusComp = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(SnapshotInfo.AppliedBy);
 			SnapshotInfo.AppliedByPlane = IsValid(AppliedByCombatStatusComp) ? AppliedByCombatStatusComp->GetCurrentPlane() : ESaiyoraPlane::Both;
@@ -39,7 +39,7 @@ void UPeriodicHealthEventFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 		{
 			SnapshotInfo.AppliedByPlane = ESaiyoraPlane::Both;
 		}
-		if (SnapshotInfo.AppliedTo->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+		if (SnapshotInfo.AppliedTo->Implements<USaiyoraCombatInterface>())
 		{
 			const UCombatStatusComponent* AppliedToCombatStatusComp = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(SnapshotInfo.AppliedTo);
 			SnapshotInfo.AppliedToPlane = IsValid(AppliedToCombatStatusComp) ? AppliedToCombatStatusComp->GetCurrentPlane() : ESaiyoraPlane::Both;

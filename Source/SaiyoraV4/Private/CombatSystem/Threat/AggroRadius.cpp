@@ -60,7 +60,7 @@ void UAggroRadius::Initialize(UThreatHandler* ThreatHandler, const float Default
 	DefaultAggroRadius = FMath::Max(0.0f, DefaultRadius);
 	ThreatHandlerRef = ThreatHandler;
 	SetSphereRadius(DefaultRadius);
-	if (GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	if (GetOwner()->Implements<USaiyoraCombatInterface>())
 	{
 		const UCombatStatusComponent* CombatStatusComponentRef = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(GetOwner());
 		if (IsValid(CombatStatusComponentRef))
@@ -128,7 +128,7 @@ void UAggroRadius::OnOverlap(UPrimitiveComponent* OverlappedComponent, AActor* O
 			}
 		}
 		else if (OverlappedAggro->GetOwnerFaction() == EFaction::Enemy && ThreatHandlerRef->IsInCombat() && IsValid(ThreatHandlerRef->GetCombatGroup())
-			&& OtherActor->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+			&& OtherActor->Implements<USaiyoraCombatInterface>())
 		{
 			UThreatHandler* CombatantThreat = ISaiyoraCombatInterface::Execute_GetThreatHandler(OverlappedAggro->GetOwner());
 			if (IsValid(CombatantThreat) && CombatantThreat->HasThreatTable())

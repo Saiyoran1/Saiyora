@@ -18,7 +18,7 @@ void USummonedMobComponent::Initialize(AActor* Spawner)
 		return;
 	}
 	SpawningActor = Spawner;
-	if (SpawningActor->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	if (SpawningActor->Implements<USaiyoraCombatInterface>())
 	{
 		SpawningActorDamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(SpawningActor);
 		SpawningActorNPCComponent = Cast<UNPCAbilityComponent>(ISaiyoraCombatInterface::Execute_GetAbilityComponent(SpawningActor));

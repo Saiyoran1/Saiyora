@@ -21,7 +21,7 @@ void UHitbox::InitializeComponent()
 	}
 	
 	SetCollisionProfileName(FSaiyoraCollision::P_NoCollision);
-	if (GetOwner()->GetClass()->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+	if (GetOwner()->Implements<USaiyoraCombatInterface>())
 	{
 		CombatStatusComponentRef = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(GetOwner());
 		UAbilityComponent* AbilityCompRef = ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwner());
