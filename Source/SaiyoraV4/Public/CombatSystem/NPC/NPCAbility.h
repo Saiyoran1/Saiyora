@@ -5,8 +5,6 @@
 #include "NPCAbility.generated.h"
 
 class UNPCSubsystem;
-class UCombatGroup;
-class UThreatHandler;
 
 UCLASS()
 class SAIYORAV4_API UNPCAbility : public UCombatAbility

@@ -6,7 +6,6 @@
 #include "ResourceHandler.generated.h"
 
 class UCombatAbility;
-class UStatHandler;
 struct FServerAbilityResult;
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )

@@ -7,8 +7,6 @@
 
 class UNPCAbilityComponent;
 class UNPCAbility;
-class UCombatAbility;
-class AAIController;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FCombatBehaviorNotification, const ENPCCombatBehavior, PreviousStatus, const ENPCCombatBehavior, NewStatus);
 

@@ -8,7 +8,6 @@
 #include "SaiyoraGameState.h"
 #include "AbilityComponent.generated.h"
 
-class ASaiyoraGameState;
 class UCombatDebugOptions;
 class UCombatStatusComponent;
 class USaiyoraMovementComponent;

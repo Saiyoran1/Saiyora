@@ -10,7 +10,6 @@ class APredictableProjectile;
 struct FAbilityOrigin;
 struct FAbilityTargetSet;
 class UCombatAbility;
-class AGroundAttack;
 
 UCLASS()
 class SAIYORAV4_API UAbilityFunctionLibrary : public UBlueprintFunctionLibrary

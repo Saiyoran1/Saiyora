@@ -4,7 +4,6 @@
 #include "GameFramework/Actor.h"
 #include "CombatLink.generated.h"
 
-class UNPCAbilityComponent;
 class UThreatHandler;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnPatrolSegmentCompleted);

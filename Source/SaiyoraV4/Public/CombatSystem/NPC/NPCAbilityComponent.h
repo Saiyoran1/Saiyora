@@ -10,9 +10,7 @@
 
 class UNPCSubsystem;
 class ACombatLink;
-class UBehaviorTree;
 class UThreatHandler;
-class UCombatStatusComponent;
 class APatrolRoute;
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))

@@ -13,7 +13,6 @@ class UBuffHandler;
 class UCrowdControlHandler;
 class UDamageHandler;
 class AGameState;
-class USaiyoraRootMotionHandler;
 
 UCLASS(BlueprintType)
 class SAIYORAV4_API USaiyoraMovementComponent : public UCharacterMovementComponent

@@ -8,7 +8,6 @@
 #include "ThreatHandler.generated.h"
 
 class UDamageHandler;
-class UBuffHandler;
 class UCombatStatusComponent;
 class UNPCAbilityComponent;
 class UAggroRadius;

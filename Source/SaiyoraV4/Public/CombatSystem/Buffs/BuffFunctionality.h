@@ -2,7 +2,6 @@
 #include "BuffStructs.h"
 #include "BuffFunctionality.generated.h"
 
-class UCombatAbility;
 class UBuffHandler;
 
 #pragma region UBuffFunction

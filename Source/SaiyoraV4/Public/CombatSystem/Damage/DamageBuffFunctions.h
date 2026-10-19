@@ -4,7 +4,6 @@
 #include "DamageStructs.h"
 #include "DamageBuffFunctions.generated.h"
 
-class ASaiyoraPlayerCharacter;
 class UDamageHandler;
 
 UCLASS()

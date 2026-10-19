@@ -7,7 +7,6 @@
 #include "DamageStructs.generated.h"
 
 class UPendingResurrectionFunction;
-class UCombatComponent;
 
 USTRUCT(BlueprintType)
 struct FHealthEventResult

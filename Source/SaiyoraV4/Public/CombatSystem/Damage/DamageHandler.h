@@ -10,7 +10,6 @@
 
 class UPendingResurrectionFunction;
 class UStatHandler;
-class UBuffHandler;
 class UCombatStatusComponent;
 class ADungeonGameState;
 class UNPCAbilityComponent;

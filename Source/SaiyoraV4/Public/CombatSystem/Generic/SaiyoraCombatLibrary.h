@@ -5,8 +5,6 @@
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "SaiyoraCombatLibrary.generated.h"
 
-class UBuff;
-class UBuffFunction;
 class ASaiyoraPlayerCharacter;
 
 UCLASS()

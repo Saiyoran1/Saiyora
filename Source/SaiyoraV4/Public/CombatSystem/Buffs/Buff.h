@@ -1,6 +1,5 @@
 #pragma once
 #include "AbilityFunctionLibrary.h"
-#include "BuffFunctionality.h"
 #include "BuffStructs.h"
 #include "InstancedStruct.h"
 #include "GameFramework/GameState.h"
