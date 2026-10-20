@@ -73,7 +73,7 @@ public:
 	FBuffRemoveNotification OnIncomingBuffRemoved;
 
 	//Adds a restriction on buffs applied to this actor.
-	void AddIncomingBuffRestriction(const FBuffRestriction& Restriction) { IncomingBuffRestrictions.Add(Restriction); }
+	bool AddIncomingBuffRestriction(const FBuffRestriction& Restriction);
 	//Removes a restriction on buffs applied to this actor.
 	void RemoveIncomingBuffRestriction(const FBuffRestriction& Restriction) { IncomingBuffRestrictions.Remove(Restriction); }
 	//Check during the buff application process for whether a specific buff can be applied to this actor.
@@ -136,7 +136,7 @@ public:
 	FBuffRemoveNotification OnOutgoingBuffRemoved;
 
 	//Add a restriction to buffs applied by this actor.
-	void AddOutgoingBuffRestriction(const FBuffRestriction& Restriction) { OutgoingBuffRestrictions.Add(Restriction); }
+	bool AddOutgoingBuffRestriction(const FBuffRestriction& Restriction);
 	//Remove a restriction to buffs applied by this actor.
 	void RemoveOutgoingBuffRestriction(const FBuffRestriction& Restriction) { OutgoingBuffRestrictions.Remove(Restriction); }
 	//During the buff application process, this function checks whether we are allowed to apply a given buff to another actor.

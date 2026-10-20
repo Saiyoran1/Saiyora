@@ -226,10 +226,8 @@ public:
 	FInterruptEvent InterruptCurrentCast(AActor* AppliedBy, UObject* InterruptSource, const bool bIgnoreRestrictions);
 	UPROPERTY(BlueprintAssignable)
 	FInterruptNotification OnAbilityInterrupted;
-
-	UFUNCTION(BlueprintCallable, Category = "Abilities")
-	void AddInterruptRestriction(const FInterruptRestriction& Restriction) { InterruptRestrictions.Add(Restriction); }
-	UFUNCTION(BlueprintCallable, Category = "Abilities")
+	
+	bool AddInterruptRestriction(const FInterruptRestriction& Restriction);
 	void RemoveInterruptRestriction(const FInterruptRestriction& Restriction) { InterruptRestrictions.Remove(Restriction); }
 
 private:

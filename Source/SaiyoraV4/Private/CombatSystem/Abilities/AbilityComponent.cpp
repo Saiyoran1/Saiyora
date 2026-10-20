@@ -763,9 +763,12 @@ FInterruptEvent UAbilityComponent::InterruptCurrentCast(AActor* AppliedBy, UObje
 	Result.CancelledCastID = CastingState.PredictionID;
 	if (!bIgnoreRestrictions)
 	{
-		if (!CastingState.bInterruptible || InterruptRestrictions.IsRestricted(Result))
+		FInterruptRestriction Restriction;
+		if (!CastingState.bInterruptible || InterruptRestrictions.IsRestricted(Restriction, Result))
 		{
 			Result.FailReason = EInterruptFailReason::Restricted;
+			//TODO: Add logging for which restriction caused failure, and some way of notifying that buff about its restriction being used?
+			//TODO: Add separate fail reasons for "uninterruptible" and "custom restriction."
 			return Result;
 		}
 	}
@@ -778,6 +781,15 @@ FInterruptEvent UAbilityComponent::InterruptCurrentCast(AActor* AppliedBy, UObje
 	}
 	EndCast();
 	return Result;
+}
+
+bool UAbilityComponent::AddInterruptRestriction(const FInterruptRestriction& Restriction)
+{
+	if (!Restriction.IsBound() || !Restriction.GetUObject()->IsA(UBuff::StaticClass()))
+	{
+		return false;
+	}
+	return InterruptRestrictions.Add(Restriction);
 }
 
 void UAbilityComponent::ClientAbilityInterrupt_Implementation(const FInterruptEvent& InterruptEvent)

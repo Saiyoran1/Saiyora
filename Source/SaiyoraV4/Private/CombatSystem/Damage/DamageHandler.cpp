@@ -9,6 +9,7 @@
 #include "SaiyoraCombatInterface.h"
 #include "DungeonGameState.h"
 #include "NPCAbilityComponent.h"
+#include "SaiyoraCombatLibrary.h"
 #include "UnrealNetwork.h"
 
 #pragma region Initialization
@@ -45,7 +46,6 @@ void UDamageHandler::InitializeComponent()
 		{
 			NPCComponentRef = Cast<UNPCAbilityComponent>(AbilityComponent);
 		}
-		DisableHealthEvents.BindDynamic(this, &UDamageHandler::DisableAllHealthEvents);
 		//NPCs that can respawn should auto accept any resurrections they receive.
 		//This allows for mechanics like bosses that resurrect their adds.
 		if (bCanBeResurrected && !GetOwner()->GetClass()->IsChildOf(ASaiyoraPlayerCharacter::StaticClass()))
@@ -76,11 +76,6 @@ void UDamageHandler::BeginPlay()
 		if (IsValid(NPCComponentRef))
 		{
 			NPCComponentRef->OnCombatBehaviorChanged.AddDynamic(this, &UDamageHandler::OnCombatBehaviorChanged);
-			if (NPCComponentRef->GetCombatBehavior() == ENPCCombatBehavior::None || NPCComponentRef->GetCombatBehavior() == ENPCCombatBehavior::Resetting)
-			{
-				AddOutgoingHealthEventRestriction(DisableHealthEvents);
-				AddIncomingHealthEventRestriction(DisableHealthEvents);
-			}
 		}
 		LifeStatus = ELifeStatus::Alive;
 		OnLifeStatusChanged.Broadcast(GetOwner(), ELifeStatus::Invalid, LifeStatus);
@@ -101,17 +96,11 @@ void UDamageHandler::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& Out
 void UDamageHandler::OnCombatBehaviorChanged(const ENPCCombatBehavior PreviousBehavior,
 	const ENPCCombatBehavior NewBehavior)
 {
-	const bool bWasDisabled = PreviousBehavior == ENPCCombatBehavior::None || PreviousBehavior == ENPCCombatBehavior::Resetting;
-	const bool bShouldBeDisabled = NewBehavior == ENPCCombatBehavior::None || NewBehavior == ENPCCombatBehavior::Resetting;
-	if (bWasDisabled && !bShouldBeDisabled)
+	//TODO: This should be a call from the NPCBehaviorComponent itself, probably.
+	//I don't think the damage handler should be in charge of healing on reset.
+	if (USaiyoraCombatLibrary::IsActiveNPCBehavior(PreviousBehavior)
+		&& !USaiyoraCombatLibrary::IsActiveNPCBehavior(NewBehavior))
 	{
-		RemoveOutgoingHealthEventRestriction(DisableHealthEvents);
-		RemoveIncomingHealthEventRestriction(DisableHealthEvents);
-	}
-	else if (!bWasDisabled && bShouldBeDisabled)
-	{
-		AddOutgoingHealthEventRestriction(DisableHealthEvents);
-		AddIncomingHealthEventRestriction(DisableHealthEvents);
 		ApplyHealthEvent(EHealthEventType::Healing, MaxHealth, GetOwner(), this, EEventHitStyle::Authority, EElementalSchool::None, true,
 			true, true, true, false, FHealthEventModCondition(), FThreatFromDamage());
 	}
@@ -394,6 +383,15 @@ void UDamageHandler::DeclineResurrection(const int ResID)
 	}
 }
 
+bool UDamageHandler::AddDeathRestriction(const FDeathRestriction& Restriction)
+{
+	if (!Restriction.IsBound() || !Restriction.GetUObject()->IsA(UBuff::StaticClass()))
+	{
+		return false;
+	}
+	return DeathRestrictions.Add(Restriction);
+}
+
 void UDamageHandler::Server_MakeResDecision_Implementation(const int ResID, const bool bAccept)
 {
 	if (bAccept)
@@ -450,6 +448,13 @@ FHealthEvent UDamageHandler::ApplyHealthEvent(const EHealthEventType EventType, 
     default :
     	return HealthEvent;
 	}
+	//NPCs resetting or uninitialized cannot take damage.
+	if (EventType == EHealthEventType::Damage
+		&& IsValid(NPCComponentRef)
+		&& !USaiyoraCombatLibrary::IsActiveNPCBehavior(NPCComponentRef->GetCombatBehavior()))
+	{
+		return HealthEvent;
+	}
 	HealthEvent.Info.EventType = EventType;
     HealthEvent.Info.Value = Amount;
     HealthEvent.Info.SnapshotValue = Amount;
@@ -490,10 +495,21 @@ FHealthEvent UDamageHandler::ApplyHealthEvent(const EHealthEventType EventType, 
         }
         HealthEvent.Info.Value = GetModifiedIncomingHealthEventValue(HealthEvent.Info);
     }
-    if (!bIgnoreRestrictions && (IncomingHealthEventRestrictions.IsRestricted(HealthEvent.Info) || (IsValid(GeneratorComponent) && GeneratorComponent->CheckOutgoingHealthEventRestricted(HealthEvent.Info))))
-    {
-        return HealthEvent;
-    }
+	if (!bIgnoreRestrictions)
+	{
+		FHealthEventRestriction IncomingRestriction;
+		if (IncomingHealthEventRestrictions.IsRestricted(IncomingRestriction, HealthEvent.Info))
+		{
+			//TODO: Add logging for which restriction caused failure, and some way of notifying that buff about its restriction being used?
+			return HealthEvent;
+		}
+		FHealthEventRestriction OutgoingRestriction;
+		if (IsValid(GeneratorComponent) && GeneratorComponent->CheckOutgoingHealthEventRestricted(OutgoingRestriction, HealthEvent.Info))
+		{
+			//TODO: Add logging for which restriction caused failure, and some way of notifying that buff about its restriction being used?
+			return HealthEvent;
+		}
+	}
 
 	HealthEvent.Result.Success = true;
 	if (EventType == EHealthEventType::Damage)
@@ -532,14 +548,16 @@ FHealthEvent UDamageHandler::ApplyHealthEvent(const EHealthEventType EventType, 
 		HealthEvent.Result.AppliedValue = HealthEvent.Result.PreviousValue - CurrentHealth;
 		if (CurrentHealth == 0.0f)
 		{
-			if (bIgnoreDeathRestrictions || !DeathRestrictions.IsRestricted(HealthEvent))
+			HealthEvent.Result.KillingBlow = true;
+			FDeathRestriction Restriction;
+			if (!bIgnoreDeathRestrictions && DeathRestrictions.IsRestricted(Restriction, HealthEvent))
 			{
-				HealthEvent.Result.KillingBlow = true;
-			}
-			else if (!bHasPendingKillingBlow)
-			{
-				bHasPendingKillingBlow = true;
-				PendingKillingBlow = HealthEvent;
+				HealthEvent.Result.KillingBlow = false;
+				if (!bHasPendingKillingBlow)
+				{
+					bHasPendingKillingBlow = true;
+					PendingKillingBlow = HealthEvent;
+				}
 			}
 		}
 	}
@@ -588,6 +606,24 @@ FHealthEvent UDamageHandler::ApplyHealthEvent(const EHealthEventType EventType, 
 	return HealthEvent;
 }
 
+bool UDamageHandler::AddIncomingHealthEventRestriction(const FHealthEventRestriction& Restriction)
+{
+	if (!Restriction.IsBound() || !Restriction.GetUObject()->IsA(UBuff::StaticClass()))
+	{
+		return false;
+	}
+	return IncomingHealthEventRestrictions.Add(Restriction);
+}
+
+bool UDamageHandler::AddOutgoingHealthEventRestriction(const FHealthEventRestriction& Restriction)
+{
+	if (!Restriction.IsBound() || !Restriction.GetUObject()->IsA(UBuff::StaticClass()))
+	{
+		return false;
+	}
+	return OutgoingHealthEventRestrictions.Add(Restriction);
+}
+
 void UDamageHandler::NotifyOfOutgoingHealthEvent(const FHealthEvent& HealthEvent)
 {
 	if (GetOwnerRole() == ROLE_Authority)
@@ -625,7 +661,12 @@ void UDamageHandler::RemoveDeathRestriction(const FDeathRestriction& Restriction
 {
 	if (DeathRestrictions.Remove(Restriction) > 0 && bHasPendingKillingBlow)
 	{
-		if (!DeathRestrictions.IsRestricted(PendingKillingBlow))
+		FDeathRestriction KillingBlowRestriction;
+		if (DeathRestrictions.IsRestricted(KillingBlowRestriction, PendingKillingBlow))
+		{
+			//TODO: Add logging for which restriction caused failure, and some way of notifying that buff about its restriction being used?
+		}
+		else
 		{
 			Die();
 		}

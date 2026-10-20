@@ -71,13 +71,14 @@ void UBuffRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
     {
         return;
     }
+    bool bSuccess = false;
     switch (Direction)
     {
         case ECombatEventDirection::Outgoing :
-            TargetComponent->AddOutgoingBuffRestriction(Restriction);
+            bSuccess = TargetComponent->AddOutgoingBuffRestriction(Restriction);
             break;
         case ECombatEventDirection::Incoming :
-            TargetComponent->AddIncomingBuffRestriction(Restriction);
+            bSuccess = TargetComponent->AddIncomingBuffRestriction(Restriction);
             break;
         default :
             break;

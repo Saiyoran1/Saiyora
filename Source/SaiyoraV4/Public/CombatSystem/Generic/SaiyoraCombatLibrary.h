@@ -1,6 +1,7 @@
 #pragma once
 #include "CombatStructs.h"
 #include "InstancedStruct.h"
+#include "NPCEnums.h"
 #include "Engine/EngineTypes.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "SaiyoraCombatLibrary.generated.h"
@@ -36,6 +37,9 @@ public:
 	static TArray<FName> GetMatchingFunctionNames(const UObject* Object, const UFunction* ExampleFunction);
 	//Check if two function signatures are the same. Useful for populating lists of modifier/restriction functions with appropriate function names.
 	static bool IsSignatureTheSame(const UFunction* Function, const UFunction* Example);
+
+	//Helper to check whether a certain NPC behavior should be treated as valid for certain actions such as taking damage or generating/receiving threat.
+	static bool IsActiveNPCBehavior(const ENPCCombatBehavior Behavior) { return Behavior == ENPCCombatBehavior::Patrolling || Behavior == ENPCCombatBehavior::Combat; }
 
 #pragma region Combat Parameter Functions
 

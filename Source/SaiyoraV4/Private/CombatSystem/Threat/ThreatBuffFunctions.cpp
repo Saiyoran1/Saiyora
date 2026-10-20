@@ -65,13 +65,14 @@ void UThreatRestrictionFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
 	{
 		return;
 	}
+	bool bSuccess = false;
 	switch (EventDirection)
 	{
 	case ECombatEventDirection::Incoming :
-		TargetHandler->AddIncomingThreatRestriction(Restriction);
+		bSuccess = TargetHandler->AddIncomingThreatRestriction(Restriction);
 		break;
 	case ECombatEventDirection::Outgoing :
-		TargetHandler->AddOutgoingThreatRestriction(Restriction);
+		bSuccess = TargetHandler->AddOutgoingThreatRestriction(Restriction);
 		break;
 	default :
 		break;

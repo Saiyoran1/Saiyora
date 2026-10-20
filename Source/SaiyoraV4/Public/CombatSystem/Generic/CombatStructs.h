@@ -289,24 +289,28 @@ class TConditionalRestrictionList
 public:
 
     template <typename... Args>
-    bool IsRestricted(Args... Context)
+    bool IsRestricted(T& OutRestriction, Args... Context)
     {
-        for (const T& Restriction : Restrictions)
+        for (int i = Restrictions.Num() - 1; i >= 0; --i)
         {
+            const T& Restriction = Restrictions[i];
             if (Restriction.IsBound() && Restriction.Execute(Context...))
             {
+                OutRestriction = Restriction;
                 return true;
             }
         }
         return false;
     }
     
-    void Add(const T& Restriction)
+    bool Add(const T& Restriction)
     {
-        if (Restriction.IsBound())
+        if (!Restriction.IsBound() || Restrictions.Contains(Restriction))
         {
-            Restrictions.Add(Restriction);
+            return false;
         }
+        Restrictions.Add(Restriction);
+        return true;
     }
     
     int32 Remove(const T& Restriction)
@@ -316,7 +320,7 @@ public:
 
 private:
     
-    TSet<T> Restrictions;
+    TArray<T> Restrictions;
 };
 
 #pragma endregion

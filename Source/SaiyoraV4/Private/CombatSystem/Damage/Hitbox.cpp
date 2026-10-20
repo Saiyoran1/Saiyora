@@ -4,6 +4,7 @@
 #include "SaiyoraCombatInterface.h"
 #include "CombatStatusComponent.h"
 #include "NPCAbilityComponent.h"
+#include "SaiyoraCombatLibrary.h"
 
 UHitbox::UHitbox()
 {
@@ -76,13 +77,13 @@ void UHitbox::UpdateFactionCollision(const EFaction NewFaction)
 
 void UHitbox::OnCombatBehaviorChanged(const ENPCCombatBehavior PreviousBehavior, const ENPCCombatBehavior NewBehavior)
 {
-	if (NewBehavior == ENPCCombatBehavior::None || NewBehavior == ENPCCombatBehavior::Resetting)
+	if (!USaiyoraCombatLibrary::IsActiveNPCBehavior(NewBehavior))
 	{
 		//Disable collision when resetting.
 		SetCollisionProfileName(TEXT("NoCollision"));
 	}
-	else if (IsValid(CombatStatusComponentRef) &&
-		(PreviousBehavior == ENPCCombatBehavior::None || PreviousBehavior == ENPCCombatBehavior::Resetting))
+	else if (IsValid(CombatStatusComponentRef)
+		&& !USaiyoraCombatLibrary::IsActiveNPCBehavior(PreviousBehavior))
 	{
 		//If collision was previously disabled and we are entering Patrol/Combat behavior, enable collision.
 		UpdateFactionCollision(CombatStatusComponentRef->GetCurrentFaction());

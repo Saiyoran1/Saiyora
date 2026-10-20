@@ -388,14 +388,25 @@ UBuff* UBuffHandler::FindExistingOutgoingBuff(const TSubclassOf<UBuff> BuffClass
 #pragma endregion 
 #pragma region Restrictions
 
+bool UBuffHandler::AddIncomingBuffRestriction(const FBuffRestriction& Restriction)
+{
+	if (!Restriction.IsBound() || !Restriction.GetUObject()->IsA(UBuff::StaticClass()))
+	{
+		return false;
+	}
+	return IncomingBuffRestrictions.Add(Restriction);
+}
+
 bool UBuffHandler::CheckIncomingBuffRestricted(const FBuffApplyEvent& BuffEvent, TArray<EBuffApplyFailReason>& OutFailReasons)
 {
 	//Don't clear the OutFailReasons array, it might have fail reasons from before this point in the application process.
 	bool bRestricted = false;
 	//Check any custom restrictions first.
-	if (IncomingBuffRestrictions.IsRestricted(BuffEvent))
+	FBuffRestriction Restriction;
+	if (IncomingBuffRestrictions.IsRestricted(Restriction, BuffEvent))
 	{
 		OutFailReasons.AddUnique(EBuffApplyFailReason::IncomingRestriction);
+		//TODO: Add logging for which restriction caused failure, and some way of notifying that buff about its restriction being used?
 		bRestricted = true;
 	}
 	//Check if the buff can be applied to dead targets.
@@ -421,14 +432,25 @@ bool UBuffHandler::CheckIncomingBuffRestricted(const FBuffApplyEvent& BuffEvent,
 	return bRestricted;
 }
 
+bool UBuffHandler::AddOutgoingBuffRestriction(const FBuffRestriction& Restriction)
+{
+	if (!Restriction.IsBound() || !Restriction.GetUObject()->IsA(UBuff::StaticClass()))
+	{
+		return false;
+	}
+	return OutgoingBuffRestrictions.Add(Restriction);
+}
+
 bool UBuffHandler::CheckOutgoingBuffRestricted(const FBuffApplyEvent& BuffEvent, TArray<EBuffApplyFailReason>& OutFailReasons)
 {
 	//Don't clear the OutFailReasons array, it might have fail reasons from before this point in the application process.
 	bool bRestricted = false;
-	//Check custom restrictions first.
-	if (OutgoingBuffRestrictions.IsRestricted(BuffEvent))
+	//Check custom restrictions from buffs.
+	FBuffRestriction Restriction;
+	if (OutgoingBuffRestrictions.IsRestricted(Restriction, BuffEvent))
 	{
 		OutFailReasons.AddUnique(EBuffApplyFailReason::OutgoingRestriction);
+		//TODO: Add logging for which restriction caused failure, and some way of notifying that buff about its restriction being used?
 		bRestricted = true;
 	}
 	return bRestricted;

@@ -287,7 +287,7 @@ void UInterruptRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 	{
 		return;
 	}
-	TargetComponent->AddInterruptRestriction(Restriction);
+	const bool bSuccess = TargetComponent->AddInterruptRestriction(Restriction);
 }
 
 void UInterruptRestrictionFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)

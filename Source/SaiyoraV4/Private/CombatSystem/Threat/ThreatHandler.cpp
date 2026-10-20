@@ -42,7 +42,6 @@ void UThreatHandler::InitializeComponent()
 	{
 		NPCComponentRef = Cast<UNPCAbilityComponent>(AbilityComponent);
 	}
-	DisableThreatEvents.BindDynamic(this, &UThreatHandler::DisableAllThreatEvents);
 }
 
 void UThreatHandler::BeginPlay()
@@ -55,15 +54,6 @@ void UThreatHandler::BeginPlay()
 			if (DamageHandlerRef->CanEverReceiveDamage())
 			{
 				DamageHandlerRef->OnIncomingHealthEvent.AddDynamic(this, &UThreatHandler::OnOwnerDamageTaken);
-			}
-		}
-		if (IsValid(NPCComponentRef))
-		{
-			NPCComponentRef->OnCombatBehaviorChanged.AddDynamic(this, &UThreatHandler::OnCombatBehaviorChanged);
-			if (NPCComponentRef->GetCombatBehavior() == ENPCCombatBehavior::None || NPCComponentRef->GetCombatBehavior() == ENPCCombatBehavior::Resetting)
-			{
-				AddOutgoingThreatRestriction(DisableThreatEvents);
-				AddIncomingThreatRestriction(DisableThreatEvents);
 			}
 		}
 		if (bProximityAggro && DefaultDetectionRadius > 0.0f)
@@ -83,23 +73,6 @@ void UThreatHandler::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 	DOREPLIFETIME(UThreatHandler, CurrentTarget);
 	DOREPLIFETIME(UThreatHandler, bInCombat);
 	DOREPLIFETIME(UThreatHandler, CombatStartTime);
-}
-
-void UThreatHandler::OnCombatBehaviorChanged(const ENPCCombatBehavior PreviousBehavior,
-	const ENPCCombatBehavior NewBehavior)
-{
-	const bool bWasDisabled = PreviousBehavior == ENPCCombatBehavior::None || PreviousBehavior == ENPCCombatBehavior::Resetting;
-	const bool bShouldBeDisabled = NewBehavior == ENPCCombatBehavior::None || NewBehavior == ENPCCombatBehavior::Resetting;
-	if (bWasDisabled && !bShouldBeDisabled)
-	{
-		RemoveOutgoingThreatRestriction(DisableThreatEvents);
-		RemoveIncomingThreatRestriction(DisableThreatEvents);
-	}
-	else if (!bWasDisabled && bShouldBeDisabled)
-	{
-		AddOutgoingThreatRestriction(DisableThreatEvents);
-		AddIncomingThreatRestriction(DisableThreatEvents);
-	}
 }
 
 void UThreatHandler::OnOwnerDamageTaken(const FHealthEvent& DamageEvent)
@@ -291,6 +264,19 @@ FThreatEvent UThreatHandler::AddThreat(const EThreatType ThreatType, const float
 		return Result;
 	}
 
+	//NPCs resetting or uninitialized cannot get threat added to them.
+	if (IsValid(NPCComponentRef)
+		&& !USaiyoraCombatLibrary::IsActiveNPCBehavior(NPCComponentRef->GetCombatBehavior()))
+	{
+		return Result;
+	}
+	//NPCs resetting or uninitialized cannot generate threat either.
+	if (IsValid(GeneratorThreat->NPCComponentRef)
+		&& !USaiyoraCombatLibrary::IsActiveNPCBehavior(GeneratorThreat->NPCComponentRef->GetCombatBehavior()))
+	{
+		return Result;
+	}
+
 	//Check to see if we should redirect this threat to a different actor due to Misdirect.
 	AActor* MisdirectTarget = GeneratorThreat->GetMisdirectTarget();
 	if (IsValid(MisdirectTarget))
@@ -330,12 +316,22 @@ FThreatEvent UThreatHandler::AddThreat(const EThreatType ThreatType, const float
 			return Result;
 		}
 	}
-
-	if (!bIgnoreRestrictions &&
-		//Note that even if we are misdirecting, we are still using the outgoing threat restrictions from the ACTUAL instigator.
-		(IncomingThreatRestrictions.IsRestricted(Result) || GeneratorThreat->CheckOutgoingThreatRestricted(Result)))
+	
+	if (!bIgnoreRestrictions)
 	{
-		return Result;
+		FThreatRestriction IncomingRestriction;
+		if (IncomingThreatRestrictions.IsRestricted(IncomingRestriction, Result))
+		{
+			//TODO: Add logging for which restriction caused failure, and some way of notifying that buff about its restriction being used?
+			return Result;
+		}
+		//Note that even if we are misdirecting, we are still using the outgoing threat restrictions from the ACTUAL instigator.
+		FThreatRestriction OutgoingRestriction;
+		if (GeneratorThreat->CheckOutgoingThreatRestricted(OutgoingRestriction, Result))
+		{
+			//TODO: Add logging for which restriction caused failure, and some way of notifying that buff about its restriction being used?
+			return Result;
+		}
 	}
 
 	//We already know the threat handler is valid, because of the checks above. We re-get it here so that we get the right target factoring in misdirects.
@@ -442,6 +438,24 @@ void UThreatHandler::GetActorsInThreatTable(TArray<AActor*>& OutActors) const
 			OutActors.Add(Target.TargetThreat->GetOwner());
 		}
 	}
+}
+
+bool UThreatHandler::AddIncomingThreatRestriction(const FThreatRestriction& Restriction)
+{
+	if (!Restriction.IsBound() || !Restriction.GetUObject()->IsA(UBuff::StaticClass()))
+	{
+		return false;
+	}
+	return IncomingThreatRestrictions.Add(Restriction);
+}
+
+bool UThreatHandler::AddOutgoingThreatRestriction(const FThreatRestriction& Restriction)
+{
+	if (!Restriction.IsBound() || !Restriction.GetUObject()->IsA(UBuff::StaticClass()))
+	{
+		return false;
+	}
+	return OutgoingThreatRestrictions.Add(Restriction);
 }
 
 void UThreatHandler::UpdateTarget()

@@ -41,9 +41,6 @@ private:
 
 	UFUNCTION()
 	void OnCombatBehaviorChanged(const ENPCCombatBehavior PreviousBehavior, const ENPCCombatBehavior NewBehavior);
-	FHealthEventRestriction DisableHealthEvents;
-	UFUNCTION()
-	bool DisableAllHealthEvents(const FHealthEventInfo& Event) { return true; }
 
 //Health
 	
@@ -121,7 +118,7 @@ public:
 	void AcceptResurrection(const int ResID);
 	void DeclineResurrection(const int ResID);
 
-	void AddDeathRestriction(const FDeathRestriction& Restriction) { DeathRestrictions.Add(Restriction); }
+	bool AddDeathRestriction(const FDeathRestriction& Restriction);
 	void RemoveDeathRestriction(const FDeathRestriction& Restriction);
 
 private:
@@ -201,27 +198,19 @@ public:
 	FHealthEventNotification OnOutgoingHealthEvent;
 	UPROPERTY(BlueprintAssignable)
 	FHealthEventNotification OnKillingBlow;
-
-	UFUNCTION(BlueprintCallable, Category = "Health")
-	void AddIncomingHealthEventRestriction(const FHealthEventRestriction& Restriction) { IncomingHealthEventRestrictions.Add(Restriction); }
-	UFUNCTION(BlueprintCallable, Category = "Health")
+	
+	bool AddIncomingHealthEventRestriction(const FHealthEventRestriction& Restriction);
 	void RemoveIncomingHealthEventRestriction(const FHealthEventRestriction& Restriction) { IncomingHealthEventRestrictions.Remove(Restriction); }
 	
-	UFUNCTION(BlueprintCallable, Category = "Health")
-   	void AddOutgoingHealthEventRestriction(const FHealthEventRestriction& Restriction) { OutgoingHealthEventRestrictions.Add(Restriction); }
-	UFUNCTION(BlueprintCallable, Category = "Health")
+   	bool AddOutgoingHealthEventRestriction(const FHealthEventRestriction& Restriction);
    	void RemoveOutgoingHealthEventRestriction(const FHealthEventRestriction& Restriction) { OutgoingHealthEventRestrictions.Remove(Restriction); }
-	bool CheckOutgoingHealthEventRestricted(const FHealthEventInfo& EventInfo) { return OutgoingHealthEventRestrictions.IsRestricted(EventInfo); }
-
-	UFUNCTION(BlueprintCallable, Category = "Health")
+	bool CheckOutgoingHealthEventRestricted(FHealthEventRestriction& OutRestriction, const FHealthEventInfo& EventInfo) { return OutgoingHealthEventRestrictions.IsRestricted(OutRestriction, EventInfo); }
+	
 	void AddIncomingHealthEventModifier(const FHealthEventModCondition& Modifier) { IncomingHealthEventModifiers.Add(Modifier); }
-	UFUNCTION(BlueprintCallable, Category = "Health")
 	void RemoveIncomingHealthEventModifier(const FHealthEventModCondition& Modifier) { IncomingHealthEventModifiers.Remove(Modifier); }
 	float GetModifiedIncomingHealthEventValue(const FHealthEventInfo& EventInfo) const;
-
-	UFUNCTION(BlueprintCallable, Category = "Health")
+	
     void AddOutgoingHealthEventModifier(const FHealthEventModCondition& Modifier) { OutgoingHealthEventModifiers.Add(Modifier); }
-	UFUNCTION(BlueprintCallable, Category = "Health")
    	void RemoveOutgoingHealthEventModifier(const FHealthEventModCondition& Modifier) { OutgoingHealthEventModifiers.Remove(Modifier); }
 	float GetModifiedOutgoingHealthEventValue(const FHealthEventInfo& EventInfo, const FHealthEventModCondition& SourceMod) const;
 	

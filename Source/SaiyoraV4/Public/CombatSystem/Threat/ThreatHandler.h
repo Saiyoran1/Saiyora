@@ -37,12 +37,6 @@ private:
 	UPROPERTY()
 	UNPCAbilityComponent* NPCComponentRef = nullptr;
 
-	UFUNCTION()
-	void OnCombatBehaviorChanged(const ENPCCombatBehavior PreviousBehavior, const ENPCCombatBehavior NewBehavior);
-	FThreatRestriction DisableThreatEvents;
-	UFUNCTION()
-	bool DisableAllThreatEvents(const FThreatEvent& Event) { return true; }
-
 //Threat
 
 public:
@@ -75,27 +69,19 @@ public:
 	FTargetNotification OnTargetChanged;
 	UPROPERTY(BlueprintAssignable)
 	FCombatStatusNotification OnCombatChanged;
-
-	UFUNCTION(BlueprintCallable, Category = "Threat")
-	void AddIncomingThreatRestriction(const FThreatRestriction& Restriction) { IncomingThreatRestrictions.Add(Restriction); }
-	UFUNCTION(BlueprintCallable, Category = "Threat")
+	
+	bool AddIncomingThreatRestriction(const FThreatRestriction& Restriction);
 	void RemoveIncomingThreatRestriction(const FThreatRestriction& Restriction) { IncomingThreatRestrictions.Remove(Restriction); }
-
-	UFUNCTION(BlueprintCallable, Category = "Threat")
-	void AddOutgoingThreatRestriction(const FThreatRestriction& Restriction) { OutgoingThreatRestrictions.Add(Restriction); }
-	UFUNCTION(BlueprintCallable, Category = "Threat")
+	
+	bool AddOutgoingThreatRestriction(const FThreatRestriction& Restriction);
 	void RemoveOutgoingThreatRestriction(const FThreatRestriction& Restriction) { OutgoingThreatRestrictions.Remove(Restriction); }
-	bool CheckOutgoingThreatRestricted(const FThreatEvent& Event) { return OutgoingThreatRestrictions.IsRestricted(Event); }
-
-	UFUNCTION(BlueprintCallable, Category = "Threat")
+	bool CheckOutgoingThreatRestricted(FThreatRestriction& OutRestriction, const FThreatEvent& Event) { return OutgoingThreatRestrictions.IsRestricted(OutRestriction, Event); }
+	
 	void AddIncomingThreatModifier(const FThreatModCondition& Modifier) { IncomingThreatMods.Add(Modifier); }
-	UFUNCTION(BlueprintCallable, Category = "Threat")
 	void RemoveIncomingThreatModifier(const FThreatModCondition& Modifier) { IncomingThreatMods.Remove(Modifier); }
 	float GetModifiedIncomingThreat(const FThreatEvent& ThreatEvent) const;
-
-	UFUNCTION(BlueprintCallable, Category = "Threat")
+	
 	void AddOutgoingThreatModifier(const FThreatModCondition& Modifier) { OutgoingThreatMods.Add(Modifier); }
-	UFUNCTION(BlueprintCallable, Category = "Threat")
 	void RemoveOutgoingThreatModifier(const FThreatModCondition& Modifier) { OutgoingThreatMods.Remove(Modifier); }
 	float GetModifiedOutgoingThreat(const FThreatEvent& ThreatEvent, const FThreatModCondition& SourceModifier) const;
 
