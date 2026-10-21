@@ -4,7 +4,7 @@
 #include "CombatDebugOptions.h"
 #include "CombatNetSubsystem.h"
 #include "SaiyoraCombatLibrary.h"
-#include "SaiyoraGameInstance.h"
+#include "SaiyoraDevSettings.h"
 #include "SaiyoraProjectileComponent.h"
 #include "UnrealNetwork.h"
 #include "CoreClasses/SaiyoraPlayerCharacter.h"
@@ -30,12 +30,6 @@ void APredictableProjectile::PostNetInit()
 	
 	if (IsValid(SourceInfo.Owner) && SourceInfo.Owner->IsLocallyControlled() && !bShouldReplace)
 	{
-		const USaiyoraGameInstance* GameInstance = Cast<USaiyoraGameInstance>(GetWorld()->GetGameInstance());
-		if (IsValid(GameInstance))
-		{
-			DebugOptions = GameInstance->CombatDebugOptions;
-		}
-		
 		TArray<UPrimitiveComponent*> PrimitiveComponents;
 		GetComponents<UPrimitiveComponent>(PrimitiveComponents);
 		for (UPrimitiveComponent* Comp : PrimitiveComponents)
@@ -50,9 +44,9 @@ void APredictableProjectile::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 	
-	if (bHidden && IsValid(DebugOptions) && DebugOptions->bDrawHiddenProjectiles)
+	if (bHidden && CombatDebug_DA->bDrawHiddenProjectiles)
 	{
-		DebugOptions->DrawHiddenProjectile(this);
+		CombatDebug_DA->DrawHiddenProjectile(this);
 	}
 }
 
@@ -130,12 +124,6 @@ void APredictableProjectile::InitializeProjectile(UCombatAbility* Source, const 
 		}
 	}
 	OnInitialize();
-
-	const USaiyoraGameInstance* GameInstance = Cast<USaiyoraGameInstance>(GetWorld()->GetGameInstance());
-	if (IsValid(GameInstance))
-	{
-		DebugOptions = GameInstance->CombatDebugOptions;
-	}
 }
 
 void APredictableProjectile::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

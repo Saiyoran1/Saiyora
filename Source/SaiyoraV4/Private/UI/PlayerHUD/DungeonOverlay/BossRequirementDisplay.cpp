@@ -1,5 +1,6 @@
 ﻿#include "DungeonOverlay/BossRequirementDisplay.h"
 #include "DungeonGameState.h"
+#include "SaiyoraDevSettings.h"
 #include "SaiyoraUIDataAsset.h"
 #include "TextBlock.h"
 #include "UIFunctionLibrary.h"
@@ -15,25 +16,23 @@ void UBossRequirementDisplay::InitializeBossRequirement(const FString& BossDispl
 
 void UBossRequirementDisplay::UpdateRequirementMet(const bool bMet)
 {
-	const USaiyoraUIDataAsset* UIDataAsset = UUIFunctionLibrary::GetUIDataAsset(GetWorld());
-	const bool bUpdateColors = IsValid(UIDataAsset);
 	const ADungeonGameState* GameStateRef = GetWorld()->GetGameState<ADungeonGameState>();
-	if (IsValid(RequirementText) && bUpdateColors)
+	if (IsValid(RequirementText))
 	{
 		if (bMet)
 		{
 			if (IsValid(GameStateRef) && GameStateRef->IsDungeonDepleted())
 			{
-				RequirementText->SetColorAndOpacity(UIDataAsset->DungeonProgressFailureTextColor);
+				RequirementText->SetColorAndOpacity(UI_DA->DungeonProgressFailureTextColor);
 			}
 			else
 			{
-				RequirementText->SetColorAndOpacity(UIDataAsset->DungeonProgressSuccessTextColor);
+				RequirementText->SetColorAndOpacity(UI_DA->DungeonProgressSuccessTextColor);
 			}
 		}
 		else
 		{
-			RequirementText->SetColorAndOpacity(UIDataAsset->DungeonProgressDefaultTextColor);
+			RequirementText->SetColorAndOpacity(UI_DA->DungeonProgressDefaultTextColor);
 		}
 	}
 	if (IsValid(TimestampText))
@@ -41,16 +40,13 @@ void UBossRequirementDisplay::UpdateRequirementMet(const bool bMet)
 		if (bMet && IsValid(GameStateRef))
 		{
 			TimestampText->SetText(FText::FromString(UUIFunctionLibrary::GetTimeDisplayString(GameStateRef->GetServerWorldTimeSeconds())));
-			if (bUpdateColors)
+			if (GameStateRef->IsDungeonDepleted())
 			{
-				if (GameStateRef->IsDungeonDepleted())
-				{
-					TimestampText->SetColorAndOpacity(UIDataAsset->DungeonProgressFailureTextColor);
-				}
-				else
-				{
-					TimestampText->SetColorAndOpacity(UIDataAsset->DungeonProgressSuccessTextColor);
-				}
+				TimestampText->SetColorAndOpacity(UI_DA->DungeonProgressFailureTextColor);
+			}
+			else
+			{
+				TimestampText->SetColorAndOpacity(UI_DA->DungeonProgressSuccessTextColor);
 			}
 			TimestampText->SetVisibility(ESlateVisibility::HitTestInvisible);
 		}

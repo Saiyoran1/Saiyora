@@ -11,7 +11,7 @@
 #include "StatHandler.h"
 #include "ResourceHandler.h"
 #include "SaiyoraCombatLibrary.h"
-#include "SaiyoraGameInstance.h"
+#include "SaiyoraDevSettings.h"
 #include "SaiyoraGameState.h"
 #include "SaiyoraMovementComponent.h"
 #include "UnrealNetwork.h"
@@ -49,11 +49,6 @@ void UAbilityComponent::InitializeComponent()
 	DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
 	MovementComponentRef = ISaiyoraCombatInterface::Execute_GetCustomMovementComponent(GetOwner());
 	CombatStatusComponentRef = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(GetOwner());
-	const USaiyoraGameInstance* GameInstance = Cast<USaiyoraGameInstance>(GetWorld()->GetGameInstance());
-	if (IsValid(GameInstance))
-	{
-		CombatDebugOptions = GameInstance->CombatDebugOptions;
-	}
 }
 
 void UAbilityComponent::BeginPlay()
@@ -184,13 +179,13 @@ void UAbilityComponent::CleanupRemovedAbility(UCombatAbility* Ability)
 FAbilityEvent UAbilityComponent::UseAbility(const TSubclassOf<UCombatAbility> AbilityClass)
 {
 	FAbilityEvent Result;
-	const bool bLogAbilityEvent = IsValid(CombatDebugOptions) && CombatDebugOptions->bLogAbilityEvents;
+	const bool bLogAbilityEvent = CombatDebug_DA->bLogAbilityEvents;
 	if (!IsLocallyControlled())
 	{
 		Result.FailReasons.AddUnique(ECastFailReason::NetRole);
 		if (bLogAbilityEvent)
 		{
-			CombatDebugOptions->LogAbilityEvent(GetOwner(), Result);
+			CombatDebug_DA->LogAbilityEvent(GetOwner(), Result);
 		}
 		return Result;
 	}
@@ -199,7 +194,7 @@ FAbilityEvent UAbilityComponent::UseAbility(const TSubclassOf<UCombatAbility> Ab
 		Result.FailReasons.AddUnique(ECastFailReason::InvalidAbility);
 		if (bLogAbilityEvent)
 		{
-			CombatDebugOptions->LogAbilityEvent(GetOwner(), Result);
+			CombatDebug_DA->LogAbilityEvent(GetOwner(), Result);
 		}
 		return Result;
 	}
@@ -209,7 +204,7 @@ FAbilityEvent UAbilityComponent::UseAbility(const TSubclassOf<UCombatAbility> Ab
 		Result.FailReasons.AddUnique(ECastFailReason::InvalidAbility);
 		if (bLogAbilityEvent)
 		{
-			CombatDebugOptions->LogAbilityEvent(GetOwner(), Result);
+			CombatDebug_DA->LogAbilityEvent(GetOwner(), Result);
 		}
 		return Result;
 	}
@@ -217,7 +212,7 @@ FAbilityEvent UAbilityComponent::UseAbility(const TSubclassOf<UCombatAbility> Ab
 	{
 		if (bLogAbilityEvent)
 		{
-			CombatDebugOptions->LogAbilityEvent(GetOwner(), Result);
+			CombatDebug_DA->LogAbilityEvent(GetOwner(), Result);
 		}
 		return Result;
 	}
@@ -274,7 +269,7 @@ FAbilityEvent UAbilityComponent::UseAbility(const TSubclassOf<UCombatAbility> Ab
 		default :
 			if (bLogAbilityEvent)
 			{
-				CombatDebugOptions->LogAbilityEvent(GetOwner(), Result);
+				CombatDebug_DA->LogAbilityEvent(GetOwner(), Result);
 			}
 			return Result;
 		}
@@ -318,7 +313,7 @@ FAbilityEvent UAbilityComponent::UseAbility(const TSubclassOf<UCombatAbility> Ab
 			default :
 				if (bLogAbilityEvent)
 				{
-					CombatDebugOptions->LogAbilityEvent(GetOwner(), Result);
+					CombatDebug_DA->LogAbilityEvent(GetOwner(), Result);
 				}
 				return Result;
 		}
@@ -332,7 +327,7 @@ FAbilityEvent UAbilityComponent::UseAbility(const TSubclassOf<UCombatAbility> Ab
 	}
 	if (bLogAbilityEvent)
 	{
-		CombatDebugOptions->LogAbilityEvent(GetOwner(), Result);
+		CombatDebug_DA->LogAbilityEvent(GetOwner(), Result);
 	}
 	return Result;
 }

@@ -8,6 +8,7 @@
 #include "PatrolRoute.h"
 #include "RotationBehaviors.h"
 #include "SaiyoraCombatInterface.h"
+#include "SaiyoraDevSettings.h"
 #include "SaiyoraMovementComponent.h"
 #include "StatHandler.h"
 #include "ThreatHandler.h"
@@ -372,14 +373,14 @@ void UNPCAbilityComponent::TickRotation(const float DeltaTime)
 	RotationBehavior->ModifyRotation(DeltaTime, GetOwner(), OwnerRotation, UnclampedRotation);
 	GetOwner()->SetActorRotation(OwnerRotation);
 
-	if (CombatDebugOptions->bDrawRotationBehavior)
+	if (CombatDebug_DA->bDrawRotationBehavior)
 	{
 		FRotationDebugInfo DebugInfo;
 		DebugInfo.OriginalRotation = PreviousRotation;
 		DebugInfo.bClampingRotation = RotationBehavior->bEnforceRotationSpeed;
 		DebugInfo.UnclampedRotation = UnclampedRotation;
 		DebugInfo.FinalRotation = OwnerRotation;
-		CombatDebugOptions->DrawRotationBehavior(GetOwner(), DebugInfo);
+		CombatDebug_DA->DrawRotationBehavior(GetOwner(), DebugInfo);
 	}
 }
 

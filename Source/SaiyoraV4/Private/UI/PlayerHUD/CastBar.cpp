@@ -4,6 +4,7 @@
 #include "Image.h"
 #include "ProgressBar.h"
 #include "SaiyoraCombatInterface.h"
+#include "SaiyoraDevSettings.h"
 #include "SaiyoraUIDataAsset.h"
 #include "TextBlock.h"
 #include "UIFunctionLibrary.h"
@@ -49,7 +50,6 @@ void UCastBar::InitCastBar(AActor* OwnerActor)
 	{
 		return;
 	}
-	UIDataAsset = UUIFunctionLibrary::GetUIDataAsset(GetWorld());
 	if (AbilityComponentRef->IsCasting())
 	{
 		OnCastStateChanged(FCastingState(), AbilityComponentRef->GetCurrentCastingState());
@@ -58,9 +58,9 @@ void UCastBar::InitCastBar(AActor* OwnerActor)
 	{
 		SetVisibility(ESlateVisibility::Collapsed);
 	}
-	if (IsValid(UIDataAsset) && IsValid(UninterruptibleIcon))
+	if (IsValid(UninterruptibleIcon))
 	{
-		UninterruptibleIcon->SetBrushFromTexture(UIDataAsset->UninterruptibleCastIcon);
+		UninterruptibleIcon->SetBrushFromTexture(UI_DA->UninterruptibleCastIcon);
 	}
 	AbilityComponentRef->OnCastStateChanged.AddDynamic(this, &UCastBar::OnCastStateChanged);
 	AbilityComponentRef->OnAbilityInterrupted.AddDynamic(this, &UCastBar::OnCastInterrupted);
@@ -87,9 +87,9 @@ void UCastBar::OnCastStateChanged(const FCastingState& PreviousState, const FCas
 		{
 			CastIcon->SetBrushFromTexture(NewState.CurrentCast->GetAbilityIcon());
 		}
-		if (IsValid(CastProgress) && IsValid(UIDataAsset))
+		if (IsValid(CastProgress))
 		{
-			const FLinearColor ProgressColor = NewState.bInterruptible ? UIDataAsset->GetSchoolColor(NewState.CurrentCast->GetAbilitySchool()) : UIDataAsset->UninterruptibleCastColor;
+			const FLinearColor ProgressColor = NewState.bInterruptible ? UI_DA->GetSchoolColor(NewState.CurrentCast->GetAbilitySchool()) : UI_DA->UninterruptibleCastColor;
 			CastProgress->SetFillColorAndOpacity(ProgressColor);
 		}
 		if (IsValid(UninterruptibleIcon))
@@ -116,10 +116,7 @@ void UCastBar::OnCastInterrupted(const FInterruptEvent& Event)
 	{
 		const float Percent = FMath::Clamp((Event.InterruptTime - Event.InterruptedCastStart) / (Event.InterruptedCastEnd - Event.InterruptedCastStart), 0.0f, 1.0f);
 		CastProgress->SetPercent(Percent);
-		if (IsValid(UIDataAsset))
-		{
-			CastProgress->SetFillColorAndOpacity(UIDataAsset->InterruptedCastColor);
-		}
+		CastProgress->SetFillColorAndOpacity(UI_DA->InterruptedCastColor);
 	}
 	if (IsValid(CastText))
 	{
@@ -138,10 +135,7 @@ void UCastBar::OnCastCancelled(const FCancelEvent& Event)
 	{
 		const float Percent = FMath::Clamp((Event.CancelTime - Event.CancelledCastStart) / (Event.CancelledCastEnd - Event.CancelledCastStart), 0.0f, 1.0f);
 		CastProgress->SetPercent(Percent);
-		if (IsValid(UIDataAsset))
-		{
-			CastProgress->SetFillColorAndOpacity(UIDataAsset->CancelledCastColor);
-		}
+		CastProgress->SetFillColorAndOpacity(UI_DA->CancelledCastColor);
 	}
 	if (IsValid(CastText))
 	{

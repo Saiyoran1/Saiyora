@@ -3,7 +3,6 @@
 #include "UserWidget.h"
 #include "CastBar.generated.h"
 
-class USaiyoraUIDataAsset;
 struct FAbilityEvent;
 struct FCancelEvent;
 struct FInterruptEvent;
@@ -48,9 +47,6 @@ private:
 	void OnCastCancelled(const FCancelEvent& Event);
 	UFUNCTION()
 	void OnCastTick(const FAbilityEvent& Event);
-
-	UPROPERTY()
-	const USaiyoraUIDataAsset* UIDataAsset = nullptr;
 
 	void StartFade(const float Duration);
 	FTimerHandle FadeTimerHandle;

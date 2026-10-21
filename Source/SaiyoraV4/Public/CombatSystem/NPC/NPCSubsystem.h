@@ -5,7 +5,6 @@
 #include "NPCSubsystem.generated.h"
 
 class UNPCAbility;
-class UCombatDebugOptions;
 
 //World subsystem that acts as a centralized place to handle NPC behaviors like spreading out or distributing ability tokens.
 UCLASS()
@@ -17,14 +16,7 @@ public:
 
 	//This function gives the subsystem a category for logging, but more importantly, the game crashes if this function isn't implemented.
 	virtual TStatId GetStatId() const override;
-	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
 	virtual void Tick(float DeltaTime) override;
-	
-
-private:
-
-	UPROPERTY()
-	UCombatDebugOptions* DebugOptions = nullptr;
 
 #pragma region Claimed Locations
 	

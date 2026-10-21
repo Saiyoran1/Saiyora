@@ -1,22 +1,11 @@
 ﻿#include "NPCSubsystem.h"
 #include "CombatDebugOptions.h"
 #include "NPCAbility.h"
-#include "SaiyoraGameInstance.h"
+#include "SaiyoraDevSettings.h"
 
 TStatId UNPCSubsystem::GetStatId() const
 {
 	RETURN_QUICK_DECLARE_CYCLE_STAT(UNPCSubsystem, STATGROUP_Tickables);
-}
-
-void UNPCSubsystem::Initialize(FSubsystemCollectionBase& Collection)
-{
-	Super::Initialize(Collection);
-
-	const USaiyoraGameInstance* GameInstanceRef = Cast<USaiyoraGameInstance>(GetWorld()->GetGameInstance());
-	if (IsValid(GameInstanceRef))
-	{
-		DebugOptions = GameInstanceRef->CombatDebugOptions;
-	}
 }
 
 void UNPCSubsystem::Tick(float DeltaTime)
@@ -24,16 +13,13 @@ void UNPCSubsystem::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
 	//Debug options for NPC systems.
-	if (IsValid(DebugOptions))
+	if (CombatDebug_DA->bDisplayClaimedLocations)
 	{
-		if (DebugOptions->bDisplayClaimedLocations)
-		{
-			DebugOptions->DisplayClaimedLocations(ClaimedLocations);
-		}
-		if (DebugOptions->bDisplayTokenInformation)
-		{
-			DebugOptions->DisplayTokenInfo(AbilityTokens);
-		}
+		CombatDebug_DA->DisplayClaimedLocations(ClaimedLocations);
+	}
+	if (CombatDebug_DA->bDisplayTokenInformation)
+	{
+		CombatDebug_DA->DisplayTokenInfo(AbilityTokens);
 	}
 }
 

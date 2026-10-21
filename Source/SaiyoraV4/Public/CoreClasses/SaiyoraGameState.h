@@ -3,7 +3,6 @@
 #include "GameFramework/GameState.h"
 #include "SaiyoraGameState.generated.h"
 
-class USaiyoraGameInstance;
 class ASaiyoraPlayerCharacter;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPlayerAddRemoveNotification, ASaiyoraPlayerCharacter*, Player);

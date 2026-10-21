@@ -3,6 +3,7 @@
 #include "Image.h"
 #include "PlayerHUD.h"
 #include "ProgressBar.h"
+#include "SaiyoraDevSettings.h"
 #include "SaiyoraUIDataAsset.h"
 #include "TextBlock.h"
 #include "UIFunctionLibrary.h"
@@ -21,7 +22,6 @@ void UDungeonDisplay::InitDungeonDisplay(UPlayerHUD* OwningHUD)
 	{
 		return;
 	}
-	UIDataAsset = UUIFunctionLibrary::GetUIDataAsset(GetWorld());
 	if (IsValid(NameText))
 	{
 		NameText->SetText(FText::FromString(GameStateRef->GetDungeonName()));
@@ -81,10 +81,7 @@ void UDungeonDisplay::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 	{
 		const float Percent = FMath::Clamp(GameStateRef->GetElapsedDungeonTime() / GameStateRef->GetDungeonTimeLimit(), 0.0f, 1.0f);
 		TimeProgress->SetPercent(Percent);
-		if (IsValid(UIDataAsset))
-		{
-			TimeProgress->SetFillColorAndOpacity(FMath::Lerp(UIDataAsset->DungeonProgressStartBarColor, UIDataAsset->DungeonProgressEndBarColor, Percent));
-		}
+		TimeProgress->SetFillColorAndOpacity(FMath::Lerp(UI_DA->DungeonProgressStartBarColor, UI_DA->DungeonProgressEndBarColor, Percent));
 	}
 }
 
@@ -110,9 +107,9 @@ void UDungeonDisplay::OnDungeonPhaseChanged(const EDungeonPhase PreviousPhase, c
 	case EDungeonPhase::Completed :
 		if (!GameStateRef->IsDungeonDepleted())
 		{
-			if (IsValid(TimeProgress) && IsValid(UIDataAsset))
+			if (IsValid(TimeProgress))
 			{
-				TimeProgress->SetFillColorAndOpacity(UIDataAsset->SuccessProgressColor);
+				TimeProgress->SetFillColorAndOpacity(UI_DA->SuccessProgressColor);
 			}
 		}
 		break;
@@ -126,16 +123,13 @@ void UDungeonDisplay::OnDeathCountChanged(const int32 DeathCount, const float Pe
 	if (IsValid(DeathCountText))
 	{
 		DeathCountText->SetText(FText::FromString(FString::Printf(L"%i (+%s)", DeathCount, *UUIFunctionLibrary::GetTimeDisplayString(PenaltyTime))));
-		if (IsValid(UIDataAsset))
+		if (DeathCount > 0)
 		{
-			if (DeathCount > 0)
-			{
-				DeathCountText->SetColorAndOpacity(UIDataAsset->DungeonProgressFailureTextColor);
-			}
-			else
-			{
-				DeathCountText->SetColorAndOpacity(UIDataAsset->DungeonProgressDefaultTextColor);
-			}
+			DeathCountText->SetColorAndOpacity(UI_DA->DungeonProgressFailureTextColor);
+		}
+		else
+		{
+			DeathCountText->SetColorAndOpacity(UI_DA->DungeonProgressDefaultTextColor);
 		}
 	}
 }
@@ -145,32 +139,26 @@ void UDungeonDisplay::OnKillCountChanged(const int32 KillCount, const int32 MaxC
 	if (IsValid(KillCountText))
 	{
 		KillCountText->SetText(FText::FromString(FString::Printf(L"Kill Count: %i / %i", KillCount, MaxCount)));
-		if (IsValid(UIDataAsset))
+		if (KillCount >= MaxCount)
 		{
-			if (KillCount >= MaxCount)
-			{
-				KillCountText->SetColorAndOpacity(UIDataAsset->DungeonProgressSuccessTextColor);
-			}
-			else
-			{
-				KillCountText->SetColorAndOpacity(UIDataAsset->DungeonProgressDefaultTextColor);
-			}
+			KillCountText->SetColorAndOpacity(UI_DA->DungeonProgressSuccessTextColor);
+		}
+		else
+		{
+			KillCountText->SetColorAndOpacity(UI_DA->DungeonProgressDefaultTextColor);
 		}
 	}
 	if (IsValid(KillCountProgress))
 	{
 		const float Percent = FMath::Clamp(static_cast<float>(KillCount) / MaxCount, 0.0f, 1.0f);
 		KillCountProgress->SetPercent(Percent);
-		if (IsValid(UIDataAsset))
+		if (KillCount < MaxCount)
 		{
-			if (KillCount < MaxCount)
-			{
-				KillCountProgress->SetFillColorAndOpacity(FMath::Lerp(UIDataAsset->DungeonProgressEndBarColor, UIDataAsset->DungeonProgressStartBarColor, Percent));
-			}
-			else
-			{
-				KillCountProgress->SetFillColorAndOpacity(UIDataAsset->SuccessProgressColor);
-			}
+			KillCountProgress->SetFillColorAndOpacity(FMath::Lerp(UI_DA->DungeonProgressEndBarColor, UI_DA->DungeonProgressStartBarColor, Percent));
+		}
+		else
+		{
+			KillCountProgress->SetFillColorAndOpacity(UI_DA->SuccessProgressColor);
 		}
 	}
 }
@@ -186,15 +174,12 @@ void UDungeonDisplay::OnBossKilled(const FGameplayTag BossTag, const FString& Bo
 
 void UDungeonDisplay::OnDungeonDepleted()
 {
-	if (IsValid(UIDataAsset))
+	if (IsValid(TimeText))
 	{
-		if (IsValid(TimeText))
-		{
-			TimeText->SetColorAndOpacity(UIDataAsset->DungeonProgressFailureTextColor);
-		}
-		if (IsValid(TimeProgress))
-		{
-			TimeProgress->SetFillColorAndOpacity(UIDataAsset->FailureProgressColor);
-		}
+		TimeText->SetColorAndOpacity(UI_DA->DungeonProgressFailureTextColor);
+	}
+	if (IsValid(TimeProgress))
+	{
+		TimeProgress->SetFillColorAndOpacity(UI_DA->FailureProgressColor);
 	}
 }

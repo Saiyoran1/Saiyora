@@ -2,6 +2,8 @@
 #include "CoreMinimal.h"
 #include "CombatDebugOptions.generated.h"
 
+class FBuffRestriction;
+struct FBuffApplyEvent;
 class APredictableProjectile;
 class UNPCAbility;
 class UHitbox;
@@ -39,4 +41,15 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Net")
 	bool bDrawHiddenProjectiles = false;
 	void DrawHiddenProjectile(const APredictableProjectile* Projectile);
+
+#pragma region Buffs
+
+public:
+
+	UPROPERTY(EditAnywhere, Category = "Buffs")
+	bool bEnableBuffDebugLogging = false;
+	void LogBuffApplyEvent(const FBuffApplyEvent& ApplyEvent) {}
+	void LogBuffRestriction(const bool bAdded, const FBuffRestriction& Restriction) {}
+
+#pragma endregion
 };

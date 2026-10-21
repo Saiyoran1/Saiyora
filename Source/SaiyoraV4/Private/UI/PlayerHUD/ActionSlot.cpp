@@ -3,6 +3,7 @@
 #include "Buff.h"
 #include "CombatAbility.h"
 #include "Image.h"
+#include "SaiyoraDevSettings.h"
 #include "SaiyoraPlayerCharacter.h"
 #include "SaiyoraUIDataAsset.h"
 #include "TextBlock.h"
@@ -102,7 +103,6 @@ void UActionSlot::SetAbilityClass(const TSubclassOf<UCombatAbility> NewAbilityCl
 	//Update the icon to reflect the ability instance or the invalid ability icon.
 	if (IsValid(ImageInstance))
 	{
-		const USaiyoraUIDataAsset* UIDataAsset = UUIFunctionLibrary::GetUIDataAsset(GetWorld());
 		if (IsValid(AbilityClass))
 		{
 			//Use the class default object to get the icon and school. The actual ability instance may not be valid yet.
@@ -110,30 +110,24 @@ void UActionSlot::SetAbilityClass(const TSubclassOf<UCombatAbility> NewAbilityCl
 			if (IsValid(ClassDefault))
 			{
 				ImageInstance->SetTextureParameterValue(FName("IconTexture"), ClassDefault->GetAbilityIcon());
-				if (IsValid(UIDataAsset))
-				{
-					ImageInstance->SetVectorParameterValue(FName("IconColor"), UIDataAsset->GetSchoolColor(ClassDefault->GetAbilitySchool()));
-				}
+				ImageInstance->SetVectorParameterValue(FName("IconColor"), UI_DA->GetSchoolColor(ClassDefault->GetAbilitySchool()));
 			}
 		}
 		//If we have an invalid ability class, this slot is empty, so we'll use the invalid ability icon and tint.
 		else
 		{
-			if (IsValid(UIDataAsset))
+			ImageInstance->SetTextureParameterValue(FName("IconTexture"), UI_DA->InvalidAbilityTexture);
+			ImageInstance->SetVectorParameterValue(FName("IconColor"), UI_DA->InvalidAbilityTint);
+			ImageInstance->SetScalarParameterValue(FName("CooldownPercent"), 1.0f);
+			ImageInstance->SetScalarParameterValue(FName("SwipeAlpha"), 0.0f);
+			ImageInstance->SetScalarParameterValue(FName("SwipePercent"), 1.0f);
+			if (IsValid(CooldownText) && CooldownText->GetVisibility() != ESlateVisibility::Collapsed)
 			{
-				ImageInstance->SetTextureParameterValue(FName("IconTexture"), UIDataAsset->InvalidAbilityTexture);
-				ImageInstance->SetVectorParameterValue(FName("IconColor"), UIDataAsset->InvalidAbilityTint);
-				ImageInstance->SetScalarParameterValue(FName("CooldownPercent"), 1.0f);
-				ImageInstance->SetScalarParameterValue(FName("SwipeAlpha"), 0.0f);
-				ImageInstance->SetScalarParameterValue(FName("SwipePercent"), 1.0f);
-				if (IsValid(CooldownText) && CooldownText->GetVisibility() != ESlateVisibility::Collapsed)
-				{
-					CooldownText->SetVisibility(ESlateVisibility::Collapsed);
-				}
-				if (IsValid(ChargesText) && ChargesText->GetVisibility() != ESlateVisibility::Collapsed)
-				{
-					ChargesText->SetVisibility(ESlateVisibility::Collapsed);
-				}
+				CooldownText->SetVisibility(ESlateVisibility::Collapsed);
+			}
+			if (IsValid(ChargesText) && ChargesText->GetVisibility() != ESlateVisibility::Collapsed)
+			{
+				ChargesText->SetVisibility(ESlateVisibility::Collapsed);
 			}
 		}
 	}

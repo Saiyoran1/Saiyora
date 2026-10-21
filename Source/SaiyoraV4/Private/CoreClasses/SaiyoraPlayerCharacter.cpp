@@ -12,14 +12,13 @@
 #include "PlayerHUD.h"
 #include "Weapons/FireWeapon.h"
 #include "ResourceHandler.h"
+#include "SaiyoraDevSettings.h"
 #include "SaiyoraErrorMessage.h"
-#include "SaiyoraGameInstance.h"
 #include "SaiyoraMovementComponent.h"
 #include "SaiyoraUIDataAsset.h"
 #include "CoreClasses/SaiyoraPlayerController.h"
 #include "StatHandler.h"
 #include "ThreatHandler.h"
-#include "UIFunctionLibrary.h"
 #include "UnrealNetwork.h"
 #include "Components/CapsuleComponent.h"
 #include "CoreClasses/SaiyoraGameState.h"
@@ -786,50 +785,43 @@ void ASaiyoraPlayerCharacter::OnRep_ModernSpec(UModernSpecialization* PreviousSp
 
 void ASaiyoraPlayerCharacter::InitUserInterface()
 {
-	const USaiyoraUIDataAsset* UIDataAsset = UUIFunctionLibrary::GetUIDataAsset(GetWorld());
-	if (!IsValid(UIDataAsset))
-	{
-		UE_LOG(LogTemp, Error, TEXT("UI Data Asset wasn't valid in ASaiyoraPlayerCharacter::InitUserInterface. Please set a reference to the data asset in the GameInstance."));
-		return;
-	}
-	
 	//Init player HUD
-	if (!IsValid(UIDataAsset->PlayerHUDClass))
+	if (!IsValid(UI_DA->PlayerHUDClass))
 	{
 		UE_LOG(LogTemp, Error, TEXT("Player HUD class wasn't valid in ASaiyoraPlayerCharacter::InitUserInterface. Please set a valid HUD class in the UI Data Asset."));
 		return;
 	}
-	PlayerHUD = CreateWidget<UPlayerHUD>(PlayerControllerRef, UIDataAsset->PlayerHUDClass);
+	PlayerHUD = CreateWidget<UPlayerHUD>(PlayerControllerRef, UI_DA->PlayerHUDClass);
 	if (!IsValid(PlayerHUD))
 	{
-		UE_LOG(LogTemp, Error, TEXT("Failed to create Player HUD of class %s."), *UIDataAsset->PlayerHUDClass->GetName());
+		UE_LOG(LogTemp, Error, TEXT("Failed to create Player HUD of class %s."), *(UI_DA->PlayerHUDClass->GetName()));
 		return;
 	}
 	PlayerHUD->InitializePlayerHUD(this);
 	
 	//Init the death overlay that comes up when the player is waiting to respawn or be resurrected.
-	if (!IsValid(UIDataAsset->DeathOverlayClass))
+	if (!IsValid(UI_DA->DeathOverlayClass))
 	{
 		UE_LOG(LogTemp, Error, TEXT("Player Death Overlay widget class wasn't valid in ASaiyoraPlayerCharacter::InitUserInterface. Please set a valid Death Overlay class in the UI Data Asset."));
 		return;
 	}
-	DeathOverlay = CreateWidget<UDeathOverlay>(PlayerControllerRef, UIDataAsset->DeathOverlayClass);
+	DeathOverlay = CreateWidget<UDeathOverlay>(PlayerControllerRef, UI_DA->DeathOverlayClass);
 	if (!IsValid(DeathOverlay))
 	{
-		UE_LOG(LogTemp, Error, TEXT("Failed to create Death Overlay of class %s."), *UIDataAsset->DeathOverlayClass->GetName());
+		UE_LOG(LogTemp, Error, TEXT("Failed to create Death Overlay of class %s."), *(UI_DA->DeathOverlayClass->GetName()));
 		return;
 	}
 	DeathOverlay->Init(this);
 
-	if (!IsValid(UIDataAsset->EscapeMenuClass))
+	if (!IsValid(UI_DA->EscapeMenuClass))
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Escape Menu widget class wasn't valid in ASaiyoraPlayerCharacter::InitUserInterface. Please set a valid Escape Menu class in the UI Data Asset."));
 		return;
 	}
-	EscapeMenu = CreateWidget<UEscapeMenu>(PlayerControllerRef, UIDataAsset->EscapeMenuClass);
+	EscapeMenu = CreateWidget<UEscapeMenu>(PlayerControllerRef, UI_DA->EscapeMenuClass);
 	if (!IsValid(EscapeMenu))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Failed to create Escape Menu of class %s."), *UIDataAsset->EscapeMenuClass->GetName());
+		UE_LOG(LogTemp, Warning, TEXT("Failed to create Escape Menu of class %s."), *(UI_DA->EscapeMenuClass->GetName()));
 	}
 	EscapeMenu->Init();
 }
@@ -875,10 +867,9 @@ void ASaiyoraPlayerCharacter::Client_DisplayErrorMessage_Implementation(const FT
 	{
 		return;
 	}
-	const USaiyoraUIDataAsset* UIDataAsset = UUIFunctionLibrary::GetUIDataAsset(GetWorld());
-	if (!IsValid(UIDataAsset) || !IsValid(UIDataAsset->ErrorMessageWidgetClass))
+	if (!IsValid(UI_DA->ErrorMessageWidgetClass))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Tried to display an error message for a player, but the UI Data Asset or Error Widget class was null."));
+		UE_LOG(LogTemp, Warning, TEXT("Tried to display an error message for a player, Error Widget class was null."));
 		return;
 	}
 	if (IsValid(ErrorWidget))
@@ -886,7 +877,7 @@ void ASaiyoraPlayerCharacter::Client_DisplayErrorMessage_Implementation(const FT
 		ErrorWidget->RemoveFromParent();
 		ErrorWidget = nullptr;
 	}
-	ErrorWidget = CreateWidget<USaiyoraErrorMessage>(GetSaiyoraPlayerController(), UIDataAsset->ErrorMessageWidgetClass);
+	ErrorWidget = CreateWidget<USaiyoraErrorMessage>(GetSaiyoraPlayerController(), UI_DA->ErrorMessageWidgetClass);
 	if (IsValid(ErrorWidget))
 	{
 		ErrorWidget->SetErrorMessage(Message, Duration);

@@ -6,7 +6,6 @@
 
 class ASaiyoraPlayerCharacter;
 class APredictableProjectile;
-class UCombatDebugOptions;
 class UHitbox;
 
 #pragma region Structs
@@ -45,18 +44,6 @@ class SAIYORAV4_API UCombatNetSubsystem : public UWorldSubsystem
 {
 	GENERATED_BODY()
 
-#pragma region Core
-
-public:
-
-	virtual void OnWorldBeginPlay(UWorld& InWorld) override;
-
-private:
-
-	UPROPERTY()
-	UCombatDebugOptions* DebugOptions;
-
-#pragma endregion 
 #pragma region Hitbox Rewinding
 
 public:

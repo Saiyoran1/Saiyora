@@ -8,7 +8,7 @@ public class SaiyoraV4 : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 	
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "GameplayTags", "NetCore", "GameplayTasks", "AIModule",  "UMG", "StructUtils", "MultiplayerSessions" });
+		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "GameplayTags", "NetCore", "GameplayTasks", "AIModule",  "UMG", "StructUtils", "MultiplayerSessions", "DeveloperSettings" });
 
 		// Uncomment if you are using Slate UI
 		PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });

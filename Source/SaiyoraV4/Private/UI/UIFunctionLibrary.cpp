@@ -1,29 +1,8 @@
 ﻿#include "UIFunctionLibrary.h"
 #include "DamageEnums.h"
-#include "SaiyoraGameInstance.h"
+#include "SaiyoraDevSettings.h"
 #include "SaiyoraUIDataAsset.h"
 
-#pragma region Setup
-
-USaiyoraUIDataAsset* UUIFunctionLibrary::UIDataAsset = nullptr;
-
-const USaiyoraUIDataAsset* UUIFunctionLibrary::GetUIDataAsset(const UObject* WorldContext)
-{
-	if (!IsValid(UIDataAsset))
-	{
-		if (IsValid(WorldContext) && IsValid(WorldContext->GetWorld()))
-		{
-			const USaiyoraGameInstance* GameInstance = Cast<USaiyoraGameInstance>(WorldContext->GetWorld()->GetGameInstance());
-			if (IsValid(GameInstance))
-			{
-				UIDataAsset = GameInstance->UIDataAsset;
-			}
-		}
-	}
-	return UIDataAsset;
-}
-
-#pragma endregion
 #pragma region Formatting Strings
 
 FString UUIFunctionLibrary::GetTimeDisplayString(const float Seconds)
@@ -100,34 +79,24 @@ FString UUIFunctionLibrary::GetInputChordString(const FInputChord& InputChord)
 #pragma endregion
 #pragma region Colors
 
-FLinearColor UUIFunctionLibrary::GetElementalSchoolColor(UObject* WorldContext, const EElementalSchool School)
+FLinearColor UUIFunctionLibrary::GetElementalSchoolColor(const EElementalSchool School)
 {
-	const USaiyoraUIDataAsset* DataAsset = GetUIDataAsset(WorldContext);
-	if (IsValid(DataAsset))
-	{
-		return DataAsset->SchoolColors.FindRef(School);
-	}
-	return FLinearColor::White;
+	return UI_DA->SchoolColors.FindRef(School);
 }
 
-FLinearColor UUIFunctionLibrary::GetHealthEventOutlineColor(UObject* WorldContext, const EHealthEventType EventType)
+FLinearColor UUIFunctionLibrary::GetHealthEventOutlineColor(const EHealthEventType EventType)
 {
-	const USaiyoraUIDataAsset* DataAsset = GetUIDataAsset(WorldContext);
-	if (IsValid(DataAsset))
+	switch (EventType)
 	{
-		switch (EventType)
-		{
-		case EHealthEventType::Damage :
-			return DataAsset->DamageOutlineColor;
-		case EHealthEventType::Healing :
-			return DataAsset->HealingOutlineColor;
-		case EHealthEventType::Absorb :
-			return DataAsset->AbsorbOutlineColor;
-		default :
-			return FLinearColor::Transparent;
-		}
+	case EHealthEventType::Damage :
+		return UI_DA->DamageOutlineColor;
+	case EHealthEventType::Healing :
+		return UI_DA->HealingOutlineColor;
+	case EHealthEventType::Absorb :
+		return UI_DA->AbsorbOutlineColor;
+	default :
+		return FLinearColor::Transparent;
 	}
-	return FLinearColor::Transparent;
 }
 
 #pragma endregion 

@@ -9,7 +9,6 @@ class UModernSpecialization;
 class UAncientSpecialization;
 class UCombatStatusComponent;
 class UPlayerHUD;
-class USaiyoraUIDataAsset;
 class UTextBlock;
 class UProgressBar;
 class UDamageHandler;
@@ -46,8 +45,6 @@ private:
 	UCombatStatusComponent* OwnerCombatStatusComp = nullptr;
 	UPROPERTY()
 	ASaiyoraPlayerCharacter* OwningPlayerChar = nullptr;
-	UPROPERTY()
-	USaiyoraUIDataAsset* UIDataAsset = nullptr;
 
 	UFUNCTION()
 	void UpdateHealth(AActor* Actor = nullptr, const float PreviousHealth = 0.0f, const float NewHealth = 0.0f);

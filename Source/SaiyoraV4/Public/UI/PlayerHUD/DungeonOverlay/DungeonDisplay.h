@@ -4,7 +4,6 @@
 #include "UserWidget.h"
 #include "DungeonDisplay.generated.h"
 
-class USaiyoraUIDataAsset;
 class UImage;
 class UBossRequirementDisplay;
 class ADungeonGameState;
@@ -52,8 +51,6 @@ private:
 	UPlayerHUD* OwnerHUD = nullptr;
 	UPROPERTY()
 	ADungeonGameState* GameStateRef = nullptr;
-	UPROPERTY()
-	const USaiyoraUIDataAsset* UIDataAsset = nullptr;
 
 	UFUNCTION()
 	void OnDungeonPhaseChanged(const EDungeonPhase PreviousPhase, const EDungeonPhase NewPhase);

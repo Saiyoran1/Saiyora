@@ -16,7 +16,6 @@ class UEscapeMenu;
 class UDeathOverlay;
 class UPlayerHUD;
 class USaiyoraErrorMessage;
-class USaiyoraUIDataAsset;
 class ASaiyoraGameState;
 class ASaiyoraPlayerController;
 class UCombatAbility;

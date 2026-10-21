@@ -1,6 +1,7 @@
 ﻿#include "ResourceWidgets/DiscreteResourceBar.h"
 #include "Overlay.h"
 #include "Resource.h"
+#include "SaiyoraDevSettings.h"
 #include "SaiyoraUIDataAsset.h"
 #include "UIFunctionLibrary.h"
 #include "ResourceWidgets/EmberImage.h"
@@ -52,10 +53,10 @@ void UDiscreteResourceBar::OnChange(const FResourceState& PreviousState, const F
 		//Currently, I'm using only a portion of the circle, and making the circle fairly large, to give the illusion of an ellipse shape.
 		//Then, we offset all of the icon positions along the x axis, so that the middle icon is where the circle center was.
 		//This just means the center of the arc will always be at the position of this widget.
-		const USaiyoraUIDataAsset* UIDataAsset = UUIFunctionLibrary::GetUIDataAsset(GetWorld());
+
 		//Get the radius of the circle we'll be placing icons on, and the angle extent (how much of the circle) we'll spread them across.
-		const float Radius = IsValid(UIDataAsset) ? UIDataAsset->HUDResourceBarRadius : 240.0f;
-		const float MaxAngleExtent = IsValid(UIDataAsset) ? UIDataAsset->HUDResourceBarAngleExtent : 110.0f;
+		const float Radius = UI_DA->HUDResourceBarRadius;
+		const float MaxAngleExtent = UI_DA->HUDResourceBarAngleExtent;
 		//If we don't have very many icons, we might use less than the max angle extent, so as not to spread them out too much.
 		//We just check if the size of the icons times the number of icons is smaller than the radius.
 		//TODO: I don't know if this math is good. We might need to not use Radius here and instead use the actual vertical distance between the top and bottom of the arc.

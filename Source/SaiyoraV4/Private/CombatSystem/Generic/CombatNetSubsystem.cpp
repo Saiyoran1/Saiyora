@@ -2,21 +2,10 @@
 #include "CombatDebugOptions.h"
 #include "Hitbox.h"
 #include "PredictableProjectile.h"
-#include "SaiyoraGameInstance.h"
+#include "SaiyoraDevSettings.h"
 #include "SaiyoraPlayerCharacter.h"
 
 #pragma region Hitbox Rewinding
-
-void UCombatNetSubsystem::OnWorldBeginPlay(UWorld& InWorld)
-{
-	Super::OnWorldBeginPlay(InWorld);
-
-	const USaiyoraGameInstance* GameInstance = Cast<USaiyoraGameInstance>(InWorld.GetGameInstance());
-	if (IsValid(GameInstance))
-	{
-		DebugOptions = GameInstance->CombatDebugOptions;
-	}
-}
 
 void UCombatNetSubsystem::RegisterNewHitbox(UHitbox* Hitbox)
 {
@@ -94,9 +83,9 @@ FTransform UCombatNetSubsystem::RewindHitbox(UHitbox* Hitbox, const float Timest
     if (AfterIndex == 0)
     {
     	Hitbox->SetWorldTransform(Record->Transforms[0].Value);
-    	if (IsValid(DebugOptions) && DebugOptions->bDrawRewindHitboxes)
+    	if (CombatDebug_DA->bDrawRewindHitboxes)
     	{
-    		DebugOptions->DrawRewindHitbox(Hitbox, OriginalTransform);
+    		CombatDebug_DA->DrawRewindHitbox(Hitbox, OriginalTransform);
     	}
     	return OriginalTransform;
     }
@@ -132,9 +121,9 @@ FTransform UCombatNetSubsystem::RewindHitbox(UHitbox* Hitbox, const float Timest
     Hitbox->SetWorldRotation(BeforeTransform.Rotator() + InterpRotator);
     //Don't interpolate scale (I don't currently have smooth scale changes). Just pick whichever is closer to the target timestamp.
     Hitbox->SetWorldScale3D(SnapshotFraction <= 0.5f ? BeforeTransform.GetScale3D() : AfterTransform.GetScale3D());
-	if (IsValid(DebugOptions) && DebugOptions->bDrawRewindHitboxes)
+	if (CombatDebug_DA->bDrawRewindHitboxes)
 	{
-		DebugOptions->DrawRewindHitbox(Hitbox, OriginalTransform);
+		CombatDebug_DA->DrawRewindHitbox(Hitbox, OriginalTransform);
 	}
     return OriginalTransform;
 }

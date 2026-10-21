@@ -6,26 +6,12 @@
 class UPlayerHUD;
 enum class EHealthEventType : uint8;
 enum class EElementalSchool : uint8;
-class USaiyoraUIDataAsset;
-
 
 UCLASS()
 class SAIYORAV4_API UUIFunctionLibrary : public UBlueprintFunctionLibrary
 {
 	GENERATED_BODY()
 
-#pragma region Setup
-
-public:
-
-	UFUNCTION(BlueprintPure, meta = (HidePin = "WorldContext", DefaultToSelf = "WorldContext"))
-	static const USaiyoraUIDataAsset* GetUIDataAsset(const UObject* WorldContext);
-	
-private:
-	
-	static USaiyoraUIDataAsset* UIDataAsset;
-
-#pragma endregion
 #pragma region Formatting Strings
 	
 public:
@@ -44,11 +30,11 @@ public:
 public:
 
 	//Get the color associated with a specific elemental school.
-	UFUNCTION(BlueprintPure, meta = (HidePin = "WorldContext", DefaultToSelf = "WorldContext"))
-	static FLinearColor GetElementalSchoolColor(UObject* WorldContext, const EElementalSchool School);
+	UFUNCTION(BlueprintPure)
+	static FLinearColor GetElementalSchoolColor(const EElementalSchool School);
 	//Get the outline color for floating health event text.
-	UFUNCTION(BlueprintPure, meta = (HidePin = "WorldContext", DefaultToSelf = "WorldContext"))
-	static FLinearColor GetHealthEventOutlineColor(UObject* WorldContext, const EHealthEventType EventType);
+	UFUNCTION(BlueprintPure)
+	static FLinearColor GetHealthEventOutlineColor(const EHealthEventType EventType);
 
 #pragma endregion 
 };
