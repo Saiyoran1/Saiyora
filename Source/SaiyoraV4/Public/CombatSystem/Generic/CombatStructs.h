@@ -6,6 +6,7 @@
 #include "Net/Serialization/FastArraySerializer.h"
 #include "CombatStructs.generated.h"
 
+class ASaiyoraGameState;
 class UBuff;
 
 #pragma region Definitions
@@ -159,6 +160,99 @@ protected:
 private:
 
     static FSaiyoraCombatTags SaiyoraCombatTags;
+};
+
+#pragma endregion
+#pragma region Logging
+
+USTRUCT()
+struct FCombatantID
+{
+    GENERATED_BODY()
+
+    UPROPERTY()
+    int32 ID = 0;
+    
+    bool IsValid() const { return ID > 0; }
+    FORCEINLINE bool operator==(const FCombatantID& Other) const { return ID == Other.ID; }
+    friend uint32 GetTypeHash(const FCombatantID& ID) { return GetTypeHash(ID.ID); }
+
+    bool NetSerialize(FArchive& Ar, UPackageMap* Map, bool& bOutSuccess)
+    {
+        uint32 Packed = static_cast<uint32>(ID);
+        Ar.SerializeIntPacked(Packed);
+        ID = static_cast<int32>(Packed);
+        bOutSuccess = true;
+        return true;
+    }
+
+    FCombatantID() {}
+    FCombatantID(const int32 InID) : ID(InID) {}
+
+    static FCombatantID GenerateCombatantID() { return ++CombatantIDCounter; }
+
+private:
+    
+    static int32 CombatantIDCounter;
+};
+
+template<>
+struct TStructOpsTypeTraits<FCombatantID> : public TStructOpsTypeTraitsBase2<FCombatantID>
+{
+    enum
+    {
+        WithNetSerializer = true
+    };
+};
+
+USTRUCT()
+struct FCombatant : public FFastArraySerializerItem
+{
+    GENERATED_BODY()
+
+    UPROPERTY()
+    FCombatantID ID = FCombatantID();
+    UPROPERTY()
+    FName DisplayName = NAME_None;
+    UPROPERTY()
+    uint8 NameNumber = 0;
+
+    void PostReplicatedAdd(const struct FCombatantArray& InArraySerializer);
+
+    FCombatant() {}
+    FCombatant(const FCombatantID& InID, const FName InName, const uint8 InNumber)
+        : ID(InID), DisplayName(InName), NameNumber(InNumber) {}
+};
+
+USTRUCT()
+struct FCombatantArray : public FFastArraySerializer
+{
+    GENERATED_BODY()
+
+    UPROPERTY()
+    TArray<FCombatant> Items;
+
+    bool NetDeltaSerialize(FNetDeltaSerializeInfo& DeltaParms)
+    {
+        return FFastArraySerializer::FastArrayDeltaSerialize<FCombatant, FCombatantArray>(Items, DeltaParms, *this);
+    }
+
+    void Init(ASaiyoraGameState* InGameState);
+    void OnAdd(const FCombatant& NewCombatant) const;
+
+private:
+    
+    UPROPERTY(NotReplicated)
+    ASaiyoraGameState* GameStateRef = nullptr;
+};
+
+template<>
+struct TStructOpsTypeTraits<FCombatantArray> : public TStructOpsTypeTraitsBase2<FCombatantArray>
+{
+    enum 
+    {
+        WithNetDeltaSerializer = true,
+   };
 };
 
 #pragma endregion 

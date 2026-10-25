@@ -1,5 +1,11 @@
 #include "CombatStructs.h"
 #include "Buff.h"
+#include "SaiyoraGameState.h"
+
+FSaiyoraCombatTags FSaiyoraCombatTags::SaiyoraCombatTags;
+int32 FCombatantID::CombatantIDCounter = 0;
+
+#pragma region Collision
 
 const FName FSaiyoraCollision::P_NoCollision = FName("NoCollision");
 const FName FSaiyoraCollision::P_OverlapAll = FName("OverlapAll");
@@ -41,7 +47,8 @@ const FName FSaiyoraCollision::CT_GeometryAncient = FName("CombatTraceGeometryAn
 const FName FSaiyoraCollision::CT_GeometryModern = FName("CombatTraceGeometryModern");
 const FName FSaiyoraCollision::CT_GeometryNone = FName("CombatTraceGeometryNone");
 
-FSaiyoraCombatTags FSaiyoraCombatTags::SaiyoraCombatTags;
+#pragma endregion 
+#pragma region Modifiers
 
 int32 FCombatModifierHandle::NextModifier = 0;
 FCombatModifierHandle FCombatModifierHandle::Invalid = FCombatModifierHandle(-1);
@@ -236,3 +243,34 @@ void FModifiableInt::Recalculate()
         OnUpdated.Execute(PreviousValue, CurrentValue);
     }
 }
+
+#pragma endregion
+#pragma region Logging
+
+void FCombatant::PostReplicatedAdd(const FCombatantArray& InArraySerializer)
+{
+    InArraySerializer.OnAdd(*this);
+}
+
+void FCombatantArray::Init(ASaiyoraGameState* InGameState)
+{
+    GameStateRef = InGameState;
+    if (IsValid(GameStateRef))
+    {
+        for (FCombatant& Combatant : Items)
+        {
+            OnAdd(Combatant);
+        }
+    }
+}
+
+void FCombatantArray::OnAdd(const FCombatant& NewCombatant) const
+{
+    if (!IsValid(GameStateRef))
+    {
+        return;
+    }
+    GameStateRef->OnCombatantAdded(NewCombatant);
+}
+
+#pragma endregion 

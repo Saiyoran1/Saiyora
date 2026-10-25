@@ -1,6 +1,7 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "CombatStatusStructs.h"
+#include "CombatStructs.h"
 #include "WidgetComponent.h"
 #include "Camera/CameraComponent.h"
 #include "CombatStatusComponent.generated.h"
@@ -35,6 +36,9 @@ private:
 	UFUNCTION()
 	void OnPlayerAdded(ASaiyoraPlayerCharacter* NewPlayer);
 
+	UPROPERTY(Replicated)
+	FCombatantID CombatantID = FCombatantID();
+
 #pragma endregion
 #pragma region Names
 	
@@ -43,23 +47,15 @@ public:
 	//Get the display name for this combatant.
 	UFUNCTION(BlueprintPure, Category = "Name")
 	FName GetCombatName() const { return CombatName; }
-	//Change the name of this combatant at runtime.
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Name")
-	void SetCombatName(const FName NewName);
-	//Delegate fired when a combatant's name changes.
-	UPROPERTY(BlueprintAssignable, Category = "Name")
-	FOnCombatNameChanged OnNameChanged;
 	
 private:
 
 	//Cosmetic name used for floating name display and unit frames.
-	UPROPERTY(EditAnywhere, ReplicatedUsing=OnRep_CombatName, Category = "Name")
+	UPROPERTY(EditAnywhere, Category = "Name")
 	FName CombatName;
 	//Widget class for the floating name displayed above the combatant when not in combat.
 	UPROPERTY(EditDefaultsOnly, Category = "Name")
 	TSubclassOf<UFloatingName> NameWidgetClass;
-	UFUNCTION()
-	void OnRep_CombatName(const FName PreviousName) const { OnNameChanged.Broadcast(PreviousName, CombatName); }
 	//Called when we have a valid reference to a local player, to spawn the name widget and set it up to face the player's camera.
 	//This can happen on BeginPlay or in a callback from the GameState adding a new player.
 	void SetupNameWidget(const ASaiyoraPlayerCharacter* LocalPlayer);

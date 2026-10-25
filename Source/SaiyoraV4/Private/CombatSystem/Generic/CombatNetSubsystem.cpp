@@ -195,4 +195,4 @@ void UCombatNetSubsystem::ReplaceProjectile(APredictableProjectile* AuthProjecti
 	}
 }
 
-#pragma endregion 
+#pragma endregion

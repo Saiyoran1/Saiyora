@@ -2,30 +2,28 @@
 #include "CombatStatusComponent.h"
 #include "TextBlock.h"
 
-void UFloatingName::Init(UCombatStatusComponent* CombatStatusComponent)
+void UFloatingName::Init(const UCombatStatusComponent* CombatStatusComponent)
 {
 	if (IsValid(CombatStatusComponent))
 	{
-		OwnerCombatStatus = CombatStatusComponent;
-		OwnerCombatStatus->OnNameChanged.AddDynamic(this, &UFloatingName::UpdateName);
-		UpdateName(NAME_None, OwnerCombatStatus->GetCombatName());
+		UpdateName(CombatStatusComponent->GetCombatName(), CombatStatusComponent->GetCurrentFaction());
 	}
 	else
 	{
-		UpdateName(NAME_None, NAME_None);
+		UpdateName(NAME_None);
 	}
 }
 
-void UFloatingName::UpdateName(const FName PreviousName, const FName NewName)
+void UFloatingName::UpdateName(const FName InName, const EFaction OwnerFaction)
 {
-	if (NewName == NAME_None)
+	if (InName == NAME_None)
 	{
 		SetVisibility(ESlateVisibility::Hidden);
 	}
 	else
 	{
 		SetVisibility(ESlateVisibility::HitTestInvisible);
-		const FString NameAsString = NewName.ToString();
+		const FString NameAsString = InName.ToString();
 		if (NameAsString.Len() > MaxNameLength)
 		{
 			FString Shortened = NameAsString.Left(MaxNameLength - 3);
@@ -36,7 +34,7 @@ void UFloatingName::UpdateName(const FName PreviousName, const FName NewName)
 		{
 			NameText->SetText(FText::FromString(NameAsString));
 		}
-		switch (OwnerCombatStatus->GetCurrentFaction())
+		switch (OwnerFaction)
 		{
 		case EFaction::Friendly :
 			NameText->SetColorAndOpacity(FColor::Green);

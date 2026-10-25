@@ -25,9 +25,10 @@ UCombatStatusComponent::UCombatStatusComponent()
 void UCombatStatusComponent::GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	
 	DOREPLIFETIME(UCombatStatusComponent, PlaneStatus);
 	DOREPLIFETIME_CONDITION(UCombatStatusComponent, bPlaneSwapRestricted, COND_OwnerOnly);
-	DOREPLIFETIME(UCombatStatusComponent, CombatName);
+	DOREPLIFETIME(UCombatStatusComponent, CombatantID);
 }
 
 void UCombatStatusComponent::InitializeComponent()
@@ -48,8 +49,12 @@ void UCombatStatusComponent::InitializeComponent()
 void UCombatStatusComponent::BeginPlay()
 {
 	Super::BeginPlay();
-	checkf(GetOwner()->Implements<USaiyoraCombatInterface>(), TEXT("Owner does not implement combat interface, but has Plane Component."));
+	checkf(GetOwner()->Implements<USaiyoraCombatInterface>(), TEXT("Owner does not implement combat interface, but has Combat Status Component."));
 
+	if (GetOwnerRole() == ROLE_Authority)
+	{
+		CombatantID = GetWorld()->GetGameState<ASaiyoraGameState>()->RegisterCombatant(this);
+	}
 	//Check to see if the local player is already valid.
 	const ASaiyoraPlayerCharacter* LocalPlayer = USaiyoraCombatLibrary::GetLocalSaiyoraPlayer(this);
 	if (IsValid(LocalPlayer))
@@ -115,17 +120,6 @@ void UCombatStatusComponent::OnPlayerAdded(ASaiyoraPlayerCharacter* NewPlayer)
 
 #pragma endregion
 #pragma region Name
-
-void UCombatStatusComponent::SetCombatName(const FName NewName)
-{
-	if (GetOwnerRole() != ROLE_Authority)
-	{
-		return;
-	}
-	const FName Previous = CombatName;
-	CombatName = NewName;
-	OnRep_CombatName(Previous);
-}
 
 void UCombatStatusComponent::SetupNameWidget(const ASaiyoraPlayerCharacter* LocalPlayer)
 {

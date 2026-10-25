@@ -1,10 +1,12 @@
 #include "BuffHandler.h"
 #include "Buff.h"
 #include "BuffFunctionality.h"
+#include "CombatDebugOptions.h"
 #include "CombatStatusComponent.h"
 #include "SaiyoraCombatInterface.h"
 #include "DamageHandler.h"
 #include "NPCAbilityComponent.h"
+#include "SaiyoraDevSettings.h"
 
 #pragma region Initialization
 
@@ -27,6 +29,8 @@ void UBuffHandler::InitializeComponent()
 	
 	checkf(GetOwner()->Implements<USaiyoraCombatInterface>(), TEXT("Owner does not implement combat interface, but has Buff Handler."));
 	CombatStatusComponentRef = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(GetOwner());
+	GameStateRef = GetWorld()->GetGameState<ASaiyoraGameState>();
+	checkf(IsValid(GameStateRef), TEXT("Invalid game state ref in UBuffHandler. Please use ASaiyoraGameState,"));
 	DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
 	NPCComponentRef = Cast<UNPCAbilityComponent>(ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwner()));
 }
@@ -90,6 +94,7 @@ FBuffApplyEvent UBuffHandler::ApplyBuff(const TSubclassOf<UBuff> BuffClass, AAct
 	if (Event.FailReasons.Num() > 0)
 	{
 		Event.ActionTaken = EBuffApplyAction::Failed;
+		DEBUG_LOG_BUFF_APPLY_FAIL(this, Event);
 		return Event;
 	}
 
@@ -122,6 +127,7 @@ FBuffApplyEvent UBuffHandler::ApplyBuff(const TSubclassOf<UBuff> BuffClass, AAct
     if (!IgnoreRestrictions && (CheckIncomingBuffRestricted(Event, Event.FailReasons) || (IsValid(GeneratorBuff) && GeneratorBuff->CheckOutgoingBuffRestricted(Event, Event.FailReasons))))
     {
     	Event.ActionTaken = EBuffApplyAction::Failed;
+    	DEBUG_LOG_BUFF_APPLY_FAIL(this, Event);
     	return Event;
     }
 
@@ -130,6 +136,10 @@ FBuffApplyEvent UBuffHandler::ApplyBuff(const TSubclassOf<UBuff> BuffClass, AAct
 	{
 		//The event can still fail here, if the existing buff can not be stacked or refreshed and there aren't overrides for either.
 		AffectedBuff->ApplyEvent(Event, StackOverrideType, OverrideStacks, RefreshOverrideType, OverrideDuration);
+		if (Event.ActionTaken == EBuffApplyAction::Failed)
+		{
+			DEBUG_LOG_BUFF_APPLY_FAIL(this, Event);
+		}
 	}
 	//Otherwise, we'll create and initialize a brand new buff instance.
 	else
@@ -184,9 +194,16 @@ FBuffRemoveEvent UBuffHandler::RemoveBuff(UBuff* Buff, const EBuffExpireReason E
 {
 	if (GetOwnerRole() != ROLE_Authority || !IsValid(Buff) || Buff->GetAppliedTo() != GetOwner())
 	{
+		//TODO: Fill the event to handle failure.
+		DEBUG_LOG_BUFF_REMOVE_FAIL(this, FBuffRemoveEvent());
 		return FBuffRemoveEvent();
 	}
-	return Buff->TerminateBuff(ExpireReason);
+	const FBuffRemoveEvent RemoveEvent = Buff->TerminateBuff(ExpireReason);
+	if (!RemoveEvent.Result)
+	{
+		DEBUG_LOG_BUFF_REMOVE_FAIL(this, RemoveEvent);
+	}
+	return RemoveEvent;
 }
 
 void UBuffHandler::NotifyOfIncomingBuffRemoval(const FBuffRemoveEvent& RemoveEvent)

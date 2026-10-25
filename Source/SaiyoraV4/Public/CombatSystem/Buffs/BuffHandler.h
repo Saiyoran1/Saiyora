@@ -27,11 +27,13 @@ public:
 private:
 
 	UPROPERTY()
-	UCombatStatusComponent* CombatStatusComponentRef;
+	UCombatStatusComponent* CombatStatusComponentRef = nullptr;
 	UPROPERTY()
-	UDamageHandler* DamageHandlerRef;
+	UDamageHandler* DamageHandlerRef = nullptr;
 	UPROPERTY()
-	UNPCAbilityComponent* NPCComponentRef;
+	UNPCAbilityComponent* NPCComponentRef = nullptr;
+	UPROPERTY()
+	ASaiyoraGameState* GameStateRef = nullptr;
 
 #pragma endregion 
 #pragma region Incoming Buffs

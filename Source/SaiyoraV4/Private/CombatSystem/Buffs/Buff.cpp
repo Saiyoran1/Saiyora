@@ -2,7 +2,10 @@
 #include "BuffFunctionality.h"
 #include "UnrealNetwork.h"
 #include "BuffHandler.h"
+#include "CombatDebugOptions.h"
 #include "SaiyoraCombatInterface.h"
+#include "SaiyoraDevSettings.h"
+#include "SaiyoraGameState.h"
 #include "GameFramework/GameStateBase.h"
 
 #pragma region Initialization
@@ -32,7 +35,7 @@ void UBuff::InitializeBuff(FBuffApplyEvent& Event, UBuffHandler* NewHandler, con
     {
         return;
     }
-    GameStateRef = GetWorld()->GetGameState<AGameState>();
+    GameStateRef = GetWorld()->GetGameState<ASaiyoraGameState>();
     Handler = NewHandler;
     Event.ActionTaken = EBuffApplyAction::NewBuff;
     
@@ -102,6 +105,11 @@ void UBuff::InitializeBuff(FBuffApplyEvent& Event, UBuffHandler* NewHandler, con
     //Add ourselves to the handler arrays of the actor we are applied to and the actor we were applied by
     Handler->NotifyOfNewIncomingBuff(CreationEvent);
 
+    //Debug logging for this buff application.
+    DEBUG_LOG_BUFF_APPLY(Handler, Event);
+    //Combat logging for this buff application.
+    GameStateRef->LogBuffApplyEvent(Event);
+
     //Run OnApply logic for buff function structs
     for (UBuffFunction* BuffFunction : BuffFunctionObjects)
     {
@@ -122,7 +130,7 @@ void UBuff::OnRep_CreationEvent()
         //The check for new buff is more to guard against replicating a default CreationEvent than anything else.
         return;
     }
-    GameStateRef = GetWorld()->GetGameState<AGameState>();
+    GameStateRef = GetWorld()->GetGameState<ASaiyoraGameState>();
 
     //Copy buff state from the replicated creation event
     CurrentStacks = CreationEvent.NewStacks;
@@ -231,6 +239,12 @@ void UBuff::ApplyEvent(FBuffApplyEvent& ApplicationEvent, const EBuffApplication
         return;
     }
     LastApplyEvent = ApplicationEvent;
+
+    //Debug logging for this buff application.
+    DEBUG_LOG_BUFF_APPLY(Handler, ApplicationEvent);
+    //Combat logging for this buff application.
+    GameStateRef->LogBuffApplyEvent(ApplicationEvent);
+    
     //Update buff functions
     for (UBuffFunction* BuffFunction : BuffFunctionObjects)
     {
@@ -283,6 +297,11 @@ void UBuff::CompleteExpireTimer()
     TerminateBuff(EBuffExpireReason::TimedOut);
 }
 
+float UBuff::GetRemainingTime() const
+{
+    return bFiniteDuration ? FMath::Max(0.0f, ExpireTime - GameStateRef->GetServerWorldTimeSeconds()) : 0.0f;
+}
+
 FBuffRemoveEvent UBuff::TerminateBuff(const EBuffExpireReason TerminationReason)
 {
     //Fail to remove the buff if we are ignoring restrictions and this was a dispel
@@ -320,6 +339,14 @@ FBuffRemoveEvent UBuff::TerminateBuff(const EBuffExpireReason TerminationReason)
 
     //Notify handlers to remove this buff from their arrays
     Handler->NotifyOfIncomingBuffRemoval(RemoveEvent);
+    
+    //Debug logging for buff removal.
+    DEBUG_LOG_BUFF_REMOVE(Handler, RemoveEvent);
+    if (Handler->GetOwnerRole() == ROLE_Authority)
+    {
+        //Combat logging for buff removal.
+        GameStateRef->LogBuffRemoveEvent(RemoveEvent);
+    }
     
     //Fire off delegate for external OnRemoved logic
     OnRemoved.Broadcast(RemoveEvent);

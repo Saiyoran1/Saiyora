@@ -2,7 +2,6 @@
 #include "AbilityFunctionLibrary.h"
 #include "BuffStructs.h"
 #include "InstancedStruct.h"
-#include "GameFramework/GameState.h"
 #include "Buff.generated.h"
 
 class UBuffFunction;
@@ -34,9 +33,9 @@ public:
 private:
 
 	UPROPERTY()
-	AGameState* GameStateRef;
+	ASaiyoraGameState* GameStateRef = nullptr;
 	UPROPERTY()
-	UBuffHandler* Handler;
+	UBuffHandler* Handler = nullptr;
 
 #pragma endregion 
 #pragma region Display Info
@@ -233,7 +232,7 @@ public:
 	int32 GetCurrentStacks() const { return CurrentStacks; }
 	//Get the current duration of the buff, or 0.0f if infinite
 	UFUNCTION(BlueprintPure, Category = "Buff")
-	float GetRemainingTime() const { return bFiniteDuration ? FMath::Max(0.0f, ExpireTime - GameStateRef->GetServerWorldTimeSeconds()) : 0.0f; }
+	float GetRemainingTime() const;
 	//Get the timestamp of the last refresh of the buff's duration
 	UFUNCTION(BlueprintPure, Category = "Buff")
 	float GetLastRefreshTime() const { return LastRefreshTime; }
