@@ -1,5 +1,6 @@
 #include "CombatStatusComponent.h"
 #include "AbilityFunctionLibrary.h"
+#include "CombatLogComponent.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraCombatLibrary.h"
 #include "SaiyoraGameState.h"
@@ -53,7 +54,7 @@ void UCombatStatusComponent::BeginPlay()
 
 	if (GetOwnerRole() == ROLE_Authority)
 	{
-		CombatantID = GetWorld()->GetGameState<ASaiyoraGameState>()->RegisterCombatant(this);
+		CombatantID = GetWorld()->GetGameState<ASaiyoraGameState>()->GetCombatLog()->RegisterCombatant(this);
 	}
 	//Check to see if the local player is already valid.
 	const ASaiyoraPlayerCharacter* LocalPlayer = USaiyoraCombatLibrary::GetLocalSaiyoraPlayer(this);

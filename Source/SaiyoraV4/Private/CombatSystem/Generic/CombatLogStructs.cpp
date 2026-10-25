@@ -1,19 +1,20 @@
 ﻿#include "CombatLogStructs.h"
 #include "Buff.h"
 #include "BuffStructs.h"
+#include "CombatLogComponent.h"
 #include "SaiyoraGameState.h"
 
 FLoggedBuffApplyEvent::FLoggedBuffApplyEvent(const FBuffApplyEvent& InEvent, const ASaiyoraGameState* GameStateRef)
 {
-	if (!IsValid(GameStateRef))
+	if (!IsValid(GameStateRef) || !IsValid(GameStateRef->GetCombatLog()))
 	{
 		return;
 	}
-	EventID = GameStateRef->GetNextCombatEventID();
+	EventID = GameStateRef->GetCombatLog()->GetNextCombatEventID();
 	Timestamp = GameStateRef->GetServerWorldTimeSeconds();
-	AppliedTo = GameStateRef->GetCombatantID(InEvent.AppliedTo);
+	AppliedTo = GameStateRef->GetCombatLog()->GetCombatantID(InEvent.AppliedTo);
 	TargetPlane = InEvent.TargetPlane;
-	AppliedBy = GameStateRef->GetCombatantID(InEvent.AppliedBy);
+	AppliedBy = GameStateRef->GetCombatLog()->GetCombatantID(InEvent.AppliedBy);
 	OriginPlane = InEvent.OriginPlane;
 	Source = InEvent.Source;
 	ActionTaken = InEvent.ActionTaken;
@@ -27,14 +28,14 @@ FLoggedBuffApplyEvent::FLoggedBuffApplyEvent(const FBuffApplyEvent& InEvent, con
 
 FLoggedBuffRemoveEvent::FLoggedBuffRemoveEvent(const FBuffRemoveEvent& InEvent, const ASaiyoraGameState* GameStateRef)
 {
-	if (!IsValid(GameStateRef))
+	if (!IsValid(GameStateRef) || !IsValid(GameStateRef->GetCombatLog()))
 	{
 		return;
 	}
-	EventID = GameStateRef->GetNextCombatEventID();
+	EventID = GameStateRef->GetCombatLog()->GetNextCombatEventID();
 	Timestamp = GameStateRef->GetServerWorldTimeSeconds();
-	RemovedFrom = GameStateRef->GetCombatantID(InEvent.RemovedFrom);
-	AppliedBy = GameStateRef->GetCombatantID(InEvent.AppliedBy);
+	RemovedFrom = GameStateRef->GetCombatLog()->GetCombatantID(InEvent.RemovedFrom);
+	AppliedBy = GameStateRef->GetCombatLog()->GetCombatantID(InEvent.AppliedBy);
 	BuffClass = InEvent.RemovedBuff->GetClass();
 	//TODO: BuffID
 	ExpireReason = InEvent.ExpireReason;
@@ -106,6 +107,16 @@ bool FCombatLog::HasData() const
 {
 	return BuffApplications.Num() > 0
 		|| BuffRemovals.Num() > 0;
+}
+
+void FCombatLog::AddBuffApplyEvent(const FBuffApplyEvent& Event, ASaiyoraGameState* GameStateRef)
+{
+	BuffApplications.Emplace(Event, GameStateRef);
+}
+
+void FCombatLog::AddBuffRemoveEvent(const FBuffRemoveEvent& Event, ASaiyoraGameState* GameStateRef)
+{
+	BuffRemovals.Emplace(Event, GameStateRef);
 }
 
 void FCombatLog::LogBuffApply(const FLoggedBuffApplyEvent& Event)

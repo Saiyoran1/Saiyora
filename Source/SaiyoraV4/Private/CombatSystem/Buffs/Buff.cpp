@@ -3,10 +3,10 @@
 #include "UnrealNetwork.h"
 #include "BuffHandler.h"
 #include "CombatDebugOptions.h"
+#include "CombatLogComponent.h"
 #include "SaiyoraCombatInterface.h"
 #include "SaiyoraDevSettings.h"
 #include "SaiyoraGameState.h"
-#include "GameFramework/GameStateBase.h"
 
 #pragma region Initialization
 
@@ -108,7 +108,7 @@ void UBuff::InitializeBuff(FBuffApplyEvent& Event, UBuffHandler* NewHandler, con
     //Debug logging for this buff application.
     DEBUG_LOG_BUFF_APPLY(Handler, Event);
     //Combat logging for this buff application.
-    GameStateRef->LogBuffApplyEvent(Event);
+    GameStateRef->GetCombatLog()->LogBuffApplyEvent(Event);
 
     //Run OnApply logic for buff function structs
     for (UBuffFunction* BuffFunction : BuffFunctionObjects)
@@ -243,7 +243,7 @@ void UBuff::ApplyEvent(FBuffApplyEvent& ApplicationEvent, const EBuffApplication
     //Debug logging for this buff application.
     DEBUG_LOG_BUFF_APPLY(Handler, ApplicationEvent);
     //Combat logging for this buff application.
-    GameStateRef->LogBuffApplyEvent(ApplicationEvent);
+    GameStateRef->GetCombatLog()->LogBuffApplyEvent(ApplicationEvent);
     
     //Update buff functions
     for (UBuffFunction* BuffFunction : BuffFunctionObjects)
@@ -317,7 +317,7 @@ FBuffRemoveEvent UBuff::TerminateBuff(const EBuffExpireReason TerminationReason)
     RemovalReason = TerminationReason;
     
     FBuffRemoveEvent RemoveEvent;
-    RemoveEvent.Result = true;
+    RemoveEvent.bResult = true;
     RemoveEvent.RemovedBuff = this;
     RemoveEvent.RemovedFrom = CreationEvent.AppliedTo;
     RemoveEvent.AppliedBy = CreationEvent.AppliedBy;
@@ -345,7 +345,7 @@ FBuffRemoveEvent UBuff::TerminateBuff(const EBuffExpireReason TerminationReason)
     if (Handler->GetOwnerRole() == ROLE_Authority)
     {
         //Combat logging for buff removal.
-        GameStateRef->LogBuffRemoveEvent(RemoveEvent);
+        GameStateRef->GetCombatLog()->LogBuffRemoveEvent(RemoveEvent);
     }
     
     //Fire off delegate for external OnRemoved logic
@@ -431,3 +431,17 @@ bool UBuff::ShouldDisplayOnPartyFrame() const
 }
 
 #pragma endregion
+#pragma region DEBUG
+#if !UE_BUILD_SHIPPING
+
+void UBuff::DEBUG_DumpBuffState(FString& OutString)
+{
+    FString CreationString, LastApplyString;
+    CreationEvent.DEBUG_ToString(CreationString);
+    LastApplyEvent.DEBUG_ToString(LastApplyString);
+    OutString = FString::Printf(L"Buff %s: Status: %s, Stacks: %i, Duration: %f, CreationEvent: %s, LastApplyEvent: %s",
+        *GetName(), *UEnum::GetDisplayValueAsText(Status).ToString(), CurrentStacks, GetRemainingTime(), *CreationString, *LastApplyString);
+}
+
+#endif
+#pragma endregion 

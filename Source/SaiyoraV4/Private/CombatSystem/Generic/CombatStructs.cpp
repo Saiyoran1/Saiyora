@@ -1,6 +1,6 @@
 #include "CombatStructs.h"
 #include "Buff.h"
-#include "SaiyoraGameState.h"
+#include "CombatLogComponent.h"
 
 FSaiyoraCombatTags FSaiyoraCombatTags::SaiyoraCombatTags;
 int32 FCombatantID::CombatantIDCounter = 0;
@@ -252,10 +252,10 @@ void FCombatant::PostReplicatedAdd(const FCombatantArray& InArraySerializer)
     InArraySerializer.OnAdd(*this);
 }
 
-void FCombatantArray::Init(ASaiyoraGameState* InGameState)
+void FCombatantArray::Init(UCombatLogComponent* InLogComponent)
 {
-    GameStateRef = InGameState;
-    if (IsValid(GameStateRef))
+    LogComponent = InLogComponent;
+    if (IsValid(InLogComponent))
     {
         for (FCombatant& Combatant : Items)
         {
@@ -266,11 +266,11 @@ void FCombatantArray::Init(ASaiyoraGameState* InGameState)
 
 void FCombatantArray::OnAdd(const FCombatant& NewCombatant) const
 {
-    if (!IsValid(GameStateRef))
+    if (!IsValid(LogComponent))
     {
         return;
     }
-    GameStateRef->OnCombatantAdded(NewCombatant);
+    LogComponent->OnCombatantAdded(NewCombatant);
 }
 
 #pragma endregion 

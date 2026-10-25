@@ -41,6 +41,9 @@ public:
 	//Helper to check whether a certain NPC behavior should be treated as valid for certain actions such as taking damage or generating/receiving threat.
 	static bool IsActiveNPCBehavior(const ENPCCombatBehavior Behavior) { return Behavior == ENPCCombatBehavior::Patrolling || Behavior == ENPCCombatBehavior::Combat; }
 
+	//Helper that just converts a bool to a string for easier logging
+	static const TCHAR* BoolToServerOrClientString(const bool bServer) { return bServer ? TEXT("SERVER") : TEXT("CLIENT"); }
+
 #pragma region Combat Parameter Functions
 
 	/*
@@ -281,6 +284,19 @@ public:
 			}
 		}
 		return false;
+	}
+
+	UFUNCTION(BlueprintPure, Category = "Combat")
+	static FString CombatParamToString(const FInstancedStruct& Param)
+	{
+		const UScriptStruct* Struct = Param.GetScriptStruct();
+		if (!Struct)
+		{
+			return "None";
+		}
+		FString ValueString;
+		Struct->ExportText(ValueString, Param.GetMemory(), nullptr, nullptr, PPF_None, nullptr);
+		return FString::Printf(L"Type: %s, Value: %s", *Struct->GetName(), *ValueString);
 	}
 
 #pragma endregion 

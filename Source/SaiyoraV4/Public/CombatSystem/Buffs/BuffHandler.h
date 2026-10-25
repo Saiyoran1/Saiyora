@@ -32,8 +32,6 @@ private:
 	UDamageHandler* DamageHandlerRef = nullptr;
 	UPROPERTY()
 	UNPCAbilityComponent* NPCComponentRef = nullptr;
-	UPROPERTY()
-	ASaiyoraGameState* GameStateRef = nullptr;
 
 #pragma endregion 
 #pragma region Incoming Buffs
@@ -157,5 +155,15 @@ private:
 	//Restrictions on outgoing buffs applied by this actor.
 	TConditionalRestrictionList<FBuffRestriction> OutgoingBuffRestrictions;
 
+#pragma endregion
+#pragma region DEBUG
+#if !UE_BUILD_SHIPPING
+	
+public:
+
+	void DEBUG_DumpIncomingState(TArray<FString>& OutStrings) const;
+	void DEBUG_DumpOutgoingState(TArray<FString>& OutStrings) const;
+
+#endif
 #pragma endregion 
 };

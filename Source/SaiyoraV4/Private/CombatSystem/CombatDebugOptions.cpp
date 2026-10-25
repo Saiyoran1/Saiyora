@@ -1,5 +1,7 @@
 ﻿#include "CombatDebugOptions.h"
 #include "AbilityStructs.h"
+#include "Buff.h"
+#include "BuffHandler.h"
 #include "CombatAbility.h"
 #include "EngineUtils.h"
 #include "Hitbox.h"
@@ -7,7 +9,10 @@
 #include "NPCAbility.h"
 #include "PredictableProjectile.h"
 #include "RotationBehaviors.h"
+#include "SaiyoraCombatLibrary.h"
 #include "SaiyoraPlayerCharacter.h"
+
+DEFINE_LOG_CATEGORY_STATIC(LogSaiyoraBuffs, Log, All);
 
 #pragma region Console Commands
 #if WITH_EDITOR
@@ -143,3 +148,77 @@ void UCombatDebugOptions::DrawHiddenProjectile(const APredictableProjectile* Pro
 	}
 	DrawDebugSphere(Projectile->GetWorld(), Projectile->GetRootComponent()->Bounds.Origin, Projectile->GetRootComponent()->Bounds.SphereRadius, 32, FColor::Green);
 }
+
+#pragma region Buffs
+#if !UE_BUILD_SHIPPING
+
+void UCombatDebugOptions::DEBUG_LogBuffApplyEvent(const UBuffHandler* AppliedToHandler, const FBuffApplyEvent& ApplyEvent)
+{
+	//Log the apply event itself.
+	FString EventString;
+	ApplyEvent.DEBUG_ToString(EventString);
+	UE_LOG(LogSaiyoraBuffs, Log, TEXT("%s BuffApplyEvent: %s"),
+		USaiyoraCombatLibrary::BoolToServerOrClientString(AppliedToHandler->GetOwnerRole() == ROLE_Authority), *EventString);
+	//Optionally dump the entire state of both involved buff handlers.
+	if (bDumpBuffHandlerStateForEachEvent)
+	{
+		//Log the state of the handler the buff was applied to.
+		TArray<FString> IncomingDump;
+		AppliedToHandler->DEBUG_DumpIncomingState(IncomingDump);
+		for (const FString& DumpString : IncomingDump)
+		{
+			UE_LOG(LogSaiyoraBuffs, Log, TEXT("%s"), *DumpString);
+		}
+		//If valid, log the state of the handler the buff was applied by.
+		if (IsValid(ApplyEvent.AppliedBy) && ApplyEvent.AppliedBy->Implements<USaiyoraCombatInterface>())
+		{
+			const UBuffHandler* GeneratorBuff = ISaiyoraCombatInterface::Execute_GetBuffHandler(ApplyEvent.AppliedBy);
+			if (IsValid(GeneratorBuff))
+			{
+				TArray<FString> OutgoingDump;
+				GeneratorBuff->DEBUG_DumpOutgoingState(OutgoingDump);
+				for (const FString& DumpString : OutgoingDump)
+				{
+					UE_LOG(LogSaiyoraBuffs, Log, TEXT("%s"), *DumpString);
+				}
+			}
+		}
+	}
+}
+
+void UCombatDebugOptions::DEBUG_LogBuffRemoveEvent(const UBuffHandler* AppliedToHandler, const FBuffRemoveEvent& RemoveEvent)
+{
+	//Log the remove event itself.
+	FString EventString;
+	RemoveEvent.DEBUG_ToString(EventString);
+	UE_LOG(LogSaiyoraBuffs, Log, TEXT("%s BuffRemoveEvent: %s"),
+		USaiyoraCombatLibrary::BoolToServerOrClientString(AppliedToHandler->GetOwnerRole() == ROLE_Authority), *EventString);
+	//Optionally dump the entire state of both involved buff handlers.
+	if (bDumpBuffHandlerStateForEachEvent)
+	{
+		//Log the state of the handler the buff was applied to.
+		TArray<FString> IncomingDump;
+		AppliedToHandler->DEBUG_DumpIncomingState(IncomingDump);
+		for (const FString& DumpString : IncomingDump)
+		{
+			UE_LOG(LogSaiyoraBuffs, Log, TEXT("%s"), *DumpString);
+		}
+		//If valid, log the state of the handler the buff was applied by.
+		if (IsValid(RemoveEvent.AppliedBy) && RemoveEvent.AppliedBy->Implements<USaiyoraCombatInterface>())
+		{
+			const UBuffHandler* GeneratorBuff = ISaiyoraCombatInterface::Execute_GetBuffHandler(RemoveEvent.AppliedBy);
+			if (IsValid(GeneratorBuff))
+			{
+				TArray<FString> OutgoingDump;
+				GeneratorBuff->DEBUG_DumpOutgoingState(OutgoingDump);
+				for (const FString& DumpString : OutgoingDump)
+				{
+					UE_LOG(LogSaiyoraBuffs, Log, TEXT("%s"), *DumpString);
+				}
+			}
+		}
+	}
+}
+
+#endif
+#pragma endregion 

@@ -6,7 +6,7 @@
 #include "Net/Serialization/FastArraySerializer.h"
 #include "CombatStructs.generated.h"
 
-class ASaiyoraGameState;
+class UCombatLogComponent;
 class UBuff;
 
 #pragma region Definitions
@@ -237,13 +237,13 @@ struct FCombatantArray : public FFastArraySerializer
         return FFastArraySerializer::FastArrayDeltaSerialize<FCombatant, FCombatantArray>(Items, DeltaParms, *this);
     }
 
-    void Init(ASaiyoraGameState* InGameState);
+    void Init(UCombatLogComponent* InLogComponent);
     void OnAdd(const FCombatant& NewCombatant) const;
 
 private:
     
     UPROPERTY(NotReplicated)
-    ASaiyoraGameState* GameStateRef = nullptr;
+    UCombatLogComponent* LogComponent = nullptr;
 };
 
 template<>

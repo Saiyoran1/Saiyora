@@ -14,51 +14,44 @@ struct FAbilityEvent;
 struct FRotationDebugInfo;
 
 #pragma region Macros
+#if !UE_BUILD_SHIPPING /* Define macros for each debug logging function to easily compile them all out of shipping and access them more easily. */
 
-//Debug logging for buff application
-#if !UE_BUILD_SHIPPING
+	//Debug logging for buff application
 	#define DEBUG_LOG_BUFF_APPLY(Handler, Event) \
 	if (CombatDebug_DA->bEnableBuffDebugLogging) \
 	{ \
 		CombatDebug_DA->DEBUG_LogBuffApplyEvent(Handler, Event); \
 	}
-#else
-	#define DEBUG_LOG_BUFF_APPLY(Handler, Event)
-#endif
 
-//Debug logging for buff application failure
-#if !UE_BUILD_SHIPPING
+	//Debug logging for buff application failure
 	#define DEBUG_LOG_BUFF_APPLY_FAIL(Handler, Event) \
 	if (CombatDebug_DA->bEnableBuffDebugLogging) \
 	{ \
 		CombatDebug_DA->DEBUG_LogBuffApplyFailure(Handler, Event); \
 	}
-#else
-	#define DEBUG_LOG_BUFF_APPLY_FAIL(Handler, Event)
-#endif
 
-//Debug logging for buff removal
-#if !UE_BUILD_SHIPPING
+	//Debug logging for buff removal
 	#define DEBUG_LOG_BUFF_REMOVE(Handler, Event) \
 	if (CombatDebug_DA->bEnableBuffDebugLogging) \
 	{ \
 		CombatDebug_DA->DEBUG_LogBuffRemoveEvent(Handler, Event); \
 	}
-#else
-	#define DEBUG_LOG_BUFF_REMOVE(Handler, Event)
-#endif
 
-//Debug logging for buff removal failure
-#if !UE_BUILD_SHIPPING
+	//Debug logging for buff removal failure
 	#define DEBUG_LOG_BUFF_REMOVE_FAIL(Handler, Event) \
 	if (CombatDebug_DA->bEnableBuffDebugLogging) \
 	{ \
 		CombatDebug_DA->DEBUG_LogBuffRemoveFailure(Handler, Event); \
 	}
-#else
-	#define DEBUG_LOG_BUFF_REMOVE_FAIL(Handler, Event)
-#endif
 
+#else /* Define all debug logging macros to nothing to compile them out of shipping builds. */
+
+	#define DEBUG_LOG_BUFF_APPLY(Handler, Event)
+	#define DEBUG_LOG_BUFF_APPLY_FAIL(Handler, Event)
+	#define DEBUG_LOG_BUFF_REMOVE(Handler, Event)
+	#define DEBUG_LOG_BUFF_REMOVE_FAIL(Handler, Event)
+
+#endif
 #pragma endregion 
 
 UCLASS()
@@ -98,12 +91,17 @@ public:
 
 	UPROPERTY(EditAnywhere, Category = "Buffs")
 	bool bEnableBuffDebugLogging = false;
+	UPROPERTY(EditAnywhere, Category = "Buffs", meta = (EditCondition = "bEnableBuffDebugLogging"))
+	bool bDumpBuffHandlerStateForEachEvent = false;
+
+#if !UE_BUILD_SHIPPING
 	
-	void DEBUG_LogBuffApplyEvent(const UBuffHandler* AppliedToHandler, const FBuffApplyEvent& ApplyEvent) {}
+	void DEBUG_LogBuffApplyEvent(const UBuffHandler* AppliedToHandler, const FBuffApplyEvent& ApplyEvent);
 	void DEBUG_LogBuffApplyFailure(const UBuffHandler* AppliedToHandler, const FBuffApplyEvent& ApplyEvent) {}
 	void DEBUG_LogBuffRestriction(const bool bAdded, const FBuffRestriction& Restriction) {}
-	void DEBUG_LogBuffRemoveEvent(const UBuffHandler* AppliedToHandler, const FBuffRemoveEvent& RemoveEvent) {}
+	void DEBUG_LogBuffRemoveEvent(const UBuffHandler* AppliedToHandler, const FBuffRemoveEvent& RemoveEvent);
 	void DEBUG_LogBuffRemoveFailure(const UBuffHandler* AppliedToHandler, const FBuffRemoveEvent& RemoveEvent) {}
 
+#endif
 #pragma endregion
 };

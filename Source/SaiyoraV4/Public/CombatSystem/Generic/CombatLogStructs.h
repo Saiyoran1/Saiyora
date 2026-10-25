@@ -4,6 +4,7 @@
 #include "CombatStructs.h"
 #include "CombatLogStructs.generated.h"
 
+class ASaiyoraGameState;
 struct FBuffRemoveEvent;
 struct FBuffApplyEvent;
 
@@ -98,11 +99,12 @@ struct FCombatLog
 
 public:
 
-	friend class ASaiyoraGameState;
-
 	void Clear();
 	void Append(const FCombatLog& NewEntries);
 	bool HasData() const;
+
+	void AddBuffApplyEvent(const FBuffApplyEvent& Event, ASaiyoraGameState* GameStateRef);
+	void AddBuffRemoveEvent(const FBuffRemoveEvent& Event, ASaiyoraGameState* GameStateRef);
 
 private:
 

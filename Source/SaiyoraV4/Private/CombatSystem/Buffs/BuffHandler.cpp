@@ -29,8 +29,6 @@ void UBuffHandler::InitializeComponent()
 	
 	checkf(GetOwner()->Implements<USaiyoraCombatInterface>(), TEXT("Owner does not implement combat interface, but has Buff Handler."));
 	CombatStatusComponentRef = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(GetOwner());
-	GameStateRef = GetWorld()->GetGameState<ASaiyoraGameState>();
-	checkf(IsValid(GameStateRef), TEXT("Invalid game state ref in UBuffHandler. Please use ASaiyoraGameState,"));
 	DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwner());
 	NPCComponentRef = Cast<UNPCAbilityComponent>(ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwner()));
 }
@@ -199,7 +197,7 @@ FBuffRemoveEvent UBuffHandler::RemoveBuff(UBuff* Buff, const EBuffExpireReason E
 		return FBuffRemoveEvent();
 	}
 	const FBuffRemoveEvent RemoveEvent = Buff->TerminateBuff(ExpireReason);
-	if (!RemoveEvent.Result)
+	if (!RemoveEvent.bResult)
 	{
 		DEBUG_LOG_BUFF_REMOVE_FAIL(this, RemoveEvent);
 	}
@@ -474,3 +472,40 @@ bool UBuffHandler::CheckOutgoingBuffRestricted(const FBuffApplyEvent& BuffEvent,
 }
 
 #pragma endregion
+#pragma region DEBUG
+#if !UE_BUILD_SHIPPING
+
+void UBuffHandler::DEBUG_DumpIncomingState(TArray<FString>& OutStrings) const
+{
+	OutStrings.Add("---BUFF HANDLER INCOMING STATE DUMP START---");
+	OutStrings.Add(FString::Printf(L"Handler for actor %s has %i buffs applied to itself.", *GetOwner()->GetName(), ActiveBuffs.Num()));
+	OutStrings.Add("Active Buffs: ");
+	for (UBuff* Buff : ActiveBuffs)
+	{
+		FString& BuffString = OutStrings.Emplace_GetRef();
+		Buff->DEBUG_DumpBuffState(BuffString);
+	}
+	OutStrings.Add("Recently Removed Buffs: ");
+	for (UBuff* Buff : RecentlyRemoved)
+	{
+		FString& BuffString = OutStrings.Emplace_GetRef();
+		Buff->DEBUG_DumpBuffState(BuffString);
+	}
+	OutStrings.Add("---BUFF HANDLER INCOMING STATE DUMP END---");
+}
+
+void UBuffHandler::DEBUG_DumpOutgoingState(TArray<FString>& OutStrings) const
+{
+	OutStrings.Add("---BUFF HANDLER OUTGOING STATE DUMP START---");
+	OutStrings.Add(FString::Printf(L"Handler for actor %s has %i buffs applied to others.", *GetOwner()->GetName(), OutgoingBuffs.Num()));
+	OutStrings.Add("Outgoing Buffs: ");
+	for (UBuff* Buff : OutgoingBuffs)
+	{
+		FString& BuffString = OutStrings.Emplace_GetRef();
+		Buff->DEBUG_DumpBuffState(BuffString);
+	}
+	OutStrings.Add("---BUFF HANDLER OUTGOING STATE DUMP END---");
+}
+
+#endif
+#pragma endregion 

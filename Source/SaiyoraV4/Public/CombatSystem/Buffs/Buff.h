@@ -6,6 +6,7 @@
 
 class UBuffFunction;
 class UBuffHandler;
+class ASaiyoraGameState;
 
 //Represents any kind of persistent effect applied to an actor
 UCLASS(Blueprintable, Abstract)
@@ -308,5 +309,14 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Buff Functions", Instanced)
 	TArray<UBuffFunction*> BuffFunctionObjects;
 
+#pragma endregion
+#pragma region DEBUG
+#if !UE_BUILD_SHIPPING
+	
+public:
+
+	void DEBUG_DumpBuffState(FString& OutString);
+
+#endif
 #pragma endregion 
 };

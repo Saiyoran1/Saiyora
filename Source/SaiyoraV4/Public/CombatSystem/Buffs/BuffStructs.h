@@ -62,6 +62,10 @@ struct FBuffApplyEvent
     //Timestamp of the buff application event
     UPROPERTY(BlueprintReadOnly)
     float NewApplyTime = 0.0f;
+
+#if !UE_BUILD_SHIPPING
+    void DEBUG_ToString(FString& OutString) const;
+#endif
 };
 
 //Struct detailing the removal of a buff
@@ -84,7 +88,11 @@ struct FBuffRemoveEvent
     EBuffExpireReason ExpireReason = EBuffExpireReason::Invalid;
     //Whether the buff was successfully removed or not
     UPROPERTY(BlueprintReadOnly)
-    bool Result = false;
+    bool bResult = false;
+
+#if !UE_BUILD_SHIPPING
+    void DEBUG_ToString(FString& OutString) const;
+#endif
 };
 
 //Restriction function for conditionally preventing buffs from being applied
