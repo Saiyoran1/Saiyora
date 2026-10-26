@@ -71,18 +71,7 @@ void UBuffRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
     {
         return;
     }
-    bool bSuccess = false;
-    switch (Direction)
-    {
-        case ECombatEventDirection::Outgoing :
-            bSuccess = TargetComponent->AddOutgoingBuffRestriction(Restriction);
-            break;
-        case ECombatEventDirection::Incoming :
-            bSuccess = TargetComponent->AddIncomingBuffRestriction(Restriction);
-            break;
-        default :
-            break;
-    }
+    bool bSuccess = TargetComponent->AddBuffRestriction(Direction, Restriction);
 }
 
 void UBuffRestrictionFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
@@ -91,17 +80,7 @@ void UBuffRestrictionFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
     {
         return;
     }
-    switch (Direction)
-    {
-    case ECombatEventDirection::Outgoing :
-        TargetComponent->RemoveOutgoingBuffRestriction(Restriction);
-        break;
-    case ECombatEventDirection::Incoming :
-        TargetComponent->RemoveIncomingBuffRestriction(Restriction);
-        break;
-    default :
-        break;
-    }
+    TargetComponent->RemoveBuffRestriction(Direction, Restriction);
 }
 
 #pragma endregion 

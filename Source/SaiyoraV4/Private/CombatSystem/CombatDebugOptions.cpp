@@ -160,11 +160,11 @@ void UCombatDebugOptions::DEBUG_LogBuffApplyEvent(const UBuffHandler* AppliedToH
 	UE_LOG(LogSaiyoraBuffs, Log, TEXT("%s BuffApplyEvent: %s"),
 		USaiyoraCombatLibrary::BoolToServerOrClientString(AppliedToHandler->GetOwnerRole() == ROLE_Authority), *EventString);
 	//Optionally dump the entire state of both involved buff handlers.
-	if (bDumpBuffHandlerStateForEachEvent)
+	if (BuffLoggingVerbosity == EDebugLogVerbosity::FullDump)
 	{
 		//Log the state of the handler the buff was applied to.
 		TArray<FString> IncomingDump;
-		AppliedToHandler->DEBUG_DumpIncomingState(IncomingDump);
+		AppliedToHandler->DEBUG_DumpState(ECombatEventDirection::Incoming, IncomingDump);
 		for (const FString& DumpString : IncomingDump)
 		{
 			UE_LOG(LogSaiyoraBuffs, Log, TEXT("%s"), *DumpString);
@@ -176,7 +176,7 @@ void UCombatDebugOptions::DEBUG_LogBuffApplyEvent(const UBuffHandler* AppliedToH
 			if (IsValid(GeneratorBuff))
 			{
 				TArray<FString> OutgoingDump;
-				GeneratorBuff->DEBUG_DumpOutgoingState(OutgoingDump);
+				GeneratorBuff->DEBUG_DumpState(ECombatEventDirection::Outgoing,OutgoingDump);
 				for (const FString& DumpString : OutgoingDump)
 				{
 					UE_LOG(LogSaiyoraBuffs, Log, TEXT("%s"), *DumpString);
@@ -194,11 +194,11 @@ void UCombatDebugOptions::DEBUG_LogBuffRemoveEvent(const UBuffHandler* AppliedTo
 	UE_LOG(LogSaiyoraBuffs, Log, TEXT("%s BuffRemoveEvent: %s"),
 		USaiyoraCombatLibrary::BoolToServerOrClientString(AppliedToHandler->GetOwnerRole() == ROLE_Authority), *EventString);
 	//Optionally dump the entire state of both involved buff handlers.
-	if (bDumpBuffHandlerStateForEachEvent)
+	if (BuffLoggingVerbosity == EDebugLogVerbosity::FullDump)
 	{
 		//Log the state of the handler the buff was applied to.
 		TArray<FString> IncomingDump;
-		AppliedToHandler->DEBUG_DumpIncomingState(IncomingDump);
+		AppliedToHandler->DEBUG_DumpState(ECombatEventDirection::Incoming, IncomingDump);
 		for (const FString& DumpString : IncomingDump)
 		{
 			UE_LOG(LogSaiyoraBuffs, Log, TEXT("%s"), *DumpString);
@@ -210,12 +210,91 @@ void UCombatDebugOptions::DEBUG_LogBuffRemoveEvent(const UBuffHandler* AppliedTo
 			if (IsValid(GeneratorBuff))
 			{
 				TArray<FString> OutgoingDump;
-				GeneratorBuff->DEBUG_DumpOutgoingState(OutgoingDump);
+				GeneratorBuff->DEBUG_DumpState(ECombatEventDirection::Outgoing, OutgoingDump);
 				for (const FString& DumpString : OutgoingDump)
 				{
 					UE_LOG(LogSaiyoraBuffs, Log, TEXT("%s"), *DumpString);
 				}
 			}
+		}
+	}
+}
+
+void UCombatDebugOptions::DEBUG_LogBuffRestrictionAdded(const UBuffHandler* AppliedToHandler, const ECombatEventDirection Direction, const FBuffRestriction& Restriction)
+{
+	UE_LOG(LogSaiyoraBuffs, Log, TEXT("%s Buff Restriction Added to handler for %s: Object: %s, Function: %s"),
+		*UEnum::GetDisplayValueAsText(Direction).ToString(),
+		*AppliedToHandler->GetOwner()->GetName(),
+		IsValid(Restriction.GetUObject()) ? *Restriction.GetUObject()->GetName() : TEXT("NULL"),
+		*Restriction.GetFunctionName().ToString());
+	//Optionally dump the whole restrictions list on the handler.
+	if (BuffRestrictionLoggingVerbosity == EDebugLogVerbosity::FullDump)
+	{
+		TArray<FString> Dump;
+		AppliedToHandler->DEBUG_DumpRestrictions(Direction, Dump);
+		for (const FString& DumpString : Dump)
+		{
+			UE_LOG(LogSaiyoraBuffs, Log, TEXT("%s"), *DumpString);
+		}
+	}
+}
+
+void UCombatDebugOptions::DEBUG_LogBuffRestrictionAddFailed(const UBuffHandler* AppliedToHandler, const ECombatEventDirection Direction,
+	const FBuffRestriction& Restriction, const FString& FailReason)
+{
+	UE_LOG(LogSaiyoraBuffs, Log, TEXT("%s Buff Restriction FAILED to Add to handler for %s: Object: %s, Function: %s, FailReason: %s"),
+		*UEnum::GetDisplayValueAsText(Direction).ToString(),
+		*AppliedToHandler->GetOwner()->GetName(),
+		IsValid(Restriction.GetUObject()) ? *Restriction.GetUObject()->GetName() : TEXT("NULL"),
+		*Restriction.GetFunctionName().ToString(),
+		*FailReason);
+	//Optionally dump the whole restrictions list on the handler.
+	if (BuffRestrictionLoggingVerbosity == EDebugLogVerbosity::FullDump)
+	{
+		TArray<FString> Dump;
+		AppliedToHandler->DEBUG_DumpRestrictions(Direction, Dump);
+		for (const FString& DumpString : Dump)
+		{
+			UE_LOG(LogSaiyoraBuffs, Log, TEXT("%s"), *DumpString);
+		}
+	}
+}
+
+void UCombatDebugOptions::DEBUG_LogBuffRestrictionRemoved(const UBuffHandler* AppliedToHandler, const ECombatEventDirection Direction, const FBuffRestriction& Restriction)
+{
+	UE_LOG(LogSaiyoraBuffs, Log, TEXT("%s Buff Restriction Removed from handler for %s: Object: %s, Function: %s"),
+		*UEnum::GetDisplayValueAsText(Direction).ToString(),
+		*AppliedToHandler->GetOwner()->GetName(),
+		IsValid(Restriction.GetUObject()) ? *Restriction.GetUObject()->GetName() : TEXT("NULL"),
+		*Restriction.GetFunctionName().ToString());
+	//Optionally dump the whole restrictions list on the handler.
+	if (BuffRestrictionLoggingVerbosity == EDebugLogVerbosity::FullDump)
+	{
+		TArray<FString> Dump;
+		AppliedToHandler->DEBUG_DumpRestrictions(Direction, Dump);
+		for (const FString& DumpString : Dump)
+		{
+			UE_LOG(LogSaiyoraBuffs, Log, TEXT("%s"), *DumpString);
+		}
+	}
+}
+
+void UCombatDebugOptions::DEBUG_LogBuffRestrictionRemoveFailed(const UBuffHandler* AppliedToHandler, const ECombatEventDirection Direction, const FBuffRestriction& Restriction, const FString& FailReason)
+{
+	UE_LOG(LogSaiyoraBuffs, Log, TEXT("%s Buff Restriction FAILED to Remove from handler for %s: Object: %s, Function: %s, FailReason: %s"),
+		*UEnum::GetDisplayValueAsText(Direction).ToString(),
+		*AppliedToHandler->GetOwner()->GetName(),
+		IsValid(Restriction.GetUObject()) ? *Restriction.GetUObject()->GetName() : TEXT("NULL"),
+		*Restriction.GetFunctionName().ToString(),
+		*FailReason);
+	//Optionally dump the whole restrictions list on the handler.
+	if (BuffRestrictionLoggingVerbosity == EDebugLogVerbosity::FullDump)
+	{
+		TArray<FString> Dump;
+		AppliedToHandler->DEBUG_DumpRestrictions(Direction, Dump);
+		for (const FString& DumpString : Dump)
+		{
+			UE_LOG(LogSaiyoraBuffs, Log, TEXT("%s"), *DumpString);
 		}
 	}
 }

@@ -72,13 +72,6 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FBuffRemoveNotification OnIncomingBuffRemoved;
 
-	//Adds a restriction on buffs applied to this actor.
-	bool AddIncomingBuffRestriction(const FBuffRestriction& Restriction);
-	//Removes a restriction on buffs applied to this actor.
-	void RemoveIncomingBuffRestriction(const FBuffRestriction& Restriction) { IncomingBuffRestrictions.Remove(Restriction); }
-	//Check during the buff application process for whether a specific buff can be applied to this actor.
-	bool CheckIncomingBuffRestricted(const FBuffApplyEvent& BuffEvent, TArray<EBuffApplyFailReason>& OutFailReasons);
-
 	//Called by new buff instances applied to this actor after they are initialized to notify the handler to add them to the correct array and fire off delegates.
 	void NotifyOfNewIncomingBuff(const FBuffApplyEvent& ApplicationEvent);
 	//Called by buffs applied to this actor when they are removed, to notify the handler to remove them from the correct array and fire off delegates.
@@ -99,8 +92,7 @@ private:
 	//Array of recently removed buffs on the server that we still want to replicate for a short time.
 	UPROPERTY()
 	TArray<UBuff*> RecentlyRemoved;
-	//Restrictions to incoming buffs.
-	TConditionalRestrictionList<FBuffRestriction> IncomingBuffRestrictions;
+	
 	//Callback from DamageHandler's OnLifeStatusChanged
 	//When the owning actor's life status changes from Alive, we want to remove all buffs that don't persist through death.
 	UFUNCTION()
@@ -135,13 +127,6 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FBuffRemoveNotification OnOutgoingBuffRemoved;
 
-	//Add a restriction to buffs applied by this actor.
-	bool AddOutgoingBuffRestriction(const FBuffRestriction& Restriction);
-	//Remove a restriction to buffs applied by this actor.
-	void RemoveOutgoingBuffRestriction(const FBuffRestriction& Restriction) { OutgoingBuffRestrictions.Remove(Restriction); }
-	//During the buff application process, this function checks whether we are allowed to apply a given buff to another actor.
-	bool CheckOutgoingBuffRestricted(const FBuffApplyEvent& BuffEvent, TArray<EBuffApplyFailReason>& OutFailReasons);
-
 	//Called by new buff instances after initialization to add them to our array and fire off delegates.
 	void NotifyOfNewOutgoingBuff(const FBuffApplyEvent& ApplicationEvent);
 	//Called when an outgoing buff is removed so that we can remove it from our array and fire off delegates.
@@ -152,17 +137,32 @@ private:
 	//All buffs this actor has applied to other actors.
 	UPROPERTY()
 	TArray<UBuff*> OutgoingBuffs;
+
+#pragma endregion
+#pragma region Restriction
+
+public:
+
+	bool AddBuffRestriction(const ECombatEventDirection Direction, const FBuffRestriction& Restriction);
+	void RemoveBuffRestriction(const ECombatEventDirection Direction, const FBuffRestriction& Restriction);
+
+private:
+
+	//Restrictions to incoming buffs.
+	TConditionalRestrictionList<FBuffRestriction> IncomingBuffRestrictions;
 	//Restrictions on outgoing buffs applied by this actor.
 	TConditionalRestrictionList<FBuffRestriction> OutgoingBuffRestrictions;
 
-#pragma endregion
+	bool CheckBuffRestricted(const ECombatEventDirection Direction, const FBuffApplyEvent& Event, TArray<EBuffApplyFailReason>& OutFailReasons);
+	
+#pragma endregion 
 #pragma region DEBUG
 #if !UE_BUILD_SHIPPING
 	
 public:
 
-	void DEBUG_DumpIncomingState(TArray<FString>& OutStrings) const;
-	void DEBUG_DumpOutgoingState(TArray<FString>& OutStrings) const;
+	void DEBUG_DumpState(const ECombatEventDirection Direction, TArray<FString>& OutStrings) const;
+	void DEBUG_DumpRestrictions(const ECombatEventDirection Direction, TArray<FString>& OutStrings) const;
 
 #endif
 #pragma endregion 

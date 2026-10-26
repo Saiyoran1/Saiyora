@@ -122,11 +122,16 @@ FBuffApplyEvent UBuffHandler::ApplyBuff(const TSubclassOf<UBuff> BuffClass, AAct
 	
 	//Check buff restrictions, and other restrictions applied by combat components.
 	//These functions will add their fail reasons if they have any.
-    if (!IgnoreRestrictions && (CheckIncomingBuffRestricted(Event, Event.FailReasons) || (IsValid(GeneratorBuff) && GeneratorBuff->CheckOutgoingBuffRestricted(Event, Event.FailReasons))))
+    if (!IgnoreRestrictions)
     {
-    	Event.ActionTaken = EBuffApplyAction::Failed;
-    	DEBUG_LOG_BUFF_APPLY_FAIL(this, Event);
-    	return Event;
+    	const bool bIncomingRestriction = CheckBuffRestricted(ECombatEventDirection::Incoming, Event, Event.FailReasons);
+    	const bool bOutgoingRestriction = IsValid(GeneratorBuff) && GeneratorBuff->CheckBuffRestricted(ECombatEventDirection::Outgoing, Event, Event.FailReasons);
+    	if (bIncomingRestriction || bOutgoingRestriction)
+    	{
+    		Event.ActionTaken = EBuffApplyAction::Failed;
+    		DEBUG_LOG_BUFF_APPLY_FAIL(this, Event);
+    		return Event;
+    	}
     }
 
 	//If we're acting on an existing buff (stacking/refreshing), do that.
@@ -403,70 +408,83 @@ UBuff* UBuffHandler::FindExistingOutgoingBuff(const TSubclassOf<UBuff> BuffClass
 #pragma endregion 
 #pragma region Restrictions
 
-bool UBuffHandler::AddIncomingBuffRestriction(const FBuffRestriction& Restriction)
+bool UBuffHandler::AddBuffRestriction(const ECombatEventDirection Direction, const FBuffRestriction& Restriction)
 {
-	if (!Restriction.IsBound() || !Restriction.GetUObject()->IsA(UBuff::StaticClass()))
+	if (GetOwnerRole() != ROLE_Authority)
 	{
 		return false;
 	}
-	return IncomingBuffRestrictions.Add(Restriction);
+	if (!Restriction.IsBound() || !Restriction.GetUObject()->IsA(UBuff::StaticClass()))
+	{
+		DEBUG_LOG_BUFF_RESTRICTION_ADD_FAILED(this, Direction, Restriction, TEXT("Restriction not bound to UBuff function."));
+		return false;
+	}
+	const bool bAdded = Direction == ECombatEventDirection::Incoming
+		? IncomingBuffRestrictions.Add(Restriction) : OutgoingBuffRestrictions.Add(Restriction);
+	if (bAdded)
+	{
+		DEBUG_LOG_BUFF_RESTRICTION_ADDED(this, Direction, Restriction);
+	}
+	else
+	{
+		DEBUG_LOG_BUFF_RESTRICTION_ADD_FAILED(this, Direction, Restriction, TEXT("Duplicate restriction in list."));
+	}
+	return bAdded;
 }
 
-bool UBuffHandler::CheckIncomingBuffRestricted(const FBuffApplyEvent& BuffEvent, TArray<EBuffApplyFailReason>& OutFailReasons)
+void UBuffHandler::RemoveBuffRestriction(const ECombatEventDirection Direction, const FBuffRestriction& Restriction)
+{
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
+	const int NumRemoved = Direction == ECombatEventDirection::Incoming ? IncomingBuffRestrictions.Remove(Restriction) : OutgoingBuffRestrictions.Remove(Restriction);
+	if (NumRemoved > 0)
+	{
+		DEBUG_LOG_BUFF_RESTRICTION_REMOVED(this, Direction, Restriction);
+	}
+	else
+	{
+		DEBUG_LOG_BUFF_RESTRICTION_REMOVE_FAILED(this, Direction, Restriction, TEXT("Restriction not found in list."));
+	}
+}
+
+bool UBuffHandler::CheckBuffRestricted(const ECombatEventDirection Direction, const FBuffApplyEvent& Event, TArray<EBuffApplyFailReason>& OutFailReasons)
 {
 	//Don't clear the OutFailReasons array, it might have fail reasons from before this point in the application process.
 	bool bRestricted = false;
 	//Check any custom restrictions first.
 	FBuffRestriction Restriction;
-	if (IncomingBuffRestrictions.IsRestricted(Restriction, BuffEvent))
+	if (Direction == ECombatEventDirection::Incoming
+		? IncomingBuffRestrictions.IsRestricted(Restriction, Event)
+		: OutgoingBuffRestrictions.IsRestricted(Restriction, Event))
 	{
-		OutFailReasons.AddUnique(EBuffApplyFailReason::IncomingRestriction);
+		OutFailReasons.AddUnique(Direction == ECombatEventDirection::Incoming ? EBuffApplyFailReason::IncomingRestriction : EBuffApplyFailReason::OutgoingRestriction);
 		//TODO: Add logging for which restriction caused failure, and some way of notifying that buff about its restriction being used?
 		bRestricted = true;
 	}
-	//Check if the buff can be applied to dead targets.
-	if (!BuffEvent.BuffClass.GetDefaultObject()->CanBeAppliedWhileDead() && IsValid(DamageHandlerRef) && DamageHandlerRef->GetLifeStatus() != ELifeStatus::Alive)
+	if (Direction == ECombatEventDirection::Incoming)
 	{
-		OutFailReasons.AddUnique(EBuffApplyFailReason::Dead);
-		bRestricted = true;
-	}
-	//Check if any of the buff's functions would prevent it from being applied.
-	for (const UBuffFunction* Function : BuffEvent.BuffClass.GetDefaultObject()->GetAllBuffFunctions())
-	{
-		EBuffApplyFailReason FailReason = EBuffApplyFailReason::None;
-		if (IsValid(Function) && Function->CheckBuffFunctionRestricted(BuffEvent, FailReason))
+		//Check if the buff can be applied to dead targets.
+		if (!Event.BuffClass.GetDefaultObject()->CanBeAppliedWhileDead() && IsValid(DamageHandlerRef) && DamageHandlerRef->GetLifeStatus() != ELifeStatus::Alive)
 		{
-			//We might forget to set a fail reason, that's fine, but don't add "None" to the array.
-			if (FailReason != EBuffApplyFailReason::None)
-			{
-				OutFailReasons.AddUnique(FailReason);
-			}
+			OutFailReasons.AddUnique(EBuffApplyFailReason::Dead);
 			bRestricted = true;
 		}
-	}
-	return bRestricted;
-}
-
-bool UBuffHandler::AddOutgoingBuffRestriction(const FBuffRestriction& Restriction)
-{
-	if (!Restriction.IsBound() || !Restriction.GetUObject()->IsA(UBuff::StaticClass()))
-	{
-		return false;
-	}
-	return OutgoingBuffRestrictions.Add(Restriction);
-}
-
-bool UBuffHandler::CheckOutgoingBuffRestricted(const FBuffApplyEvent& BuffEvent, TArray<EBuffApplyFailReason>& OutFailReasons)
-{
-	//Don't clear the OutFailReasons array, it might have fail reasons from before this point in the application process.
-	bool bRestricted = false;
-	//Check custom restrictions from buffs.
-	FBuffRestriction Restriction;
-	if (OutgoingBuffRestrictions.IsRestricted(Restriction, BuffEvent))
-	{
-		OutFailReasons.AddUnique(EBuffApplyFailReason::OutgoingRestriction);
-		//TODO: Add logging for which restriction caused failure, and some way of notifying that buff about its restriction being used?
-		bRestricted = true;
+		//Check if any of the buff's functions would prevent it from being applied.
+		for (const UBuffFunction* Function : Event.BuffClass.GetDefaultObject()->GetAllBuffFunctions())
+		{
+			EBuffApplyFailReason FailReason = EBuffApplyFailReason::None;
+			if (IsValid(Function) && Function->CheckBuffFunctionRestricted(Event, FailReason))
+			{
+				//We might forget to set a fail reason, that's fine, but don't add "None" to the array.
+				if (FailReason != EBuffApplyFailReason::None)
+				{
+					OutFailReasons.AddUnique(FailReason);
+				}
+				bRestricted = true;
+			}
+		}
 	}
 	return bRestricted;
 }
@@ -475,36 +493,60 @@ bool UBuffHandler::CheckOutgoingBuffRestricted(const FBuffApplyEvent& BuffEvent,
 #pragma region DEBUG
 #if !UE_BUILD_SHIPPING
 
-void UBuffHandler::DEBUG_DumpIncomingState(TArray<FString>& OutStrings) const
+void UBuffHandler::DEBUG_DumpState(const ECombatEventDirection Direction, TArray<FString>& OutStrings) const
 {
-	OutStrings.Add("---BUFF HANDLER INCOMING STATE DUMP START---");
-	OutStrings.Add(FString::Printf(L"Handler for actor %s has %i buffs applied to itself.", *GetOwner()->GetName(), ActiveBuffs.Num()));
-	OutStrings.Add("Active Buffs: ");
-	for (UBuff* Buff : ActiveBuffs)
+	const FString DirectionString = UEnum::GetDisplayValueAsText(Direction).ToString().ToUpper();
+	OutStrings.Add(FString::Printf(L"---BUFF HANDLER %s STATE DUMP START---", *DirectionString));
+	OutStrings.Add(FString::Printf(L"Handler for actor %s has %i buffs applied.", *GetOwner()->GetName(), Direction == ECombatEventDirection::Incoming ? ActiveBuffs.Num() : OutgoingBuffs.Num()));
+	switch (Direction)
 	{
-		FString& BuffString = OutStrings.Emplace_GetRef();
-		Buff->DEBUG_DumpBuffState(BuffString);
+	case ECombatEventDirection::Incoming :
+		{
+			OutStrings.Add("Active Buffs: ");
+			for (UBuff* Buff : ActiveBuffs)
+			{
+				FString& BuffString = OutStrings.Emplace_GetRef();
+				Buff->DEBUG_DumpBuffState(BuffString);
+			}
+			OutStrings.Add("Recently Removed Buffs: ");
+			for (UBuff* Buff : RecentlyRemoved)
+			{
+				FString& BuffString = OutStrings.Emplace_GetRef();
+				Buff->DEBUG_DumpBuffState(BuffString);
+			}
+		}
+		break;
+	case ECombatEventDirection::Outgoing :
+		{
+			OutStrings.Add("Outgoing Buffs: ");
+			for (UBuff* Buff : OutgoingBuffs)
+			{
+				FString& BuffString = OutStrings.Emplace_GetRef();
+				Buff->DEBUG_DumpBuffState(BuffString);
+			}
+		}
+		break;
+	default :
+		break;
 	}
-	OutStrings.Add("Recently Removed Buffs: ");
-	for (UBuff* Buff : RecentlyRemoved)
-	{
-		FString& BuffString = OutStrings.Emplace_GetRef();
-		Buff->DEBUG_DumpBuffState(BuffString);
-	}
-	OutStrings.Add("---BUFF HANDLER INCOMING STATE DUMP END---");
+	OutStrings.Add(FString::Printf(L"---BUFF HANDLER %s STATE DUMP END---", *DirectionString));
 }
 
-void UBuffHandler::DEBUG_DumpOutgoingState(TArray<FString>& OutStrings) const
+void UBuffHandler::DEBUG_DumpRestrictions(const ECombatEventDirection Direction, TArray<FString>& OutStrings) const
 {
-	OutStrings.Add("---BUFF HANDLER OUTGOING STATE DUMP START---");
-	OutStrings.Add(FString::Printf(L"Handler for actor %s has %i buffs applied to others.", *GetOwner()->GetName(), OutgoingBuffs.Num()));
-	OutStrings.Add("Outgoing Buffs: ");
-	for (UBuff* Buff : OutgoingBuffs)
+	const FString DirectionString = UEnum::GetDisplayValueAsText(Direction).ToString().ToUpper();
+	OutStrings.Add(FString::Printf(L"---BUFF HANDLER %s RESTRICTION DUMP START---", *DirectionString));
+	OutStrings.Add(FString::Printf(L"Handler for actor %s has %i restrictions applied.", *GetOwner()->GetName(),
+		Direction == ECombatEventDirection::Incoming ? IncomingBuffRestrictions.Num() : OutgoingBuffRestrictions.Num()));
+	const TArray<FBuffRestriction>& Restrictions = Direction == ECombatEventDirection::Incoming
+		? IncomingBuffRestrictions.GetRestrictionsList() : OutgoingBuffRestrictions.GetRestrictionsList();
+	for (const FBuffRestriction& Restriction : Restrictions)
 	{
-		FString& BuffString = OutStrings.Emplace_GetRef();
-		Buff->DEBUG_DumpBuffState(BuffString);
+		OutStrings.Add(FString::Printf(L"Object: %s, Function: %s",
+			IsValid(Restriction.GetUObject()) ? *Restriction.GetUObject()->GetName() : TEXT("NULL"),
+			*Restriction.GetFunctionName().ToString()));
 	}
-	OutStrings.Add("---BUFF HANDLER OUTGOING STATE DUMP END---");
+	OutStrings.Add(FString::Printf(L"---BUFF HANDLER %s RESTRICTION DUMP END---", *DirectionString));
 }
 
 #endif

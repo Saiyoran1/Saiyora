@@ -396,7 +396,6 @@ public:
         }
         return false;
     }
-    
     bool Add(const T& Restriction)
     {
         if (!Restriction.IsBound() || Restrictions.Contains(Restriction))
@@ -406,11 +405,9 @@ public:
         Restrictions.Add(Restriction);
         return true;
     }
-    
-    int32 Remove(const T& Restriction)
-    {
-        return Restrictions.Remove(Restriction);
-    }
+    int32 Remove(const T& Restriction) { return Restrictions.Remove(Restriction); }
+    int32 Num() const { return Restrictions.Num(); }
+    const TArray<T>& GetRestrictionsList() const { return Restrictions; }
 
 private:
     
