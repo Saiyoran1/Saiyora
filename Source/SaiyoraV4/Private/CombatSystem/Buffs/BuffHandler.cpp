@@ -6,6 +6,7 @@
 #include "SaiyoraCombatInterface.h"
 #include "DamageHandler.h"
 #include "NPCAbilityComponent.h"
+#include "SaiyoraCombatLibrary.h"
 #include "SaiyoraDevSettings.h"
 
 #pragma region Initialization
@@ -64,6 +65,23 @@ FBuffApplyEvent UBuffHandler::ApplyBuff(const TSubclassOf<UBuff> BuffClass, AAct
 		const bool IgnoreRestrictions, const TArray<FInstancedStruct>& BuffParams)
 {
 	FBuffApplyEvent Event;
+	Event.EventID = USaiyoraCombatLibrary::GetUniqueCombatEventID();
+	//Fill out basic information for the event struct: AppliedBy, AppliedTo, Source, Plane information, custom params, etc.
+	//We fill this out early mostly for debug logging to have this data if we fail early.
+	Event.BuffClass = BuffClass;
+	Event.AppliedBy = AppliedBy;
+	UCombatStatusComponent* GeneratorCombatStatus = nullptr;
+	UBuffHandler* GeneratorBuff = nullptr;
+	if (IsValid(AppliedBy) && AppliedBy->Implements<USaiyoraCombatInterface>())
+	{
+		GeneratorCombatStatus = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(AppliedBy);
+		GeneratorBuff = ISaiyoraCombatInterface::Execute_GetBuffHandler(AppliedBy);
+	}
+	Event.OriginPlane = IsValid(GeneratorCombatStatus) ? GeneratorCombatStatus->GetCurrentPlane() : ESaiyoraPlane::Both;
+	Event.AppliedTo = GetOwner();
+	Event.TargetPlane = IsValid(CombatStatusComponentRef) ? CombatStatusComponentRef->GetCurrentPlane() : ESaiyoraPlane::Both;
+	Event.Source = Source;
+	Event.CombatParams = BuffParams;
 
 	//Do generic/blanket checks first for valid net role and input data.
 	if (GetOwnerRole() != ROLE_Authority)
@@ -96,22 +114,6 @@ FBuffApplyEvent UBuffHandler::ApplyBuff(const TSubclassOf<UBuff> BuffClass, AAct
 		return Event;
 	}
 
-	//Fill out basic information for the event struct: AppliedBy, AppliedTo, Source, Plane information, custom params, etc.
-	Event.BuffClass = BuffClass;
-	Event.AppliedBy = AppliedBy;
-	UCombatStatusComponent* GeneratorCombatStatus = nullptr;
-	UBuffHandler* GeneratorBuff = nullptr;
-	if (AppliedBy->Implements<USaiyoraCombatInterface>())
-	{
-		GeneratorCombatStatus = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(AppliedBy);
-		GeneratorBuff = ISaiyoraCombatInterface::Execute_GetBuffHandler(AppliedBy);
-	}
-	Event.OriginPlane = IsValid(GeneratorCombatStatus) ? GeneratorCombatStatus->GetCurrentPlane() : ESaiyoraPlane::Both;
-	Event.AppliedTo = GetOwner();
-	Event.TargetPlane = IsValid(CombatStatusComponentRef) ? CombatStatusComponentRef->GetCurrentPlane() : ESaiyoraPlane::Both;
-	Event.Source = Source;
-	Event.CombatParams = BuffParams;
-
 	//Check here if we'll be working on an existing buff or if we are creating a new buff instance.
 	//This can be relevant to restrictions, so we set AffectedBuff to valid before doing restrictions, if we aren't creating a new buff instance.
 	UBuff* AffectedBuff = FindExistingBuff(BuffClass, true, AppliedBy);
@@ -120,15 +122,21 @@ FBuffApplyEvent UBuffHandler::ApplyBuff(const TSubclassOf<UBuff> BuffClass, AAct
 		Event.AffectedBuff = AffectedBuff;
 	}
 	
-	//Check buff restrictions, and other restrictions applied by combat components.
+	//Check buff restrictions, and other restrictions applied by combat components and the buff's own functions.
 	//These functions will add their fail reasons if they have any.
     if (!IgnoreRestrictions)
     {
-    	const bool bIncomingRestriction = CheckBuffRestricted(ECombatEventDirection::Incoming, Event, Event.FailReasons);
-    	const bool bOutgoingRestriction = IsValid(GeneratorBuff) && GeneratorBuff->CheckBuffRestricted(ECombatEventDirection::Outgoing, Event, Event.FailReasons);
+    	FBuffRestriction IncomingRestriction;
+    	const bool bIncomingRestriction = CheckBuffRestricted(ECombatEventDirection::Incoming, Event, Event.FailReasons, IncomingRestriction);
+    	FBuffRestriction OutgoingRestriction;
+    	const bool bOutgoingRestriction = IsValid(GeneratorBuff) && GeneratorBuff->CheckBuffRestricted(ECombatEventDirection::Outgoing, Event, Event.FailReasons, OutgoingRestriction);
     	if (bIncomingRestriction || bOutgoingRestriction)
     	{
     		Event.ActionTaken = EBuffApplyAction::Failed;
+    		//Due to some C++ circular dependency fuckery, we can't use FBuffRestriction as a member of FBuffApplyEvent because FBuffRestriction TAKES an FBuffApplyEvent in its signature.
+    		//Instead, we can use a proxy struct that can be held by the FBuffApplyEvent to track which restrictions were applied.
+    		Event.IncomingRestriction = IncomingRestriction;
+    		Event.OutgoingRestriction = OutgoingRestriction;
     		DEBUG_LOG_BUFF_APPLY_FAIL(this, Event);
     		return Event;
     	}
@@ -449,18 +457,16 @@ void UBuffHandler::RemoveBuffRestriction(const ECombatEventDirection Direction, 
 	}
 }
 
-bool UBuffHandler::CheckBuffRestricted(const ECombatEventDirection Direction, const FBuffApplyEvent& Event, TArray<EBuffApplyFailReason>& OutFailReasons)
+bool UBuffHandler::CheckBuffRestricted(const ECombatEventDirection Direction, const FBuffApplyEvent& Event, TArray<EBuffApplyFailReason>& OutFailReasons, FBuffRestriction& OutRestriction)
 {
 	//Don't clear the OutFailReasons array, it might have fail reasons from before this point in the application process.
 	bool bRestricted = false;
 	//Check any custom restrictions first.
-	FBuffRestriction Restriction;
 	if (Direction == ECombatEventDirection::Incoming
-		? IncomingBuffRestrictions.IsRestricted(Restriction, Event)
-		: OutgoingBuffRestrictions.IsRestricted(Restriction, Event))
+		? IncomingBuffRestrictions.IsRestricted(OutRestriction, Event)
+		: OutgoingBuffRestrictions.IsRestricted(OutRestriction, Event))
 	{
 		OutFailReasons.AddUnique(Direction == ECombatEventDirection::Incoming ? EBuffApplyFailReason::IncomingRestriction : EBuffApplyFailReason::OutgoingRestriction);
-		//TODO: Add logging for which restriction caused failure, and some way of notifying that buff about its restriction being used?
 		bRestricted = true;
 	}
 	if (Direction == ECombatEventDirection::Incoming)
@@ -477,8 +483,12 @@ bool UBuffHandler::CheckBuffRestricted(const ECombatEventDirection Direction, co
 			EBuffApplyFailReason FailReason = EBuffApplyFailReason::None;
 			if (IsValid(Function) && Function->CheckBuffFunctionRestricted(Event, FailReason))
 			{
-				//We might forget to set a fail reason, that's fine, but don't add "None" to the array.
-				if (FailReason != EBuffApplyFailReason::None)
+				//We might forget to set a fail reason, in which case we just add the generic "BuffFunction" fail reason.
+				if (FailReason == EBuffApplyFailReason::None)
+				{
+					OutFailReasons.AddUnique(EBuffApplyFailReason::BuffFunction);
+				}
+				else
 				{
 					OutFailReasons.AddUnique(FailReason);
 				}
@@ -542,9 +552,7 @@ void UBuffHandler::DEBUG_DumpRestrictions(const ECombatEventDirection Direction,
 		? IncomingBuffRestrictions.GetRestrictionsList() : OutgoingBuffRestrictions.GetRestrictionsList();
 	for (const FBuffRestriction& Restriction : Restrictions)
 	{
-		OutStrings.Add(FString::Printf(L"Object: %s, Function: %s",
-			IsValid(Restriction.GetUObject()) ? *Restriction.GetUObject()->GetName() : TEXT("NULL"),
-			*Restriction.GetFunctionName().ToString()));
+		OutStrings.Add(USaiyoraCombatLibrary::DelegateToLogString(Restriction));
 	}
 	OutStrings.Add(FString::Printf(L"---BUFF HANDLER %s RESTRICTION DUMP END---", *DirectionString));
 }

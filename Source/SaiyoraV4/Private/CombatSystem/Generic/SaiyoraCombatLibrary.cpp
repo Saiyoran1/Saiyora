@@ -6,6 +6,8 @@
 #include "GameFramework/GameStateBase.h"
 #include "GameFramework/PlayerState.h"
 
+int USaiyoraCombatLibrary::UniqueCombatEventID = 0;
+
 float USaiyoraCombatLibrary::GetActorPing(const AActor* Actor)
 {
     APawn const* ActorAsPawn = Cast<APawn>(Actor);
@@ -69,7 +71,7 @@ TArray<FName> USaiyoraCombatLibrary::GetMatchingFunctionNames(const UObject* Obj
 
 bool USaiyoraCombatLibrary::IsSignatureTheSame(const UFunction* Function, const UFunction* Example)
 {
-    // Run thru the parameter property chains to compare each property
+    // Run through the parameter property chains to compare each property
     TFieldIterator<FProperty> IteratorA(Function);
     TFieldIterator<FProperty> IteratorB(Example);
 
@@ -78,8 +80,6 @@ bool USaiyoraCombatLibrary::IsSignatureTheSame(const UFunction* Function, const 
         if (IteratorB && (IteratorB->PropertyFlags & CPF_Parm))
         {
             // Compare the two properties to make sure their types are identical
-            // Note: currently this requires both to be strictly identical and wouldn't allow functions that differ only by how derived a class is,
-            // which might be desirable when binding delegates, assuming there is directionality in the SignatureIsCompatibleWith call
             FProperty* PropA = *IteratorA;
             FProperty* PropB = *IteratorB;
                 
@@ -97,8 +97,15 @@ bool USaiyoraCombatLibrary::IsSignatureTheSame(const UFunction* Function, const 
         ++IteratorB;
     }
 
-    // They matched all the way thru A's properties, but it could still be a mismatch if B has remaining parameters
+    // They matched all the way through A's properties, but it could still be a mismatch if B has remaining parameters
     return !(IteratorB && (IteratorB->PropertyFlags & CPF_Parm));
+}
+
+FString USaiyoraCombatLibrary::DelegateToLogString(const FScriptDelegate& Delegate)
+{
+    return FString::Printf(L"{ Object: %s, Function: %s }",
+        IsValid(Delegate.GetUObject()) ? *Delegate.GetUObject()->GetName() : TEXT("NULL"),
+        *Delegate.GetFunctionName().ToString());
 }
 
 ASaiyoraPlayerCharacter* USaiyoraCombatLibrary::GetLocalSaiyoraPlayer(const UObject* WorldContext)

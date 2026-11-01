@@ -152,7 +152,7 @@ void UCombatDebugOptions::DrawHiddenProjectile(const APredictableProjectile* Pro
 #pragma region Buffs
 #if !UE_BUILD_SHIPPING
 
-void UCombatDebugOptions::DEBUG_LogBuffApplyEvent(const UBuffHandler* AppliedToHandler, const FBuffApplyEvent& ApplyEvent)
+void UCombatDebugOptions::DEBUG_LogBuffApplyEvent(const UBuffHandler* AppliedToHandler, const FBuffApplyEvent& ApplyEvent) const
 {
 	//Log the apply event itself.
 	FString EventString;
@@ -186,7 +186,41 @@ void UCombatDebugOptions::DEBUG_LogBuffApplyEvent(const UBuffHandler* AppliedToH
 	}
 }
 
-void UCombatDebugOptions::DEBUG_LogBuffRemoveEvent(const UBuffHandler* AppliedToHandler, const FBuffRemoveEvent& RemoveEvent)
+void UCombatDebugOptions::DEBUG_LogBuffApplyFailure(const UBuffHandler* AppliedToHandler, const FBuffApplyEvent& ApplyEvent) const
+{
+	//Log the apply event itself.
+	FString EventString;
+	ApplyEvent.DEBUG_ToString(EventString);
+	UE_LOG(LogSaiyoraBuffs, Log, TEXT("%s FAILED BuffApplyEvent: %s"),
+		USaiyoraCombatLibrary::BoolToServerOrClientString(AppliedToHandler->GetOwnerRole() == ROLE_Authority), *EventString);
+	//Optionally dump the entire state of both involved buff handlers.
+	if (BuffLoggingVerbosity == EDebugLogVerbosity::FullDump)
+	{
+		//Log the state of the handler the buff was attempting to be applied to.
+		TArray<FString> IncomingDump;
+		AppliedToHandler->DEBUG_DumpState(ECombatEventDirection::Incoming, IncomingDump);
+		for (const FString& DumpString : IncomingDump)
+		{
+			UE_LOG(LogSaiyoraBuffs, Log, TEXT("%s"), *DumpString);
+		}
+		//If valid, log the state of the handler the buff was applied by.
+		if (IsValid(ApplyEvent.AppliedBy) && ApplyEvent.AppliedBy->Implements<USaiyoraCombatInterface>())
+		{
+			const UBuffHandler* GeneratorBuff = ISaiyoraCombatInterface::Execute_GetBuffHandler(ApplyEvent.AppliedBy);
+			if (IsValid(GeneratorBuff))
+			{
+				TArray<FString> OutgoingDump;
+				GeneratorBuff->DEBUG_DumpState(ECombatEventDirection::Outgoing,OutgoingDump);
+				for (const FString& DumpString : OutgoingDump)
+				{
+					UE_LOG(LogSaiyoraBuffs, Log, TEXT("%s"), *DumpString);
+				}
+			}
+		}
+	}
+}
+
+void UCombatDebugOptions::DEBUG_LogBuffRemoveEvent(const UBuffHandler* AppliedToHandler, const FBuffRemoveEvent& RemoveEvent) const
 {
 	//Log the remove event itself.
 	FString EventString;
@@ -220,13 +254,12 @@ void UCombatDebugOptions::DEBUG_LogBuffRemoveEvent(const UBuffHandler* AppliedTo
 	}
 }
 
-void UCombatDebugOptions::DEBUG_LogBuffRestrictionAdded(const UBuffHandler* AppliedToHandler, const ECombatEventDirection Direction, const FBuffRestriction& Restriction)
+void UCombatDebugOptions::DEBUG_LogBuffRestrictionAdded(const UBuffHandler* AppliedToHandler, const ECombatEventDirection Direction, const FBuffRestriction& Restriction) const
 {
-	UE_LOG(LogSaiyoraBuffs, Log, TEXT("%s Buff Restriction Added to handler for %s: Object: %s, Function: %s"),
+	UE_LOG(LogSaiyoraBuffs, Log, TEXT("%s Buff Restriction Added to handler for %s: %s"),
 		*UEnum::GetDisplayValueAsText(Direction).ToString(),
 		*AppliedToHandler->GetOwner()->GetName(),
-		IsValid(Restriction.GetUObject()) ? *Restriction.GetUObject()->GetName() : TEXT("NULL"),
-		*Restriction.GetFunctionName().ToString());
+		*USaiyoraCombatLibrary::DelegateToLogString(Restriction));
 	//Optionally dump the whole restrictions list on the handler.
 	if (BuffRestrictionLoggingVerbosity == EDebugLogVerbosity::FullDump)
 	{
@@ -240,13 +273,12 @@ void UCombatDebugOptions::DEBUG_LogBuffRestrictionAdded(const UBuffHandler* Appl
 }
 
 void UCombatDebugOptions::DEBUG_LogBuffRestrictionAddFailed(const UBuffHandler* AppliedToHandler, const ECombatEventDirection Direction,
-	const FBuffRestriction& Restriction, const FString& FailReason)
+	const FBuffRestriction& Restriction, const FString& FailReason) const
 {
-	UE_LOG(LogSaiyoraBuffs, Log, TEXT("%s Buff Restriction FAILED to Add to handler for %s: Object: %s, Function: %s, FailReason: %s"),
+	UE_LOG(LogSaiyoraBuffs, Log, TEXT("%s Buff Restriction FAILED to Add to handler for %s: %s, FailReason: %s"),
 		*UEnum::GetDisplayValueAsText(Direction).ToString(),
 		*AppliedToHandler->GetOwner()->GetName(),
-		IsValid(Restriction.GetUObject()) ? *Restriction.GetUObject()->GetName() : TEXT("NULL"),
-		*Restriction.GetFunctionName().ToString(),
+		*USaiyoraCombatLibrary::DelegateToLogString(Restriction),
 		*FailReason);
 	//Optionally dump the whole restrictions list on the handler.
 	if (BuffRestrictionLoggingVerbosity == EDebugLogVerbosity::FullDump)
@@ -260,13 +292,12 @@ void UCombatDebugOptions::DEBUG_LogBuffRestrictionAddFailed(const UBuffHandler* 
 	}
 }
 
-void UCombatDebugOptions::DEBUG_LogBuffRestrictionRemoved(const UBuffHandler* AppliedToHandler, const ECombatEventDirection Direction, const FBuffRestriction& Restriction)
+void UCombatDebugOptions::DEBUG_LogBuffRestrictionRemoved(const UBuffHandler* AppliedToHandler, const ECombatEventDirection Direction, const FBuffRestriction& Restriction) const
 {
-	UE_LOG(LogSaiyoraBuffs, Log, TEXT("%s Buff Restriction Removed from handler for %s: Object: %s, Function: %s"),
+	UE_LOG(LogSaiyoraBuffs, Log, TEXT("%s Buff Restriction Removed from handler for %s: %s"),
 		*UEnum::GetDisplayValueAsText(Direction).ToString(),
 		*AppliedToHandler->GetOwner()->GetName(),
-		IsValid(Restriction.GetUObject()) ? *Restriction.GetUObject()->GetName() : TEXT("NULL"),
-		*Restriction.GetFunctionName().ToString());
+		*USaiyoraCombatLibrary::DelegateToLogString(Restriction));
 	//Optionally dump the whole restrictions list on the handler.
 	if (BuffRestrictionLoggingVerbosity == EDebugLogVerbosity::FullDump)
 	{
@@ -279,13 +310,13 @@ void UCombatDebugOptions::DEBUG_LogBuffRestrictionRemoved(const UBuffHandler* Ap
 	}
 }
 
-void UCombatDebugOptions::DEBUG_LogBuffRestrictionRemoveFailed(const UBuffHandler* AppliedToHandler, const ECombatEventDirection Direction, const FBuffRestriction& Restriction, const FString& FailReason)
+void UCombatDebugOptions::DEBUG_LogBuffRestrictionRemoveFailed(const UBuffHandler* AppliedToHandler, const ECombatEventDirection Direction,
+	const FBuffRestriction& Restriction, const FString& FailReason) const
 {
-	UE_LOG(LogSaiyoraBuffs, Log, TEXT("%s Buff Restriction FAILED to Remove from handler for %s: Object: %s, Function: %s, FailReason: %s"),
+	UE_LOG(LogSaiyoraBuffs, Log, TEXT("%s Buff Restriction FAILED to Remove from handler for %s: %s, FailReason: %s"),
 		*UEnum::GetDisplayValueAsText(Direction).ToString(),
 		*AppliedToHandler->GetOwner()->GetName(),
-		IsValid(Restriction.GetUObject()) ? *Restriction.GetUObject()->GetName() : TEXT("NULL"),
-		*Restriction.GetFunctionName().ToString(),
+		*USaiyoraCombatLibrary::DelegateToLogString(Restriction),
 		*FailReason);
 	//Optionally dump the whole restrictions list on the handler.
 	if (BuffRestrictionLoggingVerbosity == EDebugLogVerbosity::FullDump)

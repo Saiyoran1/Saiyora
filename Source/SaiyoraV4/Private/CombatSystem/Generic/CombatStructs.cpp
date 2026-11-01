@@ -273,4 +273,13 @@ void FCombatantArray::OnAdd(const FCombatant& NewCombatant) const
     LogComponent->OnCombatantAdded(NewCombatant);
 }
 
-#pragma endregion 
+#pragma endregion
+
+#if !UE_BUILD_SHIPPING
+void FCombatDelegateProxy::DEBUG_ToString(FString& OutString) const
+{
+    OutString = FString::Printf(L"{ Object: %s, Function: %s }",
+        Object.IsValid() ? *Object->GetName() : TEXT("NULL"),
+        *FunctionName.ToString());
+}
+#endif

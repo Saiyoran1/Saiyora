@@ -6,19 +6,39 @@
 
 void FBuffApplyEvent::DEBUG_ToString(FString& OutString) const
 {
-	OutString = FString::Printf(L"BuffClass: %s, AffectedBuff: %s, ActionTaken: %s, PreviousStacks: %i, NewStacks: %i, PreviousDuration: %.2f, NewDuration: %.2f, NewApplyTime: %.2f",
-		IsValid(BuffClass) ? *BuffClass->GetName() : TEXT("NULL"), IsValid(AffectedBuff) ? *AffectedBuff->GetName() : TEXT("NULL"), *UEnum::GetDisplayValueAsText(ActionTaken).ToString(),
-		PreviousStacks, NewStacks, PreviousDuration, NewDuration, NewApplyTime);
-	if (FailReasons.Num() > 0)
+	OutString = FString::Printf(L"BuffClass: %s, AffectedBuff: %s, ActionTaken: %s",
+		IsValid(BuffClass) ? *BuffClass->GetName() : TEXT("NULL"), IsValid(AffectedBuff) ? *AffectedBuff->GetName() : TEXT("NULL"), *UEnum::GetDisplayValueAsText(ActionTaken).ToString());
+	if (ActionTaken != EBuffApplyAction::Failed)
 	{
-		OutString.Append(", FailReasons: ");
-		for (int i = 0; i < FailReasons.Num(); i++)
+		OutString.Append(FString::Printf(L", PreviousStacks: %i, NewStacks: %i, PreviousDuration: %.2f, NewDuration: %.2f, NewApplyTime: %.2f",
+			PreviousStacks, NewStacks, PreviousDuration, NewDuration, NewApplyTime));
+	}
+	else
+	{
+		if (FailReasons.Num() > 0)
 		{
-			if (i != 0)
+			OutString.Append(", FailReasons: { ");
+			for (int i = 0; i < FailReasons.Num(); i++)
 			{
-				OutString.Append(", ");
+				if (i != 0)
+				{
+					OutString.Append(", ");
+				}
+				OutString.Append(*UEnum::GetDisplayValueAsText(FailReasons[i]).ToString());
 			}
-			OutString.Append(*UEnum::GetDisplayValueAsText(FailReasons[i]).ToString());
+			OutString.Append(" }");
+		}
+		if (!IncomingRestriction.IsEmpty())
+		{
+			FString RestrictionString;
+			IncomingRestriction.DEBUG_ToString(RestrictionString);
+			OutString.Append(FString::Printf(L", IncomingRestriction: %s", *RestrictionString));
+		}
+		if (!OutgoingRestriction.IsEmpty())
+		{
+			FString RestrictionString;
+			OutgoingRestriction.DEBUG_ToString(RestrictionString);
+			OutString.Append(FString::Printf(L", OutgoingRestriction: %s", *RestrictionString));
 		}
 	}
 	if (IsValid(AppliedBy))
@@ -35,7 +55,7 @@ void FBuffApplyEvent::DEBUG_ToString(FString& OutString) const
 	}
 	if (CombatParams.Num() > 0)
 	{
-		OutString.Append(" Params: ");
+		OutString.Append(", Params: { ");
 		for (int i = 0; i < CombatParams.Num(); i++)
 		{
 			if (i != 0)
@@ -44,6 +64,7 @@ void FBuffApplyEvent::DEBUG_ToString(FString& OutString) const
 			}
 			OutString.Append(USaiyoraCombatLibrary::CombatParamToString(CombatParams[i]));
 		}
+		OutString.Append(" }");
 	}
 }
 

@@ -68,34 +68,36 @@ UENUM(BlueprintType)
 enum class EBuffApplyFailReason : uint8
 {
 	None UMETA(Hidden),
-	//Tried to apply a buff on a client
+	//Tried to apply a buff on a client.
 	NetRole,
-	//Buff class supplied wasn't valid
+	//Buff class supplied wasn't valid.
 	InvalidClass,
-	//Source of the buff wasn't valid
+	//Source of the buff wasn't valid.
 	InvalidSource,
-	//Actor applying the buff wasn't valid
+	//Actor applying the buff wasn't valid.
 	InvalidAppliedBy,
-	//Actor the buff was applied to can't receive buffs
+	//Actor the buff was applied to can't receive buffs.
 	InvalidAppliedTo,
-	//Custom restriction to outgoing buffs
+	//Custom restriction to outgoing buffs.
 	OutgoingRestriction,
-	//Custom restriction to incoming buffs
+	//Custom restriction to incoming buffs.
 	IncomingRestriction,
-	//Target was dead
+	//Target was dead.
 	Dead,
 	//Target can't receive damage or healing.
 	ImmuneToHealthEvent,
 	//Target can't be affected by a given crowd control.
 	ImmuneToCc,
-	//Target did not have stat or that stat wasn't modifiable for this target
+	//Target did not have stat or that stat wasn't modifiable for this target.
 	StatNotModifiable,
 	//Target can't have a specific threat action or event applied to them.
 	InvalidThreatEvent,
-	//Target does not have a movement component
+	//Target does not have a movement component.
 	NoMovement,
-	//Existing buff couldn't stack or refresh, and the buff wasn't duplicable
+	//Existing buff couldn't stack or refresh, and the buff wasn't duplicable.
 	NoStackRefreshOrDuplicate,
+	//Generic fail reason for "a buff function prevented buff application" if a buff function doesn't set its own fail reason.
+	BuffFunction,
 };
 
 UENUM()

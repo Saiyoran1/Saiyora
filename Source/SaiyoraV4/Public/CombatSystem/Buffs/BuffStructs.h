@@ -1,6 +1,7 @@
 #pragma once
 #include "BuffEnums.h"
 #include "CombatEnums.h"
+#include "CombatStructs.h"
 #include "InstancedStruct.h"
 #include "BuffStructs.generated.h"
 
@@ -18,6 +19,11 @@ struct FBuffApplyEvent
     //All of the reasons we couldn't apply a buff
     UPROPERTY(BlueprintReadOnly)
     TArray<EBuffApplyFailReason> FailReasons;
+
+    //If an incoming buff restriction prevented application, this is a proxy for the restriction.
+    FCombatDelegateProxy IncomingRestriction;
+    //If an outgoing buff restriction prevented application, this is a proxy for the restriction.
+    FCombatDelegateProxy OutgoingRestriction;
 
     //The class of buff we tried to apply
     UPROPERTY(BlueprintReadOnly)
@@ -62,6 +68,8 @@ struct FBuffApplyEvent
     //Timestamp of the buff application event
     UPROPERTY(BlueprintReadOnly)
     float NewApplyTime = 0.0f;
+    UPROPERTY()
+    int EventID = -1;
 
 #if !UE_BUILD_SHIPPING
     void DEBUG_ToString(FString& OutString) const;

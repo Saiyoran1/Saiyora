@@ -31,19 +31,29 @@ public:
 	static void AttachCombatActorToComponent(AActor* Target, USceneComponent* Parent, const FName SocketName, const EAttachmentRule LocationRule,
 		const EAttachmentRule RotationRule, const EAttachmentRule ScaleRule, const bool bWeldSimulatedBodies);
 
-	//Editor Utility
+	//Helper to check whether a certain NPC behavior should be treated as valid for certain actions such as taking damage or generating/receiving threat.
+	static bool IsActiveNPCBehavior(const ENPCCombatBehavior Behavior) { return Behavior == ENPCCombatBehavior::Patrolling || Behavior == ENPCCombatBehavior::Combat; }
+
+#pragma region Editor Helpers
+
+public:
 
 	//Get a list of names of functions on the provided object that match the signature of the provided example function.
 	static TArray<FName> GetMatchingFunctionNames(const UObject* Object, const UFunction* ExampleFunction);
 	//Check if two function signatures are the same. Useful for populating lists of modifier/restriction functions with appropriate function names.
 	static bool IsSignatureTheSame(const UFunction* Function, const UFunction* Example);
 
-	//Helper to check whether a certain NPC behavior should be treated as valid for certain actions such as taking damage or generating/receiving threat.
-	static bool IsActiveNPCBehavior(const ENPCCombatBehavior Behavior) { return Behavior == ENPCCombatBehavior::Patrolling || Behavior == ENPCCombatBehavior::Combat; }
+#pragma endregion 
+#pragma region Log Helpers
+
+public:
 
 	//Helper that just converts a bool to a string for easier logging
 	static const TCHAR* BoolToServerOrClientString(const bool bServer) { return bServer ? TEXT("SERVER") : TEXT("CLIENT"); }
+	//Logs a delegate formatted as { Object: %s, Function: %s }
+	static FString DelegateToLogString(const FScriptDelegate& Delegate);
 
+#pragma endregion 
 #pragma region Combat Parameter Functions
 
 	/*
@@ -298,6 +308,17 @@ public:
 		Struct->ExportText(ValueString, Param.GetMemory(), nullptr, nullptr, PPF_None, nullptr);
 		return FString::Printf(L"Type: %s, Value: %s", *Struct->GetName(), *ValueString);
 	}
+
+#pragma endregion
+#pragma region Unique Event IDs
+
+public:
+
+	static int GetUniqueCombatEventID() { return UniqueCombatEventID++; }
+	
+private:
+	
+	static int UniqueCombatEventID;
 
 #pragma endregion 
 };

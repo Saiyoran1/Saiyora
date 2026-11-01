@@ -153,7 +153,7 @@ private:
 	//Restrictions on outgoing buffs applied by this actor.
 	TConditionalRestrictionList<FBuffRestriction> OutgoingBuffRestrictions;
 
-	bool CheckBuffRestricted(const ECombatEventDirection Direction, const FBuffApplyEvent& Event, TArray<EBuffApplyFailReason>& OutFailReasons);
+	bool CheckBuffRestricted(const ECombatEventDirection Direction, const FBuffApplyEvent& Event, TArray<EBuffApplyFailReason>& OutFailReasons, FBuffRestriction& OutRestriction);
 	
 #pragma endregion 
 #pragma region DEBUG

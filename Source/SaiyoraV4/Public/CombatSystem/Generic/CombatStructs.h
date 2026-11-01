@@ -629,4 +629,25 @@ private:
     TMap<FCombatModifierHandle, FCombatModifier> Modifiers;
 };
 
-#pragma endregion 
+#pragma endregion
+
+//This struct can be used to represent Restriction or Modifier functions that need to get passed around.
+//It helps avoid circular dependencies and can be easily debug logged.
+USTRUCT()
+struct FCombatDelegateProxy
+{
+    GENERATED_BODY()
+    
+    TWeakObjectPtr<const UObject> Object = nullptr;
+    FName FunctionName = NAME_None;
+
+    FCombatDelegateProxy() {}
+    FCombatDelegateProxy(const FScriptDelegate& InRestriction)
+        : Object(InRestriction.GetUObject()), FunctionName(InRestriction.GetFunctionName()) {}
+
+    bool IsEmpty() const { return !Object.IsValid() && FunctionName.IsNone(); }
+
+#if !UE_BUILD_SHIPPING
+    void DEBUG_ToString(FString& OutString) const;
+#endif
+};

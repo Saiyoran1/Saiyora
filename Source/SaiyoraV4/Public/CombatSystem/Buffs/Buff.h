@@ -269,6 +269,10 @@ private:
 	//Application event of the most recent application
 	UPROPERTY(ReplicatedUsing = OnRep_LastApplyEvent)
 	FBuffApplyEvent LastApplyEvent;
+	//A flag to handle replication race between CreationEvent and LastApplyEvent, so that they're handled in order on clients.
+	bool bPendingLastApplyEvent = false;
+	//ID of the last LastApplyEvent that we handled on the client, to avoid OnRep triggering multiple times for one event as pointers resolve client-side.
+	int LastApplyEventIDHandled = -1;
 	//Used by clients to update the buff locally after application events
 	UFUNCTION()
 	void OnRep_LastApplyEvent();

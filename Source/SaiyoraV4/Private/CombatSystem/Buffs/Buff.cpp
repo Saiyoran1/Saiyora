@@ -158,6 +158,12 @@ void UBuff::OnRep_CreationEvent()
         }
     }
 
+    //Debug logging for this buff's creation event.
+    if (IsValid(Handler))
+    {
+        DEBUG_LOG_BUFF_APPLY(Handler, CreationEvent);
+    }
+
     //Run OnApply logic for buff function structs
     for (UBuffFunction* BuffFunction : BuffFunctionObjects)
     {
@@ -170,9 +176,10 @@ void UBuff::OnRep_CreationEvent()
     //Run child class OnApply logic
     OnApply(CreationEvent);
     
-    //Check if there is a valid LastApplyEvent that came in before or at the same time as CreationEvent (due to either variables coming in the wrong order, or net relevancy).
-    if (LastApplyEvent.ActionTaken != EBuffApplyAction::NewBuff && LastApplyEvent.ActionTaken != EBuffApplyAction::Failed)
+    //If LastApplyEvent attempted to fire its OnRep before initialization, let it fire off now that we're set up.
+    if (bPendingLastApplyEvent)
     {
+        bPendingLastApplyEvent = false;
         OnRep_LastApplyEvent();
     }
 }
@@ -262,13 +269,26 @@ void UBuff::OnRep_LastApplyEvent()
     if (Status != EBuffStatus::Active)
     {
         //Wait for CreationEvent replication to initialize the buff. This function will be called again if needed.
+        bPendingLastApplyEvent = true;
         return;
     }
+    //Check that we haven't already fired an OnRep for this event.
+    if (LastApplyEventIDHandled == LastApplyEvent.EventID)
+    {
+        return;
+    }
+    LastApplyEventIDHandled = LastApplyEvent.EventID;
+    
     CurrentStacks = LastApplyEvent.NewStacks;
     if (LastApplyEvent.ActionTaken == EBuffApplyAction::Refreshed || LastApplyEvent.ActionTaken == EBuffApplyAction::StackedAndRefreshed)
     {
         LastRefreshTime = LastApplyEvent.NewApplyTime;
         ExpireTime = LastApplyEvent.NewDuration + LastRefreshTime;
+    }
+    //Debug logging for this buff's most recent application.
+    if (IsValid(Handler))
+    {
+        DEBUG_LOG_BUFF_APPLY(Handler, LastApplyEvent);
     }
     //Update buff functions
     for (UBuffFunction* BuffFunction : BuffFunctionObjects)
@@ -436,11 +456,17 @@ bool UBuff::ShouldDisplayOnPartyFrame() const
 
 void UBuff::DEBUG_DumpBuffState(FString& OutString)
 {
-    FString CreationString, LastApplyString;
+    FString CreationString;
     CreationEvent.DEBUG_ToString(CreationString);
-    LastApplyEvent.DEBUG_ToString(LastApplyString);
-    OutString = FString::Printf(L"Buff %s: Status: %s, Stacks: %i, Duration: %f, CreationEvent: %s, LastApplyEvent: %s",
-        *GetName(), *UEnum::GetDisplayValueAsText(Status).ToString(), CurrentStacks, GetRemainingTime(), *CreationString, *LastApplyString);
+    OutString = FString::Printf(L"Buff %s: Status: %s, Stacks: %i, Duration: %f, CreationEvent: %s",
+        *GetName(), *UEnum::GetDisplayValueAsText(Status).ToString(), CurrentStacks, GetRemainingTime(), *CreationString);
+    //Last apply event is default until the first stack/refresh, so don't include it if it hasn't actually been set.
+    if (LastApplyEvent.ActionTaken != EBuffApplyAction::Failed)
+    {
+        FString LastApplyString;
+        LastApplyEvent.DEBUG_ToString(LastApplyString);
+        OutString.Append(FString::Printf(L", LastApplyEvent: %s", *LastApplyString));
+    }
 }
 
 #endif
