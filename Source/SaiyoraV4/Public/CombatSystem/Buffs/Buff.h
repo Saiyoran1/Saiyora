@@ -109,6 +109,10 @@ public:
 	//Gets whether this buff will remain on NPC targets that leave combat
 	UFUNCTION(BlueprintPure, Category = "Buff")
 	bool IsRemovedOnCombatEnd() const { return bRemoveOnCombatEnd; }
+	//Whether this buff was applied ignoring restrictions. That makes it undispellable.
+	//This is useful for buffs that need to be applied no matter what, and not removed by player actions.
+	UFUNCTION(BlueprintPure, Category = "Buff")
+	bool IsUndispellable() const { return bUndispellable; }
 	//Gets the stack count this buff had on its first application
 	UFUNCTION(BlueprintPure, Category = "Buff")
 	int32 GetInitialStacks() const { return CreationEvent.NewStacks; }
@@ -192,8 +196,8 @@ private:
 	//Used on clients to initialize the buff
 	UFUNCTION()
 	void OnRep_CreationEvent();
-	//Whether this buff ignores buff restrictions that would remove it after its initial application
-	bool bIgnoringRestrictions = false;
+	//Whether this buff was applied with bIgnoreRestrictions, which prevents it from being dispelled by normal gameplay.
+	bool bUndispellable = false;
 
 #pragma endregion
 #pragma region Removal
@@ -203,19 +207,18 @@ public:
 	//Multicast delegate fired when the buff is being removed
 	UPROPERTY(BlueprintAssignable)
 	FBuffRemoveNotification OnRemoved;
-	//Called by the handler when removing the buff, or by the buff itself on expiration, or on clients when the removal reason has replicated down
+	//Called by the handler when removing the buff, or on clients when the removal event has replicated down.
 	//Handles alerting handlers of buff removal, cleaning up buff functions, and firing delegates
-	//Can fail if ignoring restrictions and the termination reason is something ignorable (like a dispel)
-	FBuffRemoveEvent TerminateBuff(const EBuffExpireReason TerminationReason);
+	void TerminateBuff(const FBuffRemoveEvent& Event);
 
 private:
 
-	//The reason this buff was removed
-	UPROPERTY(ReplicatedUsing = OnRep_RemovalReason)
-	EBuffExpireReason RemovalReason;
+	//The event for this buff's removal.
+	UPROPERTY(ReplicatedUsing = OnRep_RemovalEvent)
+	FBuffRemoveEvent RemovalEvent;
 	//Used for clients to call TerminateBuff locally and clean themselves up
 	UFUNCTION()
-	void OnRep_RemovalReason();
+	void OnRep_RemovalEvent();
 	//Timer handle for expiration from the buff's duration
 	FTimerHandle ExpireHandle;
 	//When the buff's duration changes, this is called to reset the timer
@@ -228,6 +231,9 @@ private:
 
 public:
 
+	//Get the current status of the buff. This is usually "Active," other than during spawning and after removal.
+	UFUNCTION(BlueprintPure, Category = "Buff")
+	EBuffStatus GetBuffStatus() const { return Status; }
 	//Get the current stacks of the buff
 	UFUNCTION(BlueprintPure, Category = "Buff")
 	int32 GetCurrentStacks() const { return CurrentStacks; }

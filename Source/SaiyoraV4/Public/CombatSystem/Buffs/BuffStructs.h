@@ -97,6 +97,9 @@ struct FBuffRemoveEvent
     //Whether the buff was successfully removed or not
     UPROPERTY(BlueprintReadOnly)
     bool bResult = false;
+    //All of the reasons that removing this buff failed.
+    UPROPERTY(BlueprintReadOnly)
+    TArray<EBuffRemoveFailReason> FailReasons;
 
 #if !UE_BUILD_SHIPPING
     void DEBUG_ToString(FString& OutString) const;

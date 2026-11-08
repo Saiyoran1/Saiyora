@@ -25,7 +25,7 @@ void UBuff::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimePro
 
     DOREPLIFETIME(UBuff, CreationEvent);
     DOREPLIFETIME(UBuff, LastApplyEvent);
-    DOREPLIFETIME(UBuff, RemovalReason);
+    DOREPLIFETIME(UBuff, RemovalEvent);
 }
 
 void UBuff::InitializeBuff(FBuffApplyEvent& Event, UBuffHandler* NewHandler, const bool bIgnoreRestrictions, const EBuffApplicationOverrideType StackOverrideType,
@@ -89,7 +89,7 @@ void UBuff::InitializeBuff(FBuffApplyEvent& Event, UBuffHandler* NewHandler, con
     }
     
     CreationEvent = Event;
-    bIgnoringRestrictions = bIgnoreRestrictions;
+    bUndispellable = bIgnoreRestrictions;
 
     //Initial setup for buff function objects
     for (UBuffFunction* BuffFunction : BuffFunctionObjects)
@@ -314,7 +314,7 @@ void UBuff::ResetExpireTimer()
 void UBuff::CompleteExpireTimer()
 {
     GetWorld()->GetTimerManager().ClearTimer(ExpireHandle);
-    TerminateBuff(EBuffExpireReason::TimedOut);
+    Handler->RemoveBuff(this, EBuffExpireReason::TimedOut);
 }
 
 float UBuff::GetRemainingTime() const
@@ -322,66 +322,49 @@ float UBuff::GetRemainingTime() const
     return bFiniteDuration ? FMath::Max(0.0f, ExpireTime - GameStateRef->GetServerWorldTimeSeconds()) : 0.0f;
 }
 
-FBuffRemoveEvent UBuff::TerminateBuff(const EBuffExpireReason TerminationReason)
+void UBuff::TerminateBuff(const FBuffRemoveEvent& Event)
 {
-    //Fail to remove the buff if we are ignoring restrictions and this was a dispel
-    if (bIgnoringRestrictions && TerminationReason == EBuffExpireReason::Dispel)
+    if (Handler->GetOwnerRole() == ROLE_Authority)
     {
-        return FBuffRemoveEvent();
+        RemovalEvent = Event;
     }
-    
     if (bFiniteDuration)
     {
         GetWorld()->GetTimerManager().ClearTimer(ExpireHandle);
     }
-    RemovalReason = TerminationReason;
-    
-    FBuffRemoveEvent RemoveEvent;
-    RemoveEvent.bResult = true;
-    RemoveEvent.RemovedBuff = this;
-    RemoveEvent.RemovedFrom = CreationEvent.AppliedTo;
-    RemoveEvent.AppliedBy = CreationEvent.AppliedBy;
-    RemoveEvent.ExpireReason = RemovalReason;
-    
+    Status = EBuffStatus::Removed;
     //Run BuffFunction OnRemove logic
     for (UBuffFunction* BuffFunction : BuffFunctionObjects)
     {
         if (BuffFunction)
         {
-            BuffFunction->OnRemove(RemoveEvent);
+            BuffFunction->OnRemove(Event);
         }
     }
-
     //Run derived class OnRemove logic
-    OnRemove(RemoveEvent);
-    
-    Status = EBuffStatus::Removed;
-
+    OnRemove(Event);
     //Notify handlers to remove this buff from their arrays
-    Handler->NotifyOfIncomingBuffRemoval(RemoveEvent);
+    Handler->NotifyOfIncomingBuffRemoval(Event);
     
     //Debug logging for buff removal.
-    DEBUG_LOG_BUFF_REMOVE(Handler, RemoveEvent);
+    DEBUG_LOG_BUFF_REMOVE(Handler, Event);
     if (Handler->GetOwnerRole() == ROLE_Authority)
     {
         //Combat logging for buff removal.
-        GameStateRef->GetCombatLog()->LogBuffRemoveEvent(RemoveEvent);
+        GameStateRef->GetCombatLog()->LogBuffRemoveEvent(Event);
     }
     
     //Fire off delegate for external OnRemoved logic
-    OnRemoved.Broadcast(RemoveEvent);
-    
-    return RemoveEvent;
+    OnRemoved.Broadcast(Event);
 }
 
-void UBuff::OnRep_RemovalReason()
+void UBuff::OnRep_RemovalEvent()
 {
-    if (RemovalReason == EBuffExpireReason::Invalid)
+    if (!RemovalEvent.bResult || Status == EBuffStatus::Removed)
     {
-        //Guard against replicating the default RemovalReason.
         return;
     }
-    TerminateBuff(RemovalReason);
+    TerminateBuff(RemovalEvent);
 }
 
 #pragma endregion

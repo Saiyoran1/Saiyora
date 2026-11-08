@@ -254,6 +254,40 @@ void UCombatDebugOptions::DEBUG_LogBuffRemoveEvent(const UBuffHandler* AppliedTo
 	}
 }
 
+void UCombatDebugOptions::DEBUG_LogBuffRemoveFailure(const UBuffHandler* AppliedToHandler, const FBuffRemoveEvent& RemoveEvent) const
+{
+	//Log the remove event itself.
+	FString EventString;
+	RemoveEvent.DEBUG_ToString(EventString);
+	UE_LOG(LogSaiyoraBuffs, Log, TEXT("%s FAILED BuffRemoveEvent: %s"),
+		USaiyoraCombatLibrary::BoolToServerOrClientString(AppliedToHandler->GetOwnerRole() == ROLE_Authority), *EventString);
+	//Optionally dump the entire state of both involved buff handlers.
+	if (BuffLoggingVerbosity == EDebugLogVerbosity::FullDump)
+	{
+		//Log the state of the handler the buff was applied to.
+		TArray<FString> IncomingDump;
+		AppliedToHandler->DEBUG_DumpState(ECombatEventDirection::Incoming, IncomingDump);
+		for (const FString& DumpString : IncomingDump)
+		{
+			UE_LOG(LogSaiyoraBuffs, Log, TEXT("%s"), *DumpString);
+		}
+		//If valid, log the state of the handler the buff was applied by.
+		if (IsValid(RemoveEvent.AppliedBy) && RemoveEvent.AppliedBy->Implements<USaiyoraCombatInterface>())
+		{
+			const UBuffHandler* GeneratorBuff = ISaiyoraCombatInterface::Execute_GetBuffHandler(RemoveEvent.AppliedBy);
+			if (IsValid(GeneratorBuff))
+			{
+				TArray<FString> OutgoingDump;
+				GeneratorBuff->DEBUG_DumpState(ECombatEventDirection::Outgoing, OutgoingDump);
+				for (const FString& DumpString : OutgoingDump)
+				{
+					UE_LOG(LogSaiyoraBuffs, Log, TEXT("%s"), *DumpString);
+				}
+			}
+		}
+	}
+}
+
 void UCombatDebugOptions::DEBUG_LogBuffRestrictionAdded(const UBuffHandler* AppliedToHandler, const ECombatEventDirection Direction, const FBuffRestriction& Restriction) const
 {
 	UE_LOG(LogSaiyoraBuffs, Log, TEXT("%s Buff Restriction Added to handler for %s: %s"),

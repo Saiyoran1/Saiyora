@@ -203,18 +203,42 @@ void UBuffHandler::NotifyOfNewOutgoingBuff(const FBuffApplyEvent& ApplicationEve
 
 FBuffRemoveEvent UBuffHandler::RemoveBuff(UBuff* Buff, const EBuffExpireReason ExpireReason)
 {
-	if (GetOwnerRole() != ROLE_Authority || !IsValid(Buff) || Buff->GetAppliedTo() != GetOwner())
+	FBuffRemoveEvent Event;
+	Event.ExpireReason = ExpireReason;
+	Event.RemovedBuff = Buff;
+	Event.RemovedFrom = GetOwner();
+	Event.AppliedBy = IsValid(Buff) ? Buff->GetAppliedBy() : nullptr;
+	if (GetOwnerRole() != ROLE_Authority)
 	{
-		//TODO: Fill the event to handle failure.
-		DEBUG_LOG_BUFF_REMOVE_FAIL(this, FBuffRemoveEvent());
-		return FBuffRemoveEvent();
+		Event.FailReasons.Add(EBuffRemoveFailReason::NetRole);
 	}
-	const FBuffRemoveEvent RemoveEvent = Buff->TerminateBuff(ExpireReason);
-	if (!RemoveEvent.bResult)
+	if (IsValid(Buff))
 	{
-		DEBUG_LOG_BUFF_REMOVE_FAIL(this, RemoveEvent);
+		if (Buff->GetAppliedTo() != GetOwner())
+		{
+			Event.FailReasons.Add(EBuffRemoveFailReason::WrongTarget);
+		}
+		if (Buff->GetBuffStatus() == EBuffStatus::Removed)
+		{
+			Event.FailReasons.Add(EBuffRemoveFailReason::AlreadyRemoved);
+		}
+		if (Buff->IsUndispellable() && ExpireReason == EBuffExpireReason::Dispel)
+		{
+			Event.FailReasons.Add(EBuffRemoveFailReason::Undispellable);
+		}
 	}
-	return RemoveEvent;
+	else
+	{
+		Event.FailReasons.Add(EBuffRemoveFailReason::InvalidBuff);
+	}
+	if (Event.FailReasons.Num() > 0)
+	{
+		DEBUG_LOG_BUFF_REMOVE_FAIL(this, Event);
+		return Event;
+	}
+	Event.bResult = true;
+	Buff->TerminateBuff(Event);
+	return Event;
 }
 
 void UBuffHandler::NotifyOfIncomingBuffRemoval(const FBuffRemoveEvent& RemoveEvent)

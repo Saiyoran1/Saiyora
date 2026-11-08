@@ -83,6 +83,19 @@ void FBuffRemoveEvent::DEBUG_ToString(FString& OutString) const
 	{
 		OutString.Append(FString::Printf(L", RemovedFrom: %s", *RemovedFrom->GetName()));
 	}
+	if (!bResult)
+	{
+		OutString.Append(", FailReasons: { ");
+		for (int i = 0; i < FailReasons.Num(); i++)
+		{
+			if (i != 0)
+			{
+				OutString.Append(", ");
+			}
+			OutString.Append(*UEnum::GetDisplayValueAsText(FailReasons[i]).ToString());
+		}
+		OutString.Append(" }");
+	}
 }
 
 #endif

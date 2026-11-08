@@ -100,6 +100,22 @@ enum class EBuffApplyFailReason : uint8
 	BuffFunction,
 };
 
+UENUM(BlueprintType)
+enum class EBuffRemoveFailReason : uint8
+{
+	None UMETA(Hidden),
+	//Tried to remove a buff on a client.
+	NetRole,
+	//Tried to remove a null buff.
+	InvalidBuff,
+	//Tried to remove a buff from an actor the buff wasn't applied to.
+	WrongTarget,
+	//Tried to dispel a buff that was undispellable.
+	Undispellable,
+	//Tried to remove a buff that was already removed.
+	AlreadyRemoved,
+};
+
 UENUM()
 enum class EBuffDisplayOption : uint8
 {
