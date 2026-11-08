@@ -102,14 +102,13 @@ void UBuff::InitializeBuff(FBuffApplyEvent& Event, UBuffHandler* NewHandler, con
     
     Status = EBuffStatus::Active;
 
-    //Add ourselves to the handler arrays of the actor we are applied to and the actor we were applied by
-    Handler->NotifyOfNewIncomingBuff(CreationEvent);
-
     //Debug logging for this buff application.
     DEBUG_LOG_BUFF_APPLY(Handler, Event);
     //Combat logging for this buff application.
     GameStateRef->GetCombatLog()->LogBuffApplyEvent(Event);
 
+    //Add ourselves to the handler arrays of the actor we are applied to and the actor we were applied by
+    Handler->NotifyOfNewIncomingBuff(CreationEvent);
     //Run OnApply logic for buff function structs
     for (UBuffFunction* BuffFunction : BuffFunctionObjects)
     {
@@ -118,7 +117,6 @@ void UBuff::InitializeBuff(FBuffApplyEvent& Event, UBuffHandler* NewHandler, con
             BuffFunction->OnApply(CreationEvent);
         }
     }
-    
     //Run child class OnApply logic
     OnApply(CreationEvent);
 }
@@ -154,16 +152,12 @@ void UBuff::OnRep_CreationEvent()
         Handler = ISaiyoraCombatInterface::Execute_GetBuffHandler(CreationEvent.AppliedTo);
         if (IsValid(Handler))
         {
+            //Debug logging for this buff's creation event.
+            DEBUG_LOG_BUFF_APPLY(Handler, CreationEvent);
             Handler->NotifyOfNewIncomingBuff(CreationEvent);
         }
     }
-
-    //Debug logging for this buff's creation event.
-    if (IsValid(Handler))
-    {
-        DEBUG_LOG_BUFF_APPLY(Handler, CreationEvent);
-    }
-
+    
     //Run OnApply logic for buff function structs
     for (UBuffFunction* BuffFunction : BuffFunctionObjects)
     {
@@ -172,10 +166,8 @@ void UBuff::OnRep_CreationEvent()
             BuffFunction->OnApply(CreationEvent);
         }
     }
-
     //Run child class OnApply logic
     OnApply(CreationEvent);
-    
     //If LastApplyEvent attempted to fire its OnRep before initialization, let it fire off now that we're set up.
     if (bPendingLastApplyEvent)
     {
@@ -333,6 +325,13 @@ void UBuff::TerminateBuff(const FBuffRemoveEvent& Event)
         GetWorld()->GetTimerManager().ClearTimer(ExpireHandle);
     }
     Status = EBuffStatus::Removed;
+    //Debug logging for buff removal.
+    DEBUG_LOG_BUFF_REMOVE(Handler, Event);
+    if (Handler->GetOwnerRole() == ROLE_Authority)
+    {
+        //Combat logging for buff removal.
+        GameStateRef->GetCombatLog()->LogBuffRemoveEvent(Event);
+    }
     //Run BuffFunction OnRemove logic
     for (UBuffFunction* BuffFunction : BuffFunctionObjects)
     {
@@ -345,15 +344,6 @@ void UBuff::TerminateBuff(const FBuffRemoveEvent& Event)
     OnRemove(Event);
     //Notify handlers to remove this buff from their arrays
     Handler->NotifyOfIncomingBuffRemoval(Event);
-    
-    //Debug logging for buff removal.
-    DEBUG_LOG_BUFF_REMOVE(Handler, Event);
-    if (Handler->GetOwnerRole() == ROLE_Authority)
-    {
-        //Combat logging for buff removal.
-        GameStateRef->GetCombatLog()->LogBuffRemoveEvent(Event);
-    }
-    
     //Fire off delegate for external OnRemoved logic
     OnRemoved.Broadcast(Event);
 }

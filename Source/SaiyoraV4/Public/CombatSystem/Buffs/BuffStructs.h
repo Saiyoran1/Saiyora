@@ -68,6 +68,7 @@ struct FBuffApplyEvent
     //Timestamp of the buff application event
     UPROPERTY(BlueprintReadOnly)
     float NewApplyTime = 0.0f;
+    //Unique ID for the combat event.
     UPROPERTY()
     int EventID = -1;
 
@@ -100,6 +101,9 @@ struct FBuffRemoveEvent
     //All of the reasons that removing this buff failed.
     UPROPERTY(BlueprintReadOnly)
     TArray<EBuffRemoveFailReason> FailReasons;
+    //Unique ID for the combat event.
+    UPROPERTY()
+    int EventID = -1;
 
 #if !UE_BUILD_SHIPPING
     void DEBUG_ToString(FString& OutString) const;

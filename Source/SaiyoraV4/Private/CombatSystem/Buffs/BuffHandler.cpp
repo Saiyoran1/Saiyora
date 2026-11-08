@@ -204,6 +204,7 @@ void UBuffHandler::NotifyOfNewOutgoingBuff(const FBuffApplyEvent& ApplicationEve
 FBuffRemoveEvent UBuffHandler::RemoveBuff(UBuff* Buff, const EBuffExpireReason ExpireReason)
 {
 	FBuffRemoveEvent Event;
+	Event.EventID = USaiyoraCombatLibrary::GetUniqueCombatEventID();
 	Event.ExpireReason = ExpireReason;
 	Event.RemovedBuff = Buff;
 	Event.RemovedFrom = GetOwner();
