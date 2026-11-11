@@ -76,3 +76,13 @@ enum class ESaiyoraFactionFilter : uint8
 	//Only include actors of the opposite faction, excluding neutral actors.
 	OppositeFactionExcludeNeutral,
 };
+
+UENUM()
+enum class ECombatEventSourceType : uint8
+{
+	None,
+	Object,
+	Combatant,
+	Buff,
+	Ability,
+};

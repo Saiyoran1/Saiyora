@@ -9,6 +9,20 @@ struct FBuffRemoveEvent;
 struct FBuffApplyEvent;
 
 USTRUCT()
+struct FLoggedEventSource
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	ECombatEventSourceType Type = ECombatEventSourceType::None;
+	UPROPERTY()
+	TSubclassOf<UObject> SourceClass = nullptr;
+
+	FLoggedEventSource() {}
+	FLoggedEventSource(const UObject* InSource);
+};
+
+USTRUCT()
 struct FLoggedBuffApplyEvent
 {
 	GENERATED_BODY()
@@ -34,14 +48,11 @@ struct FLoggedBuffApplyEvent
 
 	//The source of the buff, usually an ability, but can be anything
 	UPROPERTY()
-	UObject* Source = nullptr;
+	FLoggedEventSource Source = FLoggedEventSource();
 
 	//Whether this was a new application, stack, or refresh.
 	UPROPERTY()
 	EBuffApplyAction ActionTaken = EBuffApplyAction::Failed;
-	//Unique ID of the affected buff.
-	UPROPERTY()
-	int32 BuffID = -1;
 	//The buff class affected
 	UPROPERTY()
 	TSubclassOf<UBuff> BuffClass = nullptr;
@@ -71,10 +82,7 @@ struct FLoggedBuffRemoveEvent
 	int EventID = -1;
 	UPROPERTY()
 	float Timestamp = -1.0f;
-
-	//Unique ID of the removed buff.
-	UPROPERTY()
-	int32 BuffID = -1;
+	
 	//The buff class affected.
 	UPROPERTY()
 	TSubclassOf<UBuff> BuffClass = nullptr;

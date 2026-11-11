@@ -1,8 +1,39 @@
 ﻿#include "CombatLogStructs.h"
 #include "Buff.h"
 #include "BuffStructs.h"
+#include "SaiyoraCombatInterface.h"
+#include "CombatAbility.h"
 #include "CombatLogComponent.h"
 #include "SaiyoraGameState.h"
+
+FLoggedEventSource::FLoggedEventSource(const UObject* InSource)
+{
+	if (IsValid(InSource))
+	{
+		SourceClass = InSource->GetClass();
+		if (SourceClass->IsChildOf(UCombatAbility::StaticClass()))
+		{
+			Type = ECombatEventSourceType::Ability;
+		}
+		else if (SourceClass->IsChildOf(UBuff::StaticClass()))
+		{
+			Type = ECombatEventSourceType::Buff;
+		}
+		else if (SourceClass->IsChildOf(AActor::StaticClass())
+			&& SourceClass->ImplementsInterface(USaiyoraCombatInterface::StaticClass()))
+		{
+			Type = ECombatEventSourceType::Combatant;
+		}
+		else
+		{
+			Type = ECombatEventSourceType::Object;
+		}
+	}
+	else
+	{
+		Type = ECombatEventSourceType::None;
+	}
+}
 
 FLoggedBuffApplyEvent::FLoggedBuffApplyEvent(const FBuffApplyEvent& InEvent, const ASaiyoraGameState* GameStateRef)
 {
@@ -16,10 +47,9 @@ FLoggedBuffApplyEvent::FLoggedBuffApplyEvent(const FBuffApplyEvent& InEvent, con
 	TargetPlane = InEvent.TargetPlane;
 	AppliedBy = GameStateRef->GetCombatLog()->GetCombatantID(InEvent.AppliedBy);
 	OriginPlane = InEvent.OriginPlane;
-	Source = InEvent.Source;
+	Source = FLoggedEventSource(InEvent.Source);
 	ActionTaken = InEvent.ActionTaken;
 	BuffClass = InEvent.AffectedBuff->GetClass();
-	//TODO: BuffID
 	PreviousStacks = InEvent.PreviousStacks;
 	PreviousDuration = InEvent.PreviousDuration;
 	NewStacks = InEvent.NewStacks;
@@ -37,7 +67,6 @@ FLoggedBuffRemoveEvent::FLoggedBuffRemoveEvent(const FBuffRemoveEvent& InEvent, 
 	RemovedFrom = GameStateRef->GetCombatLog()->GetCombatantID(InEvent.RemovedFrom);
 	AppliedBy = GameStateRef->GetCombatLog()->GetCombatantID(InEvent.AppliedBy);
 	BuffClass = InEvent.RemovedBuff->GetClass();
-	//TODO: BuffID
 	ExpireReason = InEvent.ExpireReason;
 }
 
