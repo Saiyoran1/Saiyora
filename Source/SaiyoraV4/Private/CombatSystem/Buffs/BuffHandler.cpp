@@ -38,7 +38,7 @@ void UBuffHandler::BeginPlay()
 {
 	Super::BeginPlay();
 	
-	if (GetOwnerRole() == ROLE_Authority && IsValid(DamageHandlerRef))
+	if (GetOwnerRole() == ROLE_Authority)
 	{
 		if (IsValid(DamageHandlerRef))
 		{
@@ -49,11 +49,6 @@ void UBuffHandler::BeginPlay()
 			NPCComponentRef->OnCombatBehaviorChanged.AddDynamic(this, &UBuffHandler::RemoveBuffsOnCombatEnd);
 		}
 	}
-}
-
-void UBuffHandler::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
-{
-	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 }
 
 #pragma endregion 

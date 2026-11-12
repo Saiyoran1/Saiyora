@@ -33,6 +33,7 @@ void UDamageHandler::InitializeComponent()
 	checkf(GetOwner()->Implements<USaiyoraCombatInterface>(), TEXT("Owner does not implement combat interface, but has Damage Handler."));
 	if (GetOwnerRole() == ROLE_Authority)
 	{
+		CombatStatusComponentRef = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(GetOwner());
 		StatHandlerRef = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwner());
 		if (bHasHealth)
 		{

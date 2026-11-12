@@ -234,7 +234,7 @@ void USaiyoraMovementComponent::BeginPlay()
 	{
 		CcHandlerRef->OnCrowdControlChanged.AddDynamic(this, &USaiyoraMovementComponent::StopMotionOnRooted);
 	}
-	if (GetOwnerRole() == ROLE_Authority && IsValid(StatHandlerRef))
+	if (GetOwnerRole() == ROLE_Authority)
 	{
 		if (IsValid(StatHandlerRef))
 		{

@@ -46,6 +46,8 @@ public:
 	//Gets whether a crowd control of the given type is active
 	UFUNCTION(BlueprintPure, Category = "Crowd Control")
 	bool IsCrowdControlActive(const ECrowdControl CcType) const;
+	UFUNCTION(BlueprintPure, Category = "Crowd Control")
+	bool IsAnyCrowdControlActive(const TSet<ECrowdControl>& CcTypes) const;
 
 	//Called any time a crowd control becomes active or inactive, or changes its dominant buff
 	UPROPERTY(BlueprintAssignable)

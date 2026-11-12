@@ -22,7 +22,6 @@ public:
 	UBuffHandler();
 	virtual void BeginPlay() override;
 	virtual void InitializeComponent() override;
-	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 private:
 

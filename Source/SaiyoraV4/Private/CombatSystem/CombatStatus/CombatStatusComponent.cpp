@@ -84,12 +84,6 @@ void UCombatStatusComponent::BeginPlay()
 	//Initial setting of outline and plane material and collision profile.
 	UpdateOwnerCustomRendering();
 	UpdateOwnerPlaneCollision();
-
-	//Setup binding for showing/hiding combat name when entering combat as an NPC.
-	if (GetCurrentFaction() != EFaction::Friendly && IsValid(ThreatHandlerRef))
-	{
-		ThreatHandlerRef->OnCombatChanged.AddDynamic(this, &UCombatStatusComponent::OnCombatChanged);
-	}
 }
 
 void UCombatStatusComponent::TickComponent(float DeltaTime, ELevelTick TickType,
@@ -134,6 +128,12 @@ void UCombatStatusComponent::SetupNameWidget(const ASaiyoraPlayerCharacter* Loca
 			SetDrawAtDesiredSize(true);
 			SetPivot(FVector2D(0.5f, 0.0f));
 			FloatingNameWidget->Init(this);
+			//Setup binding for showing/hiding combat name when entering combat as an NPC.
+			if (GetCurrentFaction() != EFaction::Friendly && IsValid(ThreatHandlerRef))
+			{
+				ThreatHandlerRef->OnCombatChanged.AddDynamic(this, &UCombatStatusComponent::OnCombatChanged);
+				OnCombatChanged(ThreatHandlerRef, ThreatHandlerRef->IsInCombat());
+			}
 		}
 		FName SocketName = NAME_None;
 		USceneComponent* SceneComponent = ISaiyoraCombatInterface::Execute_GetFloatingHealthSocket(GetOwner(), SocketName);

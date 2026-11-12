@@ -1,5 +1,6 @@
 #include "CombatAbility.h"
 #include "AbilityComponent.h"
+#include "CrowdControlHandler.h"
 #include "DamageHandler.h"
 #include "Resource.h"
 #include "ResourceHandler.h"
@@ -105,6 +106,14 @@ void UCombatAbility::InitializeAbility(UAbilityComponent* AbilityComponent)
             if (IsValid(MovementCompRef))
             {
                 MovementCompRef->OnMovementChanged.AddDynamic(this, &UCombatAbility::OnMovementChanged);
+            }
+        }
+        if (RestrictedCrowdControls.Num() > 0)
+        {
+            CcHandlerRef = ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(OwningComponent->GetOwner());
+            if (IsValid(CcHandlerRef))
+            {
+                CcHandlerRef->OnCrowdControlChanged.AddDynamic(this, &UCombatAbility::OnCrowdControlChanged);
             }
         }
         if (!bCastableWhileCasting)
@@ -889,39 +898,43 @@ void UCombatAbility::UpdateCastable()
     
     if (!bInitialized || bDeactivated)
     {
-        CastFailReasons.AddUnique(ECastFailReason::InvalidAbility);
+        CastFailReasons.Add(ECastFailReason::InvalidAbility);
     }
     if (GetCurrentCharges() < GetChargeCost())
     {
-        CastFailReasons.AddUnique(ECastFailReason::ChargesNotMet);
+        CastFailReasons.Add(ECastFailReason::ChargesNotMet);
     }
     if (UnmetCosts.Num() > 0)
     {
-        CastFailReasons.AddUnique(ECastFailReason::CostsNotMet);
+        CastFailReasons.Add(ECastFailReason::CostsNotMet);
     }
     if (CustomCastRestrictions.Num() > 0)
     {
-        CastFailReasons.AddUnique(ECastFailReason::AbilityConditionsNotMet);
+        CastFailReasons.Add(ECastFailReason::AbilityConditionsNotMet);
     }
     if (bTagsRestricted)
     {
-        CastFailReasons.AddUnique(ECastFailReason::CustomRestriction);
+        CastFailReasons.Add(ECastFailReason::CustomRestriction);
     }
     if (!bCastableWhileCasting && OwningComponent->IsCasting())
     {
-        CastFailReasons.AddUnique(ECastFailReason::AlreadyCasting);
+        CastFailReasons.Add(ECastFailReason::AlreadyCasting);
     }
     if (bOnGlobalCooldown && OwningComponent->IsGlobalCooldownActive())
     {
-        CastFailReasons.AddUnique(ECastFailReason::OnGlobalCooldown);
+        CastFailReasons.Add(ECastFailReason::OnGlobalCooldown);
     }
     if (!bCastableWhileDead && IsValid(DamageHandlerRef) && DamageHandlerRef->GetLifeStatus() != ELifeStatus::Alive)
     {
-        CastFailReasons.AddUnique(ECastFailReason::Dead);
+        CastFailReasons.Add(ECastFailReason::Dead);
     }
     if (!bCastableWhileMoving && IsValid(MovementCompRef) && MovementCompRef->IsMoving())
     {
-        CastFailReasons.AddUnique(ECastFailReason::Moving);
+        CastFailReasons.Add(ECastFailReason::Moving);
+    }
+    if (RestrictedCrowdControls.Num() > 0 && IsValid(CcHandlerRef) && CcHandlerRef->IsAnyCrowdControlActive(RestrictedCrowdControls))
+    {
+        CastFailReasons.Add(ECastFailReason::CrowdControl);
     }
 
     //Virtual call for NPCAbility (or any other derived ability class) to add additional fail reasons.

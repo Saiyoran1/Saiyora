@@ -119,6 +119,18 @@ bool UCrowdControlHandler::IsCrowdControlActive(const ECrowdControl CcType) cons
 	return Status != nullptr && Status->bActive;
 }
 
+bool UCrowdControlHandler::IsAnyCrowdControlActive(const TSet<ECrowdControl>& CcTypes) const
+{
+	for (const ECrowdControl Cc : CcTypes)
+	{
+		if (IsCrowdControlActive(Cc))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 FCrowdControlStatus* UCrowdControlHandler::GetCcStruct(const ECrowdControl CcType)
 {
 	for (FCrowdControlStatus& Cc : CurrentCrowdControls.Items)

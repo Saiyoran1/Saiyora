@@ -8,6 +8,8 @@
 #include "GameFramework/GameStateBase.h"
 #include "CombatAbility.generated.h"
 
+class UCrowdControlHandler;
+struct FCrowdControlStatus;
 class USaiyoraMovementComponent;
 class UDamageHandler;
 class UAbilityComponent;
@@ -155,11 +157,15 @@ private:
     void OnGlobalCooldownChanged(const FGlobalCooldown& Previous, const FGlobalCooldown& New) { UpdateCastable(); }
     UFUNCTION()
     void OnCastStateChanged(const FCastingState& Previous, const FCastingState& New) { UpdateCastable(); }
+    UFUNCTION()
+    void OnCrowdControlChanged(const FCrowdControlStatus& NewStatus) { UpdateCastable(); }
 
     UPROPERTY()
     UDamageHandler* DamageHandlerRef = nullptr;
     UPROPERTY()
     USaiyoraMovementComponent* MovementCompRef = nullptr;
+    UPROPERTY()
+    UCrowdControlHandler* CcHandlerRef = nullptr;
 
 #pragma endregion 
 #pragma region Casting

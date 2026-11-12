@@ -820,7 +820,7 @@ void UAbilityComponent::InterruptCastOnCrowdControl(const FCrowdControlStatus& N
 		CastingState.CurrentCast->GetRestrictedCrowdControls(RestrictedCcs);
 		if (RestrictedCcs.Contains(NewStatus.CrowdControlType))
 		{
-			InterruptCurrentCast(NewStatus.DominantBuffInstance->GetHandler()->GetOwner(), NewStatus.DominantBuffInstance, true);
+			InterruptCurrentCast(NewStatus.DominantBuffInstance->GetAppliedBy(), NewStatus.DominantBuffInstance, true);
 		}
 	}
 }
