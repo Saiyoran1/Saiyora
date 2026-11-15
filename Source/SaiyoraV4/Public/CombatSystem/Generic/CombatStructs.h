@@ -213,14 +213,14 @@ struct FCombatant : public FFastArraySerializerItem
     UPROPERTY()
     FCombatantID ID = FCombatantID();
     UPROPERTY()
-    FName DisplayName = NAME_None;
+    FText DisplayName;
     UPROPERTY()
     uint8 NameNumber = 0;
 
     void PostReplicatedAdd(const struct FCombatantArray& InArraySerializer);
 
     FCombatant() {}
-    FCombatant(const FCombatantID& InID, const FName InName, const uint8 InNumber)
+    FCombatant(const FCombatantID& InID, const FText& InName, const uint8 InNumber)
         : ID(InID), DisplayName(InName), NameNumber(InNumber) {}
 };
 

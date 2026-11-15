@@ -24,5 +24,5 @@ private:
 	int32 MaxNameLength = 20;
 
 	UFUNCTION()
-	void UpdateName(const FName InName, const EFaction OwnerFaction = EFaction::Neutral);
+	void UpdateName(const FText& InName, const EFaction OwnerFaction = EFaction::Neutral);
 };

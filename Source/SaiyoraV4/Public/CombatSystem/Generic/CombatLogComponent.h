@@ -22,11 +22,12 @@ public:
 	
 	//Called on BeginPlay by the CombatStatusComponent to register an actor as a combatant for logging.
 	FCombatantID RegisterCombatant(const UCombatStatusComponent* CombatComponent);
-	//Get a combatant ID for an actor for the purposes of logging.
-	FCombatantID GetCombatantID(const AActor* Combatant) const { return CombatantToIDMap.FindRef(Combatant); }
-	//Gets a pointer to an actor using its combat log ID. Returns nullptr for unregistered combatants.
-	AActor* GetCombatantByID(const FCombatantID& ID) const { return IDToCombatantMap.FindRef(ID); }
-	void OnCombatantAdded(const FCombatant& NewCombatant) {}
+	//Get the combatant ID for an actor for the purposes of logging.
+	static FCombatantID GetCombatantID(const AActor* Combatant);
+	//Get the display name for the combat log for a given combatant. Returns false if the ID is unregistered or not associated with a name yet.
+	bool GetCombatantDisplayName(const FCombatantID& ID, FText& OutText) const;
+	//Called client-side when a combatant ID is replicated down, to resolve any log events that had IDs with no name yet associated.
+	void OnCombatantAdded(const FCombatant& NewCombatant);
 	
 	void LogBuffApplyEvent(const FBuffApplyEvent& Event);
 	void LogBuffRemoveEvent(const FBuffRemoveEvent& Event);
@@ -41,16 +42,15 @@ private:
 	
 	UPROPERTY(Replicated)
 	FCombatantArray Combatants;
+	//Server-side map of how many combatants are using the same name. We just assign them a number to differentiate in the log.
 	UPROPERTY()
-	TMap<FCombatantID, AActor*> IDToCombatantMap;
-	UPROPERTY()
-	TMap<AActor*, FCombatantID> CombatantToIDMap;
-	UPROPERTY()
-	TMap<FName, int> NameUsageMap;
+	TMap<FString, int> NameUsageMap;
 
 	UPROPERTY()
 	FCombatLog CombatLog;
+	//Combat log events queued up this frame to be sent to clients.
 	FCombatLog PendingMultiplayerLogEvents;
+	//Sends all pending log events to all clients for addition to the log.
 	void FlushPendingCombatLog();
 	UFUNCTION(NetMulticast, Reliable)
 	void Multicast_UpdateCombatLog(const FCombatLog& NewLogEntries);

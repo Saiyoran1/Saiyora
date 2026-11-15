@@ -2,6 +2,7 @@
 #include "Buff.h"
 #include "BuffFunctionality.h"
 #include "CombatDebugOptions.h"
+#include "CombatLogComponent.h"
 #include "CombatStatusComponent.h"
 #include "SaiyoraCombatInterface.h"
 #include "DamageHandler.h"
@@ -65,6 +66,7 @@ FBuffApplyEvent UBuffHandler::ApplyBuff(const TSubclassOf<UBuff> BuffClass, AAct
 	//We fill this out early mostly for debug logging to have this data if we fail early.
 	Event.BuffClass = BuffClass;
 	Event.AppliedBy = AppliedBy;
+	Event.AppliedByID = UCombatLogComponent::GetCombatantID(AppliedBy);
 	UCombatStatusComponent* GeneratorCombatStatus = nullptr;
 	UBuffHandler* GeneratorBuff = nullptr;
 	if (IsValid(AppliedBy) && AppliedBy->Implements<USaiyoraCombatInterface>())
@@ -204,6 +206,7 @@ FBuffRemoveEvent UBuffHandler::RemoveBuff(UBuff* Buff, const EBuffExpireReason E
 	Event.RemovedBuff = Buff;
 	Event.RemovedFrom = GetOwner();
 	Event.AppliedBy = IsValid(Buff) ? Buff->GetAppliedBy() : nullptr;
+	Event.AppliedByID = IsValid(Buff) ? Buff->GetAppliedByCombatantID() : FCombatantID();
 	if (GetOwnerRole() != ROLE_Authority)
 	{
 		Event.FailReasons.Add(EBuffRemoveFailReason::NetRole);

@@ -36,9 +36,13 @@ struct FBuffApplyEvent
     UPROPERTY(BlueprintReadOnly)
     ESaiyoraPlane TargetPlane = ESaiyoraPlane::Both;
 
-    //The actor the buff was applied by
+    //The actor the buff was applied by.
     UPROPERTY(BlueprintReadOnly)
     AActor* AppliedBy = nullptr;
+    //The combatant ID of whoever applied the buff.
+    //This is necessary as the applier might be destroyed before the buff itself is removed, and we need their name for logging.
+    UPROPERTY()
+    FCombatantID AppliedByID = FCombatantID();
     //The plane of the actor the buff was applied by, at application time
     UPROPERTY(BlueprintReadOnly)
     ESaiyoraPlane OriginPlane = ESaiyoraPlane::Both;
@@ -83,19 +87,23 @@ struct FBuffRemoveEvent
 {
     GENERATED_BODY()
 
-    //The buff instance that was removed
+    //The buff instance that was removed.
     UPROPERTY(BlueprintReadOnly)
     UBuff* RemovedBuff = nullptr;
-    //The actor that removed this buff
+    //The actor that originally applied this buff.
     UPROPERTY(BlueprintReadOnly)
     AActor* AppliedBy = nullptr;
-    //The actor the buff was applied to before being removed
+    //The combatant ID of whoever applied the buff.
+    //This is needed because the applier might be destroyed before the buff, but we still need their name for logging.
+    UPROPERTY()
+    FCombatantID AppliedByID = FCombatantID();
+    //The actor the buff was applied to before being removed.
     UPROPERTY(BlueprintReadOnly)
     AActor* RemovedFrom = nullptr;
-    //A generic reason for why the buff was removed
+    //A generic reason for why the buff was removed.
     UPROPERTY(BlueprintReadOnly)
     EBuffExpireReason ExpireReason = EBuffExpireReason::Invalid;
-    //Whether the buff was successfully removed or not
+    //Whether the buff was successfully removed or not.
     UPROPERTY(BlueprintReadOnly)
     bool bResult = false;
     //All of the reasons that removing this buff failed.

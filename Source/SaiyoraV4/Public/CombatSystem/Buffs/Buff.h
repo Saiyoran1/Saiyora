@@ -26,6 +26,7 @@ public:
 	UBuffHandler* GetHandler() const { return Handler; }
 	UFUNCTION(BlueprintPure, Category = "Buff")
 	AActor* GetAppliedBy() const { return CreationEvent.AppliedBy; }
+	FCombatantID GetAppliedByCombatantID() const { return CreationEvent.AppliedByID; }
 	UFUNCTION(BlueprintPure, Category = "Buff")
 	AActor* GetAppliedTo() const { return CreationEvent.AppliedTo; }
 	UFUNCTION(BlueprintPure, Category = "Buff")

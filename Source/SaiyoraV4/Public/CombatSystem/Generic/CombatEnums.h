@@ -86,3 +86,11 @@ enum class ECombatEventSourceType : uint8
 	Buff,
 	Ability,
 };
+
+UENUM()
+enum class ECombatLogEventType : uint8
+{
+	None,
+	BuffApply,
+	BuffRemove,
+};

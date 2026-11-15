@@ -10,30 +10,20 @@ void UFloatingName::Init(const UCombatStatusComponent* CombatStatusComponent)
 	}
 	else
 	{
-		UpdateName(NAME_None);
+		UpdateName(FText());
 	}
 }
 
-void UFloatingName::UpdateName(const FName InName, const EFaction OwnerFaction)
+void UFloatingName::UpdateName(const FText& InName, const EFaction OwnerFaction)
 {
-	if (InName == NAME_None)
+	if (InName.IsEmptyOrWhitespace())
 	{
 		SetVisibility(ESlateVisibility::Hidden);
 	}
 	else
 	{
 		SetVisibility(ESlateVisibility::HitTestInvisible);
-		const FString NameAsString = InName.ToString();
-		if (NameAsString.Len() > MaxNameLength)
-		{
-			FString Shortened = NameAsString.Left(MaxNameLength - 3);
-			Shortened += "...";
-			NameText->SetText(FText::FromString(Shortened));
-		}
-		else
-		{
-			NameText->SetText(FText::FromString(NameAsString));
-		}
+		NameText->SetText(InName);
 		switch (OwnerFaction)
 		{
 		case EFaction::Friendly :

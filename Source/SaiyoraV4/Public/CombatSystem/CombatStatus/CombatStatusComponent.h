@@ -27,6 +27,8 @@ public:
 	virtual void BeginPlay() override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
+	FCombatantID GetCombatantID() const { return CombatantID; }
+
 private:
 
 	UPROPERTY()
@@ -46,13 +48,14 @@ public:
 
 	//Get the display name for this combatant.
 	UFUNCTION(BlueprintPure, Category = "Name")
-	FName GetCombatName() const { return CombatName; }
+	FText GetCombatName() const { return CombatName; }
+	
 	
 private:
 
 	//Cosmetic name used for floating name display and unit frames.
 	UPROPERTY(EditAnywhere, Category = "Name")
-	FName CombatName;
+	FText CombatName;
 	//Widget class for the floating name displayed above the combatant when not in combat.
 	UPROPERTY(EditDefaultsOnly, Category = "Name")
 	TSubclassOf<UFloatingName> NameWidgetClass;
