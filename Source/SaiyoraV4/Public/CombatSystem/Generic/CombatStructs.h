@@ -81,9 +81,10 @@ struct SAIYORAV4_API FSaiyoraCombatTags : public FGameplayTagNativeAdder
     FGameplayTag ReloadAbility;
     FGameplayTag StopFireAbility;
 
-    FGameplayTag ExternalMovement;
+    //TODO: Remove this and make a movement restriction buff function.
     FGameplayTag MovementRestriction;
 
+    //Stats
     FGameplayTag Stat;
     FGameplayTag Stat_DamageDone;
     FGameplayTag Stat_DamageTaken;
@@ -108,7 +109,11 @@ struct SAIYORAV4_API FSaiyoraCombatTags : public FGameplayTagNativeAdder
 
     FGameplayTag Stat_AggroRadius;
 
-    FGameplayTag Resurrection;
+    //Combat Params
+    FGameplayTag Param_FixateTarget;
+    FGameplayTag Param_BlindTarget;
+    FGameplayTag Param_MisdirectTarget;
+    FGameplayTag Param_ResurrectLocation;
 
     FORCEINLINE static const FSaiyoraCombatTags& Get() { return SaiyoraCombatTags; }
 
@@ -131,8 +136,7 @@ protected:
         FireWeaponAbility = Manager.AddNativeGameplayTag(TEXT("Ability.FireWeapon"));
         ReloadAbility = Manager.AddNativeGameplayTag(TEXT("Ability.ReloadWeapon"));
         StopFireAbility = Manager.AddNativeGameplayTag(TEXT("Ability.StopFireWeapon"));
-
-        ExternalMovement = Manager.AddNativeGameplayTag(TEXT("Movement"));
+        
         MovementRestriction = Manager.AddNativeGameplayTag(TEXT("Movement.Restriction"));
 
         Stat = Manager.AddNativeGameplayTag(TEXT("Stat"));
@@ -154,7 +158,10 @@ protected:
         Stat_JumpZVelocity = Manager.AddNativeGameplayTag(TEXT("Stat.JumpZVelocity"));
         Stat_AirControl = Manager.AddNativeGameplayTag(TEXT("Stat.AirControl"));
 
-        Resurrection = Manager.AddNativeGameplayTag(TEXT("Buff.Resurrection"));
+        Param_FixateTarget = Manager.AddNativeGameplayTag(TEXT("Param.FixateTarget"));
+        Param_BlindTarget = Manager.AddNativeGameplayTag(TEXT("Param.BlindTarget"));
+        Param_MisdirectTarget = Manager.AddNativeGameplayTag(TEXT("Param.MisdirectTarget"));
+        Param_ResurrectLocation = Manager.AddNativeGameplayTag(TEXT("Param.ResurrectLocation"));
     }
 
 private:
@@ -260,7 +267,7 @@ struct TStructOpsTypeTraits<FCombatantArray> : public TStructOpsTypeTraitsBase2<
 
 /*
  *Combat parameters are extremely generic structs that are intended to be used as FInstancedStructs.
- *These can contain basically any data that might want to be accessed by an ability or buff, identified by string.
+ *These can contain basically any data that might want to be accessed by an ability or buff, identified by gameplay tag.
  */
 
 //Base parameter struct, all the parameter types inherit from this.
@@ -269,11 +276,11 @@ struct FCombatParameter
 {
     GENERATED_BODY()
     
-    UPROPERTY(BlueprintReadWrite, EditAnywhere)
-    FString ParamName;
+    UPROPERTY(BlueprintReadWrite, EditAnywhere, meta = (Categories = "Param"))
+    FGameplayTag ParamTag;
 
     FCombatParameter() {}
-    FCombatParameter(const FString& Name) : ParamName(Name) {}
+    FCombatParameter(const FGameplayTag InTag) : ParamTag(InTag) {}
 };
 
 USTRUCT(BlueprintType)
@@ -285,7 +292,7 @@ struct FCombatParameterBool : public FCombatParameter
     bool BoolParam = false;
 
     FCombatParameterBool() {}
-    FCombatParameterBool(const FString& Name, const bool Value) : FCombatParameter(Name), BoolParam(Value) {}
+    FCombatParameterBool(const FGameplayTag InTag, const bool Value) : FCombatParameter(InTag), BoolParam(Value) {}
 };
 
 USTRUCT(BlueprintType)
@@ -297,7 +304,7 @@ struct FCombatParameterInt : public FCombatParameter
     int32 IntParam = 0;
 
     FCombatParameterInt() {}
-    FCombatParameterInt(const FString& Name, const int32 Value) : FCombatParameter(Name), IntParam(Value) {}
+    FCombatParameterInt(const FGameplayTag InTag, const int32 Value) : FCombatParameter(InTag), IntParam(Value) {}
 };
 
 USTRUCT(BlueprintType)
@@ -309,7 +316,7 @@ struct FCombatParameterFloat : public FCombatParameter
     float FloatParam = 0.0f;
 
     FCombatParameterFloat() {}
-    FCombatParameterFloat(const FString& Name, const float Value) : FCombatParameter(Name), FloatParam(Value) {}
+    FCombatParameterFloat(const FGameplayTag InTag, const float Value) : FCombatParameter(InTag), FloatParam(Value) {}
 };
 
 USTRUCT(BlueprintType)
@@ -321,7 +328,7 @@ struct FCombatParameterString : public FCombatParameter
     FString StringParam;
 
     FCombatParameterString() {}
-    FCombatParameterString(const FString& Name, const FString& Value) : FCombatParameter(Name), StringParam(Value) {}
+    FCombatParameterString(const FGameplayTag InTag, const FString& Value) : FCombatParameter(InTag), StringParam(Value) {}
 };
 
 USTRUCT(BlueprintType)
@@ -333,7 +340,7 @@ struct FCombatParameterVector : public FCombatParameter
     FVector VectorParam = FVector::ZeroVector;
 
     FCombatParameterVector() {}
-    FCombatParameterVector(const FString& Name, const FVector& Value) : FCombatParameter(Name), VectorParam(Value) {}
+    FCombatParameterVector(const FGameplayTag InTag, const FVector& Value) : FCombatParameter(InTag), VectorParam(Value) {}
 };
 
 USTRUCT(BlueprintType)
@@ -345,7 +352,7 @@ struct FCombatParameterRotator : public FCombatParameter
     FRotator RotatorParam = FRotator::ZeroRotator;
 
     FCombatParameterRotator() {}
-    FCombatParameterRotator(const FString& Name, const FRotator& Value) : FCombatParameter(Name), RotatorParam(Value) {}
+    FCombatParameterRotator(const FGameplayTag InTag, const FRotator& Value) : FCombatParameter(InTag), RotatorParam(Value) {}
 };
 
 USTRUCT(BlueprintType)
@@ -357,7 +364,7 @@ struct FCombatParameterObject : public FCombatParameter
     UObject* ObjectParam = nullptr;
 
     FCombatParameterObject() {}
-    FCombatParameterObject(const FString& Name, UObject* Object) : FCombatParameter(Name), ObjectParam(Object) {}
+    FCombatParameterObject(const FGameplayTag InTag, UObject* Object) : FCombatParameter(InTag), ObjectParam(Object) {}
 };
 
 USTRUCT(BlueprintType)
@@ -369,7 +376,7 @@ struct FCombatParameterClass : public FCombatParameter
     TSubclassOf<UObject> ClassParam;
 
     FCombatParameterClass() {}
-    FCombatParameterClass(const FString& Name, const TSubclassOf<UObject> Value) : FCombatParameter(Name), ClassParam(Value) {}
+    FCombatParameterClass(const FGameplayTag InTag, const TSubclassOf<UObject> Value) : FCombatParameter(InTag), ClassParam(Value) {}
 };
 
 #pragma endregion

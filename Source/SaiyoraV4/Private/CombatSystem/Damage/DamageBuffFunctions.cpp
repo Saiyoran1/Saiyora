@@ -264,7 +264,7 @@ void UPendingResurrectionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 	}
 	//Get the res location that was passed in as a buff parameter.
 	//If one isn't found, then we will just use the location of the actor applying the buff.
-	if (!USaiyoraCombatLibrary::GetVectorParam(ApplyEvent.CombatParams, "ResLocation", ResLocation))
+	if (!USaiyoraCombatLibrary::GetVectorParam(ApplyEvent.CombatParams, FSaiyoraCombatTags::Get().Param_ResurrectLocation, ResLocation))
 	{
 		ResLocation = GetOwningBuff()->GetAppliedBy()->GetActorLocation();
 	}

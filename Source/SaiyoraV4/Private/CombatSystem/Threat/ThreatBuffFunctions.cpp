@@ -186,7 +186,7 @@ AActor* UFixateFunction::TryGetFixateTarget(const FBuffApplyEvent& ApplyEvent) c
 	AActor* Target = nullptr;
 	//Look for a combat param providing the fixate target.
 	UObject* TargetAsObject = nullptr;
-	if (USaiyoraCombatLibrary::GetObjectParam(ApplyEvent.CombatParams, "FixateTarget", TargetAsObject))
+	if (USaiyoraCombatLibrary::GetObjectParam(ApplyEvent.CombatParams, FSaiyoraCombatTags::Get().Param_FixateTarget, TargetAsObject))
 	{
 		Target = Cast<AActor>(TargetAsObject);
 	}
@@ -263,7 +263,7 @@ AActor* UBlindFunction::TryGetBlindTarget(const FBuffApplyEvent& ApplyEvent) con
 	AActor* Target = nullptr;
 	//Look for a combat param providing the blind target.
 	UObject* TargetAsObject = nullptr;
-	if (USaiyoraCombatLibrary::GetObjectParam(ApplyEvent.CombatParams, "BlindTarget", TargetAsObject))
+	if (USaiyoraCombatLibrary::GetObjectParam(ApplyEvent.CombatParams, FSaiyoraCombatTags::Get().Param_BlindTarget, TargetAsObject))
 	{
 		Target = Cast<AActor>(TargetAsObject);
 	}
@@ -340,7 +340,7 @@ AActor* UMisdirectFunction::TryGetMisdirectTarget(const FBuffApplyEvent& ApplyEv
 	AActor* Target = nullptr;
 	//Look for a combat param providing the misdirect target.
 	UObject* TargetAsObject = nullptr;
-	if (USaiyoraCombatLibrary::GetObjectParam(ApplyEvent.CombatParams, "MisdirectTarget", TargetAsObject))
+	if (USaiyoraCombatLibrary::GetObjectParam(ApplyEvent.CombatParams, FSaiyoraCombatTags::Get().Param_MisdirectTarget, TargetAsObject))
 	{
 		Target = Cast<AActor>(TargetAsObject);
 	}

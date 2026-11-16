@@ -14,18 +14,15 @@ class SAIYORAV4_API USaiyoraCombatLibrary : public UBlueprintFunctionLibrary
 	GENERATED_BODY()
 	
 public:
-
-	//Net
-
+	
 	//Gets the target actor's ping, if it is a player character. Returns 0 for all other actors.
 	UFUNCTION(BlueprintPure, Category = "Time")
 	static float GetActorPing(const AActor* Actor);
+	
 	//Queries the GameState's player array and gets the local player, cast to ASaiyoraPlayerCharacter.
 	UFUNCTION(BlueprintPure, Category = "Player", meta = (HidePin = "WorldContext", DefaultToSelf = "WorldContext"))
 	static ASaiyoraPlayerCharacter* GetLocalSaiyoraPlayer(const UObject* WorldContext);
-
-	//Attachment
-
+	
 	//Wrapper around AttachToComponent that also updates plane-based visuals via the parent's CombatStatusComponent.
 	UFUNCTION(BlueprintCallable, Category = "Attachment")
 	static void AttachCombatActorToComponent(AActor* Target, USceneComponent* Parent, const FName SocketName, const EAttachmentRule LocationRule,
@@ -66,13 +63,13 @@ public:
 	/*
 	 * These are helper functions for creating FInstancedStructs containing the various different combat param struct types.
 	 * In Blueprints this takes multiple nodes including at least one impure node by default, and isn't super straightforward.
-	 * There are also functions here for getting a param of type by name from an FInstancedStruct array.
+	 * There are also functions here for getting a param of type by tag from an FInstancedStruct array.
 	 */
 
 public:
 
-	UFUNCTION(BlueprintPure, Category = "Combat")
-	static FInstancedStruct MakeInstancedBoolParam(const FString& Name, const bool Value) { return FInstancedStruct::Make(FCombatParameterBool(Name, Value)); }
+	UFUNCTION(BlueprintPure, Category = "Combat", meta = (GameplayTagFilter = "Param"))
+	static FInstancedStruct MakeInstancedBoolParam(const FGameplayTag Tag, const bool Value) { return FInstancedStruct::Make(FCombatParameterBool(Tag, Value)); }
 	UFUNCTION(BlueprintPure, Category = "Combat")
 	static FInstancedStruct InstanceBoolParam(const FCombatParameterBool& Param) { return FInstancedStruct::Make(Param); }
 	UFUNCTION(BlueprintPure, Category = "Combat")
@@ -85,13 +82,13 @@ public:
 		}
 		return false;
 	}
-	UFUNCTION(BlueprintPure, Category = "Combat")
-	static bool GetBoolParam(const TArray<FInstancedStruct>& Params, const FString& ParamName, bool& ParamValue)
+	UFUNCTION(BlueprintPure, Category = "Combat", meta = (GameplayTagFilter = "Param"))
+	static bool GetBoolParam(const TArray<FInstancedStruct>& Params, const FGameplayTag Tag, bool& ParamValue)
 	{
 		for (const FInstancedStruct& Param : Params)
 		{
 			const FCombatParameterBool* BoolParam = Param.GetPtr<FCombatParameterBool>();
-			if (BoolParam && BoolParam->ParamName.Equals(ParamName, ESearchCase::IgnoreCase))
+			if (BoolParam && BoolParam->ParamTag.MatchesTagExact(Tag))
 			{
 				ParamValue = BoolParam->BoolParam;
 				return true;
@@ -100,8 +97,8 @@ public:
 		return false;
 	}
 
-	UFUNCTION(BlueprintPure, Category = "Combat")
-	static FInstancedStruct MakeInstancedIntParam(const FString& Name, const int32 Value) { return FInstancedStruct::Make(FCombatParameterInt(Name, Value)); }
+	UFUNCTION(BlueprintPure, Category = "Combat", meta = (GameplayTagFilter = "Param"))
+	static FInstancedStruct MakeInstancedIntParam(const FGameplayTag Tag, const int32 Value) { return FInstancedStruct::Make(FCombatParameterInt(Tag, Value)); }
 	UFUNCTION(BlueprintPure, Category = "Combat")
 	static FInstancedStruct InstanceIntParam(const FCombatParameterInt& Param) { return FInstancedStruct::Make(Param); }
 	UFUNCTION(BlueprintPure, Category = "Combat")
@@ -114,13 +111,13 @@ public:
 		}
 		return false;
 	}
-	UFUNCTION(BlueprintPure, Category = "Combat")
-	static bool GetIntParam(const TArray<FInstancedStruct>& Params, const FString& ParamName, int32& ParamValue)
+	UFUNCTION(BlueprintPure, Category = "Combat", meta = (GameplayTagFilter = "Param"))
+	static bool GetIntParam(const TArray<FInstancedStruct>& Params, const FGameplayTag Tag, int32& ParamValue)
 	{
 		for (const FInstancedStruct& Param : Params)
 		{
 			const FCombatParameterInt* IntParam = Param.GetPtr<FCombatParameterInt>();
-			if (IntParam && IntParam->ParamName.Equals(ParamName, ESearchCase::IgnoreCase))
+			if (IntParam && IntParam->ParamTag.MatchesTagExact(Tag))
 			{
 				ParamValue = IntParam->IntParam;
 				return true;
@@ -129,8 +126,8 @@ public:
 		return false;
 	}
 
-	UFUNCTION(BlueprintPure, Category = "Combat")
-	static FInstancedStruct MakeInstancedFloatParam(const FString& Name, const float Value) { return FInstancedStruct::Make(FCombatParameterFloat(Name, Value)); }
+	UFUNCTION(BlueprintPure, Category = "Combat", meta = (GameplayTagFilter = "Param"))
+	static FInstancedStruct MakeInstancedFloatParam(const FGameplayTag Tag, const float Value) { return FInstancedStruct::Make(FCombatParameterFloat(Tag, Value)); }
 	UFUNCTION(BlueprintPure, Category = "Combat")
 	static FInstancedStruct InstanceFloatParam(const FCombatParameterFloat& Param) { return FInstancedStruct::Make(Param); }
 	UFUNCTION(BlueprintPure, Category = "Combat")
@@ -143,13 +140,13 @@ public:
 		}
 		return false;
 	}
-	UFUNCTION(BlueprintPure, Category = "Combat")
-	static bool GetFloatParam(const TArray<FInstancedStruct>& Params, const FString& ParamName, float& ParamValue)
+	UFUNCTION(BlueprintPure, Category = "Combat", meta = (GameplayTagFilter = "Param"))
+	static bool GetFloatParam(const TArray<FInstancedStruct>& Params, const FGameplayTag Tag, float& ParamValue)
 	{
 		for (const FInstancedStruct& Param : Params)
 		{
 			const FCombatParameterFloat* FloatParam = Param.GetPtr<FCombatParameterFloat>();
-			if (FloatParam && FloatParam->ParamName.Equals(ParamName, ESearchCase::IgnoreCase))
+			if (FloatParam && FloatParam->ParamTag.MatchesTagExact(Tag))
 			{
 				ParamValue = FloatParam->FloatParam;
 				return true;
@@ -158,8 +155,8 @@ public:
 		return false;
 	}
 	
-	UFUNCTION(BlueprintPure, Category = "Combat")
-	static FInstancedStruct MakeInstancedStringParam(const FString& Name, const FString& Value) { return FInstancedStruct::Make(FCombatParameterString(Name, Value)); }
+	UFUNCTION(BlueprintPure, Category = "Combat", meta = (GameplayTagFilter = "Param"))
+	static FInstancedStruct MakeInstancedStringParam(const FGameplayTag Tag, const FString& Value) { return FInstancedStruct::Make(FCombatParameterString(Tag, Value)); }
 	UFUNCTION(BlueprintPure, Category = "Combat")
 	static FInstancedStruct InstanceStringParam(const FCombatParameterString& Param) { return FInstancedStruct::Make(Param); }
 	UFUNCTION(BlueprintPure, Category = "Combat")
@@ -172,13 +169,13 @@ public:
 		}
 		return false;
 	}
-	UFUNCTION(BlueprintPure, Category = "Combat")
-	static bool GetStringParam(const TArray<FInstancedStruct>& Params, const FString& ParamName, FString& ParamValue)
+	UFUNCTION(BlueprintPure, Category = "Combat", meta = (GameplayTagFilter = "Param"))
+	static bool GetStringParam(const TArray<FInstancedStruct>& Params, const FGameplayTag Tag, FString& ParamValue)
 	{
 		for (const FInstancedStruct& Param : Params)
 		{
 			const FCombatParameterString* StringParam = Param.GetPtr<FCombatParameterString>();
-			if (StringParam && StringParam->ParamName.Equals(ParamName, ESearchCase::IgnoreCase))
+			if (StringParam && StringParam->ParamTag.MatchesTagExact(Tag))
 			{
 				ParamValue = StringParam->StringParam;
 				return true;
@@ -187,8 +184,8 @@ public:
 		return false;
 	}
 
-	UFUNCTION(BlueprintPure, Category = "Combat")
-	static FInstancedStruct MakeInstancedVectorParam(const FString& Name, const FVector& Value) { return FInstancedStruct::Make(FCombatParameterVector(Name, Value)); }
+	UFUNCTION(BlueprintPure, Category = "Combat", meta = (GameplayTagFilter = "Param"))
+	static FInstancedStruct MakeInstancedVectorParam(const FGameplayTag Tag, const FVector& Value) { return FInstancedStruct::Make(FCombatParameterVector(Tag, Value)); }
 	UFUNCTION(BlueprintPure, Category = "Combat")
 	static FInstancedStruct InstanceVectorParam(const FCombatParameterVector& Param) { return FInstancedStruct::Make(Param); }
 	UFUNCTION(BlueprintPure, Category = "Combat")
@@ -201,13 +198,13 @@ public:
 		}
 		return false;
 	}
-	UFUNCTION(BlueprintPure, Category = "Combat")
-	static bool GetVectorParam(const TArray<FInstancedStruct>& Params, const FString& ParamName, FVector& ParamValue)
+	UFUNCTION(BlueprintPure, Category = "Combat", meta = (GameplayTagFilter = "Param"))
+	static bool GetVectorParam(const TArray<FInstancedStruct>& Params, const FGameplayTag Tag, FVector& ParamValue)
 	{
 		for (const FInstancedStruct& Param : Params)
 		{
 			const FCombatParameterVector* VectorParam = Param.GetPtr<FCombatParameterVector>();
-			if (VectorParam && VectorParam->ParamName.Equals(ParamName, ESearchCase::IgnoreCase))
+			if (VectorParam && VectorParam->ParamTag.MatchesTagExact(Tag))
 			{
 				ParamValue = VectorParam->VectorParam;
 				return true;
@@ -216,8 +213,8 @@ public:
 		return false;
 	}
 
-	UFUNCTION(BlueprintPure, Category = "Combat")
-	static FInstancedStruct MakeInstancedRotatorParam(const FString& Name, const FRotator& Value) { return FInstancedStruct::Make(FCombatParameterRotator(Name, Value)); }
+	UFUNCTION(BlueprintPure, Category = "Combat", meta = (GameplayTagFilter = "Param"))
+	static FInstancedStruct MakeInstancedRotatorParam(const FGameplayTag Tag, const FRotator& Value) { return FInstancedStruct::Make(FCombatParameterRotator(Tag, Value)); }
 	UFUNCTION(BlueprintPure, Category = "Combat")
 	static FInstancedStruct InstanceRotatorParam(const FCombatParameterRotator& Param) { return FInstancedStruct::Make(Param); }
 	UFUNCTION(BlueprintPure, Category = "Combat")
@@ -230,13 +227,13 @@ public:
 		}
 		return false;
 	}
-	UFUNCTION(BlueprintPure, Category = "Combat")
-	static bool GetRotatorParam(const TArray<FInstancedStruct>& Params, const FString& ParamName, FRotator& ParamValue)
+	UFUNCTION(BlueprintPure, Category = "Combat", meta = (GameplayTagFilter = "Param"))
+	static bool GetRotatorParam(const TArray<FInstancedStruct>& Params, const FGameplayTag Tag, FRotator& ParamValue)
 	{
 		for (const FInstancedStruct& Param : Params)
 		{
 			const FCombatParameterRotator* RotatorParam = Param.GetPtr<FCombatParameterRotator>();
-			if (RotatorParam && RotatorParam->ParamName.Equals(ParamName, ESearchCase::IgnoreCase))
+			if (RotatorParam && RotatorParam->ParamTag.MatchesTagExact(Tag))
 			{
 				ParamValue = RotatorParam->RotatorParam;
 				return true;
@@ -245,8 +242,8 @@ public:
 		return false;
 	}
 
-	UFUNCTION(BlueprintPure, Category = "Combat")
-	static FInstancedStruct MakeInstancedObjectParam(const FString& Name, UObject* Value) { return FInstancedStruct::Make(FCombatParameterObject(Name, Value)); }
+	UFUNCTION(BlueprintPure, Category = "Combat", meta = (GameplayTagFilter = "Param"))
+	static FInstancedStruct MakeInstancedObjectParam(const FGameplayTag Tag, UObject* Value) { return FInstancedStruct::Make(FCombatParameterObject(Tag, Value)); }
 	UFUNCTION(BlueprintPure, Category = "Combat")
 	static FInstancedStruct InstanceObjectParam(const FCombatParameterObject& Param) { return FInstancedStruct::Make(Param); }
 	UFUNCTION(BlueprintPure, Category = "Combat")
@@ -259,13 +256,13 @@ public:
 		}
 		return false;
 	}
-	UFUNCTION(BlueprintPure, Category = "Combat")
-	static bool GetObjectParam(const TArray<FInstancedStruct>& Params, const FString& ParamName, UObject*& ParamValue)
+	UFUNCTION(BlueprintPure, Category = "Combat", meta = (GameplayTagFilter = "Param"))
+	static bool GetObjectParam(const TArray<FInstancedStruct>& Params, const FGameplayTag Tag, UObject*& ParamValue)
 	{
 		for (const FInstancedStruct& Param : Params)
 		{
 			const FCombatParameterObject* ObjectParam = Param.GetPtr<FCombatParameterObject>();
-			if (ObjectParam && ObjectParam->ParamName.Equals(ParamName, ESearchCase::IgnoreCase))
+			if (ObjectParam && ObjectParam->ParamTag.MatchesTagExact(Tag))
 			{
 				ParamValue = ObjectParam->ObjectParam;
 				return true;
@@ -274,8 +271,8 @@ public:
 		return false;
 	}
 
-	UFUNCTION(BlueprintPure, Category = "Combat")
-	static FInstancedStruct MakeInstancedClassParam(const FString& Name, const TSubclassOf<UObject> Value) { return FInstancedStruct::Make(FCombatParameterClass(Name, Value)); }
+	UFUNCTION(BlueprintPure, Category = "Combat", meta = (GameplayTagFilter = "Param"))
+	static FInstancedStruct MakeInstancedClassParam(const FGameplayTag Tag, const TSubclassOf<UObject> Value) { return FInstancedStruct::Make(FCombatParameterClass(Tag, Value)); }
 	UFUNCTION(BlueprintPure, Category = "Combat")
 	static FInstancedStruct InstanceClassParam(const FCombatParameterClass& Param) { return FInstancedStruct::Make(Param); }
 	UFUNCTION(BlueprintPure, Category = "Combat")
@@ -288,13 +285,13 @@ public:
 		}
 		return false;
 	}
-	UFUNCTION(BlueprintPure, Category = "Combat")
-	static bool GetClassParam(const TArray<FInstancedStruct>& Params, const FString& ParamName, TSubclassOf<UObject>& ParamValue)
+	UFUNCTION(BlueprintPure, Category = "Combat", meta = (GameplayTagFilter = "Param"))
+	static bool GetClassParam(const TArray<FInstancedStruct>& Params, const FGameplayTag Tag, TSubclassOf<UObject>& ParamValue)
 	{
 		for (const FInstancedStruct& Param : Params)
 		{
 			const FCombatParameterClass* ClassParam = Param.GetPtr<FCombatParameterClass>();
-			if (ClassParam && ClassParam->ParamName.Equals(ParamName, ESearchCase::IgnoreCase))
+			if (ClassParam && ClassParam->ParamTag.MatchesTagExact(Tag))
 			{
 				ParamValue = ClassParam->ClassParam;
 				return true;
