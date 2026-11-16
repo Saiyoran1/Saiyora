@@ -4,6 +4,7 @@
 #include "UnrealNetwork.h"
 #include "BuffHandler.h"
 #include "DamageHandler.h"
+#include "SaiyoraCombatLibrary.h"
 
 #pragma region Setup
 
@@ -35,7 +36,8 @@ void UCrowdControlHandler::InitializeComponent()
 		{
 			FCrowdControlStatus& Status = CurrentCrowdControls.Items.AddDefaulted_GetRef();
 			Status.CrowdControlType = Cc;
-			Status.bDefaultImmuned = DefaultCrowdControlImmunities.Contains(Cc);
+			//DefaultCrowdControlImmunities is a bitmask (for easier adjustment in editor), so we're just checking the bit for this specific CC.
+			Status.bDefaultImmuned = (DefaultCrowdControlImmunities & USaiyoraCombatLibrary::EnumValueToBit(Cc)) != 0;
 			CurrentCrowdControls.MarkItemDirty(Status);
 		}
 	}
@@ -119,11 +121,13 @@ bool UCrowdControlHandler::IsCrowdControlActive(const ECrowdControl CcType) cons
 	return Status != nullptr && Status->bActive;
 }
 
-bool UCrowdControlHandler::IsAnyCrowdControlActive(const TSet<ECrowdControl>& CcTypes) const
+bool UCrowdControlHandler::IsAnyCrowdControlActive(const int32 CcBitmask) const
 {
-	for (const ECrowdControl Cc : CcTypes)
+	for (const ECrowdControl Cc : TEnumRange<ECrowdControl>())
 	{
-		if (IsCrowdControlActive(Cc))
+		//Check the bit corresponding to this CC in the provided bitmask.
+		if ((CcBitmask & USaiyoraCombatLibrary::EnumValueToBit(Cc)) != 0
+			&& IsCrowdControlActive(Cc))
 		{
 			return true;
 		}
@@ -173,7 +177,7 @@ void UCrowdControlHandler::RemoveIncapacitatesOnDamageTaken(const FHealthEvent& 
 #pragma endregion
 #pragma region Immunities
 
-void UCrowdControlHandler::AddImmunities(UBuff* Source, const TSet<ECrowdControl>& Immunities)
+void UCrowdControlHandler::AddImmunities(UBuff* Source, const int32 ImmunityBitmask)
 {
 	if (!GetOwner()->HasAuthority())
 	{
@@ -184,8 +188,12 @@ void UCrowdControlHandler::AddImmunities(UBuff* Source, const TSet<ECrowdControl
 		return;
 	}
 	TArray<ECrowdControl> BecameImmune;
-	for (const ECrowdControl Immunity : Immunities)
+	for (const ECrowdControl Immunity : TEnumRange<ECrowdControl>())
 	{
+		if ((ImmunityBitmask & USaiyoraCombatLibrary::EnumValueToBit(Immunity)) == 0)
+		{
+			continue;
+		}
 		if (FCrowdControlStatus* Status = GetCcStruct(Immunity))
 		{
 			const bool bNoImmunity = Status->Immunities.Num() == 0 && !Status->bDefaultImmuned;

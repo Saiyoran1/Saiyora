@@ -34,6 +34,13 @@ public:
 	//Helper to check whether a certain NPC behavior should be treated as valid for certain actions such as taking damage or generating/receiving threat.
 	static bool IsActiveNPCBehavior(const ENPCCombatBehavior Behavior) { return Behavior == ENPCCombatBehavior::Patrolling || Behavior == ENPCCombatBehavior::Combat; }
 
+	//Helper for bitmask enums to convert the enum value to a bit.
+	template <typename T>
+	FORCEINLINE static int32 EnumValueToBit(const T Enum)
+	{
+		return 1 << static_cast<uint8>(Enum);
+	}
+
 #pragma region Editor Helpers
 
 public:

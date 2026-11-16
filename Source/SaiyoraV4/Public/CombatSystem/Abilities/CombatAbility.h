@@ -24,6 +24,7 @@ class SAIYORAV4_API UCombatAbility : public UObject
     
 public:
 
+    UCombatAbility();
     virtual UWorld* GetWorld() const override;
     virtual bool IsSupportedForNetworking() const override { return true; }
     virtual void GetLifetimeReplicatedProps(::TArray<FLifetimeProperty>& OutLifetimeProps) const override;
@@ -49,7 +50,7 @@ protected:
 private:
     
     UPROPERTY(Replicated)
-    UAbilityComponent* OwningComponent;
+    UAbilityComponent* OwningComponent = nullptr;
     bool bInitialized = false;
     UPROPERTY(ReplicatedUsing = OnRep_Deactivated)
     bool bDeactivated = false; 
@@ -87,11 +88,11 @@ protected:
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Info", meta = (AllowPrivateAccess = "true"))
     FText Description;
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Info", meta = (AllowPrivateAccess = "true"))
-    UTexture2D* Icon;
+    UTexture2D* Icon = nullptr;
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Info", meta = (AllowPrivateAccess = "true"))
-    EElementalSchool School;
+    EElementalSchool School = EElementalSchool::Physical;
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Info", meta = (AllowPrivateAccess = "true"))
-    ESaiyoraPlane Plane;
+    ESaiyoraPlane Plane = ESaiyoraPlane::Both;
     UPROPERTY(EditDefaultsOnly, Category = "Info")
     FGameplayTagContainer AbilityTags;
     UPROPERTY(EditDefaultsOnly, Category = "Info")
@@ -109,7 +110,7 @@ public:
     UFUNCTION(BlueprintPure, Category = "Abilities")
     bool IsCastableWhileDead() const { return bCastableWhileDead; }
     UFUNCTION(BlueprintPure, Category = "Abilities")
-    void GetRestrictedCrowdControls(TSet<ECrowdControl>& OutCrowdControls) const { OutCrowdControls = RestrictedCrowdControls; }
+    bool IsRestrictedByCrowdControl(const ECrowdControl CcType) const;
     UFUNCTION(BlueprintPure, Category = "Abilities")
     bool IsCastableWhileMoving() const { return bCastableWhileMoving; }
 
@@ -131,8 +132,8 @@ protected:
 
     UPROPERTY(EditDefaultsOnly, Category = "Restrictions")
     bool bCastableWhileDead = false;
-    UPROPERTY(EditDefaultsOnly, Category = "Restrictions")
-    TSet<ECrowdControl> RestrictedCrowdControls;
+    UPROPERTY(EditDefaultsOnly, Category = "Restrictions", meta = (Bitmask, BitmaskEnum = "/Script/SaiyoraV4.ECrowdControl"))
+    int32 RestrictedCrowdControls;
     UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Restrictions", meta = (AllowPrivateAccess = "true"))
     bool bCastableWhileMoving = true;
 
@@ -325,7 +326,7 @@ private:
     void CompleteCooldown();
     void CancelCooldown();
     TMap<int32, int32> ChargePredictions;
-    int32 LastReplicatedCharges;
+    int32 LastReplicatedCharges = 1;
     void RecalculatePredictedCooldown();
     
     void OnMaxChargesUpdated(const int32 OldValue, const int32 NewValue);

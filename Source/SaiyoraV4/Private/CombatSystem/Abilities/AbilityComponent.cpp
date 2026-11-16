@@ -814,14 +814,10 @@ void UAbilityComponent::MulticastAbilityInterrupt_Implementation(const FInterrup
 
 void UAbilityComponent::InterruptCastOnCrowdControl(const FCrowdControlStatus& NewStatus)
 {
-	if (CastingState.bIsCasting && IsValid(CastingState.CurrentCast) && NewStatus.bActive == true)
+	if (CastingState.bIsCasting && IsValid(CastingState.CurrentCast)
+		&& NewStatus.bActive == true && CastingState.CurrentCast->IsRestrictedByCrowdControl(NewStatus.CrowdControlType))
 	{
-		TSet<ECrowdControl> RestrictedCcs;
-		CastingState.CurrentCast->GetRestrictedCrowdControls(RestrictedCcs);
-		if (RestrictedCcs.Contains(NewStatus.CrowdControlType))
-		{
-			InterruptCurrentCast(NewStatus.DominantBuffInstance->GetAppliedBy(), NewStatus.DominantBuffInstance, true);
-		}
+		InterruptCurrentCast(NewStatus.DominantBuffInstance->GetAppliedBy(), NewStatus.DominantBuffInstance, true);
 	}
 }
 

@@ -43,8 +43,8 @@ public:
 private:
 
 	//The types of crowd control to immune.
-	UPROPERTY(EditAnywhere)
-    TSet<ECrowdControl> ImmuneCcs;
+	UPROPERTY(EditAnywhere, meta = (Bitmask, BitmaskEnum = "/Script/SaiyoraV4.ECrowdControl"))
+    int32 ImmuneCcs = 0;
 	
     UPROPERTY()
     UCrowdControlHandler* TargetHandler = nullptr;

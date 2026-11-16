@@ -47,7 +47,7 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Crowd Control")
 	bool IsCrowdControlActive(const ECrowdControl CcType) const;
 	UFUNCTION(BlueprintPure, Category = "Crowd Control")
-	bool IsAnyCrowdControlActive(const TSet<ECrowdControl>& CcTypes) const;
+	bool IsAnyCrowdControlActive(UPARAM(meta = (Bitmask, BitmaskEnum = "/Script/SaiyoraV4.ECrowdControl")) const int32 CcBitmask) const;
 
 	//Called any time a crowd control becomes active or inactive, or changes its dominant buff
 	UPROPERTY(BlueprintAssignable)
@@ -79,7 +79,7 @@ private:
 public:
 
 	//Called by buff functions to add a temporary immunity to some CC types.
-	void AddImmunities(UBuff* Source, const TSet<ECrowdControl>& Immunities);
+	void AddImmunities(UBuff* Source, const int32 ImmunityBitmask);
 	//Called on buff removal to remove any CC immunities provided by that buff.
 	void RemoveImmunities(UBuff* Source);
 	//Checks whether we are currently immune to a given CC type, either via default immunity or a buff.
@@ -88,8 +88,8 @@ public:
 private:
 
 	//Crowd control types this actor is immune to by default
-	UPROPERTY(EditAnywhere, Category = "Crowd Control")
-	TSet<ECrowdControl> DefaultCrowdControlImmunities;
+	UPROPERTY(EditAnywhere, Category = "Crowd Control", meta = (Bitmask, BitmaskEnum = "/Script/SaiyoraV4.ECrowdControl"))
+	int32 DefaultCrowdControlImmunities = 0;
 	
 	//Removes all buffs that are applying a given type of CC.
 	void DispelCcsOfType(const ECrowdControl CcType);

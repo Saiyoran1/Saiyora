@@ -11,6 +11,15 @@
 
 #pragma region Setup
 
+UCombatAbility::UCombatAbility()
+{
+    //Most abilities are stopped by stuns, incaps, and silences, so we default to that.
+    //RestrictedCrowdControls is a bitmask, so we set the bits for those 3 CCs.
+    RestrictedCrowdControls = USaiyoraCombatLibrary::EnumValueToBit(ECrowdControl::Stun)
+        | USaiyoraCombatLibrary::EnumValueToBit(ECrowdControl::Incapacitate)
+        | USaiyoraCombatLibrary::EnumValueToBit(ECrowdControl::Silence);
+}
+
 UWorld* UCombatAbility::GetWorld() const
 {
     if (!HasAnyFlags(RF_ClassDefaultObject))
@@ -108,7 +117,8 @@ void UCombatAbility::InitializeAbility(UAbilityComponent* AbilityComponent)
                 MovementCompRef->OnMovementChanged.AddDynamic(this, &UCombatAbility::OnMovementChanged);
             }
         }
-        if (RestrictedCrowdControls.Num() > 0)
+        //RestrictedCrowdControls is a bitmask, so non-zero means at least 1 CC is restricted.
+        if (RestrictedCrowdControls != 0)
         {
             CcHandlerRef = ISaiyoraCombatInterface::Execute_GetCrowdControlHandler(OwningComponent->GetOwner());
             if (IsValid(CcHandlerRef))
@@ -932,7 +942,7 @@ void UCombatAbility::UpdateCastable()
     {
         CastFailReasons.Add(ECastFailReason::Moving);
     }
-    if (RestrictedCrowdControls.Num() > 0 && IsValid(CcHandlerRef) && CcHandlerRef->IsAnyCrowdControlActive(RestrictedCrowdControls))
+    if (RestrictedCrowdControls != 0 && IsValid(CcHandlerRef) && CcHandlerRef->IsAnyCrowdControlActive(RestrictedCrowdControls))
     {
         CastFailReasons.Add(ECastFailReason::CrowdControl);
     }
@@ -949,6 +959,12 @@ void UCombatAbility::UpdateCastable()
     {
         OnCastableChanged.Broadcast(this, CastFailReasons.Num() == 0, CastFailReasons);
     }
+}
+
+bool UCombatAbility::IsRestrictedByCrowdControl(const ECrowdControl CcType) const
+{
+    //RestrictedCrowdControls is a bitmask, so check the bit that corresponds to the CC in question.
+    return (RestrictedCrowdControls & USaiyoraCombatLibrary::EnumValueToBit(CcType)) != 0;
 }
 
 void UCombatAbility::AddRestrictedTag(const FGameplayTag RestrictedTag)
