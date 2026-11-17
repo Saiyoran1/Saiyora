@@ -4,7 +4,7 @@
 #include "SaiyoraCombatInterface.h"
 #include "CombatAbility.h"
 #include "CombatLogComponent.h"
-#include "SaiyoraGameState.h"
+#include "SaiyoraCombatLibrary.h"
 
 FLoggedEventSource::FLoggedEventSource(const UObject* InSource)
 {
@@ -35,15 +35,15 @@ FLoggedEventSource::FLoggedEventSource(const UObject* InSource)
 	}
 }
 
-FLoggedBuffApplyEvent::FLoggedBuffApplyEvent(const FBuffApplyEvent& InEvent, const ASaiyoraGameState* GameStateRef)
+FString FLoggedEventSource::ToString() const
 {
-	if (!IsValid(GameStateRef) || !IsValid(GameStateRef->GetCombatLog()))
-	{
-		return;
-	}
-	EventID = GameStateRef->GetCombatLog()->GetNextCombatEventID();
-	Timestamp = GameStateRef->GetServerWorldTimeSeconds();
-	
+	return FString::Printf(TEXT("{ %s:%s }"),
+		*USaiyoraCombatLibrary::EnumValueToString(Type), *GetNameSafe(SourceClass));
+}
+
+FLoggedBuffApplyEvent::FLoggedBuffApplyEvent(const FBuffApplyEvent& InEvent, const int InID, const float InTime)
+	: FCombatLogEvent(InID, InTime)
+{
 	AppliedTo = UCombatLogComponent::GetCombatantID(InEvent.AppliedTo);
 	TargetPlane = InEvent.TargetPlane;
 	AppliedBy = InEvent.AppliedByID;
@@ -71,18 +71,27 @@ bool FLoggedBuffApplyEvent::Write(const UCombatLogComponent* LogComponent, FStri
 	{
 		return false;
 	}
-	//TODO: Write a string!
+	
+	TArray<FString> Strings;
+	Strings.Add(FString::Printf(TEXT("\"%s\""), *AppliedToName.ToString()));
+	Strings.Add(USaiyoraCombatLibrary::EnumValueToString(TargetPlane));
+	Strings.Add(FString::Printf(TEXT("\"%s\""), *AppliedByName.ToString()));
+	Strings.Add(USaiyoraCombatLibrary::EnumValueToString(OriginPlane));
+	Strings.Add(Source.ToString());
+	Strings.Add(USaiyoraCombatLibrary::EnumValueToString(ActionTaken));
+	Strings.Add(GetNameSafe(BuffClass));
+	Strings.Add(FString::FromInt(PreviousStacks));
+	Strings.Add(FString::Printf(TEXT("%.3f"), PreviousDuration));
+	Strings.Add(FString::FromInt(NewStacks));
+	Strings.Add(FString::Printf(TEXT("%.3f"), NewDuration));
+	
+	OutLog.Append(FString::Join(Strings, TEXT(",")));
 	return true;
 }
 
-FLoggedBuffRemoveEvent::FLoggedBuffRemoveEvent(const FBuffRemoveEvent& InEvent, const ASaiyoraGameState* GameStateRef)
+FLoggedBuffRemoveEvent::FLoggedBuffRemoveEvent(const FBuffRemoveEvent& InEvent, const int InID, const float InTime)
+	: FCombatLogEvent(InID, InTime)
 {
-	if (!IsValid(GameStateRef) || !IsValid(GameStateRef->GetCombatLog()))
-	{
-		return;
-	}
-	EventID = GameStateRef->GetCombatLog()->GetNextCombatEventID();
-	Timestamp = GameStateRef->GetServerWorldTimeSeconds();
 	RemovedFrom = UCombatLogComponent::GetCombatantID(InEvent.RemovedFrom);
 	AppliedBy = InEvent.AppliedByID;
 	BuffClass = InEvent.RemovedBuff->GetClass();
@@ -103,63 +112,24 @@ bool FLoggedBuffRemoveEvent::Write(const UCombatLogComponent* LogComponent, FStr
 	{
 		return false;
 	}
-	//TODO: Write a string!
+	TArray<FString> Strings;
+	Strings.Add(FString::Printf(TEXT("\"%s\""), *RemovedFromName.ToString()));
+	Strings.Add(FString::Printf(TEXT("\"%s\""), *AppliedByName.ToString()));
+	Strings.Add(GetNameSafe(BuffClass));
+	Strings.Add(USaiyoraCombatLibrary::EnumValueToString(ExpireReason));
+
+	OutLog.Append(FString::Join(Strings, TEXT(",")));
 	return true;
 }
 
-#pragma region Combat Log
-
-void FCombatLog::Init(UCombatLogComponent* InCompRef)
-{
-	CompRef = InCompRef;
-	TryResolveEvents();
-}
-
-void FCombatLog::Clear()
+void FCombatLogEventBatch::Clear()
 {
 	BuffApplications.Empty();
 	BuffRemovals.Empty();
 }
 
-void FCombatLog::Append(const FCombatLog& NewEntries)
-{
-	NewEntries.ForEachCombatEvent([this](const auto& Event)
-	{
-		const auto& AddedEvent = AddEvent(Event);
-		WriteEventToLog(AddedEvent);
-	});
-}
-
-bool FCombatLog::HasData() const
+bool FCombatLogEventBatch::HasData() const
 {
 	return BuffApplications.Num() > 0
 		|| BuffRemovals.Num() > 0;
 }
-
-void FCombatLog::AddBuffApplyEvent(const FBuffApplyEvent& Event, ASaiyoraGameState* GameStateRef)
-{
-	BuffApplications.Emplace(Event, GameStateRef);
-}
-
-void FCombatLog::AddBuffRemoveEvent(const FBuffRemoveEvent& Event, ASaiyoraGameState* GameStateRef)
-{
-	BuffRemovals.Emplace(Event, GameStateRef);
-}
-
-void FCombatLog::TryResolveEvents()
-{
-	ForEachCombatEvent([this](const auto& Event)
-	{
-		if (!Event.bLogged)
-		{
-			WriteEventToLog(Event);
-		}
-	});
-}
-
-bool FCombatLog::HasValidComponentRef() const
-{
-	return IsValid(CompRef);
-}
-
-#pragma endregion 

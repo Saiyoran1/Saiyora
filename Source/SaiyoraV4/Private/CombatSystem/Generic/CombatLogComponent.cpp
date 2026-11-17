@@ -5,6 +5,7 @@
 #include "UnrealNetwork.h"
 
 int UCombatLogComponent::CombatEventIDCounter = 0;
+const FString UCombatLogComponent::LogsFolderSubpath = "CombatLogs/";
 
 UCombatLogComponent::UCombatLogComponent()
 {
@@ -25,16 +26,20 @@ void UCombatLogComponent::InitializeComponent()
 void UCombatLogComponent::BeginPlay()
 {
 	Super::BeginPlay();
-
+	
 	Combatants.Init(this);
-	CombatLog.Init(this);
 }
 
-void UCombatLogComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+void UCombatLogComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+	Super::EndPlay(EndPlayReason);
 
-	FlushPendingCombatLog();
+	//At EndPlay, bypass the write interval timer to try and flush anything left in the queue.
+	//If we're already in a write, we will lose what's still queued, but that's probably okay.
+	if (!bWriteInProgress && LogStringQueue.Num() > 0)
+	{
+		WriteToLogFile();
+	}
 }
 
 void UCombatLogComponent::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
@@ -42,6 +47,40 @@ void UCombatLogComponent::GetLifetimeReplicatedProps(TArray<class FLifetimePrope
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(UCombatLogComponent, Combatants);
+}
+
+void UCombatLogComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+{
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+
+	//Send any pending combat log events from this frame to all clients.
+	if (GetOwnerRole() == ROLE_Authority)
+	{
+		FlushPendingCombatLog();
+	}
+	//If new combatants were resolved this frame, try to resolve any log events that were waiting on combatant info.
+	if (bTryResolveUnlogged)
+	{
+		bTryResolveUnlogged = false;
+		//If we already know we don't have any unresolved events left, no need to iterate the whole log.
+		if (UnresolvedEventsCounter > 0)
+		{
+			CombatLogEvents.ForEachCombatEvent([this](const auto& Event)
+			{
+				if (!Event.bLogged)
+				{
+					TryWriteEventToString(Event);
+				}
+			});
+		}
+	}
+	//If we're not waiting on a previous write, and it's been some length of time and there's new events to write,
+	//write to the actual combat log file on a background thread.
+	if (!bWriteInProgress && LogStringQueue.Num() > 0
+		&& GetWorld()->GetTimeSeconds() - LastLogTime > LogMinInterval)
+	{
+		WriteToLogFile();
+	}
 }
 
 FCombatantID UCombatLogComponent::RegisterCombatant(const UCombatStatusComponent* CombatComponent)
@@ -88,48 +127,92 @@ FCombatantID UCombatLogComponent::GetCombatantID(const AActor* Combatant)
 	return CombatComp->GetCombatantID();
 }
 
-void UCombatLogComponent::FlushPendingCombatLog()
-{
-	//Check queued combat log events from this frame and send them to all players.
-	if (PendingMultiplayerLogEvents.HasData())
-	{
-		Multicast_UpdateCombatLog(PendingMultiplayerLogEvents);
-		PendingMultiplayerLogEvents.Clear();
-	}
-}
-
-void UCombatLogComponent::Multicast_UpdateCombatLog_Implementation(const FCombatLog& NewLogEntries)
-{
-	//Add all new log entries from the last server tick to the combat log.
-	CombatLog.Append(NewLogEntries);
-}
-
 bool UCombatLogComponent::GetCombatantDisplayName(const FCombatantID& ID, FText& OutText) const
 {
 	for (const FCombatant& Combatant : Combatants.Items)
 	{
 		if (Combatant.ID == ID)
 		{
-			OutText = FText::Format(NSLOCTEXT("CombatLog", "CombatantName", "{0} {1}"), Combatant.DisplayName, FText::AsNumber(Combatant.NameNumber));
+			if (Combatant.NameNumber > 0)
+			{
+				OutText = FText::Format(NSLOCTEXT("CombatLog", "CombatantName", "{0} {1}"), Combatant.DisplayName, FText::AsNumber(Combatant.NameNumber));
+			}
+			else
+			{
+				OutText = Combatant.DisplayName;
+			}
 			return true;
 		}
 	}
 	return false;
 }
 
-void UCombatLogComponent::OnCombatantAdded(const FCombatant& NewCombatant)
+void UCombatLogComponent::FlushPendingCombatLog()
 {
-	CombatLog.TryResolveEvents();
+	//Check queued combat log events from this frame and send them to all players.
+	if (PendingNetworkLogEvents.HasData())
+	{
+		Multicast_SendCombatLogEventBatch(PendingNetworkLogEvents);
+		PendingNetworkLogEvents.Clear();
+	}
+}
+
+void UCombatLogComponent::Multicast_SendCombatLogEventBatch_Implementation(const FCombatLogEventBatch& NewEvents)
+{
+	NewEvents.ForEachCombatEvent([this](const auto& Event)
+	{
+		const auto& AddedEvent = CombatLogEvents.AddEvent(Event);
+		UnresolvedEventsCounter++;
+		TryWriteEventToString(AddedEvent);
+	});
+}
+
+void UCombatLogComponent::WriteToLogFile()
+{
+	bWriteInProgress = true;
+	LastLogTime = GetWorld()->GetTimeSeconds();
+	if (CombatLogFilePath.IsEmpty())
+	{
+		//Create the CombatLogs folder within the project log directory, if needed.
+		const FString LogFolderPath = FPaths::ProjectLogDir() + LogsFolderSubpath;
+		IFileManager::Get().MakeDirectory(*LogFolderPath);
+		//File name is "CombatLog_DateTime_PIEWindowNumber.txt" The _PIEWindowNumber is compiled out outside the editor.
+		CombatLogFilePath = LogFolderPath + "CombatLog";
+		CombatLogFilePath += FString::Printf(TEXT("_%s"), *FDateTime::Now().ToFormattedString(TEXT("%y%m%d%H%M%S")));
+#if WITH_EDITOR
+		if (GetWorld()->IsPlayInEditor())
+		{
+			CombatLogFilePath += FString::Printf(TEXT("_%i"), int32(GPlayInEditorID));
+		}
+#endif
+		CombatLogFilePath += ".txt";
+	}
+	const TWeakObjectPtr<UCombatLogComponent> LogCompPtr = MakeWeakObjectPtr(this);
+	AsyncTask(ENamedThreads::Type::AnyBackgroundThreadNormalTask, [Path = CombatLogFilePath, Queue = MoveTemp(LogStringQueue), LogCompPtr]()
+	{
+		const bool bSuccess = FFileHelper::SaveStringArrayToFile(Queue, *Path,
+			FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM, &IFileManager::Get(), FILEWRITE_Append);
+		//Callback to the game thread to clear the bWriteInProgress flag and allow subsequent writes.
+		AsyncTask(ENamedThreads::Type::GameThread, [bSuccess, LogCompPtr]()
+		{
+			if (UCombatLogComponent* LogComp = LogCompPtr.Get())
+			{
+				LogComp->bWriteInProgress = false;
+			}
+		});
+	});
 }
 
 void UCombatLogComponent::LogBuffApplyEvent(const FBuffApplyEvent& Event)
 {
 	//Queue this event up to be sent to clients at the next log update.
-	PendingMultiplayerLogEvents.AddBuffApplyEvent(Event, GameStateRef);
+	PendingNetworkLogEvents.AddEvent(FLoggedBuffApplyEvent(Event,
+		CombatEventIDCounter++, GameStateRef->GetServerWorldTimeSeconds()));
 }
 
 void UCombatLogComponent::LogBuffRemoveEvent(const FBuffRemoveEvent& Event)
 {
 	//Queue this event up to be sent to clients at the next log update.
-	PendingMultiplayerLogEvents.AddBuffRemoveEvent(Event, GameStateRef);
+	PendingNetworkLogEvents.AddEvent(FLoggedBuffRemoveEvent(Event,
+		CombatEventIDCounter++, GameStateRef->GetServerWorldTimeSeconds()));
 }

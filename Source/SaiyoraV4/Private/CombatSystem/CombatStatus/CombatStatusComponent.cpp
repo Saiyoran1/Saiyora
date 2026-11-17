@@ -10,6 +10,7 @@
 #include "Kismet/KismetMathLibrary.h"
 #include "FloatingName.h"
 #include "ThreatHandler.h"
+#include "GameFramework/PlayerState.h"
 
 TMap<int32, UCombatStatusComponent*> UCombatStatusComponent::StencilValues = TMap<int32, UCombatStatusComponent*>();
 
@@ -51,11 +52,28 @@ void UCombatStatusComponent::BeginPlay()
 {
 	Super::BeginPlay();
 	checkf(GetOwner()->Implements<USaiyoraCombatInterface>(), TEXT("Owner does not implement combat interface, but has Combat Status Component."));
-
-	if (GetOwnerRole() == ROLE_Authority)
+	GameStateRef = Cast<ASaiyoraGameState>(GetWorld()->GetGameState());
+	checkf(IsValid(GameStateRef), TEXT("Invalid GameStateRef in Combat Status Component!"));
+	
+	//If the owner is a player, we get the combat name from the player state's player name.
+	if (const ASaiyoraPlayerCharacter* PlayerOwner = Cast<ASaiyoraPlayerCharacter>(GetOwner()))
 	{
-		CombatantID = GetWorld()->GetGameState<ASaiyoraGameState>()->GetCombatLog()->RegisterCombatant(this);
+		if (IsValid(PlayerOwner->GetPlayerState()))
+		{
+			CombatName = FText::FromString(PlayerOwner->GetPlayerState()->GetPlayerName());
+			if (GetOwnerRole() == ROLE_Authority)
+			{
+				CombatantID = GameStateRef->GetCombatLog()->RegisterCombatant(this);
+			}
+		}
+		//If we don't have a valid player state here, we will wait to register with the combat log until we do.
+		//Otherwise, we won't have a valid name in the log.
 	}
+	else if (GetOwnerRole() == ROLE_Authority)
+	{
+		CombatantID = GameStateRef->GetCombatLog()->RegisterCombatant(this);
+	}
+	
 	//Check to see if the local player is already valid.
 	const ASaiyoraPlayerCharacter* LocalPlayer = USaiyoraCombatLibrary::GetLocalSaiyoraPlayer(this);
 	if (IsValid(LocalPlayer))
@@ -71,19 +89,31 @@ void UCombatStatusComponent::BeginPlay()
 	else
 	{
 		//If the local player isn't valid, bind to the GameState to get callbacks when players are added, until we get a valid local player.
-		GameStateRef = Cast<ASaiyoraGameState>(GetWorld()->GetGameState());
-		if (!IsValid(GameStateRef))
-		{
-			UE_LOG(LogTemp, Warning, TEXT("Invalid game state ref in Combat Status Component BeginPlay."));
-		}
-		else
-		{
-			GameStateRef->OnPlayerAdded.AddDynamic(this, &UCombatStatusComponent::OnPlayerAdded);
-		}
+		GameStateRef->OnPlayerAdded.AddDynamic(this, &UCombatStatusComponent::OnPlayerAdded);
 	}
 	//Initial setting of outline and plane material and collision profile.
 	UpdateOwnerCustomRendering();
 	UpdateOwnerPlaneCollision();
+}
+
+void UCombatStatusComponent::OnPlayerStateChanged(const APlayerState* NewPlayerState)
+{
+	//If this is before BeginPlay, don't bother doing this, we'll do this check in BeginPlay anyway.
+	if (!HasBegunPlay() || !IsValid(NewPlayerState))
+	{
+		return;
+	}
+	CombatName = FText::FromString(NewPlayerState->GetPlayerName());
+	//Re-init the floating name widget so it shows our new name.
+	if (IsValid(FloatingNameWidget))
+	{
+		FloatingNameWidget->Init(this);
+	}
+	//If we haven't registered with the combat log, do so now that we have a name.
+	if (GetOwnerRole() == ROLE_Authority && !CombatantID.IsValid())
+	{
+		CombatantID = GameStateRef->GetCombatLog()->RegisterCombatant(this);
+	}
 }
 
 void UCombatStatusComponent::TickComponent(float DeltaTime, ELevelTick TickType,
@@ -121,7 +151,7 @@ void UCombatStatusComponent::SetupNameWidget(const ASaiyoraPlayerCharacter* Loca
 	LocalPlayerCamera = LocalPlayer->Camera;
 	if (IsValid(LocalPlayerCamera) && IsValid(NameWidgetClass))
 	{
-		UFloatingName* FloatingNameWidget = CreateWidget<UFloatingName>(GetWorld(), NameWidgetClass);
+		FloatingNameWidget = CreateWidget<UFloatingName>(GetWorld(), NameWidgetClass);
 		if (IsValid(FloatingNameWidget))
 		{
 			SetWidget(FloatingNameWidget);

@@ -37,6 +37,12 @@ public:
 	{
 		return 1 << static_cast<uint8>(Enum);
 	}
+	//Helper to get an untranslated string from an enum value.
+	template <typename T>
+	FORCEINLINE static FString EnumValueToString(const T Enum)
+	{
+		return StaticEnum<T>()->GetNameStringByValue(static_cast<int64>(Enum));
+	}
 
 #pragma region Editor Helpers
 

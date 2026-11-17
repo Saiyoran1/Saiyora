@@ -153,6 +153,13 @@ void ASaiyoraPlayerCharacter::OnRep_Controller()
 	InitializeCharacter();
 }
 
+void ASaiyoraPlayerCharacter::OnPlayerStateChanged(APlayerState* NewPlayerState, APlayerState* OldPlayerState)
+{
+	Super::OnPlayerStateChanged(NewPlayerState, OldPlayerState);
+	//Let the combat status component know when we have a new player state so it can set our name.
+	CombatStatusComponent->OnPlayerStateChanged(NewPlayerState);
+}
+
 void ASaiyoraPlayerCharacter::OnRep_PlayerState()
 {
 	Super::OnRep_PlayerState();

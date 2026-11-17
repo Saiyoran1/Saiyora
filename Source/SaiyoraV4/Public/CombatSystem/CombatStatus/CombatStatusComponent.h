@@ -29,6 +29,9 @@ public:
 
 	FCombatantID GetCombatantID() const { return CombatantID; }
 
+	//Called by the player character specifically, to let this component know that the PlayerState has changed and we can get a name/register as a combatant.
+	void OnPlayerStateChanged(const APlayerState* NewPlayerState);
+
 private:
 
 	UPROPERTY()
@@ -49,8 +52,7 @@ public:
 	//Get the display name for this combatant.
 	UFUNCTION(BlueprintPure, Category = "Name")
 	FText GetCombatName() const { return CombatName; }
-	
-	
+
 private:
 
 	//Cosmetic name used for floating name display and unit frames.
@@ -62,6 +64,8 @@ private:
 	//Called when we have a valid reference to a local player, to spawn the name widget and set it up to face the player's camera.
 	//This can happen on BeginPlay or in a callback from the GameState adding a new player.
 	void SetupNameWidget(const ASaiyoraPlayerCharacter* LocalPlayer);
+	UPROPERTY()
+	UFloatingName* FloatingNameWidget = nullptr;
 
 	//Local player's camera, so the name widget can be faced toward it.
 	UPROPERTY()

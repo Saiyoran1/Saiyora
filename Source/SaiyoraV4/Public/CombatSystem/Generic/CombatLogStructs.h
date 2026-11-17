@@ -4,7 +4,6 @@
 #include "CombatStructs.h"
 #include "CombatLogStructs.generated.h"
 
-class ASaiyoraGameState;
 class UCombatLogComponent;
 struct FBuffRemoveEvent;
 struct FBuffApplyEvent;
@@ -19,20 +18,40 @@ struct FLoggedEventSource
 	UPROPERTY()
 	TSubclassOf<UObject> SourceClass = nullptr;
 
+	FString ToString() const;
+
 	FLoggedEventSource() {}
 	FLoggedEventSource(const UObject* InSource);
 };
 
+//Base struct for all the log event types, since all events need an ID, timestamp, name, and logged flag.
 USTRUCT()
-struct FLoggedBuffApplyEvent
+struct FCombatLogEvent
 {
 	GENERATED_BODY()
-
+	
 	UPROPERTY()
 	int EventID = -1;
 	UPROPERTY()
 	float Timestamp = -1.0f;
 	mutable bool bLogged = false;
+
+	virtual const TCHAR* GetEventName() const { return TEXT("INVALID"); }
+	virtual bool Write(const UCombatLogComponent* LogComponent, FString& OutLog) const
+	{
+		checkf(false, TEXT("Tried to write a base-class combat log event to the log."));
+		return false;
+	}
+
+	FCombatLogEvent() {}
+	FCombatLogEvent(const int InID, const float InTime) : EventID(InID), Timestamp(InTime) {}
+	virtual ~FCombatLogEvent() {}
+};
+
+USTRUCT()
+struct FLoggedBuffApplyEvent : public FCombatLogEvent
+{
+	GENERATED_BODY()
 
 	//The actor the buff was applied to.
 	UPROPERTY()
@@ -72,29 +91,24 @@ struct FLoggedBuffApplyEvent
 	float NewDuration = 0.0f;
 	
 	FLoggedBuffApplyEvent() {}
-	FLoggedBuffApplyEvent(const FBuffApplyEvent& InEvent, const ASaiyoraGameState* GameStateRef);
+	FLoggedBuffApplyEvent(const FBuffApplyEvent& InEvent, const int InID, const float InTime);
 
-	bool Write(const UCombatLogComponent* LogComponent, FString& OutLog) const;
+	virtual bool Write(const UCombatLogComponent* LogComponent, FString& OutLog) const override;
+	virtual const TCHAR* GetEventName() const override { return TEXT("BUFF_APPLY"); }
 };
 
 USTRUCT()
-struct FLoggedBuffRemoveEvent
+struct FLoggedBuffRemoveEvent : public FCombatLogEvent
 {
 	GENERATED_BODY()
-
-	UPROPERTY()
-	int EventID = -1;
-	UPROPERTY()
-	float Timestamp = -1.0f;
-	mutable bool bLogged = false;
 	
 	//The buff class affected.
 	UPROPERTY()
 	TSubclassOf<UBuff> BuffClass = nullptr;
-	//The actor that removed this buff
+	//The actor that originally applied this buff.
 	UPROPERTY()
 	FCombatantID AppliedBy = FCombatantID();
-	//The actor the buff was applied to before being removed
+	//The actor the buff was applied to before being removed.
 	UPROPERTY()
 	FCombatantID RemovedFrom = FCombatantID();
 	//A generic reason for why the buff was removed.
@@ -102,57 +116,24 @@ struct FLoggedBuffRemoveEvent
 	EBuffExpireReason ExpireReason = EBuffExpireReason::Invalid;
 
 	FLoggedBuffRemoveEvent() {}
-	FLoggedBuffRemoveEvent(const FBuffRemoveEvent& InEvent, const ASaiyoraGameState* GameStateRef);
+	FLoggedBuffRemoveEvent(const FBuffRemoveEvent& InEvent, const int InID, const float InTime);
 
-	bool Write(const UCombatLogComponent* LogComponent, FString& OutLog) const;
+	virtual bool Write(const UCombatLogComponent* LogComponent, FString& OutLog) const override;
+	virtual const TCHAR* GetEventName() const override { return TEXT("BUFF_REMOVE"); }
 };
 
 USTRUCT()
-struct FCombatLog
+struct FCombatLogEventBatch
 {
 	GENERATED_BODY()
 
 public:
 
-	void Init(UCombatLogComponent* InCompRef);
 	void Clear();
-	void Append(const FCombatLog& NewEntries);
 	bool HasData() const;
-
-	void AddBuffApplyEvent(const FBuffApplyEvent& Event, ASaiyoraGameState* GameStateRef);
-	void AddBuffRemoveEvent(const FBuffRemoveEvent& Event, ASaiyoraGameState* GameStateRef);
-
-	void TryResolveEvents();
-
-private:
-
-	UPROPERTY()
-	UCombatLogComponent* CompRef = nullptr;
-	//This function exists so I can make a templated Write function without including the header for UCombatLogComponent.
-	bool HasValidComponentRef() const;
 	
 	FLoggedBuffApplyEvent& AddEvent(const FLoggedBuffApplyEvent& Event) { return BuffApplications.Add_GetRef(Event); }
-	UPROPERTY()
-	TArray<FLoggedBuffApplyEvent> BuffApplications;
 	FLoggedBuffRemoveEvent& AddEvent(const FLoggedBuffRemoveEvent& Event) { return BuffRemovals.Add_GetRef(Event); }
-	UPROPERTY()
-	TArray<FLoggedBuffRemoveEvent> BuffRemovals;
-
-	template <typename T>
-	void WriteEventToLog(const T& Event)
-	{
-		if (!HasValidComponentRef())
-		{
-			return;
-		}
-		FString LogOutput;
-		if (!Event.Write(CompRef, LogOutput))
-		{
-			return;
-		}
-		//TODO: Write LogOutput to a file!
-		Event.bLogged = true;
-	}
 
 	//Template function for iterating over all events (of all types) in event ID order.
 	template <typename T>
@@ -202,4 +183,11 @@ private:
 			}
 		}
 	}
+
+private:
+	
+	UPROPERTY()
+	TArray<FLoggedBuffApplyEvent> BuffApplications;
+	UPROPERTY()
+	TArray<FLoggedBuffRemoveEvent> BuffRemovals;
 };
