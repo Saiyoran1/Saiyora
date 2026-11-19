@@ -46,10 +46,10 @@ void UBuff::InitializeBuff(FBuffApplyEvent& Event, UBuffHandler* NewHandler, con
     case EBuffApplicationOverrideType::None :
         CurrentStacks = FMath::Clamp(DefaultInitialStacks, 1, MaximumStacks);
         break;
-    case EBuffApplicationOverrideType::Normal :
+    case EBuffApplicationOverrideType::Replace :
         CurrentStacks = FMath::Clamp(OverrideStacks, 1, MaximumStacks);
         break;
-    case EBuffApplicationOverrideType::Additive :
+    case EBuffApplicationOverrideType::Add :
         CurrentStacks = FMath::Clamp(DefaultInitialStacks + OverrideStacks, 1, MaximumStacks);
         break;
     default :
@@ -69,10 +69,10 @@ void UBuff::InitializeBuff(FBuffApplyEvent& Event, UBuffHandler* NewHandler, con
         case EBuffApplicationOverrideType::None :
             Event.NewDuration = FMath::Clamp(DefaultInitialDuration, MinimumBuffDuration, MaximumDuration);
             break;
-        case EBuffApplicationOverrideType::Normal :
+        case EBuffApplicationOverrideType::Replace :
             Event.NewDuration = FMath::Clamp(OverrideDuration, MinimumBuffDuration, MaximumDuration);
             break;
-        case EBuffApplicationOverrideType::Additive :
+        case EBuffApplicationOverrideType::Add :
             Event.NewDuration = FMath::Clamp(DefaultInitialDuration + OverrideDuration, MinimumBuffDuration, MaximumDuration);
             break;
         default :
@@ -192,10 +192,10 @@ void UBuff::ApplyEvent(FBuffApplyEvent& ApplicationEvent, const EBuffApplication
             case EBuffApplicationOverrideType::None :
                 CurrentStacks = FMath::Clamp(CurrentStacks + DefaultStacksPerApply, 1, MaximumStacks);
                 break;
-            case EBuffApplicationOverrideType::Normal :
+            case EBuffApplicationOverrideType::Replace :
                 CurrentStacks = FMath::Clamp(OverrideStacks, 1, MaximumStacks);
                 break;
-            case EBuffApplicationOverrideType::Additive :
+            case EBuffApplicationOverrideType::Add :
                 CurrentStacks = FMath::Clamp(CurrentStacks + OverrideStacks, 1, MaximumStacks);
                 break;
             default :
@@ -213,17 +213,14 @@ void UBuff::ApplyEvent(FBuffApplyEvent& ApplicationEvent, const EBuffApplication
         LastRefreshTime = ApplicationEvent.NewApplyTime;
         switch (RefreshOverrideType)
         {
-            case EBuffApplicationOverrideType::None :
-                ExpireTime = LastRefreshTime + FMath::Clamp(GetWorld()->GetTimerManager().GetTimerRemaining(ExpireHandle) + DefaultDurationPerApply, MinimumBuffDuration, MaximumDuration);
-                break;
-            case EBuffApplicationOverrideType::Normal :
+            case EBuffApplicationOverrideType::Replace :
                 ExpireTime = LastRefreshTime + FMath::Clamp(OverrideDuration, MinimumBuffDuration, MaximumDuration);
                 break;
-            case EBuffApplicationOverrideType::Additive :
-                ExpireTime = LastRefreshTime + FMath::Clamp(GetWorld()->GetTimerManager().GetTimerRemaining(ExpireHandle) + OverrideDuration, MinimumBuffDuration, MaximumDuration);
+            case EBuffApplicationOverrideType::Add :
+                ExpireTime = LastRefreshTime + FMath::Clamp(GetRemainingTime() + OverrideDuration, MinimumBuffDuration, MaximumDuration);
                 break;
             default :
-                ExpireTime = LastRefreshTime + FMath::Clamp(GetWorld()->GetTimerManager().GetTimerRemaining(ExpireHandle) + DefaultDurationPerApply, MinimumBuffDuration, MaximumDuration);
+                ExpireTime = LastRefreshTime + FMath::Clamp(GetRemainingTime() + DefaultDurationPerApply, MinimumBuffDuration, MaximumDuration);
                 break;
         }
         ResetExpireTimer();

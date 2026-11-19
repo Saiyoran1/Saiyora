@@ -137,10 +137,25 @@ void USaiyoraMovementComponent::FSaiyoraNetworkMoveData::ClientFillNetworkMoveDa
 bool USaiyoraMovementComponent::FSaiyoraNetworkMoveData::Serialize(UCharacterMovementComponent& CharacterMovement,
 	FArchive& Ar, UPackageMap* PackageMap, ENetworkMoveType MoveType)
 {
-	Super::Serialize(CharacterMovement, Ar, PackageMap, MoveType);
-	Ar << CustomMoveAbilityRequest;
-	Ar << ServerMoveID;
-	Ar << ServerStatChangeID;
+	if (!Super::Serialize(CharacterMovement, Ar, PackageMap, MoveType))
+	{
+		return false;
+	}
+	//This is the flag that indicates we're sending an ability request with this move.
+	if (CompressedMoveFlags & FSavedMove_Character::FLAG_Custom_1)
+	{
+		Ar << CustomMoveAbilityRequest;
+	}
+	//This is the flag that indicates we're confirming a server-sent move with this move.
+	if (CompressedMoveFlags & FSavedMove_Character::FLAG_Custom_2)
+	{
+		Ar << ServerMoveID;
+	}
+	//This is the flag that indicates we're confirming a movement stat change with this move.
+	if (CompressedMoveFlags & FSavedMove_Character::FLAG_Custom_3)
+	{
+		Ar << ServerStatChangeID;
+	}
 	return !Ar.IsError();
 }
 

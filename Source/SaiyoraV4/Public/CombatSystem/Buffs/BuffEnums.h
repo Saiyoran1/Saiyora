@@ -17,9 +17,9 @@ enum class EBuffApplicationOverrideType : uint8
 	//No override, stacking and refreshing behavior are dictated by buff class params
 	None,
 	//Override will replace the existing stacks or duration
-	Normal,
+	Replace,
 	//Override will add to the existing stacks or duration
-	Additive,
+	Add,
 };
 
 //The reason for a buff's removal
