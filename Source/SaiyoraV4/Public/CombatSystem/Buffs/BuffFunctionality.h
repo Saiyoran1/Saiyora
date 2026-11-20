@@ -87,6 +87,7 @@ private:
 	FBuffRestriction Restriction;
 	UPROPERTY()
 	UBuffHandler* TargetComponent = nullptr;
+	bool bSuccess = false;
 };
 
 #pragma endregion

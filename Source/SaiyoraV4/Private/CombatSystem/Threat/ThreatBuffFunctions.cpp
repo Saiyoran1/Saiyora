@@ -65,7 +65,6 @@ void UThreatRestrictionFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
 	{
 		return;
 	}
-	bool bSuccess = false;
 	switch (EventDirection)
 	{
 	case ECombatEventDirection::Incoming :
@@ -81,7 +80,7 @@ void UThreatRestrictionFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
 
 void UThreatRestrictionFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
 {
-	if (!IsValid(TargetHandler))
+	if (!IsValid(TargetHandler) || !bSuccess)
 	{
 		return;
 	}

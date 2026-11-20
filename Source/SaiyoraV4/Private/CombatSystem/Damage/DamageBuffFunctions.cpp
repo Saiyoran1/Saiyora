@@ -192,7 +192,6 @@ void UHealthEventRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 	{
 		return;
 	}
-	bool bSuccess = false;
 	switch (EventDirection)
 	{
 	case ECombatEventDirection::Incoming :
@@ -208,7 +207,7 @@ void UHealthEventRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 
 void UHealthEventRestrictionFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
-	if (!IsValid(TargetHandler))
+	if (!IsValid(TargetHandler) || !bSuccess)
 	{
 		return;
 	}
@@ -240,12 +239,12 @@ void UDeathRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 	{
 		return;
 	}
-	const bool bSuccess = TargetHandler->AddDeathRestriction(Restriction);
+	bSuccess = TargetHandler->AddDeathRestriction(Restriction);
 }
 
 void UDeathRestrictionFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
-	if (!IsValid(TargetHandler))
+	if (!IsValid(TargetHandler) || !bSuccess)
 	{
 		return;
 	}

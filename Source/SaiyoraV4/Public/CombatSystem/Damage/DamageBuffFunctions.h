@@ -111,6 +111,7 @@ private:
 	FHealthEventRestriction Restriction;
 	UPROPERTY()
 	UDamageHandler* TargetHandler = nullptr;
+	bool bSuccess = false;
 };
 
 UCLASS()
@@ -130,6 +131,7 @@ private:
 	FDeathRestriction Restriction;
 	UPROPERTY()
 	UDamageHandler* TargetHandler = nullptr;
+	bool bSuccess = false;
 };
 
 UCLASS()

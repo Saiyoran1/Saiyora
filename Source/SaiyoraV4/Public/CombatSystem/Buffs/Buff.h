@@ -182,7 +182,7 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Application Behavior")
 	float MaximumDuration = 1.0f;
 	//Tags to describe the buff
-	UPROPERTY(EditDefaultsOnly, Category = "Application Behavior")
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Application Behavior", meta = (AllowPrivateAccess))
 	FGameplayTagContainer BuffTags;
 	//Whether the buff can be applied to dead targets and remains on targets that die
 	UPROPERTY(EditDefaultsOnly, Category = "Application Behavior")
@@ -317,7 +317,7 @@ protected:
 	
 private:
 	
-	UPROPERTY(EditDefaultsOnly, Category = "Buff Functions", Instanced)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Buff Functions", Instanced, meta = (AllowPrivateAccess))
 	TArray<UBuffFunction*> BuffFunctionObjects;
 
 #pragma endregion

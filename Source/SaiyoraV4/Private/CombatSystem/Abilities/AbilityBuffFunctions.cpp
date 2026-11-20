@@ -287,12 +287,12 @@ void UInterruptRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 	{
 		return;
 	}
-	const bool bSuccess = TargetComponent->AddInterruptRestriction(Restriction);
+	bSuccess = TargetComponent->AddInterruptRestriction(Restriction);
 }
 
 void UInterruptRestrictionFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
-	if (!IsValid(TargetComponent))
+	if (!IsValid(TargetComponent) || !bSuccess)
 	{
 		return;
 	}

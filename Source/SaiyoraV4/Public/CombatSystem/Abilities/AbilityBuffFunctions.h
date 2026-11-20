@@ -155,4 +155,5 @@ private:
 	FInterruptRestriction Restriction;
 	UPROPERTY()
 	UAbilityComponent* TargetComponent = nullptr;
+	bool bSuccess = false;
 };

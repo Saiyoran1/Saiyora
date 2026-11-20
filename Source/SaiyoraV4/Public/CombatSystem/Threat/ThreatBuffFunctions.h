@@ -48,6 +48,7 @@ private:
 	FThreatRestriction Restriction;
 	UPROPERTY()
 	UThreatHandler* TargetHandler;
+	bool bSuccess = false;
 };
 
 UCLASS()

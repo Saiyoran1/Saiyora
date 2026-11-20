@@ -71,12 +71,12 @@ void UBuffRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
     {
         return;
     }
-    bool bSuccess = TargetComponent->AddBuffRestriction(Direction, Restriction);
+    bSuccess = TargetComponent->AddBuffRestriction(Direction, Restriction);
 }
 
 void UBuffRestrictionFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
-    if (!IsValid(TargetComponent))
+    if (!IsValid(TargetComponent) || !bSuccess)
     {
         return;
     }
