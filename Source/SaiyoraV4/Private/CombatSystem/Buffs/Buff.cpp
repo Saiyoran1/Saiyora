@@ -19,6 +19,12 @@ UWorld* UBuff::GetWorld() const
     return nullptr;
 }
 
+bool UBuff::HasAuthority() const
+{
+    const AActor* OuterActor = GetTypedOuter<AActor>();
+    return IsValid(OuterActor) && OuterActor->HasAuthority();
+}
+
 void UBuff::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
@@ -313,7 +319,7 @@ float UBuff::GetRemainingTime() const
 
 void UBuff::TerminateBuff(const FBuffRemoveEvent& Event)
 {
-    if (Handler->GetOwnerRole() == ROLE_Authority)
+    if (HasAuthority())
     {
         RemovalEvent = Event;
     }
@@ -324,7 +330,7 @@ void UBuff::TerminateBuff(const FBuffRemoveEvent& Event)
     Status = EBuffStatus::Removed;
     //Debug logging for buff removal.
     DEBUG_LOG_BUFF_REMOVE(Handler, Event);
-    if (Handler->GetOwnerRole() == ROLE_Authority)
+    if (HasAuthority())
     {
         //Combat logging for buff removal.
         GameStateRef->GetCombatLog()->LogBuffRemoveEvent(Event);

@@ -3,7 +3,9 @@
 #include "Buff.h"
 #include "DamageHandler.h"
 #include "SaiyoraCombatInterface.h"
+#include "SaiyoraDevSettings.h"
 #include "SaiyoraPlayerCharacter.h"
+#include "SaiyoraUIDataAsset.h"
 
 void UDeathOverlay::Init(ASaiyoraPlayerCharacter* OwningChar)
 {
@@ -17,55 +19,101 @@ void UDeathOverlay::Init(ASaiyoraPlayerCharacter* OwningChar)
 		return;
 	}
 	OwnerDamageHandler->OnLifeStatusChanged.AddDynamic(this, &UDeathOverlay::OnLifeStatusChanged);
-	OwnerDamageHandler->OnPendingResAdded.AddDynamic(this, &UDeathOverlay::OnPendingResUpdated);
-	OwnerDamageHandler->OnPendingResRemoved.AddDynamic(this, &UDeathOverlay::OnPendingResUpdated);
+	OwnerDamageHandler->OnPendingResListChanged.AddDynamic(this, &UDeathOverlay::OnResurrectionListChanged);
 
 	AcceptPendingResButton->OnClicked.AddDynamic(this, &UDeathOverlay::AcceptPendingRes);
 	DeclinePendingResButton->OnClicked.AddDynamic(this, &UDeathOverlay::DeclinePendingRes);
 	DefaultRespawnButton->OnClicked.AddDynamic(this, &UDeathOverlay::DefaultRespawn);
 	
-	bDoingInit = true;
-	OnPendingResUpdated(FPendingResurrection());
+	UpdatePendingResurrection();
 	OnLifeStatusChanged(OwningChar, ELifeStatus::Invalid, OwnerDamageHandler->GetLifeStatus());
-	bDoingInit = false;
 
 	AddToViewport();
 }
 
-void UDeathOverlay::OnLifeStatusChanged(AActor* Actor, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus)
+void UDeathOverlay::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 {
-	if (NewStatus == ELifeStatus::Dead)
+	Super::NativeTick(MyGeometry, InDeltaTime);
+
+	if (bQueuedNeedsUpdate)
 	{
-		if (!bWasDisplayed || bDoingInit)
-		{
-			SetVisibility(ESlateVisibility::SelfHitTestInvisible);
-			bWasDisplayed = true;
-		}
-	}
-	else
-	{
-		if (bWasDisplayed || bDoingInit)
-		{
-			SetVisibility(ESlateVisibility::Collapsed);
-			bWasDisplayed = false;
-		}
+		UpdatePendingResurrection();
 	}
 }
 
-void UDeathOverlay::OnPendingResUpdated(const FPendingResurrection& PendingRes)
+void UDeathOverlay::OnLifeStatusChanged(AActor* Actor, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus)
 {
-	const TArray<FPendingResurrection>& PendingResurrections = OwnerDamageHandler->GetPendingResurrections();
-	if (PendingResurrections.Num() > 0)
+	const bool bShouldDisplay = NewStatus == ELifeStatus::Dead;
+	const bool bIsDisplayed = GetVisibility() != ESlateVisibility::Collapsed;
+	if (bShouldDisplay != bIsDisplayed)
 	{
-		RespawnResurrectSwitcher->SetActiveWidget(PendingResOverlay);
-		const FPendingResurrection& MostRecentRes = PendingResurrections.Last();
-		if (IsValid(MostRecentRes.Icon))
-		{
-			PendingResIcon->SetBrushFromTexture(MostRecentRes.Icon);
-		}
-		PendingResID = MostRecentRes.ResID;
+		SetVisibility(bShouldDisplay ? ESlateVisibility::SelfHitTestInvisible : ESlateVisibility::Collapsed);
 	}
-	else
+	//When entering dead state, clear the flag from any previously accepted resurrection.
+	//Immediately update the resurrection window.
+	if (PreviousStatus != ELifeStatus::Dead && NewStatus == ELifeStatus::Dead)
+	{
+		bAcceptedRes = false;
+		UpdatePendingResurrection();
+	}
+}
+
+void UDeathOverlay::UpdatePendingResurrection()
+{
+	bQueuedNeedsUpdate = false;
+	const TArray<FPendingResurrection>& PendingResurrections = OwnerDamageHandler->GetPendingResurrections();
+	//Refresh the "AlreadyDecidedResIDs" list so that it doesn't keep resurrections no longer pending.
+	const TArray<int> AlreadyDecided = AlreadyDecidedResIDs;
+	AlreadyDecidedResIDs.Empty();
+	for (const FPendingResurrection& Resurrection : PendingResurrections)
+	{
+		if (AlreadyDecided.Contains(Resurrection.ResID))
+		{
+			AlreadyDecidedResIDs.Add(Resurrection.ResID);
+		}
+	}
+	//If we've already accepted a res and are just waiting on replication, don't show pending resurrections.
+	if (bAcceptedRes)
+	{
+		return;
+	}
+	//Find the first pending resurrection we haven't already made a decision on. That's our new displayed res.
+	bool bFoundRes = false;
+	for (int i = PendingResurrections.Num() - 1; i >= 0; i--)
+	{
+		const FPendingResurrection& PendingResurrection = PendingResurrections[i];
+		if (AlreadyDecidedResIDs.Contains(PendingResurrection.ResID))
+		{
+			continue;
+		}
+		bFoundRes = true;
+		PendingResID = PendingResurrection.ResID;
+		RespawnResurrectSwitcher->SetActiveWidget(PendingResOverlay);
+		bool bFoundIcon = false;
+		if (IsValid(PendingResurrection.BuffClass))
+		{
+			const UBuff* DefaultBuff = PendingResurrection.BuffClass.GetDefaultObject();
+			if (IsValid(DefaultBuff) && IsValid(DefaultBuff->GetBuffIcon()))
+			{
+				PendingResIcon->SetBrushFromTexture(DefaultBuff->GetBuffIcon());
+				bFoundIcon = true;
+			}
+		}
+		if (!bFoundIcon)
+		{
+			if (IsValid(UI_DA->DefaultPendingResurrectionIcon))
+			{
+				PendingResIcon->SetBrushFromTexture(UI_DA->DefaultPendingResurrectionIcon);
+			}
+			else
+			{
+				UE_LOG(LogTemp, Warning, TEXT("No valid default pending resurrection icon set in the UI Data Asset!"));
+			}
+		}
+		break;
+	}
+	//If there's no pending resurrection we haven't already made a decision on, swap back to the window showing the release option.
+	if (!bFoundRes)
 	{
 		RespawnResurrectSwitcher->SetActiveWidget(DefaultRespawnOverlay);
 		PendingResID = -1;
@@ -74,15 +122,34 @@ void UDeathOverlay::OnPendingResUpdated(const FPendingResurrection& PendingRes)
 
 void UDeathOverlay::AcceptPendingRes()
 {
-	OwnerDamageHandler->AcceptResurrection(PendingResID);
+	if (bAcceptedRes || PendingResID < 0 || AlreadyDecidedResIDs.Contains(PendingResID))
+	{
+		return;
+	}
+	AlreadyDecidedResIDs.Add(PendingResID);
+	bAcceptedRes = true;
+	bQueuedNeedsUpdate = true;
+	OwnerDamageHandler->MakeResurrectionDecision(PendingResID, true);
 }
 
 void UDeathOverlay::DeclinePendingRes()
 {
-	OwnerDamageHandler->DeclineResurrection(PendingResID);
+	if (bAcceptedRes || PendingResID < 0 || AlreadyDecidedResIDs.Contains(PendingResID))
+	{
+		return;
+	}
+	AlreadyDecidedResIDs.Add(PendingResID);
+	bQueuedNeedsUpdate = true;
+	OwnerDamageHandler->MakeResurrectionDecision(PendingResID, false);
 }
 
 void UDeathOverlay::DefaultRespawn()
 {
+	if (bAcceptedRes)
+	{
+		return;
+	}
+	bAcceptedRes = true;
+	bQueuedNeedsUpdate = true;
 	OwnerDamageHandler->RequestDefaultRespawn();
 }

@@ -73,11 +73,9 @@ private:
 	UCombatStatusComponent* LocalPlayerCombatComp;
 	UFUNCTION()
 	void OnPlaneSwap(const ESaiyoraPlane PreviousPlane, const ESaiyoraPlane NewPlane, UObject* Source);
-
+	
 	UFUNCTION()
-	void OnPendingResAdded(const FPendingResurrection& PendingRes) { UpdatePendingResVisibility(); }
-	UFUNCTION()
-	void OnPendingResRemoved(const FPendingResurrection& PendingRes) { UpdatePendingResVisibility(); }
+	void OnPendingResChanged(const TArray<FPendingResurrection>& NewResList) { UpdatePendingResVisibility(); }
 	UFUNCTION()
 	void OnLifeStatusChanged(AActor* Actor, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus) { UpdatePendingResVisibility(); }
 	void UpdatePendingResVisibility();

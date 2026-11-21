@@ -27,6 +27,8 @@ public:
 	//The overlay that appears when a player is dead to offer options about resurrection and respawning.
 	UPROPERTY(EditAnywhere, Category = "Widget Classes")
 	TSubclassOf<UDeathOverlay> DeathOverlayClass;
+	UPROPERTY(EditAnywhere, Category = "Widget Classes")
+	UTexture2D* DefaultPendingResurrectionIcon = nullptr;
 	//The overlay that pops up when a player presses escape.
 	UPROPERTY(EditDefaultsOnly, Category = "Widget Classes")
 	TSubclassOf<UEscapeMenu> EscapeMenuClass;

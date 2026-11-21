@@ -21,6 +21,11 @@ class SAIYORAV4_API UDeathOverlay : public UUserWidget
 public:
 
 	void Init(ASaiyoraPlayerCharacter* OwningChar);
+	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
+
+	//Called when this client accepts a res, but the server fails to actually resurrect.
+	//Just clears the flag that is hiding the resurrection window and queues an update for next frame to re-show it.
+	void OnResAcceptFailed() { bAcceptedRes = false; bQueuedNeedsUpdate = true; }
 
 private:
 	
@@ -54,10 +59,12 @@ private:
 	UFUNCTION()
 	void OnLifeStatusChanged(AActor* Actor, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus);
 	UFUNCTION()
-	void OnPendingResUpdated(const FPendingResurrection& PendingRes);
-
-	bool bWasDisplayed = false;
-	bool bDoingInit = false;
+	void OnResurrectionListChanged(const TArray<FPendingResurrection>& PendingResurrections) { bQueuedNeedsUpdate = true; }
+	
+	TArray<int> AlreadyDecidedResIDs;
+	bool bAcceptedRes = false;
+	bool bQueuedNeedsUpdate = false;
+	void UpdatePendingResurrection();
 
 	int PendingResID = -1;
 

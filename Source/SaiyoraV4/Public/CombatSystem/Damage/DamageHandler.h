@@ -110,13 +110,14 @@ public:
 	//Local-callable respawn function, for when a player requests to respawn at his default location.
 	void RequestDefaultRespawn() { Server_RequestRespawn(); }
 
-	int AddPendingResurrection(UPendingResurrectionFunction* PendingResFunction);
-	void RemovePendingResurrection(const int ResID);
+	//Called by UPendingResurrectionFunction to add a pending resurrection from a buff.
+	bool AddPendingResurrection(UPendingResurrectionFunction* Source);
+	//Called when a buff is removed to withdraw a pending resurrection it applied.
+	void RemovePendingResurrection(UPendingResurrectionFunction* Source);
 	const TArray<FPendingResurrection>& GetPendingResurrections() const { return PendingResurrections; }
-	FPendingResNotification OnPendingResAdded;
-	FPendingResNotification OnPendingResRemoved;
-	void AcceptResurrection(const int ResID);
-	void DeclineResurrection(const int ResID);
+	//Called when accepting or declining a pending resurrection. If called locally, redirects to the server.
+	void MakeResurrectionDecision(const int ResID, const bool bAccept);
+	FPendingResNotification OnPendingResListChanged;
 
 	bool AddDeathRestriction(const FDeathRestriction& Restriction);
 	void RemoveDeathRestriction(const FDeathRestriction& Restriction);
@@ -138,12 +139,16 @@ private:
 	UPROPERTY(ReplicatedUsing = OnRep_PendingResurrections)
 	TArray<FPendingResurrection> PendingResurrections;
 	UFUNCTION()
-	void OnRep_PendingResurrections(const TArray<FPendingResurrection>& PreviousResurrections);
+	void OnRep_PendingResurrections() { OnPendingResListChanged.Broadcast(PendingResurrections); }
 	
 	UFUNCTION(Server, Reliable)
 	void Server_MakeResDecision(const int ResID, const bool bAccept);
+	void Server_MakeResDecision_Implementation(const int ResID, const bool bAccept) { MakeResurrectionDecision(ResID, bAccept); }
 	UFUNCTION(Server, Reliable)
 	void Server_RequestRespawn();
+	void Server_RequestRespawn_Implementation() { RespawnActor(); }
+	UFUNCTION(Client, Reliable)
+	void Client_ResurrectionRequestFailed();
 
 	void Die();
 	TConditionalRestrictionList<FDeathRestriction> DeathRestrictions;
@@ -151,7 +156,7 @@ private:
 	//Called when an NPC receives a resurrection.
 	//This waits one frame then accepts the resurrection. Accepting on the same frame causes issues with the OnApply function of the resurrection buff function.
 	UFUNCTION()
-	void QueueResurrectionAutoAccept(const FPendingResurrection& PendingRes);
+	void QueueResurrectionAutoAccept(const TArray<FPendingResurrection>& NewResurrections);
 	//Called one frame after an NPC receives a resurrection.
 	//Automatically takes the resurrection if the NPC is dead and the resurrection buff is still applied.
 	UFUNCTION()

@@ -44,8 +44,7 @@ void UPartyFrame::InitFrame(UPlayerHUD* OwningHUD, ASaiyoraPlayerCharacter* Play
 	DamageHandlerRef = ISaiyoraCombatInterface::Execute_GetDamageHandler(Player);
 	if (IsValid(DamageHandlerRef))
 	{
-		DamageHandlerRef->OnPendingResAdded.AddDynamic(this, &UPartyFrame::OnPendingResAdded);
-		DamageHandlerRef->OnPendingResRemoved.AddDynamic(this, &UPartyFrame::OnPendingResRemoved);
+		DamageHandlerRef->OnPendingResListChanged.AddDynamic(this, &UPartyFrame::OnPendingResChanged);
 		DamageHandlerRef->OnLifeStatusChanged.AddDynamic(this, &UPartyFrame::OnLifeStatusChanged);
 		UpdatePendingResVisibility();
 	}

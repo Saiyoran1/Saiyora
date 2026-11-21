@@ -7,7 +7,7 @@
 
 void UCrowdControlFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
-	if (!GetOwningBuff()->GetAppliedTo()->HasAuthority())
+	if (!GetOwningBuff()->HasAuthority())
 	{
 		return;
 	}
@@ -21,7 +21,7 @@ void UCrowdControlFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 
 void UCrowdControlFunction::OnChange(const FBuffApplyEvent& ApplyEvent)
 {
-	if (!GetOwningBuff()->GetAppliedTo()->HasAuthority())
+	if (!GetOwningBuff()->HasAuthority())
 	{
 		return;
 	}
@@ -38,7 +38,7 @@ void UCrowdControlFunction::OnChange(const FBuffApplyEvent& ApplyEvent)
 
 void UCrowdControlFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
-	if (!GetOwningBuff()->GetAppliedTo()->HasAuthority())
+	if (!GetOwningBuff()->HasAuthority())
 	{
 		return;
 	}
@@ -65,7 +65,7 @@ bool UCrowdControlFunction::CheckBuffFunctionRestricted(const FBuffApplyEvent& A
 
 void UCrowdControlImmunityFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
-	if (!GetOwningBuff()->GetAppliedTo()->HasAuthority())
+	if (!GetOwningBuff()->HasAuthority())
 	{
 		return;
 	}
@@ -79,7 +79,7 @@ void UCrowdControlImmunityFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 
 void UCrowdControlImmunityFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
-	if (!GetOwningBuff()->GetAppliedTo()->HasAuthority())
+	if (!GetOwningBuff()->HasAuthority())
 	{
 		return;
 	}

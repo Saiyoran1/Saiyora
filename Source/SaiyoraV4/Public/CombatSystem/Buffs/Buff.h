@@ -21,6 +21,7 @@ public:
 	virtual bool IsSupportedForNetworking() const override { return true; }
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 	virtual UWorld* GetWorld() const override;
+	bool HasAuthority() const;
 
 	UFUNCTION(BlueprintPure, Category = "Buff")
 	UBuffHandler* GetHandler() const { return Handler; }

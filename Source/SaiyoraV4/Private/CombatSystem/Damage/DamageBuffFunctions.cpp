@@ -16,12 +16,17 @@ UPeriodicHealthEventFunction::UPeriodicHealthEventFunction()
 
 void UPeriodicHealthEventFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
+	if (!GetOwningBuff()->HasAuthority())
+	{
+		return;
+	}
 	TargetHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwningBuff()->GetAppliedTo());
 	if (!IsValid(TargetHandler))
 	{
 		return;
 	}
-	const UDamageHandler* GeneratorComponent = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwningBuff()->GetAppliedBy());
+	const UDamageHandler* GeneratorComponent = IsValid(GetOwningBuff()->GetAppliedBy()) && GetOwningBuff()->GetAppliedBy()->Implements<USaiyoraCombatInterface>()
+		? ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwningBuff()->GetAppliedBy()) : nullptr;
 	if (bSnapshots && !bIgnoresModifiers && IsValid(GeneratorComponent))
 	{
 		FHealthEventInfo SnapshotInfo;
@@ -30,24 +35,10 @@ void UPeriodicHealthEventFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 		SnapshotInfo.Source = GetOwningBuff();
 		SnapshotInfo.AppliedBy = GetOwningBuff()->GetAppliedBy();
 		SnapshotInfo.AppliedTo = GetOwningBuff()->GetAppliedTo();
-		if (SnapshotInfo.AppliedBy->Implements<USaiyoraCombatInterface>())
-		{
-			const UCombatStatusComponent* AppliedByCombatStatusComp = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(SnapshotInfo.AppliedBy);
-			SnapshotInfo.AppliedByPlane = IsValid(AppliedByCombatStatusComp) ? AppliedByCombatStatusComp->GetCurrentPlane() : ESaiyoraPlane::Both;
-		}
-		else
-		{
-			SnapshotInfo.AppliedByPlane = ESaiyoraPlane::Both;
-		}
-		if (SnapshotInfo.AppliedTo->Implements<USaiyoraCombatInterface>())
-		{
-			const UCombatStatusComponent* AppliedToCombatStatusComp = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(SnapshotInfo.AppliedTo);
-			SnapshotInfo.AppliedToPlane = IsValid(AppliedToCombatStatusComp) ? AppliedToCombatStatusComp->GetCurrentPlane() : ESaiyoraPlane::Both;
-		}
-		else
-		{
-			SnapshotInfo.AppliedToPlane = ESaiyoraPlane::Both;
-		}
+		const UCombatStatusComponent* AppliedByCombatStatusComp = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(SnapshotInfo.AppliedBy);
+		SnapshotInfo.AppliedByPlane = IsValid(AppliedByCombatStatusComp) ? AppliedByCombatStatusComp->GetCurrentPlane() : ESaiyoraPlane::Both;
+		const UCombatStatusComponent* AppliedToCombatStatusComp = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(SnapshotInfo.AppliedTo);
+		SnapshotInfo.AppliedToPlane = IsValid(AppliedToCombatStatusComp) ? AppliedToCombatStatusComp->GetCurrentPlane() : ESaiyoraPlane::Both;
 		SnapshotInfo.AppliedXPlane = UAbilityFunctionLibrary::IsXPlane(SnapshotInfo.AppliedByPlane, SnapshotInfo.AppliedToPlane);
 		SnapshotInfo.HitStyle = EEventHitStyle::Chronic;
 		SnapshotInfo.School = EventSchool;
@@ -95,6 +86,10 @@ void UPeriodicHealthEventFunction::TickHealthEvent()
 
 void UPeriodicHealthEventFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
+	if (!GetOwningBuff()->HasAuthority())
+	{
+		return;
+	}
 	if (!IsValid(TargetHandler))
 	{
 		//Clear the handle here in case the target became null during the buff's lifetime.
@@ -140,6 +135,10 @@ UHealthEventModifierFunction::UHealthEventModifierFunction()
 
 void UHealthEventModifierFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
+	if (!GetOwningBuff()->HasAuthority())
+	{
+		return;
+	}
 	TargetHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwningBuff()->GetAppliedTo());
 	if (!IsValid(TargetHandler))
 	{
@@ -160,6 +159,10 @@ void UHealthEventModifierFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 
 void UHealthEventModifierFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
+	if (!GetOwningBuff()->HasAuthority())
+	{
+		return;
+	}
 	if (!IsValid(TargetHandler))
 	{
 		return;
@@ -187,6 +190,10 @@ UHealthEventRestrictionFunction::UHealthEventRestrictionFunction()
 
 void UHealthEventRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
+	if (!GetOwningBuff()->HasAuthority())
+	{
+		return;
+	}
 	TargetHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwningBuff()->GetAppliedTo());
 	if (!IsValid(TargetHandler))
 	{
@@ -207,6 +214,10 @@ void UHealthEventRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 
 void UHealthEventRestrictionFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
+	if (!GetOwningBuff()->HasAuthority())
+	{
+		return;
+	}
 	if (!IsValid(TargetHandler) || !bSuccess)
 	{
 		return;
@@ -234,6 +245,10 @@ UDeathRestrictionFunction::UDeathRestrictionFunction()
 
 void UDeathRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
+	if (!GetOwningBuff()->HasAuthority())
+	{
+		return;
+	}
 	TargetHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwningBuff()->GetAppliedTo());
 	if (!IsValid(TargetHandler))
 	{
@@ -244,6 +259,10 @@ void UDeathRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 
 void UDeathRestrictionFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
+	if (!GetOwningBuff()->HasAuthority())
+	{
+		return;
+	}
 	if (!IsValid(TargetHandler) || !bSuccess)
 	{
 		return;
@@ -256,6 +275,10 @@ void UDeathRestrictionFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 
 void UPendingResurrectionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
+	if (!GetOwningBuff()->HasAuthority())
+	{
+		return;
+	}
 	TargetHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(GetOwningBuff()->GetAppliedTo());
 	if (!IsValid(TargetHandler))
 	{
@@ -268,24 +291,44 @@ void UPendingResurrectionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 		ResLocation = GetOwningBuff()->GetAppliedBy()->GetActorLocation();
 	}
 	TargetHandler->OnLifeStatusChanged.AddDynamic(this, &UPendingResurrectionFunction::OnLifeStatusChanged);
-	ResID = TargetHandler->AddPendingResurrection(this);
+	bSuccess = TargetHandler->AddPendingResurrection(this);
 }
 
 void UPendingResurrectionFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
+	if (!GetOwningBuff()->HasAuthority())
+	{
+		return;
+	}
 	if (!IsValid(TargetHandler))
 	{
 		return;
 	}
-	TargetHandler->RemovePendingResurrection(ResID);
+	TargetHandler->RemovePendingResurrection(this);
 	TargetHandler->OnLifeStatusChanged.RemoveDynamic(this, &UPendingResurrectionFunction::OnLifeStatusChanged);
+}
+
+bool UPendingResurrectionFunction::CheckBuffFunctionRestricted(const FBuffApplyEvent& ApplyEvent, EBuffApplyFailReason& OutFailReason) const
+{
+	//Can only be applied to things that are dead.
+	const UDamageHandler* DamageHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(ApplyEvent.AppliedTo);
+	if (IsValid(DamageHandler) && DamageHandler->GetLifeStatus() == ELifeStatus::Dead)
+	{
+		return false;
+	}
+	return true;
+}
+
+void UPendingResurrectionFunction::OnResDecisionMade(const bool bAccepted)
+{
+	
 }
 
 void UPendingResurrectionFunction::OnLifeStatusChanged(AActor* Actor, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus)
 {
 	if (NewStatus == ELifeStatus::Alive)
 	{
-		GetOwningBuff()->GetHandler()->RemoveBuff(GetOwningBuff(), EBuffExpireReason::Dispel);
+		GetOwningBuff()->GetHandler()->RemoveBuff(GetOwningBuff(), EBuffExpireReason::Absolute);
 	}
 }
 

@@ -12,6 +12,10 @@ UResourceDeltaModifierFunction::UResourceDeltaModifierFunction()
 
 void UResourceDeltaModifierFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
+	if (!GetOwningBuff()->HasAuthority())
+	{
+		return;
+	}
 	const UResourceHandler* TargetHandler = ISaiyoraCombatInterface::Execute_GetResourceHandler(GetOwningBuff()->GetAppliedTo());
 	if (!IsValid(TargetHandler))
 	{
@@ -27,6 +31,10 @@ void UResourceDeltaModifierFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 
 void UResourceDeltaModifierFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
+	if (!GetOwningBuff()->HasAuthority())
+	{
+		return;
+	}
 	if (!IsValid(TargetResource))
 	{
 		return;

@@ -66,6 +66,10 @@ UBuffRestrictionFunction::UBuffRestrictionFunction()
 
 void UBuffRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
+    if (!GetOwningBuff()->HasAuthority())
+    {
+        return;
+    }
     TargetComponent = ISaiyoraCombatInterface::Execute_GetBuffHandler(GetOwningBuff()->GetAppliedTo());
     if (!IsValid(TargetComponent))
     {
@@ -76,6 +80,10 @@ void UBuffRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 
 void UBuffRestrictionFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
+    if (!GetOwningBuff()->HasAuthority())
+    {
+        return;
+    }
     if (!IsValid(TargetComponent) || !bSuccess)
     {
         return;

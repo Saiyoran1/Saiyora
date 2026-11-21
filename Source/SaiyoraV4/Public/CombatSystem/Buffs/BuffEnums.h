@@ -28,14 +28,16 @@ enum class EBuffExpireReason : uint8
 {
 	//Default value, not sure if this needs to exist (do OnReps get called for values that haven't changed since object creation?)
 	Invalid,
-	//Buff expired naturally due to duration
+	//Buff expired naturally due to duration.
 	TimedOut,
-	//Buff was manually removed by a game mechanic
+	//Buff was manually removed by a game mechanic. This is subject to bIgnoreRestrictions, and can fail to be removed.
 	Dispel,
-	//Target died and buff can not apply to dead targets
+	//Target died and this buff cannot persist while dead.
 	Death,
-	//Target left combat and buff does not persist outside of combat
+	//Target left combat and buff does not persist outside of combat.
 	Combat,
+	//Catchall for any other reason a buff must be dispelled without restrictions.
+	Absolute,
 };
 
 //The result of a buff application event

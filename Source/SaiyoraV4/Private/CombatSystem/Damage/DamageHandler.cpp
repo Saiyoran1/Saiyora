@@ -6,6 +6,7 @@
 #include "StatHandler.h"
 #include "CombatStatusComponent.h"
 #include "DamageBuffFunctions.h"
+#include "DeathOverlay.h"
 #include "SaiyoraCombatInterface.h"
 #include "DungeonGameState.h"
 #include "NPCAbilityComponent.h"
@@ -51,7 +52,7 @@ void UDamageHandler::InitializeComponent()
 		//This allows for mechanics like bosses that resurrect their adds.
 		if (bCanBeResurrected && !GetOwner()->GetClass()->IsChildOf(ASaiyoraPlayerCharacter::StaticClass()))
 		{
-			OnPendingResAdded.AddDynamic(this, &UDamageHandler::QueueResurrectionAutoAccept);
+			OnPendingResListChanged.AddDynamic(this, &UDamageHandler::QueueResurrectionAutoAccept);
 		}
 	}
 }
@@ -239,147 +240,100 @@ void UDamageHandler::UpdateRespawnPoint(const FVector& NewLocation)
 	RespawnLocation = NewLocation;
 }
 
-void UDamageHandler::Server_RequestRespawn_Implementation()
+bool UDamageHandler::AddPendingResurrection(UPendingResurrectionFunction* Source)
 {
-	RespawnActor();
-}
-
-int UDamageHandler::AddPendingResurrection(UPendingResurrectionFunction* PendingResFunction)
-{
-	if (GetOwnerRole() != ROLE_Authority || !IsValid(PendingResFunction) || !bCanBeResurrected)
+	if (GetOwnerRole() != ROLE_Authority || !IsValid(Source) || !bCanBeResurrected)
 	{
-		return -1;
-	}
-	const FPendingResurrection& Res = PendingResurrections.Emplace_GetRef(PendingResFunction);
-	OnPendingResAdded.Broadcast(Res);
-	return Res.ResID;
-}
-
-void UDamageHandler::RemovePendingResurrection(const int ResID)
-{
-	if (GetOwnerRole() != ROLE_Authority || !bCanBeResurrected || ResID == -1)
-	{
-		return;
-	}
-	FPendingResurrection FoundRes;
-	for (int i = PendingResurrections.Num() - 1; i >= 0; i--)
-	{
-		if (PendingResurrections[i].ResID == ResID)
-		{
-			FoundRes = PendingResurrections[i];
-			PendingResurrections.RemoveAt(i);
-			break;
-		}
-	}
-	//If ID != -1, it means we found a valid res from this buff and removed it.
-	if (FoundRes.ResID != -1)
-	{
-		OnPendingResRemoved.Broadcast(FoundRes);
-	}
-}
-
-void UDamageHandler::OnRep_PendingResurrections(const TArray<FPendingResurrection>& PreviousResurrections)
-{
-	TArray<FPendingResurrection> Removed;
-	TArray<FPendingResurrection> Added;
-	for (const FPendingResurrection& PreviousRes : PreviousResurrections)
-	{
-		if (!PendingResurrections.Contains(PreviousRes))
-		{
-			Removed.Add(PreviousRes);
-		}
-	}
-	for (const FPendingResurrection& NewRes : PendingResurrections)
-	{
-		if (!PreviousResurrections.Contains(NewRes))
-		{
-			Added.Add(NewRes);
-		}
-	}
-	for (const FPendingResurrection& RemovedRes : Removed)
-	{
-		OnPendingResRemoved.Broadcast(RemovedRes);
-	}
-	for (const FPendingResurrection& AddedRes : Added)
-	{
-		OnPendingResAdded.Broadcast(AddedRes);
-	}
-}
-
-void UDamageHandler::AcceptResurrection(const int ResID)
-{
-	if (ResID == -1 || !bCanBeResurrected || LifeStatus != ELifeStatus::Dead)
-	{
-		return;
-	}
-	//If this is called by the local player, we'll route to the server to try and accept the resurrection.
-	if (GetOwnerRole() == ROLE_AutonomousProxy)
-	{
-		Server_MakeResDecision(ResID, true);
-		return;
-	}
-	//Otherwise, we need to be the server to be resurrected.
-	if (GetOwnerRole() != ROLE_Authority)
-	{
-		return;
+		return false;
 	}
 	for (const FPendingResurrection& PendingRes : PendingResurrections)
 	{
-		if (PendingRes.ResID == ResID)
+		if (PendingRes.Source == Source)
 		{
-			//Call the callback function on the source of the res, if one exists.
-			//This plays some cosmetic effects when accepting the res.
-			if (IsValid(PendingRes.BuffSource))
-			{
-				if (UFunction* Callback = PendingRes.BuffSource->FindFunction(PendingRes.CallbackName))
-				{
-					//To pass parameters to a UFunction dynamically, you need to pass a struct pointer containing the params.
-					struct
-					{
-						FVector ResLocation;
-					} Params;
-					Params.ResLocation = PendingRes.ResLocation;
-					//Call the callback function.
-					PendingRes.BuffSource->ProcessEvent(Callback, &Params);
-				}
-			}
-			RespawnActor(true, PendingRes.ResLocation, PendingRes.bOverrideHealth, PendingRes.OverrideHealthPercent);
+			return false;
+		}
+	}
+	PendingResurrections.Emplace(Source);
+	OnPendingResListChanged.Broadcast(PendingResurrections);
+	return true;
+}
+
+void UDamageHandler::RemovePendingResurrection(UPendingResurrectionFunction* Source)
+{
+	if (GetOwnerRole() != ROLE_Authority || !bCanBeResurrected || !IsValid(Source))
+	{
+		return;
+	}
+	for (int i = PendingResurrections.Num() - 1; i >= 0; i--)
+	{
+		if (PendingResurrections[i].Source == Source)
+		{
+			PendingResurrections.RemoveAt(i);
+			OnPendingResListChanged.Broadcast(PendingResurrections);
 			break;
 		}
 	}
 }
 
-void UDamageHandler::DeclineResurrection(const int ResID)
+void UDamageHandler::MakeResurrectionDecision(const int ResID, const bool bAccept)
 {
 	if (ResID == -1 || !bCanBeResurrected || LifeStatus != ELifeStatus::Dead)
 	{
 		return;
 	}
-	//If this is called by the local player, we'll route to the server to try and accept the resurrection.
+	//Local player needs to RPC to the server to make a res decision.
 	if (GetOwnerRole() == ROLE_AutonomousProxy)
 	{
-		Server_MakeResDecision(ResID, false);
+		Server_MakeResDecision(ResID, bAccept);
 		return;
 	}
-	//Otherwise, we need to be the server to be resurrected.
+	//If we're not the server, don't do anything.
 	if (GetOwnerRole() != ROLE_Authority)
 	{
 		return;
 	}
-	for (int i = PendingResurrections.Num() - 1; i >= 0; i--)
+	bool bSuccessfullyAcceptedRes = false;
+	for (int i = 0; i < PendingResurrections.Num(); i++)
 	{
 		const FPendingResurrection& PendingRes = PendingResurrections[i];
 		if (PendingRes.ResID == ResID)
 		{
-			if (IsValid(PendingRes.BuffSource))
+			const FPendingResurrection ResCopy = PendingResurrections[i];
+			PendingResurrections.RemoveAt(i);
+			//Play cosmetic effects tied to accepting/declining the res.
+			if (IsValid(ResCopy.Source))
 			{
-				PendingRes.BuffSource->GetHandler()->RemoveBuff(PendingRes.BuffSource, EBuffExpireReason::Dispel);
+				ResCopy.Source->OnResDecisionMade(bAccept);
 			}
-			else
+			//If we're accepting, then we just respawn the actor. This will automatically remove all pending resurrection functions.
+			if (bAccept)
 			{
-				RemovePendingResurrection(PendingRes.ResID);
+				bSuccessfullyAcceptedRes = true;
+				RespawnActor(true, ResCopy.ResLocation, ResCopy.bOverrideHealth, ResCopy.OverrideHealthPercent);
 			}
+			//If we're declining, just remove the buff manually.
+			else if (IsValid(ResCopy.Source))
+			{
+				ResCopy.Source->GetOwningBuff()->GetHandler()->RemoveBuff(ResCopy.Source->GetOwningBuff(), EBuffExpireReason::Absolute);
+			}
+			OnPendingResListChanged.Broadcast(PendingResurrections);
 			break;
+		}
+	}
+	//If we failed to accept a res, need to let the player know so his UI can show the next pending res.
+	if (bAccept && !bSuccessfullyAcceptedRes && IsValid(Cast<ASaiyoraPlayerCharacter>(GetOwner())))
+	{
+		Client_ResurrectionRequestFailed();
+	}
+}
+
+void UDamageHandler::Client_ResurrectionRequestFailed_Implementation()
+{
+	if (const ASaiyoraPlayerCharacter* PlayerOwner = Cast<ASaiyoraPlayerCharacter>(GetOwner()))
+	{
+		if (IsValid(PlayerOwner->GetDeathOverlay()))
+		{
+			PlayerOwner->GetDeathOverlay()->OnResAcceptFailed();
 		}
 	}
 }
@@ -393,21 +347,13 @@ bool UDamageHandler::AddDeathRestriction(const FDeathRestriction& Restriction)
 	return DeathRestrictions.Add(Restriction);
 }
 
-void UDamageHandler::Server_MakeResDecision_Implementation(const int ResID, const bool bAccept)
+void UDamageHandler::QueueResurrectionAutoAccept(const TArray<FPendingResurrection>& NewResurrections)
 {
-	if (bAccept)
+	if (PendingResurrections.Num() == 0)
 	{
-		AcceptResurrection(ResID);
+		return;
 	}
-	else
-	{
-		DeclineResurrection(ResID);
-	}
-}
-
-void UDamageHandler::QueueResurrectionAutoAccept(const FPendingResurrection& PendingRes)
-{
-	const FTimerDelegate AutoAcceptDelegate = FTimerDelegate::CreateUObject(this, &UDamageHandler::AutoAcceptResurrection, PendingRes.ResID);
+	const FTimerDelegate AutoAcceptDelegate = FTimerDelegate::CreateUObject(this, &UDamageHandler::AutoAcceptResurrection, PendingResurrections[0].ResID);
 	GetWorld()->GetTimerManager().SetTimerForNextTick(AutoAcceptDelegate);
 }
 
@@ -415,7 +361,7 @@ void UDamageHandler::AutoAcceptResurrection(const int ResID)
 {
 	if (GetLifeStatus() == ELifeStatus::Dead)
 	{
-		AcceptResurrection(ResID);
+		MakeResurrectionDecision(ResID, true);
 	}
 }
 

@@ -13,7 +13,8 @@ UComplexAbilityModifierFunction::UComplexAbilityModifierFunction()
 
 void UComplexAbilityModifierFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
-	TargetHandler = ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwningBuff()->GetAppliedTo());
+	TargetHandler = IsValid(GetOwningBuff()->GetAppliedTo()) && GetOwningBuff()->GetAppliedTo()->Implements<USaiyoraCombatInterface>()
+		? ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwningBuff()->GetAppliedTo()) : nullptr;
 	if (!IsValid(TargetHandler))
 	{
 		return;
@@ -61,6 +62,10 @@ void UComplexAbilityModifierFunction::OnRemove(const FBuffRemoveEvent& RemoveEve
 
 void USimpleAbilityModifierFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
+	if (!GetOwningBuff()->HasAuthority())
+	{
+		return;
+	}
 	const UAbilityComponent* AbilityHandler = ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwningBuff()->GetAppliedTo());
 	if (IsValid(AbilityHandler))
 	{
@@ -89,6 +94,10 @@ void USimpleAbilityModifierFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 
 void USimpleAbilityModifierFunction::OnChange(const FBuffApplyEvent& ApplyEvent)
 {
+	if (!GetOwningBuff()->HasAuthority())
+	{
+		return;
+	}
 	if (!IsValid(TargetAbility))
 	{
 		return;
@@ -114,6 +123,10 @@ void USimpleAbilityModifierFunction::OnChange(const FBuffApplyEvent& ApplyEvent)
 
 void USimpleAbilityModifierFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
+	if (!GetOwningBuff()->HasAuthority())
+	{
+		return;
+	}
 	if (!IsValid(TargetAbility))
 	{
 		return;
@@ -139,6 +152,10 @@ void USimpleAbilityModifierFunction::OnRemove(const FBuffRemoveEvent& RemoveEven
 
 void UAbilityCostModifierFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
+	if (!GetOwningBuff()->HasAuthority())
+	{
+		return;
+	}
 	TargetHandler = ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwningBuff()->GetAppliedTo());
 	if (!IsValid(TargetHandler))
 	{
@@ -161,6 +178,10 @@ void UAbilityCostModifierFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 
 void UAbilityCostModifierFunction::OnChange(const FBuffApplyEvent& ApplyEvent)
 {
+	if (!GetOwningBuff()->HasAuthority())
+	{
+		return;
+	}
 	if (!IsValid(TargetHandler))
 	{
 		return;
@@ -183,6 +204,10 @@ void UAbilityCostModifierFunction::OnChange(const FBuffApplyEvent& ApplyEvent)
 
 void UAbilityCostModifierFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
+	if (!GetOwningBuff()->HasAuthority())
+	{
+		return;
+	}
 	if (!IsValid(TargetHandler))
 	{
 		return;
@@ -205,6 +230,10 @@ void UAbilityCostModifierFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 
 void UAbilityClassRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
+	if (!GetOwningBuff()->HasAuthority())
+	{
+		return;
+	}
 	TargetComponent = ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwningBuff()->GetAppliedTo());
 	if (!IsValid(TargetComponent))
 	{
@@ -221,6 +250,10 @@ void UAbilityClassRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent
 
 void UAbilityClassRestrictionFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
+	if (!GetOwningBuff()->HasAuthority())
+	{
+		return;
+	}
 	if (!IsValid(TargetComponent))
 	{
 		return;
@@ -239,6 +272,10 @@ void UAbilityClassRestrictionFunction::OnRemove(const FBuffRemoveEvent& RemoveEv
 
 void UAbilityTagRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
+	if (!GetOwningBuff()->HasAuthority())
+	{
+		return;
+	}
 	TargetComponent = ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwningBuff()->GetAppliedTo());
 	if (!IsValid(TargetComponent))
 	{
@@ -257,6 +294,10 @@ void UAbilityTagRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 
 void UAbilityTagRestrictionFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
+	if (!GetOwningBuff()->HasAuthority())
+	{
+		return;
+	}
 	if (!IsValid(TargetComponent))
 	{
 		return;
@@ -282,6 +323,10 @@ UInterruptRestrictionFunction::UInterruptRestrictionFunction()
 
 void UInterruptRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
+	if (!GetOwningBuff()->HasAuthority())
+	{
+		return;
+	}
 	TargetComponent = ISaiyoraCombatInterface::Execute_GetAbilityComponent(GetOwningBuff()->GetAppliedTo());
 	if (!IsValid(TargetComponent))
 	{
@@ -292,6 +337,10 @@ void UInterruptRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 
 void UInterruptRestrictionFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
+	if (!GetOwningBuff()->HasAuthority())
+	{
+		return;
+	}
 	if (!IsValid(TargetComponent) || !bSuccess)
 	{
 		return;

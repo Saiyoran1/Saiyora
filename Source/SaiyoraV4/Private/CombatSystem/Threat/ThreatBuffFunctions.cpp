@@ -13,6 +13,10 @@ UThreatModifierFunction::UThreatModifierFunction()
 
 void UThreatModifierFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
 {
+	if (!GetOwningBuff()->HasAuthority())
+	{
+		return;
+	}
 	TargetHandler = ISaiyoraCombatInterface::Execute_GetThreatHandler(GetOwningBuff()->GetAppliedTo());
 	if (!IsValid(TargetHandler))
 	{
@@ -33,6 +37,10 @@ void UThreatModifierFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
 
 void UThreatModifierFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
 {
+	if (!GetOwningBuff()->HasAuthority())
+	{
+		return;
+	}
 	if (!IsValid(TargetHandler))
 	{
 		return;
@@ -60,6 +68,10 @@ UThreatRestrictionFunction::UThreatRestrictionFunction()
 
 void UThreatRestrictionFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
 {
+	if (!GetOwningBuff()->HasAuthority())
+	{
+		return;
+	}
 	TargetHandler = ISaiyoraCombatInterface::Execute_GetThreatHandler(GetOwningBuff()->GetAppliedTo());
 	if (!IsValid(TargetHandler))
 	{
@@ -80,6 +92,10 @@ void UThreatRestrictionFunction::OnApply(FBuffApplyEvent const& ApplyEvent)
 
 void UThreatRestrictionFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
 {
+	if (!GetOwningBuff()->HasAuthority())
+	{
+		return;
+	}
 	if (!IsValid(TargetHandler) || !bSuccess)
 	{
 		return;
@@ -102,6 +118,10 @@ void UThreatRestrictionFunction::OnRemove(FBuffRemoveEvent const& RemoveEvent)
 
 void UFadeFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
+	if (!GetOwningBuff()->HasAuthority())
+	{
+		return;
+	}
 	TargetHandler = ISaiyoraCombatInterface::Execute_GetThreatHandler(GetOwningBuff()->GetAppliedTo());
 	if (!IsValid(TargetHandler))
 	{
@@ -112,6 +132,10 @@ void UFadeFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 
 void UFadeFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
+	if (!GetOwningBuff()->HasAuthority())
+	{
+		return;
+	}
 	if (!IsValid(TargetHandler))
 	{
 		return;	
@@ -135,6 +159,10 @@ bool UFadeFunction::CheckBuffFunctionRestricted(const FBuffApplyEvent& ApplyEven
 
 void UFixateFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
+	if (!GetOwningBuff()->HasAuthority())
+	{
+		return;
+	}
 	TargetHandler = ISaiyoraCombatInterface::Execute_GetThreatHandler(GetOwningBuff()->GetAppliedTo());
 	if (!IsValid(TargetHandler))
 	{
@@ -149,6 +177,10 @@ void UFixateFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 
 void UFixateFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
+	if (!GetOwningBuff()->HasAuthority())
+	{
+		return;
+	}
 	if (!IsValid(TargetHandler))
 	{
 		return;
@@ -212,6 +244,10 @@ AActor* UFixateFunction::TryGetFixateTarget(const FBuffApplyEvent& ApplyEvent) c
 
 void UBlindFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
+	if (!GetOwningBuff()->HasAuthority())
+	{
+		return;
+	}
 	TargetHandler = ISaiyoraCombatInterface::Execute_GetThreatHandler(GetOwningBuff()->GetAppliedTo());
 	if (!IsValid(TargetHandler))
 	{
@@ -226,6 +262,10 @@ void UBlindFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 
 void UBlindFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
+	if (!GetOwningBuff()->HasAuthority())
+	{
+		return;
+	}
 	if (!IsValid(TargetHandler))
 	{
 		return;
@@ -289,6 +329,10 @@ AActor* UBlindFunction::TryGetBlindTarget(const FBuffApplyEvent& ApplyEvent) con
 
 void UMisdirectFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
+	if (!GetOwningBuff()->HasAuthority())
+	{
+		return;
+	}
 	TargetHandler = ISaiyoraCombatInterface::Execute_GetThreatHandler(GetOwningBuff()->GetAppliedTo());
 	if (!IsValid(TargetHandler))
 	{
@@ -303,6 +347,10 @@ void UMisdirectFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 
 void UMisdirectFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
+	if (!GetOwningBuff()->HasAuthority())
+	{
+		return;
+	}
 	if (!IsValid(TargetHandler))
 	{
 		return;

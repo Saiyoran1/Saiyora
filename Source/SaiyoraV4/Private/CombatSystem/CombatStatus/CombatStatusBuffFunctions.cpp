@@ -5,6 +5,10 @@
 
 void UPlaneSwapRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
+	if (!GetOwningBuff()->HasAuthority())
+	{
+		return;
+	}
 	TargetHandler = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(GetOwningBuff()->GetAppliedTo());
 	if (!IsValid(TargetHandler))
 	{
@@ -15,6 +19,10 @@ void UPlaneSwapRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 
 void UPlaneSwapRestrictionFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
+	if (!GetOwningBuff()->HasAuthority())
+	{
+		return;
+	}
 	if (!IsValid(TargetHandler))
 	{
 		return;

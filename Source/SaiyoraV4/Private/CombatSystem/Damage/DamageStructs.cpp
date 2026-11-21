@@ -1,16 +1,11 @@
 ﻿#include "DamageStructs.h"
-
 #include "Buff.h"
 #include "DamageBuffFunctions.h"
 
-FPendingResurrection::FPendingResurrection(const UPendingResurrectionFunction* InResFunction)
+FPendingResurrection::FPendingResurrection(UPendingResurrectionFunction* InResFunction)
 {
-	BuffSource = InResFunction->GetOwningBuff();
-	CallbackName = InResFunction->CallbackFunctionName;
-	if (IsValid(BuffSource))
-	{
-		Icon = BuffSource->GetBuffIcon();
-	}
+	Source = InResFunction;
+	BuffClass = IsValid(InResFunction->GetOwningBuff()) ? InResFunction->GetOwningBuff()->GetClass() : nullptr;
 	bOverrideHealth = InResFunction->bOverrideHealth;
 	OverrideHealthPercent = InResFunction->HealthPercentageOverride;
 	ResLocation = InResFunction->ResLocation;

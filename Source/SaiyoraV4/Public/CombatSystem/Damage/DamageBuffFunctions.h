@@ -145,6 +145,9 @@ public:
 	
 	virtual void OnApply(const FBuffApplyEvent& ApplyEvent) override;
 	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) override;
+	virtual bool CheckBuffFunctionRestricted(const FBuffApplyEvent& ApplyEvent, EBuffApplyFailReason& OutFailReason) const override;
+
+	void OnResDecisionMade(const bool bAccepted);
 
 private:
 	
@@ -156,10 +159,10 @@ private:
 	//TODO: Figure out what's going on here.
 	UPROPERTY(EditAnywhere)
 	FName CallbackFunctionName;
-	
+
+	bool bSuccess = false;
 	UPROPERTY()
 	UDamageHandler* TargetHandler = nullptr;
-	int ResID = -1;
 	UFUNCTION()
 	void OnLifeStatusChanged(AActor* Actor, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus);
 };

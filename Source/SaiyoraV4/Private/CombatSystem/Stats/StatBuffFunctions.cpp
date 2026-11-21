@@ -7,6 +7,10 @@
 
 void UStatModifierFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
+	if (!GetOwningBuff()->HasAuthority())
+	{
+		return;
+	}
 	TargetHandler = ISaiyoraCombatInterface::Execute_GetStatHandler(GetOwningBuff()->GetAppliedTo());
 	if (!IsValid(TargetHandler))
 	{
@@ -21,6 +25,10 @@ void UStatModifierFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 
 void UStatModifierFunction::OnChange(const FBuffApplyEvent& ApplyEvent)
 {
+	if (!GetOwningBuff()->HasAuthority())
+	{
+		return;
+	}
 	if (!IsValid(TargetHandler))
 	{
 		return;
@@ -39,6 +47,10 @@ void UStatModifierFunction::OnChange(const FBuffApplyEvent& ApplyEvent)
 
 void UStatModifierFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 {
+	if (!GetOwningBuff()->HasAuthority())
+	{
+		return;
+	}
 	if (!IsValid(TargetHandler))
 	{
 		return;

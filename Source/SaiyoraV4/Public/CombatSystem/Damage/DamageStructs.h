@@ -75,13 +75,10 @@ struct FPendingResurrection
     GENERATED_BODY()
     
     UPROPERTY(NotReplicated)
-    UBuff* BuffSource = nullptr;
-    UPROPERTY(NotReplicated)
-    FName CallbackName;
-    //Replicate the display icon because replicating the buff source itself introduces a race condition.
-    //In the future it might be smart to just replicate the buff class so we can extract school/plane info if needed too.
+    UPendingResurrectionFunction* Source = nullptr;
+    //Replicate the buff class for display info (icon, name, etc.).
     UPROPERTY()
-    UTexture2D* Icon = nullptr;
+    TSubclassOf<UBuff> BuffClass;
     
     UPROPERTY()
     FVector ResLocation = FVector::ZeroVector;
@@ -94,7 +91,7 @@ struct FPendingResurrection
     int ResID = -1;
 
     FPendingResurrection() {}
-    FPendingResurrection(const UPendingResurrectionFunction* InResFunction);
+    FPendingResurrection(UPendingResurrectionFunction* InResFunction);
 
     FORCEINLINE bool operator==(const FPendingResurrection& Other) const { return Other.ResID == ResID; }
 };
@@ -106,4 +103,4 @@ DECLARE_DYNAMIC_DELEGATE_OneParam(FHealthEventCallback, const FHealthEvent&, Hea
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FHealthEventNotification, const FHealthEvent&, HealthEvent);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FHealthChangeNotification, AActor*, Actor, const float, PreviousHealth, const float, NewHealth);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FLifeStatusNotification, AActor*, Actor, const ELifeStatus, PreviousStatus, const ELifeStatus, NewStatus);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPendingResNotification, const FPendingResurrection&, PendingResurrection);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPendingResNotification, const TArray<FPendingResurrection>&, NewResurrections);

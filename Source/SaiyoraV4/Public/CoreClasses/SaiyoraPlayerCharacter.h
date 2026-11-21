@@ -83,6 +83,7 @@ public:
 	FActorCombatNotification OnEnemyCombatChanged;
 
 	UPlayerHUD* GetPlayerHUD() const { return PlayerHUD; }
+	UDeathOverlay* GetDeathOverlay() const { return DeathOverlay; }
 
 private:
 
