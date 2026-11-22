@@ -104,3 +104,4 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FHealthEventNotification, const FHea
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FHealthChangeNotification, AActor*, Actor, const float, PreviousHealth, const float, NewHealth);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FLifeStatusNotification, AActor*, Actor, const ELifeStatus, PreviousStatus, const ELifeStatus, NewStatus);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPendingResNotification, const TArray<FPendingResurrection>&, NewResurrections);
+DECLARE_DYNAMIC_DELEGATE_TwoParams(FResurrectionCallback, const bool, bAccepted, const FVector&, ResLocation);

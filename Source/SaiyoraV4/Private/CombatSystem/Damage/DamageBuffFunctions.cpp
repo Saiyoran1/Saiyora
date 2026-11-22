@@ -273,6 +273,11 @@ void UDeathRestrictionFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 #pragma endregion
 #pragma region Resurrection
 
+UPendingResurrectionFunction::UPendingResurrectionFunction()
+{
+	SetDelegateProperty(GET_MEMBER_NAME_CHECKED(UPendingResurrectionFunction, Callback));
+}
+
 void UPendingResurrectionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 {
 	if (!GetOwningBuff()->HasAuthority())
@@ -304,7 +309,10 @@ void UPendingResurrectionFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 	{
 		return;
 	}
-	TargetHandler->RemovePendingResurrection(this);
+	if (bSuccess)
+	{
+		TargetHandler->RemovePendingResurrection(this);
+	}
 	TargetHandler->OnLifeStatusChanged.RemoveDynamic(this, &UPendingResurrectionFunction::OnLifeStatusChanged);
 }
 
@@ -321,7 +329,10 @@ bool UPendingResurrectionFunction::CheckBuffFunctionRestricted(const FBuffApplyE
 
 void UPendingResurrectionFunction::OnResDecisionMade(const bool bAccepted)
 {
-	
+	if (Callback.IsBound())
+	{
+		Callback.Execute(bAccepted, ResLocation);
+	}
 }
 
 void UPendingResurrectionFunction::OnLifeStatusChanged(AActor* Actor, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus)

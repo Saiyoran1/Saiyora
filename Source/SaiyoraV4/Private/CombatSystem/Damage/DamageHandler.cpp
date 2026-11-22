@@ -169,6 +169,17 @@ void UDamageHandler::KillActor(AActor* Attacker, UObject* Source, const bool bIg
 	                 true, bIgnoreDeathRestrictions, false, FHealthEventModCondition(), FThreatFromDamage());
 }
 
+void UDamageHandler::Server_RequestRespawn_Implementation()
+{
+	const bool bRespawned = RespawnActor();
+	//If this is a player, let him know explicitly that we failed to respawn.
+	//This unlocks the accept/decline/respawn buttons on the UI.
+	if (!bRespawned && IsValid(Cast<ASaiyoraPlayerCharacter>(GetOwner())))
+	{
+		Client_ResurrectionRequestFailed();
+	}
+}
+
 void UDamageHandler::Die()
 {
 	if (CurrentAbsorb != 0.0f)
@@ -207,12 +218,12 @@ void UDamageHandler::Die()
 	}
 }
 
-void UDamageHandler::RespawnActor(const bool bForceRespawnLocation, const FVector& OverrideRespawnLocation,
+bool UDamageHandler::RespawnActor(const bool bForceRespawnLocation, const FVector& OverrideRespawnLocation,
                                   const bool bForceHealthPercentage, const float OverrideHealthPercentage)
 {
 	if (GetOwnerRole() != ROLE_Authority || !bCanBeResurrected || LifeStatus != ELifeStatus::Dead)
 	{
-		return;
+		return false;
 	}
 	if (!bRespawnInPlace || bForceRespawnLocation)
 	{
@@ -229,6 +240,7 @@ void UDamageHandler::RespawnActor(const bool bForceRespawnLocation, const FVecto
 	const ELifeStatus PreviousStatus = LifeStatus;
 	LifeStatus = ELifeStatus::Alive;
 	OnLifeStatusChanged.Broadcast(GetOwner(), PreviousStatus, ELifeStatus::Alive);
+	return true;
 }
 
 void UDamageHandler::UpdateRespawnPoint(const FVector& NewLocation)
@@ -277,10 +289,6 @@ void UDamageHandler::RemovePendingResurrection(UPendingResurrectionFunction* Sou
 
 void UDamageHandler::MakeResurrectionDecision(const int ResID, const bool bAccept)
 {
-	if (ResID == -1 || !bCanBeResurrected || LifeStatus != ELifeStatus::Dead)
-	{
-		return;
-	}
 	//Local player needs to RPC to the server to make a res decision.
 	if (GetOwnerRole() == ROLE_AutonomousProxy)
 	{
@@ -292,36 +300,41 @@ void UDamageHandler::MakeResurrectionDecision(const int ResID, const bool bAccep
 	{
 		return;
 	}
-	bool bSuccessfullyAcceptedRes = false;
-	for (int i = 0; i < PendingResurrections.Num(); i++)
+	bool bRespawned = false;
+	//If we're declining a res, we can do that regardless of whether that res is actually viable.
+	//Otherwise, if we're accepting a res, we need to actually be resurrectable and dead.
+	if (ResID > -1 && (!bAccept || (bCanBeResurrected && LifeStatus == ELifeStatus::Dead)))
 	{
-		const FPendingResurrection& PendingRes = PendingResurrections[i];
-		if (PendingRes.ResID == ResID)
+		for (int i = 0; i < PendingResurrections.Num(); i++)
 		{
-			const FPendingResurrection ResCopy = PendingResurrections[i];
-			PendingResurrections.RemoveAt(i);
-			//Play cosmetic effects tied to accepting/declining the res.
-			if (IsValid(ResCopy.Source))
+			const FPendingResurrection& PendingRes = PendingResurrections[i];
+			if (PendingRes.ResID == ResID)
 			{
-				ResCopy.Source->OnResDecisionMade(bAccept);
+				const FPendingResurrection ResCopy = PendingResurrections[i];
+				PendingResurrections.RemoveAt(i);
+				//Play cosmetic effects tied to accepting/declining the res.
+				if (IsValid(ResCopy.Source))
+				{
+					ResCopy.Source->OnResDecisionMade(bAccept);
+				}
+				//If we're accepting, then we just respawn the actor. This will automatically remove all pending resurrection functions.
+				if (bAccept)
+				{
+					bRespawned = RespawnActor(true, ResCopy.ResLocation, ResCopy.bOverrideHealth, ResCopy.OverrideHealthPercent);
+				}
+				//If we're declining, just remove the buff manually.
+				else if (IsValid(ResCopy.Source))
+				{
+					ResCopy.Source->GetOwningBuff()->GetHandler()->RemoveBuff(ResCopy.Source->GetOwningBuff(), EBuffExpireReason::Absolute);
+				}
+				OnPendingResListChanged.Broadcast(PendingResurrections);
+				break;
 			}
-			//If we're accepting, then we just respawn the actor. This will automatically remove all pending resurrection functions.
-			if (bAccept)
-			{
-				bSuccessfullyAcceptedRes = true;
-				RespawnActor(true, ResCopy.ResLocation, ResCopy.bOverrideHealth, ResCopy.OverrideHealthPercent);
-			}
-			//If we're declining, just remove the buff manually.
-			else if (IsValid(ResCopy.Source))
-			{
-				ResCopy.Source->GetOwningBuff()->GetHandler()->RemoveBuff(ResCopy.Source->GetOwningBuff(), EBuffExpireReason::Absolute);
-			}
-			OnPendingResListChanged.Broadcast(PendingResurrections);
-			break;
 		}
 	}
-	//If we failed to accept a res, need to let the player know so his UI can show the next pending res.
-	if (bAccept && !bSuccessfullyAcceptedRes && IsValid(Cast<ASaiyoraPlayerCharacter>(GetOwner())))
+	//If this is a player, let him know explicitly if we failed to accept this resurrection.
+	//This unlocks the accept/decline/respawn buttons on the UI.
+	if (bAccept && !bRespawned && IsValid(Cast<ASaiyoraPlayerCharacter>(GetOwner())))
 	{
 		Client_ResurrectionRequestFailed();
 	}
@@ -333,7 +346,7 @@ void UDamageHandler::Client_ResurrectionRequestFailed_Implementation()
 	{
 		if (IsValid(PlayerOwner->GetDeathOverlay()))
 		{
-			PlayerOwner->GetDeathOverlay()->OnResAcceptFailed();
+			PlayerOwner->GetDeathOverlay()->OnServerFailedToRespawn();
 		}
 	}
 }

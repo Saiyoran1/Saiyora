@@ -1,12 +1,11 @@
 ﻿#pragma once
 #include "CoreMinimal.h"
+#include "Border.h"
 #include "Button.h"
 #include "DamageStructs.h"
 #include "Image.h"
-#include "Overlay.h"
 #include "TextBlock.h"
 #include "UserWidget.h"
-#include "WidgetSwitcher.h"
 #include "DeathOverlay.generated.h"
 
 class UDamageHandler;
@@ -23,14 +22,12 @@ public:
 	void Init(ASaiyoraPlayerCharacter* OwningChar);
 	virtual void NativeTick(const FGeometry& MyGeometry, float InDeltaTime) override;
 
-	//Called when this client accepts a res, but the server fails to actually resurrect.
-	//Just clears the flag that is hiding the resurrection window and queues an update for next frame to re-show it.
-	void OnResAcceptFailed() { bAcceptedRes = false; bQueuedNeedsUpdate = true; }
+	//Called by the server when failing to respawn/resurrect.
+	//Re-enables the respawn, accept, and decline buttons.
+	void OnServerFailedToRespawn() { SetWaitingForServer(false); }
 
 private:
 	
-	UPROPERTY(meta = (BindWidget))
-	UOverlay* DefaultRespawnOverlay;
 	UPROPERTY(meta = (BindWidget))
 	UButton* DefaultRespawnButton;
 	UPROPERTY(meta = (BindWidget))
@@ -42,16 +39,13 @@ private:
 	FText RespawnUnavailableText;
 	
 	UPROPERTY(meta = (BindWidget))
-	UOverlay* PendingResOverlay;
+	UBorder* RezBorder;
 	UPROPERTY(meta = (BindWidget))
 	UButton* AcceptPendingResButton;
 	UPROPERTY(meta = (BindWidget))
 	UButton* DeclinePendingResButton;
 	UPROPERTY(meta = (BindWidget))
 	UImage* PendingResIcon;
-
-	UPROPERTY(meta = (BindWidget))
-	UWidgetSwitcher* RespawnResurrectSwitcher;
 	
 	UPROPERTY()
 	UDamageHandler* OwnerDamageHandler;
@@ -61,10 +55,11 @@ private:
 	UFUNCTION()
 	void OnResurrectionListChanged(const TArray<FPendingResurrection>& PendingResurrections) { bQueuedNeedsUpdate = true; }
 	
-	TArray<int> AlreadyDecidedResIDs;
-	bool bAcceptedRes = false;
+	TArray<int> AlreadyDeclinedResIDs;
+	bool bAwaitingServerResDecision = false;
 	bool bQueuedNeedsUpdate = false;
 	void UpdatePendingResurrection();
+	void SetWaitingForServer(const bool bWaiting);
 
 	int PendingResID = -1;
 

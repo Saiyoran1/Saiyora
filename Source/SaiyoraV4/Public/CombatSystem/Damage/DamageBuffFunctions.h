@@ -142,7 +142,8 @@ class SAIYORAV4_API UPendingResurrectionFunction : public UBuffFunction
 public:
 
 	friend struct FPendingResurrection;
-	
+
+	UPendingResurrectionFunction();
 	virtual void OnApply(const FBuffApplyEvent& ApplyEvent) override;
 	virtual void OnRemove(const FBuffRemoveEvent& RemoveEvent) override;
 	virtual bool CheckBuffFunctionRestricted(const FBuffApplyEvent& ApplyEvent, EBuffApplyFailReason& OutFailReason) const override;
@@ -156,9 +157,9 @@ private:
 	bool bOverrideHealth = false;
 	UPROPERTY(EditAnywhere, meta = (EditCondition = "bOverrideHealth"))
 	float HealthPercentageOverride = 1.0f;
-	//TODO: Figure out what's going on here.
-	UPROPERTY(EditAnywhere)
-	FName CallbackFunctionName;
+	
+	UPROPERTY(Transient)
+	FResurrectionCallback Callback;
 
 	bool bSuccess = false;
 	UPROPERTY()

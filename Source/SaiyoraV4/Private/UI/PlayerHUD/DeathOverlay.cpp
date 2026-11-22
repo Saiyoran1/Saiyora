@@ -53,7 +53,7 @@ void UDeathOverlay::OnLifeStatusChanged(AActor* Actor, const ELifeStatus Previou
 	//Immediately update the resurrection window.
 	if (PreviousStatus != ELifeStatus::Dead && NewStatus == ELifeStatus::Dead)
 	{
-		bAcceptedRes = false;
+		SetWaitingForServer(false);
 		UpdatePendingResurrection();
 	}
 }
@@ -62,33 +62,33 @@ void UDeathOverlay::UpdatePendingResurrection()
 {
 	bQueuedNeedsUpdate = false;
 	const TArray<FPendingResurrection>& PendingResurrections = OwnerDamageHandler->GetPendingResurrections();
-	//Refresh the "AlreadyDecidedResIDs" list so that it doesn't keep resurrections no longer pending.
-	const TArray<int> AlreadyDecided = AlreadyDecidedResIDs;
-	AlreadyDecidedResIDs.Empty();
+	//Refresh the "AlreadyDeclinedResIDs" list so that it doesn't keep resurrections no longer pending.
+	const TArray<int> AlreadyDeclined = AlreadyDeclinedResIDs;
+	AlreadyDeclinedResIDs.Empty();
 	for (const FPendingResurrection& Resurrection : PendingResurrections)
 	{
-		if (AlreadyDecided.Contains(Resurrection.ResID))
+		if (AlreadyDeclined.Contains(Resurrection.ResID))
 		{
-			AlreadyDecidedResIDs.Add(Resurrection.ResID);
+			AlreadyDeclinedResIDs.Add(Resurrection.ResID);
 		}
 	}
-	//If we've already accepted a res and are just waiting on replication, don't show pending resurrections.
-	if (bAcceptedRes)
+	//If we've already accepted a res and are just waiting on replication, don't change anything until the server responds.
+	if (bAwaitingServerResDecision)
 	{
 		return;
 	}
-	//Find the first pending resurrection we haven't already made a decision on. That's our new displayed res.
+	//Find the most recent pending resurrection we haven't already made a decision on. That's our new displayed res.
 	bool bFoundRes = false;
 	for (int i = PendingResurrections.Num() - 1; i >= 0; i--)
 	{
 		const FPendingResurrection& PendingResurrection = PendingResurrections[i];
-		if (AlreadyDecidedResIDs.Contains(PendingResurrection.ResID))
+		if (AlreadyDeclinedResIDs.Contains(PendingResurrection.ResID))
 		{
 			continue;
 		}
 		bFoundRes = true;
 		PendingResID = PendingResurrection.ResID;
-		RespawnResurrectSwitcher->SetActiveWidget(PendingResOverlay);
+		RezBorder->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
 		bool bFoundIcon = false;
 		if (IsValid(PendingResurrection.BuffClass))
 		{
@@ -112,44 +112,50 @@ void UDeathOverlay::UpdatePendingResurrection()
 		}
 		break;
 	}
-	//If there's no pending resurrection we haven't already made a decision on, swap back to the window showing the release option.
+	//If there's no pending resurrection we haven't already made a decision on, hide the pending resurrection window.
 	if (!bFoundRes)
 	{
-		RespawnResurrectSwitcher->SetActiveWidget(DefaultRespawnOverlay);
+		RezBorder->SetVisibility(ESlateVisibility::Collapsed);
 		PendingResID = -1;
 	}
 }
 
+void UDeathOverlay::SetWaitingForServer(const bool bWaiting)
+{
+	bAwaitingServerResDecision = bWaiting;
+	bQueuedNeedsUpdate = true;
+	DefaultRespawnButton->SetIsEnabled(!bWaiting);
+	AcceptPendingResButton->SetIsEnabled(!bWaiting);
+	DeclinePendingResButton->SetIsEnabled(!bWaiting);
+}
+
 void UDeathOverlay::AcceptPendingRes()
 {
-	if (bAcceptedRes || PendingResID < 0 || AlreadyDecidedResIDs.Contains(PendingResID))
+	if (bAwaitingServerResDecision || PendingResID < 0 || AlreadyDeclinedResIDs.Contains(PendingResID))
 	{
 		return;
 	}
-	AlreadyDecidedResIDs.Add(PendingResID);
-	bAcceptedRes = true;
-	bQueuedNeedsUpdate = true;
+	SetWaitingForServer(true);
 	OwnerDamageHandler->MakeResurrectionDecision(PendingResID, true);
 }
 
 void UDeathOverlay::DeclinePendingRes()
 {
-	if (bAcceptedRes || PendingResID < 0 || AlreadyDecidedResIDs.Contains(PendingResID))
+	if (bAwaitingServerResDecision || PendingResID < 0 || AlreadyDeclinedResIDs.Contains(PendingResID))
 	{
 		return;
 	}
-	AlreadyDecidedResIDs.Add(PendingResID);
+	AlreadyDeclinedResIDs.Add(PendingResID);
 	bQueuedNeedsUpdate = true;
 	OwnerDamageHandler->MakeResurrectionDecision(PendingResID, false);
 }
 
 void UDeathOverlay::DefaultRespawn()
 {
-	if (bAcceptedRes)
+	if (bAwaitingServerResDecision)
 	{
 		return;
 	}
-	bAcceptedRes = true;
-	bQueuedNeedsUpdate = true;
+	SetWaitingForServer(true);
 	OwnerDamageHandler->RequestDefaultRespawn();
 }
