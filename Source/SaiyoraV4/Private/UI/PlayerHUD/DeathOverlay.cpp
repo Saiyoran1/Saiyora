@@ -24,10 +24,20 @@ void UDeathOverlay::Init(ASaiyoraPlayerCharacter* OwningChar)
 	AcceptPendingResButton->OnClicked.AddDynamic(this, &UDeathOverlay::AcceptPendingRes);
 	DeclinePendingResButton->OnClicked.AddDynamic(this, &UDeathOverlay::DeclinePendingRes);
 	DefaultRespawnButton->OnClicked.AddDynamic(this, &UDeathOverlay::DefaultRespawn);
+
+	if (IsValid(ResurrectionLocationIndicatorClass))
+	{
+		ResurrectionLocationIndicator = GetWorld()->SpawnActor(ResurrectionLocationIndicatorClass);
+		if (IsValid(ResurrectionLocationIndicator))
+		{
+			ResurrectionLocationIndicator->SetActorHiddenInGame(true);
+			ResurrectionLocationIndicator->SetActorEnableCollision(false);
+		}
+	}
 	
 	UpdatePendingResurrection();
 	OnLifeStatusChanged(OwningChar, ELifeStatus::Invalid, OwnerDamageHandler->GetLifeStatus());
-
+	
 	AddToViewport();
 }
 
@@ -48,6 +58,11 @@ void UDeathOverlay::OnLifeStatusChanged(AActor* Actor, const ELifeStatus Previou
 	if (bShouldDisplay != bIsDisplayed)
 	{
 		SetVisibility(bShouldDisplay ? ESlateVisibility::SelfHitTestInvisible : ESlateVisibility::Collapsed);
+	}
+	//Set the location indicator actor to be hidden when the player is alive.
+	if (!bShouldDisplay && IsValid(ResurrectionLocationIndicator))
+	{
+		ResurrectionLocationIndicator->SetActorHiddenInGame(true);
 	}
 	//When entering dead state, clear the flag from any previously accepted resurrection.
 	//Immediately update the resurrection window.
@@ -110,6 +125,11 @@ void UDeathOverlay::UpdatePendingResurrection()
 				UE_LOG(LogTemp, Warning, TEXT("No valid default pending resurrection icon set in the UI Data Asset!"));
 			}
 		}
+		if (IsValid(ResurrectionLocationIndicator))
+		{
+			ResurrectionLocationIndicator->SetActorLocation(PendingResurrection.ResLocation);
+			ResurrectionLocationIndicator->SetActorHiddenInGame(OwnerDamageHandler->GetLifeStatus() != ELifeStatus::Dead);
+		}
 		break;
 	}
 	//If there's no pending resurrection we haven't already made a decision on, hide the pending resurrection window.
@@ -117,6 +137,10 @@ void UDeathOverlay::UpdatePendingResurrection()
 	{
 		RezBorder->SetVisibility(ESlateVisibility::Collapsed);
 		PendingResID = -1;
+		if (IsValid(ResurrectionLocationIndicator))
+		{
+			ResurrectionLocationIndicator->SetActorHiddenInGame(true);
+		}
 	}
 }
 

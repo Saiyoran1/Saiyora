@@ -50,17 +50,29 @@ private:
 	UPROPERTY()
 	UDamageHandler* OwnerDamageHandler;
 
+	//Class of the actor used to display the current pending resurrection location.
+	UPROPERTY(EditDefaultsOnly, Category = "Death")
+	TSubclassOf<AActor> ResurrectionLocationIndicatorClass;
+	//The actor that shows a particle effect at the location of the current pending resurrection, if one is being offered.
+	UPROPERTY()
+	AActor* ResurrectionLocationIndicator;
+
 	UFUNCTION()
 	void OnLifeStatusChanged(AActor* Actor, const ELifeStatus PreviousStatus, const ELifeStatus NewStatus);
 	UFUNCTION()
 	void OnResurrectionListChanged(const TArray<FPendingResurrection>& PendingResurrections) { bQueuedNeedsUpdate = true; }
-	
-	TArray<int> AlreadyDeclinedResIDs;
-	bool bAwaitingServerResDecision = false;
-	bool bQueuedNeedsUpdate = false;
-	void UpdatePendingResurrection();
-	void SetWaitingForServer(const bool bWaiting);
 
+	//Flag to trigger UpdatePendingResurrection on the next tick.
+	bool bQueuedNeedsUpdate = false;
+	//Updates the death overlay to show or hide the next pending resurrection.
+	void UpdatePendingResurrection();
+	//List of pending resurrections we've declined. This hides them without waiting for the server to clear the buff and replicate it back down.
+	TArray<int> AlreadyDeclinedResIDs;
+	//Called when a respawn or resurrection is accepted to lock the accept/decline/respawn buttons until the server can either replicate state or RPC failure.
+	void SetWaitingForServer(const bool bWaiting);
+	//Flag set by SetWaitingForServer that prevents updating the current pending resurrection while we're waiting on the server to accept or deny a requested res/respawn.
+	bool bAwaitingServerResDecision = false;
+	//ID of the current pending resurrection the player can accept or decline. -1 means no pending res is being displayed.
 	int PendingResID = -1;
 
 	UFUNCTION()
