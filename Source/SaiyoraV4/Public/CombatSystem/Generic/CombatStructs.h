@@ -262,6 +262,29 @@ struct TStructOpsTypeTraits<FCombatantArray> : public TStructOpsTypeTraitsBase2<
    };
 };
 
+//This struct can be used to represent Restriction or Modifier functions that need to get passed around.
+//It helps avoid circular dependencies and can be easily debug logged.
+USTRUCT()
+struct FCombatDelegateProxy
+{
+    GENERATED_BODY()
+    
+    TWeakObjectPtr<const UObject> Object = nullptr;
+    FName FunctionName = NAME_None;
+
+    FCombatDelegateProxy() {}
+    FCombatDelegateProxy(const FScriptDelegate& InRestriction)
+        : Object(InRestriction.GetUObject()), FunctionName(InRestriction.GetFunctionName()) {}
+    FCombatDelegateProxy(const UObject* InObj, const FName& InFunc)
+        : Object(InObj), FunctionName(InFunc) {}
+
+    bool IsEmpty() const { return !Object.IsValid() && FunctionName.IsNone(); }
+
+#if !UE_BUILD_SHIPPING
+    void DEBUG_ToString(FString& OutString) const;
+#endif
+};
+
 #pragma endregion 
 #pragma region CombatParameters
 
@@ -452,6 +475,29 @@ struct FCombatModifier
     static int32 ApplyModifiers(const TArray<FCombatModifier>& ModArray, const int32 BaseValue);
 };
 
+//A loggable struct that contains info about a combat modifier and the mod condition that generated it.
+USTRUCT()
+struct FModifierProxy
+{
+    GENERATED_BODY()
+
+    UPROPERTY()
+    FCombatDelegateProxy FunctionProxy;
+    UPROPERTY()
+    EModifierType Type = EModifierType::Invalid;
+    UPROPERTY()
+    bool bStackable = false;
+    UPROPERTY()
+    TSubclassOf<UBuff> BuffSourceClass;
+    UPROPERTY()
+    int Stacks = 1;
+    UPROPERTY()
+    float Value = 0.0f;
+
+    FModifierProxy() {}
+    FModifierProxy(const FCombatModifier& InMod, const FCombatDelegateProxy& InFunction);
+};
+
 //Templated class used for holding a list of conditional modifier functions that each return an FCombatModifier when provided combat event context.
 //Useful for adding, removing, and retrieving the list of modifiers for a given event.
 template <class T>
@@ -467,6 +513,23 @@ public:
             if (Mod.IsBound())
             {
                 OutModifiers.Add(Mod.Execute(Context...));
+            }
+        }
+    }
+
+    template <typename... Args>
+    void GetModifiersWithSources(TArray<FCombatModifier>& OutModifiers, TArray<FModifierProxy>& OutProxies, Args... Context) const
+    {
+        for (const T& Mod : Modifiers)
+        {
+            if (Mod.IsBound())
+            {
+                const FCombatModifier& Modifier = OutModifiers.Add_GetRef(Mod.Execute(Context...));
+                //If we successfully returned a valid modifier, build a loggable proxy struct that includes the mod condition and the modifier.
+                if (Modifier.Type != EModifierType::Invalid)
+                {
+                    OutProxies.Emplace(Modifier, Mod);
+                }
             }
         }
     }
@@ -637,24 +700,3 @@ private:
 };
 
 #pragma endregion
-
-//This struct can be used to represent Restriction or Modifier functions that need to get passed around.
-//It helps avoid circular dependencies and can be easily debug logged.
-USTRUCT()
-struct FCombatDelegateProxy
-{
-    GENERATED_BODY()
-    
-    TWeakObjectPtr<const UObject> Object = nullptr;
-    FName FunctionName = NAME_None;
-
-    FCombatDelegateProxy() {}
-    FCombatDelegateProxy(const FScriptDelegate& InRestriction)
-        : Object(InRestriction.GetUObject()), FunctionName(InRestriction.GetFunctionName()) {}
-
-    bool IsEmpty() const { return !Object.IsValid() && FunctionName.IsNone(); }
-
-#if !UE_BUILD_SHIPPING
-    void DEBUG_ToString(FString& OutString) const;
-#endif
-};

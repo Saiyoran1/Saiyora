@@ -19,6 +19,8 @@ class SAIYORAV4_API UDamageHandler : public UActorComponent
 {
 	GENERATED_BODY()
 
+#pragma region Core
+
 public:	
 	
 	UDamageHandler();
@@ -42,7 +44,8 @@ private:
 	UFUNCTION()
 	void OnCombatBehaviorChanged(const ENPCCombatBehavior PreviousBehavior, const ENPCCombatBehavior NewBehavior);
 
-//Health
+#pragma endregion 
+#pragma region Health
 	
 public:
 
@@ -91,6 +94,7 @@ private:
 	UFUNCTION()
 	void ReactToMaxHealthStat(const FGameplayTag StatTag, const float NewValue);
 
+#pragma endregion 
 #pragma region Death and Resurrection
 
 public:
@@ -162,9 +166,8 @@ private:
 	void AutoAcceptResurrection(const int ResID);
 
 #pragma endregion 
-
-//Kill Count
-
+#pragma region Kill Count
+	
 public:
 
 	UFUNCTION(BlueprintPure, Category = "Kill Count")
@@ -183,7 +186,8 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Kill Count", meta = (Categories = "Boss"))
 	FGameplayTag BossTag;
 
-//Health Events
+#pragma endregion
+#pragma region Health Events
 
 public:
 
@@ -194,7 +198,12 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Health", meta = (AutoCreateRefTerm = "SourceModifier, ThreatParams"))
 	FHealthEvent ApplyHealthEvent(const EHealthEventType EventType, const float Amount, AActor* AppliedBy, UObject* Source, const EEventHitStyle HitStyle,
 		const EElementalSchool School, const bool bBypassAbsorbs, const bool bIgnoreModifiers, const bool bIgnoreRestrictions, const bool bIgnoreDeathRestrictions,
-		const bool bFromSnapshot, const FHealthEventModCondition& SourceModifier, const FThreatFromDamage& ThreatParams);
+		const FHealthEventModCondition& SourceModifier, const FThreatFromDamage& ThreatParams);
+	//Apply a health event using a previously snapshotted value. The Snapshot struct comes from a previous ApplyHealthEvent call's result, and includes the original modifiers applied to the event.
+	//Snapshotted health events ignore outgoing modifiers, under the assumption they were already applied to the passed in value in a previous health event and should not be overwritten.
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Health", meta = (AutoCreateRefTerm = "Snapshot, SourceModifier, ThreatParams"))
+	FHealthEvent ApplySnapshottedHealthEvent(const EHealthEventType EventType, const FHealthEventSnapshot& Snapshot, AActor* AppliedBy, UObject* Source, const EEventHitStyle HitStyle,
+		const EElementalSchool School, const bool bBypassAbsorbs, const bool bIgnoreModifiers, const bool bIgnoreRestrictions, const bool bIgnoreDeathRestrictions, const FThreatFromDamage& ThreatParams);
 
 	UPROPERTY(BlueprintAssignable)
 	FHealthEventNotification OnIncomingHealthEvent;
@@ -208,19 +217,22 @@ public:
 	
    	bool AddOutgoingHealthEventRestriction(const FHealthEventRestriction& Restriction);
    	void RemoveOutgoingHealthEventRestriction(const FHealthEventRestriction& Restriction) { OutgoingHealthEventRestrictions.Remove(Restriction); }
-	bool CheckOutgoingHealthEventRestricted(FHealthEventRestriction& OutRestriction, const FHealthEventInfo& EventInfo) { return OutgoingHealthEventRestrictions.IsRestricted(OutRestriction, EventInfo); }
 	
 	void AddIncomingHealthEventModifier(const FHealthEventModCondition& Modifier) { IncomingHealthEventModifiers.Add(Modifier); }
 	void RemoveIncomingHealthEventModifier(const FHealthEventModCondition& Modifier) { IncomingHealthEventModifiers.Remove(Modifier); }
-	float GetModifiedIncomingHealthEventValue(const FHealthEventInfo& EventInfo) const;
+	float GetModifiedIncomingHealthEventValue(const FHealthEventInfo& EventInfo, TArray<FModifierProxy>& OutModConditions) const;
 	
     void AddOutgoingHealthEventModifier(const FHealthEventModCondition& Modifier) { OutgoingHealthEventModifiers.Add(Modifier); }
    	void RemoveOutgoingHealthEventModifier(const FHealthEventModCondition& Modifier) { OutgoingHealthEventModifiers.Remove(Modifier); }
-	float GetModifiedOutgoingHealthEventValue(const FHealthEventInfo& EventInfo, const FHealthEventModCondition& SourceMod) const;
+	float GetModifiedOutgoingHealthEventValue(const FHealthEventInfo& EventInfo, const FHealthEventModCondition& SourceMod, TArray<FModifierProxy>& OutModConditions) const;
 	
 	void NotifyOfOutgoingHealthEvent(const FHealthEvent& HealthEvent);
 	
 private:
+
+	FHealthEvent ApplyHealthEvent_Internal(const EHealthEventType EventType, const float Amount, AActor* AppliedBy, UObject* Source, const EEventHitStyle HitStyle,
+		const EElementalSchool School, const bool bBypassAbsorbs, const bool bIgnoreModifiers, const bool bIgnoreRestrictions, const bool bIgnoreDeathRestrictions,
+		const bool bFromSnapshot, const FHealthEventSnapshot& Snapshot, const FHealthEventModCondition& SourceModifier, const FThreatFromDamage& ThreatParams);
 
 	UPROPERTY(EditAnywhere, Category = "Health")
 	bool bCanEverReceiveDamage = true;
@@ -232,6 +244,7 @@ private:
 
 	TConditionalRestrictionList<FHealthEventRestriction> IncomingHealthEventRestrictions;
 	TConditionalRestrictionList<FHealthEventRestriction> OutgoingHealthEventRestrictions;
+	bool CheckEventRestricted(const ECombatEventDirection Direction, const FHealthEventInfo& Event, TArray<EHealthEventFailReason>& OutFailReasons, FHealthEventRestriction& OutRestriction);
 
 	TConditionalModifierList<FHealthEventModCondition> IncomingHealthEventModifiers;
 	TConditionalModifierList<FHealthEventModCondition> OutgoingHealthEventModifiers;
@@ -240,4 +253,15 @@ private:
 	void ClientNotifyOfIncomingHealthEvent(const FHealthEvent& HealthEvent);
 	UFUNCTION(Client, Unreliable)
     void ClientNotifyOfOutgoingHealthEvent(const FHealthEvent& HealthEvent);
+
+#pragma endregion
+#pragma region DEBUG
+#if !UE_BUILD_SHIPPING
+
+public:
+
+	void DEBUG_DumpState(const ECombatEventDirection Direction, TArray<FString>& OutStrings) const;
+	
+#endif
+#pragma endregion 
 };

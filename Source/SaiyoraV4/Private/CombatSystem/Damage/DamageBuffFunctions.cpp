@@ -42,7 +42,7 @@ void UPeriodicHealthEventFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 		SnapshotInfo.AppliedXPlane = UAbilityFunctionLibrary::IsXPlane(SnapshotInfo.AppliedByPlane, SnapshotInfo.AppliedToPlane);
 		SnapshotInfo.HitStyle = EEventHitStyle::Chronic;
 		SnapshotInfo.School = EventSchool;
-		BaseValue = GeneratorComponent->GetModifiedOutgoingHealthEventValue(SnapshotInfo, FHealthEventModCondition());
+		BaseValue = GeneratorComponent->GetModifiedOutgoingHealthEventValue(SnapshotInfo, FHealthEventModCondition(), SnapshotModifiers);
 	}
 	if (bHasInitialTick)
 	{
@@ -62,10 +62,20 @@ void UPeriodicHealthEventFunction::InitialTick()
 	}
     const float InitAmount = bUsesSeparateInitialValue ? InitialValue : BaseValue;
     const EElementalSchool InitSchool = bUsesSeparateInitialValue ? InitialEventSchool : EventSchool;
-    const bool FromSnapshot = bSnapshots && !bUsesSeparateInitialValue;
-    const FHealthEvent TickResult = TargetHandler->ApplyHealthEvent(EventType, InitAmount, GetOwningBuff()->GetAppliedBy(),
-    GetOwningBuff(), EEventHitStyle::Chronic, InitSchool, bBypassesAbsorbs, bIgnoresModifiers,
-    bIgnoresRestrictions, false, FromSnapshot, FHealthEventModCondition(), ThreatInfo);
+    const bool bFromSnapshot = bSnapshots && !bUsesSeparateInitialValue;
+	FHealthEvent TickResult;
+	if (bFromSnapshot)
+	{
+		TickResult = TargetHandler->ApplySnapshottedHealthEvent(EventType, FHealthEventSnapshot(InitAmount, SnapshotModifiers), GetOwningBuff()->GetAppliedBy(),
+			GetOwningBuff(), EEventHitStyle::Chronic, InitSchool, bBypassesAbsorbs, bIgnoresModifiers,
+			bIgnoresRestrictions, false, ThreatInfo);
+	}
+	else
+	{
+		TickResult = TargetHandler->ApplyHealthEvent(EventType, InitAmount, GetOwningBuff()->GetAppliedBy(),
+			GetOwningBuff(), EEventHitStyle::Chronic, InitSchool, bBypassesAbsorbs, bIgnoresModifiers,
+			bIgnoresRestrictions, false, FHealthEventModCondition(), ThreatInfo);
+	}
 	//This returns a bool and Rider is mad if I don't save the return value.
     const bool bExecuted = Callback.ExecuteIfBound(TickResult);
 }
@@ -77,9 +87,19 @@ void UPeriodicHealthEventFunction::TickHealthEvent()
 		return;
 	}
     const float TickAmount = bScalesWithStacks ? BaseValue * GetOwningBuff()->GetCurrentStacks() : BaseValue;
-    const FHealthEvent TickResult = TargetHandler->ApplyHealthEvent(EventType, TickAmount, GetOwningBuff()->GetAppliedBy(), GetOwningBuff(),
-		EEventHitStyle::Chronic, EventSchool, bBypassesAbsorbs, bIgnoresModifiers,
-		bIgnoresRestrictions, false, bSnapshots, FHealthEventModCondition(), ThreatInfo);
+	FHealthEvent TickResult;
+	if (bSnapshots)
+	{
+		TickResult = TargetHandler->ApplySnapshottedHealthEvent(EventType, FHealthEventSnapshot(TickAmount, SnapshotModifiers), GetOwningBuff()->GetAppliedBy(),
+			GetOwningBuff(), EEventHitStyle::Chronic, EventSchool, bBypassesAbsorbs, bIgnoresModifiers,
+			bIgnoresRestrictions, false, ThreatInfo);
+	}
+	else
+	{
+		TickResult = TargetHandler->ApplyHealthEvent(EventType, TickAmount, GetOwningBuff()->GetAppliedBy(), GetOwningBuff(),
+			EEventHitStyle::Chronic, EventSchool, bBypassesAbsorbs, bIgnoresModifiers,
+			bIgnoresRestrictions, false, FHealthEventModCondition(), ThreatInfo);
+	}
 	//This returns a bool and Rider is mad if I don't save the return value.
     const bool bExecuted = Callback.ExecuteIfBound(TickResult);
 }
@@ -102,9 +122,19 @@ void UPeriodicHealthEventFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
     	const float ExpireTickAmount = (bScalesWithStacks ? BaseValue * GetOwningBuff()->GetCurrentStacks() : BaseValue) * TickFraction;
     	if (ExpireTickAmount > 0.0f)
     	{
-    		const FHealthEvent TickResult = TargetHandler->ApplyHealthEvent(EventType, ExpireTickAmount, GetOwningBuff()->GetAppliedBy(), GetOwningBuff(),
-				EEventHitStyle::Chronic, EventSchool, bBypassesAbsorbs, bIgnoresModifiers, bIgnoresRestrictions, false,
-				bSnapshots, FHealthEventModCondition(), ThreatInfo);
+    		FHealthEvent TickResult;
+    		if (bSnapshots)
+    		{
+    			TickResult = TargetHandler->ApplySnapshottedHealthEvent(EventType, FHealthEventSnapshot(ExpireTickAmount, SnapshotModifiers),
+    				GetOwningBuff()->GetAppliedBy(), GetOwningBuff(), EEventHitStyle::Chronic, EventSchool, bBypassesAbsorbs, bIgnoresModifiers,
+    				bIgnoresRestrictions, false, ThreatInfo);
+    		}
+		    else
+		    {
+		    	TickResult = TargetHandler->ApplyHealthEvent(EventType, ExpireTickAmount, GetOwningBuff()->GetAppliedBy(), GetOwningBuff(),
+					EEventHitStyle::Chronic, EventSchool, bBypassesAbsorbs, bIgnoresModifiers, bIgnoresRestrictions, false,
+					FHealthEventModCondition(), ThreatInfo);
+		    }
     		//This returns a bool and Rider is mad if I don't save the return value.
     		const bool bExecuted = Callback.ExecuteIfBound(TickResult);
     	}

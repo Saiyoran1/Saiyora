@@ -48,3 +48,27 @@ enum class EKillCountType : uint8
     Trash = 2,
     Boss = 3,
 };
+
+UENUM(BlueprintType)
+enum class EHealthEventFailReason : uint8
+{
+    None UMETA(Hidden),
+    //Tried to apply a health event on a client.
+    NetRole,
+    //Source of the health event wasn't valid.
+    InvalidSource,
+    //Actor applying the health event wasn't valid.
+    InvalidAppliedBy,
+    //Event type or amount was invalid.
+    InvalidEvent,
+    //Target can't receive this type of health event.
+    CantTakeEventType,
+    //Target was dead.
+    Dead,
+    //Target was an NPC that was uninitialized or resetting.
+    InactiveNPC,
+    //Custom restriction to outgoing health events.
+    OutgoingRestriction,
+    //Custom restriction to incoming health events.
+    IncomingRestriction,
+};

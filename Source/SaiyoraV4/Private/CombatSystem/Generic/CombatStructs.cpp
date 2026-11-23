@@ -93,6 +93,16 @@ int32 FCombatModifier::ApplyModifiers(const TArray<FCombatModifier>& ModArray, c
     return FMath::TruncToInt32(ApplyModifiers(ModArray, ValueAsFloat));
 }
 
+FModifierProxy::FModifierProxy(const FCombatModifier& InMod, const FCombatDelegateProxy& InFunction)
+{
+    FunctionProxy = InFunction;
+    Type = InMod.Type;
+    Value = InMod.Value;
+    bStackable = InMod.bStackable;
+    BuffSourceClass = IsValid(InMod.BuffSource) ? InMod.BuffSource->GetClass() : nullptr;
+    Stacks = bStackable && IsValid(InMod.BuffSource) ? InMod.BuffSource->GetCurrentStacks() : 1;
+}
+
 FCombatModifierHandle FModifiableFloat::AddModifier(const FCombatModifier& Modifier)
 {
     if (!bIsModifiable || Modifier.Type == EModifierType::Invalid)

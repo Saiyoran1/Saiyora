@@ -3,6 +3,7 @@
 #include "Buff.h"
 #include "BuffHandler.h"
 #include "CombatAbility.h"
+#include "DamageHandler.h"
 #include "EngineUtils.h"
 #include "Hitbox.h"
 #include "NPCStructs.h"
@@ -13,6 +14,7 @@
 #include "SaiyoraPlayerCharacter.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogSaiyoraBuffs, Log, All);
+DEFINE_LOG_CATEGORY_STATIC(LogSaiyoraHealth, Log, All);
 
 #pragma region Console Commands
 #if WITH_EDITOR
@@ -149,8 +151,10 @@ void UCombatDebugOptions::DrawHiddenProjectile(const APredictableProjectile* Pro
 	DrawDebugSphere(Projectile->GetWorld(), Projectile->GetRootComponent()->Bounds.Origin, Projectile->GetRootComponent()->Bounds.SphereRadius, 32, FColor::Green);
 }
 
-#pragma region Buffs
+#pragma region Macros
 #if !UE_BUILD_SHIPPING
+
+#pragma region Buffs
 
 void UCombatDebugOptions::DEBUG_LogBuffApplyEvent(const UBuffHandler* AppliedToHandler, const FBuffApplyEvent& ApplyEvent) const
 {
@@ -363,6 +367,79 @@ void UCombatDebugOptions::DEBUG_LogBuffRestrictionRemoveFailed(const UBuffHandle
 		}
 	}
 }
+
+#pragma endregion
+#pragma region Health Events
+
+void UCombatDebugOptions::DEBUG_LogHealthEvent(const UDamageHandler* AppliedToHandler, const FHealthEvent& Event) const
+{
+	//Log the event itself.
+	FString EventString;
+	Event.DEBUG_ToString(EventString);
+	UE_LOG(LogSaiyoraHealth, Log, TEXT("%s HealthEvent: %s"),
+		USaiyoraCombatLibrary::BoolToServerOrClientString(AppliedToHandler->GetOwnerRole() == ROLE_Authority), *EventString);
+	//Optionally dump the entire state of both involved damage handlers.
+	if (HealthEventLoggingVerbosity == EDebugLogVerbosity::FullDump)
+	{
+		//Log the state of the handler the health event was applied to.
+		TArray<FString> IncomingDump;
+		AppliedToHandler->DEBUG_DumpState(ECombatEventDirection::Incoming, IncomingDump);
+		for (const FString& DumpString : IncomingDump)
+		{
+			UE_LOG(LogSaiyoraHealth, Log, TEXT("%s"), *DumpString);
+		}
+		//If valid, log the state of the handler the event was applied by.
+		if (IsValid(Event.Info.AppliedBy) && Event.Info.AppliedBy->Implements<USaiyoraCombatInterface>())
+		{
+			const UDamageHandler* GeneratorHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(Event.Info.AppliedBy);
+			if (IsValid(GeneratorHandler))
+			{
+				TArray<FString> OutgoingDump;
+				GeneratorHandler->DEBUG_DumpState(ECombatEventDirection::Outgoing,OutgoingDump);
+				for (const FString& DumpString : OutgoingDump)
+				{
+					UE_LOG(LogSaiyoraHealth, Log, TEXT("%s"), *DumpString);
+				}
+			}
+		}
+	}
+}
+
+void UCombatDebugOptions::DEBUG_LogHealthEventFailure(const UDamageHandler* AppliedToHandler, const FHealthEvent& Event) const
+{
+	//Log the event itself.
+	FString EventString;
+	Event.DEBUG_ToString(EventString);
+	UE_LOG(LogSaiyoraHealth, Log, TEXT("%s FAILED HealthEvent: %s"),
+		USaiyoraCombatLibrary::BoolToServerOrClientString(AppliedToHandler->GetOwnerRole() == ROLE_Authority), *EventString);
+	//Optionally dump the entire state of both involved damage handlers.
+	if (HealthEventLoggingVerbosity == EDebugLogVerbosity::FullDump)
+	{
+		//Log the state of the handler the event was attempting to be applied to.
+		TArray<FString> IncomingDump;
+		AppliedToHandler->DEBUG_DumpState(ECombatEventDirection::Incoming, IncomingDump);
+		for (const FString& DumpString : IncomingDump)
+		{
+			UE_LOG(LogSaiyoraHealth, Log, TEXT("%s"), *DumpString);
+		}
+		//If valid, log the state of the handler the event was applied by.
+		if (IsValid(Event.Info.AppliedBy) && Event.Info.AppliedBy->Implements<USaiyoraCombatInterface>())
+		{
+			const UDamageHandler* GeneratorHandler = ISaiyoraCombatInterface::Execute_GetDamageHandler(Event.Info.AppliedBy);
+			if (IsValid(GeneratorHandler))
+			{
+				TArray<FString> OutgoingDump;
+				GeneratorHandler->DEBUG_DumpState(ECombatEventDirection::Outgoing,OutgoingDump);
+				for (const FString& DumpString : OutgoingDump)
+				{
+					UE_LOG(LogSaiyoraHealth, Log, TEXT("%s"), *DumpString);
+				}
+			}
+		}
+	}
+}
+
+#pragma endregion
 
 #endif
 #pragma endregion 

@@ -13,7 +13,7 @@
 #include "SaiyoraCombatLibrary.h"
 #include "UnrealNetwork.h"
 
-#pragma region Initialization
+#pragma region Core
 
 UDamageHandler::UDamageHandler()
 {
@@ -104,7 +104,7 @@ void UDamageHandler::OnCombatBehaviorChanged(const ENPCCombatBehavior PreviousBe
 		&& !USaiyoraCombatLibrary::IsActiveNPCBehavior(NewBehavior))
 	{
 		ApplyHealthEvent(EHealthEventType::Healing, MaxHealth, GetOwner(), this, EEventHitStyle::Authority, EElementalSchool::None, true,
-			true, true, true, false, FHealthEventModCondition(), FThreatFromDamage());
+			true, true, true, FHealthEventModCondition(), FThreatFromDamage());
 	}
 }
 
@@ -166,7 +166,7 @@ void UDamageHandler::OnRep_CurrentAbsorb(const float PreviousValue)
 void UDamageHandler::KillActor(AActor* Attacker, UObject* Source, const bool bIgnoreDeathRestrictions)
 {
 	ApplyHealthEvent(EHealthEventType::Damage, CurrentHealth, Attacker, Source, EEventHitStyle::Authority, EElementalSchool::None, true, true,
-	                 true, bIgnoreDeathRestrictions, false, FHealthEventModCondition(), FThreatFromDamage());
+	                 true, bIgnoreDeathRestrictions, FHealthEventModCondition(), FThreatFromDamage());
 }
 
 void UDamageHandler::Server_RequestRespawn_Implementation()
@@ -381,59 +381,38 @@ void UDamageHandler::AutoAcceptResurrection(const int ResID)
 #pragma endregion 
 #pragma region Damage
 
-FHealthEvent UDamageHandler::ApplyHealthEvent(const EHealthEventType EventType, const float Amount, AActor* AppliedBy,
-                                              UObject* Source, const EEventHitStyle HitStyle, const EElementalSchool School, const bool bBypassAbsorbs,
-                                              const bool bIgnoreModifiers, const bool bIgnoreRestrictions, const bool bIgnoreDeathRestrictions, const bool bFromSnapshot, const FHealthEventModCondition& SourceModifier, const FThreatFromDamage& ThreatParams)
+FHealthEvent UDamageHandler::ApplyHealthEvent_Internal(const EHealthEventType EventType, const float Amount, AActor* AppliedBy, UObject* Source, const EEventHitStyle HitStyle,
+	const EElementalSchool School, const bool bBypassAbsorbs, const bool bIgnoreModifiers, const bool bIgnoreRestrictions, const bool bIgnoreDeathRestrictions, const bool bFromSnapshot,
+	const FHealthEventSnapshot& Snapshot, const FHealthEventModCondition& SourceModifier, const FThreatFromDamage& ThreatParams)
 {
-    FHealthEvent HealthEvent;
-    if (GetOwnerRole() != ROLE_Authority || !IsValid(AppliedBy) || !IsValid(Source))
-    {
-        return HealthEvent;
-    }
-    if (!bHasHealth || IsDead() || EventType == EHealthEventType::None || Amount < 0.0f)
-    {
-        return HealthEvent;
-    }
-	switch (EventType)
-	{
-    case EHealthEventType::Damage :
-    	if (!bCanEverReceiveDamage) return HealthEvent;
-		break;
-    case EHealthEventType::Healing :
-    	if (!bCanEverReceiveHealing) return HealthEvent;
-		break;
-    case EHealthEventType::Absorb :
-    	if (!bCanEverReceiveHealing) return HealthEvent;
-		break;
-    default :
-    	return HealthEvent;
-	}
-	//NPCs resetting or uninitialized cannot take damage.
-	if (EventType == EHealthEventType::Damage
-		&& IsValid(NPCComponentRef)
-		&& !USaiyoraCombatLibrary::IsActiveNPCBehavior(NPCComponentRef->GetCombatBehavior()))
-	{
-		return HealthEvent;
-	}
+	FHealthEvent HealthEvent;
+	HealthEvent.Info.EventID = USaiyoraCombatLibrary::GetUniqueCombatEventID();
 	HealthEvent.Info.EventType = EventType;
-    HealthEvent.Info.Value = Amount;
-    HealthEvent.Info.SnapshotValue = Amount;
-    HealthEvent.Info.AppliedBy = AppliedBy;
-    HealthEvent.Info.AppliedTo = GetOwner();
-    HealthEvent.Info.Source = Source;
-    HealthEvent.Info.HitStyle = HitStyle;
-    HealthEvent.Info.School = School;
-	if (HealthEvent.Info.AppliedBy->Implements<USaiyoraCombatInterface>())
+	HealthEvent.Info.Value = Amount;
+	if (bFromSnapshot)
 	{
-		const UCombatStatusComponent* AppliedByCombatStatusComp = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(HealthEvent.Info.AppliedBy);
+		HealthEvent.Result.Snapshot = Snapshot;
+	}
+	else
+	{
+		HealthEvent.Result.Snapshot.Value = Amount;
+	}
+	HealthEvent.Info.AppliedBy = AppliedBy;
+	HealthEvent.Info.AppliedTo = GetOwner();
+	HealthEvent.Info.Source = Source;
+	HealthEvent.Info.HitStyle = HitStyle;
+	HealthEvent.Info.School = School;
+	if (IsValid(AppliedBy) && AppliedBy->Implements<USaiyoraCombatInterface>())
+	{
+		const UCombatStatusComponent* AppliedByCombatStatusComp = ISaiyoraCombatInterface::Execute_GetCombatStatusComponent(AppliedBy);
 		HealthEvent.Info.AppliedByPlane = IsValid(AppliedByCombatStatusComp) ? AppliedByCombatStatusComp->GetCurrentPlane() : ESaiyoraPlane::Both;
 	}
 	else
 	{
 		HealthEvent.Info.AppliedByPlane = ESaiyoraPlane::Both;
 	}
-    HealthEvent.Info.AppliedToPlane = IsValid(CombatStatusComponentRef) ? CombatStatusComponentRef->GetCurrentPlane() : ESaiyoraPlane::Both;
-    HealthEvent.Info.AppliedXPlane = UAbilityFunctionLibrary::IsXPlane(HealthEvent.Info.AppliedByPlane, HealthEvent.Info.AppliedToPlane);
+	HealthEvent.Info.AppliedToPlane = IsValid(CombatStatusComponentRef) ? CombatStatusComponentRef->GetCurrentPlane() : ESaiyoraPlane::Both;
+	HealthEvent.Info.AppliedXPlane = UAbilityFunctionLibrary::IsXPlane(HealthEvent.Info.AppliedByPlane, HealthEvent.Info.AppliedToPlane);
 	if (ThreatParams.bGeneratesThreat)
 	{
 		HealthEvent.ThreatInfo = ThreatParams;
@@ -441,6 +420,58 @@ FHealthEvent UDamageHandler::ApplyHealthEvent(const EHealthEventType EventType, 
 		{
 			HealthEvent.ThreatInfo.BaseThreat = HealthEvent.Info.Value;
 		}
+	}
+	//Generic checks for role, validity, blanket "invalid event" type restrictions.
+    if (GetOwnerRole() != ROLE_Authority)
+    {
+    	HealthEvent.Result.FailReasons.AddUnique(EHealthEventFailReason::NetRole);
+    }
+	if (!IsValid(AppliedBy))
+	{
+		HealthEvent.Result.FailReasons.AddUnique(EHealthEventFailReason::InvalidAppliedBy);
+	}
+	if (!IsValid(Source))
+	{
+		HealthEvent.Result.FailReasons.AddUnique(EHealthEventFailReason::InvalidSource);
+	}
+	if (EventType == EHealthEventType::None || Amount < 0.0f)
+	{
+		HealthEvent.Result.FailReasons.AddUnique(EHealthEventFailReason::InvalidEvent);
+	}
+	bool bCanTakeEventType = false;
+	switch (EventType)
+	{
+    case EHealthEventType::Damage :
+    	bCanTakeEventType = bCanEverReceiveDamage;
+		break;
+    case EHealthEventType::Healing :
+    case EHealthEventType::Absorb :
+    	bCanTakeEventType = bCanEverReceiveHealing;
+		break;
+    default :
+    	bCanTakeEventType = false;
+		break;
+	}
+	if (!bHasHealth || !bCanTakeEventType)
+	{
+		HealthEvent.Result.FailReasons.AddUnique(EHealthEventFailReason::CantTakeEventType);
+	}
+	if (IsDead())
+	{
+		HealthEvent.Result.FailReasons.AddUnique(EHealthEventFailReason::Dead);
+	}
+	//NPCs resetting or uninitialized cannot take damage.
+	if (EventType == EHealthEventType::Damage
+		&& IsValid(NPCComponentRef)
+		&& !USaiyoraCombatLibrary::IsActiveNPCBehavior(NPCComponentRef->GetCombatBehavior()))
+	{
+		HealthEvent.Result.FailReasons.AddUnique(EHealthEventFailReason::InactiveNPC);
+	}
+	//Fail to apply if any validity/generic checks failed.
+	//Not realistic to check any of the other conditions with invalid data or blanket restrictions.
+	if (HealthEvent.Result.FailReasons.Num() > 0)
+	{
+		return HealthEvent;
 	}
 
 	UDamageHandler* GeneratorComponent = AppliedBy->Implements<USaiyoraCombatInterface>() ?
@@ -450,28 +481,27 @@ FHealthEvent UDamageHandler::ApplyHealthEvent(const EHealthEventType EventType, 
     {
         if (!bFromSnapshot && IsValid(GeneratorComponent))
         {
-            HealthEvent.Info.Value = GeneratorComponent->GetModifiedOutgoingHealthEventValue(HealthEvent.Info, SourceModifier);
-            HealthEvent.Info.SnapshotValue = HealthEvent.Info.Value;
+            HealthEvent.Info.Value = GeneratorComponent->GetModifiedOutgoingHealthEventValue(HealthEvent.Info, SourceModifier, HealthEvent.Result.Snapshot.AppliedModifiers);
+        	HealthEvent.Result.Snapshot.Value = HealthEvent.Info.Value;
         }
-        HealthEvent.Info.Value = GetModifiedIncomingHealthEventValue(HealthEvent.Info);
+        HealthEvent.Info.Value = GetModifiedIncomingHealthEventValue(HealthEvent.Info, HealthEvent.Result.IncomingModifiers);
     }
 	if (!bIgnoreRestrictions)
 	{
 		FHealthEventRestriction IncomingRestriction;
-		if (IncomingHealthEventRestrictions.IsRestricted(IncomingRestriction, HealthEvent.Info))
-		{
-			//TODO: Add logging for which restriction caused failure, and some way of notifying that buff about its restriction being used?
-			return HealthEvent;
-		}
+		const bool bIncomingRestricted = CheckEventRestricted(ECombatEventDirection::Incoming, HealthEvent.Info, HealthEvent.Result.FailReasons, IncomingRestriction);
 		FHealthEventRestriction OutgoingRestriction;
-		if (IsValid(GeneratorComponent) && GeneratorComponent->CheckOutgoingHealthEventRestricted(OutgoingRestriction, HealthEvent.Info))
+		const bool bOutgoingRestricted = IsValid(GeneratorComponent) && GeneratorComponent->CheckEventRestricted(ECombatEventDirection::Outgoing, HealthEvent.Info, HealthEvent.Result.FailReasons, OutgoingRestriction);
+		if (bIncomingRestricted || bOutgoingRestricted)
 		{
-			//TODO: Add logging for which restriction caused failure, and some way of notifying that buff about its restriction being used?
+			//Use proxy structs to save off the restrictions that prevented this event, due to circular dependency problems.
+			HealthEvent.Result.IncomingRestriction = IncomingRestriction;
+			HealthEvent.Result.OutgoingRestriction = OutgoingRestriction;
 			return HealthEvent;
 		}
 	}
 
-	HealthEvent.Result.Success = true;
+	HealthEvent.Result.bSuccess = true;
 	if (EventType == EHealthEventType::Damage)
 	{
 		HealthEvent.Result.PreviousValue = CurrentHealth;
@@ -508,11 +538,11 @@ FHealthEvent UDamageHandler::ApplyHealthEvent(const EHealthEventType EventType, 
 		HealthEvent.Result.AppliedValue = HealthEvent.Result.PreviousValue - CurrentHealth;
 		if (CurrentHealth == 0.0f)
 		{
-			HealthEvent.Result.KillingBlow = true;
+			HealthEvent.Result.bKillingBlow = true;
 			FDeathRestriction Restriction;
 			if (!bIgnoreDeathRestrictions && DeathRestrictions.IsRestricted(Restriction, HealthEvent))
 			{
-				HealthEvent.Result.KillingBlow = false;
+				HealthEvent.Result.bKillingBlow = false;
 				if (!bHasPendingKillingBlow)
 				{
 					bHasPendingKillingBlow = true;
@@ -558,12 +588,27 @@ FHealthEvent UDamageHandler::ApplyHealthEvent(const EHealthEventType EventType, 
 	{
 		GeneratorComponent->NotifyOfOutgoingHealthEvent(HealthEvent);
 	}
-	if (HealthEvent.Result.KillingBlow)
+	if (HealthEvent.Result.bKillingBlow)
 	{
 		Die();
 	}
 	
 	return HealthEvent;
+}
+
+FHealthEvent UDamageHandler::ApplyHealthEvent(const EHealthEventType EventType, const float Amount, AActor* AppliedBy,
+	UObject* Source, const EEventHitStyle HitStyle, const EElementalSchool School, const bool bBypassAbsorbs,
+	const bool bIgnoreModifiers, const bool bIgnoreRestrictions, const bool bIgnoreDeathRestrictions, const FHealthEventModCondition& SourceModifier, const FThreatFromDamage& ThreatParams)
+{
+    return ApplyHealthEvent_Internal(EventType, Amount, AppliedBy, Source, HitStyle, School, bBypassAbsorbs,
+    	bIgnoreModifiers, bIgnoreRestrictions, bIgnoreDeathRestrictions, false, FHealthEventSnapshot(), SourceModifier, ThreatParams);
+}
+
+FHealthEvent UDamageHandler::ApplySnapshottedHealthEvent(const EHealthEventType EventType, const FHealthEventSnapshot& Snapshot, AActor* AppliedBy, UObject* Source, const EEventHitStyle HitStyle,
+	const EElementalSchool School, const bool bBypassAbsorbs, const bool bIgnoreModifiers, const bool bIgnoreRestrictions, const bool bIgnoreDeathRestrictions, const FThreatFromDamage& ThreatParams)
+{
+	return ApplyHealthEvent_Internal(EventType, Snapshot.Value, AppliedBy, Source, HitStyle, School, bBypassAbsorbs,
+		bIgnoreModifiers, bIgnoreRestrictions, bIgnoreDeathRestrictions, true, Snapshot, FHealthEventModCondition(), ThreatParams);
 }
 
 bool UDamageHandler::AddIncomingHealthEventRestriction(const FHealthEventRestriction& Restriction)
@@ -584,12 +629,26 @@ bool UDamageHandler::AddOutgoingHealthEventRestriction(const FHealthEventRestric
 	return OutgoingHealthEventRestrictions.Add(Restriction);
 }
 
+bool UDamageHandler::CheckEventRestricted(const ECombatEventDirection Direction, const FHealthEventInfo& Event, TArray<EHealthEventFailReason>& OutFailReasons, FHealthEventRestriction& OutRestriction)
+{
+	bool bRestricted = false;
+	if (Direction == ECombatEventDirection::Incoming
+		? IncomingHealthEventRestrictions.IsRestricted(OutRestriction, Event)
+		: OutgoingHealthEventRestrictions.IsRestricted(OutRestriction, Event))
+	{
+		OutFailReasons.AddUnique(Direction == ECombatEventDirection::Incoming
+			? EHealthEventFailReason::IncomingRestriction : EHealthEventFailReason::OutgoingRestriction);
+		bRestricted = true;
+	}
+	return bRestricted;
+}
+
 void UDamageHandler::NotifyOfOutgoingHealthEvent(const FHealthEvent& HealthEvent)
 {
 	if (GetOwnerRole() == ROLE_Authority)
 	{
 		OnOutgoingHealthEvent.Broadcast(HealthEvent);
-		if (HealthEvent.Result.KillingBlow)
+		if (HealthEvent.Result.bKillingBlow)
 		{
 			OnKillingBlow.Broadcast(HealthEvent);
 		}
@@ -603,7 +662,7 @@ void UDamageHandler::NotifyOfOutgoingHealthEvent(const FHealthEvent& HealthEvent
 void UDamageHandler::ClientNotifyOfOutgoingHealthEvent_Implementation(const FHealthEvent& HealthEvent)
 {
 	OnOutgoingHealthEvent.Broadcast(HealthEvent);
-	if (HealthEvent.Result.KillingBlow)
+	if (HealthEvent.Result.bKillingBlow)
 	{
 		OnKillingBlow.Broadcast(HealthEvent);
 	}
@@ -636,13 +695,19 @@ void UDamageHandler::RemoveDeathRestriction(const FDeathRestriction& Restriction
 #pragma endregion
 #pragma region Modifiers
 
-float UDamageHandler::GetModifiedOutgoingHealthEventValue(const FHealthEventInfo& EventInfo, const FHealthEventModCondition& SourceMod) const
+float UDamageHandler::GetModifiedOutgoingHealthEventValue(const FHealthEventInfo& EventInfo, const FHealthEventModCondition& SourceMod, TArray<FModifierProxy>& OutModProxies) const
 {
 	TArray<FCombatModifier> Mods;
-	OutgoingHealthEventModifiers.GetModifiers(Mods, EventInfo);
+	OutgoingHealthEventModifiers.GetModifiersWithSources(Mods, OutModProxies, EventInfo);
+	//Apply the source mod first, if one was passed in.
 	if (SourceMod.IsBound())
 	{
-		Mods.Add(SourceMod.Execute(EventInfo));
+		const FCombatModifier& SourceModifier = Mods.Add_GetRef(SourceMod.Execute(EventInfo));
+		if (SourceModifier.Type != EModifierType::Invalid)
+		{
+			//Add the source mod to the list of mod conditions applied, if it generated a valid modifier.
+			OutModProxies.Emplace(SourceModifier, SourceMod);
+		}
 	}
 	if (IsValid(StatHandlerRef))
 	{
@@ -651,19 +716,34 @@ float UDamageHandler::GetModifiedOutgoingHealthEventValue(const FHealthEventInfo
 		case EHealthEventType::Damage :
 			if (StatHandlerRef->IsStatValid(FSaiyoraCombatTags::Get().Stat_DamageDone))
 			{
-				Mods.Add(FCombatModifier(StatHandlerRef->GetStatValue(FSaiyoraCombatTags::Get().Stat_DamageDone), EModifierType::Multiplicative));
+				const FCombatModifier& StatModifier = Mods.Add_GetRef(FCombatModifier(StatHandlerRef->GetStatValue(FSaiyoraCombatTags::Get().Stat_DamageDone), EModifierType::Multiplicative));
+				if (StatModifier.Value != 1.0f)
+				{
+					//Include this in the list of applied mod conditions, even though it's not actually a function.
+					OutModProxies.Emplace(StatModifier, FCombatDelegateProxy(StatHandlerRef, FSaiyoraCombatTags::Get().Stat_DamageDone.GetTagName()));
+				}
 			}
 			break;
 		case EHealthEventType::Healing :
 			if (StatHandlerRef->IsStatValid(FSaiyoraCombatTags::Get().Stat_HealingDone))
 			{
-				Mods.Add(FCombatModifier(StatHandlerRef->GetStatValue(FSaiyoraCombatTags::Get().Stat_HealingDone), EModifierType::Multiplicative));
+				const FCombatModifier& StatModifier = Mods.Add_GetRef(FCombatModifier(StatHandlerRef->GetStatValue(FSaiyoraCombatTags::Get().Stat_HealingDone), EModifierType::Multiplicative));
+				if (StatModifier.Value != 1.0f)
+				{
+					//Include this in the list of applied mod conditions, even though it's not actually a function.
+					OutModProxies.Emplace(StatModifier, FCombatDelegateProxy(StatHandlerRef, FSaiyoraCombatTags::Get().Stat_HealingDone.GetTagName()));
+				}
 			}
 			break;
 		case EHealthEventType::Absorb :
 			if (StatHandlerRef->IsStatValid(FSaiyoraCombatTags::Get().Stat_AbsorbDone))
 			{
-				Mods.Add(FCombatModifier(StatHandlerRef->GetStatValue(FSaiyoraCombatTags::Get().Stat_AbsorbDone), EModifierType::Multiplicative));
+				const FCombatModifier& StatModifier = Mods.Add_GetRef(FCombatModifier(StatHandlerRef->GetStatValue(FSaiyoraCombatTags::Get().Stat_AbsorbDone), EModifierType::Multiplicative));
+				if (StatModifier.Value != 1.0f)
+				{
+					//Include this in the list of applied mod conditions, even though it's not actually a function.
+					OutModProxies.Emplace(StatModifier, FCombatDelegateProxy(StatHandlerRef, FSaiyoraCombatTags::Get().Stat_AbsorbDone.GetTagName()));
+				}
 			}
 			break;
 		default :
@@ -673,10 +753,10 @@ float UDamageHandler::GetModifiedOutgoingHealthEventValue(const FHealthEventInfo
 	return FCombatModifier::ApplyModifiers(Mods, EventInfo.Value);
 }
 
-float UDamageHandler::GetModifiedIncomingHealthEventValue(const FHealthEventInfo& EventInfo) const
+float UDamageHandler::GetModifiedIncomingHealthEventValue(const FHealthEventInfo& EventInfo, TArray<FModifierProxy>& OutModProxies) const
 {
 	TArray<FCombatModifier> Mods;
-	IncomingHealthEventModifiers.GetModifiers(Mods, EventInfo);
+	IncomingHealthEventModifiers.GetModifiersWithSources(Mods, OutModProxies, EventInfo);
 	if (IsValid(StatHandlerRef))
 	{
 		switch (EventInfo.EventType)
@@ -684,26 +764,55 @@ float UDamageHandler::GetModifiedIncomingHealthEventValue(const FHealthEventInfo
 		case EHealthEventType::Damage :
 			if (StatHandlerRef->IsStatValid(FSaiyoraCombatTags::Get().Stat_DamageTaken))
 			{
-				Mods.Add(FCombatModifier(StatHandlerRef->GetStatValue(FSaiyoraCombatTags::Get().Stat_DamageTaken), EModifierType::Multiplicative));
+				const FCombatModifier& StatModifier = Mods.Add_GetRef(FCombatModifier(StatHandlerRef->GetStatValue(FSaiyoraCombatTags::Get().Stat_DamageTaken), EModifierType::Multiplicative));
+				if (StatModifier.Value != 1.0f)
+				{
+					//Include this in the list of applied mod conditions, even though it's not actually a function.
+					OutModProxies.Emplace(StatModifier, FCombatDelegateProxy(StatHandlerRef, FSaiyoraCombatTags::Get().Stat_DamageTaken.GetTagName()));
+				}
 			}
 			break;
 		case EHealthEventType::Healing :
 			if (StatHandlerRef->IsStatValid(FSaiyoraCombatTags::Get().Stat_HealingTaken))
 			{
-				Mods.Add(FCombatModifier(StatHandlerRef->GetStatValue(FSaiyoraCombatTags::Get().Stat_HealingTaken), EModifierType::Multiplicative));
+				const FCombatModifier& StatModifier = Mods.Add_GetRef(FCombatModifier(StatHandlerRef->GetStatValue(FSaiyoraCombatTags::Get().Stat_HealingTaken), EModifierType::Multiplicative));
+				if (StatModifier.Value != 1.0f)
+				{
+					//Include this in the list of applied mod conditions, even though it's not actually a function.
+					OutModProxies.Emplace(StatModifier, FCombatDelegateProxy(StatHandlerRef, FSaiyoraCombatTags::Get().Stat_HealingTaken.GetTagName()));
+				}
 			}
 			break;
 		case EHealthEventType::Absorb :
 			if (StatHandlerRef->IsStatValid(FSaiyoraCombatTags::Get().Stat_AbsorbTaken))
 			{
-				Mods.Add(FCombatModifier(StatHandlerRef->GetStatValue(FSaiyoraCombatTags::Get().Stat_AbsorbTaken), EModifierType::Multiplicative));
+				const FCombatModifier& StatModifier = Mods.Add_GetRef(FCombatModifier(StatHandlerRef->GetStatValue(FSaiyoraCombatTags::Get().Stat_AbsorbTaken), EModifierType::Multiplicative));
+				if (StatModifier.Value != 1.0f)
+				{
+					//Include this in the list of applied mod conditions, even though it's not actually a function.
+					OutModProxies.Emplace(StatModifier, FCombatDelegateProxy(StatHandlerRef, FSaiyoraCombatTags::Get().Stat_AbsorbTaken.GetTagName()));
+				}
 			}
 			break;
 		default :
 			break;
 		}
 	}
+	
 	return FCombatModifier::ApplyModifiers(Mods, EventInfo.Value);
 }
 
 #pragma endregion
+#pragma region DEBUG
+#if !UE_BUILD_SHIPPING
+
+void UDamageHandler::DEBUG_DumpState(const ECombatEventDirection Direction, TArray<FString>& OutStrings) const
+{
+	const FString DirectionString = UEnum::GetDisplayValueAsText(Direction).ToString().ToUpper();
+	OutStrings.Add(FString::Printf(L"DAMAGE HANDLER %s STATE DUMP: LifeStatus: %s, CurrentHealth: %.2f, MaxHealth: %.2f, CurrentAbsorb: %.2f, PendingKillingBlow: %s",
+		*DirectionString, *UEnum::GetDisplayValueAsText(LifeStatus).ToString(), CurrentHealth, MaxHealth, CurrentAbsorb,
+		PendingKillingBlow.Info.EventID == -1 ? TEXT("No") : *FString::FromInt(PendingKillingBlow.Info.EventID)));
+}
+
+#endif
+#pragma endregion 

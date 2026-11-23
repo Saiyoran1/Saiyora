@@ -64,6 +64,7 @@ private:
 	FTimerHandle TickHandle;
 	UFUNCTION()
 	void TickHealthEvent();
+	TArray<FModifierProxy> SnapshotModifiers;
 
 	UPROPERTY()
 	UDamageHandler* TargetHandler = nullptr;

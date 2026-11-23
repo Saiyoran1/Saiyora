@@ -2,8 +2,10 @@
 #include "CoreMinimal.h"
 #include "BuffStructs.h"
 #include "CombatEnums.h"
+#include "DamageStructs.h"
 #include "CombatDebugOptions.generated.h"
 
+class UDamageHandler;
 class UBuffHandler;
 class APredictableProjectile;
 class UNPCAbility;
@@ -14,6 +16,8 @@ struct FRotationDebugInfo;
 
 #pragma region Macros
 #if !UE_BUILD_SHIPPING /* Define macros for each debug logging function to easily compile them all out of shipping and access them more easily. */
+
+#pragma region Buffs
 
 	//Debug logging for buff application
 	#define DEBUG_LOG_BUFF_APPLY(Handler, Event) \
@@ -68,6 +72,25 @@ struct FRotationDebugInfo;
 		CombatDebug_DA->DEBUG_LogBuffRestrictionRemoveFailed(Handler, Direction, Restriction, FailReason); \
 	}
 
+#pragma endregion
+#pragma region Health Events
+
+	//Debug logging for health events
+	#define DEBUG_LOG_HEALTH_EVENT(Handler, Event) \
+	if (CombatDebug_DA->HealthEventLoggingVerbosity != EDebugLogVerbosity::Off) \
+	{ \
+		CombatDebug_DA->DEBUG_LogBuffApplyEvent(Handler, Event); \
+	}
+
+	//Debug logging for health event failure
+	#define DEBUG_LOG_HEALTH_EVENT_FAIL(Handler, Event) \
+	if (CombatDebug_DA->HealthEventLoggingVerbosity != EDebugLogVerbosity::Off) \
+	{ \
+		CombatDebug_DA->DEBUG_LogHealthEvent(Handler, Event); \
+	}
+
+#pragma endregion
+
 #else /* Define all debug logging macros to nothing to compile them out of shipping builds. */
 
 	#define DEBUG_LOG_BUFF_APPLY(Handler, Event)
@@ -78,9 +101,11 @@ struct FRotationDebugInfo;
 	#define DEBUG_LOG_BUFF_RESTRICTION_ADD_FAILED(Handler, Direction, Restriction, FailReason)
 	#define DEBUG_LOG_BUFF_RESTRICTION_REMOVED(Handler, Direction, Restriction)
 	#define DEBUG_LOG_BUFF_RESTRICTION_REMOVE_FAILED(Handler, Direction, Restriction, FailReason)
+	#define DEBUG_LOG_HEALTH_EVENT(Handler, Event)
+	#define DEBUG_LOG_HEALTH_EVENT_FAIL(Handler, Event)
 
 #endif
-#pragma endregion
+#pragma endregion 
 
 UENUM()
 enum class EDebugLogVerbosity
@@ -143,4 +168,20 @@ public:
 
 #endif
 #pragma endregion
+#pragma region Health Events
+
+public:
+
+	UPROPERTY(EditAnywhere, Category = "Health Events")
+	EDebugLogVerbosity HealthEventLoggingVerbosity = EDebugLogVerbosity::Off;
+	UPROPERTY(EditAnywhere, Category = "Health Events")
+	EDebugLogVerbosity HealthEventRestrictionLoggingVerbosity = EDebugLogVerbosity::Off;
+
+#if !UE_BUILD_SHIPPING
+
+	void DEBUG_LogHealthEvent(const UDamageHandler* AppliedToHandler, const FHealthEvent& Event) const;
+	void DEBUG_LogHealthEventFailure(const UDamageHandler* AppliedToHandler, const FHealthEvent& Event) const;
+	
+#endif
+#pragma endregion 
 };

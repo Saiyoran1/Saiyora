@@ -9,12 +9,43 @@
 class UPendingResurrectionFunction;
 
 USTRUCT(BlueprintType)
-struct FHealthEventResult
+struct FHealthEventSnapshot
 {
     GENERATED_BODY()
 
     UPROPERTY(BlueprintReadOnly)
-    bool Success = false;
+    float Value = 0.0f;
+    TArray<FModifierProxy> AppliedModifiers;
+
+    FHealthEventSnapshot() {}
+    FHealthEventSnapshot(const float InValue, const TArray<FModifierProxy>& InMods)
+        : Value(InValue), AppliedModifiers(InMods) {}
+};
+
+USTRUCT(BlueprintType)
+struct FHealthEventResult
+{
+    GENERATED_BODY()
+
+    //Whether the health event was successfully applied.
+    UPROPERTY(BlueprintReadOnly)
+    bool bSuccess = false;
+    //All of the reasons we couldn't apply this health event.
+    UPROPERTY(BlueprintReadOnly)
+    TArray<EHealthEventFailReason> FailReasons;
+    
+    //If an incoming health event restriction prevented application, this is a proxy for the restriction.
+    FCombatDelegateProxy IncomingRestriction;
+    //If an outgoing health event restriction prevented application, this is a proxy for the restriction.
+    FCombatDelegateProxy OutgoingRestriction;
+    
+    //All incoming health event modifiers applied to the event, as proxy structs.
+    TArray<FModifierProxy> IncomingModifiers;
+    //Snapshot value of this health event for use in future ApplySnapshottedHealthEvent calls.
+    //Includes the list of outgoing modifiers originally applied to this value.
+    UPROPERTY(BlueprintReadOnly)
+    FHealthEventSnapshot Snapshot;
+    
     UPROPERTY(BlueprintReadOnly)
     float AppliedValue = 0.0f;
     UPROPERTY(BlueprintReadOnly)
@@ -22,7 +53,11 @@ struct FHealthEventResult
     UPROPERTY(BlueprintReadOnly)
     float NewValue = 0.0f;
     UPROPERTY(BlueprintReadOnly)
-    bool KillingBlow = false;
+    bool bKillingBlow = false;
+
+#if !UE_BUILD_SHIPPING
+    void DEBUG_ToString(FString& OutString) const;
+#endif
 };
 
 USTRUCT(BlueprintType)
@@ -50,8 +85,13 @@ struct FHealthEventInfo
     EElementalSchool School = EElementalSchool::None;
     UPROPERTY(BlueprintReadOnly)
     float Value = 0.0f;
-    UPROPERTY(BlueprintReadOnly)
-    float SnapshotValue = 0.0f;
+    //Unique ID for the combat event.
+    UPROPERTY()
+    int EventID = -1;
+
+#if !UE_BUILD_SHIPPING
+    void DEBUG_ToString(FString& OutString) const;
+#endif
 };
 
 USTRUCT(BlueprintType)
@@ -65,6 +105,10 @@ struct FHealthEvent
     FHealthEventResult Result;
     UPROPERTY(BlueprintReadOnly)
     FThreatFromDamage ThreatInfo;
+
+#if !UE_BUILD_SHIPPING
+    void DEBUG_ToString(FString& OutString) const;
+#endif
 };
 
 //A struct representing a pending resurrection.

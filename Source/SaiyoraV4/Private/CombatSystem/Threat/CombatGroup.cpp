@@ -198,7 +198,7 @@ void UCombatGroup::UpdateCombatantFadeStatus(const UThreatHandler* Combatant, co
 
 void UCombatGroup::OnCombatantIncomingHealthEvent(const FHealthEvent& Event)
 {
-	if (!Event.Result.Success || !Event.ThreatInfo.bGeneratesThreat ||
+	if (!Event.Result.bSuccess || !Event.ThreatInfo.bGeneratesThreat ||
 		!(Event.Info.EventType == EHealthEventType::Healing || Event.Info.EventType == EHealthEventType::Absorb))
 	{
 		return;
@@ -242,7 +242,7 @@ void UCombatGroup::OnCombatantIncomingHealthEvent(const FHealthEvent& Event)
 
 void UCombatGroup::OnCombatantOutgoingHealthEvent(const FHealthEvent& Event)
 {
-	if (!Event.Result.Success || !Event.ThreatInfo.bGeneratesThreat ||
+	if (!Event.Result.bSuccess || !Event.ThreatInfo.bGeneratesThreat ||
 		!(Event.Info.EventType == EHealthEventType::Healing || Event.Info.EventType == EHealthEventType::Absorb))
 	{
 		return;

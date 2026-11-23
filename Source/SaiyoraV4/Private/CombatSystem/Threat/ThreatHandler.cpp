@@ -77,7 +77,7 @@ void UThreatHandler::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 
 void UThreatHandler::OnOwnerDamageTaken(const FHealthEvent& DamageEvent)
 {
-	if (!DamageEvent.Result.Success || !DamageEvent.ThreatInfo.bGeneratesThreat)
+	if (!DamageEvent.Result.bSuccess || !DamageEvent.ThreatInfo.bGeneratesThreat)
 	{
 		return;
 	}
