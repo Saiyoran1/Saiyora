@@ -109,6 +109,8 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Health", meta = (AutoCreateRefTerm = "OverrideRespawnLocation"))
 	bool RespawnActor(const bool bForceRespawnLocation = false, const FVector& OverrideRespawnLocation = FVector::ZeroVector,
 		const bool bForceHealthPercentage = false, const float OverrideHealthPercentage = 1.0f);
+	//Overload of RespawnActor that just takes a pending resurrection.
+	bool RespawnActor(const FPendingResurrection& Resurrection);
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Health")
 	void UpdateRespawnPoint(const FVector& NewLocation);
 	//Local-callable respawn function, for when a player requests to respawn at his default location.
@@ -152,6 +154,9 @@ private:
 	void Server_RequestRespawn();
 	UFUNCTION(Client, Reliable)
 	void Client_ResurrectionRequestFailed();
+
+	bool RespawnActor_Internal(const bool bForceRespawnLocation = false, const FVector& OverrideRespawnLocation = FVector::ZeroVector,
+		const bool bForceHealthPercentage = false, const float OverrideHealthPercentage = 1.0f, const FPendingResurrection& Resurrection = FPendingResurrection());
 
 	void Die();
 	TConditionalRestrictionList<FDeathRestriction> DeathRestrictions;

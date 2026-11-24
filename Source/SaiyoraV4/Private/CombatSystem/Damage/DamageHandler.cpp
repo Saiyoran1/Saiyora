@@ -3,6 +3,7 @@
 #include "AbilityFunctionLibrary.h"
 #include "Buff.h"
 #include "BuffHandler.h"
+#include "CombatDebugOptions.h"
 #include "StatHandler.h"
 #include "CombatStatusComponent.h"
 #include "DamageBuffFunctions.h"
@@ -11,6 +12,7 @@
 #include "DungeonGameState.h"
 #include "NPCAbilityComponent.h"
 #include "SaiyoraCombatLibrary.h"
+#include "SaiyoraDevSettings.h"
 #include "UnrealNetwork.h"
 
 #pragma region Core
@@ -182,6 +184,12 @@ void UDamageHandler::Server_RequestRespawn_Implementation()
 
 void UDamageHandler::Die()
 {
+	//Clear the pending killing blow, if we have one.
+	if (bHasPendingKillingBlow)
+	{
+		bHasPendingKillingBlow = false;
+		PendingKillingBlow = FHealthEvent();
+	}
 	if (CurrentAbsorb != 0.0f)
 	{
 		const float PreviousAbsorb = CurrentAbsorb;
@@ -221,6 +229,17 @@ void UDamageHandler::Die()
 bool UDamageHandler::RespawnActor(const bool bForceRespawnLocation, const FVector& OverrideRespawnLocation,
                                   const bool bForceHealthPercentage, const float OverrideHealthPercentage)
 {
+	return RespawnActor_Internal(bForceRespawnLocation, OverrideRespawnLocation, bForceHealthPercentage, OverrideHealthPercentage);
+}
+
+bool UDamageHandler::RespawnActor(const FPendingResurrection& Resurrection)
+{
+	return RespawnActor_Internal(true, Resurrection.ResLocation, Resurrection.bOverrideHealth, Resurrection.OverrideHealthPercent, Resurrection);
+}
+
+bool UDamageHandler::RespawnActor_Internal(const bool bForceRespawnLocation, const FVector& OverrideRespawnLocation, const bool bForceHealthPercentage, const float OverrideHealthPercentage,
+                                           const FPendingResurrection& Resurrection)
+{
 	if (GetOwnerRole() != ROLE_Authority || !bCanBeResurrected || LifeStatus != ELifeStatus::Dead)
 	{
 		return false;
@@ -229,16 +248,19 @@ bool UDamageHandler::RespawnActor(const bool bForceRespawnLocation, const FVecto
 	{
 		GetOwner()->SetActorLocation(bForceRespawnLocation ? OverrideRespawnLocation : RespawnLocation);
 	}
+	const ELifeStatus PreviousStatus = LifeStatus;
+	LifeStatus = ELifeStatus::Alive;
 	CurrentHealth = FMath::Clamp(MaxHealth * (bForceHealthPercentage ? FMath::Clamp(OverrideHealthPercentage, 0.0f, 1.0f) : 1.0f), 1.0f, MaxHealth);
-	if (CurrentAbsorb != 0.0f)
+	const float PreviousAbsorb = CurrentAbsorb;
+	CurrentAbsorb = 0.0f;
+	
+	DEBUG_LOG_RESPAWN(this, Resurrection);
+
+	if (PreviousAbsorb != CurrentAbsorb)
 	{
-		const float PreviousAbsorb = CurrentAbsorb;
-		CurrentAbsorb = 0.0f;
 		OnAbsorbChanged.Broadcast(GetOwner(), PreviousAbsorb, CurrentAbsorb);
 	}
 	OnHealthChanged.Broadcast(GetOwner(), 0.0f, CurrentHealth);
-	const ELifeStatus PreviousStatus = LifeStatus;
-	LifeStatus = ELifeStatus::Alive;
 	OnLifeStatusChanged.Broadcast(GetOwner(), PreviousStatus, ELifeStatus::Alive);
 	return true;
 }
@@ -320,7 +342,7 @@ void UDamageHandler::MakeResurrectionDecision(const int ResID, const bool bAccep
 				//If we're accepting, then we just respawn the actor. This will automatically remove all pending resurrection functions.
 				if (bAccept)
 				{
-					bRespawned = RespawnActor(true, ResCopy.ResLocation, ResCopy.bOverrideHealth, ResCopy.OverrideHealthPercent);
+					bRespawned = RespawnActor(ResCopy);
 				}
 				//If we're declining, just remove the buff manually.
 				else if (IsValid(ResCopy.Source))
@@ -471,6 +493,7 @@ FHealthEvent UDamageHandler::ApplyHealthEvent_Internal(const EHealthEventType Ev
 	//Not realistic to check any of the other conditions with invalid data or blanket restrictions.
 	if (HealthEvent.Result.FailReasons.Num() > 0)
 	{
+		DEBUG_LOG_HEALTH_EVENT_FAIL(this, HealthEvent);
 		return HealthEvent;
 	}
 
@@ -497,11 +520,14 @@ FHealthEvent UDamageHandler::ApplyHealthEvent_Internal(const EHealthEventType Ev
 			//Use proxy structs to save off the restrictions that prevented this event, due to circular dependency problems.
 			HealthEvent.Result.IncomingRestriction = IncomingRestriction;
 			HealthEvent.Result.OutgoingRestriction = OutgoingRestriction;
+			DEBUG_LOG_HEALTH_EVENT_FAIL(this, HealthEvent);
 			return HealthEvent;
 		}
 	}
 
 	HealthEvent.Result.bSuccess = true;
+	const float PreviousAbsorb = CurrentAbsorb;
+	const float PreviousHealth = CurrentHealth;
 	if (EventType == EHealthEventType::Damage)
 	{
 		HealthEvent.Result.PreviousValue = CurrentHealth;
@@ -511,29 +537,15 @@ FHealthEvent UDamageHandler::ApplyHealthEvent_Internal(const EHealthEventType Ev
 			if (CurrentAbsorb >= RemainingDamage)
 			{
 				RemainingDamage = 0.0f;
-				const float PreviousAbsorb = CurrentAbsorb;
 				CurrentAbsorb = FMath::Clamp(CurrentAbsorb - HealthEvent.Info.Value, 0.0f, MaxHealth);
-				if (PreviousAbsorb != CurrentAbsorb)
-				{
-					OnAbsorbChanged.Broadcast(GetOwner(), PreviousAbsorb, CurrentAbsorb);
-				}
 			}
 			else
 			{
 				RemainingDamage -= CurrentAbsorb;
-				const float PreviousAbsorb = CurrentAbsorb;
 				CurrentAbsorb = 0.0f;
-				if (PreviousAbsorb != CurrentAbsorb)
-				{
-					OnAbsorbChanged.Broadcast(GetOwner(), PreviousAbsorb, CurrentAbsorb);
-				}
 			}
 		}
 		CurrentHealth = FMath::Clamp(CurrentHealth - RemainingDamage, 0.0f, MaxHealth);
-		if (CurrentHealth != HealthEvent.Result.PreviousValue)
-		{
-			OnHealthChanged.Broadcast(GetOwner(), HealthEvent.Result.PreviousValue, CurrentHealth);
-		}
 		HealthEvent.Result.NewValue = CurrentHealth;
 		HealthEvent.Result.AppliedValue = HealthEvent.Result.PreviousValue - CurrentHealth;
 		if (CurrentHealth == 0.0f)
@@ -555,10 +567,6 @@ FHealthEvent UDamageHandler::ApplyHealthEvent_Internal(const EHealthEventType Ev
 	{
 		HealthEvent.Result.PreviousValue = CurrentHealth;
 		CurrentHealth = FMath::Clamp(CurrentHealth + HealthEvent.Info.Value, 0.0f, MaxHealth);
-		if (CurrentHealth != HealthEvent.Result.PreviousValue)
-		{
-			OnHealthChanged.Broadcast(GetOwner(), HealthEvent.Result.PreviousValue, CurrentHealth);
-		}
 		HealthEvent.Result.NewValue = CurrentHealth;
 		HealthEvent.Result.AppliedValue = CurrentHealth - HealthEvent.Result.PreviousValue;
 		if (bHasPendingKillingBlow && CurrentHealth > 0.0f)
@@ -571,15 +579,22 @@ FHealthEvent UDamageHandler::ApplyHealthEvent_Internal(const EHealthEventType Ev
 	{
 		HealthEvent.Result.PreviousValue = CurrentAbsorb;
 		CurrentAbsorb = FMath::Clamp(CurrentAbsorb + HealthEvent.Info.Value, 0.0f, MaxHealth);
-		if (CurrentAbsorb != HealthEvent.Result.PreviousValue)
-		{
-			OnAbsorbChanged.Broadcast(GetOwner(), HealthEvent.Result.PreviousValue, CurrentAbsorb);
-		}
 		HealthEvent.Result.NewValue = CurrentAbsorb;
 		HealthEvent.Result.AppliedValue = CurrentAbsorb - HealthEvent.Result.PreviousValue;
 	}
-	
+
+	DEBUG_LOG_HEALTH_EVENT(this, HealthEvent);
+
+	if (CurrentAbsorb != PreviousAbsorb)
+	{
+		OnAbsorbChanged.Broadcast(GetOwner(), PreviousAbsorb, CurrentAbsorb);
+	}
+	if (CurrentHealth != PreviousHealth)
+	{
+		OnHealthChanged.Broadcast(GetOwner(), PreviousHealth, CurrentHealth);
+	}
 	OnIncomingHealthEvent.Broadcast(HealthEvent);
+	
 	if (IsValid(OwnerAsPawn) && !OwnerAsPawn->IsLocallyControlled())
 	{
 		ClientNotifyOfIncomingHealthEvent(HealthEvent);
@@ -590,6 +605,7 @@ FHealthEvent UDamageHandler::ApplyHealthEvent_Internal(const EHealthEventType Ev
 	}
 	if (HealthEvent.Result.bKillingBlow)
 	{
+		DEBUG_LOG_DEATH(this, HealthEvent.Info.EventID, false);
 		Die();
 	}
 	
@@ -687,6 +703,7 @@ void UDamageHandler::RemoveDeathRestriction(const FDeathRestriction& Restriction
 		}
 		else
 		{
+			DEBUG_LOG_DEATH(this, PendingKillingBlow.Info.EventID, true);
 			Die();
 		}
 	}

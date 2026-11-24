@@ -48,7 +48,7 @@ const FName FSaiyoraCollision::CT_GeometryModern = FName("CombatTraceGeometryMod
 const FName FSaiyoraCollision::CT_GeometryNone = FName("CombatTraceGeometryNone");
 
 #pragma endregion 
-#pragma region Modifiers
+#pragma region Combat Modifier
 
 int32 FCombatModifierHandle::NextModifier = 0;
 FCombatModifierHandle FCombatModifierHandle::Invalid = FCombatModifierHandle(-1);
@@ -93,6 +93,9 @@ int32 FCombatModifier::ApplyModifiers(const TArray<FCombatModifier>& ModArray, c
     return FMath::TruncToInt32(ApplyModifiers(ModArray, ValueAsFloat));
 }
 
+#pragma endregion 
+#pragma region Modifier Proxy
+
 FModifierProxy::FModifierProxy(const FCombatModifier& InMod, const FCombatDelegateProxy& InFunction)
 {
     FunctionProxy = InFunction;
@@ -102,6 +105,22 @@ FModifierProxy::FModifierProxy(const FCombatModifier& InMod, const FCombatDelega
     BuffSourceClass = IsValid(InMod.BuffSource) ? InMod.BuffSource->GetClass() : nullptr;
     Stacks = bStackable && IsValid(InMod.BuffSource) ? InMod.BuffSource->GetCurrentStacks() : 1;
 }
+
+#if !UE_BUILD_SHIPPING
+void FModifierProxy::DEBUG_ToString(FString& OutString) const
+{
+    FString FunctionString;
+    FunctionProxy.DEBUG_ToString(FunctionString);
+    OutString = FString::Printf(L"%s: %s %.2f", *FunctionString, *UEnum::GetDisplayValueAsText(Type).ToString(), Value);
+    if (bStackable && IsValid(BuffSourceClass))
+    {
+        OutString.Append(FString::Printf(L" (%s, %i stacks)", *BuffSourceClass->GetName(), Stacks));
+    }
+}
+#endif
+
+#pragma endregion 
+#pragma region Modifiable Float
 
 FCombatModifierHandle FModifiableFloat::AddModifier(const FCombatModifier& Modifier)
 {
@@ -177,6 +196,9 @@ void FModifiableFloat::Recalculate()
         OnUpdated.Execute(PreviousValue, CurrentValue);
     }
 }
+
+#pragma endregion
+#pragma region Modifiable Int
 
 FCombatModifierHandle FModifiableInt::AddModifier(const FCombatModifier& Modifier)
 {
@@ -283,13 +305,13 @@ void FCombatantArray::OnAdd(const FCombatant& NewCombatant) const
     LogComponent->OnCombatantAdded(NewCombatant);
 }
 
-#pragma endregion
-
 #if !UE_BUILD_SHIPPING
 void FCombatDelegateProxy::DEBUG_ToString(FString& OutString) const
 {
     OutString = FString::Printf(L"{ Object: %s, Function: %s }",
-        Object.IsValid() ? *Object->GetName() : TEXT("NULL"),
+        *GetNameSafe(Object.Get()),
         *FunctionName.ToString());
 }
 #endif
+
+#pragma endregion

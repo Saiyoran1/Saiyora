@@ -496,6 +496,10 @@ struct FModifierProxy
 
     FModifierProxy() {}
     FModifierProxy(const FCombatModifier& InMod, const FCombatDelegateProxy& InFunction);
+    
+#if !UE_BUILD_SHIPPING
+    void DEBUG_ToString(FString& OutString) const;
+#endif
 };
 
 //Templated class used for holding a list of conditional modifier functions that each return an FCombatModifier when provided combat event context.

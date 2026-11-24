@@ -79,15 +79,27 @@ struct FRotationDebugInfo;
 	#define DEBUG_LOG_HEALTH_EVENT(Handler, Event) \
 	if (CombatDebug_DA->HealthEventLoggingVerbosity != EDebugLogVerbosity::Off) \
 	{ \
-		CombatDebug_DA->DEBUG_LogBuffApplyEvent(Handler, Event); \
+		CombatDebug_DA->DEBUG_LogHealthEvent(Handler, Event); \
 	}
 
 	//Debug logging for health event failure
 	#define DEBUG_LOG_HEALTH_EVENT_FAIL(Handler, Event) \
 	if (CombatDebug_DA->HealthEventLoggingVerbosity != EDebugLogVerbosity::Off) \
 	{ \
-		CombatDebug_DA->DEBUG_LogHealthEvent(Handler, Event); \
+		CombatDebug_DA->DEBUG_LogHealthEventFailure(Handler, Event); \
 	}
+
+	#define DEBUG_LOG_DEATH(Handler, EventID, bWasPendingKillingBlow) \
+	if (CombatDebug_DA->HealthEventLoggingVerbosity != EDebugLogVerbosity::Off) \
+	{ \
+		CombatDebug_DA->DEBUG_LogDeath(Handler, EventID, bWasPendingKillingBlow); \
+	}
+
+	#define DEBUG_LOG_RESPAWN(Handler, Resurrection) \
+	if (CombatDebug_DA->HealthEventLoggingVerbosity != EDebugLogVerbosity::Off) \
+	{ \
+		CombatDebug_DA->DEBUG_LogRespawn(Handler, Resurrection); \
+	}	
 
 #pragma endregion
 
@@ -103,6 +115,8 @@ struct FRotationDebugInfo;
 	#define DEBUG_LOG_BUFF_RESTRICTION_REMOVE_FAILED(Handler, Direction, Restriction, FailReason)
 	#define DEBUG_LOG_HEALTH_EVENT(Handler, Event)
 	#define DEBUG_LOG_HEALTH_EVENT_FAIL(Handler, Event)
+	#define DEBUG_LOG_DEATH(Handler, EventID, bWasPendingKillingBlow)
+	#define DEBUG_LOG_RESPAWN(Handler, Resurrection)
 
 #endif
 #pragma endregion 
@@ -181,6 +195,8 @@ public:
 
 	void DEBUG_LogHealthEvent(const UDamageHandler* AppliedToHandler, const FHealthEvent& Event) const;
 	void DEBUG_LogHealthEventFailure(const UDamageHandler* AppliedToHandler, const FHealthEvent& Event) const;
+	void DEBUG_LogDeath(const UDamageHandler* Handler, const int EventID, const bool bWasPendingKillingBlow) const;
+	void DEBUG_LogRespawn(const UDamageHandler* Handler, const FPendingResurrection& Resurrection) const;
 	
 #endif
 #pragma endregion 

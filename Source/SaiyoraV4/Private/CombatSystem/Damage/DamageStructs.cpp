@@ -10,6 +10,36 @@ void FHealthEventResult::DEBUG_ToString(FString& OutString) const
 	{
 		OutString.Append(FString::Printf(L", AppliedValue: %.2f, PreviousValue: %.2f, NewValue: %.2f, KillingBlow: %s, SnapshotValue: %.2f",
 			AppliedValue, PreviousValue, NewValue, bKillingBlow ? TEXT("YES") : TEXT("NO"), Snapshot.Value));
+		if (Snapshot.AppliedModifiers.Num() > 0)
+		{
+			OutString.Append(", Outgoing Modifiers: ");
+			for (int i = 0; i < Snapshot.AppliedModifiers.Num(); i++)
+			{
+				const FModifierProxy& Modifier = Snapshot.AppliedModifiers[i];
+				if (i > 0)
+				{
+					OutString.Append(", ");
+				}
+				FString ModifierString;
+				Modifier.DEBUG_ToString(ModifierString);
+				OutString.Append(FString::Printf(L"{ %s }", *ModifierString));
+			}
+		}
+		if (IncomingModifiers.Num() > 0)
+		{
+			OutString.Append(", Incoming Modifiers: ");
+			for (int i = 0; i < IncomingModifiers.Num(); i++)
+			{
+				const FModifierProxy& Modifier = IncomingModifiers[i];
+				if (i > 0)
+				{
+					OutString.Append(", ");
+				}
+				FString ModifierString;
+				Modifier.DEBUG_ToString(ModifierString);
+				OutString.Append(FString::Printf(L"{ %s }", *ModifierString));
+			}
+		}
 	}
 	else
 	{

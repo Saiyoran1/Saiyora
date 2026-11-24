@@ -3,6 +3,8 @@
 #include "Buff.h"
 #include "BuffHandler.h"
 #include "CombatAbility.h"
+#include "CombatLogComponent.h"
+#include "CombatStatusComponent.h"
 #include "DamageHandler.h"
 #include "EngineUtils.h"
 #include "Hitbox.h"
@@ -11,6 +13,7 @@
 #include "PredictableProjectile.h"
 #include "RotationBehaviors.h"
 #include "SaiyoraCombatLibrary.h"
+#include "SaiyoraGameState.h"
 #include "SaiyoraPlayerCharacter.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogSaiyoraBuffs, Log, All);
@@ -437,6 +440,37 @@ void UCombatDebugOptions::DEBUG_LogHealthEventFailure(const UDamageHandler* Appl
 			}
 		}
 	}
+}
+
+void UCombatDebugOptions::DEBUG_LogDeath(const UDamageHandler* Handler, const int EventID, const bool bWasPendingKillingBlow) const
+{
+	FString NameString = Handler->GetOwner()->GetName();
+	const FCombatantID ID = UCombatLogComponent::GetCombatantID(Handler->GetOwner());
+	if (const ASaiyoraGameState* GameState = Handler->GetWorld()->GetGameState<ASaiyoraGameState>())
+	{
+		FText CombatantName;
+		if (GameState->GetCombatLog()->GetCombatantDisplayName(ID, CombatantName))
+		{
+			NameString = CombatantName.ToString();
+		}
+	}
+	UE_LOG(LogSaiyoraHealth, Log, TEXT("Combatant \"%s\" DIED from health event %i%s"), *NameString, EventID, bWasPendingKillingBlow ? TEXT(" (was pending)") : TEXT(""));
+}
+
+void UCombatDebugOptions::DEBUG_LogRespawn(const UDamageHandler* Handler, const FPendingResurrection& Resurrection) const
+{
+	FString NameString = Handler->GetOwner()->GetName();
+	const FCombatantID ID = UCombatLogComponent::GetCombatantID(Handler->GetOwner());
+	if (const ASaiyoraGameState* GameState = Handler->GetWorld()->GetGameState<ASaiyoraGameState>())
+	{
+		FText CombatantName;
+		if (GameState->GetCombatLog()->GetCombatantDisplayName(ID, CombatantName))
+		{
+			NameString = CombatantName.ToString();
+		}
+	}
+	UE_LOG(LogSaiyoraHealth, Log, TEXT("Combatant \"%s\" RESPAWNED%s"), *NameString,
+		Resurrection.ResID > -1 ? *FString::Printf(L" from resurrection %i (%s)", Resurrection.ResID, *GetNameSafe(Resurrection.BuffClass)) : TEXT(""));
 }
 
 #pragma endregion

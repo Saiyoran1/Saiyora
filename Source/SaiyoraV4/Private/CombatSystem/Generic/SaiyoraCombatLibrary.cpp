@@ -104,7 +104,7 @@ bool USaiyoraCombatLibrary::IsSignatureTheSame(const UFunction* Function, const 
 FString USaiyoraCombatLibrary::DelegateToLogString(const FScriptDelegate& Delegate)
 {
     return FString::Printf(L"{ Object: %s, Function: %s }",
-        IsValid(Delegate.GetUObject()) ? *Delegate.GetUObject()->GetName() : TEXT("NULL"),
+        *GetNameSafe(Delegate.GetUObject()),
         *Delegate.GetFunctionName().ToString());
 }
 

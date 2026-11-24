@@ -7,7 +7,7 @@
 void FBuffApplyEvent::DEBUG_ToString(FString& OutString) const
 {
 	OutString = FString::Printf(L"EventID: %i, BuffClass: %s, AffectedBuff: %s, ActionTaken: %s",
-		EventID, IsValid(BuffClass) ? *BuffClass->GetName() : TEXT("NULL"), IsValid(AffectedBuff) ? *AffectedBuff->GetName() : TEXT("NULL"), *UEnum::GetDisplayValueAsText(ActionTaken).ToString());
+		EventID, *GetNameSafe(BuffClass), *GetNameSafe(AffectedBuff), *UEnum::GetDisplayValueAsText(ActionTaken).ToString());
 	if (ActionTaken != EBuffApplyAction::Failed)
 	{
 		OutString.Append(FString::Printf(L", PreviousStacks: %i, NewStacks: %i, PreviousDuration: %.2f, NewDuration: %.2f, NewApplyTime: %.2f",
@@ -71,8 +71,8 @@ void FBuffApplyEvent::DEBUG_ToString(FString& OutString) const
 void FBuffRemoveEvent::DEBUG_ToString(FString& OutString) const
 {
 	OutString = FString::Printf(L"EventID: %i, BuffClass: %s, AffectedBuff: %s, Result: %s, ExpireReason: %s",
-		EventID, IsValid(RemovedBuff) ? *RemovedBuff->GetClass()->GetName() : TEXT("NULL"),
-		IsValid(RemovedBuff) ? *RemovedBuff->GetName() : TEXT("NULL"),
+		EventID, *GetNameSafe(IsValid(RemovedBuff) ? RemovedBuff->GetClass() : nullptr),
+		*GetNameSafe(RemovedBuff),
 		bResult ? TEXT("SUCCESS") : TEXT("FAILURE"),
 		*UEnum::GetDisplayValueAsText(ExpireReason).ToString());
 	if (IsValid(AppliedBy))

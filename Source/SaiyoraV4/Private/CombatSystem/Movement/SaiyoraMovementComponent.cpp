@@ -168,7 +168,7 @@ USaiyoraMovementComponent::FSaiyoraNetworkMoveDataContainer::FSaiyoraNetworkMove
 
 FNetworkPredictionData_Client* USaiyoraMovementComponent::GetPredictionData_Client() const
 {
-	check(PawnOwner != NULL);
+	check(PawnOwner != nullptr);
 	if (!ClientPredictionData)
 	{
 		USaiyoraMovementComponent* MutableThis = const_cast<USaiyoraMovementComponent*>(this);
