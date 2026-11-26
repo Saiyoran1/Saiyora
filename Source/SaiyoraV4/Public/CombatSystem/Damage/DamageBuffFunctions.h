@@ -90,6 +90,7 @@ private:
 	FHealthEventModCondition Modifier;
 	UPROPERTY()
 	UDamageHandler* TargetHandler = nullptr;
+	bool bSuccess = false;
 };
 
 UCLASS()

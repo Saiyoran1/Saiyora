@@ -538,22 +538,23 @@ public:
         }
     }
 
-    void Add(const T& Modifier)
+    bool Add(const T& Modifier)
     {
-        if (Modifier.IsBound())
+        if (!Modifier.IsBound() || Modifiers.Contains(Modifier))
         {
-            Modifiers.Add(Modifier);
+            return false;
         }
+        Modifiers.Add(Modifier);
+        return true;
     }
 
-    void Remove(const T& Modifier)
-    {
-        Modifiers.Remove(Modifier);
-    }
+    int32 Remove(const T& Modifier) { return  Modifiers.Remove(Modifier); }
+    int32 Num() const { return Modifiers.Num(); }
+    const TArray<T>& GetModifierList() const { return Modifiers; }
 
 private:
 
-    TSet<T> Modifiers;
+    TArray<T> Modifiers;
 };
 
 //Container for a unique ID for a given combat modifier that can be used to remove or modify it later.

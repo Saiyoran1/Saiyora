@@ -4,7 +4,6 @@
 #include "BuffHandler.h"
 #include "CombatAbility.h"
 #include "CombatLogComponent.h"
-#include "CombatStatusComponent.h"
 #include "DamageHandler.h"
 #include "EngineUtils.h"
 #include "Hitbox.h"
@@ -471,6 +470,158 @@ void UCombatDebugOptions::DEBUG_LogRespawn(const UDamageHandler* Handler, const 
 	}
 	UE_LOG(LogSaiyoraHealth, Log, TEXT("Combatant \"%s\" RESPAWNED%s"), *NameString,
 		Resurrection.ResID > -1 ? *FString::Printf(L" from resurrection %i (%s)", Resurrection.ResID, *GetNameSafe(Resurrection.BuffClass)) : TEXT(""));
+}
+
+void UCombatDebugOptions::DEBUG_LogHealthEventRestrictionAdded(const UDamageHandler* AppliedToHandler, const ECombatEventDirection Direction, const FHealthEventRestriction& Restriction) const
+{
+	UE_LOG(LogSaiyoraHealth, Log, TEXT("%s Health Event Restriction Added to handler for %s: %s"),
+		*UEnum::GetDisplayValueAsText(Direction).ToString(),
+		*AppliedToHandler->GetOwner()->GetName(),
+		*USaiyoraCombatLibrary::DelegateToLogString(Restriction));
+	//Optionally dump the whole restrictions list on the handler.
+	if (HealthEventRestrictionLoggingVerbosity == EDebugLogVerbosity::FullDump)
+	{
+		TArray<FString> Dump;
+		AppliedToHandler->DEBUG_DumpRestrictions(Direction, Dump);
+		for (const FString& DumpString : Dump)
+		{
+			UE_LOG(LogSaiyoraHealth, Log, TEXT("%s"), *DumpString);
+		}
+	}
+}
+
+void UCombatDebugOptions::DEBUG_LogHealthEventRestrictionAddFailed(const UDamageHandler* AppliedToHandler, const ECombatEventDirection Direction, const FHealthEventRestriction& Restriction,
+	const FString& FailReason) const
+{
+	UE_LOG(LogSaiyoraHealth, Log, TEXT("%s Health Event Restriction FAILED to Add to handler for %s: %s, FailReason: %s"),
+		*UEnum::GetDisplayValueAsText(Direction).ToString(),
+		*AppliedToHandler->GetOwner()->GetName(),
+		*USaiyoraCombatLibrary::DelegateToLogString(Restriction),
+		*FailReason);
+	//Optionally dump the whole restrictions list on the handler.
+	if (HealthEventRestrictionLoggingVerbosity == EDebugLogVerbosity::FullDump)
+	{
+		TArray<FString> Dump;
+		AppliedToHandler->DEBUG_DumpRestrictions(Direction, Dump);
+		for (const FString& DumpString : Dump)
+		{
+			UE_LOG(LogSaiyoraHealth, Log, TEXT("%s"), *DumpString);
+		}
+	}
+}
+
+void UCombatDebugOptions::DEBUG_LogHealthEventRestrictionRemoved(const UDamageHandler* AppliedToHandler, const ECombatEventDirection Direction, const FHealthEventRestriction& Restriction) const
+{
+	UE_LOG(LogSaiyoraHealth, Log, TEXT("%s Health Event Restriction Removed from handler for %s: %s"),
+		*UEnum::GetDisplayValueAsText(Direction).ToString(),
+		*AppliedToHandler->GetOwner()->GetName(),
+		*USaiyoraCombatLibrary::DelegateToLogString(Restriction));
+	//Optionally dump the whole restrictions list on the handler.
+	if (HealthEventRestrictionLoggingVerbosity == EDebugLogVerbosity::FullDump)
+	{
+		TArray<FString> Dump;
+		AppliedToHandler->DEBUG_DumpRestrictions(Direction, Dump);
+		for (const FString& DumpString : Dump)
+		{
+			UE_LOG(LogSaiyoraHealth, Log, TEXT("%s"), *DumpString);
+		}
+	}
+}
+
+void UCombatDebugOptions::DEBUG_LogHealthEventRestrictionRemoveFailed(const UDamageHandler* AppliedToHandler, const ECombatEventDirection Direction, const FHealthEventRestriction& Restriction,
+	const FString& FailReason) const
+{
+	UE_LOG(LogSaiyoraHealth, Log, TEXT("%s Health Event Restriction FAILED to Remove from handler for %s: %s, FailReason: %s"),
+		*UEnum::GetDisplayValueAsText(Direction).ToString(),
+		*AppliedToHandler->GetOwner()->GetName(),
+		*USaiyoraCombatLibrary::DelegateToLogString(Restriction),
+		*FailReason);
+	//Optionally dump the whole restrictions list on the handler.
+	if (HealthEventRestrictionLoggingVerbosity == EDebugLogVerbosity::FullDump)
+	{
+		TArray<FString> Dump;
+		AppliedToHandler->DEBUG_DumpRestrictions(Direction, Dump);
+		for (const FString& DumpString : Dump)
+		{
+			UE_LOG(LogSaiyoraHealth, Log, TEXT("%s"), *DumpString);
+		}
+	}
+}
+
+void UCombatDebugOptions::DEBUG_LogHealthEventModifierAdded(const UDamageHandler* AppliedToHandler, const ECombatEventDirection Direction, const FHealthEventModCondition& Modifier) const
+{
+	UE_LOG(LogSaiyoraHealth, Log, TEXT("%s Health Event Modifier Added to handler for %s: %s"),
+		*UEnum::GetDisplayValueAsText(Direction).ToString(),
+		*AppliedToHandler->GetOwner()->GetName(),
+		*USaiyoraCombatLibrary::DelegateToLogString(Modifier));
+	//Optionally dump the whole modifier list on the handler.
+	if (HealthEventModifierLoggingVerbosity == EDebugLogVerbosity::FullDump)
+	{
+		TArray<FString> Dump;
+		AppliedToHandler->DEBUG_DumpModifiers(Direction, Dump);
+		for (const FString& DumpString : Dump)
+		{
+			UE_LOG(LogSaiyoraHealth, Log, TEXT("%s"), *DumpString);
+		}
+	}
+}
+
+void UCombatDebugOptions::DEBUG_LogHealthEventModifierAddFailed(const UDamageHandler* AppliedToHandler, const ECombatEventDirection Direction, const FHealthEventModCondition& Modifier,
+	const FString& FailReason) const
+{
+	UE_LOG(LogSaiyoraHealth, Log, TEXT("%s Health Event Modifier FAILED to Add to handler for %s: %s, FailReason: %s"),
+		*UEnum::GetDisplayValueAsText(Direction).ToString(),
+		*AppliedToHandler->GetOwner()->GetName(),
+		*USaiyoraCombatLibrary::DelegateToLogString(Modifier),
+		*FailReason);
+	//Optionally dump the whole modifier list on the handler.
+	if (HealthEventModifierLoggingVerbosity == EDebugLogVerbosity::FullDump)
+	{
+		TArray<FString> Dump;
+		AppliedToHandler->DEBUG_DumpModifiers(Direction, Dump);
+		for (const FString& DumpString : Dump)
+		{
+			UE_LOG(LogSaiyoraHealth, Log, TEXT("%s"), *DumpString);
+		}
+	}
+}
+
+void UCombatDebugOptions::DEBUG_LogHealthEventModifierRemoved(const UDamageHandler* AppliedToHandler, const ECombatEventDirection Direction, const FHealthEventModCondition& Modifier) const
+{
+	UE_LOG(LogSaiyoraHealth, Log, TEXT("%s Health Event Modifier Removed from handler for %s: %s"),
+		*UEnum::GetDisplayValueAsText(Direction).ToString(),
+		*AppliedToHandler->GetOwner()->GetName(),
+		*USaiyoraCombatLibrary::DelegateToLogString(Modifier));
+	//Optionally dump the whole modifier list on the handler.
+	if (HealthEventModifierLoggingVerbosity == EDebugLogVerbosity::FullDump)
+	{
+		TArray<FString> Dump;
+		AppliedToHandler->DEBUG_DumpModifiers(Direction, Dump);
+		for (const FString& DumpString : Dump)
+		{
+			UE_LOG(LogSaiyoraHealth, Log, TEXT("%s"), *DumpString);
+		}
+	}
+}
+
+void UCombatDebugOptions::DEBUG_LogHealthEventModifierRemoveFailed(const UDamageHandler* AppliedToHandler, const ECombatEventDirection Direction, const FHealthEventModCondition& Modifier,
+	const FString& FailReason) const
+{
+	UE_LOG(LogSaiyoraHealth, Log, TEXT("%s Health Event Modifier FAILED to Remove from handler for %s: %s, FailReason: %s"),
+		*UEnum::GetDisplayValueAsText(Direction).ToString(),
+		*AppliedToHandler->GetOwner()->GetName(),
+		*USaiyoraCombatLibrary::DelegateToLogString(Modifier),
+		*FailReason);
+	//Optionally dump the whole modifier list on the handler.
+	if (HealthEventModifierLoggingVerbosity == EDebugLogVerbosity::FullDump)
+	{
+		TArray<FString> Dump;
+		AppliedToHandler->DEBUG_DumpModifiers(Direction, Dump);
+		for (const FString& DumpString : Dump)
+		{
+			UE_LOG(LogSaiyoraHealth, Log, TEXT("%s"), *DumpString);
+		}
+	}
 }
 
 #pragma endregion

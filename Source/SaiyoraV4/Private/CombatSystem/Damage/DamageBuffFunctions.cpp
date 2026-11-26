@@ -42,7 +42,7 @@ void UPeriodicHealthEventFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 		SnapshotInfo.AppliedXPlane = UAbilityFunctionLibrary::IsXPlane(SnapshotInfo.AppliedByPlane, SnapshotInfo.AppliedToPlane);
 		SnapshotInfo.HitStyle = EEventHitStyle::Chronic;
 		SnapshotInfo.School = EventSchool;
-		BaseValue = GeneratorComponent->GetModifiedOutgoingHealthEventValue(SnapshotInfo, FHealthEventModCondition(), SnapshotModifiers);
+		BaseValue = GeneratorComponent->ApplyHealthEventModifiers(ECombatEventDirection::Outgoing, SnapshotInfo, SnapshotModifiers);
 	}
 	if (bHasInitialTick)
 	{
@@ -174,17 +174,7 @@ void UHealthEventModifierFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 	{
 		return;
 	}
-	switch (EventDirection)
-	{
-	case ECombatEventDirection::Incoming :
-		TargetHandler->AddIncomingHealthEventModifier(Modifier);
-		break;
-	case ECombatEventDirection::Outgoing :
-		TargetHandler->AddOutgoingHealthEventModifier(Modifier);
-		break;
-	default :
-		break;
-	}
+	bSuccess = TargetHandler->AddHealthEventModifier(EventDirection, Modifier);
 }
 
 void UHealthEventModifierFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
@@ -193,21 +183,11 @@ void UHealthEventModifierFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
 	{
 		return;
 	}
-	if (!IsValid(TargetHandler))
+	if (!IsValid(TargetHandler) || !bSuccess)
 	{
 		return;
 	}
-	switch (EventDirection)
-	{
-	case ECombatEventDirection::Incoming :
-		TargetHandler->RemoveIncomingHealthEventModifier(Modifier);
-		break;
-	case ECombatEventDirection::Outgoing :
-		TargetHandler->RemoveOutgoingHealthEventModifier(Modifier);
-		break;
-	default :
-		break;
-	}
+	TargetHandler->RemoveHealthEventModifier(EventDirection, Modifier);
 }
 
 #pragma endregion 
@@ -229,17 +209,7 @@ void UHealthEventRestrictionFunction::OnApply(const FBuffApplyEvent& ApplyEvent)
 	{
 		return;
 	}
-	switch (EventDirection)
-	{
-	case ECombatEventDirection::Incoming :
-		bSuccess = TargetHandler->AddIncomingHealthEventRestriction(Restriction);
-		break;
-	case ECombatEventDirection::Outgoing :
-		bSuccess = TargetHandler->AddOutgoingHealthEventRestriction(Restriction);
-		break;
-	default :
-		break;
-	}
+	bSuccess = TargetHandler->AddHealthEventRestriction(EventDirection, Restriction);
 }
 
 void UHealthEventRestrictionFunction::OnRemove(const FBuffRemoveEvent& RemoveEvent)
@@ -252,17 +222,7 @@ void UHealthEventRestrictionFunction::OnRemove(const FBuffRemoveEvent& RemoveEve
 	{
 		return;
 	}
-	switch (EventDirection)
-	{
-	case ECombatEventDirection::Incoming :
-		TargetHandler->RemoveIncomingHealthEventRestriction(Restriction);
-			break;
-	case ECombatEventDirection::Outgoing :
-		TargetHandler->RemoveOutgoingHealthEventRestriction(Restriction);
-		break;
-	default :
-		break;
-	}
+	TargetHandler->RemoveHealthEventRestriction(EventDirection, Restriction);
 }
 
 #pragma endregion

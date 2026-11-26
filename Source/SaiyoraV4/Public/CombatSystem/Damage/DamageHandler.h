@@ -217,19 +217,13 @@ public:
 	UPROPERTY(BlueprintAssignable)
 	FHealthEventNotification OnKillingBlow;
 	
-	bool AddIncomingHealthEventRestriction(const FHealthEventRestriction& Restriction);
-	void RemoveIncomingHealthEventRestriction(const FHealthEventRestriction& Restriction) { IncomingHealthEventRestrictions.Remove(Restriction); }
-	
-   	bool AddOutgoingHealthEventRestriction(const FHealthEventRestriction& Restriction);
-   	void RemoveOutgoingHealthEventRestriction(const FHealthEventRestriction& Restriction) { OutgoingHealthEventRestrictions.Remove(Restriction); }
-	
-	void AddIncomingHealthEventModifier(const FHealthEventModCondition& Modifier) { IncomingHealthEventModifiers.Add(Modifier); }
-	void RemoveIncomingHealthEventModifier(const FHealthEventModCondition& Modifier) { IncomingHealthEventModifiers.Remove(Modifier); }
-	float GetModifiedIncomingHealthEventValue(const FHealthEventInfo& EventInfo, TArray<FModifierProxy>& OutModConditions) const;
-	
-    void AddOutgoingHealthEventModifier(const FHealthEventModCondition& Modifier) { OutgoingHealthEventModifiers.Add(Modifier); }
-   	void RemoveOutgoingHealthEventModifier(const FHealthEventModCondition& Modifier) { OutgoingHealthEventModifiers.Remove(Modifier); }
-	float GetModifiedOutgoingHealthEventValue(const FHealthEventInfo& EventInfo, const FHealthEventModCondition& SourceMod, TArray<FModifierProxy>& OutModConditions) const;
+	bool AddHealthEventRestriction(const ECombatEventDirection Direction, const FHealthEventRestriction& Restriction);
+	void RemoveHealthEventRestriction(const ECombatEventDirection Direction, const FHealthEventRestriction& Restriction);
+
+	bool AddHealthEventModifier(const ECombatEventDirection Direction, const FHealthEventModCondition& Modifier);
+	void RemoveHealthEventModifier(const ECombatEventDirection Direction, const FHealthEventModCondition& Modifier);
+	float ApplyHealthEventModifiers(const ECombatEventDirection Direction, const FHealthEventInfo& EventInfo, TArray<FModifierProxy>& OutModConditions,
+		const FHealthEventModCondition& SourceMod = FHealthEventModCondition()) const;
 	
 	void NotifyOfOutgoingHealthEvent(const FHealthEvent& HealthEvent);
 	
@@ -266,6 +260,8 @@ private:
 public:
 
 	void DEBUG_DumpState(const ECombatEventDirection Direction, TArray<FString>& OutStrings) const;
+	void DEBUG_DumpRestrictions(const ECombatEventDirection Direction, TArray<FString>& OutStrings) const;
+	void DEBUG_DumpModifiers(const ECombatEventDirection Direction, TArray<FString>& OutStrings) const;
 	
 #endif
 #pragma endregion 

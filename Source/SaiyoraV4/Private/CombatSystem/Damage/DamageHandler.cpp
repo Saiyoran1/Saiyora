@@ -373,15 +373,6 @@ void UDamageHandler::Client_ResurrectionRequestFailed_Implementation()
 	}
 }
 
-bool UDamageHandler::AddDeathRestriction(const FDeathRestriction& Restriction)
-{
-	if (!Restriction.IsBound() || !Restriction.GetUObject()->IsA(UBuff::StaticClass()))
-	{
-		return false;
-	}
-	return DeathRestrictions.Add(Restriction);
-}
-
 void UDamageHandler::QueueResurrectionAutoAccept(const TArray<FPendingResurrection>& NewResurrections)
 {
 	if (PendingResurrections.Num() == 0)
@@ -502,12 +493,14 @@ FHealthEvent UDamageHandler::ApplyHealthEvent_Internal(const EHealthEventType Ev
 	
     if (!bIgnoreModifiers)
     {
+    	//Apply outgoing modifiers (and the source modifier, if valid), so long as this isn't an event that already snapshotted outgoing modifiers.
         if (!bFromSnapshot && IsValid(GeneratorComponent))
         {
-            HealthEvent.Info.Value = GeneratorComponent->GetModifiedOutgoingHealthEventValue(HealthEvent.Info, SourceModifier, HealthEvent.Result.Snapshot.AppliedModifiers);
+            HealthEvent.Info.Value = GeneratorComponent->ApplyHealthEventModifiers(ECombatEventDirection::Outgoing, HealthEvent.Info, HealthEvent.Result.Snapshot.AppliedModifiers, SourceModifier);
         	HealthEvent.Result.Snapshot.Value = HealthEvent.Info.Value;
         }
-        HealthEvent.Info.Value = GetModifiedIncomingHealthEventValue(HealthEvent.Info, HealthEvent.Result.IncomingModifiers);
+    	//Apply incoming modifiers.
+        HealthEvent.Info.Value = ApplyHealthEventModifiers(ECombatEventDirection::Incoming, HealthEvent.Info, HealthEvent.Result.IncomingModifiers);
     }
 	if (!bIgnoreRestrictions)
 	{
@@ -627,38 +620,6 @@ FHealthEvent UDamageHandler::ApplySnapshottedHealthEvent(const EHealthEventType 
 		bIgnoreModifiers, bIgnoreRestrictions, bIgnoreDeathRestrictions, true, Snapshot, FHealthEventModCondition(), ThreatParams);
 }
 
-bool UDamageHandler::AddIncomingHealthEventRestriction(const FHealthEventRestriction& Restriction)
-{
-	if (!Restriction.IsBound() || !Restriction.GetUObject()->IsA(UBuff::StaticClass()))
-	{
-		return false;
-	}
-	return IncomingHealthEventRestrictions.Add(Restriction);
-}
-
-bool UDamageHandler::AddOutgoingHealthEventRestriction(const FHealthEventRestriction& Restriction)
-{
-	if (!Restriction.IsBound() || !Restriction.GetUObject()->IsA(UBuff::StaticClass()))
-	{
-		return false;
-	}
-	return OutgoingHealthEventRestrictions.Add(Restriction);
-}
-
-bool UDamageHandler::CheckEventRestricted(const ECombatEventDirection Direction, const FHealthEventInfo& Event, TArray<EHealthEventFailReason>& OutFailReasons, FHealthEventRestriction& OutRestriction)
-{
-	bool bRestricted = false;
-	if (Direction == ECombatEventDirection::Incoming
-		? IncomingHealthEventRestrictions.IsRestricted(OutRestriction, Event)
-		: OutgoingHealthEventRestrictions.IsRestricted(OutRestriction, Event))
-	{
-		OutFailReasons.AddUnique(Direction == ECombatEventDirection::Incoming
-			? EHealthEventFailReason::IncomingRestriction : EHealthEventFailReason::OutgoingRestriction);
-		bRestricted = true;
-	}
-	return bRestricted;
-}
-
 void UDamageHandler::NotifyOfOutgoingHealthEvent(const FHealthEvent& HealthEvent)
 {
 	if (GetOwnerRole() == ROLE_Authority)
@@ -692,16 +653,21 @@ void UDamageHandler::ClientNotifyOfIncomingHealthEvent_Implementation(const FHea
 #pragma endregion
 #pragma region Restrictions
 
+bool UDamageHandler::AddDeathRestriction(const FDeathRestriction& Restriction)
+{
+	if (!Restriction.IsBound() || !Restriction.GetUObject()->IsA(UBuff::StaticClass()))
+	{
+		return false;
+	}
+	return DeathRestrictions.Add(Restriction);
+}
+
 void UDamageHandler::RemoveDeathRestriction(const FDeathRestriction& Restriction)
 {
 	if (DeathRestrictions.Remove(Restriction) > 0 && bHasPendingKillingBlow)
 	{
 		FDeathRestriction KillingBlowRestriction;
-		if (DeathRestrictions.IsRestricted(KillingBlowRestriction, PendingKillingBlow))
-		{
-			//TODO: Add logging for which restriction caused failure, and some way of notifying that buff about its restriction being used?
-		}
-		else
+		if (!DeathRestrictions.IsRestricted(KillingBlowRestriction, PendingKillingBlow))
 		{
 			DEBUG_LOG_DEATH(this, PendingKillingBlow.Info.EventID, true);
 			Die();
@@ -709,113 +675,144 @@ void UDamageHandler::RemoveDeathRestriction(const FDeathRestriction& Restriction
 	}
 }
 
+bool UDamageHandler::AddHealthEventRestriction(const ECombatEventDirection Direction, const FHealthEventRestriction& Restriction)
+{
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return false;
+	}
+	if (!Restriction.IsBound() || !Restriction.GetUObject()->IsA(UBuff::StaticClass()))
+	{
+		DEBUG_LOG_HEALTH_EVENT_RESTRICTION_ADD_FAILED(this, Direction, Restriction, TEXT("Restriction not bound to UBuff function."));
+		return false;
+	}
+	const bool bAdded = Direction == ECombatEventDirection::Incoming
+		? IncomingHealthEventRestrictions.Add(Restriction) : OutgoingHealthEventRestrictions.Add(Restriction);
+	if (bAdded)
+	{
+		DEBUG_LOG_HEALTH_EVENT_RESTRICTION_ADDED(this, Direction, Restriction);
+	}
+	else
+	{
+		DEBUG_LOG_HEALTH_EVENT_RESTRICTION_ADD_FAILED(this, Direction, Restriction, TEXT("Duplicate restriction in list."));
+	}
+	return bAdded;
+}
+
+void UDamageHandler::RemoveHealthEventRestriction(const ECombatEventDirection Direction, const FHealthEventRestriction& Restriction)
+{
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
+	const int NumRemoved = Direction == ECombatEventDirection::Incoming ? IncomingHealthEventRestrictions.Remove(Restriction) : OutgoingHealthEventRestrictions.Remove(Restriction);
+	if (NumRemoved > 0)
+	{
+		DEBUG_LOG_HEALTH_EVENT_RESTRICTION_REMOVED(this, Direction, Restriction);
+	}
+	else
+	{
+		DEBUG_LOG_HEALTH_EVENT_RESTRICTION_REMOVE_FAILED(this, Direction, Restriction, TEXT("Restriction not found in list."));
+	}
+}
+
+bool UDamageHandler::CheckEventRestricted(const ECombatEventDirection Direction, const FHealthEventInfo& Event, TArray<EHealthEventFailReason>& OutFailReasons, FHealthEventRestriction& OutRestriction)
+{
+	bool bRestricted = false;
+	if (Direction == ECombatEventDirection::Incoming
+		? IncomingHealthEventRestrictions.IsRestricted(OutRestriction, Event)
+		: OutgoingHealthEventRestrictions.IsRestricted(OutRestriction, Event))
+	{
+		OutFailReasons.AddUnique(Direction == ECombatEventDirection::Incoming
+			? EHealthEventFailReason::IncomingRestriction : EHealthEventFailReason::OutgoingRestriction);
+		bRestricted = true;
+	}
+	return bRestricted;
+}
+
 #pragma endregion
 #pragma region Modifiers
 
-float UDamageHandler::GetModifiedOutgoingHealthEventValue(const FHealthEventInfo& EventInfo, const FHealthEventModCondition& SourceMod, TArray<FModifierProxy>& OutModProxies) const
+bool UDamageHandler::AddHealthEventModifier(const ECombatEventDirection Direction, const FHealthEventModCondition& Modifier)
 {
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return false;
+	}
+	if (!Modifier.IsBound() || !Modifier.GetUObject()->IsA(UBuff::StaticClass()))
+	{
+		DEBUG_LOG_HEALTH_EVENT_MODIFIER_ADD_FAILED(this, Direction, Modifier, TEXT("Modifier not bound to UBuff function."));
+		return false;
+	}
+	const bool bAdded = Direction == ECombatEventDirection::Incoming
+		? IncomingHealthEventModifiers.Add(Modifier) : OutgoingHealthEventModifiers.Add(Modifier);
+	if (bAdded)
+	{
+		DEBUG_LOG_HEALTH_EVENT_MODIFIER_ADDED(this, Direction, Modifier);
+	}
+	else
+	{
+		DEBUG_LOG_HEALTH_EVENT_MODIFIER_ADD_FAILED(this, Direction, Modifier, TEXT("Duplicate modifier in list."));
+	}
+	return bAdded;
+}
+
+void UDamageHandler::RemoveHealthEventModifier(const ECombatEventDirection Direction, const FHealthEventModCondition& Modifier)
+{
+	if (GetOwnerRole() != ROLE_Authority)
+	{
+		return;
+	}
+	const int NumRemoved = Direction == ECombatEventDirection::Incoming ? IncomingHealthEventModifiers.Remove(Modifier) : OutgoingHealthEventModifiers.Remove(Modifier);
+	if (NumRemoved > 0)
+	{
+		DEBUG_LOG_HEALTH_EVENT_MODIFIER_REMOVED(this, Direction, Modifier);
+	}
+	else
+	{
+		DEBUG_LOG_HEALTH_EVENT_MODIFIER_REMOVE_FAILED(this, Direction, Modifier, TEXT("Modifier not found in list."));
+	}
+}
+
+float UDamageHandler::ApplyHealthEventModifiers(const ECombatEventDirection Direction, const FHealthEventInfo& EventInfo, TArray<FModifierProxy>& OutModConditions,
+	const FHealthEventModCondition& SourceMod) const
+{
+	//Collect the relevant modifiers given the direction of the event and the info about it.
 	TArray<FCombatModifier> Mods;
-	OutgoingHealthEventModifiers.GetModifiersWithSources(Mods, OutModProxies, EventInfo);
-	//Apply the source mod first, if one was passed in.
-	if (SourceMod.IsBound())
+	Direction == ECombatEventDirection::Incoming ? IncomingHealthEventModifiers.GetModifiersWithSources(Mods, OutModConditions, EventInfo)
+		: OutgoingHealthEventModifiers.GetModifiersWithSources(Mods, OutModConditions, EventInfo);
+	//For outgoing events, we might have a source modifier that should be evaluated as well.
+	if (Direction == ECombatEventDirection::Outgoing && SourceMod.IsBound())
 	{
 		const FCombatModifier& SourceModifier = Mods.Add_GetRef(SourceMod.Execute(EventInfo));
 		if (SourceModifier.Type != EModifierType::Invalid)
 		{
 			//Add the source mod to the list of mod conditions applied, if it generated a valid modifier.
-			OutModProxies.Emplace(SourceModifier, SourceMod);
+			OutModConditions.Emplace(SourceModifier, SourceMod);
 		}
 	}
+	//Apply the appropriate damage/healing/absorb taken/done stat if we have it.
 	if (IsValid(StatHandlerRef))
 	{
-		switch (EventInfo.EventType)
+		const FGameplayTag StatTag = Direction == ECombatEventDirection::Incoming
+			//Incoming
+			? EventInfo.EventType == EHealthEventType::Damage ? FSaiyoraCombatTags::Get().Stat_DamageTaken
+			: EventInfo.EventType == EHealthEventType::Healing ? FSaiyoraCombatTags::Get().Stat_HealingTaken
+			: /* EventInfo.EventType == EHealthEventType::Absorb ? */ FSaiyoraCombatTags::Get().Stat_AbsorbTaken
+			//Outgoing
+			: EventInfo.EventType == EHealthEventType::Damage ? FSaiyoraCombatTags::Get().Stat_DamageDone
+			: EventInfo.EventType == EHealthEventType::Healing ? FSaiyoraCombatTags::Get().Stat_HealingDone
+			: /* EventInfo.EventType == EHealthEventType::Absorb ? */ FSaiyoraCombatTags::Get().Stat_AbsorbDone;
+		if (StatHandlerRef->IsStatValid(StatTag))
 		{
-		case EHealthEventType::Damage :
-			if (StatHandlerRef->IsStatValid(FSaiyoraCombatTags::Get().Stat_DamageDone))
+			const FCombatModifier& StatModifier = Mods.Add_GetRef(FCombatModifier(StatHandlerRef->GetStatValue(StatTag), EModifierType::Multiplicative));
+			if (StatModifier.Value != 1.0f)
 			{
-				const FCombatModifier& StatModifier = Mods.Add_GetRef(FCombatModifier(StatHandlerRef->GetStatValue(FSaiyoraCombatTags::Get().Stat_DamageDone), EModifierType::Multiplicative));
-				if (StatModifier.Value != 1.0f)
-				{
-					//Include this in the list of applied mod conditions, even though it's not actually a function.
-					OutModProxies.Emplace(StatModifier, FCombatDelegateProxy(StatHandlerRef, FSaiyoraCombatTags::Get().Stat_DamageDone.GetTagName()));
-				}
+				//Include this in the list of applied mod conditions, even though it's not actually a function.
+				OutModConditions.Emplace(StatModifier, FCombatDelegateProxy(StatHandlerRef, StatTag.GetTagName()));
 			}
-			break;
-		case EHealthEventType::Healing :
-			if (StatHandlerRef->IsStatValid(FSaiyoraCombatTags::Get().Stat_HealingDone))
-			{
-				const FCombatModifier& StatModifier = Mods.Add_GetRef(FCombatModifier(StatHandlerRef->GetStatValue(FSaiyoraCombatTags::Get().Stat_HealingDone), EModifierType::Multiplicative));
-				if (StatModifier.Value != 1.0f)
-				{
-					//Include this in the list of applied mod conditions, even though it's not actually a function.
-					OutModProxies.Emplace(StatModifier, FCombatDelegateProxy(StatHandlerRef, FSaiyoraCombatTags::Get().Stat_HealingDone.GetTagName()));
-				}
-			}
-			break;
-		case EHealthEventType::Absorb :
-			if (StatHandlerRef->IsStatValid(FSaiyoraCombatTags::Get().Stat_AbsorbDone))
-			{
-				const FCombatModifier& StatModifier = Mods.Add_GetRef(FCombatModifier(StatHandlerRef->GetStatValue(FSaiyoraCombatTags::Get().Stat_AbsorbDone), EModifierType::Multiplicative));
-				if (StatModifier.Value != 1.0f)
-				{
-					//Include this in the list of applied mod conditions, even though it's not actually a function.
-					OutModProxies.Emplace(StatModifier, FCombatDelegateProxy(StatHandlerRef, FSaiyoraCombatTags::Get().Stat_AbsorbDone.GetTagName()));
-				}
-			}
-			break;
-		default :
-			break;
 		}
 	}
-	return FCombatModifier::ApplyModifiers(Mods, EventInfo.Value);
-}
-
-float UDamageHandler::GetModifiedIncomingHealthEventValue(const FHealthEventInfo& EventInfo, TArray<FModifierProxy>& OutModProxies) const
-{
-	TArray<FCombatModifier> Mods;
-	IncomingHealthEventModifiers.GetModifiersWithSources(Mods, OutModProxies, EventInfo);
-	if (IsValid(StatHandlerRef))
-	{
-		switch (EventInfo.EventType)
-		{
-		case EHealthEventType::Damage :
-			if (StatHandlerRef->IsStatValid(FSaiyoraCombatTags::Get().Stat_DamageTaken))
-			{
-				const FCombatModifier& StatModifier = Mods.Add_GetRef(FCombatModifier(StatHandlerRef->GetStatValue(FSaiyoraCombatTags::Get().Stat_DamageTaken), EModifierType::Multiplicative));
-				if (StatModifier.Value != 1.0f)
-				{
-					//Include this in the list of applied mod conditions, even though it's not actually a function.
-					OutModProxies.Emplace(StatModifier, FCombatDelegateProxy(StatHandlerRef, FSaiyoraCombatTags::Get().Stat_DamageTaken.GetTagName()));
-				}
-			}
-			break;
-		case EHealthEventType::Healing :
-			if (StatHandlerRef->IsStatValid(FSaiyoraCombatTags::Get().Stat_HealingTaken))
-			{
-				const FCombatModifier& StatModifier = Mods.Add_GetRef(FCombatModifier(StatHandlerRef->GetStatValue(FSaiyoraCombatTags::Get().Stat_HealingTaken), EModifierType::Multiplicative));
-				if (StatModifier.Value != 1.0f)
-				{
-					//Include this in the list of applied mod conditions, even though it's not actually a function.
-					OutModProxies.Emplace(StatModifier, FCombatDelegateProxy(StatHandlerRef, FSaiyoraCombatTags::Get().Stat_HealingTaken.GetTagName()));
-				}
-			}
-			break;
-		case EHealthEventType::Absorb :
-			if (StatHandlerRef->IsStatValid(FSaiyoraCombatTags::Get().Stat_AbsorbTaken))
-			{
-				const FCombatModifier& StatModifier = Mods.Add_GetRef(FCombatModifier(StatHandlerRef->GetStatValue(FSaiyoraCombatTags::Get().Stat_AbsorbTaken), EModifierType::Multiplicative));
-				if (StatModifier.Value != 1.0f)
-				{
-					//Include this in the list of applied mod conditions, even though it's not actually a function.
-					OutModProxies.Emplace(StatModifier, FCombatDelegateProxy(StatHandlerRef, FSaiyoraCombatTags::Get().Stat_AbsorbTaken.GetTagName()));
-				}
-			}
-			break;
-		default :
-			break;
-		}
-	}
-	
 	return FCombatModifier::ApplyModifiers(Mods, EventInfo.Value);
 }
 
@@ -829,6 +826,36 @@ void UDamageHandler::DEBUG_DumpState(const ECombatEventDirection Direction, TArr
 	OutStrings.Add(FString::Printf(L"DAMAGE HANDLER %s STATE DUMP: LifeStatus: %s, CurrentHealth: %.2f, MaxHealth: %.2f, CurrentAbsorb: %.2f, PendingKillingBlow: %s",
 		*DirectionString, *UEnum::GetDisplayValueAsText(LifeStatus).ToString(), CurrentHealth, MaxHealth, CurrentAbsorb,
 		PendingKillingBlow.Info.EventID == -1 ? TEXT("No") : *FString::FromInt(PendingKillingBlow.Info.EventID)));
+}
+
+void UDamageHandler::DEBUG_DumpRestrictions(const ECombatEventDirection Direction, TArray<FString>& OutStrings) const
+{
+	const FString DirectionString = UEnum::GetDisplayValueAsText(Direction).ToString().ToUpper();
+	OutStrings.Add(FString::Printf(L"---DAMAGE HANDLER %s RESTRICTION DUMP START---", *DirectionString));
+	OutStrings.Add(FString::Printf(L"Handler for actor %s has %i restrictions applied.", *GetOwner()->GetName(),
+		Direction == ECombatEventDirection::Incoming ? IncomingHealthEventRestrictions.Num() : OutgoingHealthEventRestrictions.Num()));
+	const TArray<FHealthEventRestriction>& Restrictions = Direction == ECombatEventDirection::Incoming
+		? IncomingHealthEventRestrictions.GetRestrictionsList() : OutgoingHealthEventRestrictions.GetRestrictionsList();
+	for (const FHealthEventRestriction& Restriction : Restrictions)
+	{
+		OutStrings.Add(USaiyoraCombatLibrary::DelegateToLogString(Restriction));
+	}
+	OutStrings.Add(FString::Printf(L"---DAMAGE HANDLER %s RESTRICTION DUMP END---", *DirectionString));
+}
+
+void UDamageHandler::DEBUG_DumpModifiers(const ECombatEventDirection Direction, TArray<FString>& OutStrings) const
+{
+	const FString DirectionString = UEnum::GetDisplayValueAsText(Direction).ToString().ToUpper();
+	OutStrings.Add(FString::Printf(L"---DAMAGE HANDLER %s MODIFIER DUMP START---", *DirectionString));
+	OutStrings.Add(FString::Printf(L"Handler for actor %s has %i modifiers applied.", *GetOwner()->GetName(),
+		Direction == ECombatEventDirection::Incoming ? IncomingHealthEventModifiers.Num() : OutgoingHealthEventModifiers.Num()));
+	const TArray<FHealthEventModCondition>& Modifiers = Direction == ECombatEventDirection::Incoming
+		? IncomingHealthEventModifiers.GetModifierList() : OutgoingHealthEventModifiers.GetModifierList();
+	for (const FHealthEventModCondition& Modifier : Modifiers)
+	{
+		OutStrings.Add(USaiyoraCombatLibrary::DelegateToLogString(Modifier));
+	}
+	OutStrings.Add(FString::Printf(L"---DAMAGE HANDLER %s MODIFIER DUMP END---", *DirectionString));
 }
 
 #endif
