@@ -262,6 +262,7 @@ public:
 	void DEBUG_DumpState(const ECombatEventDirection Direction, TArray<FString>& OutStrings) const;
 	void DEBUG_DumpRestrictions(const ECombatEventDirection Direction, TArray<FString>& OutStrings) const;
 	void DEBUG_DumpModifiers(const ECombatEventDirection Direction, TArray<FString>& OutStrings) const;
+	void DEBUG_DumpDeathRestrictions(TArray<FString>& OutStrings) const;
 	
 #endif
 #pragma endregion 

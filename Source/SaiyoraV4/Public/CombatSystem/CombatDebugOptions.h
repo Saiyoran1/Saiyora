@@ -20,53 +20,56 @@ struct FRotationDebugInfo;
 
 #pragma region Buffs
 
-	//Debug logging for buff application
+	//Debug logging for buff application.
 	#define DEBUG_LOG_BUFF_APPLY(Handler, Event) \
 	if (CombatDebug_DA->BuffLoggingVerbosity != EDebugLogVerbosity::Off) \
 	{ \
 		CombatDebug_DA->DEBUG_LogBuffApplyEvent(Handler, Event); \
 	}
 
-	//Debug logging for buff application failure
+	//Debug logging for buff application failure.
 	#define DEBUG_LOG_BUFF_APPLY_FAIL(Handler, Event) \
 	if (CombatDebug_DA->BuffLoggingVerbosity != EDebugLogVerbosity::Off) \
 	{ \
 		CombatDebug_DA->DEBUG_LogBuffApplyFailure(Handler, Event); \
 	}
 
-	//Debug logging for buff removal
+	//Debug logging for buff removal.
 	#define DEBUG_LOG_BUFF_REMOVE(Handler, Event) \
 	if (CombatDebug_DA->BuffLoggingVerbosity != EDebugLogVerbosity::Off) \
 	{ \
 		CombatDebug_DA->DEBUG_LogBuffRemoveEvent(Handler, Event); \
 	}
 
-	//Debug logging for buff removal failure
+	//Debug logging for buff removal failure.
 	#define DEBUG_LOG_BUFF_REMOVE_FAIL(Handler, Event) \
 	if (CombatDebug_DA->BuffLoggingVerbosity != EDebugLogVerbosity::Off) \
 	{ \
 		CombatDebug_DA->DEBUG_LogBuffRemoveFailure(Handler, Event); \
 	}
 
-	//Debug logging for buff restrictions being added
+	//Debug logging for buff restrictions being added.
 	#define DEBUG_LOG_BUFF_RESTRICTION_ADDED(Handler, Direction, Restriction) \
 	if (CombatDebug_DA->BuffRestrictionLoggingVerbosity != EDebugLogVerbosity::Off) \
 	{ \
 		CombatDebug_DA->DEBUG_LogBuffRestrictionAdded(Handler, Direction, Restriction); \
 	}
 
+	//Debug logging for when adding a buff restriction fails.
 	#define DEBUG_LOG_BUFF_RESTRICTION_ADD_FAILED(Handler, Direction, Restriction, FailReason) \
 	if (CombatDebug_DA->BuffRestrictionLoggingVerbosity != EDebugLogVerbosity::Off) \
 	{ \
 		CombatDebug_DA->DEBUG_LogBuffRestrictionAddFailed(Handler, Direction, Restriction, FailReason); \
 	}
 
+	//Debug logging for buff restriction removal.
 	#define DEBUG_LOG_BUFF_RESTRICTION_REMOVED(Handler, Direction, Restriction) \
 	if (CombatDebug_DA->BuffRestrictionLoggingVerbosity != EDebugLogVerbosity::Off) \
 	{ \
 		CombatDebug_DA->DEBUG_LogBuffRestrictionRemoved(Handler, Direction, Restriction); \
 	}
 
+	//Debug logging for when removing a buff restriction fails.
 	#define DEBUG_LOG_BUFF_RESTRICTION_REMOVE_FAILED(Handler, Direction, Restriction, FailReason) \
 	if (CombatDebug_DA->BuffRestrictionLoggingVerbosity != EDebugLogVerbosity::Off) \
 	{ \
@@ -95,6 +98,13 @@ struct FRotationDebugInfo;
 	if (CombatDebug_DA->HealthEventLoggingVerbosity != EDebugLogVerbosity::Off) \
 	{ \
 		CombatDebug_DA->DEBUG_LogDeath(Handler, EventID, bWasPendingKillingBlow); \
+	}
+
+	//Debug logging for when a health event that brings an actor to 0 hp fails to kill them due to a death restriction.
+	#define DEBUG_LOG_DEATH_RESTRICTED(Handler, EventID, bWasPendingKillingBlow, bAddedAsPendingKillingBlow, Restriction) \
+	if (CombatDebug_DA->HealthEventLoggingVerbosity != EDebugLogVerbosity::Off) \
+	{ \
+		CombatDebug_DA->DEBUG_LogDeathRestricted(Handler, EventID, bWasPendingKillingBlow, bAddedAsPendingKillingBlow, Restriction); \
 	}
 
 	//Debug logging for respawning.
@@ -160,6 +170,34 @@ struct FRotationDebugInfo;
 		CombatDebug_DA->DEBUG_LogHealthEventModifierRemoveFailed(Handler, Direction, Modifier, FailReason); \
 	}
 
+	//Debug logging for death restrictions being added.
+	#define DEBUG_LOG_DEATH_RESTRICTION_ADDED(Handler, Restriction) \
+	if (CombatDebug_DA->HealthEventRestrictionLoggingVerbosity != EDebugLogVerbosity::Off) \
+	{ \
+		CombatDebug_DA->DEBUG_LogDeathRestrictionAdded(Handler, Restriction); \
+	}
+
+	//Debug logging for when adding a death restriction fails.
+	#define DEBUG_LOG_DEATH_RESTRICTION_ADD_FAILED(Handler, Restriction, FailReason) \
+	if (CombatDebug_DA->HealthEventRestrictionLoggingVerbosity != EDebugLogVerbosity::Off) \
+	{ \
+		CombatDebug_DA->DEBUG_LogDeathRestrictionAddFailed(Handler, Restriction, FailReason); \
+	}
+
+	//Debug logging for when a death restriction is removed.
+	#define DEBUG_LOG_DEATH_RESTRICTION_REMOVED(Handler, Restriction) \
+	if (CombatDebug_DA->HealthEventRestrictionLoggingVerbosity != EDebugLogVerbosity::Off) \
+	{ \
+		CombatDebug_DA->DEBUG_LogDeathRestrictionRemoved(Handler, Restriction); \
+	}
+
+	//Debug logging for when removing a death restriction fails.
+	#define DEBUG_LOG_DEATH_RESTRICTION_REMOVE_FAILED(Handler, Restriction, FailReason) \
+	if (CombatDebug_DA->HealthEventRestrictionLoggingVerbosity != EDebugLogVerbosity::Off) \
+	{ \
+		CombatDebug_DA->DEBUG_LogDeathRestrictionRemoveFailed(Handler, Restriction, FailReason); \
+	}
+
 #pragma endregion
 
 #else /* Define all debug logging macros to nothing to compile them out of shipping builds. */
@@ -175,6 +213,7 @@ struct FRotationDebugInfo;
 	#define DEBUG_LOG_HEALTH_EVENT(Handler, Event)
 	#define DEBUG_LOG_HEALTH_EVENT_FAIL(Handler, Event)
 	#define DEBUG_LOG_DEATH(Handler, EventID, bWasPendingKillingBlow)
+	#define DEBUG_LOG_DEATH_RESTRICTED(Handler, EventID, bWasPendingKillingBlow, bAddedAsPendingKillingBlow, Restriction)
 	#define DEBUG_LOG_RESPAWN(Handler, Resurrection)
 	#define DEBUG_LOG_HEALTH_EVENT_RESTRICTION_ADDED(Handler, Direction, Restriction)
 	#define DEBUG_LOG_HEALTH_EVENT_RESTRICTION_ADD_FAILED(Handler, Direction, Restriction, FailReason)
@@ -184,6 +223,10 @@ struct FRotationDebugInfo;
 	#define DEBUG_LOG_HEALTH_EVENT_MODIFIER_ADD_FAILED(Handler, Direction, Modifier, FailReason)
 	#define DEBUG_LOG_HEALTH_EVENT_MODIFIER_REMOVED(Handler, Direction, Modifier)
 	#define DEBUG_LOG_HEALTH_EVENT_MODIFIER_REMOVE_FAILED(Handler, Direction, Modifier, FailReason)
+	#define DEBUG_LOG_DEATH_RESTRICTION_ADDED(Handler, Restriction)
+	#define DEBUG_LOG_DEATH_RESTRICTION_ADD_FAILED(Handler, Restriction, FailReason)
+	#define DEBUG_LOG_DEATH_RESTRICTION_REMOVED(Handler, Restriction)
+	#define DEBUG_LOG_DEATH_RESTRICTION_REMOVE_FAILED(Handler, Restriction, FailReason)
 
 #endif
 #pragma endregion 
@@ -265,6 +308,7 @@ public:
 	void DEBUG_LogHealthEvent(const UDamageHandler* AppliedToHandler, const FHealthEvent& Event) const;
 	void DEBUG_LogHealthEventFailure(const UDamageHandler* AppliedToHandler, const FHealthEvent& Event) const;
 	void DEBUG_LogDeath(const UDamageHandler* Handler, const int EventID, const bool bWasPendingKillingBlow) const;
+	void DEBUG_LogDeathRestricted(const UDamageHandler* Handler, const int EventID, const bool bWasPendingKillingBlow, const bool bAddedAsPendingKillingBlow, const FDeathRestriction& Restriction) const;
 	void DEBUG_LogRespawn(const UDamageHandler* Handler, const FPendingResurrection& Resurrection) const;
 	void DEBUG_LogHealthEventRestrictionAdded(const UDamageHandler* AppliedToHandler, const ECombatEventDirection Direction, const FHealthEventRestriction& Restriction) const;
 	void DEBUG_LogHealthEventRestrictionAddFailed(const UDamageHandler* AppliedToHandler, const ECombatEventDirection Direction, const FHealthEventRestriction& Restriction, const FString& FailReason) const;
@@ -274,6 +318,10 @@ public:
 	void DEBUG_LogHealthEventModifierAddFailed(const UDamageHandler* AppliedToHandler, const ECombatEventDirection Direction, const FHealthEventModCondition& Modifier, const FString& FailReason) const;
 	void DEBUG_LogHealthEventModifierRemoved(const UDamageHandler* AppliedToHandler, const ECombatEventDirection Direction, const FHealthEventModCondition& Modifier) const;
 	void DEBUG_LogHealthEventModifierRemoveFailed(const UDamageHandler* AppliedToHandler, const ECombatEventDirection Direction, const FHealthEventModCondition& Modifier, const FString& FailReason) const;
+	void DEBUG_LogDeathRestrictionAdded(const UDamageHandler* AppliedToHandler, const FDeathRestriction& Restriction) const;
+	void DEBUG_LogDeathRestrictionAddFailed(const UDamageHandler* AppliedToHandler, const FDeathRestriction& Restriction, const FString& FailReason) const;
+	void DEBUG_LogDeathRestrictionRemoved(const UDamageHandler* AppliedToHandler, const FDeathRestriction& Restriction) const;
+	void DEBUG_LogDeathRestrictionRemoveFailed(const UDamageHandler* AppliedToHandler, const FDeathRestriction& Restriction, const FString& FailReason) const;
 	
 #endif
 #pragma endregion 

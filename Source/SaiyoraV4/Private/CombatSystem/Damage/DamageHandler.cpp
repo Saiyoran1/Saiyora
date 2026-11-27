@@ -190,6 +190,7 @@ void UDamageHandler::Die()
 		bHasPendingKillingBlow = false;
 		PendingKillingBlow = FHealthEvent();
 	}
+	//Reset absorb and health to 0.
 	if (CurrentAbsorb != 0.0f)
 	{
 		const float PreviousAbsorb = CurrentAbsorb;
@@ -202,15 +203,15 @@ void UDamageHandler::Die()
 		CurrentHealth = 0.0f;
 		OnHealthChanged.Broadcast(GetOwner(), PreviousHealth, CurrentHealth);
 	}
+	//Update life status.
 	const ELifeStatus PreviousStatus = LifeStatus;
 	LifeStatus = ELifeStatus::Dead;
 	OnLifeStatusChanged.Broadcast(GetOwner(), PreviousStatus, LifeStatus);
+	//Alert the gamestate of our death to add kill count, mark a dead boss, or add to the death penalty timer.
 	if (GameStateRef)
 	{
 		switch (KillCountType)
 		{
-		case EKillCountType::None :
-			return;
 		case EKillCountType::Player :
 			GameStateRef->ReportPlayerDeath();
 			break;
@@ -221,7 +222,7 @@ void UDamageHandler::Die()
 			GameStateRef->ReportBossDeath(BossTag);
 			break;
 		default :
-			return;
+			break;
 		}
 	}
 }
@@ -521,6 +522,9 @@ FHealthEvent UDamageHandler::ApplyHealthEvent_Internal(const EHealthEventType Ev
 	HealthEvent.Result.bSuccess = true;
 	const float PreviousAbsorb = CurrentAbsorb;
 	const float PreviousHealth = CurrentHealth;
+	FDeathRestriction DeathRestriction;
+	bool bRestrictedKillingBlow = false;
+	bool bAddedPendingKillingBlow = false;
 	if (EventType == EHealthEventType::Damage)
 	{
 		HealthEvent.Result.PreviousValue = CurrentHealth;
@@ -544,14 +548,17 @@ FHealthEvent UDamageHandler::ApplyHealthEvent_Internal(const EHealthEventType Ev
 		if (CurrentHealth == 0.0f)
 		{
 			HealthEvent.Result.bKillingBlow = true;
-			FDeathRestriction Restriction;
-			if (!bIgnoreDeathRestrictions && DeathRestrictions.IsRestricted(Restriction, HealthEvent))
+			if (!bIgnoreDeathRestrictions && DeathRestrictions.IsRestricted(DeathRestriction, HealthEvent))
 			{
 				HealthEvent.Result.bKillingBlow = false;
+				bRestrictedKillingBlow = true;
+				//If we don't already have a pending killing blow, set this to be our pending killing blow.
+				//Until we are healed above 1 health, any death restriction removal will trigger re-evaluation of the pending killing blow to see if it is now allowed to kill us.
 				if (!bHasPendingKillingBlow)
 				{
 					bHasPendingKillingBlow = true;
 					PendingKillingBlow = HealthEvent;
+					bAddedPendingKillingBlow = true;
 				}
 			}
 		}
@@ -577,6 +584,11 @@ FHealthEvent UDamageHandler::ApplyHealthEvent_Internal(const EHealthEventType Ev
 	}
 
 	DEBUG_LOG_HEALTH_EVENT(this, HealthEvent);
+	//If this should have been a killing blow, but was restricted, log that restriction and whether this is the new pending killing blow.
+	if (bRestrictedKillingBlow)
+	{
+		DEBUG_LOG_DEATH_RESTRICTED(this, HealthEvent.Info.EventID, false, bAddedPendingKillingBlow, DeathRestriction);
+	}
 
 	if (CurrentAbsorb != PreviousAbsorb)
 	{
@@ -655,23 +667,55 @@ void UDamageHandler::ClientNotifyOfIncomingHealthEvent_Implementation(const FHea
 
 bool UDamageHandler::AddDeathRestriction(const FDeathRestriction& Restriction)
 {
-	if (!Restriction.IsBound() || !Restriction.GetUObject()->IsA(UBuff::StaticClass()))
+	if (GetOwnerRole() != ROLE_Authority)
 	{
 		return false;
 	}
-	return DeathRestrictions.Add(Restriction);
+	if (!Restriction.IsBound() || !Restriction.GetUObject()->IsA(UBuff::StaticClass()))
+	{
+		DEBUG_LOG_DEATH_RESTRICTION_ADD_FAILED(this, Restriction, TEXT("Restriction not bound to UBuff function."));
+		return false;
+	}
+	const bool bAdded = DeathRestrictions.Add(Restriction);
+	if (bAdded)
+	{
+		DEBUG_LOG_DEATH_RESTRICTION_ADDED(this, Restriction);
+	}
+	else
+	{
+		DEBUG_LOG_DEATH_RESTRICTION_ADD_FAILED(this, Restriction, TEXT("Duplicate restriction in list."));
+	}
+	return bAdded;
 }
 
 void UDamageHandler::RemoveDeathRestriction(const FDeathRestriction& Restriction)
 {
-	if (DeathRestrictions.Remove(Restriction) > 0 && bHasPendingKillingBlow)
+	if (GetOwnerRole() != ROLE_Authority)
 	{
-		FDeathRestriction KillingBlowRestriction;
-		if (!DeathRestrictions.IsRestricted(KillingBlowRestriction, PendingKillingBlow))
+		return;
+	}
+	const int NumRemoved = DeathRestrictions.Remove(Restriction);
+	if (NumRemoved > 0)
+	{
+		DEBUG_LOG_DEATH_RESTRICTION_REMOVED(this, Restriction);
+		//If a death restriction is removed while we have a pending killing blow, re-evaluate to see if we can now die to it.
+		if (bHasPendingKillingBlow)
 		{
-			DEBUG_LOG_DEATH(this, PendingKillingBlow.Info.EventID, true);
-			Die();
+			FDeathRestriction KillingBlowRestriction;
+			if (DeathRestrictions.IsRestricted(KillingBlowRestriction, PendingKillingBlow))
+			{
+				DEBUG_LOG_DEATH_RESTRICTED(this, PendingKillingBlow.Info.EventID, true, false, KillingBlowRestriction);
+			}
+			else
+			{
+				DEBUG_LOG_DEATH(this, PendingKillingBlow.Info.EventID, true);
+				Die();
+			}
 		}
+	}
+	else
+	{
+		DEBUG_LOG_DEATH_RESTRICTION_REMOVE_FAILED(this, Restriction, TEXT("Restriction not found in list."));
 	}
 }
 
@@ -856,6 +900,17 @@ void UDamageHandler::DEBUG_DumpModifiers(const ECombatEventDirection Direction, 
 		OutStrings.Add(USaiyoraCombatLibrary::DelegateToLogString(Modifier));
 	}
 	OutStrings.Add(FString::Printf(L"---DAMAGE HANDLER %s MODIFIER DUMP END---", *DirectionString));
+}
+
+void UDamageHandler::DEBUG_DumpDeathRestrictions(TArray<FString>& OutStrings) const
+{
+	OutStrings.Add(FString::Printf(L"---DAMAGE HANDLER DEATH RESTRICTION DUMP START---"));
+	OutStrings.Add(FString::Printf(L"Handler for actor %s has %i restrictions applied.", *GetOwner()->GetName(), DeathRestrictions.Num()));
+	for (const FDeathRestriction& Restriction : DeathRestrictions.GetRestrictionsList())
+	{
+		OutStrings.Add(USaiyoraCombatLibrary::DelegateToLogString(Restriction));
+	}
+	OutStrings.Add(FString::Printf(L"---DAMAGE HANDLER DEATH RESTRICTION DUMP END---"));
 }
 
 #endif
