@@ -298,7 +298,7 @@ void UCombatDebugOptions::DEBUG_LogBuffRestrictionAdded(const UBuffHandler* Appl
 {
 	UE_LOG(LogSaiyoraBuffs, Log, TEXT("%s Buff Restriction Added to handler for %s: %s"),
 		*UEnum::GetDisplayValueAsText(Direction).ToString(),
-		*AppliedToHandler->GetOwner()->GetName(),
+		*USaiyoraCombatLibrary::GetCombatantName(AppliedToHandler->GetOwner()),
 		*USaiyoraCombatLibrary::DelegateToLogString(Restriction));
 	//Optionally dump the whole restrictions list on the handler.
 	if (BuffRestrictionLoggingVerbosity == EDebugLogVerbosity::FullDump)
@@ -317,7 +317,7 @@ void UCombatDebugOptions::DEBUG_LogBuffRestrictionAddFailed(const UBuffHandler* 
 {
 	UE_LOG(LogSaiyoraBuffs, Log, TEXT("%s Buff Restriction FAILED to Add to handler for %s: %s, FailReason: %s"),
 		*UEnum::GetDisplayValueAsText(Direction).ToString(),
-		*AppliedToHandler->GetOwner()->GetName(),
+		*USaiyoraCombatLibrary::GetCombatantName(AppliedToHandler->GetOwner()),
 		*USaiyoraCombatLibrary::DelegateToLogString(Restriction),
 		*FailReason);
 	//Optionally dump the whole restrictions list on the handler.
@@ -336,7 +336,7 @@ void UCombatDebugOptions::DEBUG_LogBuffRestrictionRemoved(const UBuffHandler* Ap
 {
 	UE_LOG(LogSaiyoraBuffs, Log, TEXT("%s Buff Restriction Removed from handler for %s: %s"),
 		*UEnum::GetDisplayValueAsText(Direction).ToString(),
-		*AppliedToHandler->GetOwner()->GetName(),
+		*USaiyoraCombatLibrary::GetCombatantName(AppliedToHandler->GetOwner()),
 		*USaiyoraCombatLibrary::DelegateToLogString(Restriction));
 	//Optionally dump the whole restrictions list on the handler.
 	if (BuffRestrictionLoggingVerbosity == EDebugLogVerbosity::FullDump)
@@ -355,7 +355,7 @@ void UCombatDebugOptions::DEBUG_LogBuffRestrictionRemoveFailed(const UBuffHandle
 {
 	UE_LOG(LogSaiyoraBuffs, Log, TEXT("%s Buff Restriction FAILED to Remove from handler for %s: %s, FailReason: %s"),
 		*UEnum::GetDisplayValueAsText(Direction).ToString(),
-		*AppliedToHandler->GetOwner()->GetName(),
+		*USaiyoraCombatLibrary::GetCombatantName(AppliedToHandler->GetOwner()),
 		*USaiyoraCombatLibrary::DelegateToLogString(Restriction),
 		*FailReason);
 	//Optionally dump the whole restrictions list on the handler.
@@ -443,41 +443,22 @@ void UCombatDebugOptions::DEBUG_LogHealthEventFailure(const UDamageHandler* Appl
 
 void UCombatDebugOptions::DEBUG_LogDeath(const UDamageHandler* Handler, const int EventID, const bool bWasPendingKillingBlow) const
 {
-	FString NameString = Handler->GetOwner()->GetName();
-	const FCombatantID ID = UCombatLogComponent::GetCombatantID(Handler->GetOwner());
-	if (const ASaiyoraGameState* GameState = Handler->GetWorld()->GetGameState<ASaiyoraGameState>())
-	{
-		FText CombatantName;
-		if (GameState->GetCombatLog()->GetCombatantDisplayName(ID, CombatantName))
-		{
-			NameString = CombatantName.ToString();
-		}
-	}
-	UE_LOG(LogSaiyoraHealth, Log, TEXT("Combatant \"%s\" DIED from health event %i%s"), *NameString, EventID, bWasPendingKillingBlow ? TEXT(" (was pending)") : TEXT(""));
+	UE_LOG(LogSaiyoraHealth, Log, TEXT("Combatant \"%s\" died from HealthEvent %i%s."), *USaiyoraCombatLibrary::GetCombatantName(Handler->GetOwner()),
+		EventID, bWasPendingKillingBlow ? TEXT(" (was pending)") : TEXT(""));
 }
 
 void UCombatDebugOptions::DEBUG_LogDeathRestricted(const UDamageHandler* Handler, const int EventID, const bool bWasPendingKillingBlow, const bool bAddedAsPendingKillingBlow,
 	const FDeathRestriction& Restriction) const
 {
-	FString NameString = Handler->GetOwner()->GetName();
-	const FCombatantID ID = UCombatLogComponent::GetCombatantID(Handler->GetOwner());
-	if (const ASaiyoraGameState* GameState = Handler->GetWorld()->GetGameState<ASaiyoraGameState>())
-	{
-		FText CombatantName;
-		if (GameState->GetCombatLog()->GetCombatantDisplayName(ID, CombatantName))
-		{
-			NameString = CombatantName.ToString();
-		}
-	}
 	if (bWasPendingKillingBlow)
 	{
 		UE_LOG(LogSaiyoraHealth, Log, TEXT("Combatant \"%s\"'s pending killing blow (event %i) was re-evaluated, but is still restricted by: %s."),
-			*NameString, EventID, *USaiyoraCombatLibrary::DelegateToLogString(Restriction));
+			*USaiyoraCombatLibrary::GetCombatantName(Handler->GetOwner()), EventID, *USaiyoraCombatLibrary::DelegateToLogString(Restriction));
 	}
 	else
 	{
 		FString LogString = FString::Printf(L"Combatant \"%s\" took fatal damage from health event %i, but death was restricted by: %s.",
-			*NameString, EventID, *USaiyoraCombatLibrary::DelegateToLogString(Restriction));
+			*USaiyoraCombatLibrary::GetCombatantName(Handler->GetOwner()), EventID, *USaiyoraCombatLibrary::DelegateToLogString(Restriction));
 		if (bAddedAsPendingKillingBlow)
 		{
 			LogString.Append(TEXT(" The event is now the pending killing blow for this combatant."));
@@ -488,25 +469,39 @@ void UCombatDebugOptions::DEBUG_LogDeathRestricted(const UDamageHandler* Handler
 
 void UCombatDebugOptions::DEBUG_LogRespawn(const UDamageHandler* Handler, const FPendingResurrection& Resurrection) const
 {
-	FString NameString = Handler->GetOwner()->GetName();
-	const FCombatantID ID = UCombatLogComponent::GetCombatantID(Handler->GetOwner());
-	if (const ASaiyoraGameState* GameState = Handler->GetWorld()->GetGameState<ASaiyoraGameState>())
-	{
-		FText CombatantName;
-		if (GameState->GetCombatLog()->GetCombatantDisplayName(ID, CombatantName))
-		{
-			NameString = CombatantName.ToString();
-		}
-	}
-	UE_LOG(LogSaiyoraHealth, Log, TEXT("Combatant \"%s\" RESPAWNED%s"), *NameString,
+	UE_LOG(LogSaiyoraHealth, Log, TEXT("Combatant \"%s\" respawned%s"), *USaiyoraCombatLibrary::GetCombatantName(Handler->GetOwner()),
 		Resurrection.ResID > -1 ? *FString::Printf(L" from resurrection %i (%s)", Resurrection.ResID, *GetNameSafe(Resurrection.BuffClass)) : TEXT(""));
+}
+
+void UCombatDebugOptions::DEBUG_LogRespawnFailed(const UDamageHandler* Handler, const FPendingResurrection& Resurrection, const FString& FailReason) const
+{
+	UE_LOG(LogSaiyoraHealth, Log, TEXT("Combatant \"%s\" FAILED to respawn%s. FailReason: %s"), *USaiyoraCombatLibrary::GetCombatantName(Handler->GetOwner()),
+		Resurrection.ResID > -1 ? *FString::Printf(L" from resurrection %i (%s)", Resurrection.ResID, *GetNameSafe(Resurrection.BuffClass)) : TEXT(""), *FailReason);
+}
+
+void UCombatDebugOptions::DEBUG_LogResurrectionOffered(const UDamageHandler* Handler, const FPendingResurrection& Resurrection) const
+{
+	UE_LOG(LogSaiyoraHealth, Log, TEXT("Combatant \"%s\" was offered resurrection %i %s."),
+		*USaiyoraCombatLibrary::GetCombatantName(Handler->GetOwner()), Resurrection.ResID, *GetNameSafe(Resurrection.BuffClass));
+}
+
+void UCombatDebugOptions::DEBUG_LogResurrectionDecision(const UDamageHandler* Handler, const FPendingResurrection& Resurrection, const bool bAccepted) const
+{
+	UE_LOG(LogSaiyoraHealth, Log, TEXT("Combatant \"%s\" %s resurrection %i %s."),
+		*USaiyoraCombatLibrary::GetCombatantName(Handler->GetOwner()), bAccepted ? TEXT("accepted") : TEXT("declined"), Resurrection.ResID, *GetNameSafe(Resurrection.BuffClass));
+}
+
+void UCombatDebugOptions::DEBUG_LogResurrectionRemoved(const UDamageHandler* Handler, const FPendingResurrection& Resurrection) const
+{
+	UE_LOG(LogSaiyoraHealth, Log, TEXT("Combatant \"%s\"'s resurrection %i %s was removed."),
+		*USaiyoraCombatLibrary::GetCombatantName(Handler->GetOwner()), Resurrection.ResID, *GetNameSafe(Resurrection.BuffClass));
 }
 
 void UCombatDebugOptions::DEBUG_LogHealthEventRestrictionAdded(const UDamageHandler* AppliedToHandler, const ECombatEventDirection Direction, const FHealthEventRestriction& Restriction) const
 {
-	UE_LOG(LogSaiyoraHealth, Log, TEXT("%s Health Event Restriction Added to handler for %s: %s"),
+	UE_LOG(LogSaiyoraHealth, Log, TEXT("%s HealthEvent Restriction added to handler for %s: %s"),
 		*UEnum::GetDisplayValueAsText(Direction).ToString(),
-		*AppliedToHandler->GetOwner()->GetName(),
+		*USaiyoraCombatLibrary::GetCombatantName(AppliedToHandler->GetOwner()),
 		*USaiyoraCombatLibrary::DelegateToLogString(Restriction));
 	//Optionally dump the whole restrictions list on the handler.
 	if (HealthEventRestrictionLoggingVerbosity == EDebugLogVerbosity::FullDump)
@@ -523,9 +518,9 @@ void UCombatDebugOptions::DEBUG_LogHealthEventRestrictionAdded(const UDamageHand
 void UCombatDebugOptions::DEBUG_LogHealthEventRestrictionAddFailed(const UDamageHandler* AppliedToHandler, const ECombatEventDirection Direction, const FHealthEventRestriction& Restriction,
 	const FString& FailReason) const
 {
-	UE_LOG(LogSaiyoraHealth, Log, TEXT("%s Health Event Restriction FAILED to Add to handler for %s: %s, FailReason: %s"),
+	UE_LOG(LogSaiyoraHealth, Log, TEXT("%s HealthEvent Restriction FAILED to add to handler for %s: %s, FailReason: %s"),
 		*UEnum::GetDisplayValueAsText(Direction).ToString(),
-		*AppliedToHandler->GetOwner()->GetName(),
+		*USaiyoraCombatLibrary::GetCombatantName(AppliedToHandler->GetOwner()),
 		*USaiyoraCombatLibrary::DelegateToLogString(Restriction),
 		*FailReason);
 	//Optionally dump the whole restrictions list on the handler.
@@ -542,9 +537,9 @@ void UCombatDebugOptions::DEBUG_LogHealthEventRestrictionAddFailed(const UDamage
 
 void UCombatDebugOptions::DEBUG_LogHealthEventRestrictionRemoved(const UDamageHandler* AppliedToHandler, const ECombatEventDirection Direction, const FHealthEventRestriction& Restriction) const
 {
-	UE_LOG(LogSaiyoraHealth, Log, TEXT("%s Health Event Restriction Removed from handler for %s: %s"),
+	UE_LOG(LogSaiyoraHealth, Log, TEXT("%s HealthEvent Restriction removed from handler for %s: %s"),
 		*UEnum::GetDisplayValueAsText(Direction).ToString(),
-		*AppliedToHandler->GetOwner()->GetName(),
+		*USaiyoraCombatLibrary::GetCombatantName(AppliedToHandler->GetOwner()),
 		*USaiyoraCombatLibrary::DelegateToLogString(Restriction));
 	//Optionally dump the whole restrictions list on the handler.
 	if (HealthEventRestrictionLoggingVerbosity == EDebugLogVerbosity::FullDump)
@@ -561,9 +556,9 @@ void UCombatDebugOptions::DEBUG_LogHealthEventRestrictionRemoved(const UDamageHa
 void UCombatDebugOptions::DEBUG_LogHealthEventRestrictionRemoveFailed(const UDamageHandler* AppliedToHandler, const ECombatEventDirection Direction, const FHealthEventRestriction& Restriction,
 	const FString& FailReason) const
 {
-	UE_LOG(LogSaiyoraHealth, Log, TEXT("%s Health Event Restriction FAILED to Remove from handler for %s: %s, FailReason: %s"),
+	UE_LOG(LogSaiyoraHealth, Log, TEXT("%s HealthEvent Restriction FAILED to remove from handler for %s: %s, FailReason: %s"),
 		*UEnum::GetDisplayValueAsText(Direction).ToString(),
-		*AppliedToHandler->GetOwner()->GetName(),
+		*USaiyoraCombatLibrary::GetCombatantName(AppliedToHandler->GetOwner()),
 		*USaiyoraCombatLibrary::DelegateToLogString(Restriction),
 		*FailReason);
 	//Optionally dump the whole restrictions list on the handler.
@@ -580,9 +575,9 @@ void UCombatDebugOptions::DEBUG_LogHealthEventRestrictionRemoveFailed(const UDam
 
 void UCombatDebugOptions::DEBUG_LogHealthEventModifierAdded(const UDamageHandler* AppliedToHandler, const ECombatEventDirection Direction, const FHealthEventModCondition& Modifier) const
 {
-	UE_LOG(LogSaiyoraHealth, Log, TEXT("%s Health Event Modifier Added to handler for %s: %s"),
+	UE_LOG(LogSaiyoraHealth, Log, TEXT("%s HealthEvent Modifier added to handler for %s: %s"),
 		*UEnum::GetDisplayValueAsText(Direction).ToString(),
-		*AppliedToHandler->GetOwner()->GetName(),
+		*USaiyoraCombatLibrary::GetCombatantName(AppliedToHandler->GetOwner()),
 		*USaiyoraCombatLibrary::DelegateToLogString(Modifier));
 	//Optionally dump the whole modifier list on the handler.
 	if (HealthEventModifierLoggingVerbosity == EDebugLogVerbosity::FullDump)
@@ -599,9 +594,9 @@ void UCombatDebugOptions::DEBUG_LogHealthEventModifierAdded(const UDamageHandler
 void UCombatDebugOptions::DEBUG_LogHealthEventModifierAddFailed(const UDamageHandler* AppliedToHandler, const ECombatEventDirection Direction, const FHealthEventModCondition& Modifier,
 	const FString& FailReason) const
 {
-	UE_LOG(LogSaiyoraHealth, Log, TEXT("%s Health Event Modifier FAILED to Add to handler for %s: %s, FailReason: %s"),
+	UE_LOG(LogSaiyoraHealth, Log, TEXT("%s HealthEvent Modifier FAILED to add to handler for %s: %s, FailReason: %s"),
 		*UEnum::GetDisplayValueAsText(Direction).ToString(),
-		*AppliedToHandler->GetOwner()->GetName(),
+		*USaiyoraCombatLibrary::GetCombatantName(AppliedToHandler->GetOwner()),
 		*USaiyoraCombatLibrary::DelegateToLogString(Modifier),
 		*FailReason);
 	//Optionally dump the whole modifier list on the handler.
@@ -618,9 +613,9 @@ void UCombatDebugOptions::DEBUG_LogHealthEventModifierAddFailed(const UDamageHan
 
 void UCombatDebugOptions::DEBUG_LogHealthEventModifierRemoved(const UDamageHandler* AppliedToHandler, const ECombatEventDirection Direction, const FHealthEventModCondition& Modifier) const
 {
-	UE_LOG(LogSaiyoraHealth, Log, TEXT("%s Health Event Modifier Removed from handler for %s: %s"),
+	UE_LOG(LogSaiyoraHealth, Log, TEXT("%s HealthEvent Modifier removed from handler for %s: %s"),
 		*UEnum::GetDisplayValueAsText(Direction).ToString(),
-		*AppliedToHandler->GetOwner()->GetName(),
+		*USaiyoraCombatLibrary::GetCombatantName(AppliedToHandler->GetOwner()),
 		*USaiyoraCombatLibrary::DelegateToLogString(Modifier));
 	//Optionally dump the whole modifier list on the handler.
 	if (HealthEventModifierLoggingVerbosity == EDebugLogVerbosity::FullDump)
@@ -637,9 +632,9 @@ void UCombatDebugOptions::DEBUG_LogHealthEventModifierRemoved(const UDamageHandl
 void UCombatDebugOptions::DEBUG_LogHealthEventModifierRemoveFailed(const UDamageHandler* AppliedToHandler, const ECombatEventDirection Direction, const FHealthEventModCondition& Modifier,
 	const FString& FailReason) const
 {
-	UE_LOG(LogSaiyoraHealth, Log, TEXT("%s Health Event Modifier FAILED to Remove from handler for %s: %s, FailReason: %s"),
+	UE_LOG(LogSaiyoraHealth, Log, TEXT("%s HealthEvent Modifier FAILED to remove from handler for %s: %s, FailReason: %s"),
 		*UEnum::GetDisplayValueAsText(Direction).ToString(),
-		*AppliedToHandler->GetOwner()->GetName(),
+		*USaiyoraCombatLibrary::GetCombatantName(AppliedToHandler->GetOwner()),
 		*USaiyoraCombatLibrary::DelegateToLogString(Modifier),
 		*FailReason);
 	//Optionally dump the whole modifier list on the handler.
@@ -656,8 +651,8 @@ void UCombatDebugOptions::DEBUG_LogHealthEventModifierRemoveFailed(const UDamage
 
 void UCombatDebugOptions::DEBUG_LogDeathRestrictionAdded(const UDamageHandler* AppliedToHandler, const FDeathRestriction& Restriction) const
 {
-	UE_LOG(LogSaiyoraHealth, Log, TEXT("Death Restriction Added to handler for %s: %s"),
-		*AppliedToHandler->GetOwner()->GetName(),
+	UE_LOG(LogSaiyoraHealth, Log, TEXT("Death Restriction added to handler for %s: %s"),
+		*USaiyoraCombatLibrary::GetCombatantName(AppliedToHandler->GetOwner()),
 		*USaiyoraCombatLibrary::DelegateToLogString(Restriction));
 	//Optionally dump the whole restrictions list on the handler.
 	if (HealthEventRestrictionLoggingVerbosity == EDebugLogVerbosity::FullDump)
@@ -673,8 +668,8 @@ void UCombatDebugOptions::DEBUG_LogDeathRestrictionAdded(const UDamageHandler* A
 
 void UCombatDebugOptions::DEBUG_LogDeathRestrictionAddFailed(const UDamageHandler* AppliedToHandler, const FDeathRestriction& Restriction, const FString& FailReason) const
 {
-	UE_LOG(LogSaiyoraHealth, Log, TEXT("Death Restriction FAILED to Add to handler for %s: %s, FailReason: %s"),
-		*AppliedToHandler->GetOwner()->GetName(),
+	UE_LOG(LogSaiyoraHealth, Log, TEXT("Death Restriction FAILED to add to handler for %s: %s, FailReason: %s"),
+		*USaiyoraCombatLibrary::GetCombatantName(AppliedToHandler->GetOwner()),
 		*USaiyoraCombatLibrary::DelegateToLogString(Restriction),
 		*FailReason);
 	//Optionally dump the whole restrictions list on the handler.
@@ -691,8 +686,8 @@ void UCombatDebugOptions::DEBUG_LogDeathRestrictionAddFailed(const UDamageHandle
 
 void UCombatDebugOptions::DEBUG_LogDeathRestrictionRemoved(const UDamageHandler* AppliedToHandler, const FDeathRestriction& Restriction) const
 {
-	UE_LOG(LogSaiyoraHealth, Log, TEXT("Death Restriction Removed from handler for %s: %s"),
-		*AppliedToHandler->GetOwner()->GetName(),
+	UE_LOG(LogSaiyoraHealth, Log, TEXT("Death Restriction removed from handler for %s: %s"),
+		*USaiyoraCombatLibrary::GetCombatantName(AppliedToHandler->GetOwner()),
 		*USaiyoraCombatLibrary::DelegateToLogString(Restriction));
 	//Optionally dump the whole restrictions list on the handler.
 	if (HealthEventRestrictionLoggingVerbosity == EDebugLogVerbosity::FullDump)
@@ -708,8 +703,8 @@ void UCombatDebugOptions::DEBUG_LogDeathRestrictionRemoved(const UDamageHandler*
 
 void UCombatDebugOptions::DEBUG_LogDeathRestrictionRemoveFailed(const UDamageHandler* AppliedToHandler, const FDeathRestriction& Restriction, const FString& FailReason) const
 {
-	UE_LOG(LogSaiyoraHealth, Log, TEXT("Death Restriction FAILED to Remove from handler for %s: %s, FailReason: %s"),
-		*AppliedToHandler->GetOwner()->GetName(),
+	UE_LOG(LogSaiyoraHealth, Log, TEXT("Death Restriction FAILED to remove from handler for %s: %s, FailReason: %s"),
+		*USaiyoraCombatLibrary::GetCombatantName(AppliedToHandler->GetOwner()),
 		*USaiyoraCombatLibrary::DelegateToLogString(Restriction),
 		*FailReason);
 	//Optionally dump the whole restrictions list on the handler.

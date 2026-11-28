@@ -114,6 +114,33 @@ struct FRotationDebugInfo;
 		CombatDebug_DA->DEBUG_LogRespawn(Handler, Resurrection); \
 	}
 
+	//Debug logging for when a respawn fails.
+	#define DEBUG_LOG_RESPAWN_FAILED(Handler, Resurrection, FailReason) \
+	if (CombatDebug_DA->HealthEventLoggingVerbosity != EDebugLogVerbosity::Off) \
+	{ \
+		CombatDebug_DA->DEBUG_LogRespawnFailed(Handler, Resurrection, FailReason); \
+	}
+
+	//Debug logging for when a resurrection is offered.
+	#define DEBUG_LOG_RESURRECTION_OFFERED(Handler, Resurrection) \
+	if (CombatDebug_DA->HealthEventLoggingVerbosity != EDebugLogVerbosity::Off) \
+	{ \
+		CombatDebug_DA->DEBUG_LogResurrectionOffered(Handler, Resurrection); \
+	}
+
+	#define DEBUG_LOG_RESURRECTION_DECISION(Handler, Resurrection, bAccepted) \
+	if (CombatDebug_DA->HealthEventLoggingVerbosity != EDebugLogVerbosity::Off) \
+	{ \
+		CombatDebug_DA->DEBUG_LogResurrectionDecision(Handler, Resurrection, bAccepted); \
+	}
+
+	//Debug logging for when a resurrection offer is removed.
+	#define DEBUG_LOG_RESURRECTION_REMOVED(Handler, Resurrection) \
+	if (CombatDebug_DA->HealthEventLoggingVerbosity != EDebugLogVerbosity::Off) \
+	{ \
+		CombatDebug_DA->DEBUG_LogResurrectionRemoved(Handler, Resurrection); \
+	}
+
 	//Debug logging for health event restrictions being added.
 	#define DEBUG_LOG_HEALTH_EVENT_RESTRICTION_ADDED(Handler, Direction, Restriction) \
 	if (CombatDebug_DA->HealthEventRestrictionLoggingVerbosity != EDebugLogVerbosity::Off) \
@@ -210,11 +237,16 @@ struct FRotationDebugInfo;
 	#define DEBUG_LOG_BUFF_RESTRICTION_ADD_FAILED(Handler, Direction, Restriction, FailReason)
 	#define DEBUG_LOG_BUFF_RESTRICTION_REMOVED(Handler, Direction, Restriction)
 	#define DEBUG_LOG_BUFF_RESTRICTION_REMOVE_FAILED(Handler, Direction, Restriction, FailReason)
+
 	#define DEBUG_LOG_HEALTH_EVENT(Handler, Event)
 	#define DEBUG_LOG_HEALTH_EVENT_FAIL(Handler, Event)
 	#define DEBUG_LOG_DEATH(Handler, EventID, bWasPendingKillingBlow)
 	#define DEBUG_LOG_DEATH_RESTRICTED(Handler, EventID, bWasPendingKillingBlow, bAddedAsPendingKillingBlow, Restriction)
 	#define DEBUG_LOG_RESPAWN(Handler, Resurrection)
+	#define DEBUG_LOG_RESPAWN_FAILED(Handler, Resurrection, FailReason)
+	#define DEBUG_LOG_RESURRECTION_OFFERED(Handler, Resurrection)
+	#define DEBUG_LOG_RESURRECTION_DECISION(Handler, Resurrection, bAccepted)
+	#define DEBUG_LOG_RESURRECTION_REMOVED(Handler, Resurrection)
 	#define DEBUG_LOG_HEALTH_EVENT_RESTRICTION_ADDED(Handler, Direction, Restriction)
 	#define DEBUG_LOG_HEALTH_EVENT_RESTRICTION_ADD_FAILED(Handler, Direction, Restriction, FailReason)
 	#define DEBUG_LOG_HEALTH_EVENT_RESTRICTION_REMOVED(Handler, Direction, Restriction)
@@ -310,6 +342,10 @@ public:
 	void DEBUG_LogDeath(const UDamageHandler* Handler, const int EventID, const bool bWasPendingKillingBlow) const;
 	void DEBUG_LogDeathRestricted(const UDamageHandler* Handler, const int EventID, const bool bWasPendingKillingBlow, const bool bAddedAsPendingKillingBlow, const FDeathRestriction& Restriction) const;
 	void DEBUG_LogRespawn(const UDamageHandler* Handler, const FPendingResurrection& Resurrection) const;
+	void DEBUG_LogRespawnFailed(const UDamageHandler* Handler, const FPendingResurrection& Resurrection, const FString& FailReason) const;
+	void DEBUG_LogResurrectionOffered(const UDamageHandler* Handler, const FPendingResurrection& Resurrection) const;
+	void DEBUG_LogResurrectionDecision(const UDamageHandler* Handler, const FPendingResurrection& Resurrection, const bool bAccepted) const;
+	void DEBUG_LogResurrectionRemoved(const UDamageHandler* Handler, const FPendingResurrection& Resurrection) const;
 	void DEBUG_LogHealthEventRestrictionAdded(const UDamageHandler* AppliedToHandler, const ECombatEventDirection Direction, const FHealthEventRestriction& Restriction) const;
 	void DEBUG_LogHealthEventRestrictionAddFailed(const UDamageHandler* AppliedToHandler, const ECombatEventDirection Direction, const FHealthEventRestriction& Restriction, const FString& FailReason) const;
 	void DEBUG_LogHealthEventRestrictionRemoved(const UDamageHandler* AppliedToHandler, const ECombatEventDirection Direction, const FHealthEventRestriction& Restriction) const;

@@ -1,7 +1,10 @@
 #include "SaiyoraCombatLibrary.h"
+
+#include "CombatLogComponent.h"
 #include "CoreClasses/SaiyoraPlayerController.h"
 #include "CombatStatusComponent.h"
 #include "SaiyoraCombatInterface.h"
+#include "SaiyoraGameState.h"
 #include "SaiyoraPlayerCharacter.h"
 #include "GameFramework/GameStateBase.h"
 #include "GameFramework/PlayerState.h"
@@ -40,6 +43,25 @@ void USaiyoraCombatLibrary::AttachCombatActorToComponent(AActor* Target, USceneC
             CombatStatusComponent->RefreshRendering();
         }
     }
+}
+
+FString USaiyoraCombatLibrary::GetCombatantName(const AActor* Combatant)
+{
+    if (!IsValid(Combatant))
+    {
+        return "NULL";
+    }
+    FString NameString = Combatant->GetName();
+    const FCombatantID ID = UCombatLogComponent::GetCombatantID(Combatant);
+    if (const ASaiyoraGameState* GameState = Combatant->GetWorld()->GetGameState<ASaiyoraGameState>())
+    {
+        FText CombatantName;
+        if (GameState->GetCombatLog()->GetCombatantDisplayName(ID, CombatantName))
+        {
+            NameString = CombatantName.ToString();
+        }
+    }
+    return NameString;
 }
 
 TArray<FName> USaiyoraCombatLibrary::GetMatchingFunctionNames(const UObject* Object, const UFunction* ExampleFunction)

@@ -241,8 +241,18 @@ bool UDamageHandler::RespawnActor(const FPendingResurrection& Resurrection)
 bool UDamageHandler::RespawnActor_Internal(const bool bForceRespawnLocation, const FVector& OverrideRespawnLocation, const bool bForceHealthPercentage, const float OverrideHealthPercentage,
                                            const FPendingResurrection& Resurrection)
 {
-	if (GetOwnerRole() != ROLE_Authority || !bCanBeResurrected || LifeStatus != ELifeStatus::Dead)
+	if (GetOwnerRole() != ROLE_Authority)
 	{
+		return false;
+	}
+	if (!bCanBeResurrected)
+	{
+		DEBUG_LOG_RESPAWN_FAILED(this, Resurrection, TEXT("Combatant can never respawn."));
+		return false;
+	}
+	if (LifeStatus != ELifeStatus::Dead)
+	{
+		DEBUG_LOG_RESPAWN_FAILED(this, Resurrection, TEXT("Combatant was not dead."));
 		return false;
 	}
 	if (!bRespawnInPlace || bForceRespawnLocation)
@@ -288,7 +298,9 @@ bool UDamageHandler::AddPendingResurrection(UPendingResurrectionFunction* Source
 			return false;
 		}
 	}
-	PendingResurrections.Emplace(Source);
+	
+	const FPendingResurrection& Resurrection = PendingResurrections.Emplace_GetRef(Source);
+	DEBUG_LOG_RESURRECTION_OFFERED(this, Resurrection);
 	OnPendingResListChanged.Broadcast(PendingResurrections);
 	return true;
 }
@@ -303,6 +315,7 @@ void UDamageHandler::RemovePendingResurrection(UPendingResurrectionFunction* Sou
 	{
 		if (PendingResurrections[i].Source == Source)
 		{
+			DEBUG_LOG_RESURRECTION_REMOVED(this, PendingResurrections[i]);
 			PendingResurrections.RemoveAt(i);
 			OnPendingResListChanged.Broadcast(PendingResurrections);
 			break;
@@ -335,6 +348,7 @@ void UDamageHandler::MakeResurrectionDecision(const int ResID, const bool bAccep
 			{
 				const FPendingResurrection ResCopy = PendingResurrections[i];
 				PendingResurrections.RemoveAt(i);
+				DEBUG_LOG_RESURRECTION_DECISION(this, ResCopy, bAccept);
 				//Play cosmetic effects tied to accepting/declining the res.
 				if (IsValid(ResCopy.Source))
 				{
